@@ -1,0 +1,42 @@
+[project]
+name = "aimu"
+version = "0.1.0"
+description = "AI Model Utilities - Core AI model functionality, tools, and prompts"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+
+# pip dependencies
+dependencies = [
+    "torch",
+    "transformers",
+    "accelerate",
+    "sentencepiece",
+    "ollama",
+    "aisuite",
+    "sqlalchemy",
+    "chromadb",
+    "fastmcp>=2",
+    "nest_asyncio",
+]
+
+# optional pip dependencies
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest",
+    "ipykernel",
+    "ipywidgets"
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aimu*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
