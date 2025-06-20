@@ -1,14 +1,6 @@
-from fastmcp import FastMCP
 from fastmcp import Client
 
 import asyncio
-
-mcp = FastMCP("AIMU MCP Server")
-
-
-@mcp.tool
-def hello(name: str) -> str:
-    return f"Hello, {name}!"
 
 
 class MCPClient:
@@ -19,23 +11,15 @@ class MCPClient:
         self.loop = asyncio.new_event_loop()
 
     async def _call_tool(self, tool_name: str, params: dict):
-        if self.config:
-            async with Client(self.config) as client:
-                return await client.call_tool(tool_name, params)
-        else:
-            async with Client(mcp) as client:
-                return await client.call_tool(tool_name, params)
+        async with Client(self.config) as client:
+            return await client.call_tool(tool_name, params)
 
     def call_tool(self, tool_name: str, params: dict):
         return self.loop.run_until_complete(self._call_tool(tool_name, params))
 
     async def _list_tools(self):
-        if self.config:
-            async with Client(self.config) as client:
-                return await client.list_tools()
-        else:
-            async with Client(mcp) as client:
-                return await client.list_tools()
+        async with Client(self.config) as client:
+            return await client.list_tools()
 
     def list_tools(self):
         return self.loop.run_until_complete(self._list_tools())
@@ -52,7 +36,3 @@ class MCPClient:
             )
 
         return tools
-
-
-if __name__ == "__main__":
-    mcp.run()
