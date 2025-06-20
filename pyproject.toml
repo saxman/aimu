@@ -14,6 +14,7 @@ dependencies = [
     "sentencepiece",
     "ollama",
     "aisuite",
+    "docstring-parser", # requied by aisuite
     "sqlalchemy",
     "chromadb",
     "fastmcp>=2",
@@ -25,6 +26,10 @@ dependencies = [
 dev = [
     "ruff",
     "pytest",
+]
+notebooks = [
+    "ipykernel",
+    "ipywidgets",
 ]
 
 [build-system]

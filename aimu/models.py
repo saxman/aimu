@@ -10,8 +10,6 @@ import logging
 from typing import Iterator
 import json
 
-from aimu.tools import MCPClient
-
 log.set_verbosity_error()
 
 logger = logging.getLogger(__name__)
@@ -119,16 +117,22 @@ class OllamaClient(ModelClient):
     def system_role(self) -> str:
         return "system"
 
-    # for generate_kwargs, see https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
-    def generate(self, prompt: str, generate_kwargs: dict) -> str:
+    def generate(self, prompt: str, generate_kwargs: dict = None) -> str:
+        if generate_kwargs and "max_tokens" in generate_kwargs:
+            generate_kwargs["num_predict"] = generate_kwargs.pop("max_tokens")
+
         response: ollama.GenerateResponse = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs)
 
         return response["response"]
 
-    def genterate_streamed(self, prompt: str, generate_kwargs: dict) -> Iterator[str]:
+    def genterate_streamed(self, prompt: str, generate_kwargs: dict = None) -> Iterator[str]:
+        if generate_kwargs and "max_tokens" in generate_kwargs:
+            generate_kwargs["num_predict"] = generate_kwargs.pop("max_tokens")
+        
         response = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs, stream=True)
 
-        return response
+        for response_part in response:
+            yield response_part["response"]
 
     def _chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> None:
         self.messages.append(message)
