@@ -1,7 +1,7 @@
 """
 aimu - AI Model Utilities
 
-A package containing core AI model functionality, tools, and prompts.
+A Python package containing tools for working with various language models and AI services.
 """
 
 __version__ = "0.1.0"
