@@ -7,12 +7,11 @@ A Python package containing tools for working with various language models and A
 - **Model Clients**: Support for multiple AI model providers including:
   - Ollama (local models)
   - Hugging Face Transformers (local models)
-  - OpenAI (via aisuite)
-  - And more
-
-- **Prompt Management**: SQLAlchemy-based prompt catalog for storing and versioning prompts
+  - Cloud Providers, such as OpenAI, Anthropic, Google, AWS, etc. (via aisuite)
 
 - **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities
+
+- **Prompt Management**: SQLAlchemy-based prompt catalog for storing and versioning prompts
 
 ## Installation
 
