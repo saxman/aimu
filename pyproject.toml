@@ -1,6 +1,6 @@
 [project]
 name = "aimu"
-version = "0.1.1"
+version = "0.1.2"
 description = "AI Model Utilities - Core AI model functionality, tools, and prompts"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,7 +17,7 @@ dependencies = [
     "docstring-parser", # requied by aisuite
     "sqlalchemy",
     "chromadb",
-    "fastmcp>=2",
+    "fastmcp>=2.4.0",
     "nest_asyncio",
 ]
 
