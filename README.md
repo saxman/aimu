@@ -63,7 +63,7 @@ mcp_client = MCPClient({
 mcp_client.call_tool("mytool", {"input": "hello world!"})
 ```
 
-# ModelClients and tools
+### Tool usage with ModelClients
 ```python
 from aimu.models import OllamaClient
 from aimu.tools import MCPClient
