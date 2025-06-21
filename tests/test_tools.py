@@ -1,4 +1,5 @@
 from aimu.tools import MCPClient
+from aimu import paths
 
 
 def test_mcp_client_empty_init():
@@ -15,7 +16,7 @@ def test_mcp_client_empty_init():
 
 def test_mcp_client_with_config():
     config = {
-        "mcpServers": {"echo": {"command": "python", "args": ["../aimu/tools.py"]}},
+        "mcpServers": {"echo": {"command": "python", "args": [str(paths.package / "tools.py")]}},
     }
 
     client = MCPClient(config=config)
@@ -30,7 +31,7 @@ def test_mcp_client_with_config():
 
 
 def test_mcp_client_with_file():
-    client = MCPClient(file="../aimu/tools.py")
+    client = MCPClient(file=str(paths.package / "tools.py"))
 
     assert client.client is None
     assert client.config is None
