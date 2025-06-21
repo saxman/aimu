@@ -6,10 +6,12 @@ import asyncio
 
 mcp = FastMCP("AIMU Tools")
 
+
 @mcp.tool()
 def echo(echo_string: str) -> str:
     """Returns echo_string."""
     return echo_string
+
 
 if __name__ == "__main__":
     mcp.run()
@@ -22,7 +24,7 @@ class MCPClient:
         self.client = None
         if not config and not file:
             self.client = client if client else mcp
-        
+
         self.file = file
         self.config = config
 
