@@ -117,19 +117,19 @@ class OllamaClient(ModelClient):
     def system_role(self) -> str:
         return "system"
 
-    def _generate(self, prompt: str, generate_kwargs: dict = None) -> None:
+    def _generate(self, prompt: str, generate_kwargs: dict) -> None:
         if generate_kwargs and "max_tokens" in generate_kwargs:
             generate_kwargs["num_predict"] = generate_kwargs.pop("max_tokens")
 
     def generate(self, prompt: str, generate_kwargs: dict = None) -> str:
-        self._generate(self, prompt, generate_kwargs)
+        self._generate(prompt, generate_kwargs)
 
         response: ollama.GenerateResponse = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs)
 
         return response["response"]
 
-    def genterate_streamed(self, prompt: str, generate_kwargs: dict = None) -> Iterator[str]:
-        self._generate(self, prompt, generate_kwargs)
+    def generate_streamed(self, prompt: str, generate_kwargs: dict = None) -> Iterator[str]:
+        self._generate(prompt, generate_kwargs)
 
         response = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs, stream=True)
 
@@ -137,7 +137,7 @@ class OllamaClient(ModelClient):
             yield response_part["response"]
 
     def _chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> None:
-        self._generate(self, "", generate_kwargs)
+        self._generate("", generate_kwargs)
 
         self.messages.append(message)
 
@@ -297,6 +297,19 @@ class HuggingFaceClient(ModelClient):
         response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
         return response
+
+    def generate_streamed(self, prompt: str, generate_kwargs: dict = {}) -> Iterator[str]:
+        generate_kwargs["bos_token_id"] = self.tokenizer.bos_token_id
+        generate_kwargs["pad_token_id"] = self.tokenizer.eos_token_id
+        generate_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
+
+        streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
+
+        model_inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+        self.model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
+
+        for response_part in streamer:
+            yield response_part
 
     def _chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> None:
         self.messages.append(message)
