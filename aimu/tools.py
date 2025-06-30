@@ -4,27 +4,11 @@ from fastmcp import Client
 import asyncio
 
 
-mcp = FastMCP("AIMU Tools")
-
-
-@mcp.tool()
-def echo(echo_string: str) -> str:
-    """Returns echo_string."""
-    return echo_string
-
-
-if __name__ == "__main__":
-    mcp.run()
-
-
 class MCPClient:
     """A MCP client that wraps the FastMCP client for easier tool calls and management."""
 
-    def __init__(self, config: dict = None, client: FastMCP = None, file: str = None):
-        self.client = None
-        if not config and not file:
-            self.client = client if client else mcp
-
+    def __init__(self, config: dict = None, server: FastMCP = None, file: str = None):
+        self.server = server
         self.file = file
         self.config = config
 
@@ -39,7 +23,7 @@ class MCPClient:
             async with Client(self.file) as client:
                 return await client.call_tool(tool_name, params)
 
-        async with Client(self.client) as client:
+        async with Client(self.server) as client:
             return await client.call_tool(tool_name, params)
 
     def call_tool(self, tool_name: str, params: dict):
@@ -54,7 +38,7 @@ class MCPClient:
             async with Client(self.file) as client:
                 return await client.list_tools()
 
-        async with Client(self.client) as client:
+        async with Client(self.server) as client:
             return await client.list_tools()
 
     def list_tools(self):

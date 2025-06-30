@@ -7,3 +7,6 @@ tests = root / "tests"
 
 # Path to the aimu package directory
 package = root / "aimu"
+
+# Path to modules tests
+test = root / "tests"
