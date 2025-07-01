@@ -13,32 +13,29 @@ class MCPClient:
         self.config = config
 
         self.loop = asyncio.new_event_loop()
+        
+        if self.config:
+            self.client = Client(self.config)
+        elif self.file:
+            self.client = Client(self.file)
+        else:
+            self.client = Client(self.server)
+
+    def __del__(self):
+        if self.loop.is_running():
+            self.loop.stop()
+        
+        self.loop.run_until_complete(self.client.close())
 
     async def _call_tool(self, tool_name: str, params: dict):
-        if self.config:
-            async with Client(self.config) as client:
-                return await client.call_tool(tool_name, params)
-
-        if self.file:
-            async with Client(self.file) as client:
-                return await client.call_tool(tool_name, params)
-
-        async with Client(self.server) as client:
+        async with self.client as client:
             return await client.call_tool(tool_name, params)
 
     def call_tool(self, tool_name: str, params: dict):
         return self.loop.run_until_complete(self._call_tool(tool_name, params))
 
     async def _list_tools(self):
-        if self.config:
-            async with Client(self.config) as client:
-                return await client.list_tools()
-
-        if self.file:
-            async with Client(self.file) as client:
-                return await client.list_tools()
-
-        async with Client(self.server) as client:
+        async with self.client as client:
             return await client.list_tools()
 
     def list_tools(self):
