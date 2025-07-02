@@ -1,17 +1,14 @@
+from ..core import ModelClient
+
 import logging
 from typing import Iterator
-import json
 
 logger = logging.getLogger(__name__)
 
 try:
     import ollama
-    OLLAMA_AVAILABLE = True
 except ImportError:
-    OLLAMA_AVAILABLE = False
     ollama = None
-
-from .models import ModelClient
 
 
 class OllamaClient(ModelClient):
@@ -42,12 +39,6 @@ class OllamaClient(ModelClient):
     ]
 
     def __init__(self, model_id: str):
-        if not OLLAMA_AVAILABLE:
-            raise ImportError(
-                "ollama is required for OllamaClient. "
-                "Install with: pip install ollama"
-            )
-        
         super().__init__(model_id, None)
 
         ollama.pull(model_id)

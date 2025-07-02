@@ -3,6 +3,7 @@ from aimu import paths
 
 from fastmcp import FastMCP
 
+
 def test_mcp_client_with_config():
     config = {
         "mcpServers": {"echo": {"command": "python", "args": [str(paths.tests / "mcp_test_server.py")]}},
@@ -37,7 +38,7 @@ def test_mcp_client_with_server():
     @mcp.tool()
     def echo(echo_string: str) -> str:
         return echo_string
-    
+
     client = MCPClient(server=mcp)
 
     assert isinstance(client.server, FastMCP)

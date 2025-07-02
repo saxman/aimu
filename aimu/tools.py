@@ -13,7 +13,7 @@ class MCPClient:
         self.config = config
 
         self.loop = asyncio.new_event_loop()
-        
+
         if self.config:
             self.client = Client(self.config)
         elif self.file:
@@ -24,7 +24,7 @@ class MCPClient:
     def __del__(self):
         if self.loop.is_running():
             self.loop.stop()
-        
+
         self.loop.run_until_complete(self.client.close())
 
     async def _call_tool(self, tool_name: str, params: dict):

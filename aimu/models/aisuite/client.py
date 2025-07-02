@@ -1,15 +1,16 @@
+from ..core import ModelClient
+
 import logging
 
 logger = logging.getLogger(__name__)
 
 try:
     import aisuite
+
     AISUITE_AVAILABLE = True
 except ImportError:
     AISUITE_AVAILABLE = False
     aisuite = None
-
-from .models import ModelClient
 
 
 class AisuiteClient(ModelClient):
@@ -32,11 +33,8 @@ class AisuiteClient(ModelClient):
 
     def __init__(self, model_id: str):
         if not AISUITE_AVAILABLE:
-            raise ImportError(
-                "aisuite is required for AisuiteClient. "
-                "Install with: pip install aisuite"
-            )
-        
+            raise ImportError("aisuite is required for AisuiteClient. Install with: pip install aisuite")
+
         super().__init__(model_id, None)
         self.client = aisuite.Client()
 

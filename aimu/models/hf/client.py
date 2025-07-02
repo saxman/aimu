@@ -1,3 +1,5 @@
+from ..core import ModelClient
+
 import pprint
 import logging
 from typing import Iterator
@@ -11,16 +13,13 @@ try:
     from transformers import AutoModelForCausalLM
     from transformers.utils import logging as log
     from transformers import TextIteratorStreamer
-    TRANSFORMERS_AVAILABLE = True
+
     log.set_verbosity_error()
 except ImportError:
-    TRANSFORMERS_AVAILABLE = False
     torch = None
     AutoTokenizer = None
     AutoModelForCausalLM = None
     TextIteratorStreamer = None
-
-from .models import ModelClient
 
 
 class HuggingFaceClient(ModelClient):
@@ -62,12 +61,6 @@ class HuggingFaceClient(ModelClient):
             return "system"
 
     def __init__(self, model_id: str, model_kwargs: dict = None):
-        if not TRANSFORMERS_AVAILABLE:
-            raise ImportError(
-                "HuggingFace transformers and torch are required for HuggingFaceClient. "
-                "Install with: pip install torch transformers"
-            )
-        
         super().__init__(model_id, model_kwargs)
 
         if model_kwargs is None:
@@ -77,13 +70,12 @@ class HuggingFaceClient(ModelClient):
         self.model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
 
     def __del__(self):
-        if TRANSFORMERS_AVAILABLE and torch is not None:
-            if torch.cuda.is_available():
-                logger.info("Emptying CUDA cache")
-                torch.cuda.empty_cache()
-            elif torch.backends.mps.is_available():
-                logger.info("Emptying MPS cache")
-                torch.mps.empty_cache()
+        if torch.cuda.is_available():
+            logger.info("Emptying CUDA cache")
+            torch.cuda.empty_cache()
+        elif torch.backends.mps.is_available():
+            logger.info("Emptying MPS cache")
+            torch.mps.empty_cache()
 
     def generate(self, prompt: str, generate_kwargs: dict = {}) -> str:
         generate_kwargs["bos_token_id"] = self.tokenizer.bos_token_id
