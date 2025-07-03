@@ -52,3 +52,8 @@ def test_mcp_client_with_server():
     response = client.call_tool("echo", {"echo_string": "test"})
 
     assert response.content[0].text == "test"
+
+    # call the tools a second time to ensure the server is running
+    response = client.call_tool("echo", {"echo_string": "test again"})
+
+    assert response.content[0].text == "test again"
