@@ -51,4 +51,4 @@ def test_mcp_client_with_server():
 
     response = client.call_tool("echo", {"echo_string": "test"})
 
-    assert response[0].text == "test"
+    assert response.content[0].text == "test"
