@@ -1,12 +1,14 @@
 import pytest
 from typing import Iterable
+from fastmcp import FastMCP
 
 from aimu.models import ModelClient, HuggingFaceClient, OllamaClient
+from aimu.tools import MCPClient
 
 TEST_MODELS = [
     HuggingFaceClient.MODEL_LLAMA_3_1_8B,
     HuggingFaceClient.MODEL_MISTRAL_7B,
-    OllamaClient.MODEL_LLAMA_3_1_8B,
+    OllamaClient.MODEL_LLAMA_3_2_3B,
     OllamaClient.MODEL_MISTRAL_7B,
 ]
 
@@ -85,3 +87,28 @@ def test_chat_streamed(model_client):
 
     assert "Paris" in content
     assert len(model_client.messages) == 4
+
+def test_chat_with_tools(model_client):
+    message = {"role": model_client.system_role, "content": "You are a helpful assistant."}
+    response = model_client.chat(message)
+
+    assert len(model_client.messages) == 2
+
+    mcp = FastMCP("Test Tools")
+
+    @mcp.tool()
+    def temperature(location: str) -> float:
+        return 27.0
+
+    mcp_client = MCPClient(server=mcp)
+    model_client.mcp_client = mcp_client
+
+    message = {
+        "role": "user",
+        "content": "What is the temperature in Paris?"
+    }
+    response = model_client.chat(message, tools=mcp_client.get_tools())
+
+    assert "27" in response
+    assert len(model_client.messages) == 6 # 1 system, 1 user, 2 assistant, 2 tool messages
+    assert model_client.messages[-2]["role"] == "tool" # second to last message should be tool response
