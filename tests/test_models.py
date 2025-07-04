@@ -88,6 +88,7 @@ def test_chat_streamed(model_client):
     assert "Paris" in content
     assert len(model_client.messages) == 4
 
+
 def test_chat_with_tools(model_client):
     message = {"role": model_client.system_role, "content": "You are a helpful assistant."}
     response = model_client.chat(message)
@@ -103,12 +104,9 @@ def test_chat_with_tools(model_client):
     mcp_client = MCPClient(server=mcp)
     model_client.mcp_client = mcp_client
 
-    message = {
-        "role": "user",
-        "content": "What is the temperature in Paris?"
-    }
+    message = {"role": "user", "content": "What is the temperature in Paris?"}
     response = model_client.chat(message, tools=mcp_client.get_tools())
 
     assert "27" in response
-    assert len(model_client.messages) == 6 # 1 system, 1 user, 2 assistant, 2 tool messages
-    assert model_client.messages[-2]["role"] == "tool" # second to last message should be tool response
+    assert len(model_client.messages) == 6  # 1 system, 1 user, 2 assistant, 2 tool messages
+    assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
