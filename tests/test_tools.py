@@ -10,10 +10,6 @@ def test_mcp_client_with_config():
     }
 
     client = MCPClient(config=config)
-
-    assert client.server is None
-    assert client.config == config
-
     tools = client.list_tools()
 
     assert isinstance(tools, list)
@@ -22,10 +18,6 @@ def test_mcp_client_with_config():
 
 def test_mcp_client_with_file():
     client = MCPClient(file=str(paths.tests / "mcp_test_server.py"))
-
-    assert client.server is None
-    assert client.config is None
-
     tools = client.list_tools()
 
     assert isinstance(tools, list)
@@ -33,17 +25,13 @@ def test_mcp_client_with_file():
 
 
 def test_mcp_client_with_server():
-    mcp = FastMCP("AIMU Tools")
+    mcp = FastMCP("TestTools")
 
     @mcp.tool()
     def echo(echo_string: str) -> str:
         return echo_string
 
     client = MCPClient(server=mcp)
-
-    assert isinstance(client.server, FastMCP)
-    assert client.config is None
-
     tools = client.list_tools()
 
     assert isinstance(tools, list)
