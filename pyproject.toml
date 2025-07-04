@@ -12,6 +12,7 @@ dependencies = [
     "chromadb",
     "fastmcp>=2.4.0",
     "nest_asyncio",
+    "streamlit",
 ]
 
 # optional pip dependencies
