@@ -12,6 +12,7 @@ class ModelClient:
     MODEL_GEMMA_3_12B = None
 
     MODEL_PHI_4_14B = None
+    MODEL_PHI_4_MINI_3_8B = None
 
     MODEL_DEEPSEEK_R1_8B = None
 

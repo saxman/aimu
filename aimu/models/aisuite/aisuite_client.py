@@ -1,4 +1,4 @@
-from ..core import ModelClient
+from ..models import ModelClient
 
 import logging
 
