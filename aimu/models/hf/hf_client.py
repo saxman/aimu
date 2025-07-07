@@ -269,7 +269,7 @@ class HuggingFaceClient(ModelClient):
                 self.messages.append({"role": "assistant", "content": response})
                 yield response
                 return
-        elif "mistral" in self:
+        elif "mistral" in self.model_id:
             next(self.streamer)  # first part is always empty
             response_part = next(self.streamer)
 
