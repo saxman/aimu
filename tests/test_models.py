@@ -8,8 +8,10 @@ from aimu.tools import MCPClient
 TEST_MODELS = [
     HuggingFaceClient.MODEL_LLAMA_3_1_8B,
     HuggingFaceClient.MODEL_MISTRAL_7B,
+    HuggingFaceClient.MODEL_QWEN_3_8B,
     OllamaClient.MODEL_LLAMA_3_2_3B,
     OllamaClient.MODEL_MISTRAL_7B,
+    OllamaClient.MODEL_QWEN_3_8B,
 ]
 
 
