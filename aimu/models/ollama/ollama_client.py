@@ -1,4 +1,4 @@
-from ..core import ModelClient
+from ..models import ModelClient
 
 import logging
 from typing import Iterator
@@ -12,14 +12,15 @@ except ImportError:
 
 
 class OllamaClient(ModelClient):
-    MODEL_LLAMA_3_3_70B = "llama3.3:70b"
     MODEL_LLAMA_3_1_8B = "llama3.1:8b"
     MODEL_LLAMA_3_2_3B = "llama3.2:3b"
+    MODEL_LLAMA_3_3_70B = "llama3.3:70b"
 
     MODEL_GEMMA_2_9B = "gemma2:9b"
     MODEL_GEMMA_3_12B = "gemma3:12b"
 
     MODEL_PHI_4_14B = "phi4:14b"
+    MODEL_PHI_4_MINI_3_8B = "phi4-mini:3.8b"
 
     MODEL_DEEPSEEK_R1_8B = "deepseek-r1:8b"
 
@@ -33,10 +34,13 @@ class OllamaClient(ModelClient):
 
     TOOL_MODELS = [
         MODEL_MISTRAL_SMALL_3_2_24B,
-        MODEL_MISTRAL_7B,
+        MODEL_MISTRAL_SMALL_3_1_24B,
+        MODEL_MISTRAL_NEMO_12B,
         MODEL_QWEN_3_8B,
+        # MODEL_LLAMA_3_1_8B, ## Tools not fully supported
         MODEL_LLAMA_3_2_3B,
-        MODEL_LLAMA_3_1_8B,
+        MODEL_DEEPSEEK_R1_8B,
+        # MODEL_PHI_4_MINI_3_8B, ## Tools not fully supported yet
     ]
 
     def __init__(self, model_id: str):
@@ -72,10 +76,15 @@ class OllamaClient(ModelClient):
 
         self.messages.append(message)
 
-        if tools and self.model_id == OllamaClient.MODEL_LLAMA_3_1_8B:
-            logger.warning(
-                "Tool usage with Llama 3.1 8B is not fully supported, ref: https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/"
-            )
+        if tools:
+            if self.model_id == OllamaClient.MODEL_LLAMA_3_1_8B:
+                logger.warning(
+                    "Tool usage with Llama 3.1 8B is not fully supported, ref: https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/"
+                )
+            if self.model_id not in OllamaClient.TOOL_MODELS:
+                raise ValueError(
+                    f"Model {self.model_id} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}"
+                )
 
     def chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> str:
         self._chat(message, generate_kwargs, tools)
