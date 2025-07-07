@@ -18,6 +18,7 @@ class ModelClient:
     MODEL_MISTRAL_7B = None
     MODEL_MISTRAL_NEMO_12B = None
     MODEL_MISTRAL_SMALL_3_1_24B = None
+    MODEL_MISTRAL_SMALL_3_2_24B = None
 
     MODEL_QWEN_2_5_7B = None
     MODEL_QWEN_3_8B = None

@@ -169,10 +169,8 @@ class HuggingFaceClient(ModelClient):
         response = self._chat_generate(generate_kwargs, tools)
         logger.debug(f"Response: {response}")
 
-        # llama: {"name": "get_current_weather", "arguments": {"location": "Paris"}}
-
         # qwen: <tool_call>{"name": "get_current_weather", "arguments": {"location": "Paris"}}</tool_call>
-        if self.model_id == self.MODEL_QWEN_3_8B:
+        if "qwen" in self.model_id:
             think_start = len("<think>")
             think_end = response.index("</think>")
             think = response[think_start:think_end]  # TODO: do something with think
@@ -197,7 +195,7 @@ class HuggingFaceClient(ModelClient):
             response = response[: -len("<|im_end|>")]
 
         # mistral: [TOOL_CALLS] [{"name": "get_current_temperature", "arguments": {"location": "Paris"}}]</s>
-        elif self.model_id in [self.MODEL_MISTRAL_7B, self.MODEL_MISTRAL_SMALL_3_1_24B]:
+        elif "mistral" in self.model_id:
             if "[TOOL_CALLS]" in response:
                 tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
                 tools_calls_end = response.index("</s>")
@@ -208,8 +206,12 @@ class HuggingFaceClient(ModelClient):
 
             response = response[: -len("</s>")].strip()
 
-        elif self.model_id == self.MODEL_LLAMA_3_1_8B:
-            # TODO: handle tool calls for Llama 3.1 8B
+        # llama: {"name": "get_current_weather", "arguments": {"location": "Paris"}}
+        elif "llama" in self.model_id:
+            if response.startswith('{"name":'):
+                self._handle_tool_calls([json.loads(response)], tools)
+                response = self._chat_generate(generate_kwargs, tools)
+
             response = response[: -len("<|eot_id|>")].strip()
 
         self.messages.append({"role": "assistant", "content": response})

@@ -26,12 +26,13 @@ class OllamaClient(ModelClient):
     MODEL_MISTRAL_7B = "mistral:7b"
     MODEL_MISTRAL_NEMO_12B = "mistral-nemo:12b"
     MODEL_MISTRAL_SMALL_3_1_24B = "mistral-small3.1:24b"
+    MODEL_MISTRAL_SMALL_3_2_24B = "mistral-small3.2:24b"
 
     MODEL_QWEN_2_5_7B = "qwen2.5:7b"
     MODEL_QWEN_3_8B = "qwen3:8b"
 
     TOOL_MODELS = [
-        MODEL_MISTRAL_SMALL_3_1_24B,
+        MODEL_MISTRAL_SMALL_3_2_24B,
         MODEL_MISTRAL_7B,
         MODEL_QWEN_3_8B,
         MODEL_LLAMA_3_2_3B,

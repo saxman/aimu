@@ -1,3 +1,3 @@
-from .client import HuggingFaceClient
+from .hf_client import HuggingFaceClient
 
 __all__ = ["HuggingFaceClient"]
