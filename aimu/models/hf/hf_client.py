@@ -1,5 +1,6 @@
-from ..core import ModelClient
+from ..models import ModelClient
 
+import gc
 import pprint
 import logging
 from typing import Iterator
@@ -32,20 +33,21 @@ class HuggingFaceClient(ModelClient):
     MODEL_GEMMA_3_12B = "google/gemma-3-12b-it"
 
     MODEL_PHI_4_14B = "microsoft/phi-4"
+    MODEL_PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
 
     MODEL_MISTRAL_7B = "mistralai/Mistral-7B-Instruct-v0.3"
     MODEL_MISTRAL_NEMO_12B = "mistralai/Mistral-Nemo-Instruct-2407"
     MODEL_MISTRAL_SMALL_3_1_24B = "mistralai/Mistral-Small-Instruct-2409"
+    MODEL_MISTRAL_SMALL_3_2_24B = "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
 
     MODEL_QWEN_2_5_7B = "Qwen/Qwen2.5-7B-Instruct-1M"
     MODEL_QWEN_3_8B = "Qwen/Qwen3-8B"
 
     TOOL_MODELS = [
+        MODEL_MISTRAL_SMALL_3_2_24B,
         MODEL_MISTRAL_SMALL_3_1_24B,
-        MODEL_MISTRAL_7B,
         MODEL_QWEN_3_8B,
         MODEL_LLAMA_3_2_3B,
-        MODEL_LLAMA_3_1_8B,
     ]
 
     DEFAULT_MODEL_KWARGS = {
@@ -70,6 +72,11 @@ class HuggingFaceClient(ModelClient):
         self.model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
 
     def __del__(self):
+        del self.model
+        del self.tokenizer
+
+        gc.collect()
+
         if torch.cuda.is_available():
             logger.info("Emptying CUDA cache")
             torch.cuda.empty_cache()
@@ -107,7 +114,7 @@ class HuggingFaceClient(ModelClient):
         if "repeat_penalty" in generate_kwargs:
             generate_kwargs["repetition_penalty"] = generate_kwargs.pop("repeat_penalty")
 
-        if tools is not None:
+        if tools:
             if self.model_id == HuggingFaceClient.MODEL_LLAMA_3_1_8B:
                 logger.warning(
                     "Tool usage with Llama 3.1 8B is not fully supported, ref: https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/"
@@ -230,7 +237,7 @@ class HuggingFaceClient(ModelClient):
 
         # If the model is Qwen, the we can't stream the response since we need to process the entire response to detect tool calls
         # TODO: figure out how to stream non-tool call responses for Qwen models
-        if self.model_id == self.MODEL_QWEN_3_8B:
+        if "qwen" in self.model_id:
             response = ""
             for response_part in self.streamer:
                 response += response_part
@@ -262,7 +269,7 @@ class HuggingFaceClient(ModelClient):
                 self.messages.append({"role": "assistant", "content": response})
                 yield response
                 return
-        elif self.model_id in [self.MODEL_MISTRAL_7B, self.MODEL_MISTRAL_SMALL_3_1_24B]:
+        elif "mistral" in self:
             next(self.streamer)  # first part is always empty
             response_part = next(self.streamer)
 
@@ -282,9 +289,12 @@ class HuggingFaceClient(ModelClient):
             else:
                 content = response_part
                 yield content
-        elif self.model_id == self.MODEL_LLAMA_3_1_8B:
-            # TODO: handle tool calls for Llama 3.1 8B
+        elif "llama" in self.model_id:
+            # TODO: handle tool calls for Llama models
             eos = "<|eot_id|>"
+        elif "phi" in self.model_id:
+            # TODO: handle tool calls for Phi models
+            eos = "<|im_sep|>" # of "<|im_end|>"
 
         for response_part in self.streamer:
             if response_part.endswith(eos):
