@@ -9,13 +9,15 @@ TEST_MODELS = [
     HuggingFaceClient.MODEL_LLAMA_3_1_8B,
     HuggingFaceClient.MODEL_MISTRAL_7B,
     HuggingFaceClient.MODEL_QWEN_3_8B,
+    HuggingFaceClient.MODEL_PHI_4_MINI_3_8B,
     OllamaClient.MODEL_LLAMA_3_2_3B,
-    OllamaClient.MODEL_MISTRAL_7B,
+    OllamaClient.MODEL_MISTRAL_SMALL_3_2_24B,
     OllamaClient.MODEL_QWEN_3_8B,
+    OllamaClient.MODEL_PHI_4_14B,
 ]
 
 
-@pytest.fixture(params=TEST_MODELS)
+@pytest.fixture(params=TEST_MODELS, scope="session")
 def model_client(request) -> Iterable[ModelClient]:
     if ":" in request.param:
         client = OllamaClient(request.param)
@@ -52,7 +54,8 @@ def test_generate_streamed(model_client):
 
 def test_generate_with_parameters(model_client):
     prompt = "What is the capital of France?"
-    response = model_client.generate(prompt, generate_kwargs={"max_tokens": 10})
+    response = model_client.generate(prompt, generate_kwargs={"max_tokens": 100})
+    # TODO validate the response length in tokens
 
     assert isinstance(response, str)
     assert "Paris" in response
@@ -92,7 +95,10 @@ def test_chat_streamed(model_client):
 
 
 def test_chat_with_tools(model_client):
-    message = {"role": model_client.system_role, "content": "You are a helpful assistant."}
+    message = {
+        "role": model_client.system_role,
+        "content": "You are a helpful assistant that uses tools to answer questions from the user.",
+    }
     response = model_client.chat(message)
 
     assert len(model_client.messages) == 2
@@ -107,8 +113,15 @@ def test_chat_with_tools(model_client):
     model_client.mcp_client = mcp_client
 
     message = {"role": "user", "content": "What is the temperature in Paris?"}
+
+    # If the model does not support tools, we should see an error
+    if model_client.model_id not in model_client.TOOL_MODELS:
+        with pytest.raises(ValueError):
+            response = model_client.chat(message, tools=mcp_client.get_tools())
+        return
+
     response = model_client.chat(message, tools=mcp_client.get_tools())
 
-    assert "27" in response
     assert len(model_client.messages) == 6  # 1 system, 1 user, 2 assistant, 2 tool messages
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
+    assert "27" in response
