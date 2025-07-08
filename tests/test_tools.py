@@ -63,3 +63,24 @@ def test_none_type_tool_response():
     response = client.call_tool("none_response", {})
 
     assert len(response.content) == 0
+
+
+def test_multiple_tool_calls_client_reused():
+    mcp = FastMCP("TestTools")
+
+    @mcp.tool()
+    def none_response() -> None:
+        return None
+
+    client = MCPClient(server=mcp)
+    tools = client.list_tools()
+
+    assert isinstance(tools, list)
+    assert len(tools) > 0
+
+    client.call_tool("none_response", {})
+    mcp_client = client.client
+
+    client.call_tool("none_response", {})
+
+    assert mcp_client == client.client
