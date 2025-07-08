@@ -17,20 +17,22 @@ class MCPClient:
         if server:
             self.mcp_config = server
 
+        self.client = Client(self.mcp_config)
+        self.loop.run_until_complete(self.client.__aenter__())
+
     def __del__(self):
+        self.loop.run_until_complete(self.client.__aexit__(None, None, None))
         if self.loop.is_running():
             self.loop.stop()
 
     async def _call_tool(self, tool_name: str, params: dict):
-        async with Client(self.mcp_config) as client:
-            return await client.call_tool(tool_name, params)
+        return await self.client.call_tool(tool_name, params)
 
     def call_tool(self, tool_name: str, params: dict):
         return self.loop.run_until_complete(self._call_tool(tool_name, params))
 
     async def _list_tools(self):
-        async with Client(self.mcp_config) as client:
-            return await client.list_tools()
+        return await self.client.list_tools()
 
     def list_tools(self):
         return self.loop.run_until_complete(self._list_tools())
