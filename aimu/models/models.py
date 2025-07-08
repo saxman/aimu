@@ -27,6 +27,11 @@ class ModelClient:
     MODEL_GPT_4O_MINI = None
     MODEL_GPT_4O = None
 
+    # TODO: add more models and enable use by clients
+    DEFAULT_MODEL_TEMPERATURES = {
+        MODEL_MISTRAL_NEMO_12B: 0.3,
+    }
+
     def __init__(self, model_id: str, model_kwargs: dict = None):
         if model_id is None:
             raise ValueError("Model not supported by model client")
@@ -37,3 +42,4 @@ class ModelClient:
         self.messages = []
 
         self.mcp_client = None
+
