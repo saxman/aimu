@@ -127,7 +127,7 @@ def test_chat_with_tools(model_client):
     # If the model does not support tools, we should see an error
     if model_client.model_id not in model_client.TOOL_MODELS:
         with pytest.raises(ValueError):
-            response = model_client.chat(message, tools=mcp_client.get_tools())
+            model_client.chat(message, tools=mcp_client.get_tools())
         return
 
     response = model_client.chat(message, tools=mcp_client.get_tools())
@@ -135,6 +135,7 @@ def test_chat_with_tools(model_client):
     assert len(model_client.messages) == 6  # 1 system, 1 user, 2 assistant, 2 tool messages
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
     assert "27" in response
+
 
 def test_chat_with_tools_from_system_message(model_client):
     """
@@ -158,8 +159,12 @@ def test_chat_with_tools_from_system_message(model_client):
     mcp_client = MCPClient(server=mcp)
     model_client.mcp_client = mcp_client
 
-    response = model_client.chat(
-        message,
-        tools=mcp_client.get_tools()
-    )
+    # If the model does not support tools, we should see an error
+    if model_client.model_id not in model_client.TOOL_MODELS:
+        with pytest.raises(ValueError):
+            model_client.chat(message, tools=mcp_client.get_tools())
+        return
 
+    response = model_client.chat(message, tools=mcp_client.get_tools())
+
+    assert "27" in response
