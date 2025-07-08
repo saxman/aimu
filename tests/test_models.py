@@ -80,7 +80,7 @@ def test_chat(model_client):
 def test_chat_streamed(model_client):
     # ensure the chat history is reset
     model_client.messages = []
-    
+
     message = {"role": model_client.system_role, "content": "You are a helpful assistant."}
     response = model_client.chat(message)
 

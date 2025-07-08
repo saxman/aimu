@@ -294,7 +294,7 @@ class HuggingFaceClient(ModelClient):
             eos = "<|eot_id|>"
         elif "phi" in self.model_id:
             # TODO: handle tool calls for Phi models
-            eos = "<|im_sep|>" # of "<|im_end|>"
+            eos = "<|im_sep|>"  # of "<|im_end|>"
 
         for response_part in self.streamer:
             if response_part.endswith(eos):
