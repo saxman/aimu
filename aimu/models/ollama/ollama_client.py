@@ -157,13 +157,15 @@ class OllamaClient(ModelClient):
 
                     tool_response = self.mcp_client.call_tool(tool["function"]["name"], tool_call.function.arguments)
 
-                    # TODO: handle different tool response types, errors, and multiple responses
-                    if tool_response.content[0].type != "text":
-                        raise ValueError(
-                            f"Tool response type {tool_response.content[0].type} not supported. Supported types: text"
-                        )
+                    content = ""
+                    if len(tool_response.content) > 0:
+                        # TODO: handle different tool response types, errors, and multiple responses
+                        if tool_response.content[0].type != "text":
+                            raise ValueError(
+                                f"Tool response type {tool_response.content[0].type} not supported. Supported types: text"
+                            )
 
-                    content = tool_response.content[0].text
+                        content = tool_response.content[0].text
 
                     self.messages.append({"role": "tool", "name": tool["function"]["name"], "content": content})
 
