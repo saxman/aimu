@@ -42,4 +42,3 @@ class ModelClient:
         self.messages = []
 
         self.mcp_client = None
-
