@@ -45,3 +45,21 @@ def test_mcp_client_with_server():
     response = client.call_tool("echo", {"echo_string": "test again"})
 
     assert response.content[0].text == "test again"
+
+
+def test_none_type_tool_response():
+    mcp = FastMCP("TestTools")
+
+    @mcp.tool()
+    def none_response() -> None:
+        return None
+
+    client = MCPClient(server=mcp)
+    tools = client.list_tools()
+
+    assert isinstance(tools, list)
+    assert len(tools) > 0
+
+    response = client.call_tool("none_response", {})
+
+    assert len(response.content) == 0
