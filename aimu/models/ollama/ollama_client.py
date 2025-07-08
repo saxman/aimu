@@ -34,13 +34,13 @@ class OllamaClient(ModelClient):
 
     TOOL_MODELS = [
         MODEL_MISTRAL_SMALL_3_2_24B,
-        MODEL_MISTRAL_SMALL_3_1_24B,
+        # MODEL_MISTRAL_SMALL_3_1_24B, ## Older version
         MODEL_MISTRAL_NEMO_12B,
         MODEL_QWEN_3_8B,
-        # MODEL_LLAMA_3_1_8B, ## Tools not fully supported
+        # MODEL_LLAMA_3_1_8B, ## Tools not fully supported by model
         MODEL_LLAMA_3_2_3B,
         MODEL_DEEPSEEK_R1_8B,
-        # MODEL_PHI_4_MINI_3_8B, ## Tools not fully supported yet
+        # MODEL_PHI_4_MINI_3_8B, ## Tools not fully supported by Ollama
     ]
 
     def __init__(self, model_id: str):
