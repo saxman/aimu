@@ -29,7 +29,6 @@ class HuggingFaceClient(ModelClient):
 
     MODEL_DEEPSEEK_R1_8B = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 
-    MODEL_GEMMA_2_9B = "google/gemma-2-9b-it"
     MODEL_GEMMA_3_12B = "google/gemma-3-12b-it"
 
     MODEL_PHI_4_14B = "microsoft/phi-4"
@@ -37,15 +36,12 @@ class HuggingFaceClient(ModelClient):
 
     MODEL_MISTRAL_7B = "mistralai/Mistral-7B-Instruct-v0.3"
     MODEL_MISTRAL_NEMO_12B = "mistralai/Mistral-Nemo-Instruct-2407"
-    MODEL_MISTRAL_SMALL_3_1_24B = "mistralai/Mistral-Small-Instruct-2409"
     MODEL_MISTRAL_SMALL_3_2_24B = "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
 
-    MODEL_QWEN_2_5_7B = "Qwen/Qwen2.5-7B-Instruct-1M"
     MODEL_QWEN_3_8B = "Qwen/Qwen3-8B"
 
     TOOL_MODELS = [
-        # MODEL_MISTRAL_SMALL_3_2_24B, ## Tokenizer issue with this model
-        MODEL_MISTRAL_SMALL_3_1_24B,
+        MODEL_MISTRAL_SMALL_3_2_24B, ## Potential tokenizer issue with this model
         MODEL_QWEN_3_8B,
         MODEL_LLAMA_3_2_3B,
     ]

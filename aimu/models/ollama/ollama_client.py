@@ -16,7 +16,6 @@ class OllamaClient(ModelClient):
     MODEL_LLAMA_3_2_3B = "llama3.2:3b"
     MODEL_LLAMA_3_3_70B = "llama3.3:70b"
 
-    MODEL_GEMMA_2_9B = "gemma2:9b"
     MODEL_GEMMA_3_12B = "gemma3:12b"
 
     MODEL_PHI_4_14B = "phi4:14b"
@@ -26,15 +25,12 @@ class OllamaClient(ModelClient):
 
     MODEL_MISTRAL_7B = "mistral:7b"
     MODEL_MISTRAL_NEMO_12B = "mistral-nemo:12b"
-    MODEL_MISTRAL_SMALL_3_1_24B = "mistral-small3.1:24b"
     MODEL_MISTRAL_SMALL_3_2_24B = "mistral-small3.2:24b"
 
-    MODEL_QWEN_2_5_7B = "qwen2.5:7b"
     MODEL_QWEN_3_8B = "qwen3:8b"
 
     TOOL_MODELS = [
         MODEL_MISTRAL_SMALL_3_2_24B,
-        MODEL_MISTRAL_SMALL_3_1_24B,  ## Older version
         MODEL_MISTRAL_NEMO_12B,
         MODEL_QWEN_3_8B,
         # MODEL_LLAMA_3_1_8B, ## Tools not fully supported by model
