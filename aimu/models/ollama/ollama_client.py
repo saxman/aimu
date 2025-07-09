@@ -43,6 +43,11 @@ class OllamaClient(ModelClient):
         # MODEL_PHI_4_MINI_3_8B, ## Tools not fully supported by Ollama
     ]
 
+    THINKING_MODELS = [
+        MODEL_DEEPSEEK_R1_8B,
+        MODEL_QWEN_3_8B,
+    ]
+
     def __init__(self, model_id: str):
         super().__init__(model_id, None)
 
@@ -52,27 +57,31 @@ class OllamaClient(ModelClient):
     def system_role(self) -> str:
         return "system"
 
-    def _generate(self, prompt: str, generate_kwargs: dict) -> None:
+    def _update_generate_kwargs(self, generate_kwargs: dict) -> None:
         if generate_kwargs and "max_tokens" in generate_kwargs:
             generate_kwargs["num_predict"] = generate_kwargs.pop("max_tokens")
+        
+        return generate_kwargs
 
     def generate(self, prompt: str, generate_kwargs: dict = None) -> str:
-        self._generate(prompt, generate_kwargs)
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        response: ollama.GenerateResponse = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs)
+        think = True if self.model_id in OllamaClient.THINKING_MODELS else False
+        response = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs, think=think)
 
-        return response["response"]
+        return response["response"] if not think else response.response
 
     def generate_streamed(self, prompt: str, generate_kwargs: dict = None) -> Iterator[str]:
-        self._generate(prompt, generate_kwargs)
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        response = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs, stream=True)
+        think = True if self.model_id in OllamaClient.THINKING_MODELS else False
+        response = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs, stream=True, think=think)
 
         for response_part in response:
             yield response_part["response"]
 
     def _chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> None:
-        self._generate("", generate_kwargs)
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         self.messages.append(message)
 
@@ -89,11 +98,12 @@ class OllamaClient(ModelClient):
     def chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> str:
         self._chat(message, generate_kwargs, tools)
 
-        response = ollama.chat(model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools)
+        think = True if self.model_id in OllamaClient.THINKING_MODELS else False
+        response = ollama.chat(model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=think)
 
         if response["message"].tool_calls:
             self._handle_tool_calls(response, tools)
-            response = ollama.chat(model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools)
+            response = ollama.chat(model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=think)
 
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
 
@@ -102,8 +112,9 @@ class OllamaClient(ModelClient):
     def chat_streamed(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> Iterator[str]:
         self._chat(message, generate_kwargs, tools)
 
+        think = True if self.model_id in OllamaClient.THINKING_MODELS else False
         response = ollama.chat(
-            model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, stream=True
+            model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, stream=True, think=think
         )
 
         response_part = next(response)
@@ -112,7 +123,7 @@ class OllamaClient(ModelClient):
             self._handle_tool_calls(response_part, tools)
 
             response = ollama.chat(
-                model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, stream=True
+                model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, stream=True, think=think
             )
 
             response_part = next(response)
