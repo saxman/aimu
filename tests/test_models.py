@@ -1,3 +1,13 @@
+"""
+Model client tests that can run with different client types.
+
+Usage:
+- Run all tests with all models: pytest tests/test_models.py
+- Run tests with only Ollama models: pytest tests/test_models.py --client=ollama
+- Run tests with only HuggingFace models: pytest tests/test_models.py --client=hf
+- Run tests with only HuggingFace models: pytest tests/test_models.py --client=huggingface
+"""
+
 import pytest
 from typing import Iterable
 from fastmcp import FastMCP
@@ -5,27 +15,55 @@ from fastmcp import FastMCP
 from aimu.models import ModelClient, HuggingFaceClient, OllamaClient
 from aimu.tools import MCPClient
 
-TEST_MODELS = [
-    HuggingFaceClient.MODEL_LLAMA_3_1_8B,
-    HuggingFaceClient.MODEL_MISTRAL_7B,
-    HuggingFaceClient.MODEL_QWEN_3_8B,
-    HuggingFaceClient.MODEL_PHI_4_MINI_3_8B,
+OLLAMA_TEST_MODELS = [
     OllamaClient.MODEL_LLAMA_3_2_3B,
     OllamaClient.MODEL_MISTRAL_SMALL_3_2_24B,
     OllamaClient.MODEL_QWEN_3_8B,
     OllamaClient.MODEL_PHI_4_14B,
+    OllamaClient.MODEL_DEEPSEEK_R1_8B,
 ]
 
+HUGGINGFACE_TEST_MODELS = [
+    HuggingFaceClient.MODEL_LLAMA_3_1_8B,
+    HuggingFaceClient.MODEL_MISTRAL_7B,
+    HuggingFaceClient.MODEL_QWEN_3_8B,
+    HuggingFaceClient.MODEL_PHI_4_MINI_3_8B,
+]
 
-@pytest.fixture(params=TEST_MODELS, scope="session")
+def pytest_generate_tests(metafunc):
+    """Generate tests based on command line options."""
+    if "model_client" in metafunc.fixturenames:
+        client_type = metafunc.config.getoption("--client", "all").lower()
+        
+        if client_type == "ollama":
+            test_models = OLLAMA_TEST_MODELS
+        elif client_type in ["hf", "huggingface"]:
+            test_models = HUGGINGFACE_TEST_MODELS
+        else:
+            test_models = OLLAMA_TEST_MODELS + HUGGINGFACE_TEST_MODELS
+        
+        metafunc.parametrize("model_client", test_models, indirect=True, scope="session")
+
+
+@pytest.fixture(scope="session")
 def model_client(request) -> Iterable[ModelClient]:
-    if ":" in request.param:
-        client = OllamaClient(request.param)
+    """Create model client based on the model parameter."""
+    model_id = request.param
+    
+    if ":" in model_id:
+        client = OllamaClient(model_id)
     else:
-        client = HuggingFaceClient(request.param)
+        client = HuggingFaceClient(model_id)
 
     yield client
 
+    del client
+
+
+@pytest.fixture(params=HUGGINGFACE_TEST_MODELS, scope="session")
+def huggingface_client(request) -> Iterable[HuggingFaceClient]:
+    client = HuggingFaceClient(request.param)
+    yield client
     del client
 
 
