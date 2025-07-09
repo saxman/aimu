@@ -54,7 +54,7 @@ def test_generate_streamed(model_client):
 
 def test_generate_with_parameters(model_client):
     prompt = "What is the capital of France?"
-    response = model_client.generate(prompt, generate_kwargs={"max_tokens": 100})
+    response = model_client.generate(prompt, generate_kwargs={"max_tokens": 1000})
     # TODO validate the response length in tokens
 
     assert isinstance(response, str)
@@ -169,4 +169,25 @@ def test_chat_with_tools_from_system_message(model_client):
     )
 
     assert "27" in response
-    
+
+def test_thiking(model_client):
+    """
+    Test that the model can think before responding.
+    """
+
+    if model_client.model_id not in model_client.THINKING_MODELS:
+        return
+
+    # ensure the chat history is reset
+    model_client.messages = []
+
+    message = {"role": model_client.system_role, "content": "You are a helpful assistant."}
+    response = model_client.chat(message)
+
+    assert len(model_client.messages) == 2
+
+    message = {"role": "user", "content": "What is the capital of France?"}
+    response = model_client.chat(message)
+
+    assert "Paris" in response
+    assert len(model_client.messages) == 4
