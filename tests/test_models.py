@@ -1,4 +1,3 @@
-import mcp
 import pytest
 from typing import Iterable
 from fastmcp import FastMCP
@@ -136,7 +135,6 @@ def test_chat_with_tools(model_client):
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
     assert "27" in response
 
-
 def test_chat_with_tools_from_system_message(model_client):
     """
     Test that tools can be used when they are referenced in the system message.
@@ -165,6 +163,10 @@ def test_chat_with_tools_from_system_message(model_client):
             model_client.chat(message, tools=mcp_client.get_tools())
         return
 
-    response = model_client.chat(message, tools=mcp_client.get_tools())
+    response = model_client.chat(
+        message,
+        tools=mcp_client.get_tools()
+    )
 
     assert "27" in response
+    
