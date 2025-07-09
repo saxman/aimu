@@ -34,7 +34,7 @@ class OllamaClient(ModelClient):
 
     TOOL_MODELS = [
         MODEL_MISTRAL_SMALL_3_2_24B,
-        MODEL_MISTRAL_SMALL_3_1_24B, ## Older version
+        MODEL_MISTRAL_SMALL_3_1_24B,  ## Older version
         MODEL_MISTRAL_NEMO_12B,
         MODEL_QWEN_3_8B,
         # MODEL_LLAMA_3_1_8B, ## Tools not fully supported by model
@@ -60,7 +60,7 @@ class OllamaClient(ModelClient):
     def _update_generate_kwargs(self, generate_kwargs: dict) -> None:
         if generate_kwargs and "max_tokens" in generate_kwargs:
             generate_kwargs["num_predict"] = generate_kwargs.pop("max_tokens")
-        
+
         return generate_kwargs
 
     def generate(self, prompt: str, generate_kwargs: dict = None) -> str:
@@ -75,7 +75,9 @@ class OllamaClient(ModelClient):
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         think = True if self.model_id in OllamaClient.THINKING_MODELS else False
-        response = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs, stream=True, think=think)
+        response = ollama.generate(
+            model=self.model_id, prompt=prompt, options=generate_kwargs, stream=True, think=think
+        )
 
         for response_part in response:
             yield response_part["response"]
@@ -99,11 +101,15 @@ class OllamaClient(ModelClient):
         self._chat(message, generate_kwargs, tools)
 
         think = True if self.model_id in OllamaClient.THINKING_MODELS else False
-        response = ollama.chat(model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=think)
+        response = ollama.chat(
+            model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=think
+        )
 
         if response["message"].tool_calls:
             self._handle_tool_calls(response, tools)
-            response = ollama.chat(model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=think)
+            response = ollama.chat(
+                model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=think
+            )
 
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
 
@@ -123,7 +129,12 @@ class OllamaClient(ModelClient):
             self._handle_tool_calls(response_part, tools)
 
             response = ollama.chat(
-                model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, stream=True, think=think
+                model=self.model_id,
+                messages=self.messages,
+                options=generate_kwargs,
+                tools=tools,
+                stream=True,
+                think=think,
             )
 
             response_part = next(response)
