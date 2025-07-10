@@ -5,7 +5,6 @@ Usage:
 - Run all tests with all models: pytest tests/test_models.py
 - Run tests with only Ollama models: pytest tests/test_models.py --client=ollama
 - Run tests with only HuggingFace models: pytest tests/test_models.py --client=hf
-- Run tests with only HuggingFace models: pytest tests/test_models.py --client=huggingface
 """
 
 import pytest
