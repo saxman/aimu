@@ -35,7 +35,6 @@ class OllamaClient(ModelClient):
         MODEL_QWEN_3_8B,
         # MODEL_LLAMA_3_1_8B, ## Tools not fully supported by model
         MODEL_LLAMA_3_2_3B,
-        MODEL_DEEPSEEK_R1_8B,
         # MODEL_PHI_4_MINI_3_8B, ## Tools not fully supported by Ollama
     ]
 
@@ -46,6 +45,8 @@ class OllamaClient(ModelClient):
 
     def __init__(self, model_id: str):
         super().__init__(model_id, None)
+
+        self.thinking = True if model_id in self.THINKING_MODELS else False
 
         ollama.pull(model_id)
 
@@ -62,17 +63,15 @@ class OllamaClient(ModelClient):
     def generate(self, prompt: str, generate_kwargs: dict = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        think = True if self.model_id in OllamaClient.THINKING_MODELS else False
-        response = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs, think=think)
+        response = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs, think=self.thinking)
 
-        return response["response"] if not think else response.response
+        return response["response"] if not self.thinking else response.response
 
     def generate_streamed(self, prompt: str, generate_kwargs: dict = None) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        think = True if self.model_id in OllamaClient.THINKING_MODELS else False
         response = ollama.generate(
-            model=self.model_id, prompt=prompt, options=generate_kwargs, stream=True, think=think
+            model=self.model_id, prompt=prompt, options=generate_kwargs, stream=True, think=self.thinking
         )
 
         for response_part in response:
@@ -88,6 +87,8 @@ class OllamaClient(ModelClient):
                 logger.warning(
                     "Tool usage with Llama 3.1 8B is not fully supported, ref: https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/"
                 )
+            if len(self.messages) == 0 and ("llama" in self.model_id or "mistral" in self.model_id):
+                logger.warning("Llama and Mistral models require a system message to be sent before using tools.")
             if self.model_id not in OllamaClient.TOOL_MODELS:
                 raise ValueError(
                     f"Model {self.model_id} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}"
@@ -96,15 +97,14 @@ class OllamaClient(ModelClient):
     def chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> str:
         self._chat(message, generate_kwargs, tools)
 
-        think = True if self.model_id in OllamaClient.THINKING_MODELS else False
         response = ollama.chat(
-            model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=think
+            model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
         )
 
         if response["message"].tool_calls:
             self._handle_tool_calls(response, tools)
             response = ollama.chat(
-                model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=think
+                model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
             )
 
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
@@ -114,9 +114,13 @@ class OllamaClient(ModelClient):
     def chat_streamed(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> Iterator[str]:
         self._chat(message, generate_kwargs, tools)
 
-        think = True if self.model_id in OllamaClient.THINKING_MODELS else False
         response = ollama.chat(
-            model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, stream=True, think=think
+            model=self.model_id,
+            messages=self.messages,
+            options=generate_kwargs,
+            tools=tools,
+            stream=True,
+            think=self.thinking,
         )
 
         response_part = next(response)
@@ -130,7 +134,7 @@ class OllamaClient(ModelClient):
                 options=generate_kwargs,
                 tools=tools,
                 stream=True,
-                think=think,
+                think=self.thinking,
             )
 
             response_part = next(response)
