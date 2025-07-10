@@ -163,9 +163,52 @@ def test_chat_with_tools(model_client):
 
     response = model_client.chat(message, tools=mcp_client.get_tools())
 
-    assert len(model_client.messages) == 6  # 1 system, 1 user, 2 assistant, 2 tool messages
+    assert len(model_client.messages) == 6  # system, assistant, user, tool call, tool response, assistant
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
     assert "27" in response
+
+
+def test_chat_streamed_with_tools(model_client):
+    # ensure the chat history is reset
+    model_client.messages = []
+
+    message = {
+        "role": model_client.system_role,
+        "content": "You are a helpful assistant that uses tools to answer questions from the user.",
+    }
+    response = model_client.chat_streamed(message)
+
+    content = ""
+    for response_part in response:
+        content += response_part
+
+    assert len(model_client.messages) == 2
+
+    mcp = FastMCP("Test Tools")
+
+    @mcp.tool()
+    def temperature(location: str) -> float:
+        return 27.0
+
+    mcp_client = MCPClient(server=mcp)
+    model_client.mcp_client = mcp_client
+
+    message = {"role": "user", "content": "What is the temperature in Paris?"}
+
+    # If the model does not support tools, we should see an error
+    if model_client.model_id not in model_client.TOOL_MODELS:
+        with pytest.raises(ValueError):
+            model_client.chat(message, tools=mcp_client.get_tools())
+        return
+
+    response = model_client.chat(message, tools=mcp_client.get_tools())
+
+    for response_part in response:
+        content += response_part
+
+    assert len(model_client.messages) == 6  # system, assistant, user, tool call, tool response, assistant
+    assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
+    assert "27" in content
 
 
 def test_chat_with_tools_from_system_message(model_client):
