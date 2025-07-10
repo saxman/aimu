@@ -41,7 +41,7 @@ class HuggingFaceClient(ModelClient):
     MODEL_QWEN_3_8B = "Qwen/Qwen3-8B"
 
     TOOL_MODELS = [
-        MODEL_MISTRAL_SMALL_3_2_24B, ## Potential tokenizer issue with this model
+        MODEL_MISTRAL_SMALL_3_2_24B,  ## Potential tokenizer issue with this model
         MODEL_QWEN_3_8B,
         MODEL_LLAMA_3_2_3B,
     ]
