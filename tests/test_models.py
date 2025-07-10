@@ -30,18 +30,19 @@ HUGGINGFACE_TEST_MODELS = [
     HuggingFaceClient.MODEL_PHI_4_MINI_3_8B,
 ]
 
+
 def pytest_generate_tests(metafunc):
     """Generate tests based on command line options."""
     if "model_client" in metafunc.fixturenames:
         client_type = metafunc.config.getoption("--client", "all").lower()
-        
+
         if client_type == "ollama":
             test_models = OLLAMA_TEST_MODELS
         elif client_type in ["hf", "huggingface"]:
             test_models = HUGGINGFACE_TEST_MODELS
         else:
             test_models = OLLAMA_TEST_MODELS + HUGGINGFACE_TEST_MODELS
-        
+
         metafunc.parametrize("model_client", test_models, indirect=True, scope="session")
 
 
@@ -49,7 +50,7 @@ def pytest_generate_tests(metafunc):
 def model_client(request) -> Iterable[ModelClient]:
     """Create model client based on the model parameter."""
     model_id = request.param
-    
+
     if ":" in model_id:
         client = OllamaClient(model_id)
     else:
@@ -57,13 +58,6 @@ def model_client(request) -> Iterable[ModelClient]:
 
     yield client
 
-    del client
-
-
-@pytest.fixture(params=HUGGINGFACE_TEST_MODELS, scope="session")
-def huggingface_client(request) -> Iterable[HuggingFaceClient]:
-    client = HuggingFaceClient(request.param)
-    yield client
     del client
 
 
@@ -178,6 +172,10 @@ def test_chat_with_tools_from_system_message(model_client):
     """
     Test that tools can be used when they are referenced in the system message.
     """
+
+    if "llama" in model_client.model_id or "mistral" in model_client.model_id:
+        # Llama and Mistral models require a system message to be sent before using tools
+        pytest.skip("Llama and Mistral models require a system message to be sent before using tools.")
 
     # ensure the chat history is reset
     model_client.messages = []
