@@ -87,8 +87,10 @@ class OllamaClient(ModelClient):
                 logger.warning(
                     "Tool usage with Llama 3.1 8B is not fully supported, ref: https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/"
                 )
+
             if len(self.messages) == 0 and ("llama" in self.model_id or "mistral" in self.model_id):
                 logger.warning("Llama and Mistral models require a system message to be sent before using tools.")
+
             if self.model_id not in OllamaClient.TOOL_MODELS:
                 raise ValueError(
                     f"Model {self.model_id} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}"
