@@ -12,6 +12,7 @@ torch.classes.__path__ = []
 SYSTEM_MESSAGE = """
 You are a helpful assistant that can answer questions, provide information, and assist with tasks.
 You will always use available tools to help answer questions and complete tasks.
+Please introduce yourself and provide a brief overview of your capabilities.
 """
 
 MODEL_CLIENTS = [
