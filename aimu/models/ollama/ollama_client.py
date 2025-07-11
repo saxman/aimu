@@ -125,7 +125,20 @@ class OllamaClient(ModelClient):
             think=self.thinking,
         )
 
+        # Streaming with thinking *and* tools, the thinking needs to complete before the response can be inspected for tool calls.
+        thinking = ""
+        if self.thinking and tools:
+            for response_part in response:
+                if response_part["message"].thinking:
+                    thinking += response_part["message"].thinking
+                else:
+                    break
+
+        ## TODO need to assign thinking to the response, not the last user message
+        self.messages[-1]["thinking"] = thinking
+
         response_part = next(response)
+        print(response_part)
 
         if response_part["message"].tool_calls:
             self._handle_tool_calls(response_part, tools)
