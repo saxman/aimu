@@ -183,7 +183,7 @@ def test_thiking(model_client):
     """
 
     if model_client.model_id not in model_client.THINKING_MODELS:
-        return
+        pytest.skip("Model does not support thinking")
 
     # ensure the chat history is reset
     model_client.messages = []
