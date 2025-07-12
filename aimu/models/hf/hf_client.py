@@ -40,10 +40,19 @@ class HuggingFaceClient(ModelClient):
 
     MODEL_QWEN_3_8B = "Qwen/Qwen3-8B"
 
+    MODEL_SMOLLM3_3B = "HuggingFaceTB/SmolLM3-3B"
+
     TOOL_MODELS = [
         MODEL_MISTRAL_SMALL_3_2_24B,  ## Potential tokenizer issue with this model
         MODEL_QWEN_3_8B,
         MODEL_LLAMA_3_2_3B,
+        MODEL_SMOLLM3_3B
+    ]
+
+    THINKING_MODELS = [
+        MODEL_QWEN_3_8B,
+        MODEL_DEEPSEEK_R1_8B,
+        MODEL_SMOLLM3_3B
     ]
 
     DEFAULT_MODEL_KWARGS = {
@@ -51,18 +60,18 @@ class HuggingFaceClient(ModelClient):
         "torch_dtype": "auto",
     }
 
-    @property
-    def system_role(self) -> str:
-        if "mistral" in self.model_id:
-            return "user"
-        else:
-            return "system"
+    DEFAULT_GENERATE_KWARGS = {
+        "max_new_tokens": 1024,
+        "temperature": 0.1,
+        "top_p": 0.95,
+        "top_k": 50,
+        "repetition_penalty": 1.1,
+        "do_sample": True,
+        "num_beams": 1,
+    }
 
-    def __init__(self, model_id: str, model_kwargs: dict = None, system_message: str = None):
+    def __init__(self, model_id: str, model_kwargs: dict = DEFAULT_MODEL_KWARGS, system_message: str = None):
         super().__init__(model_id, model_kwargs, system_message)
-
-        if model_kwargs is None:
-            model_kwargs = self.DEFAULT_MODEL_KWARGS
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, attn_implementation="eager")
         self.model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
@@ -80,25 +89,33 @@ class HuggingFaceClient(ModelClient):
             logger.info("Emptying MPS cache")
             torch.mps.empty_cache()
 
-    def generate(self, prompt: str, generate_kwargs: dict = {}) -> str:
-        generate_kwargs["bos_token_id"] = self.tokenizer.bos_token_id
-        generate_kwargs["pad_token_id"] = self.tokenizer.eos_token_id
-        generate_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
+    def generate(self, prompt: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS) -> str:
+        messages = [{"role": "user", "content": prompt}]
 
-        model_inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-        generated_ids = self.model.generate(**model_inputs)
-        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
 
-        return response
+        generated_ids = self.model.generate(**model_inputs, **generate_kwargs)
 
-    def generate_streamed(self, prompt: str, generate_kwargs: dict = {}) -> Iterator[str]:
-        generate_kwargs["bos_token_id"] = self.tokenizer.bos_token_id
-        generate_kwargs["pad_token_id"] = self.tokenizer.eos_token_id
-        generate_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
+        output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
+        return self.tokenizer.decode(output_ids, skip_special_tokens=True)
 
+    def generate_streamed(self, prompt: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS) -> Iterator[str]:
         streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
 
-        model_inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+        messages = [{"role": "user", "content": prompt}]
+
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
+
         self.model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
 
         for response_part in streamer:
@@ -115,15 +132,10 @@ class HuggingFaceClient(ModelClient):
         if "repeat_penalty" in generate_kwargs:
             generate_kwargs["repetition_penalty"] = generate_kwargs.pop("repeat_penalty")
 
-        if tools:
-            if self.model_id == HuggingFaceClient.MODEL_LLAMA_3_1_8B:
-                logger.warning(
-                    "Tool usage with Llama 3.1 8B is not fully supported, ref: https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/"
-                )
-            elif self.model_id not in self.TOOL_MODELS:
-                raise ValueError(
-                    f"Tool usage is not supported for model {self.model_id}. Supported models: {self.TOOL_MODELS}"
-                )
+        if tools and self.model_id not in self.TOOL_MODELS:
+            raise ValueError(
+                f"Tool usage is not supported for model {self.model_id}. Supported models: {self.TOOL_MODELS}"
+            )
 
         return
 
