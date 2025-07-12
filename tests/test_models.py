@@ -15,8 +15,8 @@ from aimu.models import ModelClient, HuggingFaceClient, OllamaClient
 from aimu.tools import MCPClient
 
 OLLAMA_TEST_MODELS = [
-    OllamaClient.MODEL_LLAMA_3_2_3B,
     OllamaClient.MODEL_MISTRAL_SMALL_3_2_24B,
+    OllamaClient.MODEL_LLAMA_3_2_3B,
     OllamaClient.MODEL_QWEN_3_8B,
     OllamaClient.MODEL_PHI_4_14B,
     OllamaClient.MODEL_DEEPSEEK_R1_8B,
@@ -27,6 +27,7 @@ HUGGINGFACE_TEST_MODELS = [
     HuggingFaceClient.MODEL_MISTRAL_7B,
     HuggingFaceClient.MODEL_QWEN_3_8B,
     HuggingFaceClient.MODEL_PHI_4_MINI_3_8B,
+    HuggingFaceClient.MODEL_SMOLLM3_3B
 ]
 
 
