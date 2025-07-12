@@ -12,7 +12,10 @@ torch.classes.__path__ = []
 SYSTEM_MESSAGE = """
 You are a helpful assistant that can answer questions, provide information, and assist with tasks.
 You will always use available tools to help answer questions and complete tasks.
-Please introduce yourself and provide a brief overview of your capabilities.
+"""
+
+INITIAL_USER_MESSAGE = """
+Please briefly introduce yourself and what you can do.
 """
 
 MODEL_CLIENTS = [
@@ -29,7 +32,7 @@ MCP_SERVERS = {
 # Initialize the session state if we don't already have a model loaded
 if "model_client" not in st.session_state:
     st.session_state.model_id = MODEL_CLIENTS[0].TOOL_MODELS[0]
-    st.session_state.model_client = MODEL_CLIENTS[0](st.session_state.model_id)
+    st.session_state.model_client = MODEL_CLIENTS[0](st.session_state.model_id, system_message=SYSTEM_MESSAGE)
 
     st.session_state.mcp_client = MCPClient(MCP_SERVERS)
     st.session_state.model_client.mcp_client = st.session_state.mcp_client
@@ -50,7 +53,8 @@ with st.sidebar:
         del st.session_state.model_client
 
         st.session_state.model_id = model_client.TOOL_MODELS[0]
-        st.session_state.model_client = model_client(st.session_state.model_id)
+        st.session_state.model_client = MODEL_CLIENTS[0](st.session_state.model_id, system_message=SYSTEM_MESSAGE)
+
         st.session_state.model_client.mcp_client = st.session_state.mcp_client
 
         st.rerun()
@@ -58,7 +62,8 @@ with st.sidebar:
         del st.session_state.model_client
 
         st.session_state.model_id = model_id
-        st.session_state.model_client = model_client(st.session_state.model_id)
+        st.session_state.model_client = model_client(st.session_state.model_id, system_message=SYSTEM_MESSAGE)
+
         st.session_state.model_client.mcp_client = st.session_state.mcp_client
 
         st.rerun()
@@ -68,19 +73,15 @@ with st.sidebar:
 
 # Either generate and stream the system message response or display the chat message history
 if len(st.session_state.model_client.messages) == 0:
-    message = {
-        "role": st.session_state.model_client.system_role,
-        "content": SYSTEM_MESSAGE,
-    }
-
     streamed_response = st.session_state.model_client.chat_streamed(
-        message,
+        INITIAL_USER_MESSAGE,
         generate_kwargs={
             "temperature": temperature,
             "top_p": top_p,
             "max_new_tokens": 1024,
             "repeat_penalty": repeat_penalty,
         },
+        tools=st.session_state.mcp_client.get_tools(),
     )
 
     with st.chat_message("assistant"):
@@ -88,7 +89,7 @@ if len(st.session_state.model_client.messages) == 0:
 else:
     # Only render assistant and user messages (not tool messages) and not the system (first) message
     messages = [
-        x for x in st.session_state.model_client.messages[1:] if x["role"] in ["assistant", "user"] and "content" in x
+        x for x in st.session_state.model_client.messages[2:] if x["role"] in ["assistant", "user"] and "content" in x
     ]
     for message in messages:
         with st.chat_message(message["role"]):
@@ -97,10 +98,8 @@ else:
 if prompt := st.chat_input("What's up?"):
     st.chat_message("user").markdown(prompt)
 
-    message = {"role": "user", "content": prompt}
-
     streamed_response = st.session_state.model_client.chat_streamed(
-        message,
+        prompt,
         generate_kwargs={
             "temperature": temperature,
             "top_p": top_p,
