@@ -10,9 +10,10 @@ license = {file = "LICENSE"}
 dependencies = [
     "sqlalchemy",
     "chromadb",
-    "fastmcp>=2.4.0",
+    "fastmcp",
     "nest_asyncio",
     "streamlit",
+    "tinydb",
 ]
 
 # optional pip dependencies
