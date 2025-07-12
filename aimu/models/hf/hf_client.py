@@ -58,8 +58,8 @@ class HuggingFaceClient(ModelClient):
         else:
             return "system"
 
-    def __init__(self, model_id: str, model_kwargs: dict = None):
-        super().__init__(model_id, model_kwargs)
+    def __init__(self, model_id: str, model_kwargs: dict = None, system_message: str = None):
+        super().__init__(model_id, model_kwargs, system_message)
 
         if model_kwargs is None:
             model_kwargs = self.DEFAULT_MODEL_KWARGS
@@ -104,8 +104,13 @@ class HuggingFaceClient(ModelClient):
         for response_part in streamer:
             yield response_part
 
-    def _chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> None:
-        self.messages.append(message)
+    def _chat(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> None:
+        # Add system message if it's the first user message and system_message is set
+        if len(self.messages) == 0 and self.system_message:
+            self.messages.append({"role": self.system_role, "content": self.system_message})
+
+        # Add user message
+        self.messages.append({"role": "user", "content": user_message})
 
         if "repeat_penalty" in generate_kwargs:
             generate_kwargs["repetition_penalty"] = generate_kwargs.pop("repeat_penalty")
@@ -166,8 +171,8 @@ class HuggingFaceClient(ModelClient):
 
         return
 
-    def chat(self, message: dict, generate_kwargs: dict = {}, tools: dict = None) -> str:
-        self._chat(message, generate_kwargs, tools)
+    def chat(self, user_message: str, generate_kwargs: dict = {}, tools: dict = None) -> str:
+        self._chat(user_message, generate_kwargs, tools)
 
         response = self._chat_generate(generate_kwargs, tools)
         logger.debug(f"Response: {response}")
@@ -221,8 +226,8 @@ class HuggingFaceClient(ModelClient):
 
         return response
 
-    def chat_streamed(self, message: dict, generate_kwargs: dict = {}, tools: dict = None) -> Iterator[str]:
-        self._chat(message, generate_kwargs, tools)
+    def chat_streamed(self, user_message: str, generate_kwargs: dict = {}, tools: dict = None) -> Iterator[str]:
+        self._chat(user_message, generate_kwargs, tools)
 
         if not hasattr(self, "streamer"):
             self.streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=False)

@@ -43,16 +43,12 @@ class OllamaClient(ModelClient):
         MODEL_QWEN_3_8B,
     ]
 
-    def __init__(self, model_id: str):
-        super().__init__(model_id, None)
+    def __init__(self, model_id: str, system_message: str = None):
+        super().__init__(model_id, None, system_message)
 
         self.thinking = True if model_id in self.THINKING_MODELS else False
 
         ollama.pull(model_id)
-
-    @property
-    def system_role(self) -> str:
-        return "system"
 
     def _update_generate_kwargs(self, generate_kwargs: dict) -> None:
         if generate_kwargs and "max_tokens" in generate_kwargs:
@@ -77,27 +73,23 @@ class OllamaClient(ModelClient):
         for response_part in response:
             yield response_part["response"]
 
-    def _chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> None:
+    def _chat(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        self.messages.append(message)
+        # Add system message if it's the first user message and system_message is set
+        if len(self.messages) == 0 and self.system_message:
+            self.messages.append({"role": "system", "content": self.system_message})
 
-        if tools:
-            if self.model_id == OllamaClient.MODEL_LLAMA_3_1_8B:
-                logger.warning(
-                    "Tool usage with Llama 3.1 8B is not fully supported, ref: https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/"
-                )
+        # Add user message
+        self.messages.append({"role": "user", "content": user_message})
 
-            if len(self.messages) == 0 and ("llama" in self.model_id or "mistral" in self.model_id):
-                logger.warning("Llama and Mistral models require a system message to be sent before using tools.")
+        if tools and self.model_id not in OllamaClient.TOOL_MODELS:
+            raise ValueError(
+                f"Model {self.model_id} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}"
+            )
 
-            if self.model_id not in OllamaClient.TOOL_MODELS:
-                raise ValueError(
-                    f"Model {self.model_id} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}"
-                )
-
-    def chat(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> str:
-        self._chat(message, generate_kwargs, tools)
+    def chat(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> str:
+        self._chat(user_message, generate_kwargs, tools)
 
         response = ollama.chat(
             model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
@@ -120,8 +112,8 @@ class OllamaClient(ModelClient):
 
         return response["message"].content
 
-    def chat_streamed(self, message: dict, generate_kwargs: dict = None, tools: dict = None) -> Iterator[str]:
-        self._chat(message, generate_kwargs, tools)
+    def chat_streamed(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> Iterator[str]:
+        self._chat(user_message, generate_kwargs, tools)
 
         response = ollama.chat(
             model=self.model_id,

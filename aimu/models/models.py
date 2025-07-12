@@ -29,12 +29,13 @@ class ModelClient:
         MODEL_MISTRAL_NEMO_12B: 0.3,
     }
 
-    def __init__(self, model_id: str, model_kwargs: dict = None):
+    def __init__(self, model_id: str, model_kwargs: dict = None, system_message: str = None):
         if model_id is None:
             raise ValueError("Model not supported by model client")
 
         self.model_id = model_id
         self.model_kwargs = model_kwargs
+        self.system_message = system_message
 
         self.messages = []
 
