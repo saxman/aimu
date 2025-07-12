@@ -8,5 +8,5 @@ tests = root / "tests"
 # Path to the aimu package directory
 package = root / "aimu"
 
-# Path to modules tests
-test = root / "tests"
+# Path to transient output directory
+output = root / "output"
