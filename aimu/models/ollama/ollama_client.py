@@ -105,11 +105,18 @@ class OllamaClient(ModelClient):
 
         if response["message"].tool_calls:
             self._handle_tool_calls(response, tools)
+
+            if response["message"].thinking:
+                self.messages[-2]["thinking"] = response["message"].thinking
+
             response = ollama.chat(
                 model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
             )
 
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
+
+        if response["message"].thinking:
+            self.messages[-1]["thinking"] = response["message"].thinking
 
         return response["message"].content
 
@@ -125,23 +132,24 @@ class OllamaClient(ModelClient):
             think=self.thinking,
         )
 
-        # Streaming with thinking *and* tools, the thinking needs to complete before the response can be inspected for tool calls.
+        response_part = next(response)
+
+        # If the model is thinking, we need to capture the thinking before processing tools and streaming the response.
         thinking = ""
-        if self.thinking and tools:
+        if response_part["message"].thinking and tools:
+            thinking = response_part["message"].thinking
             for response_part in response:
                 if response_part["message"].thinking:
                     thinking += response_part["message"].thinking
                 else:
                     break
 
-        ## TODO need to assign thinking to the response, not the last user message
-        self.messages[-1]["thinking"] = thinking
-
-        response_part = next(response)
-        print(response_part)
-
         if response_part["message"].tool_calls:
             self._handle_tool_calls(response_part, tools)
+
+            if thinking:
+                self.messages[-2]["thinking"] = thinking
+                thinking = ""
 
             response = ollama.chat(
                 model=self.model_id,
@@ -154,6 +162,16 @@ class OllamaClient(ModelClient):
 
             response_part = next(response)
 
+            # For the response after the tool call, we need to capture the thinking again if it exists.
+            thinking = ""
+            if response_part["message"].thinking and tools:
+                thinking = response_part["message"].thinking
+                for response_part in response:
+                    if response_part["message"].thinking:
+                        thinking += response_part["message"].thinking
+                    else:
+                        break
+
         content = response_part["message"].content
         yield content
 
@@ -161,7 +179,12 @@ class OllamaClient(ModelClient):
             content += response_part["message"].content
             yield response_part["message"].content
 
-        self.messages.append({"role": response_part["message"].role, "content": content})
+        message = {"role": response_part["message"].role, "content": content}
+
+        if thinking:
+            message["thinking"] = thinking
+
+        self.messages.append(message)
 
     def _handle_tool_calls(self, response, tools: dict) -> None:
         message = {"role": response.message.role}
