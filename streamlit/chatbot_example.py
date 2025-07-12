@@ -15,7 +15,7 @@ You will always use available tools to help answer questions and complete tasks.
 """
 
 INITIAL_USER_MESSAGE = """
-Please briefly introduce yourself and what you can do.
+Please briefly introduce yourself and share what you can do.
 """
 
 MODEL_CLIENTS = [
@@ -29,7 +29,7 @@ MCP_SERVERS = {
     }
 }
 
-# Initialize the session state if we don't already have a model loaded
+# Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
     st.session_state.model_id = MODEL_CLIENTS[0].TOOL_MODELS[0]
     st.session_state.model_client = MODEL_CLIENTS[0](st.session_state.model_id, system_message=SYSTEM_MESSAGE)
@@ -47,8 +47,8 @@ with st.sidebar:
     repeat_penalty = st.sidebar.slider("repeat_penalty", min_value=0.9, max_value=1.5, value=1.1, step=0.1)
     model_client = st.selectbox("Model Client", options=MODEL_CLIENTS, format_func=lambda x: x.__name__)
 
-    # If the specified model client has changes, create a new intsance of it reset to the first tool model
-    # Otherwise, if the specified model has changed, create a new instance of the model client with the new model
+    # If the model client has changed (e.g. OllamaClient to HuggingFaceClient), create a new mode client instance.
+    # Otherwise, if the model has changed, create a new instance of the model client using the new model.
     if not isinstance(st.session_state.model_client, model_client):
         del st.session_state.model_client
 
@@ -71,7 +71,7 @@ with st.sidebar:
     if st.button("Reset chat"):
         st.session_state.clear()
 
-# Either generate and stream the system message response or display the chat message history
+# Either generate and stream the initial user message response or display the chat message history.
 if len(st.session_state.model_client.messages) == 0:
     streamed_response = st.session_state.model_client.chat_streamed(
         INITIAL_USER_MESSAGE,
@@ -87,7 +87,7 @@ if len(st.session_state.model_client.messages) == 0:
     with st.chat_message("assistant"):
         response = st.write_stream(streamed_response)
 else:
-    # Only render assistant and user messages (not tool messages) and not the system (first) message
+    # Only render assistant and user messages (not tool messages) and not the system message and initial user message.
     messages = [
         x for x in st.session_state.model_client.messages[2:] if x["role"] in ["assistant", "user"] and "content" in x
     ]
