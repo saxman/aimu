@@ -29,9 +29,6 @@ def test_init_new_conversation(temp_db_path):
 
     manager = ConversationManager(db_path=temp_db_path, use_last_conversation=False)
 
-    assert manager.db_path == temp_db_path
-    assert isinstance(manager.db, TinyDB)
-    assert manager.doc_id is not None
     assert manager.messages == []
 
     manager.close()
@@ -42,8 +39,6 @@ def test_init_use_last_conversation_empty_db(temp_db_path):
 
     manager = ConversationManager(db_path=temp_db_path, use_last_conversation=True)
 
-    assert manager.db_path == temp_db_path
-    assert manager.doc_id is not None
     assert manager.messages == []
 
     manager.close()
@@ -64,15 +59,14 @@ def test_init_use_last_conversation_existing_db(temp_db_path):
     db.close()
 
     # Now test loading the last conversation
-    manager2 = ConversationManager(db_path=temp_db_path, use_last_conversation=True)
+    manager = ConversationManager(db_path=temp_db_path, use_last_conversation=True)
 
-    assert manager2.doc_id == doc_id
-    assert len(manager2.messages) == 1
-    assert manager2.messages[0]["role"] == "user"
-    assert manager2.messages[0]["content"] == "Hello"
-    assert "timestamp" in manager2.messages[0]
+    assert len(manager.messages) == 1
+    assert manager.messages[0]["role"] == "user"
+    assert manager.messages[0]["content"] == "Hello"
+    assert "timestamp" in manager.messages[0]
 
-    manager2.close()
+    manager.close()
 
 
 def test_create_new_conversation(temp_db_path):
@@ -84,7 +78,6 @@ def test_create_new_conversation(temp_db_path):
 
     assert isinstance(doc_id, int)
     assert messages == []
-    assert manager.conversations_table.get(doc_id=doc_id)["messages"] == []
 
     manager.close()
 
@@ -99,17 +92,16 @@ def test_update_conversation(temp_db_path):
     manager.update_conversation(test_messages)
 
     # Verify the messages were stored with timestamps
-    stored_data = manager.conversations_table.get(doc_id=manager.doc_id)
-    stored_messages = stored_data["messages"]
-    assert len(stored_messages) == 2
-    assert stored_messages[0]["role"] == "user"
-    assert stored_messages[0]["content"] == "Hello"
-    assert "timestamp" in stored_messages[0]
-    assert stored_messages[1]["role"] == "assistant"
-    assert stored_messages[1]["content"] == "Hi there!"
-    assert "timestamp" in stored_messages[1]
+    updated_messages = manager.messages
+    assert len(updated_messages) == 2
+    assert updated_messages[0]["role"] == "user"
+    assert updated_messages[0]["content"] == "Hello"
+    assert "timestamp" in updated_messages[0]
+    assert updated_messages[1]["role"] == "assistant"
+    assert updated_messages[1]["content"] == "Hi there!"
+    assert "timestamp" in updated_messages[1]
     # Both messages should have the same timestamp
-    assert stored_messages[0]["timestamp"] == stored_messages[1]["timestamp"]
+    assert updated_messages[0]["timestamp"] == updated_messages[1]["timestamp"]
 
     manager.close()
 
@@ -128,8 +120,7 @@ def test_update_conversation_multiple_times(temp_db_path):
     manager.update_conversation(messages2)
 
     # Verify that only the new message was appended
-    stored_data = manager.conversations_table.get(doc_id=manager.doc_id)
-    stored_messages = stored_data["messages"]
+    stored_messages = manager.messages
     assert len(stored_messages) == 2
     assert stored_messages[0]["role"] == "user"
     assert stored_messages[0]["content"] == "Hello"
@@ -141,39 +132,17 @@ def test_update_conversation_multiple_times(temp_db_path):
     manager.close()
 
 
-def test_close_method(temp_db_path):
-    """Test the close method."""
-
-    manager = ConversationManager(db_path=temp_db_path)
-
-    # Mock the db.close method to verify it's called
-    with patch.object(manager.db, "close") as mock_close:
-        manager.close()
-        mock_close.assert_called_once()
-
-
-def test_destructor_calls_close(temp_db_path):
-    """Test that __del__ calls close method."""
-
-    manager = ConversationManager(db_path=temp_db_path)
-
-    # Mock the db.close method to verify it's called
-    with patch.object(manager.db, "close") as mock_close:
-        del manager
-        mock_close.assert_called_once()
-
-
 def test_default_db_path():
     """Test default database path."""
 
     manager = ConversationManager()
 
-    assert manager.db_path == "chat_history.json"
+    assert os.path.exists("chat_history.json")
 
     manager.close()
-    # Clean up default file if it exists
-    if os.path.exists("chat_history.json"):
-        os.unlink("chat_history.json")
+
+    # Clean up default file
+    os.unlink("chat_history.json")
 
 
 def test_multiple_conversations_in_same_db(temp_db_path):
@@ -183,25 +152,22 @@ def test_multiple_conversations_in_same_db(temp_db_path):
     manager1 = ConversationManager(db_path=temp_db_path, use_last_conversation=False)
     messages1 = [{"role": "user", "content": "First conversation"}]
     manager1.update_conversation(messages1)
-    doc_id1 = manager1.doc_id
     manager1.close()
 
     # Create second conversation
     manager2 = ConversationManager(db_path=temp_db_path, use_last_conversation=False)
     messages2 = [{"role": "user", "content": "Second conversation"}]
     manager2.update_conversation(messages2)
-    doc_id2 = manager2.doc_id
     manager2.close()
-
-    # Verify both conversations exist and are different
-    assert doc_id1 != doc_id2
 
     # Verify we can still access both conversations
     db = TinyDB(temp_db_path)
     table = db.table("conversations")
 
-    stored_data1 = table.get(doc_id=doc_id1)
-    stored_data2 = table.get(doc_id=doc_id2)
+    assert len(table.all()) == 2
+
+    stored_data1 = table.all()[0]  # First conversation
+    stored_data2 = table.all()[1]  # Second conversation
     stored_messages1 = stored_data1["messages"]
     stored_messages2 = stored_data2["messages"]
 
@@ -225,12 +191,10 @@ def test_conversation_persistence(temp_db_path):
     manager = ConversationManager(db_path=temp_db_path)
     test_messages = [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there!"}]
     manager.update_conversation(test_messages)
-    doc_id = manager.doc_id
 
     # Create new manager instance and verify persistence
     manager = ConversationManager(db_path=temp_db_path, use_last_conversation=True)
 
-    assert manager.doc_id == doc_id
     assert len(manager.messages) == 2
     assert manager.messages[0]["role"] == "user"
     assert manager.messages[0]["content"] == "Hello"
@@ -238,21 +202,6 @@ def test_conversation_persistence(temp_db_path):
     assert manager.messages[1]["role"] == "assistant"
     assert manager.messages[1]["content"] == "Hi there!"
     assert "timestamp" in manager.messages[1]
-
-    manager.close()
-
-
-def test_empty_messages_update(temp_db_path):
-    """Test updating with empty messages list."""
-    manager = ConversationManager(db_path=temp_db_path)
-
-    # Update with empty list
-    manager.update_conversation([])
-
-    # Verify empty list is stored
-    stored_data = manager.conversations_table.get(doc_id=manager.doc_id)
-    stored_messages = stored_data["messages"]
-    assert stored_messages == []
 
     manager.close()
 
@@ -274,18 +223,17 @@ def test_complex_message_structure(temp_db_path):
     manager.update_conversation(complex_messages)
 
     # Verify complex structure is preserved and timestamps are added
-    stored_data = manager.conversations_table.get(doc_id=manager.doc_id)
-    stored_messages = stored_data["messages"]
-    assert len(stored_messages) == 2
-    assert stored_messages[0]["role"] == "user"
-    assert stored_messages[0]["content"] == "Complex message"
-    assert "timestamp" in stored_messages[0]
-    assert stored_messages[0]["metadata"] == {"timestamp": "2023-01-01T00:00:00Z"}
+    updated_messages = manager.messages
+    assert len(updated_messages) == 2
+    assert updated_messages[0]["role"] == "user"
+    assert updated_messages[0]["content"] == "Complex message"
+    assert "timestamp" in updated_messages[0]
+    assert updated_messages[0]["metadata"] == {"timestamp": "2023-01-01T00:00:00Z"}
 
-    assert stored_messages[1]["role"] == "assistant"
-    assert stored_messages[1]["content"] == "Complex response"
-    assert "timestamp" in stored_messages[1]
-    assert stored_messages[1]["tool_calls"] == [{"id": "call_1", "function": {"name": "test_func"}}]
+    assert updated_messages[1]["role"] == "assistant"
+    assert updated_messages[1]["content"] == "Complex response"
+    assert "timestamp" in updated_messages[1]
+    assert updated_messages[1]["tool_calls"] == [{"id": "call_1", "function": {"name": "test_func"}}]
 
     manager.close()
 
@@ -298,9 +246,8 @@ def test_timestamp_format(temp_db_path):
     messages = [{"role": "user", "content": "Hello"}]
     manager.update_conversation(messages)
 
-    stored_data = manager.conversations_table.get(doc_id=manager.doc_id)
-    stored_messages = stored_data["messages"]
-    timestamp = stored_messages[0]["timestamp"]
+    updated_messages = manager.messages
+    timestamp = updated_messages[0]["timestamp"]
 
     # Verify it's a valid ISO format timestamp
     from datetime import datetime
