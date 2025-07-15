@@ -27,7 +27,7 @@ HUGGINGFACE_TEST_MODELS = [
     HuggingFaceClient.MODEL_MISTRAL_7B,
     HuggingFaceClient.MODEL_QWEN_3_8B,
     HuggingFaceClient.MODEL_PHI_4_MINI_3_8B,
-    HuggingFaceClient.MODEL_SMOLLM3_3B
+    HuggingFaceClient.MODEL_SMOLLM3_3B,
 ]
 
 

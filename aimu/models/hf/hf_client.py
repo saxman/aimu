@@ -46,14 +46,10 @@ class HuggingFaceClient(ModelClient):
         MODEL_MISTRAL_SMALL_3_2_24B,  ## Potential tokenizer issue with this model
         MODEL_QWEN_3_8B,
         MODEL_LLAMA_3_2_3B,
-        MODEL_SMOLLM3_3B
+        MODEL_SMOLLM3_3B,
     ]
 
-    THINKING_MODELS = [
-        MODEL_QWEN_3_8B,
-        MODEL_DEEPSEEK_R1_8B,
-        MODEL_SMOLLM3_3B
-    ]
+    THINKING_MODELS = [MODEL_QWEN_3_8B, MODEL_DEEPSEEK_R1_8B, MODEL_SMOLLM3_3B]
 
     DEFAULT_MODEL_KWARGS = {
         "device_map": "auto",
