@@ -292,7 +292,7 @@ def test_complex_message_structure(temp_db_path):
 
 def test_timestamp_format(temp_db_path):
     """Test that timestamps are in ISO format."""
-    
+
     manager = ConversationManager(db_path=temp_db_path)
 
     messages = [{"role": "user", "content": "Hello"}]
