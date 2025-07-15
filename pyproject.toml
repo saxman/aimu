@@ -13,6 +13,7 @@ dependencies = [
     "fastmcp",
     "nest_asyncio",
     "streamlit",
+    "watchdog",
     "tinydb",
 ]
 
