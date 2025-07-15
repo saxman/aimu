@@ -28,9 +28,8 @@ class ConversationManager:
         # Add timestamp to new messages that don't already have one
         timestamp = datetime.now().isoformat()
         for message in messages[len(self.messages) :]:
-            if "timestamp" not in message:
-                message["timestamp"] = timestamp
-                self.messages.append(message)
+            message["timestamp"] = timestamp
+            self.messages.append(message)
 
         self.conversations_table.update({"messages": self.messages}, doc_ids=[self.doc_id])
 
