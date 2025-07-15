@@ -1,6 +1,7 @@
 from aimu import paths
 from aimu.models import HuggingFaceClient, OllamaClient
 from aimu.tools import MCPClient
+from aimu.memory import ConversationManager
 
 import streamlit as st
 import torch
@@ -37,6 +38,12 @@ if "model_client" not in st.session_state:
     st.session_state.mcp_client = MCPClient(MCP_SERVERS)
     st.session_state.model_client.mcp_client = st.session_state.mcp_client
 
+    st.session_state.conversation_manager = ConversationManager(
+        db_path=str(paths.output / "chat_history.json"),
+        use_last_conversation=True,
+    )
+    st.session_state.model_client.messages = st.session_state.conversation_manager.messages
+
 with st.sidebar:
     st.title("AIMU Chatbot")
     st.write("Example AI Assistant")
@@ -69,7 +76,11 @@ with st.sidebar:
         st.rerun()
 
     if st.button("Reset chat"):
+        # Create a new conversation that will be used as the "last" conversation when the app is reloaded.
+        st.session_state.conversation_manager.create_new_conversation()
+
         st.session_state.clear()
+        st.rerun()
 
 # Either generate and stream the initial user message response or display the chat message history.
 if len(st.session_state.model_client.messages) == 0:
@@ -86,6 +97,10 @@ if len(st.session_state.model_client.messages) == 0:
 
     with st.chat_message("assistant"):
         response = st.write_stream(streamed_response)
+    
+    st.session_state.conversation_manager.update_conversation(
+        st.session_state.model_client.messages
+    )
 else:
     # Only render assistant and user messages (not tool messages) and not the system message and initial user message.
     messages = [
@@ -111,6 +126,10 @@ if prompt := st.chat_input("What's up?"):
 
     with st.chat_message("assistant"):
         st.write_stream(streamed_response)
+    
+    st.session_state.conversation_manager.update_conversation(
+        st.session_state.model_client.messages
+    )
 
 # TODO: Determine better layout
 with st.popover("Messages"):
