@@ -5,33 +5,42 @@ from datetime import datetime
 
 class ConversationManager:
     def __init__(self, db_path: str = "chat_history.json", use_last_conversation: bool = False):
-        self.db_path = db_path
-        self.db = TinyDB(db_path)
-        self.conversations_table = self.db.table("conversations")
+        self.__db_path = db_path
+        
+        self.__db = TinyDB(db_path)
+        self.__conversations_table = self.__db.table("conversations")
 
-        all = self.conversations_table.all()
+        all = self.__conversations_table.all()
         if use_last_conversation and len(all) > 0:
             last = all[-1]
-            self.doc_id = last.doc_id
-            self.messages = self.conversations_table.get(doc_id=last.doc_id)["messages"]
+            doc_id = last.doc_id
+            messages = self.__conversations_table.get(doc_id=last.doc_id)["messages"]
         else:
-            self.doc_id, self.messages = self.create_new_conversation()
+            doc_id, messages = self.create_new_conversation()
+        
+        self.__doc_id = doc_id
+        self.__messages = messages
 
     def __del__(self):
-        self.db.close()
+        self.__db.close()
 
     def create_new_conversation(self) -> tuple[str, list]:
         messages = []
-        return self.conversations_table.insert({"messages": messages}), messages
+        return self.__conversations_table.insert({"messages": messages}), messages
+
+    @property
+    def messages(self) -> List[Dict[str, Any]]:
+        return self.__messages.copy()
 
     def update_conversation(self, messages: List[Dict[str, Any]]) -> None:
-        # Add timestamp to new messages that don't already have one
+        # Add a timestamp to new messages
         timestamp = datetime.now().isoformat()
+        
         for message in messages[len(self.messages) :]:
             message["timestamp"] = timestamp
-            self.messages.append(message)
+            self.__messages.append(message)
 
-        self.conversations_table.update({"messages": self.messages}, doc_ids=[self.doc_id])
+        self.__conversations_table.update({"messages": self.__messages}, doc_ids=[self.__doc_id])
 
     def close(self) -> None:
-        self.db.close()
+        self.__db.close()
