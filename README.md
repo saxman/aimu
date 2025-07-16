@@ -11,7 +11,9 @@ A Python package containing tools for working with various language models and A
 
 - **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities
 
-- **Prompt Management**: SQLAlchemy-based prompt catalog for storing and versioning prompts
+- **Chat Conversation (Memory) Storage/Management**: TinyDB-based memory for chat conversations
+
+- **Prompt Storage/Management**: SQLAlchemy-based prompt catalog for storing and versioning prompts
 
 ## Installation
 
@@ -92,7 +94,7 @@ model_client.chat(
 )
 ```
 
-### Chat Conversation Management
+### Chat Conversation Storage/Management
 ```python
 from aimu.models import OllamaClient as ModelClient
 from aimu.memory import ConversationManager
