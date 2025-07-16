@@ -17,8 +17,22 @@ A Python package containing tools for working with various language models and A
 
 ## Installation
 
+AIMU can be installed with Ollama support, Hugging Face (Transformers) support, or both! For both, simply install the full package.
+
 ```bash
 pip install aimu
+```
+
+Alternatively, for Ollama-only support:
+
+```bash
+pip install aimu[ollama]
+```
+
+Or for Hugging Face:
+
+```bash
+pip install aimu[hf]
 ```
 
 ## Development
