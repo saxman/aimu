@@ -5,7 +5,6 @@ Tests for ConversationManager class.
 import pytest
 import os
 import tempfile
-from unittest.mock import patch
 from tinydb import TinyDB
 
 from aimu.memory import ConversationManager
