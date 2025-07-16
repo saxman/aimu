@@ -1,6 +1,6 @@
 # AIMU - AI Model Utilities
 
-A Python package containing tools for working with various language models and AI services. AIMU is specifically designed for running models locally, using Ollama or Hugging Face Transformers. However, it can also be used with cloud models (OpenAI, Anthropic, Google, etc.) with experimental aisuite support.
+A Python package containing easy to use tools for working with various language models and AI services. AIMU is specifically designed for running models locally, using Ollama or Hugging Face Transformers. However, it can also be used with cloud models (OpenAI, Anthropic, Google, etc.) with experimental aisuite support.
 
 ## Features
 
