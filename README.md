@@ -34,21 +34,31 @@ pip install -e '.[dev]'
 
 ## Usage
 
-### Basic Model Usage
+### Text Generation
 
 ```python
-from aimu.models import OllamaClient, HuggingFaceClient
+from aimu.models import OllamaClient as ModelClient ## or HuggingFaceClient
 
-# Using Ollama
-client = OllamaClient(OllamaClient.MODEL_LLAMA_3_1_8B)
-response = client.generate("What is the capital of France?", {"temperature": 0.7})
-
-# Using Hugging Face
-hf_client = HuggingFaceClient(HuggingFaceClient.MODEL_LLAMA_3_1_8B)
-response = hf_client.chat({"role": "user", "content": "Hello!"})
+model_client = ModelClient(ModelClient.MODEL_LLAMA_3_1_8B)
+response = model_client.generate("What is the capital of France?", {"temperature": 0.7})
 ```
 
-### Tool usage
+### Chat
+```python
+from aimu.models import OllamaClient as ModelClient
+
+model_client = ModelClient(ModelClient.MODEL_LLAMA_3_1_8B)
+model_client.messages = [
+    {
+        "role": "system",
+        "content": "You are a helpful assistant."
+    }
+]
+
+response = model_client.chat("What is the capital of France?")
+```
+
+### MCP Tool Usage
 
 ```python
 from aimu.tools import MCPClient
@@ -62,9 +72,9 @@ mcp_client = MCPClient({
 mcp_client.call_tool("mytool", {"input": "hello world!"})
 ```
 
-### Tool usage with ModelClients
+### MCP Tool Usage with ModelClients
 ```python
-from aimu.models import OllamaClient
+from aimu.models import OllamaClient as ModelClient
 from aimu.tools import MCPClient
 
 mcp_client = MCPClient({
@@ -73,18 +83,31 @@ mcp_client = MCPClient({
     }
 })
 
-model_client = OllamaClient(OllamaClient.MODEL_LLAMA_3_1_8B)
+model_client = ModelClient(ModelClient.MODEL_LLAMA_3_1_8B)
+model_client.mcp_client = mcp_client
 
 model_client.chat(
-  {
-    "role": "user",
-    "content": "Use my tool please."
-  },
+  "use my tool please",
   tools=mcp_client.get_tools()
 )
 ```
 
-### Prompt Management
+### Chat Conversation Management
+```python
+from aimu.models import OllamaClient as ModelClient
+from aimu.memory import ConversationManager
+
+chat_manager = ConversationManager("conversations.json", use_last_conversation=True) # loads the last saved convesation
+
+model_client = new ModelClient(ModelClient.MODEL_LLAMA_3_1_8B)
+model_client.messages = chat_manager.messages
+
+model_client.chat("What is the capital of France?")
+
+chat_manager.update_conversation(model_client.messages) # store the updated conversation
+```
+
+### Prompt Storage/Management
 
 ```python
 from aimu.prompts import PromptCatalog, Prompt
