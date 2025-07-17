@@ -6,7 +6,7 @@ from datetime import datetime
 class ConversationManager:
     def __init__(self, db_path: str = "chat_history.json", use_last_conversation: bool = False):
         self.__db_path = db_path
-        
+
         self.__db = TinyDB(db_path)
         self.__conversations_table = self.__db.table("conversations")
 
@@ -17,7 +17,7 @@ class ConversationManager:
             messages = self.__conversations_table.get(doc_id=last.doc_id)["messages"]
         else:
             doc_id, messages = self.create_new_conversation()
-        
+
         self.__doc_id = doc_id
         self.__messages = messages
 
@@ -35,7 +35,7 @@ class ConversationManager:
     def update_conversation(self, messages: List[Dict[str, Any]]) -> None:
         # Add a timestamp to new messages
         timestamp = datetime.now().isoformat()
-        
+
         for message in messages[len(self.messages) :]:
             message["timestamp"] = timestamp
             self.__messages.append(message)
