@@ -29,7 +29,7 @@ class ClassificationPromptTuner:
 
         self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
 
-        # Adjust for reasoning models
+        # Reasoning models need more generation tokens (for thinking) and a higher temperature for better results
         if model_client.model_id in model_client.THINKING_MODELS:
             self.generate_kwargs.update(
                 {
@@ -62,7 +62,7 @@ class ClassificationPromptTuner:
         # iterate using a basic hill climbing approach until a prompt is found that classifies w/100% accuracy
         while True:
             # Test current prompt
-            df_data = self.classift_date(df_data)
+            df_data = self.classify_data(df_data)
             metrics = self.evaluate_results(df_data)
 
             out = f"results: iteration: {iteration}, mutation: {mutation} - precision: {metrics['precision']:.2f}. recall: {metrics['recall']:.2f}, accuracy: {metrics['accuracy']:.2f}"
@@ -134,11 +134,9 @@ class ClassificationPromptTuner:
             logger.info(f"processed classification results: {result}")
 
             if "[yes]" in result.lower():
-                # predicted_class.append(True)
-                predicted_class.append("[YES]")
+                predicted_class.append(True)
             elif "[no]" in result.lower():
-                # predicted_class.append(False)
-                predicted_class.append("[NO]")
+                predicted_class.append(False)
             else:
                 raise ValueError(f"unexpected classification result: {result}")
 
@@ -152,19 +150,19 @@ class ClassificationPromptTuner:
         Evaluate classification results and return metrics.
 
         Args:
-            data: DataFrame with 'is_modeling' and 'predict_modeling' columns
+            data: DataFrame with 'actual_class' and 'predicted_class' columns
 
         Returns:
             Dictionary with accuracy, precision, and recall metrics
         """
 
-        true_pos = len(data.query("is_modeling == True and predict_modeling == True"))
-        true_neg = len(data.query("is_modeling == False and predict_modeling == False"))
+        true_pos = len(data.query("actual_class == True and predicted_class == True"))
+        true_neg = len(data.query("actual_class == False and predicted_class == False"))
 
         accuracy = (true_pos + true_neg) / len(data)
-        pos = len(data.query("predict_modeling == True"))
+        pos = len(data.query("predicted_class == True"))
         precision = true_pos / pos if pos > 0 else 0
-        pos = len(data.query("is_modeling == True"))
+        pos = len(data.query("actual_class == True"))
         recall = true_pos / pos if pos > 0 else 0
 
         return {"accuracy": accuracy, "precision": precision, "recall": recall}
