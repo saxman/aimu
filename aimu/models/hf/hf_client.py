@@ -66,7 +66,7 @@ class HuggingFaceClient(ModelClient):
         "num_beams": 1,
     }
 
-    def __init__(self, model_id: str, model_kwargs: dict = DEFAULT_MODEL_KWARGS, system_message: str = None):
+    def __init__(self, model_id: str, model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(), system_message: str = None):
         super().__init__(model_id, model_kwargs, system_message)
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, attn_implementation="eager")
@@ -85,7 +85,18 @@ class HuggingFaceClient(ModelClient):
             logger.info("Emptying MPS cache")
             torch.mps.empty_cache()
 
-    def generate(self, prompt: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS) -> str:
+    def _update_generate_kwargs(self, generate_kwargs) -> None:
+        if "max_tokens" in generate_kwargs:
+            generate_kwargs["max_new_tokens"] = generate_kwargs.pop("max_tokens")
+
+        if "repeat_penalty" in generate_kwargs:
+            generate_kwargs["repetition_penalty"] = generate_kwargs.pop("repeat_penalty")
+
+        return generate_kwargs
+
+    def generate(self, prompt: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy()) -> str:
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
         messages = [{"role": "user", "content": prompt}]
 
         text = self.tokenizer.apply_chat_template(
@@ -100,7 +111,9 @@ class HuggingFaceClient(ModelClient):
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
         return self.tokenizer.decode(output_ids, skip_special_tokens=True)
 
-    def generate_streamed(self, prompt: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS) -> Iterator[str]:
+    def generate_streamed(self, prompt: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy()) -> Iterator[str]:
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
         streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
 
         messages = [{"role": "user", "content": prompt}]
@@ -117,21 +130,20 @@ class HuggingFaceClient(ModelClient):
         for response_part in streamer:
             yield response_part
 
-    def _chat(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> None:
-        # Add system message if it's the first user message and system_message is set
-        if len(self.messages) == 0 and self.system_message:
-            self.messages.append({"role": self.system_role, "content": self.system_message})
-
-        # Add user message
-        self.messages.append({"role": "user", "content": user_message})
-
-        if "repeat_penalty" in generate_kwargs:
-            generate_kwargs["repetition_penalty"] = generate_kwargs.pop("repeat_penalty")
+    def _chat(self, user_message: str, generate_kwargs, tools: dict = None) -> None:
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if tools and self.model_id not in self.TOOL_MODELS:
             raise ValueError(
                 f"Tool usage is not supported for model {self.model_id}. Supported models: {self.TOOL_MODELS}"
             )
+
+        # Add system message if it's the first user message and system_message is set
+        if len(self.messages) == 0 and self.system_message:
+            self.messages.append({"role": "system", "content": self.system_message}) ## TODO: not all models support system messages
+
+        # Add user message
+        self.messages.append({"role": "user", "content": user_message})
 
         return
 
@@ -179,7 +191,7 @@ class HuggingFaceClient(ModelClient):
 
         return
 
-    def chat(self, user_message: str, generate_kwargs: dict = {}, tools: dict = None) -> str:
+    def chat(self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), tools: dict = None) -> str:
         self._chat(user_message, generate_kwargs, tools)
 
         response = self._chat_generate(generate_kwargs, tools)
@@ -234,7 +246,7 @@ class HuggingFaceClient(ModelClient):
 
         return response
 
-    def chat_streamed(self, user_message: str, generate_kwargs: dict = {}, tools: dict = None) -> Iterator[str]:
+    def chat_streamed(self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), tools: dict = None) -> Iterator[str]:
         self._chat(user_message, generate_kwargs, tools)
 
         if not hasattr(self, "streamer"):
@@ -243,9 +255,11 @@ class HuggingFaceClient(ModelClient):
         self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
 
         content = ""
+        eos = "" # TODO: set eos based on tokenizer
 
         # If the model is Qwen, the we can't stream the response since we need to process the entire response to detect tool calls
         # TODO: figure out how to stream non-tool call responses for Qwen models
+        # TODO: combine this with other thinking models
         if "qwen" in self.model_id:
             response = ""
             for response_part in self.streamer:
