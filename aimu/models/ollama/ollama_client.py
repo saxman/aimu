@@ -35,7 +35,7 @@ class OllamaClient(ModelClient):
         MODEL_QWEN_3_8B,
         # MODEL_LLAMA_3_1_8B, ## Tools not fully supported by model
         MODEL_LLAMA_3_2_3B,
-        # MODEL_PHI_4_MINI_3_8B, ## Tools not fully supported by Ollama
+        MODEL_PHI_4_MINI_3_8B,
     ]
 
     THINKING_MODELS = [
@@ -50,7 +50,7 @@ class OllamaClient(ModelClient):
 
         ollama.pull(model_id)
 
-    def _update_generate_kwargs(self, generate_kwargs: dict) -> None:
+    def _update_generate_kwargs(self, generate_kwargs: dict) -> dict[str, str]:
         if generate_kwargs and "max_tokens" in generate_kwargs:
             generate_kwargs["num_predict"] = generate_kwargs.pop("max_tokens")
 
@@ -76,17 +76,17 @@ class OllamaClient(ModelClient):
     def _chat(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
+        if tools and self.model_id not in OllamaClient.TOOL_MODELS:
+            raise ValueError(
+                f"Model {self.model_id} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}"
+            )
+
         # Add system message if it's the first user message and system_message is set
         if len(self.messages) == 0 and self.system_message:
             self.messages.append({"role": "system", "content": self.system_message})
 
         # Add user message
         self.messages.append({"role": "user", "content": user_message})
-
-        if tools and self.model_id not in OllamaClient.TOOL_MODELS:
-            raise ValueError(
-                f"Model {self.model_id} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}"
-            )
 
     def chat(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> str:
         self._chat(user_message, generate_kwargs, tools)
@@ -128,7 +128,7 @@ class OllamaClient(ModelClient):
 
         # If the model is thinking, we need to capture the thinking before processing tools and streaming the response.
         thinking = ""
-        if response_part["message"].thinking and tools:
+        if response_part["message"].thinking:
             thinking = response_part["message"].thinking
             for response_part in response:
                 if response_part["message"].thinking:
@@ -156,7 +156,7 @@ class OllamaClient(ModelClient):
 
             # For the response after the tool call, we need to capture the thinking again if it exists.
             thinking = ""
-            if response_part["message"].thinking and tools:
+            if response_part["message"].thinking:
                 thinking = response_part["message"].thinking
                 for response_part in response:
                     if response_part["message"].thinking:
