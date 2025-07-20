@@ -21,6 +21,8 @@ class ModelClient:
 
     MODEL_QWEN_3_8B = None
 
+    MODEL_SMOLLM3_3B = None
+
     MODEL_GPT_4O_MINI = None
     MODEL_GPT_4O = None
 
@@ -40,3 +42,60 @@ class ModelClient:
         self.messages = []
 
         self.mcp_client = None
+
+    def _handle_tool_calls(self, tool_calls, tools: dict) -> None:
+        message = {"role": "assistant"}
+        self.messages.append(message)
+
+        # If we're processing tool calls from Ollama, we need to convert the calls to a dictionary
+        if hasattr(tool_calls[0], "function"):
+            calls = []
+            for tool_call in tool_calls:
+                calls.append(
+                    {
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments,
+                    }
+                )
+            tool_calls = calls
+
+        message["tool_calls"] = []
+        for tool_call in tool_calls:
+            message["tool_calls"].append(
+                {
+                    "type": "function",
+                    "function": {"name": tool_call["name"], "arguments": tool_call["arguments"]},
+                }
+            )
+
+            for tool in tools:
+                # If the tool is a callable python function, call it directly. Otherwise, use the MCP client to call the tool.
+                if hasattr(tool, "__call__") and tool.__name__ == tool_call["name"]:
+                    tool_response = tool(**tool_call["arguments"])
+
+                    self.messages.append({"role": "tool", "name": tool_call["name"], "content": str(tool_response)})
+
+                    break
+                elif tool["type"] == "function" and tool["function"]["name"] == tool_call["name"]:
+                    if self.mcp_client is None:
+                        raise ValueError(
+                            "MCP client not initialized. Please initialize and assign an MCP client before using MCP tools."
+                        )
+
+                    tool_response = self.mcp_client.call_tool(tool["function"]["name"], tool_call["arguments"])
+
+                    content = ""
+                    if len(tool_response.content) > 0:
+                        # TODO: handle different tool response types, errors, and multiple responses
+                        if tool_response.content[0].type != "text":
+                            raise ValueError(
+                                f"Tool response type {tool_response.content[0].type} not supported. Supported types: text"
+                            )
+
+                        content = tool_response.content[0].text
+
+                    self.messages.append({"role": "tool", "name": tool["function"]["name"], "content": content})
+
+                    break
+
+        return
