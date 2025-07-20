@@ -1,4 +1,4 @@
-from ..models import ModelClient
+from ..models import Model, ModelClient
 
 import logging
 from typing import Iterator
@@ -11,46 +11,53 @@ except ImportError:
     ollama = None
 
 
+class OllamaModel(Model):
+    LLAMA_3_1_8B = "llama3.1:8b"
+    LLAMA_3_2_3B = "llama3.2:3b"
+    LLAMA_3_3_70B = "llama3.3:70b"
+
+    GEMMA_3_12B = "gemma3:12b"
+
+    PHI_4_14B = "phi4:14b"
+    PHI_4_MINI_3_8B = "phi4-mini:3.8b"
+
+    DEEPSEEK_R1_8B = "deepseek-r1:8b"
+
+    MISTRAL_7B = "mistral:7b"
+    MISTRAL_NEMO_12B = "mistral-nemo:12b"
+    MISTRAL_SMALL_3_2_24B = "mistral-small3.2:24b"
+
+    QWEN_3_8B = "qwen3:8b"
+
+    SMOLLM2_1_7B = "smolm2:1.7b"
+
+
 class OllamaClient(ModelClient):
-    MODEL_LLAMA_3_1_8B = "llama3.1:8b"
-    MODEL_LLAMA_3_2_3B = "llama3.2:3b"
-    MODEL_LLAMA_3_3_70B = "llama3.3:70b"
-
-    MODEL_GEMMA_3_12B = "gemma3:12b"
-
-    MODEL_PHI_4_14B = "phi4:14b"
-    MODEL_PHI_4_MINI_3_8B = "phi4-mini:3.8b"
-
-    MODEL_DEEPSEEK_R1_8B = "deepseek-r1:8b"
-
-    MODEL_MISTRAL_7B = "mistral:7b"
-    MODEL_MISTRAL_NEMO_12B = "mistral-nemo:12b"
-    MODEL_MISTRAL_SMALL_3_2_24B = "mistral-small3.2:24b"
-
-    MODEL_QWEN_3_8B = "qwen3:8b"
-
-    MODEL_SMOLLM2_1_7B = "smolm2:1.7b"
+    MODELS = OllamaModel
 
     TOOL_MODELS = [
-        MODEL_MISTRAL_SMALL_3_2_24B,
-        MODEL_MISTRAL_NEMO_12B,
-        MODEL_QWEN_3_8B,
-        MODEL_LLAMA_3_2_3B,
-        MODEL_PHI_4_MINI_3_8B,
-        MODEL_SMOLLM2_1_7B,
+        MODELS.MISTRAL_7B,
+        MODELS.MISTRAL_NEMO_12B,
+        MODELS.MISTRAL_SMALL_3_2_24B,
+        MODELS.QWEN_3_8B,
+        MODELS.LLAMA_3_1_8B,
+        MODELS.LLAMA_3_2_3B,
+        MODELS.LLAMA_3_3_70B,
+        MODELS.PHI_4_MINI_3_8B,
+        MODELS.SMOLLM2_1_7B,
     ]
 
     THINKING_MODELS = [
-        MODEL_DEEPSEEK_R1_8B,
-        MODEL_QWEN_3_8B,
+        MODELS.DEEPSEEK_R1_8B,
+        MODELS.QWEN_3_8B,
     ]
 
-    def __init__(self, model_id: str, system_message: str = None):
-        super().__init__(model_id, None, system_message)
+    def __init__(self, model: OllamaModel, system_message: str = None):
+        super().__init__(model, None, system_message)
 
-        self.thinking = True if model_id in self.THINKING_MODELS else False
+        self.thinking = True if model in self.THINKING_MODELS else False
 
-        ollama.pull(model_id)
+        ollama.pull(model.value)
 
     def _update_generate_kwargs(self, generate_kwargs: dict) -> dict[str, str]:
         if generate_kwargs and "max_tokens" in generate_kwargs:
@@ -61,7 +68,7 @@ class OllamaClient(ModelClient):
     def generate(self, prompt: str, generate_kwargs: dict = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        response = ollama.generate(model=self.model_id, prompt=prompt, options=generate_kwargs, think=self.thinking)
+        response = ollama.generate(model=self.model, prompt=prompt, options=generate_kwargs, think=self.thinking)
 
         return response["response"] if not self.thinking else response.response
 
@@ -69,7 +76,7 @@ class OllamaClient(ModelClient):
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         response = ollama.generate(
-            model=self.model_id, prompt=prompt, options=generate_kwargs, stream=True, think=self.thinking
+            model=self.model, prompt=prompt, options=generate_kwargs, stream=True, think=self.thinking
         )
 
         for response_part in response:
@@ -78,10 +85,8 @@ class OllamaClient(ModelClient):
     def _chat(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        if tools and self.model_id not in OllamaClient.TOOL_MODELS:
-            raise ValueError(
-                f"Model {self.model_id} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}"
-            )
+        if tools and self.model not in OllamaClient.TOOL_MODELS:
+            raise ValueError(f"Model {self.model} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}")
 
         # Add system message if it's the first user message and system_message is set
         if len(self.messages) == 0 and self.system_message:
@@ -94,7 +99,7 @@ class OllamaClient(ModelClient):
         self._chat(user_message, generate_kwargs, tools)
 
         response = ollama.chat(
-            model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
+            model=self.model, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
         )
 
         if response["message"].tool_calls:
@@ -104,7 +109,7 @@ class OllamaClient(ModelClient):
                 self.messages[-2]["thinking"] = response["message"].thinking
 
             response = ollama.chat(
-                model=self.model_id, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
+                model=self.model, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
             )
 
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
@@ -118,7 +123,7 @@ class OllamaClient(ModelClient):
         self._chat(user_message, generate_kwargs, tools)
 
         response = ollama.chat(
-            model=self.model_id,
+            model=self.model,
             messages=self.messages,
             options=generate_kwargs,
             tools=tools,
@@ -146,7 +151,7 @@ class OllamaClient(ModelClient):
                 thinking = ""
 
             response = ollama.chat(
-                model=self.model_id,
+                model=self.model,
                 messages=self.messages,
                 options=generate_kwargs,
                 tools=tools,
