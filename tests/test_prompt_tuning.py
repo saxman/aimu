@@ -7,14 +7,14 @@ import pandas as pd
 
 @pytest.fixture(scope="session")
 def model_client():
-    client = OllamaClient(OllamaClient.MODEL_LLAMA_3_2_3B)
+    client = OllamaClient(OllamaClient.MODELS.LLAMA_3_2_3B)
     yield client
     del client
 
 
 @pytest.fixture(scope="session")
 def thinking_model_client():
-    client = OllamaClient(OllamaClient.MODEL_QWEN_3_8B)
+    client = OllamaClient(OllamaClient.MODELS.QWEN_3_8B)
     yield client
     del client
 
