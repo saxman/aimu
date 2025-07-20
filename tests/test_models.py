@@ -159,9 +159,9 @@ def test_chat_with_tools(model_client):
     assert "27" in response
 
     if model_client.model_id in model_client.THINKING_MODELS:
-        # If the model supports thinking, we should have a thinking message
+        # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
         assert "thinking" in model_client.messages[-1]
-        assert isinstance(model_client.messages[-1]["thinking"], str)
+        assert "thinking" in model_client.messages[-3]
 
 
 def test_chat_streamed_with_tools(model_client):
@@ -182,7 +182,9 @@ def test_chat_streamed_with_tools(model_client):
 
     # If the model does not support tools, we should see an error
     if model_client.model_id not in model_client.TOOL_MODELS:
-        pytest.skip("Model does not support tools") ## TODO: figure out why we're not getting the error here. especially since we're getting it with chat_with_tools above
+        pytest.skip(
+            "Model does not support tools"
+        )  ## TODO: figure out why we're not getting the error here. especially since we're getting it with chat_with_tools above
         # with pytest.raises(ValueError):
         #     model_client.chat_streamed("What is the temperature in Paris?", tools=mcp_client.get_tools())
         return
@@ -198,9 +200,9 @@ def test_chat_streamed_with_tools(model_client):
     assert "27" in content
 
     if model_client.model_id in model_client.THINKING_MODELS:
-        # If the model supports thinking, we should have a thinking message
+        # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
         assert "thinking" in model_client.messages[-1]
-        assert isinstance(model_client.messages[-1]["thinking"], str)
+        assert "thinking" in model_client.messages[-3]
 
 
 def test_thiking(model_client):
