@@ -1,4 +1,4 @@
-from ..models import ModelClient
+from ..models import Model, ModelClient
 
 import gc
 import pprint
@@ -23,37 +23,53 @@ except ImportError:
     TextIteratorStreamer = None
 
 
+class HuggingFaceModel(Model):
+    LLAMA_3_1_8B = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    # LLAMA_3_2_3B = "meta-llama/Llama-3.2-3B-Instruct"
+
+    DEEPSEEK_R1_8B = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+
+    GEMMA_3_12B = "google/gemma-3-12b-it"
+
+    PHI_4_14B = "microsoft/phi-4"
+    PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
+
+    MISTRAL_7B = "mistralai/Mistral-7B-Instruct-v0.3"
+    MISTRAL_NEMO_12B = "mistralai/Mistral-Nemo-Instruct-2407"
+    MISTRAL_SMALL_3_2_24B = "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
+
+    QWEN_3_8B = "Qwen/Qwen3-8B"
+
+    SMOLLM3_3B = "HuggingFaceTB/SmolLM3-3B"
+
+
 class HuggingFaceClient(ModelClient):
-    MODEL_LLAMA_3_1_8B = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    MODEL_LLAMA_3_2_3B = "meta-llama/Llama-3.2-3B-Instruct"
-
-    MODEL_DEEPSEEK_R1_8B = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
-
-    MODEL_GEMMA_3_12B = "google/gemma-3-12b-it"
-
-    MODEL_PHI_4_14B = "microsoft/phi-4"
-    MODEL_PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
-
-    MODEL_MISTRAL_7B = "mistralai/Mistral-7B-Instruct-v0.3"
-    MODEL_MISTRAL_NEMO_12B = "mistralai/Mistral-Nemo-Instruct-2407"
-    MODEL_MISTRAL_SMALL_3_2_24B = "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
-
-    MODEL_QWEN_3_8B = "Qwen/Qwen3-8B"
-
-    MODEL_SMOLLM3_3B = "HuggingFaceTB/SmolLM3-3B"
+    MODELS = HuggingFaceModel
 
     TOOL_MODELS = [
-        MODEL_MISTRAL_SMALL_3_2_24B,  ## Potential tokenizer issue with this model
-        MODEL_QWEN_3_8B,
-        MODEL_LLAMA_3_2_3B,
-        MODEL_SMOLLM3_3B,
+        MODELS.MISTRAL_7B,
+        MODELS.MISTRAL_NEMO_12B,
+        MODELS.MISTRAL_SMALL_3_2_24B,
+        MODELS.QWEN_3_8B,
+        MODELS.LLAMA_3_1_8B,
+        # MODELS.LLAMA_3_2_3B,
+        MODELS.PHI_4_MINI_3_8B,
     ]
 
-    THINKING_MODELS = [MODEL_QWEN_3_8B, MODEL_DEEPSEEK_R1_8B, MODEL_SMOLLM3_3B]
+    THINKING_MODELS = [
+        MODELS.DEEPSEEK_R1_8B,
+        MODELS.QWEN_3_8B,
+        MODELS.SMOLLM3_3B,
+    ]
 
     DEFAULT_MODEL_KWARGS = {
         "device_map": "auto",
         "torch_dtype": "auto",
+    }
+
+    # TODO: add more models and enable use by clients
+    DEFAULT_MODEL_TEMPERATURES = {
+        MODELS.MISTRAL_NEMO_12B: 0.3,
     }
 
     DEFAULT_GENERATE_KWARGS = {
@@ -66,11 +82,13 @@ class HuggingFaceClient(ModelClient):
         "num_beams": 1,
     }
 
-    def __init__(self, model_id: str, model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(), system_message: str = None):
-        super().__init__(model_id, model_kwargs, system_message)
+    def __init__(
+        self, model: HuggingFaceModel, model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(), system_message: str = None
+    ):
+        super().__init__(model, model_kwargs, system_message)
 
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, attn_implementation="eager")
-        self.model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
+        self.tokenizer = AutoTokenizer.from_pretrained(model.value, attn_implementation="eager")
+        self.model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
 
     def __del__(self):
         del self.model
@@ -133,9 +151,9 @@ class HuggingFaceClient(ModelClient):
     def _chat(self, user_message: str, generate_kwargs, tools: dict = None) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        if tools and self.model_id not in self.TOOL_MODELS:
+        if tools and self.model not in self.TOOL_MODELS:
             raise ValueError(
-                f"Tool usage is not supported for model {self.model_id}. Supported models: {self.TOOL_MODELS}"
+                f"Tool usage is not supported for model {self.model}. Supported models: {self.TOOL_MODELS}"
             )
 
         # Add system message if it's the first user message and system_message is set
@@ -175,12 +193,12 @@ class HuggingFaceClient(ModelClient):
         eos_token = self.tokenizer.eos_token if self.tokenizer.eos_token else ""
 
         thinking = ""
-        if self.model_id in self.THINKING_MODELS and response.startswith("<think>"):
+        if self.model in self.THINKING_MODELS and response.startswith("<think>"):
             thinking = response[len("<think>") : response.index("</think>")]
             response = response[response.index("</think>") + len("</think>") :].strip()
 
         # <tool_call>{"name": "get_current_weather", "arguments": {"location": "Paris"}}</tool_call>
-        if "Qwen" in self.model_id or "SmolLM3" in self.model_id:
+        if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
             if response.startswith("<tool_call>"):
                 tool_calls = []
                 while "<tool_call>" in response:
@@ -200,14 +218,14 @@ class HuggingFaceClient(ModelClient):
 
                 response = self._chat_generate(generate_kwargs, tools)
 
-                if self.model_id in self.THINKING_MODELS and response.startswith("<think>"):
+                if self.model in self.THINKING_MODELS and response.startswith("<think>"):
                     thinking = response[len("<think>") : response.index("</think>")]
                     response = response[response.index("</think>") + len("</think>") :].strip()
 
             response = response[: -len(eos_token)]
 
         # [TOOL_CALLS] [{"name": "get_current_temperature", "arguments": {"location": "Paris"}}]
-        elif "mistral" in self.model_id:
+        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
             if "[TOOL_CALLS]" in response:
                 tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
                 tools_calls_end = response.index(eos_token)
@@ -219,7 +237,7 @@ class HuggingFaceClient(ModelClient):
             response = response[: -len(eos_token)].strip()
 
         # {"name": "get_current_weather", "arguments": {"location": "Paris"}}
-        elif "llama" in self.model_id:
+        elif self.model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
             if response.startswith('{"name":'):
                 self._handle_tool_calls([json.loads(response)], tools)
                 response = self._chat_generate(generate_kwargs, tools)
@@ -244,7 +262,7 @@ class HuggingFaceClient(ModelClient):
         self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
 
         content = ""
-        eos = self.tokenizer.eos_token if self.tokenizer.eos_token else ""
+        eos_token = self.tokenizer.eos_token if self.tokenizer.eos_token else ""
 
         next(self.streamer)
         response_part = next(self.streamer)
@@ -259,7 +277,7 @@ class HuggingFaceClient(ModelClient):
                     break
                 thinking += response_part
 
-        if "Qwen" in self.model_id:
+        if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
             if "<tool_call>" in response_part:
                 response = response_part
                 for response_part in self.streamer:
@@ -282,7 +300,7 @@ class HuggingFaceClient(ModelClient):
                     thinking = ""
 
                 self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
-        elif "mistral" in self.model_id:
+        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
             next(self.streamer)  # first part is always empty
             response_part = next(self.streamer)
 
@@ -292,7 +310,7 @@ class HuggingFaceClient(ModelClient):
                     response += response_part
 
                 tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
-                tool_call_end = response.index("</s>")
+                tool_call_end = response.index(eos_token)
                 tool_calls = response[tool_calls_start:tool_call_end].strip()
 
                 self._handle_tool_calls(json.loads(tool_calls), tools)
@@ -300,6 +318,8 @@ class HuggingFaceClient(ModelClient):
             else:
                 content = response_part
                 yield content
+        elif self.model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
+            pass  # TODO: handle tool calls for LLAMA models
 
         next(self.streamer)
         response_part = next(self.streamer)
@@ -317,8 +337,8 @@ class HuggingFaceClient(ModelClient):
             yield content
 
         for response_part in self.streamer:
-            if response_part.endswith(eos):
-                response_part = response_part[: -len(eos)]
+            if response_part.endswith(eos_token):
+                response_part = response_part[: -len(eos_token)]
             content += response_part
             yield response_part
 
