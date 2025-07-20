@@ -1,3 +1,4 @@
+import uuid
 from ..models import ModelClient
 
 import gc
@@ -140,38 +141,12 @@ class HuggingFaceClient(ModelClient):
 
         # Add system message if it's the first user message and system_message is set
         if len(self.messages) == 0 and self.system_message:
-            self.messages.append({"role": "system", "content": self.system_message}) ## TODO: not all models support system messages
+            self.messages.append(
+                {"role": "system", "content": self.system_message}
+            )  ## TODO: not all models support system messages
 
         # Add user message
         self.messages.append({"role": "user", "content": user_message})
-
-        return
-
-    def _handle_tool_calls(self, tools_calls: list, tools: dict) -> None:
-        message = {"role": "assistant"}
-        self.messages.append(message)
-
-        message["tool_calls"] = []
-        for tool_call in tools_calls:
-            message["tool_calls"].append({"type": "function", "function": tool_call, "id": "123456789"})
-
-            for tool in tools:
-                if tool.__name__ == tool_call["name"]:
-                    tool_response = tool(**tool_call["arguments"])
-                    self.messages.append(
-                        {
-                            "role": "tool",
-                            "name": tool_call["name"],
-                            "content": str(tool_response),
-                            "tool_call_id": "123456789",
-                        }
-                    )
-
-                    logger.debug(f"Tool call response: {self.messages[-1]}")
-
-                    break
-
-        logger.debug(f"Tool calls message: {message}")
 
         return
 
@@ -191,21 +166,23 @@ class HuggingFaceClient(ModelClient):
 
         return
 
-    def chat(self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), tools: dict = None) -> str:
+    def chat(
+        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), tools: dict = None
+    ) -> str:
         self._chat(user_message, generate_kwargs, tools)
 
         response = self._chat_generate(generate_kwargs, tools)
-        logger.debug(f"Response: {response}")
 
-        # qwen: <tool_call>{"name": "get_current_weather", "arguments": {"location": "Paris"}}</tool_call>
-        if "qwen" in self.model_id:
-            think_start = len("<think>")
-            think_end = response.index("</think>")
-            think = response[think_start:think_end]  # TODO: do something with think
+        eos_token = self.tokenizer.eos_token if self.tokenizer.eos_token else ""
 
-            response = response[think_end + len("</think>") :].strip()
+        thinking = ""
+        if self.model_id in self.THINKING_MODELS and response.startswith("<think>"):
+            thinking = response[len("<think>") : response.index("</think>")]
+            response = response[response.index("</think>") + len("</think>") :].strip()
 
-            if "<tool_call>" in response:
+        # <tool_call>{"name": "get_current_weather", "arguments": {"location": "Paris"}}</tool_call>
+        if "Qwen" in self.model_id or "SmolLM3" in self.model_id:
+            if response.startswith("<tool_call>"):
                 tool_calls = []
                 while "<tool_call>" in response:
                     tool_call_start = response.index("<tool_call>") + len("<tool_call>")
@@ -218,35 +195,48 @@ class HuggingFaceClient(ModelClient):
 
                 self._handle_tool_calls(tool_calls, tools)
 
+                if thinking:
+                    self.messages[-2]["thinking"] = thinking
+                    thinking = ""
+
                 response = self._chat_generate(generate_kwargs, tools)
 
-            response = response[: -len("<|im_end|>")]
+                if self.model_id in self.THINKING_MODELS and response.startswith("<think>"):
+                    thinking = response[len("<think>") : response.index("</think>")]
+                    response = response[response.index("</think>") + len("</think>") :].strip()
 
-        # mistral: [TOOL_CALLS] [{"name": "get_current_temperature", "arguments": {"location": "Paris"}}]</s>
+            response = response[: -len(eos_token)]
+
+        # [TOOL_CALLS] [{"name": "get_current_temperature", "arguments": {"location": "Paris"}}]
         elif "mistral" in self.model_id:
             if "[TOOL_CALLS]" in response:
                 tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
-                tools_calls_end = response.index("</s>")
+                tools_calls_end = response.index(eos_token)
                 tool_calls = response[tool_calls_start:tools_calls_end].strip()
 
                 self._handle_tool_calls(json.loads(tool_calls), tools)
                 response = self._chat_generate(generate_kwargs, tools)
 
-            response = response[: -len("</s>")].strip()
+            response = response[: -len(eos_token)].strip()
 
-        # llama: {"name": "get_current_weather", "arguments": {"location": "Paris"}}
+        # {"name": "get_current_weather", "arguments": {"location": "Paris"}}
         elif "llama" in self.model_id:
             if response.startswith('{"name":'):
                 self._handle_tool_calls([json.loads(response)], tools)
                 response = self._chat_generate(generate_kwargs, tools)
 
-            response = response[: -len("<|eot_id|>")].strip()
+            response = response[: -len(eos_token)].strip()
 
         self.messages.append({"role": "assistant", "content": response})
 
+        if thinking:
+            self.messages[-1]["thinking"] = thinking
+
         return response
 
-    def chat_streamed(self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), tools: dict = None) -> Iterator[str]:
+    def chat_streamed(
+        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), tools: dict = None
+    ) -> Iterator[str]:
         self._chat(user_message, generate_kwargs, tools)
 
         if not hasattr(self, "streamer"):
@@ -255,25 +245,27 @@ class HuggingFaceClient(ModelClient):
         self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
 
         content = ""
-        eos = "" # TODO: set eos based on tokenizer
+        eos = self.tokenizer.eos_token if self.tokenizer.eos_token else ""
 
-        # If the model is Qwen, the we can't stream the response since we need to process the entire response to detect tool calls
-        # TODO: figure out how to stream non-tool call responses for Qwen models
-        # TODO: combine this with other thinking models
-        if "qwen" in self.model_id:
-            response = ""
-            for response_part in self.streamer:
-                response += response_part
+        next(self.streamer)
+        response_part = next(self.streamer)
 
-            think_start = len("<think>")
-            think_end = response.index("</think>")
-            think = response[think_start:think_end]  # TODO: do something with think
+        thinking = ""
+        if response_part.startswith("<think>"):
+            while True:
+                response_part = next(self.streamer)
+                if "</think>" in response_part:
+                    next(self.streamer)
+                    response_part = next(self.streamer)
+                    break
+                thinking += response_part
 
-            response = response[think_end + len("</think>") :].strip()
+        if "Qwen" in self.model_id:
+            if "<tool_call>" in response_part:
+                response = response_part
+                for response_part in self.streamer:
+                    response += response_part
 
-            eos = "<|im_end|>"
-
-            if "<tool_call>" in response:
                 tool_calls = []
                 while "<tool_call>" in response:
                     tool_call_start = response.index("<tool_call>") + len("<tool_call>")
@@ -285,18 +277,15 @@ class HuggingFaceClient(ModelClient):
                     response = response[tool_call_end + len("</tool_call>") :].strip()
 
                 self._handle_tool_calls(tool_calls, tools)
+
+                if thinking:
+                    self.messages[-2]["thinking"] = thinking
+                    thinking = ""
+
                 self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
-            else:
-                # If there isn't a tool call, we've already processed the response, so we can yield the entire response and return
-                response = response[: -len(eos)].strip()
-                self.messages.append({"role": "assistant", "content": response})
-                yield response
-                return
         elif "mistral" in self.model_id:
             next(self.streamer)  # first part is always empty
             response_part = next(self.streamer)
-
-            eos = "</s>"
 
             if "[TOOL_CALLS]" in response_part:
                 response = response_part
@@ -312,12 +301,21 @@ class HuggingFaceClient(ModelClient):
             else:
                 content = response_part
                 yield content
-        elif "llama" in self.model_id:
-            # TODO: handle tool calls for Llama models
-            eos = "<|eot_id|>"
-        elif "phi" in self.model_id:
-            # TODO: handle tool calls for Phi models
-            eos = "<|im_sep|>"  # of "<|im_end|>"
+
+        next(self.streamer)
+        response_part = next(self.streamer)
+
+        if response_part.startswith("<think>"):
+            while True:
+                response_part = next(self.streamer)
+                if "</think>" in response_part:
+                    next(self.streamer)
+                    response_part = next(self.streamer)
+                    break
+                thinking += response_part
+        else:
+            content += response_part
+            yield content
 
         for response_part in self.streamer:
             if response_part.endswith(eos):
@@ -326,6 +324,9 @@ class HuggingFaceClient(ModelClient):
             yield response_part
 
         self.messages.append({"role": "assistant", "content": content})
+
+        if thinking:
+            self.messages[-1]["thinking"] = thinking
 
         return
 
