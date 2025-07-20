@@ -96,7 +96,7 @@ class OllamaClient(ModelClient):
         )
 
         if response["message"].tool_calls:
-            self._handle_tool_calls(response, tools)
+            self._handle_tool_calls(response["message"].tool_calls, tools)
 
             if response["message"].thinking:
                 self.messages[-2]["thinking"] = response["message"].thinking
@@ -137,10 +137,10 @@ class OllamaClient(ModelClient):
                     break
 
         if response_part["message"].tool_calls:
-            self._handle_tool_calls(response_part, tools)
+            self._handle_tool_calls(response_part["message"].tool_calls, tools)
 
             if thinking:
-                self.messages[-2]["thinking"] = thinking
+                self.messages[-2]["thinking"] = thinking  # TODO: correct functionality if there are multiple tool calls
                 thinking = ""
 
             response = ollama.chat(
@@ -177,50 +177,3 @@ class OllamaClient(ModelClient):
             message["thinking"] = thinking
 
         self.messages.append(message)
-
-    def _handle_tool_calls(self, response, tools: dict) -> None:
-        message = {"role": response.message.role}
-        self.messages.append(message)
-
-        message["tool_calls"] = []
-        for tool_call in response["message"].tool_calls:
-            message["tool_calls"].append(
-                {
-                    "type": "function",
-                    "function": {"name": tool_call.function.name, "arguments": tool_call.function.arguments},
-                }
-            )
-
-            for tool in tools:
-                # If the tool is a callable python function, call it directly. Otherwise, use the MCP client to call the tool.
-                if hasattr(tool, "__call__") and tool.__name__ == tool_call.function.name:
-                    tool_response = tool(**tool_call.function.arguments)
-
-                    self.messages.append(
-                        {"role": "tool", "name": tool_call.function.name, "content": str(tool_response)}
-                    )
-
-                    break
-                elif tool["type"] == "function" and tool["function"]["name"] == tool_call.function.name:
-                    if self.mcp_client is None:
-                        raise ValueError(
-                            "MCP client not initialized. Please initialize and assign an MCP client before using MCP tools."
-                        )
-
-                    tool_response = self.mcp_client.call_tool(tool["function"]["name"], tool_call.function.arguments)
-
-                    content = ""
-                    if len(tool_response.content) > 0:
-                        # TODO: handle different tool response types, errors, and multiple responses
-                        if tool_response.content[0].type != "text":
-                            raise ValueError(
-                                f"Tool response type {tool_response.content[0].type} not supported. Supported types: text"
-                            )
-
-                        content = tool_response.content[0].text
-
-                    self.messages.append({"role": "tool", "name": tool["function"]["name"], "content": content})
-
-                    break
-
-        return
