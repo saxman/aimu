@@ -16,7 +16,7 @@ You will always use available tools to help answer questions and complete tasks.
 """
 
 INITIAL_USER_MESSAGE = """
-Please briefly introduce yourself and share what you can do.
+Introduce what model that you are and share what tools you have access to.
 """
 
 MODEL_CLIENTS = [
@@ -32,8 +32,8 @@ MCP_SERVERS = {
 
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
-    st.session_state.model_id = MODEL_CLIENTS[0].TOOL_MODELS[0]
-    st.session_state.model_client = MODEL_CLIENTS[0](st.session_state.model_id, system_message=SYSTEM_MESSAGE)
+    st.session_state.model = MODEL_CLIENTS[0].TOOL_MODELS[0]
+    st.session_state.model_client = MODEL_CLIENTS[0](st.session_state.model, system_message=SYSTEM_MESSAGE)
 
     st.session_state.mcp_client = MCPClient(MCP_SERVERS)
     st.session_state.model_client.mcp_client = st.session_state.mcp_client
@@ -48,7 +48,7 @@ with st.sidebar:
     st.title("AIMU Chatbot")
     st.write("Example AI Assistant")
 
-    model_id = st.selectbox("Model", options=st.session_state.model_client.TOOL_MODELS)
+    model = st.selectbox("Model", options=st.session_state.model_client.TOOL_MODELS, format_func=lambda x: x.value)
     temperature = st.sidebar.slider("temperature", min_value=0.01, max_value=1.0, value=0.15, step=0.01)
     top_p = st.sidebar.slider("top_p", min_value=0.01, max_value=1.0, value=0.9, step=0.01)
     repeat_penalty = st.sidebar.slider("repeat_penalty", min_value=0.9, max_value=1.5, value=1.1, step=0.1)
@@ -59,17 +59,17 @@ with st.sidebar:
     if not isinstance(st.session_state.model_client, model_client):
         del st.session_state.model_client
 
-        st.session_state.model_id = model_client.TOOL_MODELS[0]
-        st.session_state.model_client = MODEL_CLIENTS[0](st.session_state.model_id, system_message=SYSTEM_MESSAGE)
+        st.session_state.model = model_client.TOOL_MODELS[0]
+        st.session_state.model_client = MODEL_CLIENTS[0](st.session_state.model, system_message=SYSTEM_MESSAGE)
 
         st.session_state.model_client.mcp_client = st.session_state.mcp_client
 
         st.rerun()
-    elif st.session_state.model_id != model_id:
+    elif st.session_state.model != model:
         del st.session_state.model_client
 
-        st.session_state.model_id = model_id
-        st.session_state.model_client = model_client(st.session_state.model_id, system_message=SYSTEM_MESSAGE)
+        st.session_state.model = model
+        st.session_state.model_client = model_client(st.session_state.model, system_message=SYSTEM_MESSAGE)
 
         st.session_state.model_client.mcp_client = st.session_state.mcp_client
 
