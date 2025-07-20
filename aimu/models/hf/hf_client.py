@@ -53,7 +53,6 @@ class HuggingFaceClient(ModelClient):
         MODELS.QWEN_3_8B,
         MODELS.LLAMA_3_1_8B,
         # MODELS.LLAMA_3_2_3B,
-        MODELS.PHI_4_MINI_3_8B,
     ]
 
     THINKING_MODELS = [

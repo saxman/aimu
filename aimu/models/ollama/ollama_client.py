@@ -43,7 +43,6 @@ class OllamaClient(ModelClient):
         MODELS.LLAMA_3_1_8B,
         MODELS.LLAMA_3_2_3B,
         MODELS.LLAMA_3_3_70B,
-        MODELS.PHI_4_MINI_3_8B,
         MODELS.SMOLLM2_1_7B,
     ]
 
@@ -51,6 +50,8 @@ class OllamaClient(ModelClient):
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_8B,
     ]
+
+    MODEL_KEEP_ALIVE_SECONDS = 5
 
     def __init__(self, model: OllamaModel, system_message: str = None):
         super().__init__(model, None, system_message)
@@ -68,7 +69,13 @@ class OllamaClient(ModelClient):
     def generate(self, prompt: str, generate_kwargs: dict = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        response = ollama.generate(model=self.model, prompt=prompt, options=generate_kwargs, think=self.thinking)
+        response = ollama.generate(
+            model=self.model,
+            prompt=prompt,
+            options=generate_kwargs,
+            think=self.thinking,
+            keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
+        )
 
         return response["response"] if not self.thinking else response.response
 
@@ -76,7 +83,12 @@ class OllamaClient(ModelClient):
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         response = ollama.generate(
-            model=self.model, prompt=prompt, options=generate_kwargs, stream=True, think=self.thinking
+            model=self.model,
+            prompt=prompt,
+            options=generate_kwargs,
+            stream=True,
+            think=self.thinking,
+            keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
         )
 
         for response_part in response:
@@ -99,7 +111,12 @@ class OllamaClient(ModelClient):
         self._chat(user_message, generate_kwargs, tools)
 
         response = ollama.chat(
-            model=self.model, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
+            model=self.model,
+            messages=self.messages,
+            options=generate_kwargs,
+            tools=tools,
+            think=self.thinking,
+            keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
         )
 
         if response["message"].tool_calls:
@@ -109,7 +126,12 @@ class OllamaClient(ModelClient):
                 self.messages[-2]["thinking"] = response["message"].thinking
 
             response = ollama.chat(
-                model=self.model, messages=self.messages, options=generate_kwargs, tools=tools, think=self.thinking
+                model=self.model,
+                messages=self.messages,
+                options=generate_kwargs,
+                tools=tools,
+                think=self.thinking,
+                keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
             )
 
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
@@ -129,6 +151,7 @@ class OllamaClient(ModelClient):
             tools=tools,
             stream=True,
             think=self.thinking,
+            keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
         )
 
         response_part = next(response)
@@ -157,6 +180,7 @@ class OllamaClient(ModelClient):
                 tools=tools,
                 stream=True,
                 think=self.thinking,
+                keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
             )
 
             response_part = next(response)
