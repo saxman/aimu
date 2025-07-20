@@ -14,22 +14,6 @@ from fastmcp import FastMCP
 from aimu.models import ModelClient, HuggingFaceClient, OllamaClient
 from aimu.tools import MCPClient
 
-OLLAMA_TEST_MODELS = [
-    OllamaClient.MODEL_MISTRAL_SMALL_3_2_24B,
-    OllamaClient.MODEL_LLAMA_3_2_3B,
-    OllamaClient.MODEL_QWEN_3_8B,
-    OllamaClient.MODEL_PHI_4_14B,
-    OllamaClient.MODEL_DEEPSEEK_R1_8B,
-]
-
-HUGGINGFACE_TEST_MODELS = [
-    HuggingFaceClient.MODEL_LLAMA_3_1_8B,
-    HuggingFaceClient.MODEL_MISTRAL_7B,
-    HuggingFaceClient.MODEL_QWEN_3_8B,
-    HuggingFaceClient.MODEL_PHI_4_MINI_3_8B,
-    HuggingFaceClient.MODEL_SMOLLM3_3B,
-]
-
 
 def pytest_generate_tests(metafunc):
     """Generate tests based on command line options."""
@@ -38,11 +22,11 @@ def pytest_generate_tests(metafunc):
         client_type = metafunc.config.getoption("--client", "all").lower()
 
         if client_type == "ollama":
-            test_models = OLLAMA_TEST_MODELS
+            test_models = OllamaClient.MODELS
         elif client_type in ["hf", "huggingface"]:
-            test_models = HUGGINGFACE_TEST_MODELS
+            test_models = HuggingFaceClient.MODELS
         else:
-            test_models = OLLAMA_TEST_MODELS + HUGGINGFACE_TEST_MODELS
+            test_models = OllamaClient.MODELS + HuggingFaceClient.MODELS
 
         metafunc.parametrize("model_client", test_models, indirect=True, scope="session")
 
@@ -51,12 +35,14 @@ def pytest_generate_tests(metafunc):
 def model_client(request) -> Iterable[ModelClient]:
     """Create model client based on the model parameter."""
 
-    model_id = request.param
+    model = request.param
 
-    if ":" in model_id:
-        client = OllamaClient(model_id, system_message="You are a helpful assistant.")
+    if model in OllamaClient.MODELS:
+        client = OllamaClient(model, system_message="You are a helpful assistant.")
+    elif model in HuggingFaceClient.MODELS:
+        client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
     else:
-        client = HuggingFaceClient(model_id, system_message="You are a helpful assistant.")
+        raise ValueError(f"Unknown model: {model}")
 
     yield client
 
@@ -147,7 +133,7 @@ def test_chat_with_tools(model_client):
     model_client.mcp_client = mcp_client
 
     # If the model does not support tools, we should see an error
-    if model_client.model_id not in model_client.TOOL_MODELS:
+    if model_client.model not in model_client.TOOL_MODELS:
         with pytest.raises(ValueError):
             model_client.chat("What is the temperature in Paris?", tools=mcp_client.get_tools())
         return
@@ -158,7 +144,7 @@ def test_chat_with_tools(model_client):
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
     assert "27" in response
 
-    if model_client.model_id in model_client.THINKING_MODELS:
+    if model_client.model in model_client.THINKING_MODELS:
         # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
         assert "thinking" in model_client.messages[-1]
         assert "thinking" in model_client.messages[-3]
@@ -181,7 +167,7 @@ def test_chat_streamed_with_tools(model_client):
     model_client.mcp_client = mcp_client
 
     # If the model does not support tools, we should see an error
-    if model_client.model_id not in model_client.TOOL_MODELS:
+    if model_client.model not in model_client.TOOL_MODELS:
         pytest.skip(
             "Model does not support tools"
         )  ## TODO: figure out why we're not getting the error here. especially since we're getting it with chat_with_tools above
@@ -199,7 +185,7 @@ def test_chat_streamed_with_tools(model_client):
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
     assert "27" in content
 
-    if model_client.model_id in model_client.THINKING_MODELS:
+    if model_client.model in model_client.THINKING_MODELS:
         # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
         assert "thinking" in model_client.messages[-1]
         assert "thinking" in model_client.messages[-3]
@@ -208,7 +194,7 @@ def test_chat_streamed_with_tools(model_client):
 def test_thiking(model_client):
     """Test that the model can think before responding."""
 
-    if model_client.model_id not in model_client.THINKING_MODELS:
+    if model_client.model not in model_client.THINKING_MODELS:
         pytest.skip("Model does not support thinking")
 
     # ensure the chat history is reset
