@@ -3,8 +3,10 @@ import enum
 
 logger = logging.getLogger(__name__)
 
+
 class Model(enum.Enum):
     pass
+
 
 class ModelClient:
     MODELS = Model
