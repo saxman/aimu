@@ -29,13 +29,15 @@ class OllamaClient(ModelClient):
 
     MODEL_QWEN_3_8B = "qwen3:8b"
 
+    MODEL_SMOLLM2_1_7B = "smolm2:1.7b"
+
     TOOL_MODELS = [
         MODEL_MISTRAL_SMALL_3_2_24B,
         MODEL_MISTRAL_NEMO_12B,
         MODEL_QWEN_3_8B,
-        # MODEL_LLAMA_3_1_8B, ## Tools not fully supported by model
         MODEL_LLAMA_3_2_3B,
         MODEL_PHI_4_MINI_3_8B,
+        MODEL_SMOLLM2_1_7B
     ]
 
     THINKING_MODELS = [
