@@ -1,4 +1,3 @@
-import uuid
 from ..models import ModelClient
 
 import gc
