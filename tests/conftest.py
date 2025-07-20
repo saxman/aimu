@@ -2,8 +2,6 @@
 Pytest configuration for model tests.
 """
 
-import pytest
-
 
 def pytest_addoption(parser):
     """Add custom command line options for pytest."""
