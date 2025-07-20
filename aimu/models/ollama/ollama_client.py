@@ -37,7 +37,7 @@ class OllamaClient(ModelClient):
         MODEL_QWEN_3_8B,
         MODEL_LLAMA_3_2_3B,
         MODEL_PHI_4_MINI_3_8B,
-        MODEL_SMOLLM2_1_7B
+        MODEL_SMOLLM2_1_7B,
     ]
 
     THINKING_MODELS = [
