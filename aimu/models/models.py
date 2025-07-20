@@ -21,6 +21,7 @@ class ModelClient:
 
     MODEL_QWEN_3_8B = None
 
+    MODEL_SMOLLM2_1_7B = None
     MODEL_SMOLLM3_3B = None
 
     MODEL_GPT_4O_MINI = None
