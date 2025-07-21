@@ -29,7 +29,7 @@ class OllamaModel(Model):
 
     QWEN_3_8B = "qwen3:8b"
 
-    SMOLLM2_1_7B = "smollm2:latest" # "smollm2:1.7b" error downloading model, using latest for now
+    SMOLLM2_1_7B = "smollm2:latest"  # "smollm2:1.7b" error downloading model, using latest for now
 
 
 class OllamaClient(ModelClient):
