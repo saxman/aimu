@@ -29,7 +29,7 @@ class OllamaModel(Model):
 
     QWEN_3_8B = "qwen3:8b"
 
-    SMOLLM2_1_7B = "smolm2:1.7b"
+    SMOLLM2_1_7B = "smollm2:latest" # "smollm2:1.7b" error downloading model, using latest for now
 
 
 class OllamaClient(ModelClient):
@@ -37,8 +37,8 @@ class OllamaClient(ModelClient):
 
     TOOL_MODELS = [
         MODELS.QWEN_3_8B,
-        MODELS.MISTRAL_7B,
-        MODELS.MISTRAL_NEMO_12B,
+        # MODELS.MISTRAL_7B, # issue with tool usage
+        # MODELS.MISTRAL_NEMO_12B, # issue with tool usage
         MODELS.MISTRAL_SMALL_3_2_24B,
         MODELS.LLAMA_3_1_8B,
         MODELS.LLAMA_3_2_3B,
