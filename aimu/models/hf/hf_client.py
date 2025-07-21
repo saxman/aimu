@@ -47,10 +47,10 @@ class HuggingFaceClient(ModelClient):
     MODELS = HuggingFaceModel
 
     TOOL_MODELS = [
+        MODELS.QWEN_3_8B,
         MODELS.MISTRAL_7B,
         MODELS.MISTRAL_NEMO_12B,
         MODELS.MISTRAL_SMALL_3_2_24B,
-        MODELS.QWEN_3_8B,
         MODELS.LLAMA_3_1_8B,
         # MODELS.LLAMA_3_2_3B,
     ]
