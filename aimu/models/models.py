@@ -12,16 +12,28 @@ class ModelClient:
     MODELS = Model
 
     def __init__(self, model: Model, model_kwargs: dict = None, system_message: str = None):
-        if model is None:
-            raise ValueError("Model not supported by model client")
-
         self.model = model
         self.model_kwargs = model_kwargs
-        self.system_message = system_message
+        self._system_message = system_message
 
         self.messages = []
 
         self.mcp_client = None
+
+    @property
+    def system_message(self):
+        return self._system_message
+    
+    @system_message.setter
+    def system_message(self, message: str):
+        self._system_message = message
+
+        # TODO: add support for models that don't have a system message
+        if self.messages:
+            if self.messages[0]["role"] == "system":
+                self.messages[0]["content"] = message
+            else:
+                self.messages.insert(0, {"role": "system", "content": message})
 
     def _handle_tool_calls(self, tool_calls, tools: dict) -> None:
         message = {"role": "assistant"}
