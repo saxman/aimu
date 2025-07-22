@@ -51,10 +51,11 @@ class OllamaClient(ModelClient):
         MODELS.QWEN_3_8B,
     ]
 
-    MODEL_KEEP_ALIVE_SECONDS = 5
-
-    def __init__(self, model: OllamaModel, system_message: str = None):
+    def __init__(self, model: OllamaModel, system_message: str = None, model_keep_alive_seconds: int = 5):
         super().__init__(model, None, system_message)
+
+        # TODO extend model_keep_alive_seconds to other model clients
+        self.model_keep_alive_seconds = model_keep_alive_seconds
 
         self.thinking = True if model in self.THINKING_MODELS else False
 
@@ -74,7 +75,7 @@ class OllamaClient(ModelClient):
             prompt=prompt,
             options=generate_kwargs,
             think=self.thinking,
-            keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
+            keep_alive=self.model_keep_alive_seconds,
         )
 
         return response["response"] if not self.thinking else response.response
@@ -88,7 +89,7 @@ class OllamaClient(ModelClient):
             options=generate_kwargs,
             stream=True,
             think=self.thinking,
-            keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
+            keep_alive=self.model_keep_alive_seconds,
         )
 
         for response_part in response:
@@ -116,7 +117,7 @@ class OllamaClient(ModelClient):
             options=generate_kwargs,
             tools=tools,
             think=self.thinking,
-            keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
+            keep_alive=self.model_keep_alive_seconds,
         )
 
         if response["message"].tool_calls:
@@ -131,7 +132,7 @@ class OllamaClient(ModelClient):
                 options=generate_kwargs,
                 tools=tools,
                 think=self.thinking,
-                keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
+                keep_alive=self.model_keep_alive_seconds,
             )
 
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
@@ -151,7 +152,7 @@ class OllamaClient(ModelClient):
             tools=tools,
             stream=True,
             think=self.thinking,
-            keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
+            keep_alive=self.model_keep_alive_seconds,
         )
 
         response_part = next(response)
@@ -180,7 +181,7 @@ class OllamaClient(ModelClient):
                 tools=tools,
                 stream=True,
                 think=self.thinking,
-                keep_alive=self.MODEL_KEEP_ALIVE_SECONDS,
+                keep_alive=self.model_keep_alive_seconds,
             )
 
             response_part = next(response)
