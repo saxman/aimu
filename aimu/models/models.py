@@ -29,6 +29,7 @@ class ModelClient:
         self._system_message = message
 
         # TODO: add support for models that don't have a system message
+        # TODO: move system message handling out of the sub classes
         if self.messages:
             if self.messages[0]["role"] == "system":
                 self.messages[0]["content"] = message
