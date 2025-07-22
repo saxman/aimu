@@ -43,7 +43,7 @@ Once you've cloned the repository, run:
 pip install -e .
 ```
 
-For running tests:
+For developer tools (tests, linting/formatting):
 ```bash
 pip install -e '.[dev]'
 ```
@@ -63,19 +63,11 @@ response = model_client.generate("What is the capital of France?", {"temperature
 ```python
 from aimu.models import OllamaClient as ModelClient
 
-model_client = ModelClient(ModelClient.MODEL_LLAMA_3_1_8B)
-model_client.messages = [
-    {
-        "role": "system",
-        "content": "You are a helpful assistant."
-    }
-]
-
+model_client = ModelClient(ModelClient.MODELS.LLAMA_3_1_8B)
 response = model_client.chat("What is the capital of France?")
 ```
 
 ### MCP Tool Usage
-
 ```python
 from aimu.tools import MCPClient
 
