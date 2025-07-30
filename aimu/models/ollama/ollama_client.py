@@ -51,7 +51,7 @@ class OllamaClient(ModelClient):
         MODELS.QWEN_3_8B,
     ]
 
-    def __init__(self, model: OllamaModel, system_message: str = None, model_keep_alive_seconds: int = 5):
+    def __init__(self, model: OllamaModel, system_message: str = None, model_keep_alive_seconds: int = 60):
         super().__init__(model, None, system_message)
 
         # TODO extend model_keep_alive_seconds to other model clients
