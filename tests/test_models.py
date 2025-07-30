@@ -38,7 +38,7 @@ def model_client(request) -> Iterable[ModelClient]:
     model = request.param
 
     if model in OllamaClient.MODELS:
-        client = OllamaClient(model, system_message="You are a helpful assistant.")
+        client = OllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=5)
     elif model in HuggingFaceClient.MODELS:
         client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
     else:
