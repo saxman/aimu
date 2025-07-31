@@ -92,7 +92,6 @@ if len(st.session_state.model_client.messages) == 0:
             "max_new_tokens": 1024,
             "repeat_penalty": repeat_penalty,
         },
-        tools=st.session_state.mcp_client.get_tools(),
     )
 
     with st.chat_message("assistant"):
@@ -119,7 +118,6 @@ if prompt := st.chat_input("What's up?"):
             "max_new_tokens": 1024,
             "repeat_penalty": repeat_penalty,
         },
-        tools=st.session_state.mcp_client.get_tools(),
     )
 
     with st.chat_message("assistant"):
