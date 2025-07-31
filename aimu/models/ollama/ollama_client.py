@@ -95,10 +95,10 @@ class OllamaClient(ModelClient):
         for response_part in response:
             yield response_part["response"]
 
-    def _chat(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> None:
+    def _chat(self, user_message: str, generate_kwargs: dict, use_tools: bool) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        if tools and self.model not in OllamaClient.TOOL_MODELS:
+        if use_tools and self.model not in OllamaClient.TOOL_MODELS:
             raise ValueError(f"Model {self.model} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}")
 
         # Add system message if it's the first user message and system_message is set
@@ -108,8 +108,12 @@ class OllamaClient(ModelClient):
         # Add user message
         self.messages.append({"role": "user", "content": user_message})
 
-    def chat(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> str:
-        self._chat(user_message, generate_kwargs, tools)
+    def chat(self, user_message: str, generate_kwargs: dict = None, use_tools: bool = True) -> str:
+        self._chat(user_message, generate_kwargs, use_tools)
+
+        tools = []
+        if use_tools and self.mcp_client:
+            tools = self.mcp_client.get_tools()
 
         response = ollama.chat(
             model=self.model,
@@ -142,8 +146,12 @@ class OllamaClient(ModelClient):
 
         return response["message"].content
 
-    def chat_streamed(self, user_message: str, generate_kwargs: dict = None, tools: dict = None) -> Iterator[str]:
-        self._chat(user_message, generate_kwargs, tools)
+    def chat_streamed(self, user_message: str, generate_kwargs: dict = None, use_tools: bool = True) -> Iterator[str]:
+        self._chat(user_message, generate_kwargs, use_tools)
+
+        tools = []
+        if use_tools and self.mcp_client:
+            tools = self.mcp_client.get_tools()
 
         response = ollama.chat(
             model=self.model,

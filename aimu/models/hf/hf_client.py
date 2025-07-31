@@ -147,10 +147,10 @@ class HuggingFaceClient(ModelClient):
         for response_part in streamer:
             yield response_part
 
-    def _chat(self, user_message: str, generate_kwargs, tools: dict = None) -> None:
+    def _chat(self, user_message: str, generate_kwargs, use_tools: dict) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        if tools and self.model not in self.TOOL_MODELS:
+        if use_tools and self.model not in self.TOOL_MODELS:
             raise ValueError(
                 f"Tool usage is not supported for model {self.model}. Supported models: {self.TOOL_MODELS}"
             )
@@ -183,9 +183,12 @@ class HuggingFaceClient(ModelClient):
         return
 
     def chat(
-        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), tools: dict = None
-    ) -> str:
-        self._chat(user_message, generate_kwargs, tools)
+        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), use_tools: bool = True) -> str:
+        self._chat(user_message, generate_kwargs, use_tools)
+
+        tools = None
+        if use_tools and self.mcp_client:
+            tools = self.mcp_client.get_tools()
 
         response = self._chat_generate(generate_kwargs, tools)
 
@@ -250,15 +253,17 @@ class HuggingFaceClient(ModelClient):
 
         return response
 
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), tools: dict = None
-    ) -> Iterator[str]:
-        self._chat(user_message, generate_kwargs, tools)
+    def chat_streamed(self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), use_tools: bool = True) -> Iterator[str]:
+        self._chat(user_message, generate_kwargs, use_tools)
 
         if not hasattr(self, "streamer"):
             self.streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=False)
 
-        self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
+        tools = None
+        if use_tools and self.mcp_client:
+            tools = self.mcp_client.get_tools()
+
+        self._chat_generate(generate_kwargs, use_tools, streamer=self.streamer)
 
         content = ""
         eos_token = self.tokenizer.eos_token if self.tokenizer.eos_token else ""

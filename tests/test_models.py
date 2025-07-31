@@ -135,10 +135,10 @@ def test_chat_with_tools(model_client):
     # If the model does not support tools, we should see an error
     if model_client.model not in model_client.TOOL_MODELS:
         with pytest.raises(ValueError):
-            model_client.chat("What is the temperature in Paris?", tools=mcp_client.get_tools())
+            model_client.chat("What is the temperature in Paris?")
         return
 
-    response = model_client.chat("What is the temperature in Paris?", tools=mcp_client.get_tools())
+    response = model_client.chat("What is the temperature in Paris?")
 
     assert len(model_client.messages) == 5  # system (auto-added), user, tool call, tool response, assistant
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
@@ -175,7 +175,7 @@ def test_chat_streamed_with_tools(model_client):
         #     model_client.chat_streamed("What is the temperature in Paris?", tools=mcp_client.get_tools())
         return
 
-    response = model_client.chat_streamed("What is the temperature in Paris?", tools=mcp_client.get_tools())
+    response = model_client.chat_streamed("What is the temperature in Paris?")
 
     content = ""
     for response_part in response:
