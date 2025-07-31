@@ -1,6 +1,6 @@
 from aimu import paths
 from aimu.models import HuggingFaceClient, OllamaClient
-from aimu.tools import MCPClient
+from aimu.tools.client import MCPClient
 from aimu.memory import ConversationManager
 
 import streamlit as st

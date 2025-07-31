@@ -12,7 +12,7 @@ from typing import Iterable
 from fastmcp import FastMCP
 
 from aimu.models import ModelClient, HuggingFaceClient, OllamaClient
-from aimu.tools import MCPClient
+from aimu.tools.client import MCPClient
 
 
 def pytest_generate_tests(metafunc):

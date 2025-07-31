@@ -1,12 +1,13 @@
-from aimu.tools import MCPClient
+from aimu.tools.client import MCPClient
 from aimu import paths
 
 from fastmcp import FastMCP
 
+MCP_SERVERS_FILE = str(paths.package / "tools" / "servers.py")
 
 def test_mcp_client_with_config():
     config = {
-        "mcpServers": {"echo": {"command": "python", "args": [str(paths.tests / "mcp_test_server.py")]}},
+        "mcpServers": {"echo": {"command": "python", "args": [MCP_SERVERS_FILE]}},
     }
 
     client = MCPClient(config=config)
@@ -17,7 +18,7 @@ def test_mcp_client_with_config():
 
 
 def test_mcp_client_with_file():
-    client = MCPClient(file=str(paths.tests / "mcp_test_server.py"))
+    client = MCPClient(file=MCP_SERVERS_FILE)
     tools = client.list_tools()
 
     assert isinstance(tools, list)
