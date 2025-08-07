@@ -26,7 +26,7 @@ MODEL_CLIENTS = [
 
 MCP_SERVERS = {
     "mcpServers": {
-        "aimu": {"command": "python", "args": [str(paths.tests / "mcp_test_server.py")]},
+        "aimu": {"command": "python", "args": [str(paths.package / "tools" / "servers.py")]},
     }
 }
 
