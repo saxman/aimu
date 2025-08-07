@@ -5,6 +5,7 @@ from fastmcp import FastMCP
 
 MCP_SERVERS_FILE = str(paths.package / "tools" / "servers.py")
 
+
 def test_mcp_client_with_config():
     config = {
         "mcpServers": {"echo": {"command": "python", "args": [MCP_SERVERS_FILE]}},

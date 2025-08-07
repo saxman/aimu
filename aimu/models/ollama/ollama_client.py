@@ -12,6 +12,8 @@ except ImportError:
 
 
 class OllamaModel(Model):
+    GPT_OSS_20B = "gpt-oss:20b"
+
     LLAMA_3_1_8B = "llama3.1:8b"
     LLAMA_3_2_3B = "llama3.2:3b"
     LLAMA_3_3_70B = "llama3.3:70b"
@@ -36,6 +38,7 @@ class OllamaClient(ModelClient):
     MODELS = OllamaModel
 
     TOOL_MODELS = [
+        MODELS.GPT_OSS_20B,
         MODELS.QWEN_3_8B,
         # MODELS.MISTRAL_7B, # issue with tool usage
         # MODELS.MISTRAL_NEMO_12B, # issue with tool usage
@@ -47,6 +50,7 @@ class OllamaClient(ModelClient):
     ]
 
     THINKING_MODELS = [
+        MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_8B,
     ]

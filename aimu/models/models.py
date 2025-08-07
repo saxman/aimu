@@ -23,7 +23,7 @@ class ModelClient:
     @property
     def system_message(self):
         return self._system_message
-    
+
     @system_message.setter
     def system_message(self, message: str):
         self._system_message = message

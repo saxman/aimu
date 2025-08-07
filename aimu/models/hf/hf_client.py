@@ -183,7 +183,8 @@ class HuggingFaceClient(ModelClient):
         return
 
     def chat(
-        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), use_tools: bool = True) -> str:
+        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), use_tools: bool = True
+    ) -> str:
         self._chat(user_message, generate_kwargs, use_tools)
 
         tools = None
@@ -253,7 +254,9 @@ class HuggingFaceClient(ModelClient):
 
         return response
 
-    def chat_streamed(self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), use_tools: bool = True) -> Iterator[str]:
+    def chat_streamed(
+        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), use_tools: bool = True
+    ) -> Iterator[str]:
         self._chat(user_message, generate_kwargs, use_tools)
 
         if not hasattr(self, "streamer"):
