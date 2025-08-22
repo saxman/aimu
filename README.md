@@ -94,7 +94,7 @@ model_client = ModelClient(ModelClient.MODELS.LLAMA_3_1_8B)
 response = model_client.chat("What is the capital of France?")
 ```
 
-## Chat UI (Streamlit)
+### Chat UI (Streamlit)
 
 ``` bash
 streamlit run streamlit/chatbot_example.py
