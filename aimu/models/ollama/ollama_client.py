@@ -1,4 +1,4 @@
-from ..models import Model, ModelClient
+from ..base_client import Model, ModelClient
 
 import ollama
 import logging
@@ -98,26 +98,21 @@ class OllamaClient(ModelClient):
         for response_part in response:
             yield response_part["response"]
 
-    def _chat(
-        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = None
-    ) -> None:
+    def _chat(self, user_message: str, generate_kwargs: Optional[dict] = None) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        if use_tools and self.model not in OllamaClient.TOOL_MODELS:
-            raise ValueError(f"Model {self.model} does not support tools. Supported models: {OllamaClient.TOOL_MODELS}")
-
-        # Add system message if it's the first user message and system_message is set
+        # Add the system message if we're processing the first user message and system_message is set
         if len(self.messages) == 0 and self.system_message:
             self.messages.append({"role": "system", "content": self.system_message})
 
-        # Add user message
+        # Add the user message
         self.messages.append({"role": "user", "content": user_message})
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> str:
-        self._chat(user_message, generate_kwargs, use_tools)
+        self._chat(user_message, generate_kwargs)
 
         tools = []
-        if use_tools and self.mcp_client:
+        if use_tools and self.mcp_client and self.model in self.TOOL_MODELS:
             tools = self.mcp_client.get_tools()
 
         response = ollama.chat(
@@ -151,13 +146,11 @@ class OllamaClient(ModelClient):
 
         return response["message"].content
 
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True
-    ) -> Iterator[str]:
-        self._chat(user_message, generate_kwargs, use_tools)
+    def chat_streamed(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> Iterator[str]:
+        self._chat(user_message, generate_kwargs)
 
         tools = []
-        if use_tools and self.mcp_client:
+        if use_tools and self.mcp_client and self.model in self.TOOL_MODELS:
             tools = self.mcp_client.get_tools()
 
         response = ollama.chat(
