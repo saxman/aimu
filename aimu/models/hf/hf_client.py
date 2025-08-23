@@ -123,7 +123,7 @@ class HuggingFaceClient(ModelClient):
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
         return self.tokenizer.decode(output_ids, skip_special_tokens=True)
 
-    def generate_streamed(self, prompt: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy()) -> Iterator[str]:
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy()) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)

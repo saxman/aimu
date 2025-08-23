@@ -1,6 +1,7 @@
 import logging
 import enum
-from typing import Optional
+from typing import Optional, Iterator
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +10,7 @@ class Model(enum.Enum):
     pass
 
 
-class ModelClient:
+class ModelClient(ABC):
     MODELS = Model
 
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
@@ -36,6 +37,22 @@ class ModelClient:
                 self.messages[0]["content"] = message
             else:
                 self.messages.insert(0, {"role": "system", "content": message})
+
+    @abstractmethod
+    def generate(self, prompt: str, generate_kwargs: Optional[dict] = None) -> str:
+        pass
+
+    @abstractmethod
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = None) -> Iterator[str]:
+        pass
+
+    @abstractmethod
+    def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> str:
+        pass
+
+    @abstractmethod
+    def chat_streamed(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> Iterator[str]:
+        pass
 
     def _handle_tool_calls(self, tool_calls, tools: list) -> None:
         message = {"role": "assistant", "tool_calls": []}
