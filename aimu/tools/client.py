@@ -2,12 +2,13 @@ from fastmcp import FastMCP
 from fastmcp import Client
 
 import asyncio
+from typing import Optional
 
 
 class MCPClient:
     """A MCP client that wraps the FastMCP client for easier tool calls and management."""
 
-    def __init__(self, config: dict = None, server: FastMCP = None, file: str = None):
+    def __init__(self, config: Optional[dict] = None, server: Optional[FastMCP] = None, file: Optional[str] = None):
         self.loop = asyncio.new_event_loop()
 
         if config:

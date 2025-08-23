@@ -1,26 +1,18 @@
 from ..models import Model, ModelClient
 
+import torch
+from transformers import AutoTokenizer
+from transformers import AutoModelForCausalLM
+from transformers.utils import logging as log
+from transformers import TextIteratorStreamer
 import gc
 import pprint
 import logging
-from typing import Iterator
+from typing import Iterator, Optional
 import json
 
 logger = logging.getLogger(__name__)
-
-try:
-    import torch
-    from transformers import AutoTokenizer
-    from transformers import AutoModelForCausalLM
-    from transformers.utils import logging as log
-    from transformers import TextIteratorStreamer
-
-    log.set_verbosity_error()
-except ImportError:
-    torch = None
-    AutoTokenizer = None
-    AutoModelForCausalLM = None
-    TextIteratorStreamer = None
+log.set_verbosity_error()
 
 
 class HuggingFaceModel(Model):
@@ -82,7 +74,7 @@ class HuggingFaceClient(ModelClient):
     }
 
     def __init__(
-        self, model: HuggingFaceModel, model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(), system_message: str = None
+        self, model: HuggingFaceModel, model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(), system_message: Optional[str] = None
     ):
         super().__init__(model, model_kwargs, system_message)
 
@@ -102,7 +94,10 @@ class HuggingFaceClient(ModelClient):
             logger.info("Emptying MPS cache")
             torch.mps.empty_cache()
 
-    def _update_generate_kwargs(self, generate_kwargs) -> None:
+    def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
+        if not generate_kwargs:
+            generate_kwargs = {}
+
         if "max_tokens" in generate_kwargs:
             generate_kwargs["max_new_tokens"] = generate_kwargs.pop("max_tokens")
 
@@ -111,7 +106,7 @@ class HuggingFaceClient(ModelClient):
 
         return generate_kwargs
 
-    def generate(self, prompt: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy()) -> str:
+    def generate(self, prompt: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy()) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         messages = [{"role": "user", "content": prompt}]
@@ -147,7 +142,7 @@ class HuggingFaceClient(ModelClient):
         for response_part in streamer:
             yield response_part
 
-    def _chat(self, user_message: str, generate_kwargs, use_tools: dict) -> None:
+    def _chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = None) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if use_tools and self.model not in self.TOOL_MODELS:
@@ -166,12 +161,12 @@ class HuggingFaceClient(ModelClient):
 
         return
 
-    def _chat_generate(self, generate_kwargs: dict, tools: dict, streamer: TextIteratorStreamer = None):
+    def _chat_generate(self, generate_kwargs: Optional[dict[str, str]] = None, tools: Optional[list[dict]] = None, streamer: Optional[TextIteratorStreamer] = None) -> Optional[str]:
         input_tokens = self.tokenizer.apply_chat_template(
             self.messages, tools=tools, add_generation_prompt=True, return_dict=True, return_tensors="pt"
         ).to(self.model.device)
 
-        output_tokens = self.model.generate(**input_tokens, **generate_kwargs, streamer=streamer)
+        output_tokens = self.model.generate(**input_tokens, **(generate_kwargs or {}), streamer=streamer)
 
         if streamer is None:
             response = self.tokenizer.decode(
@@ -183,15 +178,15 @@ class HuggingFaceClient(ModelClient):
         return
 
     def chat(
-        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), use_tools: bool = True
+        self, user_message: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy(), use_tools: Optional[bool] = True
     ) -> str:
         self._chat(user_message, generate_kwargs, use_tools)
 
-        tools = None
+        tools = []
         if use_tools and self.mcp_client:
             tools = self.mcp_client.get_tools()
 
-        response = self._chat_generate(generate_kwargs, tools)
+        response = self._chat_generate(generate_kwargs, tools) or ""
 
         eos_token = self.tokenizer.eos_token if self.tokenizer.eos_token else ""
 
@@ -219,7 +214,7 @@ class HuggingFaceClient(ModelClient):
                     self.messages[-2]["thinking"] = thinking
                     thinking = ""
 
-                response = self._chat_generate(generate_kwargs, tools)
+                response = self._chat_generate(generate_kwargs, tools) or ""
 
                 if self.model in self.THINKING_MODELS and response.startswith("<think>"):
                     thinking = response[len("<think>") : response.index("</think>")]
@@ -235,7 +230,7 @@ class HuggingFaceClient(ModelClient):
                 tool_calls = response[tool_calls_start:tools_calls_end].strip()
 
                 self._handle_tool_calls(json.loads(tool_calls), tools)
-                response = self._chat_generate(generate_kwargs, tools)
+                response = self._chat_generate(generate_kwargs, tools) or ""
 
             response = response[: -len(eos_token)].strip()
 
@@ -243,7 +238,7 @@ class HuggingFaceClient(ModelClient):
         elif self.model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
             if response.startswith('{"name":'):
                 self._handle_tool_calls([json.loads(response)], tools)
-                response = self._chat_generate(generate_kwargs, tools)
+                response = self._chat_generate(generate_kwargs, tools) or ""
 
             response = response[: -len(eos_token)].strip()
 
@@ -255,18 +250,18 @@ class HuggingFaceClient(ModelClient):
         return response
 
     def chat_streamed(
-        self, user_message: str, generate_kwargs: dict = DEFAULT_GENERATE_KWARGS.copy(), use_tools: bool = True
+        self, user_message: str, generate_kwargs: Optional[dict[str, str]] = DEFAULT_GENERATE_KWARGS.copy(), use_tools: Optional[bool] = True
     ) -> Iterator[str]:
         self._chat(user_message, generate_kwargs, use_tools)
 
         if not hasattr(self, "streamer"):
             self.streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=False)
 
-        tools = None
+        tools = []
         if use_tools and self.mcp_client:
             tools = self.mcp_client.get_tools()
 
-        self._chat_generate(generate_kwargs, use_tools, streamer=self.streamer)
+        self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
 
         content = ""
         eos_token = self.tokenizer.eos_token if self.tokenizer.eos_token else ""

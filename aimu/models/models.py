@@ -1,5 +1,6 @@
 import logging
 import enum
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,7 @@ class Model(enum.Enum):
 class ModelClient:
     MODELS = Model
 
-    def __init__(self, model: Model, model_kwargs: dict = None, system_message: str = None):
+    def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
         self.model = model
         self.model_kwargs = model_kwargs
         self._system_message = system_message
@@ -36,8 +37,8 @@ class ModelClient:
             else:
                 self.messages.insert(0, {"role": "system", "content": message})
 
-    def _handle_tool_calls(self, tool_calls, tools: dict) -> None:
-        message = {"role": "assistant"}
+    def _handle_tool_calls(self, tool_calls, tools: list) -> None:
+        message = {"role": "assistant", "tool_calls": []}
         self.messages.append(message)
 
         # If we're processing tool calls from Ollama, we need to convert the calls to a dictionary
@@ -52,7 +53,6 @@ class ModelClient:
                 )
             tool_calls = calls
 
-        message["tool_calls"] = []
         for tool_call in tool_calls:
             message["tool_calls"].append(
                 {

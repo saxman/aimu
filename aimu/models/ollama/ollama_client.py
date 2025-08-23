@@ -1,14 +1,10 @@
 from ..models import Model, ModelClient
 
+import ollama
 import logging
-from typing import Iterator
+from typing import Iterator, Optional
 
 logger = logging.getLogger(__name__)
-
-try:
-    import ollama
-except ImportError:
-    ollama = None
 
 
 class OllamaModel(Model):
@@ -55,7 +51,7 @@ class OllamaClient(ModelClient):
         MODELS.QWEN_3_8B,
     ]
 
-    def __init__(self, model: OllamaModel, system_message: str = None, model_keep_alive_seconds: int = 60):
+    def __init__(self, model: OllamaModel, system_message: Optional[str] = None, model_keep_alive_seconds: int = 60):
         super().__init__(model, None, system_message)
 
         # TODO extend model_keep_alive_seconds to other model clients
@@ -65,17 +61,20 @@ class OllamaClient(ModelClient):
 
         ollama.pull(model.value)
 
-    def _update_generate_kwargs(self, generate_kwargs: dict) -> dict[str, str]:
-        if generate_kwargs and "max_tokens" in generate_kwargs:
+    def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
+        if not generate_kwargs:
+            generate_kwargs = {}
+
+        if "max_tokens" in generate_kwargs:
             generate_kwargs["num_predict"] = generate_kwargs.pop("max_tokens")
 
         return generate_kwargs
 
-    def generate(self, prompt: str, generate_kwargs: dict = None) -> str:
+    def generate(self, prompt: str, generate_kwargs: Optional[dict] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         response = ollama.generate(
-            model=self.model,
+            model=self.model.value,
             prompt=prompt,
             options=generate_kwargs,
             think=self.thinking,
@@ -84,11 +83,11 @@ class OllamaClient(ModelClient):
 
         return response["response"] if not self.thinking else response.response
 
-    def generate_streamed(self, prompt: str, generate_kwargs: dict = None) -> Iterator[str]:
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = None) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         response = ollama.generate(
-            model=self.model,
+            model=self.model.value,
             prompt=prompt,
             options=generate_kwargs,
             stream=True,
@@ -99,7 +98,9 @@ class OllamaClient(ModelClient):
         for response_part in response:
             yield response_part["response"]
 
-    def _chat(self, user_message: str, generate_kwargs: dict, use_tools: bool) -> None:
+    def _chat(
+        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = None
+    ) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if use_tools and self.model not in OllamaClient.TOOL_MODELS:
@@ -112,7 +113,7 @@ class OllamaClient(ModelClient):
         # Add user message
         self.messages.append({"role": "user", "content": user_message})
 
-    def chat(self, user_message: str, generate_kwargs: dict = None, use_tools: bool = True) -> str:
+    def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> str:
         self._chat(user_message, generate_kwargs, use_tools)
 
         tools = []
@@ -120,7 +121,7 @@ class OllamaClient(ModelClient):
             tools = self.mcp_client.get_tools()
 
         response = ollama.chat(
-            model=self.model,
+            model=self.model.value,
             messages=self.messages,
             options=generate_kwargs,
             tools=tools,
@@ -135,7 +136,7 @@ class OllamaClient(ModelClient):
                 self.messages[-2]["thinking"] = response["message"].thinking
 
             response = ollama.chat(
-                model=self.model,
+                model=self.model.value,
                 messages=self.messages,
                 options=generate_kwargs,
                 tools=tools,
@@ -150,7 +151,9 @@ class OllamaClient(ModelClient):
 
         return response["message"].content
 
-    def chat_streamed(self, user_message: str, generate_kwargs: dict = None, use_tools: bool = True) -> Iterator[str]:
+    def chat_streamed(
+        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True
+    ) -> Iterator[str]:
         self._chat(user_message, generate_kwargs, use_tools)
 
         tools = []
@@ -158,7 +161,7 @@ class OllamaClient(ModelClient):
             tools = self.mcp_client.get_tools()
 
         response = ollama.chat(
-            model=self.model,
+            model=self.model.value,
             messages=self.messages,
             options=generate_kwargs,
             tools=tools,
@@ -187,7 +190,7 @@ class OllamaClient(ModelClient):
                 thinking = ""
 
             response = ollama.chat(
-                model=self.model,
+                model=self.model.value,
                 messages=self.messages,
                 options=generate_kwargs,
                 tools=tools,
