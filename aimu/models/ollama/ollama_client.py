@@ -1,4 +1,4 @@
-from ..models import Model, ModelClient
+from ..base_client import Model, ModelClient
 
 import ollama
 import logging

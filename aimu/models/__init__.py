@@ -1,5 +1,5 @@
 # Always available
-from .models import ModelClient
+from .base_client import ModelClient
 
 # Optional imports with graceful fallbacks
 try:
