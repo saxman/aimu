@@ -51,7 +51,9 @@ class ModelClient(ABC):
         pass
 
     @abstractmethod
-    def chat_streamed(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> Iterator[str]:
+    def chat_streamed(
+        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True
+    ) -> Iterator[str]:
         pass
 
     def _handle_tool_calls(self, tool_calls, tools: list) -> None:

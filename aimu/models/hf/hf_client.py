@@ -74,7 +74,10 @@ class HuggingFaceClient(ModelClient):
     }
 
     def __init__(
-        self, model: HuggingFaceModel, model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(), system_message: Optional[str] = None
+        self,
+        model: HuggingFaceModel,
+        model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(),
+        system_message: Optional[str] = None,
     ):
         super().__init__(model, model_kwargs, system_message)
 
@@ -123,7 +126,9 @@ class HuggingFaceClient(ModelClient):
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
         return self.hf_tokenizer.decode(output_ids, skip_special_tokens=True)
 
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy()) -> Iterator[str]:
+    def generate_streamed(
+        self, prompt: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy()
+    ) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_special_tokens=True)
@@ -142,7 +147,9 @@ class HuggingFaceClient(ModelClient):
         for response_part in streamer:
             yield response_part
 
-    def _chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = None) -> None:
+    def _chat(
+        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = None
+    ) -> None:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if use_tools and self.model not in self.TOOL_MODELS:
@@ -161,12 +168,17 @@ class HuggingFaceClient(ModelClient):
 
         return
 
-    def _chat_generate(self, generate_kwargs: Optional[dict[str, str]] = None, tools: Optional[list[dict]] = None, streamer: Optional[TextIteratorStreamer] = None) -> Optional[str]:
+    def _chat_generate(
+        self,
+        generate_kwargs: Optional[dict[str, str]] = None,
+        tools: Optional[list[dict]] = None,
+        streamer: Optional[TextIteratorStreamer] = None,
+    ) -> Optional[str]:
         input_tokens = self.hf_tokenizer.apply_chat_template(
             self.messages, tools=tools, add_generation_prompt=True, return_dict=True, return_tensors="pt"
         ).to(self.hf_model.device)
 
-        output_tokens = self.hf_model.generate(**input_tokens, **generate_kwargs, streamer=streamer) # type: ignore
+        output_tokens = self.hf_model.generate(**input_tokens, **generate_kwargs, streamer=streamer)  # type: ignore
 
         if streamer is None:
             response = self.hf_tokenizer.decode(
@@ -178,7 +190,10 @@ class HuggingFaceClient(ModelClient):
         return
 
     def chat(
-        self, user_message: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy(), use_tools: Optional[bool] = True
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy(),
+        use_tools: Optional[bool] = True,
     ) -> str:
         self._chat(user_message, generate_kwargs, use_tools)
 
@@ -250,7 +265,10 @@ class HuggingFaceClient(ModelClient):
         return response
 
     def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, str]] = DEFAULT_GENERATE_KWARGS.copy(), use_tools: Optional[bool] = True
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, str]] = DEFAULT_GENERATE_KWARGS.copy(),
+        use_tools: Optional[bool] = True,
     ) -> Iterator[str]:
         self._chat(user_message, generate_kwargs, use_tools)
 

@@ -146,7 +146,9 @@ class OllamaClient(ModelClient):
 
         return response["message"].content
 
-    def chat_streamed(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> Iterator[str]:
+    def chat_streamed(
+        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True
+    ) -> Iterator[str]:
         self._chat(user_message, generate_kwargs)
 
         tools = []

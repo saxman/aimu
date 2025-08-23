@@ -66,7 +66,7 @@ def test_generate_streamed(model_client):
     response = model_client.generate_streamed(prompt)
 
     assert isinstance(response, Iterable)
-    content = next(response) # type: ignore
+    content = next(response)  # type: ignore
     assert isinstance(content, str)
 
     for response_part in response:
@@ -106,7 +106,7 @@ def test_chat_streamed(model_client):
     response = model_client.chat_streamed("What is the capital of France?")
 
     assert isinstance(response, Iterable)
-    content = next(response) # type: ignore
+    content = next(response)  # type: ignore
     assert isinstance(content, str)
 
     for response_part in response:
