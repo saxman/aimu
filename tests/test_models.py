@@ -49,6 +49,12 @@ def model_client(request) -> Iterable[ModelClient]:
     del client
 
 
+def test_class_properties(model_client):
+    """Test that the model client is a subclass of ModelClient."""
+
+    assert issubclass(model_client, ModelClient)
+
+
 def test_generate(model_client):
     """Test that the model can generate a response to a prompt."""
 
