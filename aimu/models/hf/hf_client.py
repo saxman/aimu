@@ -16,6 +16,8 @@ log.set_verbosity_error()
 
 
 class HuggingFaceModel(Model):
+    GPT_OSS_24B = "openai/gpt-oss-20b"
+
     LLAMA_3_1_8B = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     # LLAMA_3_2_3B = "meta-llama/Llama-3.2-3B-Instruct"
 
@@ -39,6 +41,7 @@ class HuggingFaceClient(ModelClient):
     MODELS = HuggingFaceModel
 
     TOOL_MODELS = [
+        MODELS.GPT_OSS_24B,
         MODELS.QWEN_3_8B,
         MODELS.MISTRAL_7B,
         MODELS.MISTRAL_NEMO_12B,
@@ -48,13 +51,14 @@ class HuggingFaceClient(ModelClient):
     ]
 
     THINKING_MODELS = [
+        MODELS.GPT_OSS_24B,
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_8B,
         MODELS.SMOLLM3_3B,
     ]
 
     DEFAULT_MODEL_KWARGS = {
-        "device_map": "auto",
+        "device_map": "balanced_low_0", # GPT_OSS_24B fails to load with "auto" or "sequential" on a system with dial 24GB GPUs
         "torch_dtype": "auto",
     }
 
@@ -73,12 +77,7 @@ class HuggingFaceClient(ModelClient):
         "num_beams": 1,
     }
 
-    def __init__(
-        self,
-        model: HuggingFaceModel,
-        model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(),
-        system_message: Optional[str] = None,
-    ):
+    def __init__(self, model: HuggingFaceModel, model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(),system_message: Optional[str] = None):
         super().__init__(model, model_kwargs, system_message)
 
         self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value, attn_implementation="eager")
