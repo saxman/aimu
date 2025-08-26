@@ -58,7 +58,7 @@ class HuggingFaceClient(ModelClient):
     ]
 
     DEFAULT_MODEL_KWARGS = {
-        "device_map": "balanced_low_0", # GPT_OSS_24B fails to load with "auto" or "sequential" on a system with dial 24GB GPUs
+        "device_map": "auto", # GPT_OSS_24B requires "balaned_low_0" since it fails to load with "auto" or "sequential" on a system with dial 24GB GPUs
         "torch_dtype": "auto",
     }
 
@@ -111,37 +111,21 @@ class HuggingFaceClient(ModelClient):
     def generate(self, prompt: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy()) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        messages = [{"role": "user", "content": prompt}]
-
-        text = self.hf_tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
-
+        model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
         generated_ids = self.hf_model.generate(**model_inputs, **generate_kwargs)
+        response = self.hf_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
-        output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
-        return self.hf_tokenizer.decode(output_ids, skip_special_tokens=True)
+        return response[response.find("</think>") + len("</think>"):].strip() if response.startswith("<think>") else response
 
-    def generate_streamed(
-        self, prompt: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy()
-    ) -> Iterator[str]:
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy()) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_special_tokens=True)
 
-        messages = [{"role": "user", "content": prompt}]
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        text = self.hf_tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
-
-        self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
+        model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
+        _ = self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
 
         for response_part in streamer:
             yield response_part
