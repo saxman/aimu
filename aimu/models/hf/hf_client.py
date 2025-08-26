@@ -146,27 +146,6 @@ class HuggingFaceClient(ModelClient):
         for response_part in streamer:
             yield response_part
 
-    def _chat(
-        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = None
-    ) -> None:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
-
-        if use_tools and self.model not in self.TOOL_MODELS:
-            raise ValueError(
-                f"Tool usage is not supported for model {self.model}. Supported models: {self.TOOL_MODELS}"
-            )
-
-        # Add system message if it's the first user message and system_message is set
-        if len(self.messages) == 0 and self.system_message:
-            self.messages.append(
-                {"role": "system", "content": self.system_message}
-            )  ## TODO: not all models support system messages
-
-        # Add user message
-        self.messages.append({"role": "user", "content": user_message})
-
-        return
-
     def _chat_generate(
         self,
         generate_kwargs: Optional[dict[str, str]] = None,
@@ -194,7 +173,7 @@ class HuggingFaceClient(ModelClient):
         generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy(),
         use_tools: Optional[bool] = True,
     ) -> str:
-        self._chat(user_message, generate_kwargs, use_tools)
+        self._chat_setup(user_message, generate_kwargs)
 
         tools = []
         if use_tools and self.mcp_client:
@@ -269,7 +248,7 @@ class HuggingFaceClient(ModelClient):
         generate_kwargs: Optional[dict[str, str]] = DEFAULT_GENERATE_KWARGS.copy(),
         use_tools: Optional[bool] = True,
     ) -> Iterator[str]:
-        self._chat(user_message, generate_kwargs, use_tools)
+        self._chat_setup(user_message, generate_kwargs)
 
         if not hasattr(self, "streamer"):
             self.streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)

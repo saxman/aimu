@@ -98,18 +98,8 @@ class OllamaClient(ModelClient):
         for response_part in response:
             yield response_part["response"]
 
-    def _chat(self, user_message: str, generate_kwargs: Optional[dict] = None) -> None:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
-
-        # Add the system message if we're processing the first user message and system_message is set
-        if len(self.messages) == 0 and self.system_message:
-            self.messages.append({"role": "system", "content": self.system_message})
-
-        # Add the user message
-        self.messages.append({"role": "user", "content": user_message})
-
     def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> str:
-        self._chat(user_message, generate_kwargs)
+        self._chat_setup(user_message, generate_kwargs)
 
         tools = []
         if use_tools and self.mcp_client and self.model in self.TOOL_MODELS:
@@ -149,7 +139,7 @@ class OllamaClient(ModelClient):
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True
     ) -> Iterator[str]:
-        self._chat(user_message, generate_kwargs)
+        self._chat_setup(user_message, generate_kwargs)
 
         tools = []
         if use_tools and self.mcp_client and self.model in self.TOOL_MODELS:

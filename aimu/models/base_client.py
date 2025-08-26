@@ -56,6 +56,20 @@ class ModelClient(ABC):
     ) -> Iterator[str]:
         pass
 
+    @abstractmethod
+    def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:
+        pass
+
+    def _chat_setup(self, user_message: str, generate_kwargs: Optional[dict] = None) -> None:
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
+        # Add the system message if we're processing the first user message and system_message is set
+        if len(self.messages) == 0 and self.system_message:
+            self.messages.append({"role": "system", "content": self.system_message})
+
+        # Add the user message
+        self.messages.append({"role": "user", "content": user_message})
+
     def _handle_tool_calls(self, tool_calls, tools: list) -> None:
         message = {"role": "assistant", "tool_calls": []}
         self.messages.append(message)
