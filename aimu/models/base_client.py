@@ -13,6 +13,7 @@ class Model(Enum):
 class ModelClient(ABC):
     MODELS = Model
 
+    @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
         self.model = model
         self.model_kwargs = model_kwargs
