@@ -32,6 +32,7 @@ hf = [
     "transformers",
     "accelerate",
     "sentencepiece",
+    "kernels", # required for GPT-OSS
 ]
 ollama = [
     "ollama",
