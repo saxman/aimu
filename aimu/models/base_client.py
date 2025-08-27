@@ -17,9 +17,8 @@ class ModelClient(ABC):
         self.model = model
         self.model_kwargs = model_kwargs
         self._system_message = system_message
-
+        self.default_generate_kwargs = {}
         self.messages = []
-
         self.mcp_client = None
 
     @property

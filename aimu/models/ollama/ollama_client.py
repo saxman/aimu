@@ -63,7 +63,7 @@ class OllamaClient(ModelClient):
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
         if not generate_kwargs:
-            generate_kwargs = {}
+            generate_kwargs = self.default_generate_kwargs
 
         if "max_tokens" in generate_kwargs:
             generate_kwargs["num_predict"] = generate_kwargs.pop("max_tokens")

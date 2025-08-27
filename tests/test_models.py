@@ -55,6 +55,8 @@ def test_class_properties(model_client):
     assert issubclass(model_client.__class__, ModelClient)
     assert isinstance(model_client, ModelClient)
 
+    assert model_client.default_generate_kwargs is not None
+
 
 def test_generate(model_client):
     """Test that the model can generate a response to a prompt."""
