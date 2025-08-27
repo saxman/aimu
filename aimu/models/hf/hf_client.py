@@ -16,7 +16,7 @@ log.set_verbosity_error()
 
 
 class HuggingFaceModel(Model):
-    GPT_OSS_24B = "openai/gpt-oss-20b"
+    GPT_OSS_20B = "openai/gpt-oss-20b"
 
     LLAMA_3_1_8B = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     # LLAMA_3_2_3B = "meta-llama/Llama-3.2-3B-Instruct"
@@ -41,7 +41,7 @@ class HuggingFaceClient(ModelClient):
     MODELS = HuggingFaceModel
 
     TOOL_MODELS = [
-        MODELS.GPT_OSS_24B,
+        MODELS.GPT_OSS_20B,
         MODELS.QWEN_3_8B,
         MODELS.MISTRAL_7B,
         MODELS.MISTRAL_NEMO_12B,
@@ -51,14 +51,14 @@ class HuggingFaceClient(ModelClient):
     ]
 
     THINKING_MODELS = [
-        MODELS.GPT_OSS_24B,
+        MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_8B,
         MODELS.SMOLLM3_3B,
     ]
 
     DEFAULT_MODEL_KWARGS = {
-        "device_map": "auto", # GPT_OSS_24B requires "balaned_low_0" since it fails to load with "auto" or "sequential" on a system with dial 24GB GPUs
+        "device_map": "auto",  # GPT_OSS_24B requires "balaned_low_0" since it fails to load with "auto" or "sequential" on a system with dial 24GB GPUs
         "torch_dtype": "auto",
     }
 
@@ -77,11 +77,18 @@ class HuggingFaceClient(ModelClient):
         "num_beams": 1,
     }
 
-    def __init__(self, model: HuggingFaceModel, model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(),system_message: Optional[str] = None):
+    def __init__(
+        self,
+        model: HuggingFaceModel,
+        model_kwargs: dict = DEFAULT_MODEL_KWARGS.copy(),
+        system_message: Optional[str] = None,
+    ):
         super().__init__(model, model_kwargs, system_message)
 
         self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value, attn_implementation="eager")
         self.hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
+
+        self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
 
     def __del__(self):
         del self.hf_model
@@ -98,7 +105,7 @@ class HuggingFaceClient(ModelClient):
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
         if not generate_kwargs:
-            generate_kwargs = {}
+            generate_kwargs = self.default_generate_kwargs
 
         if "max_tokens" in generate_kwargs:
             generate_kwargs["max_new_tokens"] = generate_kwargs.pop("max_tokens")
@@ -108,16 +115,20 @@ class HuggingFaceClient(ModelClient):
 
         return generate_kwargs
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy()) -> str:
+    def generate(self, prompt: str, generate_kwargs: Optional[dict] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
         generated_ids = self.hf_model.generate(**model_inputs, **generate_kwargs)
         response = self.hf_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
-        return response[response.find("</think>") + len("</think>"):].strip() if response.startswith("<think>") else response
+        return (
+            response[response.find("</think>") + len("</think>") :].strip()
+            if response.startswith("<think>")
+            else response
+        )
 
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy()) -> Iterator[str]:
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = None) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_special_tokens=True)
