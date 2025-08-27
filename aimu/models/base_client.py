@@ -1,12 +1,12 @@
 import logging
-import enum
+from enum import Enum
 from typing import Optional, Iterator
 from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
 
-class Model(enum.Enum):
+class Model(Enum):
     pass
 
 
