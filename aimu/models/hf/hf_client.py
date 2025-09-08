@@ -8,7 +8,7 @@ from transformers import TextIteratorStreamer
 import gc
 import pprint
 import logging
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Any
 import json
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class HuggingFaceClient(ModelClient):
     ]
 
     DEFAULT_MODEL_KWARGS = {
-        "device_map": "auto",  # GPT_OSS_24B requires "balaned_low_0" since it fails to load with "auto" or "sequential" on a system with dial 24GB GPUs
+        "device_map": "auto",
         "torch_dtype": "auto",
     }
 
@@ -68,10 +68,17 @@ class HuggingFaceClient(ModelClient):
     }
 
     DEFAULT_GENERATE_KWARGS = {
-        "max_new_tokens": 1024,
-        "temperature": 0.1,
-        "top_p": 0.95,
-        "top_k": 50,
+        "max_new_tokens": 256,
+        
+        # "temperature": 0.1,
+        # "top_p": 0.95,
+        # "top_k": 50,
+
+        ## gpt-oss recommended
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "top_k": 0,
+
         "repetition_penalty": 1.1,
         "do_sample": True,
         "num_beams": 1,
@@ -103,7 +110,7 @@ class HuggingFaceClient(ModelClient):
             logger.info("Emptying MPS cache")
             torch.mps.empty_cache()
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
+    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, None]:
         if not generate_kwargs:
             generate_kwargs = self.default_generate_kwargs
 
@@ -115,20 +122,30 @@ class HuggingFaceClient(ModelClient):
 
         return generate_kwargs
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict] = None) -> str:
+    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
-        generated_ids = self.hf_model.generate(**model_inputs, **generate_kwargs)
-        response = self.hf_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-
-        return (
-            response[response.find("</think>") + len("</think>") :].strip()
-            if response.startswith("<think>")
-            else response
+        messages = [
+            {"role": "user", "content": prompt},
+        ]
+        
+        inputs = self.hf_tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            return_tensors="pt",
+            return_dict=True,
+        ).to(self.hf_model.device)
+        
+        output_tokens = self.hf_model.generate(
+            **inputs,
+            **generate_kwargs
         )
+        
+        results = self.hf_tokenizer.decode(output_tokens[0])
 
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = None) -> Iterator[str]:
+        return results
+
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_special_tokens=True)
@@ -141,17 +158,20 @@ class HuggingFaceClient(ModelClient):
         for response_part in streamer:
             yield response_part
 
-    def _chat_generate(
-        self,
-        generate_kwargs: Optional[dict[str, str]] = None,
-        tools: Optional[list[dict]] = None,
-        streamer: Optional[TextIteratorStreamer] = None,
-    ) -> Optional[str]:
+    def _chat_generate(self, generate_kwargs: dict[str, Any], tools: list[dict], streamer: Optional[TextIteratorStreamer] = None) -> Optional[str]:
         input_tokens = self.hf_tokenizer.apply_chat_template(
-            self.messages, tools=tools, add_generation_prompt=True, return_dict=True, return_tensors="pt"
+            self.messages,
+            tools=tools,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt"
         ).to(self.hf_model.device)
 
-        output_tokens = self.hf_model.generate(**input_tokens, **generate_kwargs, streamer=streamer)  # type: ignore
+        output_tokens = self.hf_model.generate(
+            **input_tokens,
+            **generate_kwargs,
+            streamer=streamer
+        )
 
         if streamer is None:
             response = self.hf_tokenizer.decode(
@@ -162,13 +182,8 @@ class HuggingFaceClient(ModelClient):
 
         return
 
-    def chat(
-        self,
-        user_message: str,
-        generate_kwargs: Optional[dict] = DEFAULT_GENERATE_KWARGS.copy(),
-        use_tools: Optional[bool] = True,
-    ) -> str:
-        self._chat_setup(user_message, generate_kwargs)
+    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> str:
+        generate_kwargs = self._chat_setup(user_message, generate_kwargs)
 
         tools = []
         if use_tools and self.mcp_client:
@@ -179,12 +194,12 @@ class HuggingFaceClient(ModelClient):
         eos_token = self.hf_tokenizer.eos_token if self.hf_tokenizer.eos_token else ""
 
         thinking = ""
-        if self.hf_model in self.THINKING_MODELS and response.startswith("<think>"):
+        if self.model in self.THINKING_MODELS and response.startswith("<think>"):
             thinking = response[len("<think>") : response.index("</think>")]
             response = response[response.index("</think>") + len("</think>") :].strip()
 
         # <tool_call>{"name": "get_current_weather", "arguments": {"location": "Paris"}}</tool_call>
-        if self.hf_model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
+        if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
             if response.startswith("<tool_call>"):
                 tool_calls = []
                 while "<tool_call>" in response:
@@ -211,7 +226,7 @@ class HuggingFaceClient(ModelClient):
             response = response[: -len(eos_token)]
 
         # [TOOL_CALLS] [{"name": "get_current_temperature", "arguments": {"location": "Paris"}}]
-        elif self.hf_model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
+        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
             if "[TOOL_CALLS]" in response:
                 tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
                 tools_calls_end = response.index(eos_token)
@@ -223,7 +238,7 @@ class HuggingFaceClient(ModelClient):
             response = response[: -len(eos_token)].strip()
 
         # {"name": "get_current_weather", "arguments": {"location": "Paris"}}
-        elif self.hf_model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
+        elif self.model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
             if response.startswith('{"name":'):
                 self._handle_tool_calls([json.loads(response)], tools)
                 response = self._chat_generate(generate_kwargs, tools) or ""
@@ -237,13 +252,8 @@ class HuggingFaceClient(ModelClient):
 
         return response
 
-    def chat_streamed(
-        self,
-        user_message: str,
-        generate_kwargs: Optional[dict[str, str]] = DEFAULT_GENERATE_KWARGS.copy(),
-        use_tools: Optional[bool] = True,
-    ) -> Iterator[str]:
-        self._chat_setup(user_message, generate_kwargs)
+    def chat_streamed(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> Iterator[str]:
+        generate_kwargs = self._chat_setup(user_message, generate_kwargs)
 
         if not hasattr(self, "streamer"):
             self.streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
@@ -270,7 +280,7 @@ class HuggingFaceClient(ModelClient):
                     break
                 thinking += response_part
 
-        if self.hf_model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
+        if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
             if "<tool_call>" in response_part:
                 response = response_part
                 for response_part in self.streamer:
@@ -293,7 +303,7 @@ class HuggingFaceClient(ModelClient):
                     thinking = ""
 
                 self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
-        elif self.hf_model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
+        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
             next(self.streamer)  # first part is always empty
             response_part = next(self.streamer)
 
@@ -311,7 +321,7 @@ class HuggingFaceClient(ModelClient):
             else:
                 content = response_part
                 yield content
-        elif self.hf_model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
+        elif self.model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
             pass  # TODO: handle tool calls for LLAMA models
 
         next(self.streamer)
