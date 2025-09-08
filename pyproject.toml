@@ -33,6 +33,7 @@ hf = [
     "accelerate",
     "sentencepiece",
     "kernels", # required for GPT-OSS
+    "triton==3.4" # optional(?) for GPT-OSS
 ]
 ollama = [
     "ollama",
