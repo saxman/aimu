@@ -1,6 +1,6 @@
 import logging
 from enum import Enum
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Any
 from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ class ModelClient(ABC):
         self.default_generate_kwargs = {}
         self.messages = []
         self.mcp_client = None
+        self.last_thinking = ""
 
     @property
     def system_message(self):
@@ -39,28 +40,28 @@ class ModelClient(ABC):
                 self.messages.insert(0, {"role": "system", "content": message})
 
     @abstractmethod
-    def generate(self, prompt: str, generate_kwargs: Optional[dict] = None) -> str:
+    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         pass
 
     @abstractmethod
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = None) -> Iterator[str]:
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
         pass
 
     @abstractmethod
-    def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> str:
+    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> str:
         pass
 
     @abstractmethod
     def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
     ) -> Iterator[str]:
         pass
 
     @abstractmethod
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:
+    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         pass
 
-    def _chat_setup(self, user_message: str, generate_kwargs: Optional[dict] = None) -> None:
+    def _chat_setup(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         # Add the system message if we're processing the first user message and system_message is set
@@ -69,6 +70,8 @@ class ModelClient(ABC):
 
         # Add the user message
         self.messages.append({"role": "user", "content": user_message})
+
+        return generate_kwargs
 
     def _handle_tool_calls(self, tool_calls, tools: list) -> None:
         message = {"role": "assistant", "tool_calls": []}
