@@ -122,7 +122,7 @@ class HuggingFaceClient(ModelClient):
 
         return generate_kwargs
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+    def _generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         messages = [
@@ -145,12 +145,20 @@ class HuggingFaceClient(ModelClient):
 
         return results
 
+    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
+        model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
+        output_tokens = self.hf_model.generate(**model_inputs, **generate_kwargs)
+
+        results = self.hf_tokenizer.decode(output_tokens[0])
+
+        return results
+
     def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_special_tokens=True)
-
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
         _ = self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
