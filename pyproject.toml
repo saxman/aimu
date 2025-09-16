@@ -33,7 +33,6 @@ hf = [
     "accelerate",
     "sentencepiece",
     "kernels", # required for GPT-OSS
-    "triton==3.4" # optional(?) for GPT-OSS
 ]
 ollama = [
     "ollama",
@@ -43,11 +42,6 @@ aisuite = [
     "docstring-parser", # requied by aisuite
 ]
 all = ["aimu[hf,ollama,aisuite]"]
-
-[tool.uv]
-override-dependencies = [
-    "triton; sys_platform == 'linux' or sys_platform == 'windows'",
-]
 
 [build-system]
 requires = ["setuptools"]
