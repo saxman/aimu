@@ -48,7 +48,9 @@ class ModelClient(ABC):
         pass
 
     @abstractmethod
-    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> str:
+    def chat(
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+    ) -> str:
         pass
 
     @abstractmethod
