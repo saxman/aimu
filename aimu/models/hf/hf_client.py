@@ -68,16 +68,28 @@ class HuggingFaceClient(ModelClient):
     }
 
     DEFAULT_GENERATE_KWARGS = {
-        "max_new_tokens": 256,
+        "max_new_tokens": 1024,
         
-        # "temperature": 0.1,
-        # "top_p": 0.95,
-        # "top_k": 50,
+        "temperature": 0.1,
+        "top_p": 0.95,
+        "top_k": 50,
 
         ## gpt-oss recommended
-        "temperature": 1.0,
-        "top_p": 1.0,
-        "top_k": 0,
+        # "temperature": 1.0,
+        # "top_p": 1.0,
+        # "top_k": 0,
+
+        ## qwen3 recommended (thinking)
+        # "temperature": 0.6,
+        # "top_p": 0.95,
+        # "top_k": 20,
+        # "min_p": 0,
+
+        ## qwen3 recommended (non-thinking)
+        # "temperature": 0.7,
+        # "top_p": 0.8,
+        # "top_k": 20,
+        # "min_p": 0,
 
         "repetition_penalty": 1.1,
         "do_sample": True,
@@ -122,30 +134,83 @@ class HuggingFaceClient(ModelClient):
 
         return generate_kwargs
 
-    def _generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         messages = [
             {"role": "user", "content": prompt},
         ]
         
-        inputs = self.hf_tokenizer.apply_chat_template(
+        text = self.hf_tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
             return_tensors="pt",
-            return_dict=True,
-        ).to(self.hf_model.device)
-        
-        output_tokens = self.hf_model.generate(
-            **inputs,
-            **generate_kwargs
+            tokenize=False
         )
         
-        results = self.hf_tokenizer.decode(output_tokens[0])
+        model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
 
-        return results
+        generated_ids = self.hf_model.generate(
+            **model_inputs,
+            **generate_kwargs,
+        )
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+        output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
+        response = self.hf_tokenizer.decode(output_ids, skip_special_tokens=True)
+
+        self.last_thinking = ""
+        if self.model in self.THINKING_MODELS and response.startswith("<think>"):
+            self.last_thinking = response[len("<think>") : response.index("</think>")].strip()
+            response = response[response.index("</think>") + len("</think>") :].strip()
+
+        return response
+
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
+        messages = [
+            {"role": "user", "content": prompt},
+        ]
+        
+        text = self.hf_tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            return_tensors="pt",
+            tokenize=False
+        )
+        
+        model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
+
+        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
+
+        self.hf_model.generate(
+            **model_inputs,
+            **generate_kwargs,
+            streamer=streamer
+        )
+
+        next(streamer)  # first part is always empty
+        response_part = next(streamer)
+
+        self.last_thinking = ""
+        if self.model in self.THINKING_MODELS and response_part.startswith("<think>"):
+            while True:
+                response_part = next(streamer)
+                if "</think>" in response_part:
+                    response_part = next(streamer)
+                    break
+                self.last_thinking += response_part
+                
+            self.last_thinking = self.last_thinking.strip()
+
+        while True:
+            yield response_part
+            response_part = next(streamer)
+            if response_part == "":
+                break
+        
+
+    def __generate_raw(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
@@ -155,7 +220,7 @@ class HuggingFaceClient(ModelClient):
 
         return results
 
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
+    def _generate_streamed_raw(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_special_tokens=True)
