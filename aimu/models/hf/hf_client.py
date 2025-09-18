@@ -194,7 +194,7 @@ class HuggingFaceClient(ModelClient):
             if response_part == "":
                 break
 
-    def __generate_raw(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+    def _generate_raw(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
