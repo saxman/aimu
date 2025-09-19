@@ -92,6 +92,10 @@ class ModelClient(ABC):
             tool_calls = calls
 
         for tool_call in tool_calls:
+            # llama 3.1 uses 'parameters' instead of 'arguments'
+            if "arguments" not in tool_call and "parameters" in tool_call:
+                tool_call["arguments"] = tool_call["parameters"]
+            
             message["tool_calls"].append(
                 {
                     "type": "function",
