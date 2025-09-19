@@ -51,7 +51,7 @@ class HuggingFaceClient(ModelClient):
     ]
 
     THINKING_MODELS = [
-        MODELS.GPT_OSS_20B,
+        # MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_8B,
         MODELS.SMOLLM3_3B,
@@ -62,33 +62,33 @@ class HuggingFaceClient(ModelClient):
         "torch_dtype": "auto",
     }
 
-    # TODO: add more models and enable use by clients
-    DEFAULT_MODEL_TEMPERATURES = {
-        MODELS.MISTRAL_NEMO_12B: 0.3,
-    }
-
+    # TODO: enable model-specific default generation kwargs
     DEFAULT_GENERATE_KWARGS = {
         "max_new_tokens": 1024,
         "temperature": 0.1,
         "top_p": 0.95,
         "top_k": 50,
-        ## gpt-oss recommended
-        # "temperature": 1.0,
-        # "top_p": 1.0,
-        # "top_k": 0,
-        ## qwen3 recommended (thinking)
-        # "temperature": 0.6,
-        # "top_p": 0.95,
-        # "top_k": 20,
-        # "min_p": 0,
-        ## qwen3 recommended (non-thinking)
-        # "temperature": 0.7,
-        # "top_p": 0.8,
-        # "top_k": 20,
-        # "min_p": 0,
         "repetition_penalty": 1.1,
         "do_sample": True,
         "num_beams": 1,
+    }
+
+    DEFAULT_MODEL_GENERATE_KWARGS = {
+        MODELS.GPT_OSS_20B.value: {
+            "temperature": 1.0,
+            "top_p": 1.0,
+            "top_k": 0,
+        },
+        MODELS.QWEN_3_8B.value: {
+            ## thinking
+            "temperature": 0.6,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0,
+            ## TODO support non-thinking defaults
+            # "temperature": 0.7,
+            # "top_p": 0.8,
+        }
     }
 
     def __init__(
@@ -103,6 +103,9 @@ class HuggingFaceClient(ModelClient):
         self.hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
 
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
+
+        if self.model in self.DEFAULT_MODEL_GENERATE_KWARGS:
+            self.default_generate_kwargs.update(self.DEFAULT_MODEL_GENERATE_KWARGS[self.model.value])
 
     def __del__(self):
         del self.hf_model
@@ -129,6 +132,22 @@ class HuggingFaceClient(ModelClient):
 
         return generate_kwargs
 
+    def _generate(self, messages: list[dict], generate_kwargs: dict[str, Any], tools: Optional[list[dict]] = None, streamer: Optional[TextIteratorStreamer] = None) -> Optional[str]:
+        text = self.hf_tokenizer.apply_chat_template(
+            messages, add_generation_prompt=True, return_tensors="pt", tokenize=False, enable_thinking=True, tools=tools
+        )
+
+        model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
+
+        generated_ids = self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
+        
+        if streamer is None:
+            output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
+            response = self.hf_tokenizer.decode(output_ids, skip_special_tokens=True)
+            return response
+
+        return
+
     def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
@@ -136,19 +155,7 @@ class HuggingFaceClient(ModelClient):
             {"role": "user", "content": prompt},
         ]
 
-        text = self.hf_tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, return_tensors="pt", tokenize=False
-        )
-
-        model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
-
-        generated_ids = self.hf_model.generate(
-            **model_inputs,
-            **generate_kwargs,
-        )
-
-        output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
-        response = self.hf_tokenizer.decode(output_ids, skip_special_tokens=True)
+        response = self._generate(messages, generate_kwargs) or ""
 
         self.last_thinking = ""
         if self.model in self.THINKING_MODELS and response.startswith("<think>"):
@@ -164,15 +171,9 @@ class HuggingFaceClient(ModelClient):
             {"role": "user", "content": prompt},
         ]
 
-        text = self.hf_tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, return_tensors="pt", tokenize=False
-        )
+        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
 
-        model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
-
-        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
-
-        self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
+        self._generate(messages, generate_kwargs, streamer=streamer)
 
         next(streamer)  # first part is always empty
         response_part = next(streamer)
@@ -190,65 +191,24 @@ class HuggingFaceClient(ModelClient):
 
         while True:
             yield response_part
-            response_part = next(streamer)
-            if response_part == "":
+
+            try:
+                yield next(streamer)
+            except StopIteration:
                 break
 
-    def _generate_raw(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
-
-        model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
-        output_tokens = self.hf_model.generate(**model_inputs, **generate_kwargs)
-
-        results = self.hf_tokenizer.decode(output_tokens[0])
-
-        return results
-
-    def _generate_streamed_raw(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
-
-        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_special_tokens=True)
-
-        model_inputs = self.hf_tokenizer([prompt], return_tensors="pt").to(self.hf_model.device)
-        _ = self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
-
-        for response_part in streamer:
-            yield response_part
-
-    def _chat_generate(
-        self, generate_kwargs: dict[str, Any], tools: list[dict], streamer: Optional[TextIteratorStreamer] = None
-    ) -> Optional[str]:
-        input_tokens = self.hf_tokenizer.apply_chat_template(
-            self.messages, tools=tools, add_generation_prompt=True, return_dict=True, return_tensors="pt"
-        ).to(self.hf_model.device)
-
-        output_tokens = self.hf_model.generate(**input_tokens, **generate_kwargs, streamer=streamer)
-
-        if streamer is None:
-            response = self.hf_tokenizer.decode(
-                output_tokens[0][len(input_tokens["input_ids"][0]) :], skip_special_tokens=False
-            )
-
-            return response
-
-        return
-
-    def chat(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
-    ) -> str:
+    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> str:
         generate_kwargs = self._chat_setup(user_message, generate_kwargs)
 
         tools = []
         if use_tools and self.mcp_client:
             tools = self.mcp_client.get_tools()
 
-        response = self._chat_generate(generate_kwargs, tools) or ""
+        response = self._generate(self.messages, generate_kwargs, tools) or ""
 
-        eos_token = self.hf_tokenizer.eos_token if self.hf_tokenizer.eos_token else ""
-
-        thinking = ""
+        self.last_thinking = ""
         if self.model in self.THINKING_MODELS and response.startswith("<think>"):
-            thinking = response[len("<think>") : response.index("</think>")]
+            self.last_thinking = response[len("<think>") : response.index("</think>")]
             response = response[response.index("</think>") + len("</think>") :].strip()
 
         # <tool_call>{"name": "get_current_weather", "arguments": {"location": "Paris"}}</tool_call>
@@ -266,48 +226,36 @@ class HuggingFaceClient(ModelClient):
 
                 self._handle_tool_calls(tool_calls, tools)
 
-                if thinking:
-                    self.messages[-2]["thinking"] = thinking
-                    thinking = ""
+                if self.last_thinking:
+                    self.messages[-2]["thinking"] = self.last_thinking
+                    self.last_thinking = ""
 
-                response = self._chat_generate(generate_kwargs, tools) or ""
+                response = self._generate(self.messages, generate_kwargs, tools) or ""
 
                 if self.hf_model in self.THINKING_MODELS and response.startswith("<think>"):
-                    thinking = response[len("<think>") : response.index("</think>")]
+                    self.last_thinking = response[len("<think>") : response.index("</think>")]
                     response = response[response.index("</think>") + len("</think>") :].strip()
-
-            response = response[: -len(eos_token)]
 
         # [TOOL_CALLS] [{"name": "get_current_temperature", "arguments": {"location": "Paris"}}]
         elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
             if "[TOOL_CALLS]" in response:
-                tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
-                tools_calls_end = response.index(eos_token)
-                tool_calls = response[tool_calls_start:tools_calls_end].strip()
-
-                self._handle_tool_calls(json.loads(tool_calls), tools)
-                response = self._chat_generate(generate_kwargs, tools) or ""
-
-            response = response[: -len(eos_token)].strip()
+                self._handle_tool_calls(json.loads(response), tools)
+                response = self._generate(self.messages, generate_kwargs, tools) or ""
 
         # {"name": "get_current_weather", "arguments": {"location": "Paris"}}
         elif self.model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
             if response.startswith('{"name":'):
                 self._handle_tool_calls([json.loads(response)], tools)
-                response = self._chat_generate(generate_kwargs, tools) or ""
-
-            response = response[: -len(eos_token)].strip()
+                response = self._generate(self.messages, generate_kwargs, tools) or ""
 
         self.messages.append({"role": "assistant", "content": response})
 
-        if thinking:
-            self.messages[-1]["thinking"] = thinking
+        if self.last_thinking:
+            self.messages[-1]["thinking"] = self.last_thinking
 
         return response
 
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
-    ) -> Iterator[str]:
+    def chat_streamed(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> Iterator[str]:
         generate_kwargs = self._chat_setup(user_message, generate_kwargs)
 
         if not hasattr(self, "streamer"):
@@ -317,23 +265,23 @@ class HuggingFaceClient(ModelClient):
         if use_tools and self.mcp_client:
             tools = self.mcp_client.get_tools()
 
-        self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
+        self._generate(self.messages, generate_kwargs, tools, streamer=self.streamer)
 
         content = ""
-        eos_token = self.hf_tokenizer.eos_token if self.hf_tokenizer.eos_token else ""
 
         next(self.streamer)
         response_part = next(self.streamer)
 
-        thinking = ""
-        if response_part.startswith("<think>"):
+        self.last_thinking = ""
+        if self.model in self.THINKING_MODELS and response_part.startswith("<think>"):
             while True:
                 response_part = next(self.streamer)
                 if "</think>" in response_part:
-                    next(self.streamer)
                     response_part = next(self.streamer)
                     break
-                thinking += response_part
+                self.last_thinking += response_part
+
+            self.last_thinking = self.last_thinking.strip()
 
         if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
             if "<tool_call>" in response_part:
@@ -353,11 +301,12 @@ class HuggingFaceClient(ModelClient):
 
                 self._handle_tool_calls(tool_calls, tools)
 
-                if thinking:
-                    self.messages[-2]["thinking"] = thinking
-                    thinking = ""
+                ## TODO other thinking models should also be able to do this
+                if self.last_thinking:
+                    self.messages[-2]["thinking"] = self.last_thinking
+                    self.last_thinking = ""
 
-                self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
+                self._generate(self.messages, generate_kwargs, tools, streamer=self.streamer)
         elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
             next(self.streamer)  # first part is always empty
             response_part = next(self.streamer)
@@ -368,11 +317,10 @@ class HuggingFaceClient(ModelClient):
                     response += response_part
 
                 tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
-                tool_call_end = response.index(eos_token)
-                tool_calls = response[tool_calls_start:tool_call_end].strip()
+                tool_calls = response[tool_calls_start:].strip()
 
                 self._handle_tool_calls(json.loads(tool_calls), tools)
-                self._chat_generate(generate_kwargs, tools, streamer=self.streamer)
+                self._generate(self.messages, generate_kwargs, tools, streamer=self.streamer)
             else:
                 content = response_part
                 yield content
@@ -386,24 +334,25 @@ class HuggingFaceClient(ModelClient):
             while True:
                 response_part = next(self.streamer)
                 if "</think>" in response_part:
-                    next(self.streamer)
                     response_part = next(self.streamer)
+                    content += response_part
                     break
-                thinking += response_part
-        else:
-            content += response_part
-            yield content
+                self.last_thinking += response_part
 
-        for response_part in self.streamer:
-            if response_part.endswith(eos_token):
-                response_part = response_part[: -len(eos_token)]
-            content += response_part
+        while True:
             yield response_part
+
+            try:
+                response_part = next(self.streamer)
+                content += response_part
+                yield response_part
+            except StopIteration:
+                break
 
         self.messages.append({"role": "assistant", "content": content})
 
-        if thinking:
-            self.messages[-1]["thinking"] = thinking
+        if self.last_thinking:
+            self.messages[-1]["thinking"] = self.last_thinking
 
         return
 
