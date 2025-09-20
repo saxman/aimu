@@ -24,7 +24,11 @@ def pytest_generate_tests(metafunc):
         if client_type == "ollama":
             test_models = OllamaClient.MODELS
         elif client_type in ["hf", "huggingface"]:
-            test_models = HuggingFaceClient.MODELS
+            # test_models = HuggingFaceClient.MODELS
+            test_models = [
+                model for model in HuggingFaceClient.MODELS if model != HuggingFaceClient.MODELS.MISTRAL_SMALL_3_2_24B
+            ]
+            # TODO implement workaround for Mistral Small 3.2 24B not supporting AutoTokenizer
         else:
             test_models = list(OllamaClient.MODELS) + list(HuggingFaceClient.MODELS)
 
@@ -136,6 +140,7 @@ def test_chat_with_tools(model_client):
 
     @mcp.tool()
     def temperature(location: str) -> float:
+        """Return the current temperature in Celsius for a given location."""
         return 27.0
 
     mcp_client = MCPClient(server=mcp)
@@ -152,9 +157,9 @@ def test_chat_with_tools(model_client):
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
     assert "27" in response
 
+    # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
     if model_client.model in model_client.THINKING_MODELS:
-        # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
-        # assert "thinking" in model_client.messages[-1] ## GPT OSS does not seem to add thinking to the last message
+        assert "thinking" in model_client.messages[-1]
         assert "thinking" in model_client.messages[-3]
 
 
@@ -169,6 +174,7 @@ def test_chat_streamed_with_tools(model_client):
 
     @mcp.tool()
     def temperature(location: str) -> float:
+        """Return the current temperature in Celsius for a given location."""
         return 27.0
 
     mcp_client = MCPClient(server=mcp)
