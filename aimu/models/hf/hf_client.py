@@ -10,6 +10,7 @@ import pprint
 import logging
 from typing import Iterator, Optional, Any
 import json
+import itertools
 
 logger = logging.getLogger(__name__)
 log.set_verbosity_error()
@@ -19,7 +20,7 @@ class HuggingFaceModel(Model):
     GPT_OSS_20B = "openai/gpt-oss-20b"
 
     LLAMA_3_1_8B = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    # LLAMA_3_2_3B = "meta-llama/Llama-3.2-3B-Instruct"
+    LLAMA_3_2_3B = "unsloth/Llama-3.2-3B-Instruct"
 
     DEEPSEEK_R1_8B = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 
@@ -41,17 +42,18 @@ class HuggingFaceClient(ModelClient):
     MODELS = HuggingFaceModel
 
     TOOL_MODELS = [
-        MODELS.GPT_OSS_20B,
+        # MODELS.GPT_OSS_20B,
         MODELS.QWEN_3_8B,
         MODELS.MISTRAL_7B,
         MODELS.MISTRAL_NEMO_12B,
         MODELS.MISTRAL_SMALL_3_2_24B,
-        MODELS.LLAMA_3_1_8B,
+        # MODELS.LLAMA_3_1_8B,
         # MODELS.LLAMA_3_2_3B,
+        # MODELS.SMOLLM3_3B,
     ]
 
     THINKING_MODELS = [
-        # MODELS.GPT_OSS_20B,
+        MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_8B,
         MODELS.SMOLLM3_3B,
@@ -62,7 +64,6 @@ class HuggingFaceClient(ModelClient):
         "torch_dtype": "auto",
     }
 
-    # TODO: enable model-specific default generation kwargs
     DEFAULT_GENERATE_KWARGS = {
         "max_new_tokens": 1024,
         "temperature": 0.1,
@@ -88,7 +89,7 @@ class HuggingFaceClient(ModelClient):
             ## TODO support non-thinking defaults
             # "temperature": 0.7,
             # "top_p": 0.8,
-        }
+        },
     }
 
     def __init__(
@@ -132,21 +133,60 @@ class HuggingFaceClient(ModelClient):
 
         return generate_kwargs
 
-    def _generate(self, messages: list[dict], generate_kwargs: dict[str, Any], tools: Optional[list[dict]] = None, streamer: Optional[TextIteratorStreamer] = None) -> Optional[str]:
+    def _generate(
+        self,
+        messages: list[dict],
+        generate_kwargs: dict[str, Any],
+        tools: Optional[list[dict]] = None,
+        streamer: Optional[TextIteratorStreamer] = None,
+    ) -> tuple[str, Iterator[str]]:
+        if tools and (len(tools) == 0 or self.model not in self.TOOL_MODELS):
+            tools = None
+
         text = self.hf_tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, return_tensors="pt", tokenize=False, enable_thinking=True, tools=tools
+            messages,
+            add_generation_prompt=True,
+            return_tensors="pt",
+            tokenize=False,
+            enable_thinking=True,
+            tools=tools,
+            xml_tools=tools,
         )
 
-        model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
+        self.last_thinking = ""
 
+        model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
         generated_ids = self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
-        
+
         if streamer is None:
             output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
             response = self.hf_tokenizer.decode(output_ids, skip_special_tokens=True)
-            return response
 
-        return
+            if self.model in self.THINKING_MODELS and response.startswith("<think>"):
+                self.last_thinking = response[len("<think>") : response.index("</think>")].strip()
+                response = response[response.index("</think>") + len("</think>") :].strip()
+
+            return response, iter([])
+
+        next(streamer)
+        a, b = itertools.tee(streamer)
+
+        response_part = next(a)
+
+        if self.model in self.THINKING_MODELS and response_part.startswith("<think>"):
+            while True:
+                response_part = next(a)
+                next(b)
+
+                if "</think>" in response_part:
+                    next(b)
+                    break
+
+                self.last_thinking += response_part
+
+            self.last_thinking = self.last_thinking.strip()
+
+        return "", b
 
     def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
@@ -155,12 +195,7 @@ class HuggingFaceClient(ModelClient):
             {"role": "user", "content": prompt},
         ]
 
-        response = self._generate(messages, generate_kwargs) or ""
-
-        self.last_thinking = ""
-        if self.model in self.THINKING_MODELS and response.startswith("<think>"):
-            self.last_thinking = response[len("<think>") : response.index("</think>")].strip()
-            response = response[response.index("</think>") + len("</think>") :].strip()
+        response, _ = self._generate(messages, generate_kwargs)
 
         return response
 
@@ -173,80 +208,49 @@ class HuggingFaceClient(ModelClient):
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
 
-        self._generate(messages, generate_kwargs, streamer=streamer)
+        _, it = self._generate(messages, generate_kwargs, streamer=streamer)
 
-        next(streamer)  # first part is always empty
-        response_part = next(streamer)
+        return it
 
-        self.last_thinking = ""
-        if self.model in self.THINKING_MODELS and response_part.startswith("<think>"):
-            while True:
-                response_part = next(streamer)
-                if "</think>" in response_part:
-                    response_part = next(streamer)
-                    break
-                self.last_thinking += response_part
+    def chat(
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+    ) -> str:
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
 
-            self.last_thinking = self.last_thinking.strip()
+        response, _ = self._generate(self.messages, generate_kwargs, tools)
 
-        while True:
-            yield response_part
-
-            try:
-                yield next(streamer)
-            except StopIteration:
-                break
-
-    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> str:
-        generate_kwargs = self._chat_setup(user_message, generate_kwargs)
-
-        tools = []
-        if use_tools and self.mcp_client:
-            tools = self.mcp_client.get_tools()
-
-        response = self._generate(self.messages, generate_kwargs, tools) or ""
-
-        self.last_thinking = ""
-        if self.model in self.THINKING_MODELS and response.startswith("<think>"):
-            self.last_thinking = response[len("<think>") : response.index("</think>")]
-            response = response[response.index("</think>") + len("</think>") :].strip()
-
-        # <tool_call>{"name": "get_current_weather", "arguments": {"location": "Paris"}}</tool_call>
-        if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
+        if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B, self.MODELS.GPT_OSS_20B]:
             if response.startswith("<tool_call>"):
                 tool_calls = []
+
                 while "<tool_call>" in response:
                     tool_call_start = response.index("<tool_call>") + len("<tool_call>")
                     tool_call_end = response.index("</tool_call>")
                     tool_call = response[tool_call_start:tool_call_end].strip()
-
                     tool_calls.append(json.loads(tool_call))
 
                     response = response[tool_call_end + len("</tool_call>") :].strip()
 
                 self._handle_tool_calls(tool_calls, tools)
 
+                # assign thinking to the tool call (the second to last message, before the tool response)
+                # TODO determine what to do when there are multuple tool calls
                 if self.last_thinking:
                     self.messages[-2]["thinking"] = self.last_thinking
-                    self.last_thinking = ""
 
-                response = self._generate(self.messages, generate_kwargs, tools) or ""
-
-                if self.hf_model in self.THINKING_MODELS and response.startswith("<think>"):
-                    self.last_thinking = response[len("<think>") : response.index("</think>")]
-                    response = response[response.index("</think>") + len("</think>") :].strip()
-
-        # [TOOL_CALLS] [{"name": "get_current_temperature", "arguments": {"location": "Paris"}}]
-        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
+                response, _ = self._generate(self.messages, generate_kwargs, tools)
+        elif self.model in [self.MODELS.MISTRAL_SMALL_3_2_24B]:
             if "[TOOL_CALLS]" in response:
                 self._handle_tool_calls(json.loads(response), tools)
-                response = self._generate(self.messages, generate_kwargs, tools) or ""
-
-        # {"name": "get_current_weather", "arguments": {"location": "Paris"}}
-        elif self.model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
+                response, _ = self._generate(self.messages, generate_kwargs, tools)
+        elif self.model in [self.MODELS.LLAMA_3_1_8B, self.MODELS.LLAMA_3_2_3B]:
             if response.startswith('{"name":'):
                 self._handle_tool_calls([json.loads(response)], tools)
-                response = self._generate(self.messages, generate_kwargs, tools) or ""
+                response, _ = self._generate(self.messages, generate_kwargs, tools)
+        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B]:
+            if response.startswith('[{"name":'):
+                self._handle_tool_calls([json.loads(response)[0]], tools)
+                response, _ = self._generate(self.messages, generate_kwargs, tools)
 
         self.messages.append({"role": "assistant", "content": response})
 
@@ -255,38 +259,22 @@ class HuggingFaceClient(ModelClient):
 
         return response
 
-    def chat_streamed(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> Iterator[str]:
-        generate_kwargs = self._chat_setup(user_message, generate_kwargs)
+    def chat_streamed(
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+    ) -> Iterator[str]:
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
 
-        if not hasattr(self, "streamer"):
-            self.streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
+        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
 
-        tools = []
-        if use_tools and self.mcp_client:
-            tools = self.mcp_client.get_tools()
+        _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
 
-        self._generate(self.messages, generate_kwargs, tools, streamer=self.streamer)
-
+        response_part = next(it)
         content = ""
-
-        next(self.streamer)
-        response_part = next(self.streamer)
-
-        self.last_thinking = ""
-        if self.model in self.THINKING_MODELS and response_part.startswith("<think>"):
-            while True:
-                response_part = next(self.streamer)
-                if "</think>" in response_part:
-                    response_part = next(self.streamer)
-                    break
-                self.last_thinking += response_part
-
-            self.last_thinking = self.last_thinking.strip()
 
         if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
             if "<tool_call>" in response_part:
                 response = response_part
-                for response_part in self.streamer:
+                for response_part in it:
                     response += response_part
 
                 tool_calls = []
@@ -301,49 +289,47 @@ class HuggingFaceClient(ModelClient):
 
                 self._handle_tool_calls(tool_calls, tools)
 
-                ## TODO other thinking models should also be able to do this
                 if self.last_thinking:
                     self.messages[-2]["thinking"] = self.last_thinking
-                    self.last_thinking = ""
 
-                self._generate(self.messages, generate_kwargs, tools, streamer=self.streamer)
-        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B, self.MODELS.MISTRAL_SMALL_3_2_24B]:
-            next(self.streamer)  # first part is always empty
-            response_part = next(self.streamer)
-
+                _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
+            else:
+                content += response_part
+        elif self.model in [self.MODELS.MISTRAL_SMALL_3_2_24B]:
             if "[TOOL_CALLS]" in response_part:
                 response = response_part
-                for response_part in self.streamer:
+                for response_part in it:
                     response += response_part
 
                 tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
                 tool_calls = response[tool_calls_start:].strip()
 
                 self._handle_tool_calls(json.loads(tool_calls), tools)
-                self._generate(self.messages, generate_kwargs, tools, streamer=self.streamer)
+                _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
             else:
-                content = response_part
-                yield content
-        elif self.model in [self.MODELS.LLAMA_3_1_8B]:  # TODO re-add self.MODELS.LLAMA_3_2_3B
-            pass  # TODO: handle tool calls for LLAMA models
+                content += response_part
+        elif self.model in [self.MODELS.LLAMA_3_1_8B, self.MODELS.LLAMA_3_2_3B]:
+            if '{"name":' in response_part:
+                response = response_part
+                for response_part in it:
+                    response += response_part
 
-        next(self.streamer)
-        response_part = next(self.streamer)
+                self._handle_tool_calls([json.loads(response)], tools)
+                _, it = self._generate(self.messages, generate_kwargs, tools)
+        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B]:
+            if '[{"name":' in response_part:
+                response = response_part
+                for response_part in it:
+                    response += response_part
 
-        if response_part.startswith("<think>"):
-            while True:
-                response_part = next(self.streamer)
-                if "</think>" in response_part:
-                    response_part = next(self.streamer)
-                    content += response_part
-                    break
-                self.last_thinking += response_part
+                self._handle_tool_calls([json.loads(response)[0]], tools)
+                _, it = self._generate(self.messages, generate_kwargs, tools)
 
         while True:
             yield response_part
 
             try:
-                response_part = next(self.streamer)
+                response_part = next(it)
                 content += response_part
                 yield response_part
             except StopIteration:
