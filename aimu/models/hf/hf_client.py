@@ -140,19 +140,26 @@ class HuggingFaceClient(ModelClient):
         tools: Optional[list[dict]] = None,
         streamer: Optional[TextIteratorStreamer] = None,
     ) -> tuple[str, Iterator[str]]:
-        if tools and (len(tools) == 0 or self.model not in self.TOOL_MODELS):
-            tools = None
-
-        text = self.hf_tokenizer.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            return_tensors="pt",
-            tokenize=False,
-            enable_thinking=True,
-            tools=tools,
-            xml_tools=tools,
-        )
-
+        if (tools and len(tools) == 0) or self.model not in self.TOOL_MODELS:
+            ## some models (e.g. Llama 3.1) misbehave is tools is present, event if None
+            text = self.hf_tokenizer.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                return_tensors="pt",
+                tokenize=False,
+                enable_thinking=True,
+            )
+        else:
+            text = self.hf_tokenizer.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                return_tensors="pt",
+                tokenize=False,
+                enable_thinking=True,
+                tools=tools,
+                xml_tools=tools,
+            )
+        
         self.last_thinking = ""
 
         model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
@@ -206,7 +213,7 @@ class HuggingFaceClient(ModelClient):
             {"role": "user", "content": prompt},
         ]
 
-        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
+        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True)
 
         _, it = self._generate(messages, generate_kwargs, streamer=streamer)
 
