@@ -9,5 +9,5 @@ def pytest_addoption(parser):
         "--client",
         action="store",
         default="all",
-        help="Client type to test: 'ollama', 'hf'/'huggingface', or 'all' (default: all)",
+        help="Client type to test: 'ollama', 'hf'/'huggingface', 'aisuite', or 'all' (default: all)",
     )

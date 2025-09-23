@@ -12,7 +12,7 @@ from typing import Iterable
 from fastmcp import FastMCP
 import time
 
-from aimu.models import ModelClient, HuggingFaceClient, OllamaClient
+from aimu.models import ModelClient, HuggingFaceClient, OllamaClient, AisuiteClient
 from aimu.tools.client import MCPClient
 
 
@@ -30,8 +30,11 @@ def pytest_generate_tests(metafunc):
                 model for model in HuggingFaceClient.MODELS if model != HuggingFaceClient.MODELS.MISTRAL_SMALL_3_2_24B
             ]
             # TODO implement workaround for Mistral Small 3.2 24B not supporting AutoTokenizer
+        elif client_type == "aisuite":
+            test_models = AisuiteClient.MODELS
         else:
             test_models = list(OllamaClient.MODELS) + list(HuggingFaceClient.MODELS)
+            # TODO: add AisuiteClient.MODELS once available
 
         metafunc.parametrize("model_client", test_models, indirect=True, scope="session")
 
@@ -47,6 +50,8 @@ def model_client(request) -> Iterable[ModelClient]:
         client = OllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
     elif model in HuggingFaceClient.MODELS:
         client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
+    elif model in AisuiteClient.MODELS:
+        client = AisuiteClient(model, system_message="You are a helpful assistant.")
     else:
         raise ValueError(f"Unknown model: {model}")
 
