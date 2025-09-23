@@ -38,8 +38,9 @@ ollama = [
     "ollama",
 ]
 aisuite = [
-    "aisuite",
+    "aisuite[openai]", # for OpenAI compatibility
     "docstring-parser", # requied by aisuite
+    "python-dotenv"
 ]
 all = ["aimu[hf,ollama,aisuite]"]
 
