@@ -159,7 +159,7 @@ class HuggingFaceClient(ModelClient):
                 tools=tools,
                 xml_tools=tools,
             )
-        
+
         self.last_thinking = ""
 
         model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)

@@ -46,7 +46,7 @@ def model_client(request) -> Iterable[ModelClient]:
     model = request.param
 
     if model in OllamaClient.MODELS:
-        time.sleep(2) # give Ollama some time to free memory from the prior model
+        time.sleep(2)  # give Ollama some time to free memory from the prior model
         client = OllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
     elif model in HuggingFaceClient.MODELS:
         client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
