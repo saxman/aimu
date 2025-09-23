@@ -1,38 +1,84 @@
-from ..base_client import ModelClient
+from typing import Any, Iterator, Optional
+from ..base_client import Model, ModelClient
 
 import aisuite
 import logging
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
 
+class AisuiteModel(Model):
+    GPT_4O_MINI = "openai:gpt-4o-mini"
+    GPT_4O = "openai:gpt-4o"
+
 class AisuiteClient(ModelClient):
-    MODEL_LLAMA_3_1_8B = "ollama:llama3.1:8b"
-    MODEL_LLAMA_3_2_3B = "ollama:llama3.2:3b"
+    MODELS = AisuiteModel
 
-    MODEL_GEMMA_2_9B = "ollama:gemma2:9b"
+    TOOL_MODELS = [
+        MODELS.GPT_4O_MINI,
+        MODELS.GPT_4O
+    ]
 
-    MODEL_PHI_4_14B = "ollama:phi4:14b"
+    THINKING_MODELS = [
+        MODELS.GPT_4O_MINI,
+        MODELS.GPT_4O
+    ]
 
-    MODEL_DEEPSEEK_R1_8B = "ollama:deepseek-r1:8b"
+    DEFAULT_GENERATE_KWARGS = {
+        "max_new_tokens": 1024,
+        "temperature": 0.1,
+        "top_p": 0.95,
+        "top_k": 50,
+    }
 
-    MODEL_MISTRAL_7B = "ollama:mistral:7b"
-    MODEL_MISTRAL_NEMO_12B = "ollama:mistral-nemo"
+    def __init__(
+        self,
+        model: AisuiteModel,
+        model_kwargs: Optional[dict] = None,
+        system_message: Optional[str] = None,
+    ):
+        super().__init__(model, model_kwargs, system_message)
+        self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
 
-    MODEL_QWEN_2_5_7B = "ollama:qwen2.5:7b"
+        load_dotenv()
 
-    MODEL_GPT_4O_MINI = "openai:gpt-4o-mini"
-    MODEL_GPT_4O = "openai:gpt-4o"
+        self.ai_client = aisuite.Client()
 
-    def __init__(self, model_id: str):
-        super().__init__(model_id, None)
-        self.client = aisuite.Client()
+    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, None]:
+        if not generate_kwargs:
+            generate_kwargs = self.default_generate_kwargs
+        
+        return generate_kwargs
 
-    def generate(self, prompt, generate_kwargs):
+    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
         messages = [{"role": "user", "content": prompt}]
 
-        response = self.client.chat.completions.create(
-            self.model_id, messages, temperature=generate_kwargs["temperature"]
+        response = self.ai_client.chat.completions.create(
+            self.model.value, messages, temperature=generate_kwargs["temperature"], max_tokens=generate_kwargs["max_new_tokens"]
         )
 
         return response.choices[0].message.content
+
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
+        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        
+        messages = [{"role": "user", "content": prompt}]
+
+        response = self.ai_client.chat.completions.create(
+            self.model.value, messages, stream=True, temperature=generate_kwargs["temperature"], max_tokens=generate_kwargs["max_new_tokens"]
+        )
+
+        return response
+
+    def chat(
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+    ) -> str:
+        pass
+
+    def chat_streamed(
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+    ) -> Iterator[str]:
+        pass
