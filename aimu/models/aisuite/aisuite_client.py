@@ -43,6 +43,8 @@ class AisuiteClient(ModelClient):
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, None]:
         if not generate_kwargs:
             generate_kwargs = self.default_generate_kwargs
+        else:
+            generate_kwargs = {**self.default_generate_kwargs, **generate_kwargs}
 
         return generate_kwargs
 
@@ -84,14 +86,41 @@ class AisuiteClient(ModelClient):
             yield response_part.choices[0].delta.content
 
         message["content"] = content
+
+    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> str:
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
+
+        response = self.ai_client.chat.completions.create(
+            self.model.value,
+            self.messages,
+            temperature=generate_kwargs["temperature"],
+            max_tokens=generate_kwargs["max_new_tokens"],
+        )
+
+        self.messages.append({"role": "assistant", "content": response.choices[0].message.content})
+
+        return response.choices[0].message.content
+
+    def chat_streamed(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> Iterator[str]:
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
+
+        response = self.ai_client.chat.completions.create(
+            self.model.value,
+            self.messages,
+            stream=True,
+            temperature=generate_kwargs["temperature"],
+            max_tokens=generate_kwargs["max_new_tokens"],
+        )
+
+        message = {"role": next(response).choices[0].delta.role}
+        content = ""
+
+        while response_part := next(response):
+            if response_part.choices[0].finish_reason is not None:
+                break
+
+            content += response_part.choices[0].delta.content
+            yield response_part.choices[0].delta.content
+
+        message["content"] = content
         self.messages.append(message)
-
-    def chat(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
-    ) -> str:
-        pass
-
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
-    ) -> Iterator[str]:
-        pass
