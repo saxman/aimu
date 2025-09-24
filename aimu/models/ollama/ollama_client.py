@@ -99,11 +99,7 @@ class OllamaClient(ModelClient):
             yield response_part["response"]
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> str:
-        self._chat_setup(user_message, generate_kwargs)
-
-        tools = []
-        if use_tools and self.mcp_client and self.model in self.TOOL_MODELS:
-            tools = self.mcp_client.get_tools()
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
 
         response = ollama.chat(
             model=self.model.value,
@@ -139,11 +135,7 @@ class OllamaClient(ModelClient):
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True
     ) -> Iterator[str]:
-        self._chat_setup(user_message, generate_kwargs)
-
-        tools = []
-        if use_tools and self.mcp_client and self.model in self.TOOL_MODELS:
-            tools = self.mcp_client.get_tools()
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
 
         response = ollama.chat(
             model=self.model.value,
