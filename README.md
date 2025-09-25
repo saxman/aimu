@@ -20,8 +20,6 @@ A Python package containing easy to use tools for working with various language 
 
 ## Components
 
-------------------------------------------------------------------------
-
 In addition to the AIMU package in the 'aimu' directory, the AIMU code repository includes:
 
 -   Jupyter notebooks demonstrating key AIMU features.
@@ -31,8 +29,6 @@ In addition to the AIMU package in the 'aimu' directory, the AIMU code repositor
 -   A full suite of Pytest tests.
 
 ## Installation
-
-------------------------------------------------------------------------
 
 AIMU can be installed with Ollama support, Hugging Face (Transformers) support, or both! For both, simply install the full package.
 
@@ -60,8 +56,6 @@ pip install aimu[aisuite]
 
 ## Development
 
-------------------------------------------------------------------------
-
 Once you've cloned the repository, run the following command to install all dependencies:
 
 ``` bash
@@ -75,8 +69,6 @@ uv sync --all-extras
 ```
 
 ## Usage
-
-------------------------------------------------------------------------
 
 ### Text Generation
 
@@ -163,7 +155,5 @@ prompt_catalog.store_prompt(prompt)
 ```
 
 ## License
-
-------------------------------------------------------------------------
 
 This project is licensed under the Apache 2.0 license.
