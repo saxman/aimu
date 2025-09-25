@@ -4,6 +4,7 @@ from ..base_client import Model, ModelClient
 import aisuite
 import logging
 from dotenv import load_dotenv
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -11,14 +12,15 @@ logger = logging.getLogger(__name__)
 class AisuiteModel(Model):
     GPT_4O_MINI = "openai:gpt-4o-mini"
     GPT_4O = "openai:gpt-4o"
+    GPT_5_MINI = "openai:gpt-5-mini"
+    GPT_5 = "openai:gpt-5"
+    GPT_5_NANO = "openai:gpt-5-nano"
 
 
 class AisuiteClient(ModelClient):
     MODELS = AisuiteModel
-
-    TOOL_MODELS = [MODELS.GPT_4O_MINI, MODELS.GPT_4O]
-
-    THINKING_MODELS = [MODELS.GPT_4O_MINI, MODELS.GPT_4O]
+    TOOL_MODELS = MODELS
+    THINKING_MODELS = []
 
     DEFAULT_GENERATE_KWARGS = {
         "max_new_tokens": 1024,
@@ -87,30 +89,93 @@ class AisuiteClient(ModelClient):
 
         message["content"] = content
 
-    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> str:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
+    def chat(
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+    ) -> str:
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = self.ai_client.chat.completions.create(
             self.model.value,
             self.messages,
+            tools=tools,
             temperature=generate_kwargs["temperature"],
             max_tokens=generate_kwargs["max_new_tokens"],
         )
+
+        if response.choices[0].message.tool_calls:
+            tool_calls = []
+            for tool_call in response.choices[0].message.tool_calls:
+                tool_calls.append(
+                    {
+                        "name": tool_call.function.name,
+                        "arguments": json.loads(tool_call.function.arguments),
+                    }
+                )
+
+            self._handle_tool_calls(tool_calls, tools)
+
+            ## tool calls for aisuite require the arguments to be a json string
+            # TODO: find a better way. this makes messages inconsistent between Aisuite and other model clients
+            self.messages[-2]["tool_calls"][0]["function"]["arguments"] = json.dumps(
+                self.messages[-2]["tool_calls"][0]["function"]["arguments"]
+            )
+
+            response = self.ai_client.chat.completions.create(
+                self.model.value,
+                self.messages,
+                tools=tools,
+                temperature=generate_kwargs["temperature"],
+                max_tokens=generate_kwargs["max_new_tokens"],
+            )
 
         self.messages.append({"role": "assistant", "content": response.choices[0].message.content})
 
         return response.choices[0].message.content
 
-    def chat_streamed(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True) -> Iterator[str]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
+    def chat_streamed(
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+    ) -> Iterator[str]:
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = self.ai_client.chat.completions.create(
             self.model.value,
             self.messages,
             stream=True,
+            tools=tools,
             temperature=generate_kwargs["temperature"],
             max_tokens=generate_kwargs["max_new_tokens"],
         )
+
+        response_part = next(response)
+
+        if response_part.choices[0].delta.tool_calls:
+            # TODO: get the enture tool call from the streamed response
+
+            tool_calls = []
+            for tool_call in response_part.choices[0].delta.tool_calls:
+                tool_calls.append(
+                    {
+                        "name": tool_call.function.name,
+                        "arguments": json.loads(tool_call.function.arguments),
+                    }
+                )
+
+            self._handle_tool_calls(tool_calls, tools)
+
+            ## tool calls for aisuite require the arguments to be a json string
+            # TODO: find a better way. this makes messages inconsistent between Aisuite and other model clients
+            self.messages[-2]["tool_calls"][0]["function"]["arguments"] = json.dumps(
+                self.messages[-2]["tool_calls"][0]["function"]["arguments"]
+            )
+
+            response = self.ai_client.chat.completions.create(
+                self.model.value,
+                self.messages,
+                stream=True,
+                tools=tools,
+                temperature=generate_kwargs["temperature"],
+                max_tokens=generate_kwargs["max_new_tokens"],
+            )
 
         message = {"role": next(response).choices[0].delta.role}
         content = ""
