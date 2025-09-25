@@ -1,5 +1,5 @@
 from aimu import paths
-from aimu.models import HuggingFaceClient, OllamaClient
+from aimu.models import HuggingFaceClient, OllamaClient, AisuiteClient
 from aimu.tools.client import MCPClient
 from aimu.memory import ConversationManager
 
@@ -22,6 +22,7 @@ Introduce what model that you are and share what tools you have access to.
 MODEL_CLIENTS = [
     OllamaClient,
     HuggingFaceClient,
+    AisuiteClient,
 ]
 
 MCP_SERVERS = {
