@@ -1,6 +1,10 @@
-# AIMU - AI Model Utilities
+# 
 
 [![PyPI](https://img.shields.io/pypi/v/aimu)](https://pypi.org/project/aimu/) ![GitHub License](https://img.shields.io/github/license/saxman/genscai) ![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsaxman%2Faimu%2Frefs%2Fheads%2Fmain%2Fpyproject.toml) [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
+# AIMU - AI Model Utilities
+
+------------------------------------------------------------------------
 
 A Python package containing easy to use tools for working with various language models and AI services. AIMU is specifically designed for running models locally, using Ollama or Hugging Face Transformers. However, it can also be used with cloud models (OpenAI, Anthropic, Google, etc.) with [aisuite](https://github.com/andrewyng/aisuite) support (in development).
 
@@ -10,7 +14,7 @@ A Python package containing easy to use tools for working with various language 
 
     -   [Ollama](https://ollama.com/) (local models)
     -   [Hugging Face Transformers](https://huggingface.co/docs/transformers) (local models)
-    -   \[In Development\] Cloud Providers, such as OpenAI, Anthropic, Google, AWS, etc. (via [aisuite](https://github.com/andrewyng/aisuite))
+    -   [aisuite](https://github.com/andrewyng/aisuite) supported models (cloud and local models), including OpenAI (others coming)
 
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
 
@@ -20,15 +24,19 @@ A Python package containing easy to use tools for working with various language 
 
 ## Components
 
+------------------------------------------------------------------------
+
 In addition to the AIMU package in the 'aimu' directory, the AIMU code repository includes:
 
--   Jupyter notebooks demonstrating key AIMU features (in the 'notebooks' directory).
+-   Jupyter notebooks demonstrating key AIMU features.
 
--   A example chat client (in 'streamlit'), built with [Streamlit](https://streamlit.io/), using AIMU Model Client, MCP tools support, and chat conversation management.
+-   A example chat client, built with [Streamlit](https://streamlit.io/), using AIMU Model Client, MCP tools support, and chat conversation management.
 
--   A full suite of Pytest tests (in 'tests').
+-   A full suite of Pytest tests.
 
 ## Installation
+
+------------------------------------------------------------------------
 
 AIMU can be installed with Ollama support, Hugging Face (Transformers) support, or both! For both, simply install the full package.
 
@@ -42,33 +50,29 @@ Alternatively, for Ollama-only support:
 pip install aimu[ollama]
 ```
 
-Or for Hugging Face:
+For Hugging Face Tranformers model support:
 
 ``` bash
 pip install aimu[hf]
 ```
 
+For aisuite models (e.g. OpenAI):
+
+``` bash
+pip install aimu[aisuite]
+```
+
 ## Development
 
-Once you've cloned the repository, run the following command to install dependencies:
+------------------------------------------------------------------------
+
+Once you've cloned the repository, run the following command to install all dependencies:
 
 ``` bash
-pip install -e .
+pip install -e '.[all]'
 ```
 
-For developer tools dependencies (tests, linting/formatting), run:
-
-``` bash
-pip install -e '.[dev]'
-```
-
-For using the Jupyter notebooks in the 'notebooks' directory, run:
-
-``` bash
-pip install -e '.[notebooks]'
-```
-
-If you have [uv](https://docs.astral.sh/uv/) installed, get all dependencies with:
+If you have [uv](https://docs.astral.sh/uv/) installed, you can get all dependencies with:
 
 ``` bash
 uv sync --all-extras
@@ -76,10 +80,12 @@ uv sync --all-extras
 
 ## Usage
 
+------------------------------------------------------------------------
+
 ### Text Generation
 
 ``` python
-from aimu.models import OllamaClient as ModelClient ## or HuggingFaceClient
+from aimu.models import OllamaClient as ModelClient ## or HuggingFaceClient, or AisuiteClient
 
 model_client = ModelClient(ModelClient.MODEL_LLAMA_3_1_8B)
 response = model_client.generate("What is the capital of France?", {"temperature": 0.7})
@@ -97,6 +103,7 @@ response = model_client.chat("What is the capital of France?")
 ### Chat UI (Streamlit)
 
 ``` bash
+cd streamlit
 streamlit run streamlit/chatbot_example.py
 ```
 
@@ -160,5 +167,7 @@ prompt_catalog.store_prompt(prompt)
 ```
 
 ## License
+
+------------------------------------------------------------------------
 
 This project is licensed under the Apache 2.0 license.
