@@ -12,9 +12,10 @@ logger = logging.getLogger(__name__)
 class AisuiteModel(Model):
     GPT_4O_MINI = "openai:gpt-4o-mini"
     GPT_4O = "openai:gpt-4o"
-    GPT_5_MINI = "openai:gpt-5-mini"
-    GPT_5 = "openai:gpt-5"
-    GPT_5_NANO = "openai:gpt-5-nano"
+    ## TODO: re-enable GPT-5 models once issue with "max_completion_tokens" is resolved
+    # GPT_5_NANO = "openai:gpt-5-nano"
+    # GPT_5_MINI = "openai:gpt-5-mini"
+    # GPT_5 = "openai:gpt-5"
 
 
 class AisuiteClient(ModelClient):
@@ -147,16 +148,22 @@ class AisuiteClient(ModelClient):
         response_part = next(response)
 
         if response_part.choices[0].delta.tool_calls:
-            # TODO: get the enture tool call from the streamed response
+            function_name = response_part.choices[0].delta.tool_calls[0].function.name
 
-            tool_calls = []
-            for tool_call in response_part.choices[0].delta.tool_calls:
-                tool_calls.append(
-                    {
-                        "name": tool_call.function.name,
-                        "arguments": json.loads(tool_call.function.arguments),
-                    }
-                )
+            function_arguments = ""
+            while response_part := next(response):
+                if response_part.choices[0].finish_reason is not None:
+                    break
+                
+                function_arguments += response_part.choices[0].delta.tool_calls[0].function.arguments
+
+            tool_calls = [] ## TODO: handle multiple tool calls
+            tool_calls.append(
+                {
+                    "name": function_name,
+                    "arguments": json.loads(function_arguments),
+                }
+            )
 
             self._handle_tool_calls(tool_calls, tools)
 
