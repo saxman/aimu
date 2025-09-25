@@ -30,10 +30,10 @@ In addition to the AIMU package in the 'aimu' directory, the AIMU code repositor
 
 ## Installation
 
-AIMU can be installed with Ollama support, Hugging Face (Transformers) support, or both! For both, simply install the full package.
+AIMU can be installed with Ollama support, Hugging Face Transformers support, and/or aisuite (cloud models) support. For all features, run:
 
 ``` bash
-pip install aimu
+pip install aimu[all]
 ```
 
 Alternatively, for Ollama-only support:
@@ -56,13 +56,19 @@ pip install aimu[aisuite]
 
 ## Development
 
-Once you've cloned the repository, run the following command to install all dependencies:
+Once you've cloned the repository, run the following command to install all model dependencies:
 
 ``` bash
 pip install -e '.[all]'
 ```
 
-If you have [uv](https://docs.astral.sh/uv/) installed, you can get all dependencies with:
+Additionally, run the following command to install development (testing, linting) and notebook dependencies:
+
+``` bash
+pip install -e '.[dev,notebooks]'
+```
+
+If you have [uv](https://docs.astral.sh/uv/) installed, you can get all model and development dependencies with:
 
 ``` bash
 uv sync --all-extras
