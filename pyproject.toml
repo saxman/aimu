@@ -1,12 +1,11 @@
 [project]
 name = "aimu"
-version = "0.1.5"
+version = "0.1.6"
 description = "A Python package containing tools for working with various language models and AI services."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 
-# pip dependencies
 dependencies = [
     "sqlalchemy",
     "chromadb",
@@ -17,7 +16,6 @@ dependencies = [
     "tinydb",
 ]
 
-# optional pip dependencies
 [project.optional-dependencies]
 dev = [
     "ruff",
