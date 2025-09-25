@@ -12,7 +12,7 @@ class OllamaModel(Model):
 
     LLAMA_3_1_8B = "llama3.1:8b"
     LLAMA_3_2_3B = "llama3.2:3b"
-    LLAMA_3_3_70B = "llama3.3:70b"
+    # LLAMA_3_3_70B = "llama3.3:70b"
 
     GEMMA_3_12B = "gemma3:12b"
 
@@ -41,7 +41,7 @@ class OllamaClient(ModelClient):
         MODELS.MISTRAL_SMALL_3_2_24B,
         MODELS.LLAMA_3_1_8B,
         MODELS.LLAMA_3_2_3B,
-        MODELS.LLAMA_3_3_70B,
+        # MODELS.LLAMA_3_3_70B,
         MODELS.SMOLLM2_1_7B,
     ]
 
@@ -99,7 +99,7 @@ class OllamaClient(ModelClient):
             yield response_part["response"]
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> str:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = ollama.chat(
             model=self.model.value,
@@ -111,7 +111,16 @@ class OllamaClient(ModelClient):
         )
 
         if response["message"].tool_calls:
-            self._handle_tool_calls(response["message"].tool_calls, tools)
+            tool_calls = []
+            for tool_call in response["message"].tool_calls:
+                tool_calls.append(
+                    {
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments,
+                    }
+                )
+
+            self._handle_tool_calls(tool_calls, tools)
 
             if response["message"].thinking:
                 self.messages[-2]["thinking"] = response["message"].thinking
@@ -135,7 +144,7 @@ class OllamaClient(ModelClient):
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True
     ) -> Iterator[str]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = ollama.chat(
             model=self.model.value,
@@ -160,7 +169,16 @@ class OllamaClient(ModelClient):
                     break
 
         if response_part["message"].tool_calls:
-            self._handle_tool_calls(response_part["message"].tool_calls, tools)
+            tool_calls = []
+            for tool_call in response_part["message"].tool_calls:
+                tool_calls.append(
+                    {
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments,
+                    }
+                )
+
+            self._handle_tool_calls(tool_calls, tools)
 
             if thinking:
                 self.messages[-2]["thinking"] = thinking  # TODO: correct functionality if there are multiple tool calls

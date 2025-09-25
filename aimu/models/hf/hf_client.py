@@ -222,7 +222,7 @@ class HuggingFaceClient(ModelClient):
     def chat(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
     ) -> str:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response, _ = self._generate(self.messages, generate_kwargs, tools)
 
@@ -269,7 +269,7 @@ class HuggingFaceClient(ModelClient):
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
     ) -> Iterator[str]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
 
