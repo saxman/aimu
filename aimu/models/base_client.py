@@ -14,6 +14,8 @@ class Model(Enum):
 
 class ModelClient(ABC):
     MODELS = Model
+    TOOL_MODELS = []
+    THINKING_MODELS = []
 
     @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
@@ -78,31 +80,19 @@ class ModelClient(ABC):
         self.messages.append({"role": "user", "content": user_message})
 
         tools = []
-        if use_tools and self.mcp_client:
+        if self.model in self.TOOL_MODELS and use_tools and self.mcp_client:
             tools = self.mcp_client.get_tools()
 
         return generate_kwargs, tools
 
-    def _handle_tool_calls(self, tool_calls, tools: list) -> None:
+    def _handle_tool_calls(self, tool_calls: list[dict], tools: list) -> None:
         message = {"role": "assistant", "tool_calls": []}
         self.messages.append(message)
-
-        # If we're processing tool calls from Ollama, we need to convert the calls to a dictionary
-        if hasattr(tool_calls[0], "function"):
-            calls = []
-            for tool_call in tool_calls:
-                calls.append(
-                    {
-                        "name": tool_call.function.name,
-                        "arguments": tool_call.function.arguments,
-                    }
-                )
-            tool_calls = calls
 
         for tool_call in tool_calls:
             # llama 3.1 uses 'parameters' instead of 'arguments'
             if "arguments" not in tool_call and "parameters" in tool_call:
-                tool_call["arguments"] = tool_call["parameters"]
+                tool_call["arguments"] = tool_call.pop("parameters")
 
             id = "".join(random.choices(string.ascii_letters + string.digits, k=9))
 
@@ -147,5 +137,3 @@ class ModelClient(ABC):
                     )
 
                     break
-
-        return
