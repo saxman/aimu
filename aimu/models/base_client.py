@@ -52,14 +52,12 @@ class ModelClient(ABC):
         pass
 
     @abstractmethod
-    def chat(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
-    ) -> str:
+    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
         pass
 
     @abstractmethod
     def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
     ) -> Iterator[str]:
         pass
 
@@ -68,7 +66,7 @@ class ModelClient(ABC):
         pass
 
     def _chat_setup(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 

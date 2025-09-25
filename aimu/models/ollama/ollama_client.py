@@ -98,7 +98,7 @@ class OllamaClient(ModelClient):
         for response_part in response:
             yield response_part["response"]
 
-    def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True) -> str:
+    def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = ollama.chat(
@@ -142,7 +142,7 @@ class OllamaClient(ModelClient):
         return response["message"].content
 
     def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: Optional[bool] = True
+        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: bool = True
     ) -> Iterator[str]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 

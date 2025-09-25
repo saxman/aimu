@@ -89,9 +89,7 @@ class AisuiteClient(ModelClient):
 
         message["content"] = content
 
-    def chat(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
-    ) -> str:
+    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = self.ai_client.chat.completions.create(
@@ -133,7 +131,7 @@ class AisuiteClient(ModelClient):
         return response.choices[0].message.content
 
     def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: Optional[bool] = True
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
     ) -> Iterator[str]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
