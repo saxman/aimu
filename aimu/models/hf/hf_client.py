@@ -164,6 +164,7 @@ class HuggingFaceClient(ModelClient):
 
         model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
         generated_ids = self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
+        # TODO: fix the EOS token being returned. Streamer has skip_special_tokens, and have tried eos_token_id=self.hf_model.config.eos_token_id for generator
 
         if streamer is None:
             output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
@@ -175,25 +176,31 @@ class HuggingFaceClient(ModelClient):
 
             return response, iter([])
 
+        # first part is always empty
         next(streamer)
-        a, b = itertools.tee(streamer)
 
-        response_part = next(a)
+        if self.model in self.THINKING_MODELS:
+            # tee the streamer iterator so we can look ahead for thinking
+            a, b = itertools.tee(streamer)
+            response_part = next(a)
 
-        if self.model in self.THINKING_MODELS and response_part.startswith("<think>"):
-            while True:
-                response_part = next(a)
-                next(b)
-
-                if "</think>" in response_part:
+            if response_part.startswith("<think>"):
+                while True:
+                    response_part = next(a)
                     next(b)
-                    break
 
-                self.last_thinking += response_part
+                    if "</think>" in response_part:
+                        next(b) # following </think> there's a newline
+                        next(b) # queue up the first valid token after thinking
+                        break
 
-            self.last_thinking = self.last_thinking.strip()
+                    self.last_thinking += response_part
 
-        return "", b
+                self.last_thinking = self.last_thinking.strip()
+
+            return "", b
+                
+        return "", streamer
 
     def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
@@ -213,7 +220,7 @@ class HuggingFaceClient(ModelClient):
             {"role": "user", "content": prompt},
         ]
 
-        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True)
+        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
 
         _, it = self._generate(messages, generate_kwargs, streamer=streamer)
 
@@ -330,9 +337,9 @@ class HuggingFaceClient(ModelClient):
                 self._handle_tool_calls([json.loads(response)[0]], tools)
                 _, it = self._generate(self.messages, generate_kwargs, tools)
 
-        while True:
-            yield response_part
+        yield response_part
 
+        while True:
             try:
                 response_part = next(it)
                 content += response_part
