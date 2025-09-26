@@ -90,6 +90,9 @@ class HuggingFaceClient(ModelClient):
             # "temperature": 0.7,
             # "top_p": 0.8,
         },
+        MODELS.DEEPSEEK_R1_8B.value: {
+            "temperature": 0.6,
+        },
     }
 
     def __init__(
