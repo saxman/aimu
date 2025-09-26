@@ -20,7 +20,10 @@ class AisuiteModel(Model):
 
 class AisuiteClient(ModelClient):
     MODELS = AisuiteModel
-    TOOL_MODELS = MODELS
+    TOOL_MODELS = [
+        MODELS.GPT_4O_MINI,
+        MODELS.GPT_4O,
+    ]
     THINKING_MODELS = []
 
     DEFAULT_GENERATE_KWARGS = {
@@ -154,10 +157,10 @@ class AisuiteClient(ModelClient):
             while response_part := next(response):
                 if response_part.choices[0].finish_reason is not None:
                     break
-                
+
                 function_arguments += response_part.choices[0].delta.tool_calls[0].function.arguments
 
-            tool_calls = [] ## TODO: handle multiple tool calls
+            tool_calls = []  ## TODO: handle multiple tool calls
             tool_calls.append(
                 {
                     "name": function_name,
