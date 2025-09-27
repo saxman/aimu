@@ -181,29 +181,22 @@ class HuggingFaceClient(ModelClient):
 
         # first part is always empty
         next(streamer)
+        response_part = next(streamer)
 
-        if self.model in self.THINKING_MODELS:
-            # tee the streamer iterator so we can look ahead for thinking
-            a, b = itertools.tee(streamer)
-            response_part = next(a)
+        if self.model in self.THINKING_MODELS and response_part.startswith("<think>"):
+            while True:
+                response_part = next(streamer)
 
-            if response_part.startswith("<think>"):
-                while True:
-                    response_part = next(a)
-                    next(b)
+                if "</think>" in response_part:
+                    next(streamer) # following </think> there's a newline
+                    response_part = next(streamer) # get the first valid token after thinking
+                    break
 
-                    if "</think>" in response_part:
-                        next(b) # following </think> there's a newline
-                        next(b) # queue up the first valid token after thinking
-                        break
+                self.last_thinking += response_part
 
-                    self.last_thinking += response_part
-
-                self.last_thinking = self.last_thinking.strip()
-
-            return "", b
+            self.last_thinking = self.last_thinking.strip()
                 
-        return "", streamer
+        return "", itertools.chain([response_part], streamer)
 
     def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
