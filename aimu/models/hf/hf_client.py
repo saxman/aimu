@@ -227,22 +227,20 @@ class HuggingFaceClient(ModelClient):
 
         response, _ = self._generate(self.messages, generate_kwargs, tools)
 
+        # TODO: handle multiple tool calls
         if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B, self.MODELS.GPT_OSS_20B]:
-            if response.startswith("<tool_call>"):
+            if "<tool_call>" in response:
                 tool_calls = []
+                tool_call_start = response.index("<tool_call>") + len("<tool_call>")
+                tool_call_end = response.index("</tool_call>")
+                tool_call = response[tool_call_start:tool_call_end].strip()
+                tool_calls.append(json.loads(tool_call))
 
-                while "<tool_call>" in response:
-                    tool_call_start = response.index("<tool_call>") + len("<tool_call>")
-                    tool_call_end = response.index("</tool_call>")
-                    tool_call = response[tool_call_start:tool_call_end].strip()
-                    tool_calls.append(json.loads(tool_call))
-
-                    response = response[tool_call_end + len("</tool_call>") :].strip()
+                response = response[tool_call_end + len("</tool_call>") :].strip()
 
                 self._handle_tool_calls(tool_calls, tools)
 
                 # assign thinking to the tool call (the second to last message, before the tool response)
-                # TODO determine what to do when there are multuple tool calls
                 if self.last_thinking:
                     self.messages[-2]["thinking"] = self.last_thinking
 
@@ -279,69 +277,65 @@ class HuggingFaceClient(ModelClient):
         response_part = next(it)
         content = ""
 
-        if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B]:
-            if "<tool_call>" in response_part:
-                response = response_part
-                for response_part in it:
-                    response += response_part
+        # TODO: handle multiple tool calls
+        if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B] and "<tool_call>" in response_part:
+            # buffer the entire tool call
+            response = response_part
+            for response_part in it:
+                response += response_part
 
-                tool_calls = []
-                while "<tool_call>" in response:
-                    tool_call_start = response.index("<tool_call>") + len("<tool_call>")
-                    tool_call_end = response.index("</tool_call>")
-                    tool_call = response[tool_call_start:tool_call_end].strip()
+            tool_calls = []
+            tool_call_start = response.index("<tool_call>") + len("<tool_call>")
+            tool_call_end = response.index("</tool_call>")
+            tool_call = response[tool_call_start:tool_call_end].strip()
+            tool_calls.append(json.loads(tool_call))
 
-                    tool_calls.append(json.loads(tool_call))
+            response = response[tool_call_end + len("</tool_call>") :].strip()
 
-                    response = response[tool_call_end + len("</tool_call>") :].strip()
+            self._handle_tool_calls(tool_calls, tools)
 
-                self._handle_tool_calls(tool_calls, tools)
+            if self.last_thinking:
+                self.messages[-2]["thinking"] = self.last_thinking
 
-                if self.last_thinking:
-                    self.messages[-2]["thinking"] = self.last_thinking
+            streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
 
-                _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
-            else:
-                content += response_part
-        elif self.model in [self.MODELS.MISTRAL_SMALL_3_2_24B]:
-            if "[TOOL_CALLS]" in response_part:
-                response = response_part
-                for response_part in it:
-                    response += response_part
+            _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
+        elif self.model in [self.MODELS.MISTRAL_SMALL_3_2_24B] and "[TOOL_CALLS]" in response_part:
+            response = response_part
+            for response_part in it:
+                response += response_part
 
-                tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
-                tool_calls = response[tool_calls_start:].strip()
+            tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
+            tool_calls = response[tool_calls_start:].strip()
 
-                self._handle_tool_calls(json.loads(tool_calls), tools)
-                _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
-            else:
-                content += response_part
-        elif self.model in [self.MODELS.LLAMA_3_1_8B, self.MODELS.LLAMA_3_2_3B]:
-            if '{"name":' in response_part:
-                response = response_part
-                for response_part in it:
-                    response += response_part
+            self._handle_tool_calls(json.loads(tool_calls), tools)
+            _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
+        elif self.model in [self.MODELS.LLAMA_3_1_8B, self.MODELS.LLAMA_3_2_3B] and '{"name":' in response_part:
+            response = response_part
+            for response_part in it:
+                response += response_part
 
-                self._handle_tool_calls([json.loads(response)], tools)
-                _, it = self._generate(self.messages, generate_kwargs, tools)
-        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B]:
-            if '[{"name":' in response_part:
-                response = response_part
-                for response_part in it:
-                    response += response_part
+            self._handle_tool_calls([json.loads(response)], tools)
+            _, it = self._generate(self.messages, generate_kwargs, tools)
+        elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B] and '[{"name":' in response_part:
+            response = response_part
+            for response_part in it:
+                response += response_part
 
-                self._handle_tool_calls([json.loads(response)[0]], tools)
-                _, it = self._generate(self.messages, generate_kwargs, tools)
+            self._handle_tool_calls([json.loads(response)[0]], tools)
+            _, it = self._generate(self.messages, generate_kwargs, tools)
+        else:
+            content += response_part
+            yield response_part
 
-        yield response_part
+        eos_str = self.hf_tokenizer.decode(self.hf_model.config.eos_token_id)
 
-        while True:
-            try:
-                response_part = next(it)
-                content += response_part
-                yield response_part
-            except StopIteration:
+        for response_part in it:
+            if eos_str in response_part:
                 break
+
+            content += response_part
+            yield response_part
 
         self.messages.append({"role": "assistant", "content": content})
 
