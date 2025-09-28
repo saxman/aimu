@@ -47,6 +47,7 @@ class HuggingFaceClient(ModelClient):
         MODELS.MISTRAL_7B,
         MODELS.MISTRAL_NEMO_12B,
         MODELS.MISTRAL_SMALL_3_2_24B,
+        # TODO: debug tool use with llama and smollm3 and re-enable
         # MODELS.LLAMA_3_1_8B,
         # MODELS.LLAMA_3_2_3B,
         # MODELS.SMOLLM3_3B,
