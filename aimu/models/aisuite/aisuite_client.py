@@ -20,10 +20,12 @@ class AisuiteModel(Model):
 
 class AisuiteClient(ModelClient):
     MODELS = AisuiteModel
+
     TOOL_MODELS = [
         MODELS.GPT_4O_MINI,
         MODELS.GPT_4O,
     ]
+
     THINKING_MODELS = []
 
     DEFAULT_GENERATE_KWARGS = {
@@ -84,7 +86,7 @@ class AisuiteClient(ModelClient):
         message = {"role": next(response).choices[0].delta.role}
         content = ""
 
-        while response_part := next(response):
+        for response_part in response:
             if response_part.choices[0].finish_reason is not None:
                 break
 
@@ -150,6 +152,7 @@ class AisuiteClient(ModelClient):
 
         response_part = next(response)
 
+        ## process tool calls
         if response_part.choices[0].delta.tool_calls:
             function_name = response_part.choices[0].delta.tool_calls[0].function.name
 
@@ -185,10 +188,12 @@ class AisuiteClient(ModelClient):
                 max_tokens=generate_kwargs["max_new_tokens"],
             )
 
-        message = {"role": next(response).choices[0].delta.role}
+            response_part = next(response)
+
+        message = {"role": response_part.choices[0].delta.role}
         content = ""
 
-        while response_part := next(response):
+        for response_part in response:
             if response_part.choices[0].finish_reason is not None:
                 break
 
