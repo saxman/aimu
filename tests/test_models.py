@@ -119,6 +119,24 @@ def test_chat(model_client):
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
 
 
+def test_chat_multiple_turns(model_client):
+    """Test that the model can chat with a user over multiple turns, maintaining a conversation history."""
+
+    model_client.messages = []
+
+    response1 = model_client.chat("What is the capital of France?")
+    assert "Paris" in response1
+    assert len(model_client.messages) == 3  # system (auto-added), user, assistant
+
+    response2 = model_client.chat("What is the population of that city?")
+    assert "population" in response2 or "inhabitants" in response2
+    assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
+
+    response3 = model_client.chat("What is the weather like there?")
+    assert "weather" in response3 or "temperature" in response3
+    assert len(model_client.messages) == 7  # system (auto-added), user, assistant, user, assistant, user, assistant
+
+
 def test_chat_streamed(model_client):
     """Test that the model can chat with a user in a streamed manner, maintaining a conversation history."""
 
@@ -127,7 +145,7 @@ def test_chat_streamed(model_client):
     response = model_client.chat_streamed("What is the capital of France?")
 
     assert isinstance(response, Iterable)
-    content = next(response)  # type: ignore
+    content = next(response) # type: ignore
     assert isinstance(content, str)
 
     for response_part in response:
@@ -135,6 +153,42 @@ def test_chat_streamed(model_client):
 
     assert "Paris" in content
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
+
+
+def test_chat_streamed_multiple_turns(model_client):
+    """Test that the model can chat with a user over multiple turns in a streamed manner, maintaining a conversation history."""
+
+    model_client.messages = []
+
+    response1 = model_client.chat_streamed("What is the capital of France?")
+    content1 = next(response1)
+    assert isinstance(content1, str)
+
+    for response_part in response1:
+        content1 += response_part
+
+    assert "Paris" in content1
+    assert len(model_client.messages) == 3  # system (auto-added), user, assistant
+
+    response2 = model_client.chat_streamed("What is the population of that city?")
+    content2 = next(response2)
+    assert isinstance(content2, str)
+
+    for response_part in response2:
+        content2 += response_part
+
+    assert "population" in content2 or "inhabitants" in content2
+    assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
+
+    response3 = model_client.chat_streamed("What is the weather like there?")
+    content3 = next(response3)
+    assert isinstance(content3, str)
+
+    for response_part in response3:
+        content3 += response_part
+
+    assert "weather" in content3 or "temperature" in content3
+    assert len(model_client.messages) == 7  # system (auto-added), user, assistant, user, assistant, user, assistant
 
 
 def test_chat_with_tools(model_client):
