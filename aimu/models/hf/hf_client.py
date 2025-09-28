@@ -188,14 +188,14 @@ class HuggingFaceClient(ModelClient):
                 response_part = next(streamer)
 
                 if "</think>" in response_part:
-                    next(streamer) # following </think> there's a newline
-                    response_part = next(streamer) # get the first valid token after thinking
+                    next(streamer)  # following </think> there's a newline
+                    response_part = next(streamer)  # get the first valid token after thinking
                     break
 
                 self.last_thinking += response_part
 
             self.last_thinking = self.last_thinking.strip()
-                
+
         return "", itertools.chain([response_part], streamer)
 
     def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
