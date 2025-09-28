@@ -132,8 +132,8 @@ def test_chat_multiple_turns(model_client):
     assert "population" in response2 or "inhabitants" in response2
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
-    response3 = model_client.chat("What is the weather like there?")
-    assert "weather" in response3 or "temperature" in response3
+    response3 = model_client.chat("What is the climate like there?")
+    assert "climate" in response3 or "temperature" in response3
     assert len(model_client.messages) == 7  # system (auto-added), user, assistant, user, assistant, user, assistant
 
 
@@ -180,14 +180,14 @@ def test_chat_streamed_multiple_turns(model_client):
     assert "population" in content2 or "inhabitants" in content2
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
-    response3 = model_client.chat_streamed("What is the weather like there?")
+    response3 = model_client.chat_streamed("What is the climate like there?")
     content3 = next(response3)
     assert isinstance(content3, str)
 
     for response_part in response3:
         content3 += response_part
 
-    assert "weather" in content3 or "temperature" in content3
+    assert "climate" in content3 or "temperature" in content3
     assert len(model_client.messages) == 7  # system (auto-added), user, assistant, user, assistant, user, assistant
 
 
