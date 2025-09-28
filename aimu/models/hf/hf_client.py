@@ -332,7 +332,7 @@ class HuggingFaceClient(ModelClient):
 
         for response_part in it:
             if eos_str in response_part:
-                break
+                response_part = response_part.replace(eos_str, "")
 
             content += response_part
             yield response_part
