@@ -168,11 +168,10 @@ class HuggingFaceClient(ModelClient):
 
         model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
         generated_ids = self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
-        # TODO: fix the EOS token being returned. Streamer has skip_special_tokens, and have tried eos_token_id=self.hf_model.config.eos_token_id for generator
 
         if streamer is None:
             output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
-            response = self.hf_tokenizer.decode(output_ids, skip_special_tokens=True)
+            response = self.hf_tokenizer.decode(output_ids, skip_special_tokens=True).strip()
 
             if self.model in self.THINKING_MODELS and response.startswith("<think>"):
                 self.last_thinking = response[len("<think>") : response.index("</think>")].strip()
