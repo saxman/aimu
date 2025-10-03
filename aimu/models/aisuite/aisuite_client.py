@@ -12,14 +12,11 @@ logger = logging.getLogger(__name__)
 class AisuiteModel(Model):
     GPT_4O_MINI = "openai:gpt-4o-mini"
     GPT_4O = "openai:gpt-4o"
-
-    CLAUDE_3_5_SONNET = "anthropic:claude-3-5-sonnet"
-    
-    ## TODO: re-enable GPT-5 models once issue with "max_completion_tokens" is resolved
-    # GPT_5_NANO = "openai:gpt-5-nano"
-    # GPT_5_MINI = "openai:gpt-5-mini"
-    # GPT_5 = "openai:gpt-5"
-
+    GPT_5_NANO = "openai:gpt-5-nano"
+    GPT_5_MINI = "openai:gpt-5-mini"
+    GPT_5 = "openai:gpt-5"
+    CLAUDE_SONNET_3_5 = "anthropic:claude-sonnet-4-5-20250929"
+    CLAUDE_OPUS_4_1= "anthropic:claude-opus-4-1-20250805"
 
 class AisuiteClient(ModelClient):
     MODELS = AisuiteModel
@@ -27,15 +24,15 @@ class AisuiteClient(ModelClient):
     TOOL_MODELS = [
         MODELS.GPT_4O_MINI,
         MODELS.GPT_4O,
+        MODELS.CLAUDE_SONNET_3_5,
     ]
 
     THINKING_MODELS = []
 
     DEFAULT_GENERATE_KWARGS = {
-        "max_new_tokens": 1024,
+        "max_tokens": 1024,
         "temperature": 0.1,
         "top_p": 0.95,
-        "top_k": 50,
     }
 
     def __init__(
@@ -57,6 +54,13 @@ class AisuiteClient(ModelClient):
         else:
             generate_kwargs = {**self.default_generate_kwargs, **generate_kwargs}
 
+        if self.model in [self.MODELS.CLAUDE_SONNET_3_5, self.MODELS.CLAUDE_OPUS_4_1]:
+            generate_kwargs.pop("top_p")
+        elif self.model in [self.MODELS.GPT_5_NANO, self.MODELS.GPT_5_MINI, self.MODELS.GPT_5]:
+            generate_kwargs["max_completion_tokens"] = generate_kwargs.pop("max_tokens")
+            generate_kwargs["temperature"] = 1
+            generate_kwargs.pop("top_p")
+
         return generate_kwargs
 
     def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
@@ -67,8 +71,7 @@ class AisuiteClient(ModelClient):
         response = self.ai_client.chat.completions.create(
             self.model.value,
             messages,
-            temperature=generate_kwargs["temperature"],
-            max_tokens=generate_kwargs["max_new_tokens"],
+            **generate_kwargs
         )
 
         return response.choices[0].message.content
@@ -82,8 +85,7 @@ class AisuiteClient(ModelClient):
             self.model.value,
             messages,
             stream=True,
-            temperature=generate_kwargs["temperature"],
-            max_tokens=generate_kwargs["max_new_tokens"],
+            **generate_kwargs
         )
 
         message = {"role": next(response).choices[0].delta.role}
@@ -105,8 +107,7 @@ class AisuiteClient(ModelClient):
             self.model.value,
             self.messages,
             tools=tools,
-            temperature=generate_kwargs["temperature"],
-            max_tokens=generate_kwargs["max_new_tokens"],
+            **generate_kwargs,
         )
 
         if response.choices[0].message.tool_calls:
@@ -131,8 +132,7 @@ class AisuiteClient(ModelClient):
                 self.model.value,
                 self.messages,
                 tools=tools,
-                temperature=generate_kwargs["temperature"],
-                max_tokens=generate_kwargs["max_new_tokens"],
+                **generate_kwargs,
             )
 
         self.messages.append({"role": "assistant", "content": response.choices[0].message.content})
@@ -149,8 +149,7 @@ class AisuiteClient(ModelClient):
             self.messages,
             stream=True,
             tools=tools,
-            temperature=generate_kwargs["temperature"],
-            max_tokens=generate_kwargs["max_new_tokens"],
+            **generate_kwargs,
         )
 
         response_part = next(response)
@@ -187,8 +186,7 @@ class AisuiteClient(ModelClient):
                 self.messages,
                 stream=True,
                 tools=tools,
-                temperature=generate_kwargs["temperature"],
-                max_tokens=generate_kwargs["max_new_tokens"],
+                **generate_kwargs
             )
 
             response_part = next(response)
