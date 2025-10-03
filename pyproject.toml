@@ -37,6 +37,7 @@ ollama = [
 ]
 aisuite = [
     "aisuite[openai,anthropic]", # for OpenAI and Anthropic model support
+    "httpx==0.27.0", # required to fix an antropic issue
     "docstring-parser", # requied by aisuite
     "python-dotenv"
 ]
