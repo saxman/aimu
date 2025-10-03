@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 class AisuiteModel(Model):
     GPT_4O_MINI = "openai:gpt-4o-mini"
     GPT_4O = "openai:gpt-4o"
+
+    CLAUDE_3_5_SONNET = "anthropic:claude-3-5-sonnet"
+    
     ## TODO: re-enable GPT-5 models once issue with "max_completion_tokens" is resolved
     # GPT_5_NANO = "openai:gpt-5-nano"
     # GPT_5_MINI = "openai:gpt-5-mini"
