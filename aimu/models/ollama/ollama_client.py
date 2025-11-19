@@ -122,9 +122,8 @@ class OllamaClient(ModelClient):
 
             self._handle_tool_calls(tool_calls, tools)
 
-            ## TODO: handle thinking if there are multiple tool calls
             if response["message"].thinking:
-                self.messages[-2]["thinking"] = response["message"].thinking
+                self.messages[-1 - len(tool_calls)]["thinking"] = response["message"].thinking
 
             response = ollama.chat(
                 model=self.model.value,
@@ -182,7 +181,7 @@ class OllamaClient(ModelClient):
             self._handle_tool_calls(tool_calls, tools)
 
             if thinking:
-                self.messages[-2]["thinking"] = thinking  # TODO: correct functionality if there are multiple tool calls
+                self.messages[-1 - len(tool_calls)]["thinking"] = thinking
                 thinking = ""
 
             response = ollama.chat(
