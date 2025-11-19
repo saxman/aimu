@@ -122,6 +122,7 @@ class OllamaClient(ModelClient):
 
             self._handle_tool_calls(tool_calls, tools)
 
+            ## TODO: handle thinking if there are multiple tool calls
             if response["message"].thinking:
                 self.messages[-2]["thinking"] = response["message"].thinking
 

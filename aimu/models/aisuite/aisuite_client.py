@@ -16,7 +16,8 @@ class AisuiteModel(Model):
     GPT_5_MINI = "openai:gpt-5-mini"
     GPT_5 = "openai:gpt-5"
     CLAUDE_SONNET_3_5 = "anthropic:claude-sonnet-4-5-20250929"
-    CLAUDE_OPUS_4_1= "anthropic:claude-opus-4-1-20250805"
+    CLAUDE_OPUS_4_1 = "anthropic:claude-opus-4-1-20250805"
+
 
 class AisuiteClient(ModelClient):
     MODELS = AisuiteModel
@@ -68,11 +69,7 @@ class AisuiteClient(ModelClient):
 
         messages = [{"role": "user", "content": prompt}]
 
-        response = self.ai_client.chat.completions.create(
-            self.model.value,
-            messages,
-            **generate_kwargs
-        )
+        response = self.ai_client.chat.completions.create(self.model.value, messages, **generate_kwargs)
 
         return response.choices[0].message.content
 
@@ -81,12 +78,7 @@ class AisuiteClient(ModelClient):
 
         messages = [{"role": "user", "content": prompt}]
 
-        response = self.ai_client.chat.completions.create(
-            self.model.value,
-            messages,
-            stream=True,
-            **generate_kwargs
-        )
+        response = self.ai_client.chat.completions.create(self.model.value, messages, stream=True, **generate_kwargs)
 
         message = {"role": next(response).choices[0].delta.role}
         content = ""
@@ -182,11 +174,7 @@ class AisuiteClient(ModelClient):
             )
 
             response = self.ai_client.chat.completions.create(
-                self.model.value,
-                self.messages,
-                stream=True,
-                tools=tools,
-                **generate_kwargs
+                self.model.value, self.messages, stream=True, tools=tools, **generate_kwargs
             )
 
             response_part = next(response)
