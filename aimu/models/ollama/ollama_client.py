@@ -81,7 +81,14 @@ class OllamaClient(ModelClient):
             keep_alive=self.model_keep_alive_seconds,
         )
 
-        return response["response"] if not self.thinking else response.response
+        self.last_thinking = ""
+
+        if not self.thinking:
+            return response["response"]
+        
+        self.last_thinking = response.thinking
+
+        return response.response
 
     def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = None) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
@@ -95,6 +102,21 @@ class OllamaClient(ModelClient):
             keep_alive=self.model_keep_alive_seconds,
         )
 
+        self.last_thinking = ""
+
+        if self.thinking:
+            next(response)
+            next(response)
+            response_part = next(response)
+
+            if response_part.thinking:
+                self.last_thinking = response_part.thinking
+                for response_part in response:
+                    if response_part.thinking:
+                        self.last_thinking += response_part.thinking
+                    else:
+                        break
+        
         for response_part in response:
             yield response_part["response"]
 
