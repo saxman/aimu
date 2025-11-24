@@ -30,6 +30,7 @@ hf = [
     "transformers",
     "accelerate",
     "sentencepiece",
+    "mistral-common", # required for Mistral-Small-3.2 model
     "kernels", # required for GPT-OSS
 ]
 ollama = [
