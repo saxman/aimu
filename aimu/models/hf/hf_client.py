@@ -31,7 +31,7 @@ class HuggingFaceModel(Model):
 
     MISTRAL_7B = "mistralai/Mistral-7B-Instruct-v0.3"
     MISTRAL_NEMO_12B = "mistralai/Mistral-Nemo-Instruct-2407"
-    MISTRAL_SMALL_3_2_24B = "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
+    MAGISTRAL_SMALL = "mistralai/Magistral-Small-2509"
 
     QWEN_3_8B = "Qwen/Qwen3-8B"
 
@@ -42,15 +42,14 @@ class HuggingFaceClient(ModelClient):
     MODELS = HuggingFaceModel
 
     TOOL_MODELS = [
-        # MODELS.GPT_OSS_20B,
+        MODELS.GPT_OSS_20B,
         MODELS.QWEN_3_8B,
         MODELS.MISTRAL_7B,
         MODELS.MISTRAL_NEMO_12B,
-        MODELS.MISTRAL_SMALL_3_2_24B,
-        # TODO: debug tool use with llama and smollm3 and re-enable
-        # MODELS.LLAMA_3_1_8B,
-        # MODELS.LLAMA_3_2_3B,
-        # MODELS.SMOLLM3_3B,
+        MODELS.MAGISTRAL_SMALL,
+        MODELS.LLAMA_3_1_8B,
+        MODELS.LLAMA_3_2_3B,
+        MODELS.SMOLLM3_3B,
     ]
 
     THINKING_MODELS = [
@@ -104,8 +103,15 @@ class HuggingFaceClient(ModelClient):
     ):
         super().__init__(model, model_kwargs, system_message)
 
-        self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value, attn_implementation="eager")
-        self.hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
+        if model == self.MODELS.MAGISTRAL_SMALL:
+            from transformers import Mistral3ForConditionalGeneration
+
+            self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
+            # device_map="auto" causes OOM on dual 4090 GPUs
+            self.hf_model = Mistral3ForConditionalGeneration.from_pretrained(model.value, torch_dtype=torch.bfloat16, device_map="sequential")
+        else:
+            self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value, attn_implementation="eager")
+            self.hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
 
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
 
@@ -144,8 +150,17 @@ class HuggingFaceClient(ModelClient):
         tools: Optional[list[dict]] = None,
         streamer: Optional[TextIteratorStreamer] = None,
     ) -> tuple[str, Iterator[str]]:
-        if (tools and len(tools) == 0) or self.model not in self.TOOL_MODELS:
-            ## some models (e.g. Llama 3.1) misbehave is tools is present, event if None
+
+        if self.model == self.MODELS.MAGISTRAL_SMALL:
+            # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
+            text = self.hf_tokenizer.apply_chat_template(
+                messages,
+                return_tensors="pt",
+                tokenize=False,
+                tools=tools,
+            ) 
+        elif (tools and len(tools) == 0) or self.model not in self.TOOL_MODELS:
+            ## some models (e.g. Llama 3.1) misbehave if 'tools' is present, event if None
             text = self.hf_tokenizer.apply_chat_template(
                 messages,
                 add_generation_prompt=True,
@@ -245,7 +260,7 @@ class HuggingFaceClient(ModelClient):
                     self.messages[-2]["thinking"] = self.last_thinking
 
                 response, _ = self._generate(self.messages, generate_kwargs, tools)
-        elif self.model in [self.MODELS.MISTRAL_SMALL_3_2_24B]:
+        elif self.model in [self.MODELS.MAGISTRAL_SMALL]:
             if "[TOOL_CALLS]" in response:
                 self._handle_tool_calls(json.loads(response), tools)
                 response, _ = self._generate(self.messages, generate_kwargs, tools)
@@ -300,7 +315,7 @@ class HuggingFaceClient(ModelClient):
             streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
 
             _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
-        elif self.model in [self.MODELS.MISTRAL_SMALL_3_2_24B] and "[TOOL_CALLS]" in response_part:
+        elif self.model in [self.MODELS.MAGISTRAL_SMALL] and "[TOOL_CALLS]" in response_part:
             response = response_part
             for response_part in it:
                 response += response_part
