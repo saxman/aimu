@@ -24,28 +24,20 @@ def pytest_generate_tests(metafunc):
         model = metafunc.config.getoption("--model", "all")
         client_type = metafunc.config.getoption("--client", "all").lower()
 
-        if client_type == "ollama":
-            if model != "all":
-                test_models = [OllamaClient.MODELS[model]]
-            else:
-                test_models = OllamaClient.MODELS
-        elif client_type in ["hf", "huggingface"]:
-            if model != "all":
-                test_models = [HuggingFaceClient.MODELS[model]]
-            else:
-                test_models = HuggingFaceClient.MODELS
-            
-            # TODO implement workaround for Mistral Small 3.2 24B not supporting AutoTokenizer
-            # test_models = [
-            #     model for model in HuggingFaceClient.MODELS if model != HuggingFaceClient.MODELS.MISTRAL_SMALL_3_2_24B
-            # ]
+        if client_type in ["hf", "huggingface"]:
+            client = HuggingFaceClient
         elif client_type == "aisuite":
-            if model != "all":
-                test_models = [AisuiteClient.MODELS[model]]
-            else:
-                test_models = AisuiteClient.MODELS
+            client = AisuiteClient
         else:
-            if model != "all":
+            client = OllamaClient  # default
+
+        if model == "all":
+            if client_type == "all":
+                test_models = list(OllamaClient.MODELS) + list(HuggingFaceClient.MODELS) + list(AisuiteClient.MODELS)
+            else:
+                test_models = client.MODELS
+        else:
+            if client_type == "all":
                 test_models = []
                 if model in OllamaClient.MODELS:
                     test_models.append(OllamaClient.MODELS[model])
@@ -54,9 +46,7 @@ def pytest_generate_tests(metafunc):
                 if model in AisuiteClient.MODELS:
                     test_models.append(AisuiteClient.MODELS[model])
             else:
-                test_models = list(OllamaClient.MODELS) + list(HuggingFaceClient.MODELS)
-            
-            # TODO: add AisuiteClient.MODELS once available
+                test_models = [client.MODELS[model]]
 
         metafunc.parametrize("model_client", test_models, indirect=True, scope="session")
 
