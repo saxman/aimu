@@ -12,7 +12,7 @@ class OllamaModel(Model):
 
     LLAMA_3_1_8B = "llama3.1:8b"
     LLAMA_3_2_3B = "llama3.2:3b"
-    # LLAMA_3_3_70B = "llama3.3:70b"
+    # LLAMA_3_3_70B = "llama3.3:70b" # model too big
 
     GEMMA_3_12B = "gemma3:12b"
 
@@ -41,7 +41,7 @@ class OllamaClient(ModelClient):
         MODELS.MISTRAL_SMALL_3_2_24B,
         MODELS.LLAMA_3_1_8B,
         MODELS.LLAMA_3_2_3B,
-        # MODELS.LLAMA_3_3_70B,
+        # MODELS.LLAMA_3_3_70B, # model too big
         MODELS.SMOLLM2_1_7B,
     ]
 

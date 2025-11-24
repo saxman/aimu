@@ -21,20 +21,41 @@ def pytest_generate_tests(metafunc):
     """Generate tests based on command line options."""
 
     if "model_client" in metafunc.fixturenames:
+        model = metafunc.config.getoption("--model", "all")
         client_type = metafunc.config.getoption("--client", "all").lower()
 
         if client_type == "ollama":
-            test_models = OllamaClient.MODELS
+            if model != "all":
+                test_models = [OllamaClient.MODELS[model]]
+            else:
+                test_models = OllamaClient.MODELS
         elif client_type in ["hf", "huggingface"]:
-            # test_models = HuggingFaceClient.MODELS
-            test_models = [
-                model for model in HuggingFaceClient.MODELS if model != HuggingFaceClient.MODELS.MISTRAL_SMALL_3_2_24B
-            ]
+            if model != "all":
+                test_models = [HuggingFaceClient.MODELS[model]]
+            else:
+                test_models = HuggingFaceClient.MODELS
+            
             # TODO implement workaround for Mistral Small 3.2 24B not supporting AutoTokenizer
+            # test_models = [
+            #     model for model in HuggingFaceClient.MODELS if model != HuggingFaceClient.MODELS.MISTRAL_SMALL_3_2_24B
+            # ]
         elif client_type == "aisuite":
-            test_models = AisuiteClient.MODELS
+            if model != "all":
+                test_models = [AisuiteClient.MODELS[model]]
+            else:
+                test_models = AisuiteClient.MODELS
         else:
-            test_models = list(OllamaClient.MODELS) + list(HuggingFaceClient.MODELS)
+            if model != "all":
+                test_models = []
+                if model in OllamaClient.MODELS:
+                    test_models.append(OllamaClient.MODELS[model])
+                if model in HuggingFaceClient.MODELS:
+                    test_models.append(HuggingFaceClient.MODELS[model])
+                if model in AisuiteClient.MODELS:
+                    test_models.append(AisuiteClient.MODELS[model])
+            else:
+                test_models = list(OllamaClient.MODELS) + list(HuggingFaceClient.MODELS)
+            
             # TODO: add AisuiteClient.MODELS once available
 
         metafunc.parametrize("model_client", test_models, indirect=True, scope="session")
