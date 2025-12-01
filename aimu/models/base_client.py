@@ -45,20 +45,62 @@ class ModelClient(ABC):
 
     @abstractmethod
     def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+        """
+        Generates a response based on the provided prompt and optional generation parameters.
+
+        Args:
+            prompt (str): The input prompt to generate a response from.
+            generate_kwargs (Optional[dict[str, Any]]): Optional dictionary of model generation arguments.
+
+        Returns:
+            str: The generated response as a string.
+        """
         pass
 
     @abstractmethod
     def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
+        """
+        Generates a stream of text responses based on the provided prompt.
+
+        Args:
+            prompt (str): The input prompt to generate a response from.
+            generate_kwargs (Optional[dict[str, Any]]): Optional dictionary of model generation arguments.
+
+        Yields:
+            Iterator[str]: An iterator that yields generated text chunks as strings.
+        """
         pass
 
     @abstractmethod
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
+        """
+        Provides a user message to the model and returns the response.
+
+        Args:
+            user_message (str): The message from the user to send to the model.
+            generate_kwargs (Optional[dict[str, Any]], optional): Optional dictionary of model generation arguments.
+            use_tools (bool, optional): Whether to enable the use of external tools during the chat. Defaults to True.
+
+        Returns:
+            str: The model's response to the user message.
+        """
         pass
 
     @abstractmethod
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
     ) -> Iterator[str]:
+        """
+        Streams responses to a user message as an iterator of strings.
+
+        Args:
+            user_message (str): The message from the user to send to the chat model.
+            generate_kwargs (Optional[dict[str, Any]], optional): Optional dictionary of model generation arguments.
+            use_tools (bool, optional): Whether to enable tool usage during chat generation. Defaults to True.
+
+        Yields:
+            Iterator[str]: An iterator over the streamed response strings from the chat model.
+        """
         pass
 
     @abstractmethod
