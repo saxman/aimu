@@ -24,6 +24,8 @@ class OllamaModel(Model):
     MISTRAL_7B = "mistral:7b"
     MISTRAL_NEMO_12B = "mistral-nemo:12b"
     MISTRAL_SMALL_3_2_24B = "mistral-small3.2:24b"
+    MAGISTRAL_SMALL_24B = "magistral:24b"
+    MINISTRAL_3_14B = "ministral-3:14b"
 
     QWEN_3_8B = "qwen3:8b"
 
@@ -39,6 +41,8 @@ class OllamaClient(ModelClient):
         # MODELS.MISTRAL_7B, # issue with tool usage
         # MODELS.MISTRAL_NEMO_12B, # issue with tool usage
         MODELS.MISTRAL_SMALL_3_2_24B,
+        # MODELS.MAGISTRAL_SMALL_24B, # should support tools but test issues
+        MODELS.MINISTRAL_3_14B,
         MODELS.LLAMA_3_1_8B,
         MODELS.LLAMA_3_2_3B,
         # MODELS.LLAMA_3_3_70B, # model too big
@@ -49,6 +53,7 @@ class OllamaClient(ModelClient):
         MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_8B,
+        # MODELS.MAGISTRAL_SMALL_24B # should support thinking but test issues
     ]
 
     def __init__(self, model: OllamaModel, system_message: Optional[str] = None, model_keep_alive_seconds: int = 60):
@@ -85,7 +90,7 @@ class OllamaClient(ModelClient):
 
         if not self.thinking:
             return response["response"]
-        
+
         self.last_thinking = response.thinking
 
         return response.response
@@ -116,7 +121,7 @@ class OllamaClient(ModelClient):
                         self.last_thinking += response_part.thinking
                     else:
                         break
-        
+
         for response_part in response:
             yield response_part["response"]
 
