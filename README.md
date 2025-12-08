@@ -30,7 +30,9 @@ In addition to the AIMU package in the 'aimu' directory, the AIMU code repositor
 
 ## Installation
 
-AIMU can be installed with Ollama support, Hugging Face Transformers support, and/or aisuite (cloud models) support. For all features, run:
+AIMU can be installed with Ollama support, Hugging Face Transformers support, and/or aisuite (cloud models) support.
+
+For all features, run:
 
 ``` bash
 pip install aimu[all]
@@ -54,6 +56,12 @@ For aisuite models (e.g. OpenAI):
 pip install aimu[aisuite]
 ```
 
+For accessing potentially gated models via Hugging Face, you'll need to get and store (locally) a [Hugging Face Hub access token](https://huggingface.co/docs/huggingface_hub/en/quick-start). Once you have a token, you can install it locally with:
+
+``` bash
+hf auth login
+```
+
 ## Development
 
 Once you've cloned the repository, run the following command to install all model dependencies:
@@ -68,10 +76,16 @@ Additionally, run the following command to install development (testing, linting
 pip install -e '.[dev,notebooks]'
 ```
 
-If you have [uv](https://docs.astral.sh/uv/) installed, you can get all model and development dependencies with:
+Alternatively, if you have [uv](https://docs.astral.sh/uv/) installed, you can get all model and development dependencies with:
 
 ``` bash
 uv sync --all-extras
+```
+
+Using Pytest, tests can be run for a specific model client and/or model, using optional arguments:
+
+``` bash
+pytest tests\test_models.py --client=ollama --model=GPT_OSS_20B
 ```
 
 ## Usage
