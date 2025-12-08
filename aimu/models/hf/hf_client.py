@@ -20,7 +20,7 @@ class HuggingFaceModel(Model):
     GPT_OSS_20B = "openai/gpt-oss-20b"
 
     LLAMA_3_1_8B = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    LLAMA_3_2_3B = "unsloth/Llama-3.2-3B-Instruct" # using usnsloth's version since denied access to meta version
+    LLAMA_3_2_3B = "unsloth/Llama-3.2-3B-Instruct"  # using unsloth's version since denied access to meta version
 
     DEEPSEEK_R1_8B = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 
@@ -108,7 +108,9 @@ class HuggingFaceClient(ModelClient):
 
             self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
             # device_map="auto" causes OOM on dual 4090 GPUs
-            self.hf_model = Mistral3ForConditionalGeneration.from_pretrained(model.value, torch_dtype=torch.bfloat16, device_map="sequential")
+            self.hf_model = Mistral3ForConditionalGeneration.from_pretrained(
+                model.value, torch_dtype=torch.bfloat16, device_map="sequential"
+            )
         else:
             self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value, attn_implementation="eager")
             self.hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
@@ -150,7 +152,6 @@ class HuggingFaceClient(ModelClient):
         tools: Optional[list[dict]] = None,
         streamer: Optional[TextIteratorStreamer] = None,
     ) -> tuple[str, Iterator[str]]:
-
         if self.model == self.MODELS.MAGISTRAL_SMALL:
             # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
             text = self.hf_tokenizer.apply_chat_template(
@@ -158,7 +159,7 @@ class HuggingFaceClient(ModelClient):
                 return_tensors="pt",
                 tokenize=False,
                 tools=tools,
-            ) 
+            )
         elif (tools and len(tools) == 0) or self.model not in self.TOOL_MODELS:
             ## some models (e.g. Llama 3.1) misbehave if 'tools' is present, event if None
             text = self.hf_tokenizer.apply_chat_template(
