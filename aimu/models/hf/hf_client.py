@@ -111,8 +111,11 @@ class HuggingFaceClient(ModelClient):
             self.hf_model = Mistral3ForConditionalGeneration.from_pretrained(
                 model.value, torch_dtype=torch.bfloat16, device_map="sequential"
             )
+        elif model == self.MODELS.GPT_OSS_20B and torch.backends.mps.is_available():
+            raise ValueError("GPT-OSS-20B is not supported on MPS devices.")
         else:
-            self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value, attn_implementation="eager")
+            ## TODO ensure we're using attention appropriately for single (flash_attention_2) vs multi GPU setups
+            self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value)
             self.hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
 
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
