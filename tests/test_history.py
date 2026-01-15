@@ -7,7 +7,7 @@ import os
 import tempfile
 from tinydb import TinyDB
 
-from aimu.memory import ConversationManager
+from aimu.history import ConversationManager
 
 
 @pytest.fixture
