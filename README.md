@@ -14,7 +14,7 @@ A Python package containing easy to use tools for working with various language 
 
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
 
--   **Chat Conversation (Memory) Storage/Management**: Chat conversation history management using [TinyDB](https://tinydb.readthedocs.io).
+-   **Chat Conversation Storage/Management**: Chat conversation history management using [TinyDB](https://tinydb.readthedocs.io).
 
 -   **Prompt Storage/Management**: Prompt catalog for storing and versioning prompts using [SQLAlchemy](https://www.sqlalchemy.org/).
 
