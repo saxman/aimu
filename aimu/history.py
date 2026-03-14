@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+from pathlib import Path
 from tinydb import TinyDB
 from datetime import datetime
 
@@ -7,6 +8,8 @@ class ConversationManager:
     def __init__(self, db_path: str = "chat_history.json", use_last_conversation: bool = False):
         self.__db_path = db_path
 
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        
         self.__db = TinyDB(db_path)
         self.__conversations_table = self.__db.table("conversations")
 
