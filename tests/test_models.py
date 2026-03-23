@@ -236,7 +236,7 @@ def test_chat_with_tools(model_client):
         assert "thinking" in model_client.messages[-3]
 
 
-def test_generate_streamed_is_thinking(model_client):
+def test_generate_streamed_is_currently_thinking(model_client):
     """Test that is_thinking is True while streaming thinking tokens and False otherwise."""
 
     if model_client.model not in model_client.THINKING_MODELS:
@@ -250,18 +250,18 @@ def test_generate_streamed_is_thinking(model_client):
     thinking_ended = False
 
     for token in response:
-        if model_client.is_thinking:
+        if model_client.is_currently_thinking:
             was_thinking = True
         elif was_thinking and not thinking_ended:
             thinking_ended = True
             thinking_then_response = True
 
         if thinking_ended:
-            assert not model_client.is_thinking, "is_thinking should not toggle back to True after thinking ends"
+            assert not model_client.is_currently_thinking, "is_currently_thinking should not toggle back to True after thinking ends"
 
-    assert was_thinking, "is_thinking was never True for a thinking model"
-    assert thinking_then_response, "is_thinking did not transition from True to False during streaming"
-    assert not model_client.is_thinking, "is_thinking should be False after streaming ends"
+    assert was_thinking, "is_currently_thinking was never True for a thinking model"
+    assert thinking_then_response, "is_currently_thinking did not transition from True to False during streaming"
+    assert not model_client.is_currently_thinking, "is_currently_thinking should be False after streaming ends"
 
 
 def test_chat_streamed_with_tools(model_client):

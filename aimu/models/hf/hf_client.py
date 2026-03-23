@@ -20,7 +20,7 @@ class HuggingFaceModel(Model):
     GPT_OSS_20B = "openai/gpt-oss-20b"
 
     LLAMA_3_1_8B = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    LLAMA_3_2_3B = "unsloth/Llama-3.2-3B-Instruct"  # using unsloth's version since denied access to meta version
+    LLAMA_3_2_3B = "unsloth/Llama-3.2-3B-Instruct"  # using unsloth's version since gated model
 
     DEEPSEEK_R1_8B = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 
@@ -246,9 +246,9 @@ class HuggingFaceClient(ModelClient):
         _, it = self._generate(messages, generate_kwargs, streamer=streamer)
 
         if self._pending_thinking_tokens:
-            self.is_thinking = True
+            self.is_currently_thinking = True
             yield from self._pending_thinking_tokens
-            self.is_thinking = False
+            self.is_currently_thinking = False
 
         yield from it
 
@@ -305,10 +305,10 @@ class HuggingFaceClient(ModelClient):
         _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
 
         if self._pending_thinking_tokens:
-            self.is_thinking = True
+            self.is_currently_thinking = True
             yield from self._pending_thinking_tokens
             self._pending_thinking_tokens = []
-            self.is_thinking = False
+            self.is_currently_thinking = False
 
         response_part = next(it)
         content = ""
@@ -365,10 +365,10 @@ class HuggingFaceClient(ModelClient):
             yield response_part
 
         if self._pending_thinking_tokens:
-            self.is_thinking = True
+            self.is_currently_thinking = True
             yield from self._pending_thinking_tokens
             self._pending_thinking_tokens = []
-            self.is_thinking = False
+            self.is_currently_thinking = False
 
         eos_str = self.hf_tokenizer.decode(self.hf_model.config.eos_token_id)
 
