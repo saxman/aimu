@@ -18,6 +18,8 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Chat Conversation Storage/Management**: Chat conversation history management using [TinyDB](https://tinydb.readthedocs.io).
 
+-   **Semantic Memory Storage**: Persistent fact memory using [ChromaDB](https://www.trychroma.com/). Facts are stored as natural-language subject-predicate-object strings (e.g. `"Paul works at Google"`) and retrieved by semantic topic (e.g. `"employment"`, `"family life"`).
+
 -   **Prompt Storage/Management**: Prompt catalog for storing and versioning prompts using [SQLAlchemy](https://www.sqlalchemy.org/).
 
 ## Components
@@ -189,6 +191,21 @@ model_client.messages = chat_manager.messages
 model_client.chat("What is the capital of France?")
 
 chat_manager.update_conversation(model_client.messages) # store the updated conversation
+```
+
+### Semantic Memory Storage
+
+``` python
+from aimu.memory import MemoryStore
+
+store = MemoryStore(persist_path="./memory_store")
+
+store.store_fact("Paul works at Google")
+store.store_fact("Paul is married to Sarah")
+store.store_fact("Sarah is the sister of Emma")
+
+store.retrieve_facts("work and employment")   # ["Paul works at Google", ...]
+store.retrieve_facts("family relationships")  # ["Paul is married to Sarah", ...]
 ```
 
 ### Prompt Storage/Management
