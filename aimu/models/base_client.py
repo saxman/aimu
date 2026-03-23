@@ -26,6 +26,11 @@ class ModelClient(ABC):
         self.messages = []
         self.mcp_client = None
         self.last_thinking = ""
+        self.is_currently_thinking = False
+
+    @property
+    def is_thinking_model(self) -> bool:
+        return self.model in self.THINKING_MODELS
 
     @property
     def system_message(self):

@@ -20,7 +20,7 @@ class HuggingFaceModel(Model):
     GPT_OSS_20B = "openai/gpt-oss-20b"
 
     LLAMA_3_1_8B = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    LLAMA_3_2_3B = "unsloth/Llama-3.2-3B-Instruct"  # using unsloth's version since denied access to meta version
+    LLAMA_3_2_3B = "unsloth/Llama-3.2-3B-Instruct"  # using unsloth's version since gated model
 
     DEEPSEEK_R1_8B = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 
@@ -34,6 +34,7 @@ class HuggingFaceModel(Model):
     MAGISTRAL_SMALL = "mistralai/Magistral-Small-2509"
 
     QWEN_3_8B = "Qwen/Qwen3-8B"
+    QWEN_3_5_9B = "Qwen/Qwen3.5-9B"
 
     SMOLLM3_3B = "HuggingFaceTB/SmolLM3-3B"
 
@@ -44,6 +45,7 @@ class HuggingFaceClient(ModelClient):
     TOOL_MODELS = [
         MODELS.GPT_OSS_20B,
         MODELS.QWEN_3_8B,
+        MODELS.QWEN_3_5_9B,
         MODELS.MISTRAL_7B,
         MODELS.MISTRAL_NEMO_12B,
         MODELS.MAGISTRAL_SMALL,
@@ -56,6 +58,7 @@ class HuggingFaceClient(ModelClient):
         MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_8B,
+        MODELS.QWEN_3_5_9B,
         MODELS.SMOLLM3_3B,
     ]
 
@@ -80,6 +83,7 @@ class HuggingFaceClient(ModelClient):
             "top_p": 1.0,
             "top_k": 0,
         },
+        # TODO determine if Qwen 3.5-9B should have different defaults than 3.8B
         MODELS.QWEN_3_8B.value: {
             ## thinking
             "temperature": 0.6,
@@ -184,6 +188,7 @@ class HuggingFaceClient(ModelClient):
             )
 
         self.last_thinking = ""
+        self._pending_thinking_tokens = []
 
         model_inputs = self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
         generated_ids = self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
@@ -212,6 +217,7 @@ class HuggingFaceClient(ModelClient):
                     break
 
                 self.last_thinking += response_part
+                self._pending_thinking_tokens.append(response_part)
 
             self.last_thinking = self.last_thinking.strip()
 
@@ -239,7 +245,12 @@ class HuggingFaceClient(ModelClient):
 
         _, it = self._generate(messages, generate_kwargs, streamer=streamer)
 
-        return it
+        if self._pending_thinking_tokens:
+            self.is_currently_thinking = True
+            yield from self._pending_thinking_tokens
+            self.is_currently_thinking = False
+
+        yield from it
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
@@ -292,6 +303,12 @@ class HuggingFaceClient(ModelClient):
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
 
         _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
+
+        if self._pending_thinking_tokens:
+            self.is_currently_thinking = True
+            yield from self._pending_thinking_tokens
+            self._pending_thinking_tokens = []
+            self.is_currently_thinking = False
 
         response_part = next(it)
         content = ""
@@ -346,6 +363,12 @@ class HuggingFaceClient(ModelClient):
         else:
             content += response_part
             yield response_part
+
+        if self._pending_thinking_tokens:
+            self.is_currently_thinking = True
+            yield from self._pending_thinking_tokens
+            self._pending_thinking_tokens = []
+            self.is_currently_thinking = False
 
         eos_str = self.hf_tokenizer.decode(self.hf_model.config.eos_token_id)
 

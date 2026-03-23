@@ -27,7 +27,7 @@ class OllamaModel(Model):
     MAGISTRAL_SMALL_24B = "magistral:24b"
     MINISTRAL_3_14B = "ministral-3:14b"
 
-    QWEN_3_8B = "qwen3:8b"
+    QWEN_3_5_9B = "qwen3.5:9b"
 
     SMOLLM2_1_7B = "smollm2:latest"  # "smollm2:1.7b" error downloading model, using latest for now
 
@@ -37,7 +37,7 @@ class OllamaClient(ModelClient):
 
     TOOL_MODELS = [
         MODELS.GPT_OSS_20B,
-        MODELS.QWEN_3_8B,
+        MODELS.QWEN_3_5_9B,
         # MODELS.MISTRAL_7B, # issue with tool usage
         # MODELS.MISTRAL_NEMO_12B, # issue with tool usage
         MODELS.MISTRAL_SMALL_3_2_24B,
@@ -52,7 +52,7 @@ class OllamaClient(ModelClient):
     THINKING_MODELS = [
         MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
-        MODELS.QWEN_3_8B,
+        MODELS.QWEN_3_5_9B
         # MODELS.MAGISTRAL_SMALL_24B # should support thinking but test issues
     ]
 
@@ -61,8 +61,6 @@ class OllamaClient(ModelClient):
 
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds
-
-        self.thinking = True if model in self.THINKING_MODELS else False
 
         ollama.pull(model.value)
 
@@ -82,13 +80,13 @@ class OllamaClient(ModelClient):
             model=self.model.value,
             prompt=prompt,
             options=generate_kwargs,
-            think=self.thinking,
+            think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
         )
 
         self.last_thinking = ""
 
-        if not self.thinking:
+        if not self.is_thinking_model:
             return response["response"]
 
         self.last_thinking = response.thinking
@@ -103,24 +101,29 @@ class OllamaClient(ModelClient):
             prompt=prompt,
             options=generate_kwargs,
             stream=True,
-            think=self.thinking,
+            think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
         )
 
         self.last_thinking = ""
 
-        if self.thinking:
+        if self.is_thinking_model:
             next(response)
             next(response)
             response_part = next(response)
 
             if response_part.thinking:
+                self.is_currently_thinking = True
                 self.last_thinking = response_part.thinking
+                yield response_part.thinking
                 for response_part in response:
                     if response_part.thinking:
                         self.last_thinking += response_part.thinking
+                        yield response_part.thinking
                     else:
+                        self.is_currently_thinking = False
                         break
+                self.is_currently_thinking = False
 
         for response_part in response:
             yield response_part["response"]
@@ -133,7 +136,7 @@ class OllamaClient(ModelClient):
             messages=self.messages,
             options=generate_kwargs,
             tools=tools,
-            think=self.thinking,
+            think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
         )
 
@@ -157,7 +160,7 @@ class OllamaClient(ModelClient):
                 messages=self.messages,
                 options=generate_kwargs,
                 tools=tools,
-                think=self.thinking,
+                think=self.is_thinking_model,
                 keep_alive=self.model_keep_alive_seconds,
             )
 
@@ -179,7 +182,7 @@ class OllamaClient(ModelClient):
             options=generate_kwargs,
             tools=tools,
             stream=True,
-            think=self.thinking,
+            think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
         )
 
@@ -188,12 +191,17 @@ class OllamaClient(ModelClient):
         # If the model is thinking, we need to capture the thinking before processing tools and streaming the response.
         thinking = ""
         if response_part["message"].thinking:
+            self.is_currently_thinking = True
             thinking = response_part["message"].thinking
+            yield response_part["message"].thinking
             for response_part in response:
                 if response_part["message"].thinking:
                     thinking += response_part["message"].thinking
+                    yield response_part["message"].thinking
                 else:
+                    self.is_currently_thinking = False
                     break
+            self.is_currently_thinking = False
 
         if response_part["message"].tool_calls:
             tool_calls = []
@@ -217,7 +225,7 @@ class OllamaClient(ModelClient):
                 options=generate_kwargs,
                 tools=tools,
                 stream=True,
-                think=self.thinking,
+                think=self.is_thinking_model,
                 keep_alive=self.model_keep_alive_seconds,
             )
 
@@ -226,12 +234,17 @@ class OllamaClient(ModelClient):
             # For the response after the tool call, we need to capture the thinking again if it exists.
             thinking = ""
             if response_part["message"].thinking:
+                self.is_currently_thinking = True
                 thinking = response_part["message"].thinking
+                yield response_part["message"].thinking
                 for response_part in response:
                     if response_part["message"].thinking:
                         thinking += response_part["message"].thinking
+                        yield response_part["message"].thinking
                     else:
+                        self.is_currently_thinking = False
                         break
+                self.is_currently_thinking = False
 
         content = response_part["message"].content
         yield content
