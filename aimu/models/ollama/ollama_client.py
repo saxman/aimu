@@ -27,7 +27,7 @@ class OllamaModel(Model):
     MAGISTRAL_SMALL_24B = "magistral:24b"
     MINISTRAL_3_14B = "ministral-3:14b"
 
-    QWEN_3_8B = "qwen3:8b"
+    QWEN_3_5_9B = "qwen3.5:9b"
 
     SMOLLM2_1_7B = "smollm2:latest"  # "smollm2:1.7b" error downloading model, using latest for now
 
@@ -37,7 +37,7 @@ class OllamaClient(ModelClient):
 
     TOOL_MODELS = [
         MODELS.GPT_OSS_20B,
-        MODELS.QWEN_3_8B,
+        MODELS.QWEN_3_5_9B,
         # MODELS.MISTRAL_7B, # issue with tool usage
         # MODELS.MISTRAL_NEMO_12B, # issue with tool usage
         MODELS.MISTRAL_SMALL_3_2_24B,
@@ -52,7 +52,7 @@ class OllamaClient(ModelClient):
     THINKING_MODELS = [
         MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
-        MODELS.QWEN_3_8B,
+        MODELS.QWEN_3_5_9B
         # MODELS.MAGISTRAL_SMALL_24B # should support thinking but test issues
     ]
 
@@ -115,12 +115,17 @@ class OllamaClient(ModelClient):
             response_part = next(response)
 
             if response_part.thinking:
+                self.is_thinking = True
                 self.last_thinking = response_part.thinking
+                yield response_part.thinking
                 for response_part in response:
                     if response_part.thinking:
                         self.last_thinking += response_part.thinking
+                        yield response_part.thinking
                     else:
+                        self.is_thinking = False
                         break
+                self.is_thinking = False
 
         for response_part in response:
             yield response_part["response"]
@@ -188,12 +193,17 @@ class OllamaClient(ModelClient):
         # If the model is thinking, we need to capture the thinking before processing tools and streaming the response.
         thinking = ""
         if response_part["message"].thinking:
+            self.is_thinking = True
             thinking = response_part["message"].thinking
+            yield response_part["message"].thinking
             for response_part in response:
                 if response_part["message"].thinking:
                     thinking += response_part["message"].thinking
+                    yield response_part["message"].thinking
                 else:
+                    self.is_thinking = False
                     break
+            self.is_thinking = False
 
         if response_part["message"].tool_calls:
             tool_calls = []
@@ -226,12 +236,17 @@ class OllamaClient(ModelClient):
             # For the response after the tool call, we need to capture the thinking again if it exists.
             thinking = ""
             if response_part["message"].thinking:
+                self.is_thinking = True
                 thinking = response_part["message"].thinking
+                yield response_part["message"].thinking
                 for response_part in response:
                     if response_part["message"].thinking:
                         thinking += response_part["message"].thinking
+                        yield response_part["message"].thinking
                     else:
+                        self.is_thinking = False
                         break
+                self.is_thinking = False
 
         content = response_part["message"].content
         yield content

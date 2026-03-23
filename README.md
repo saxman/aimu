@@ -12,6 +12,8 @@ A Python package containing easy to use tools for working with various language 
     -   [Hugging Face Transformers](https://huggingface.co/docs/transformers) (local models)
     -   [aisuite](https://github.com/andrewyng/aisuite) supported models (cloud and local models), including OpenAI (others coming)
 
+-   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
+
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
 
 -   **Chat Conversation Storage/Management**: Chat conversation history management using [TinyDB](https://tinydb.readthedocs.io).
@@ -106,6 +108,32 @@ from aimu.models import OllamaClient as ModelClient
 
 model_client = ModelClient(ModelClient.MODELS.LLAMA_3_1_8B)
 response = model_client.chat("What is the capital of France?")
+```
+
+### Thinking Models
+
+Models with extended reasoning capabilities (e.g. DeepSeek-R1, Qwen3, GPT-OSS) are identified by the `THINKING_MODELS` list on each client. Thinking is enabled automatically when one of these models is selected — no extra configuration required.
+
+After generation, the model's reasoning trace is available in `last_thinking`:
+
+``` python
+from aimu.models import OllamaClient as ModelClient
+
+model_client = ModelClient(ModelClient.MODELS.DEEPSEEK_R1_8B)
+response = model_client.generate("What is the capital of France?")
+
+print(model_client.last_thinking)  # reasoning trace
+print(response)                     # final answer
+```
+
+During streamed generation, the `is_thinking` flag is `True` while reasoning tokens are being yielded and `False` once the final response begins:
+
+``` python
+for token in model_client.generate_streamed("What is the capital of France?"):
+    if model_client.is_thinking:
+        print(f"[thinking] {token}", end="", flush=True)
+    else:
+        print(token, end="", flush=True)
 ```
 
 ### Chat UI (Streamlit)
