@@ -197,6 +197,8 @@ class HuggingFaceClient(ModelClient):
             output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
             response = self.hf_tokenizer.decode(output_ids, skip_special_tokens=True).strip()
 
+            logger.debug("LLM raw response: %s", response)
+
             if self.model in self.THINKING_MODELS and response.startswith("<think>"):
                 self.last_thinking = response[len("<think>") : response.index("</think>")].strip()
                 response = response[response.index("</think>") + len("</think>") :].strip()
@@ -250,7 +252,9 @@ class HuggingFaceClient(ModelClient):
             yield from self._pending_thinking_tokens
             self.is_currently_thinking = False
 
-        yield from it
+        for token in it:
+            logger.debug("LLM raw token: %r", token)
+            yield token
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
@@ -376,6 +380,7 @@ class HuggingFaceClient(ModelClient):
             if eos_str in response_part:
                 response_part = response_part.replace(eos_str, "")
 
+            logger.debug("LLM raw token: %r", response_part)
             content += response_part
             yield response_part
 
