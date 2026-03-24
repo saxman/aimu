@@ -1,4 +1,4 @@
-from ..base_client import Model, ModelClient
+from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
 
 import ollama
 import logging
@@ -114,7 +114,6 @@ class OllamaClient(ModelClient):
             logger.debug("LLM raw response part: %s", response_part)
 
             if response_part.thinking:
-                self.is_currently_thinking = True
                 self.last_thinking = response_part.thinking
                 yield response_part.thinking
                 for response_part in response:
@@ -123,9 +122,7 @@ class OllamaClient(ModelClient):
                         self.last_thinking += response_part.thinking
                         yield response_part.thinking
                     else:
-                        self.is_currently_thinking = False
                         break
-                self.is_currently_thinking = False
 
             if response_part["response"]:
                 yield response_part["response"]
@@ -183,7 +180,7 @@ class OllamaClient(ModelClient):
 
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: bool = True
-    ) -> Iterator[str]:
+    ) -> Iterator[StreamChunk]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = ollama.chat(
@@ -199,37 +196,33 @@ class OllamaClient(ModelClient):
         response_part = next(response)
         logger.debug("LLM raw response part: %s", response_part)
 
-        # If the model is thinking, we need to capture the thinking before processing tools and streaming the response.
         thinking = ""
         if response_part["message"].thinking:
-            self.is_currently_thinking = True
             thinking = response_part["message"].thinking
-            yield response_part["message"].thinking
+            yield StreamChunk(StreamPhase.THINKING, thinking)
             for response_part in response:
                 logger.debug("LLM raw response part: %s", response_part)
                 if response_part["message"].thinking:
                     thinking += response_part["message"].thinking
-                    yield response_part["message"].thinking
+                    yield StreamChunk(StreamPhase.THINKING, response_part["message"].thinking)
                 else:
-                    self.is_currently_thinking = False
                     break
-            self.is_currently_thinking = False
 
         if response_part["message"].tool_calls:
-            tool_calls = []
-            for tool_call in response_part["message"].tool_calls:
-                tool_calls.append(
-                    {
-                        "name": tool_call.function.name,
-                        "arguments": tool_call.function.arguments,
-                    }
-                )
+            tool_calls = [
+                {"name": tc.function.name, "arguments": tc.function.arguments}
+                for tc in response_part["message"].tool_calls
+            ]
 
+            msgs_before = len(self.messages)
             self._handle_tool_calls(tool_calls, tools)
 
             if thinking:
-                self.messages[-1 - len(tool_calls)]["thinking"] = thinking
+                self.messages[msgs_before]["thinking"] = thinking
                 thinking = ""
+
+            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1:]):
+                yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
 
             response = ollama.chat(
                 model=self.model.value,
@@ -244,33 +237,29 @@ class OllamaClient(ModelClient):
             response_part = next(response)
             logger.debug("LLM raw response part: %s", response_part)
 
-            # For the response after the tool call, we need to capture the thinking again if it exists.
             thinking = ""
             if response_part["message"].thinking:
-                self.is_currently_thinking = True
                 thinking = response_part["message"].thinking
-                yield response_part["message"].thinking
+                yield StreamChunk(StreamPhase.THINKING, thinking)
                 for response_part in response:
                     logger.debug("LLM raw response part: %s", response_part)
                     if response_part["message"].thinking:
                         thinking += response_part["message"].thinking
-                        yield response_part["message"].thinking
+                        yield StreamChunk(StreamPhase.THINKING, response_part["message"].thinking)
                     else:
-                        self.is_currently_thinking = False
                         break
-                self.is_currently_thinking = False
 
         content = response_part["message"].content
-        yield content
+        yield StreamChunk(StreamPhase.GENERATING, content)
 
         for response_part in response:
             logger.debug("LLM raw response part: %s", response_part)
             content += response_part["message"].content
-            yield response_part["message"].content
+            yield StreamChunk(StreamPhase.GENERATING, response_part["message"].content)
 
         message = {"role": response_part["message"].role, "content": content}
-
         if thinking:
             message["thinking"] = thinking
-
         self.messages.append(message)
+
+        yield StreamChunk(StreamPhase.DONE, "")

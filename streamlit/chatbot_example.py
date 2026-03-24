@@ -1,5 +1,5 @@
 from aimu import paths
-from aimu.models import HuggingFaceClient, OllamaClient, AisuiteClient
+from aimu.models import HuggingFaceClient, OllamaClient, AisuiteClient, StreamPhase
 from aimu.tools.client import MCPClient
 from aimu.history import ConversationManager
 
@@ -24,6 +24,33 @@ MODEL_CLIENTS = [
     HuggingFaceClient,
     AisuiteClient,
 ]
+
+
+def stream_chat_response(streamed_response):
+    thinking_box = None
+    thinking_text = ""
+    response_placeholder = None
+    response_text = ""
+
+    for chunk in streamed_response:
+        if chunk.phase == StreamPhase.THINKING:
+            if thinking_box is None:
+                thinking_box = st.chat_message("thinking", avatar="🤔").empty()
+                thinking_text = ""
+            thinking_text += chunk.content
+            thinking_box.markdown(thinking_text)
+        elif chunk.phase == StreamPhase.TOOL_CALLING:
+            thinking_box = None  # reset so next thinking phase gets a fresh container
+            response_placeholder = None  # force new assistant block after tools
+            with st.chat_message("tool", avatar="🔧"):
+                st.markdown(f"**Tool call:** {chunk.content['name']}")
+                st.markdown(f"**Tool response:** {chunk.content['response']}")
+        elif chunk.phase == StreamPhase.GENERATING:
+            if response_placeholder is None:
+                response_text = ""
+                response_placeholder = st.chat_message("assistant").empty()
+            response_text += chunk.content
+            response_placeholder.markdown(response_text)
 
 MCP_SERVERS = {
     "mcpServers": {
@@ -94,8 +121,7 @@ if len(st.session_state.model_client.messages) == 0:
         },
     )
 
-    with st.chat_message("assistant"):
-        response = st.write_stream(streamed_response)
+    stream_chat_response(streamed_response)
 
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 else:
@@ -130,8 +156,7 @@ if prompt := st.chat_input("What's up?"):
         },
     )
 
-    with st.chat_message("assistant"):
-        st.write_stream(streamed_response)
+    stream_chat_response(streamed_response)
 
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 

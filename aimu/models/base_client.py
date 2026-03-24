@@ -1,11 +1,23 @@
 import logging
-from enum import Enum
-from typing import Optional, Iterator, Any
+from enum import Enum, auto
+from typing import Optional, Iterator, Any, NamedTuple
 from abc import ABC, abstractmethod
 import random
 import string
 
 logger = logging.getLogger(__name__)
+
+
+class StreamPhase(str, Enum):
+    THINKING = auto()
+    TOOL_CALLING = auto()
+    GENERATING = auto()
+    DONE = auto()
+
+
+class StreamChunk(NamedTuple):
+    phase: StreamPhase
+    content: Any
 
 
 class Model(Enum):
@@ -26,7 +38,6 @@ class ModelClient(ABC):
         self.messages = []
         self.mcp_client = None
         self.last_thinking = ""
-        self.is_currently_thinking = False
 
     @property
     def is_thinking_model(self) -> bool:
@@ -94,7 +105,7 @@ class ModelClient(ABC):
     @abstractmethod
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[str]:
+    ) -> Iterator[StreamChunk]:
         """
         Streams responses to a user message as an iterator of strings.
 

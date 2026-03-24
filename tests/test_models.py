@@ -13,7 +13,7 @@ from typing import Iterable
 from fastmcp import FastMCP
 import time
 
-from aimu.models import ModelClient, HuggingFaceClient, OllamaClient, AisuiteClient
+from aimu.models import ModelClient, HuggingFaceClient, OllamaClient, AisuiteClient, StreamPhase
 from aimu.tools.client import MCPClient
 
 
@@ -156,11 +156,11 @@ def test_chat_streamed(model_client):
     response = model_client.chat_streamed("What is the capital of France?")
 
     assert isinstance(response, Iterable)
-    content = next(response)  # type: ignore
-    assert isinstance(content, str)
 
-    for response_part in response:
-        content += response_part
+    content = ""
+    for chunk in response:
+        if chunk.phase == StreamPhase.GENERATING:
+            content += chunk.content
 
     assert "Paris" in content
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
@@ -171,33 +171,15 @@ def test_chat_streamed_multiple_turns(model_client):
 
     model_client.messages = []
 
-    response1 = model_client.chat_streamed("What is the capital of France?")
-    content1 = next(response1)
-    assert isinstance(content1, str)
-
-    for response_part in response1:
-        content1 += response_part
-
+    content1 = "".join(c.content for c in model_client.chat_streamed("What is the capital of France?") if c.phase == "generating")
     assert "Paris" in content1
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
 
-    response2 = model_client.chat_streamed("What is the population of that city?")
-    content2 = next(response2)
-    assert isinstance(content2, str)
-
-    for response_part in response2:
-        content2 += response_part
-
+    content2 = "".join(c.content for c in model_client.chat_streamed("What is the population of that city?") if c.phase == "generating")
     assert "population" in content2 or "inhabitants" in content2
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
-    response3 = model_client.chat_streamed("What is the climate like there?")
-    content3 = next(response3)
-    assert isinstance(content3, str)
-
-    for response_part in response3:
-        content3 += response_part
-
+    content3 = "".join(c.content for c in model_client.chat_streamed("What is the climate like there?") if c.phase == "generating")
     assert "climate" in content3 or "temperature" in content3
     assert len(model_client.messages) == 7  # system (auto-added), user, assistant, user, assistant, user, assistant
 
@@ -236,34 +218,18 @@ def test_chat_with_tools(model_client):
         assert "thinking" in model_client.messages[-3]
 
 
-def test_generate_streamed_is_currently_thinking(model_client):
-    """Test that is_thinking is True while streaming thinking tokens and False otherwise."""
+def test_generate_streamed_thinking(model_client):
+    """Test that thinking models populate last_thinking after streamed generation."""
 
     if model_client.model not in model_client.THINKING_MODELS:
         pytest.skip("Model does not support thinking")
 
-    prompt = "What is the capital of France?"
-    response = model_client.generate_streamed(prompt)
+    content = ""
+    for token in model_client.generate_streamed("What is the capital of France?"):
+        content += token
 
-    was_thinking = False
-    thinking_then_response = False
-    thinking_ended = False
-
-    for token in response:
-        if model_client.is_currently_thinking:
-            was_thinking = True
-        elif was_thinking and not thinking_ended:
-            thinking_ended = True
-            thinking_then_response = True
-
-        if thinking_ended:
-            assert not model_client.is_currently_thinking, (
-                "is_currently_thinking should not toggle back to True after thinking ends"
-            )
-
-    assert was_thinking, "is_currently_thinking was never True for a thinking model"
-    assert thinking_then_response, "is_currently_thinking did not transition from True to False during streaming"
-    assert not model_client.is_currently_thinking, "is_currently_thinking should be False after streaming ends"
+    assert model_client.last_thinking, "last_thinking should be populated for thinking models"
+    assert "Paris" in content
 
 
 def test_chat_streamed_with_tools(model_client):
@@ -286,8 +252,9 @@ def test_chat_streamed_with_tools(model_client):
     response = model_client.chat_streamed("What is the temperature in Paris?")
 
     content = ""
-    for response_part in response:
-        content += response_part
+    for chunk in response:
+        if chunk.phase == StreamPhase.GENERATING:
+            content += chunk.content
 
     # If the model does not support tools, we shouldn't see tools being used
     if model_client.model not in model_client.TOOL_MODELS:

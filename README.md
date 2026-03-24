@@ -128,14 +128,31 @@ print(model_client.last_thinking)  # reasoning trace
 print(response)                     # final answer
 ```
 
-During streamed generation, the `is_thinking` flag is `True` while reasoning tokens are being yielded and `False` once the final response begins:
+During streamed generation via `generate_streamed()`, thinking tokens are yielded first followed by the response tokens as a single flat stream. For phase-separated streaming (thinking, tool calls, response), use `chat_streamed()` instead.
+
+### Streamed Chat
+
+`chat_streamed()` yields `StreamChunk(phase, content)` objects. The `phase` field is a `StreamPhase` enum:
+
+| Phase | Content | Description |
+|---|---|---|
+| `StreamPhase.THINKING` | `str` | Reasoning token (thinking models only) |
+| `StreamPhase.TOOL_CALLING` | `{"name": str, "response": str}` | Tool call and its result |
+| `StreamPhase.GENERATING` | `str` | Final response token |
+| `StreamPhase.DONE` | `""` | Stream complete |
 
 ``` python
-for token in model_client.generate_streamed("What is the capital of France?"):
-    if model_client.is_thinking:
-        print(f"[thinking] {token}", end="", flush=True)
-    else:
-        print(token, end="", flush=True)
+from aimu.models import OllamaClient as ModelClient, StreamPhase
+
+model_client = ModelClient(ModelClient.MODELS.LLAMA_3_1_8B)
+
+for chunk in model_client.chat_streamed("What is the capital of France?"):
+    if chunk.phase == StreamPhase.THINKING:
+        print(f"[thinking] {chunk.content}", end="", flush=True)
+    elif chunk.phase == StreamPhase.TOOL_CALLING:
+        print(f"\n[tool: {chunk.content['name']}] {chunk.content['response']}")
+    elif chunk.phase == StreamPhase.GENERATING:
+        print(chunk.content, end="", flush=True)
 ```
 
 ### Chat UI (Streamlit)

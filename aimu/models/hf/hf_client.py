@@ -1,4 +1,4 @@
-from ..base_client import Model, ModelClient
+from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
 
 import torch
 from transformers import AutoTokenizer
@@ -247,10 +247,7 @@ class HuggingFaceClient(ModelClient):
 
         _, it = self._generate(messages, generate_kwargs, streamer=streamer)
 
-        if self._pending_thinking_tokens:
-            self.is_currently_thinking = True
-            yield from self._pending_thinking_tokens
-            self.is_currently_thinking = False
+        yield from self._pending_thinking_tokens
 
         for token in it:
             logger.debug("LLM raw token: %r", token)
@@ -301,44 +298,37 @@ class HuggingFaceClient(ModelClient):
 
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[str]:
+    ) -> Iterator[StreamChunk]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
-
         _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
 
-        if self._pending_thinking_tokens:
-            self.is_currently_thinking = True
-            yield from self._pending_thinking_tokens
-            self._pending_thinking_tokens = []
-            self.is_currently_thinking = False
+        for token in self._pending_thinking_tokens:
+            yield StreamChunk(StreamPhase.THINKING, token)
+        self._pending_thinking_tokens = []
 
         response_part = next(it)
         content = ""
+        msgs_before = len(self.messages)
 
         # TODO: handle multiple tool calls
         if self.model in [self.MODELS.QWEN_3_8B, self.MODELS.SMOLLM3_3B] and "<tool_call>" in response_part:
-            # buffer the entire tool call
             response = response_part
             for response_part in it:
                 response += response_part
 
-            tool_calls = []
             tool_call_start = response.index("<tool_call>") + len("<tool_call>")
             tool_call_end = response.index("</tool_call>")
-            tool_call = response[tool_call_start:tool_call_end].strip()
-            tool_calls.append(json.loads(tool_call))
-
-            response = response[tool_call_end + len("</tool_call>") :].strip()
-
-            self._handle_tool_calls(tool_calls, tools)
+            self._handle_tool_calls([json.loads(response[tool_call_start:tool_call_end].strip())], tools)
 
             if self.last_thinking:
-                self.messages[-2]["thinking"] = self.last_thinking
+                self.messages[msgs_before]["thinking"] = self.last_thinking
+
+            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1:]):
+                yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
 
             streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
-
             _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
         elif self.model in [self.MODELS.MAGISTRAL_SMALL] and "[TOOL_CALLS]" in response_part:
             response = response_part
@@ -346,9 +336,11 @@ class HuggingFaceClient(ModelClient):
                 response += response_part
 
             tool_calls_start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
-            tool_calls = response[tool_calls_start:].strip()
+            self._handle_tool_calls(json.loads(response[tool_calls_start:].strip()), tools)
 
-            self._handle_tool_calls(json.loads(tool_calls), tools)
+            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1:]):
+                yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
+
             _, it = self._generate(self.messages, generate_kwargs, tools, streamer=streamer)
         elif self.model in [self.MODELS.LLAMA_3_1_8B, self.MODELS.LLAMA_3_2_3B] and '{"name":' in response_part:
             response = response_part
@@ -356,6 +348,10 @@ class HuggingFaceClient(ModelClient):
                 response += response_part
 
             self._handle_tool_calls([json.loads(response)], tools)
+
+            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1:]):
+                yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
+
             _, it = self._generate(self.messages, generate_kwargs, tools)
         elif self.model in [self.MODELS.MISTRAL_7B, self.MODELS.MISTRAL_NEMO_12B] and '[{"name":' in response_part:
             response = response_part
@@ -363,16 +359,18 @@ class HuggingFaceClient(ModelClient):
                 response += response_part
 
             self._handle_tool_calls([json.loads(response)[0]], tools)
+
+            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1:]):
+                yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
+
             _, it = self._generate(self.messages, generate_kwargs, tools)
         else:
             content += response_part
-            yield response_part
+            yield StreamChunk(StreamPhase.GENERATING, response_part)
 
-        if self._pending_thinking_tokens:
-            self.is_currently_thinking = True
-            yield from self._pending_thinking_tokens
-            self._pending_thinking_tokens = []
-            self.is_currently_thinking = False
+        for token in self._pending_thinking_tokens:
+            yield StreamChunk(StreamPhase.THINKING, token)
+        self._pending_thinking_tokens = []
 
         eos_str = self.hf_tokenizer.decode(self.hf_model.config.eos_token_id)
 
@@ -382,14 +380,14 @@ class HuggingFaceClient(ModelClient):
 
             logger.debug("LLM raw token: %r", response_part)
             content += response_part
-            yield response_part
+            yield StreamChunk(StreamPhase.GENERATING, response_part)
 
         self.messages.append({"role": "assistant", "content": content})
 
         if self.last_thinking:
             self.messages[-1]["thinking"] = self.last_thinking
 
-        return
+        yield StreamChunk(StreamPhase.DONE, "")
 
     def print_model_info(self):
         print(f"model : size : {self.hf_model.get_memory_footprint() // 1024**2} MB")

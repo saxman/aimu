@@ -1,5 +1,5 @@
 from typing import Any, Iterator, Optional
-from ..base_client import Model, ModelClient
+from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
 
 import aisuite
 import logging
@@ -133,7 +133,7 @@ class AisuiteClient(ModelClient):
 
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[str]:
+    ) -> Iterator[StreamChunk]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = self.ai_client.chat.completions.create(
@@ -154,29 +154,23 @@ class AisuiteClient(ModelClient):
             while response_part := next(response):
                 if response_part.choices[0].finish_reason is not None:
                     break
-
                 function_arguments += response_part.choices[0].delta.tool_calls[0].function.arguments
 
-            tool_calls = []  ## TODO: handle multiple tool calls
-            tool_calls.append(
-                {
-                    "name": function_name,
-                    "arguments": json.loads(function_arguments),
-                }
-            )
-
-            self._handle_tool_calls(tool_calls, tools)
+            msgs_before = len(self.messages)
+            self._handle_tool_calls([{"name": function_name, "arguments": json.loads(function_arguments)}], tools)
 
             ## tool calls for aisuite require the arguments to be a json string
             # TODO: find a better way. this makes messages inconsistent between Aisuite and other model clients
-            self.messages[-2]["tool_calls"][0]["function"]["arguments"] = json.dumps(
-                self.messages[-2]["tool_calls"][0]["function"]["arguments"]
+            self.messages[msgs_before]["tool_calls"][0]["function"]["arguments"] = json.dumps(
+                self.messages[msgs_before]["tool_calls"][0]["function"]["arguments"]
             )
+
+            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1:]):
+                yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
 
             response = self.ai_client.chat.completions.create(
                 self.model.value, self.messages, stream=True, tools=tools, **generate_kwargs
             )
-
             response_part = next(response)
 
         message = {"role": response_part.choices[0].delta.role}
@@ -185,9 +179,10 @@ class AisuiteClient(ModelClient):
         for response_part in response:
             if response_part.choices[0].finish_reason is not None:
                 break
-
             content += response_part.choices[0].delta.content
-            yield response_part.choices[0].delta.content
+            yield StreamChunk(StreamPhase.GENERATING, response_part.choices[0].delta.content)
 
         message["content"] = content
         self.messages.append(message)
+
+        yield StreamChunk(StreamPhase.DONE, "")
