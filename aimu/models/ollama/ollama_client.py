@@ -99,7 +99,7 @@ class OllamaClient(ModelClient):
         self,
         prompt: str,
         generate_kwargs: Optional[dict] = None,
-        include_thinking: bool = True,
+        include_thinking: bool = False,
     ) -> Iterator[StreamChunk]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
@@ -114,28 +114,16 @@ class OllamaClient(ModelClient):
 
         self.last_thinking = ""
 
-        if self.is_thinking_model:
-            response_part = next(response)
+        for response_part in response:
             logger.debug("LLM raw response part: %s", response_part)
 
             if response_part.thinking:
-                self.last_thinking = response_part.thinking
+                self.last_thinking += response_part.thinking
                 if include_thinking:
                     yield StreamChunk(StreamPhase.THINKING, response_part.thinking)
-                for response_part in response:
-                    logger.debug("LLM raw response part: %s", response_part)
-                    if response_part.thinking:
-                        self.last_thinking += response_part.thinking
-                        if include_thinking:
-                            yield StreamChunk(StreamPhase.THINKING, response_part.thinking)
-                    else:
-                        break
+                else:
+                    continue
 
-            if response_part["response"]:
-                yield StreamChunk(StreamPhase.GENERATING, response_part["response"])
-
-        for response_part in response:
-            logger.debug("LLM raw response part: %s", response_part)
             yield StreamChunk(StreamPhase.GENERATING, response_part["response"])
 
         yield StreamChunk(StreamPhase.DONE, "")
