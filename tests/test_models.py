@@ -257,7 +257,9 @@ def test_generate_streamed_is_currently_thinking(model_client):
             thinking_then_response = True
 
         if thinking_ended:
-            assert not model_client.is_currently_thinking, "is_currently_thinking should not toggle back to True after thinking ends"
+            assert not model_client.is_currently_thinking, (
+                "is_currently_thinking should not toggle back to True after thinking ends"
+            )
 
     assert was_thinking, "is_currently_thinking was never True for a thinking model"
     assert thinking_then_response, "is_currently_thinking did not transition from True to False during streaming"

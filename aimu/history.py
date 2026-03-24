@@ -9,7 +9,7 @@ class ConversationManager:
         self.__db_path = db_path
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        
+
         self.__db = TinyDB(db_path)
         self.__conversations_table = self.__db.table("conversations")
 

@@ -112,11 +112,7 @@ class MemoryStore:
             fact: The exact fact string to remove.
         """
         results = self._collection.get(where_document={"$contains": fact})
-        matching_ids = [
-            doc_id
-            for doc_id, document in zip(results["ids"], results["documents"])
-            if document == fact
-        ]
+        matching_ids = [doc_id for doc_id, document in zip(results["ids"], results["documents"]) if document == fact]
         if matching_ids:
             self._collection.delete(ids=matching_ids)
 
