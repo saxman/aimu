@@ -29,6 +29,8 @@ class OllamaModel(Model):
 
     QWEN_3_5_9B = "qwen3.5:9b"
 
+    GLM_4_7_FLASH_31B_Q4 = "glm-4.7-flash:q4_K_M"
+
     SMOLLM2_1_7B = "smollm2:latest"  # "smollm2:1.7b" error downloading model, using latest for now
 
 
@@ -36,6 +38,7 @@ class OllamaClient(ModelClient):
     MODELS = OllamaModel
 
     TOOL_MODELS = [
+        MODELS.GLM_4_7_FLASH_31B_Q4,
         MODELS.QWEN_3_5_9B,
         MODELS.GPT_OSS_20B,
         # MODELS.MISTRAL_7B, # issue with tool usage
@@ -53,6 +56,7 @@ class OllamaClient(ModelClient):
         MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_5_9B,
+        MODELS.GLM_4_7_FLASH_31B_Q4
         # MODELS.MAGISTRAL_SMALL_24B # should support thinking but test issues
     ]
 
