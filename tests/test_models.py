@@ -13,7 +13,7 @@ from typing import Iterable
 from fastmcp import FastMCP
 import time
 
-from aimu.models import ModelClient, HuggingFaceClient, OllamaClient, AisuiteClient, StreamPhase
+from aimu.models import ModelClient, HuggingFaceClient, OllamaClient, AisuiteClient, StreamPhase, StreamChunk
 from aimu.tools.client import MCPClient
 
 
@@ -98,14 +98,14 @@ def test_generate_streamed(model_client):
     response = model_client.generate_streamed(prompt)
 
     assert isinstance(response, Iterable)
-    content = next(response)  # type: ignore
-    assert isinstance(content, str)
 
-    for response_part in response:
-        content += response_part
+    content = ""
+    for chunk in response:
+        assert isinstance(chunk, StreamChunk)
+        if chunk.phase == StreamPhase.GENERATING:
+            content += chunk.content
 
     assert "Paris" in content
-    assert isinstance(content, str)
 
 
 def test_generate_with_parameters(model_client):
@@ -171,15 +171,15 @@ def test_chat_streamed_multiple_turns(model_client):
 
     model_client.messages = []
 
-    content1 = "".join(c.content for c in model_client.chat_streamed("What is the capital of France?") if c.phase == "generating")
+    content1 = "".join(c.content for c in model_client.chat_streamed("What is the capital of France?") if c.phase == StreamPhase.GENERATING)
     assert "Paris" in content1
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
 
-    content2 = "".join(c.content for c in model_client.chat_streamed("What is the population of that city?") if c.phase == "generating")
+    content2 = "".join(c.content for c in model_client.chat_streamed("What is the population of that city?") if c.phase == StreamPhase.GENERATING)
     assert "population" in content2 or "inhabitants" in content2
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
-    content3 = "".join(c.content for c in model_client.chat_streamed("What is the climate like there?") if c.phase == "generating")
+    content3 = "".join(c.content for c in model_client.chat_streamed("What is the climate like there?") if c.phase == StreamPhase.GENERATING)
     assert "climate" in content3 or "temperature" in content3
     assert len(model_client.messages) == 7  # system (auto-added), user, assistant, user, assistant, user, assistant
 
@@ -225,10 +225,34 @@ def test_generate_streamed_thinking(model_client):
         pytest.skip("Model does not support thinking")
 
     content = ""
-    for token in model_client.generate_streamed("What is the capital of France?"):
-        content += token
+    thinking = ""
+    for chunk in model_client.generate_streamed("What is the capital of France?"):
+        if chunk.phase == StreamPhase.THINKING:
+            thinking += chunk.content
+        elif chunk.phase == StreamPhase.GENERATING:
+            content += chunk.content
 
     assert model_client.last_thinking, "last_thinking should be populated for thinking models"
+    assert thinking, "thinking chunks should be yielded for thinking models"
+    assert "Paris" in content
+
+
+def test_generate_streamed_include_thinking_false(model_client):
+    """Test that thinking chunks are excluded when include_thinking=False."""
+
+    if model_client.model not in model_client.THINKING_MODELS:
+        pytest.skip("Model does not support thinking")
+
+    content = ""
+    thinking = ""
+    for chunk in model_client.generate_streamed("What is the capital of France?", include_thinking=False):
+        if chunk.phase == StreamPhase.THINKING:
+            thinking += chunk.content
+        elif chunk.phase == StreamPhase.GENERATING:
+            content += chunk.content
+
+    assert not thinking, "thinking chunks should not be yielded when include_thinking=False"
+    assert model_client.last_thinking, "last_thinking should still be populated even when include_thinking=False"
     assert "Paris" in content
 
 

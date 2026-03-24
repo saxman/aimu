@@ -43,9 +43,9 @@ class HuggingFaceClient(ModelClient):
     MODELS = HuggingFaceModel
 
     TOOL_MODELS = [
-        MODELS.GPT_OSS_20B,
-        MODELS.QWEN_3_8B,
         MODELS.QWEN_3_5_9B,
+        MODELS.QWEN_3_8B,
+        MODELS.GPT_OSS_20B,
         MODELS.MISTRAL_7B,
         MODELS.MISTRAL_NEMO_12B,
         MODELS.MAGISTRAL_SMALL,
@@ -57,8 +57,8 @@ class HuggingFaceClient(ModelClient):
     THINKING_MODELS = [
         MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
-        MODELS.QWEN_3_8B,
         MODELS.QWEN_3_5_9B,
+        MODELS.QWEN_3_8B,
         MODELS.SMOLLM3_3B,
     ]
 
@@ -236,7 +236,12 @@ class HuggingFaceClient(ModelClient):
 
         return response
 
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
+    def generate_streamed(
+        self,
+        prompt: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        include_thinking: bool = True,
+    ) -> Iterator[StreamChunk]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         messages = [
@@ -247,11 +252,16 @@ class HuggingFaceClient(ModelClient):
 
         _, it = self._generate(messages, generate_kwargs, streamer=streamer)
 
-        yield from self._pending_thinking_tokens
+        if include_thinking:
+            for token in self._pending_thinking_tokens:
+                yield StreamChunk(StreamPhase.THINKING, token)
+        self._pending_thinking_tokens = []
 
         for token in it:
             logger.debug("LLM raw token: %r", token)
-            yield token
+            yield StreamChunk(StreamPhase.GENERATING, token)
+
+        yield StreamChunk(StreamPhase.DONE, "")
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)

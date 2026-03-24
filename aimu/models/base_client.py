@@ -74,16 +74,22 @@ class ModelClient(ABC):
         pass
 
     @abstractmethod
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
+    def generate_streamed(
+        self,
+        prompt: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        include_thinking: bool = True,
+    ) -> Iterator[StreamChunk]:
         """
         Generates a stream of text responses based on the provided prompt.
 
         Args:
             prompt (str): The input prompt to generate a response from.
             generate_kwargs (Optional[dict[str, Any]]): Optional dictionary of model generation arguments.
+            include_thinking (bool): Whether to include thinking chunks in the stream. Defaults to True.
 
         Yields:
-            Iterator[str]: An iterator that yields generated text chunks as strings.
+            Iterator[StreamChunk]: An iterator that yields StreamChunk objects.
         """
         pass
 

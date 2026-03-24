@@ -36,8 +36,8 @@ class OllamaClient(ModelClient):
     MODELS = OllamaModel
 
     TOOL_MODELS = [
-        MODELS.GPT_OSS_20B,
         MODELS.QWEN_3_5_9B,
+        MODELS.GPT_OSS_20B,
         # MODELS.MISTRAL_7B, # issue with tool usage
         # MODELS.MISTRAL_NEMO_12B, # issue with tool usage
         MODELS.MISTRAL_SMALL_3_2_24B,
@@ -95,7 +95,12 @@ class OllamaClient(ModelClient):
 
         return response.response
 
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict] = None) -> Iterator[str]:
+    def generate_streamed(
+        self,
+        prompt: str,
+        generate_kwargs: Optional[dict] = None,
+        include_thinking: bool = True,
+    ) -> Iterator[StreamChunk]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         response = ollama.generate(
@@ -115,21 +120,25 @@ class OllamaClient(ModelClient):
 
             if response_part.thinking:
                 self.last_thinking = response_part.thinking
-                yield response_part.thinking
+                if include_thinking:
+                    yield StreamChunk(StreamPhase.THINKING, response_part.thinking)
                 for response_part in response:
                     logger.debug("LLM raw response part: %s", response_part)
                     if response_part.thinking:
                         self.last_thinking += response_part.thinking
-                        yield response_part.thinking
+                        if include_thinking:
+                            yield StreamChunk(StreamPhase.THINKING, response_part.thinking)
                     else:
                         break
 
             if response_part["response"]:
-                yield response_part["response"]
+                yield StreamChunk(StreamPhase.GENERATING, response_part["response"])
 
         for response_part in response:
             logger.debug("LLM raw response part: %s", response_part)
-            yield response_part["response"]
+            yield StreamChunk(StreamPhase.GENERATING, response_part["response"])
+
+        yield StreamChunk(StreamPhase.DONE, "")
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
