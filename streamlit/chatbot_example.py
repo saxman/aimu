@@ -83,7 +83,6 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# Either generate and stream the initial user message response or display the chat message history.
 if len(st.session_state.model_client.messages) == 0:
     streamed_response = st.session_state.model_client.chat_streamed(
         INITIAL_USER_MESSAGE,
@@ -100,13 +99,23 @@ if len(st.session_state.model_client.messages) == 0:
 
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 else:
-    # Only render assistant and user messages (not tool messages) and not the system message and initial user message.
-    messages = [
-        x for x in st.session_state.model_client.messages[2:] if x["role"] in ["assistant", "user"] and "content" in x
-    ]
+    messages = st.session_state.model_client.messages[2:]  # Skip the initial system and user messages used for the introduction
+
     for message in messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        if "thinking" in message:
+            with st.chat_message("thinking", avatar="🤔"):
+                st.markdown(message["thinking"])
+        
+        if "tool_calls" in message:
+            for tool_call in message["tool_calls"]:
+                with st.chat_message("tool", avatar="🔧"):
+                    st.markdown(f"**Tool call:** {tool_call['function']['name']}")
+        elif message["role"] == "tool":
+            with st.chat_message("tool", avatar="🔧"):
+                st.markdown(f"**Tool response:** {message['content']}")
+        elif "content" in message:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
 if prompt := st.chat_input("What's up?"):
     st.chat_message("user").markdown(prompt)
