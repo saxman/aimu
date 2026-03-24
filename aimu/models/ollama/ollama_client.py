@@ -52,7 +52,7 @@ class OllamaClient(ModelClient):
     THINKING_MODELS = [
         MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
-        MODELS.QWEN_3_5_9B
+        MODELS.QWEN_3_5_9B,
         # MODELS.MAGISTRAL_SMALL_24B # should support thinking but test issues
     ]
 
@@ -84,6 +84,8 @@ class OllamaClient(ModelClient):
             keep_alive=self.model_keep_alive_seconds,
         )
 
+        logger.debug("LLM raw response: %s", response)
+
         self.last_thinking = ""
 
         if not self.is_thinking_model:
@@ -108,15 +110,15 @@ class OllamaClient(ModelClient):
         self.last_thinking = ""
 
         if self.is_thinking_model:
-            next(response)
-            next(response)
             response_part = next(response)
+            logger.debug("LLM raw response part: %s", response_part)
 
             if response_part.thinking:
                 self.is_currently_thinking = True
                 self.last_thinking = response_part.thinking
                 yield response_part.thinking
                 for response_part in response:
+                    logger.debug("LLM raw response part: %s", response_part)
                     if response_part.thinking:
                         self.last_thinking += response_part.thinking
                         yield response_part.thinking
@@ -125,7 +127,11 @@ class OllamaClient(ModelClient):
                         break
                 self.is_currently_thinking = False
 
+            if response_part["response"]:
+                yield response_part["response"]
+
         for response_part in response:
+            logger.debug("LLM raw response part: %s", response_part)
             yield response_part["response"]
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: bool = True) -> str:
@@ -139,6 +145,8 @@ class OllamaClient(ModelClient):
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
         )
+
+        logger.debug("LLM raw response: %s", response)
 
         if response["message"].tool_calls:
             tool_calls = []
@@ -164,6 +172,8 @@ class OllamaClient(ModelClient):
                 keep_alive=self.model_keep_alive_seconds,
             )
 
+            logger.debug("LLM raw response: %s", response)
+
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
 
         if response["message"].thinking:
@@ -187,6 +197,7 @@ class OllamaClient(ModelClient):
         )
 
         response_part = next(response)
+        logger.debug("LLM raw response part: %s", response_part)
 
         # If the model is thinking, we need to capture the thinking before processing tools and streaming the response.
         thinking = ""
@@ -195,6 +206,7 @@ class OllamaClient(ModelClient):
             thinking = response_part["message"].thinking
             yield response_part["message"].thinking
             for response_part in response:
+                logger.debug("LLM raw response part: %s", response_part)
                 if response_part["message"].thinking:
                     thinking += response_part["message"].thinking
                     yield response_part["message"].thinking
@@ -230,6 +242,7 @@ class OllamaClient(ModelClient):
             )
 
             response_part = next(response)
+            logger.debug("LLM raw response part: %s", response_part)
 
             # For the response after the tool call, we need to capture the thinking again if it exists.
             thinking = ""
@@ -238,6 +251,7 @@ class OllamaClient(ModelClient):
                 thinking = response_part["message"].thinking
                 yield response_part["message"].thinking
                 for response_part in response:
+                    logger.debug("LLM raw response part: %s", response_part)
                     if response_part["message"].thinking:
                         thinking += response_part["message"].thinking
                         yield response_part["message"].thinking
@@ -250,6 +264,7 @@ class OllamaClient(ModelClient):
         yield content
 
         for response_part in response:
+            logger.debug("LLM raw response part: %s", response_part)
             content += response_part["message"].content
             yield response_part["message"].content
 
