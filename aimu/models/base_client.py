@@ -2,6 +2,7 @@ import logging
 from enum import Enum, auto
 from typing import Optional, Iterator, Any, NamedTuple
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import random
 import string
 
@@ -24,10 +25,14 @@ class Model(Enum):
     pass
 
 
+@dataclass(frozen=True)
+class ModelCapabilities:
+    supports_tools: bool = False
+    supports_thinking: bool = False
+
+
 class ModelClient(ABC):
     MODELS = Model
-    TOOL_MODELS = []
-    THINKING_MODELS = []
 
     @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
@@ -38,10 +43,11 @@ class ModelClient(ABC):
         self.messages = []
         self.mcp_client = None
         self.last_thinking = ""
+        self.capabilities: ModelCapabilities
 
     @property
     def is_thinking_model(self) -> bool:
-        return self.model in self.THINKING_MODELS
+        return self.capabilities.supports_thinking
 
     @property
     def system_message(self):
@@ -142,7 +148,7 @@ class ModelClient(ABC):
         self.messages.append({"role": "user", "content": user_message})
 
         tools = []
-        if self.model in self.TOOL_MODELS and use_tools and self.mcp_client:
+        if self.capabilities.supports_tools and use_tools and self.mcp_client:
             tools = self.mcp_client.get_tools()
 
         return generate_kwargs, tools

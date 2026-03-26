@@ -1,67 +1,57 @@
-from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
+from ..base_client import Model, ModelCapabilities, ModelClient, StreamChunk, StreamPhase
 
 import ollama
 import logging
 from typing import Iterator, Optional
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
 
-class OllamaModel(Model):
-    GPT_OSS_20B = "gpt-oss:20b"
+@dataclass(frozen=True)
+class OllamaCapabilities(ModelCapabilities):
+    pass
 
+
+class OllamaModel(str, Model):
+    GPT_OSS_20B = "gpt-oss:20b"
     LLAMA_3_1_8B = "llama3.1:8b"
     LLAMA_3_2_3B = "llama3.2:3b"
-    # LLAMA_3_3_70B = "llama3.3:70b" # model too big
-
+    # LLAMA_3_3_70B = "llama3.3:70b"  # model too big
     GEMMA_3_12B = "gemma3:12b"
-
     PHI_4_14B = "phi4:14b"
     PHI_4_MINI_3_8B = "phi4-mini:3.8b"
-
     DEEPSEEK_R1_8B = "deepseek-r1:8b"
-
-    MISTRAL_7B = "mistral:7b"
-    MISTRAL_NEMO_12B = "mistral-nemo:12b"
+    MISTRAL_7B = "mistral:7b"  # tool support disabled: issue with tool usage
+    MISTRAL_NEMO_12B = "mistral-nemo:12b"  # tool support disabled: issue with tool usage
     MISTRAL_SMALL_3_2_24B = "mistral-small3.2:24b"
-    MAGISTRAL_SMALL_24B = "magistral:24b"
+    MAGISTRAL_SMALL_24B = "magistral:24b"  # tool/thinking support disabled: test issues
     MINISTRAL_3_14B = "ministral-3:14b"
-
     QWEN_3_5_9B = "qwen3.5:9b"
-
     GLM_4_7_FLASH_31B_Q4 = "glm-4.7-flash:q4_K_M"
-
     SMOLLM2_1_7B = "smollm2:latest"  # "smollm2:1.7b" error downloading model, using latest for now
+
+
+OLLAMA_CAPABILITIES: dict[OllamaModel, OllamaCapabilities] = {
+    OllamaModel.GPT_OSS_20B: OllamaCapabilities(supports_tools=True, supports_thinking=True),
+    OllamaModel.LLAMA_3_1_8B: OllamaCapabilities(supports_tools=True),
+    OllamaModel.LLAMA_3_2_3B: OllamaCapabilities(supports_tools=True),
+    OllamaModel.DEEPSEEK_R1_8B: OllamaCapabilities(supports_thinking=True),
+    OllamaModel.MISTRAL_SMALL_3_2_24B: OllamaCapabilities(supports_tools=True),
+    OllamaModel.MINISTRAL_3_14B: OllamaCapabilities(supports_tools=True),
+    OllamaModel.QWEN_3_5_9B: OllamaCapabilities(supports_tools=True, supports_thinking=True),
+    OllamaModel.GLM_4_7_FLASH_31B_Q4: OllamaCapabilities(supports_tools=True, supports_thinking=True),
+    OllamaModel.SMOLLM2_1_7B: OllamaCapabilities(supports_tools=True),
+}
 
 
 class OllamaClient(ModelClient):
     MODELS = OllamaModel
 
-    TOOL_MODELS = [
-        MODELS.GLM_4_7_FLASH_31B_Q4,
-        MODELS.QWEN_3_5_9B,
-        MODELS.GPT_OSS_20B,
-        # MODELS.MISTRAL_7B, # issue with tool usage
-        # MODELS.MISTRAL_NEMO_12B, # issue with tool usage
-        MODELS.MISTRAL_SMALL_3_2_24B,
-        # MODELS.MAGISTRAL_SMALL_24B, # should support tools but test issues
-        MODELS.MINISTRAL_3_14B,
-        MODELS.LLAMA_3_1_8B,
-        MODELS.LLAMA_3_2_3B,
-        # MODELS.LLAMA_3_3_70B, # model too big
-        MODELS.SMOLLM2_1_7B,
-    ]
-
-    THINKING_MODELS = [
-        MODELS.GPT_OSS_20B,
-        MODELS.DEEPSEEK_R1_8B,
-        MODELS.QWEN_3_5_9B,
-        MODELS.GLM_4_7_FLASH_31B_Q4,
-        # MODELS.MAGISTRAL_SMALL_24B # should support thinking but test issues
-    ]
-
     def __init__(self, model: OllamaModel, system_message: Optional[str] = None, model_keep_alive_seconds: int = 60):
         super().__init__(model, None, system_message)
+
+        self.capabilities = OLLAMA_CAPABILITIES.get(model, OllamaCapabilities())
 
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds

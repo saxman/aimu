@@ -1,15 +1,23 @@
 from typing import Any, Iterator, Optional
-from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
+from ..base_client import Model, ModelCapabilities, ModelClient, StreamChunk, StreamPhase
 
 import aisuite
 import logging
+from dataclasses import dataclass
 from dotenv import load_dotenv
 import json
 
 logger = logging.getLogger(__name__)
 
 
-class AisuiteModel(Model):
+@dataclass(frozen=True)
+class AisuiteCapabilities(ModelCapabilities):
+    strip_top_p: bool = False
+    use_max_completion_tokens: bool = False
+    fixed_temperature: Optional[float] = None
+
+
+class AisuiteModel(str, Model):
     GPT_4O_MINI = "openai:gpt-4o-mini"
     GPT_4O = "openai:gpt-4o"
     GPT_5_NANO = "openai:gpt-5-nano"
@@ -19,16 +27,19 @@ class AisuiteModel(Model):
     CLAUDE_OPUS_4_1 = "anthropic:claude-opus-4-1-20250805"
 
 
+MODEL_CAPABILITIES: dict[AisuiteModel, AisuiteCapabilities] = {
+    AisuiteModel.GPT_4O_MINI: AisuiteCapabilities(supports_tools=True),
+    AisuiteModel.GPT_4O: AisuiteCapabilities(supports_tools=True),
+    AisuiteModel.GPT_5_NANO: AisuiteCapabilities(use_max_completion_tokens=True, strip_top_p=True, fixed_temperature=1),
+    AisuiteModel.GPT_5_MINI: AisuiteCapabilities(use_max_completion_tokens=True, strip_top_p=True, fixed_temperature=1),
+    AisuiteModel.GPT_5: AisuiteCapabilities(use_max_completion_tokens=True, strip_top_p=True, fixed_temperature=1),
+    AisuiteModel.CLAUDE_SONNET_3_5: AisuiteCapabilities(supports_tools=True, strip_top_p=True),
+    AisuiteModel.CLAUDE_OPUS_4_1: AisuiteCapabilities(strip_top_p=True),
+}
+
+
 class AisuiteClient(ModelClient):
     MODELS = AisuiteModel
-
-    TOOL_MODELS = [
-        MODELS.GPT_4O_MINI,
-        MODELS.GPT_4O,
-        MODELS.CLAUDE_SONNET_3_5,
-    ]
-
-    THINKING_MODELS = []
 
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,
@@ -44,6 +55,7 @@ class AisuiteClient(ModelClient):
     ):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
+        self.capabilities = MODEL_CAPABILITIES.get(model, AisuiteCapabilities())
 
         load_dotenv()
 
@@ -55,12 +67,13 @@ class AisuiteClient(ModelClient):
         else:
             generate_kwargs = {**self.default_generate_kwargs, **generate_kwargs}
 
-        if self.model in [self.MODELS.CLAUDE_SONNET_3_5, self.MODELS.CLAUDE_OPUS_4_1]:
-            generate_kwargs.pop("top_p")
-        elif self.model in [self.MODELS.GPT_5_NANO, self.MODELS.GPT_5_MINI, self.MODELS.GPT_5]:
+        caps = self.capabilities
+        if caps.strip_top_p:
+            generate_kwargs.pop("top_p", None)
+        if caps.use_max_completion_tokens:
             generate_kwargs["max_completion_tokens"] = generate_kwargs.pop("max_tokens")
-            generate_kwargs["temperature"] = 1
-            generate_kwargs.pop("top_p")
+        if caps.fixed_temperature is not None:
+            generate_kwargs["temperature"] = caps.fixed_temperature
 
         return generate_kwargs
 
