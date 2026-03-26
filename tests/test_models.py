@@ -171,15 +171,27 @@ def test_chat_streamed_multiple_turns(model_client):
 
     model_client.messages = []
 
-    content1 = "".join(c.content for c in model_client.chat_streamed("What is the capital of France?") if c.phase == StreamPhase.GENERATING)
+    content1 = "".join(
+        c.content
+        for c in model_client.chat_streamed("What is the capital of France?")
+        if c.phase == StreamPhase.GENERATING
+    )
     assert "Paris" in content1
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
 
-    content2 = "".join(c.content for c in model_client.chat_streamed("What is the population of that city?") if c.phase == StreamPhase.GENERATING)
+    content2 = "".join(
+        c.content
+        for c in model_client.chat_streamed("What is the population of that city?")
+        if c.phase == StreamPhase.GENERATING
+    )
     assert "population" in content2 or "inhabitants" in content2
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
-    content3 = "".join(c.content for c in model_client.chat_streamed("What is the climate like there?") if c.phase == StreamPhase.GENERATING)
+    content3 = "".join(
+        c.content
+        for c in model_client.chat_streamed("What is the climate like there?")
+        if c.phase == StreamPhase.GENERATING
+    )
     assert "climate" in content3 or "temperature" in content3
     assert len(model_client.messages) == 7  # system (auto-added), user, assistant, user, assistant, user, assistant
 

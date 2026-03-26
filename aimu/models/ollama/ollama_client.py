@@ -56,7 +56,7 @@ class OllamaClient(ModelClient):
         MODELS.GPT_OSS_20B,
         MODELS.DEEPSEEK_R1_8B,
         MODELS.QWEN_3_5_9B,
-        MODELS.GLM_4_7_FLASH_31B_Q4
+        MODELS.GLM_4_7_FLASH_31B_Q4,
         # MODELS.MAGISTRAL_SMALL_24B # should support thinking but test issues
     ]
 
@@ -222,7 +222,7 @@ class OllamaClient(ModelClient):
                 self.messages[msgs_before]["thinking"] = thinking
                 thinking = ""
 
-            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1:]):
+            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
                 yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
 
             response = ollama.chat(

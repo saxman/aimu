@@ -165,7 +165,7 @@ class AisuiteClient(ModelClient):
                 self.messages[msgs_before]["tool_calls"][0]["function"]["arguments"]
             )
 
-            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1:]):
+            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
                 yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
 
             response = self.ai_client.chat.completions.create(

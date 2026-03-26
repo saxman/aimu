@@ -52,6 +52,7 @@ def stream_chat_response(streamed_response):
             response_text += chunk.content
             response_placeholder.markdown(response_text)
 
+
 MCP_SERVERS = {
     "mcpServers": {
         "aimu": {"command": "python", "args": [str(paths.package / "tools" / "servers.py")]},
@@ -125,13 +126,15 @@ if len(st.session_state.model_client.messages) == 0:
 
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 else:
-    messages = st.session_state.model_client.messages[2:]  # Skip the initial system and user messages used for the introduction
+    messages = st.session_state.model_client.messages[
+        2:
+    ]  # Skip the initial system and user messages used for the introduction
 
     for message in messages:
         if "thinking" in message:
             with st.chat_message("thinking", avatar="🤔"):
                 st.markdown(message["thinking"])
-        
+
         if "tool_calls" in message:
             for tool_call in message["tool_calls"]:
                 with st.chat_message("tool", avatar="🔧"):
