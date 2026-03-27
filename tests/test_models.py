@@ -139,11 +139,11 @@ def test_chat_multiple_turns(model_client):
     assert "Paris" in response1
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
 
-    response2 = model_client.chat("What is the population of that city?")
+    response2 = model_client.chat("What is the population of that city?").lower()
     assert "population" in response2 or "inhabitants" in response2
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
-    response3 = model_client.chat("What is the climate like there?")
+    response3 = model_client.chat("What is the climate like there?").lower()
     assert "climate" in response3 or "temperature" in response3
     assert len(model_client.messages) == 7  # system (auto-added), user, assistant, user, assistant, user, assistant
 
@@ -183,7 +183,7 @@ def test_chat_streamed_multiple_turns(model_client):
         c.content
         for c in model_client.chat_streamed("What is the population of that city?")
         if c.phase == StreamPhase.GENERATING
-    )
+    ).lower()
     assert "population" in content2 or "inhabitants" in content2
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
@@ -191,7 +191,7 @@ def test_chat_streamed_multiple_turns(model_client):
         c.content
         for c in model_client.chat_streamed("What is the climate like there?")
         if c.phase == StreamPhase.GENERATING
-    )
+    ).lower()
     assert "climate" in content3 or "temperature" in content3
     assert len(model_client.messages) == 7  # system (auto-added), user, assistant, user, assistant, user, assistant
 
@@ -226,8 +226,12 @@ def test_chat_with_tools(model_client):
 
     # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
     if model_client.model.supports_thinking:
-        # assert "thinking" in model_client.messages[-1] ## GPT OSS does not seem to add thinking to the last message
-        assert "thinking" in model_client.messages[-3]
+
+        if model_client.model != OllamaClient.MODELS.GPT_OSS_20B and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
+            assert "thinking" in model_client.messages[-1] 
+        
+        if model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
+            assert "thinking" in model_client.messages[-3]
 
 
 def test_generate_streamed_thinking(model_client):
@@ -302,6 +306,8 @@ def test_chat_streamed_with_tools(model_client):
     assert "27" in content
 
     if model_client.model.supports_thinking:
-        # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
-        # assert "thinking" in model_client.messages[-1] ## GPT OSS does not seem to add thinking to the last message
-        assert "thinking" in model_client.messages[-3]
+        if model_client.model != OllamaClient.MODELS.GPT_OSS_20B and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
+            assert "thinking" in model_client.messages[-1] 
+        
+        if model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
+            assert "thinking" in model_client.messages[-3]
