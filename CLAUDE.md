@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AIMU (AI Model Utilities) is a Python package for working with language models, specifically designed for running models locally via Ollama or Hugging Face Transformers, with support for cloud models through aisuite. The package provides unified interfaces for model interaction, MCP tool integration, conversation management, and prompt storage.
+AIMU (AI Model Utilities) is a Python package for working with language models, specifically designed for running models locally via Ollama or Hugging Face Transformers, with support for cloud models through aisuite. The package provides unified interfaces for model interaction, MCP tool integration, conversation management, semantic memory storage, and prompt storage/tuning.
 
 ## Development Commands
 
@@ -52,6 +52,7 @@ Run specific test modules:
 pytest tests/test_history.py
 pytest tests/test_tools.py
 pytest tests/test_prompt_catalog.py
+pytest tests/test_memory.py
 ```
 
 ### Linting
@@ -75,54 +76,81 @@ streamlit run streamlit/chatbot_example.py
 
 The codebase uses an abstract base class pattern for model clients:
 
-- **[aimu/models/base_client.py](aimu/models/base_client.py)**: Defines `ModelClient` abstract base class with core methods:
+- **[aimu/models/base_client.py](aimu/models/base_client.py)**: Defines `ModelClient` abstract base class with:
   - `generate()` / `generate_streamed()`: Single-turn text generation
   - `chat()` / `chat_streamed()`: Multi-turn chat with message history
+  - `_chat_setup()`: Prepares messages and tools before a chat call
   - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions)
+  - `is_thinking_model` / `is_tool_using_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools`
+  - `system_message` property with setter that manages the system message in the messages list
   - Message history stored in `self.messages` (OpenAI-style format)
   - Optional `mcp_client` attribute for MCP tool integration
 
+- **Supporting types in base_client.py**:
+  - `StreamPhase(Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE
+  - `StreamChunk(NamedTuple)`: `(phase: StreamPhase, content: str)` — yielded by streamed methods
+  - `Model(Enum)`: Base enum class; each value carries `supports_tools` and `supports_thinking` boolean attributes
+
 - **Model Implementations**:
   - [aimu/models/ollama/ollama_client.py](aimu/models/ollama/ollama_client.py): `OllamaClient` for local Ollama models
-  - [aimu/models/hf/](aimu/models/hf/): `HuggingFaceClient` for local Transformers models
-  - [aimu/models/aisuite/](aimu/models/aisuite/): `AisuiteClient` for cloud models (OpenAI, Anthropic, etc.)
+  - [aimu/models/hf/hf_client.py](aimu/models/hf/hf_client.py): `HuggingFaceClient` for local Transformers models
+  - [aimu/models/aisuite/aisuite_client.py](aimu/models/aisuite/aisuite_client.py): `AisuiteClient` for cloud models (OpenAI, Anthropic, etc.)
 
-- **Model Definitions**: Each client defines:
-  - `MODELS`: Enum of supported models (e.g., `OllamaModel.LLAMA_3_1_8B`)
-  - `TOOL_MODELS`: List of models supporting tool/function calling
-  - `THINKING_MODELS`: List of models with extended reasoning capabilities
+- **Model Definitions**: Each client defines a `Model` enum (e.g., `OllamaModel`) where each member encodes `(model_id, supports_tools, supports_thinking)`. Ollama and HuggingFace clients also expose:
+  - `TOOL_MODELS`: Derived list of models where `supports_tools=True`
+  - `THINKING_MODELS`: Derived list of models where `supports_thinking=True`
 
-- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py:5-37) gracefully handles missing dependencies - clients only import if their dependencies are installed.
+- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies — clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_AISUITE`).
 
 ### MCP Tools Integration
 
 - **[aimu/tools/client.py](aimu/tools/client.py)**: `MCPClient` wraps FastMCP 2.0 client
-  - Converts async FastMCP API to synchronous interface using event loop
+  - Converts async FastMCP API to synchronous interface using an internal event loop
   - `get_tools()`: Returns tools in OpenAI function calling format
   - `call_tool()`: Synchronous tool execution
+  - `list_tools()`: Returns available tool names
   - Integrates with ModelClient via `model_client.mcp_client` attribute
+
+- **[aimu/tools/servers.py](aimu/tools/servers.py)**: Example FastMCP server with built-in tools:
+  - `echo(echo_string)`: Returns input string
+  - `get_current_data_and_time()`: Returns ISO format datetime
 
 - **Tool Calling Flow**:
   1. If model supports tools and `mcp_client` is set, tools are passed to model
   2. Model returns tool calls in response
   3. `_handle_tool_calls()` executes tools via MCP client
-  4. Tool results added to message history
+  4. Tool results added to message history with role "tool"
   5. Model called again with tool results to generate final response
 
 ### Conversation Management
 
-- **[aimu/history.py](aimu/history.py)**: `ConversationManager` class (previously called "memory" module)
+- **[aimu/history.py](aimu/history.py)**: `ConversationManager` class
   - Uses TinyDB for JSON-based conversation storage
   - Tracks message history with timestamps
-  - Supports loading last conversation or creating new ones
+  - `create_new_conversation()`: Returns `(doc_id, messages list)`
+  - `update_conversation(messages)`: Persists updated messages with timestamps
   - Integrates with ModelClient via `model_client.messages`
+
+### Semantic Memory
+
+- **[aimu/memory.py](aimu/memory.py)**: `MemoryStore` class for semantic fact storage
+  - Uses ChromaDB with cosine similarity for vector search
+  - `store_fact(fact)`: Store a subject-predicate-object string
+  - `retrieve_facts(topic, n_results)`: Vector semantic search
+  - `delete_fact(fact)`: Remove exact fact
+  - `__len__()`: Count stored facts
+  - Can also run as an MCP server: `python -m aimu.memory`
 
 ### Prompt Management
 
 - **[aimu/prompts/catalog.py](aimu/prompts/catalog.py)**: `PromptCatalog` for versioned prompt storage
-  - Uses SQLAlchemy for structured prompt storage
-  - Supports prompt versioning and model-specific prompts
-- **[aimu/prompts/classification.py](aimu/prompts/classification.py)**: Prompt tuning and classification utilities
+  - Uses SQLAlchemy ORM; `Prompt` model tracks id, parent_id, prompt, model_id, version, mutation_prompt, reasoning_prompt, metrics
+  - `store_prompt()`, `retrieve_last()`, `retrieve_all()`, `delete_all()`, `retrieve_model_ids()`
+- **[aimu/prompts/classification.py](aimu/prompts/classification.py)**: `ClassificationPromptTuner`
+  - Hill-climbing optimization to achieve 100% classification accuracy
+  - `tune_prompt(training_data)`: Main tuning loop
+  - `classify_data()`, `evaluate_results()`, mutation prompt helpers
+  - Thinking models automatically get higher `max_new_tokens` and `temperature`
 
 ### Key Design Patterns
 
@@ -130,66 +158,76 @@ The codebase uses an abstract base class pattern for model clients:
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed
 3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format
 4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers
-5. **Streaming Support**: All clients support both streaming and non-streaming generation
-6. **Model Capability Lists**: `TOOL_MODELS` and `THINKING_MODELS` define per-model capabilities
+5. **Streaming Support**: All clients support both streaming and non-streaming generation; streamed methods yield `StreamChunk(phase, content)` tuples
+6. **Model Capability Flags**: `supports_tools` and `supports_thinking` are encoded directly on each `Model` enum member
 
 ## Important Implementation Notes
 
 ### Adding New Models
 
 When adding new models to a client:
-1. Add model enum to the client's Model class (e.g., `OllamaModel`)
-2. Add to `TOOL_MODELS` list if model supports function calling
-3. Add to `THINKING_MODELS` list if model has extended reasoning capabilities
-4. Test with both `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`
+1. Add model enum member to the client's `Model` class (e.g., `OllamaModel`) with `(model_id, supports_tools, supports_thinking)` tuple
+2. `TOOL_MODELS` and `THINKING_MODELS` lists are derived automatically from the enum flags — no manual update needed for Ollama/HF clients
+3. For HuggingFace models, also specify the `ToolCallPrefix` format (XML, JSON_OBJECT, JSON_ARRAY, BRACKETED)
+4. Test with `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`
 
 ### Tool Calling Compatibility
 
 - Tool calls use OpenAI format: `{"type": "function", "function": {"name": "...", "arguments": {...}}}`
-- Some models (e.g., Llama 3.1) use `parameters` instead of `arguments` - this is normalized in `_handle_tool_calls()`
+- Some models (e.g., Llama 3.1) use `parameters` instead of `arguments` — this is normalized in `_handle_tool_calls()`
 - Tool responses must be added to messages with role "tool" and include `tool_call_id`
+- HuggingFace client uses `ToolCallPrefix` enum to detect and parse different tool call response formats per model
 
 ### Message History Management
 
-- System message is automatically prepended to `messages` if set via `system_message` property
+- System message is automatically prepended to `messages` if set via the `system_message` property
 - Message history persists across `chat()` calls on the same client instance
 - Use `ConversationManager` to persist conversations across sessions
 - Clear history by setting `model_client.messages = []`
 
 ### Thinking Models
 
-Models in `THINKING_MODELS` (e.g., GPT-OSS, DeepSeek-R1, QWen3) support extended reasoning:
-- Set `self.thinking = True` in client initialization
-- Model's reasoning process stored in `self.last_thinking`
-- Final answer extracted separately from thinking process
+Models with `supports_thinking=True` support extended reasoning:
+- Reasoning process stored in `self.last_thinking`
+- Streamed via `StreamChunk(StreamPhase.THINKING, content)` chunks
+- Pass `include_thinking=False` to `generate_streamed()` / `chat_streamed()` to suppress thinking chunks
+- Thinking content may also be stored in the messages dict under a "thinking" key
+
+### AisuiteClient Notes
+
+- `AisuiteClient` does not define `TOOL_MODELS` or `THINKING_MODELS` lists
+- Tool support is encoded per model via `supports_tools` flag on `AisuiteModel` enum members
+- The client checks aisuite capabilities to decide whether to pass `max_tokens` vs `max_completion_tokens`
 
 ## Project Structure
 
 ```
 aimu/
 ├── models/              # Model client implementations
-│   ├── base_client.py   # Abstract base class
-│   ├── ollama/          # Ollama client
-│   ├── hf/              # Hugging Face client
-│   └── aisuite/         # Cloud models client
+│   ├── base_client.py   # Abstract base class (ModelClient, StreamChunk, StreamPhase, Model)
+│   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
+│   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallPrefix)
+│   └── aisuite/         # Cloud models client (AisuiteClient, AisuiteModel)
 ├── tools/               # MCP tools integration
 │   ├── client.py        # MCPClient wrapper
-│   └── servers.py       # MCP server utilities
+│   └── servers.py       # Example FastMCP server with built-in tools
 ├── history.py           # Conversation management (TinyDB)
+├── memory.py            # Semantic memory store (ChromaDB); also runnable as MCP server
 ├── prompts/             # Prompt storage and management
-│   ├── catalog.py       # SQLAlchemy-based prompt catalog
-│   └── classification.py # Prompt tuning utilities
-└── paths.py             # Path utilities
+│   ├── catalog.py       # SQLAlchemy-based prompt catalog with versioning
+│   └── classification.py # ClassificationPromptTuner with hill-climbing optimization
+└── paths.py             # Path configuration (root, tests, package, output)
 
 tests/                   # Pytest test suite
 ├── conftest.py          # Pytest configuration (--client, --model options)
-├── test_models.py       # Model client tests
+├── test_models.py       # Model client tests (generate, chat, streaming, tools, thinking)
 ├── test_history.py      # Conversation management tests
+├── test_memory.py       # Semantic memory tests
 ├── test_tools.py        # MCP tools tests
-└── test_prompt_*.py     # Prompt management tests
+└── test_prompt_*.py     # Prompt catalog and tuning tests
 
 streamlit/               # Example Streamlit chat UI
-└── chatbot_example.py   # Full-featured chat interface
+└── chatbot_example.py   # Full-featured chat interface with streaming
 
 notebooks/               # Jupyter notebook demos
 ```
