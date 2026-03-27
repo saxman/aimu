@@ -32,6 +32,9 @@ class OllamaModel(Model):
 class OllamaClient(ModelClient):
     MODELS = OllamaModel
 
+    TOOL_MODELS = [model for model in MODELS if model.supports_tools]
+    THINKING_MODELS = [model for model in MODELS if model.supports_thinking]
+
     def __init__(self, model: OllamaModel, system_message: Optional[str] = None, model_keep_alive_seconds: int = 60):
         super().__init__(model, None, system_message)
 

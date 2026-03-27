@@ -114,6 +114,9 @@ class HuggingFaceModel(Model):
 class HuggingFaceClient(ModelClient):
     MODELS = HuggingFaceModel
 
+    TOOL_MODELS = [model for model in MODELS if model.supports_tools]
+    THINKING_MODELS = [model for model in MODELS if model.supports_thinking]
+
     DEFAULT_MODEL_KWARGS = {
         "device_map": "auto",
         "torch_dtype": "auto",
