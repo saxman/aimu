@@ -35,14 +35,14 @@ def stream_chat_response(streamed_response):
     for chunk in streamed_response:
         if chunk.phase == StreamPhase.THINKING:
             if thinking_box is None:
-                thinking_box = st.chat_message("thinking", avatar="🤔").empty()
+                thinking_box = st.expander("🤔 Thinking").empty()
                 thinking_text = ""
             thinking_text += chunk.content
             thinking_box.markdown(thinking_text)
         elif chunk.phase == StreamPhase.TOOL_CALLING:
             thinking_box = None  # reset so next thinking phase gets a fresh container
-            response_placeholder = None  # force new assistant block after tools
-            with st.chat_message("tool", avatar="🔧"):
+            response_placeholder = None  # force new assistant block after tools]
+            with st.expander("🔧 Tool call"):
                 st.markdown(f"**Tool call:** {chunk.content['name']}")
                 st.markdown(f"**Tool response:** {chunk.content['response']}")
         elif chunk.phase == StreamPhase.GENERATING:
@@ -126,13 +126,12 @@ if len(st.session_state.model_client.messages) == 0:
 
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 else:
-    messages = st.session_state.model_client.messages[
-        2:
-    ]  # Skip the initial system and user messages used for the introduction
+    # Skip the initial system and user messages used for the introduction
+    messages = st.session_state.model_client.messages[2:]
 
     for message in messages:
         if "thinking" in message:
-            with st.chat_message("thinking", avatar="🤔"):
+            with st.expander(" 🤔 Thinking"):
                 st.markdown(message["thinking"])
 
         if "tool_calls" in message:
