@@ -263,7 +263,10 @@ class HuggingFaceClient(ModelClient):
 
         if self.capabilities.supports_thinking and response.startswith("<think>"):
             self.last_thinking = response[len("<think>") : response.index("</think>")].strip()
+            logger.debug("LLM thinking: %s", self.last_thinking)
             response = response[response.index("</think>") + len("</think>") :].strip()
+
+        logger.debug("LLM final response: %s", response)
 
         return response
 
