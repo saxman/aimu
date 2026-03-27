@@ -216,7 +216,7 @@ def test_chat_with_tools(model_client):
     response = model_client.chat("What is the temperature in Paris?")
 
     # If the model does not support tools, we shouldn't see tools being used
-    if not model_client.capabilities.supports_tools:
+    if not model_client.model.supports_tools:
         assert len(model_client.messages) == 3  # system (auto-added), user, assistant
         return
 
@@ -225,7 +225,7 @@ def test_chat_with_tools(model_client):
     assert "27" in response
 
     # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
-    if model_client.capabilities.supports_thinking:
+    if model_client.model.supports_thinking:
         # assert "thinking" in model_client.messages[-1] ## GPT OSS does not seem to add thinking to the last message
         assert "thinking" in model_client.messages[-3]
 
@@ -233,7 +233,7 @@ def test_chat_with_tools(model_client):
 def test_generate_streamed_thinking(model_client):
     """Test that thinking models populate last_thinking after streamed generation."""
 
-    if not model_client.capabilities.supports_thinking:
+    if not model_client.model.supports_thinking:
         pytest.skip("Model does not support thinking")
 
     content = ""
@@ -252,7 +252,7 @@ def test_generate_streamed_thinking(model_client):
 def test_generate_streamed_include_thinking_false(model_client):
     """Test that thinking chunks are excluded when include_thinking=False."""
 
-    if not model_client.capabilities.supports_thinking:
+    if not model_client.model.supports_thinking:
         pytest.skip("Model does not support thinking")
 
     content = ""
@@ -293,7 +293,7 @@ def test_chat_streamed_with_tools(model_client):
             content += chunk.content
 
     # If the model does not support tools, we shouldn't see tools being used
-    if not model_client.capabilities.supports_tools:
+    if not model_client.model.supports_tools:
         assert len(model_client.messages) == 3  # system (auto-added), user, assistant
         return
 
@@ -301,7 +301,7 @@ def test_chat_streamed_with_tools(model_client):
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
     assert "27" in content
 
-    if model_client.capabilities.supports_thinking:
+    if model_client.model.supports_thinking:
         # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
         # assert "thinking" in model_client.messages[-1] ## GPT OSS does not seem to add thinking to the last message
         assert "thinking" in model_client.messages[-3]

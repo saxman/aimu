@@ -1,4 +1,4 @@
-from ..base_client import Model, ModelCapabilities, ModelClient, StreamChunk, StreamPhase
+from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
 
 import torch
 from transformers import AutoTokenizer
@@ -10,13 +10,21 @@ import pprint
 import logging
 from typing import Iterator, Optional, Any
 from enum import Enum
-from dataclasses import dataclass, field
 import json
 import itertools
 
 logger = logging.getLogger(__name__)
 log.set_verbosity_error()
 
+DEFAULT_GENERATE_KWARGS = {
+    "max_new_tokens": 1024,
+    "temperature": 0.1,
+    "top_p": 0.95,
+    "top_k": 50,
+    "repetition_penalty": 1.1,
+    "do_sample": True,
+    "num_beams": 1,
+}
 
 class ToolCallPrefix(Enum):
     """The prefix string that identifies a tool call in a model's raw response.
@@ -25,8 +33,8 @@ class ToolCallPrefix(Enum):
     as the anchor for parsing.
     """
 
-    XML_TOOL_CALL = "<tool_call>"
-    TOOL_CALLS_BRACKET = "[TOOL_CALLS]"
+    XML = "<tool_call>"
+    BRACKETED = "[TOOL_CALLS]"
     JSON_OBJECT = '{"name":'
     JSON_ARRAY = '[{"name":'
 
@@ -37,11 +45,11 @@ class ToolCallPrefix(Enum):
         """Extract tool calls from a full response. Returns None if the prefix is absent."""
         if not self.detected_in(response):
             return None
-        if self == ToolCallPrefix.XML_TOOL_CALL:
+        if self == ToolCallPrefix.XML:
             start = response.index("<tool_call>") + len("<tool_call>")
             end = response.index("</tool_call>")
             return [json.loads(response[start:end].strip())]
-        elif self == ToolCallPrefix.TOOL_CALLS_BRACKET:
+        elif self == ToolCallPrefix.BRACKETED:
             start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
             return json.loads(response[start:].strip())
         elif self == ToolCallPrefix.JSON_OBJECT:
@@ -51,86 +59,56 @@ class ToolCallPrefix(Enum):
         return None
 
 
-@dataclass(frozen=True)
-class HFCapabilities(ModelCapabilities):
-    tool_call_prefix: Optional[ToolCallPrefix] = None
-    generate_kwargs: dict = field(default_factory=dict)
-
-
 class HuggingFaceModel(Model):
-    GPT_OSS_20B = "openai/gpt-oss-20b"
-    LLAMA_3_1_8B = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    LLAMA_3_2_3B = "unsloth/Llama-3.2-3B-Instruct"  # using unsloth's version since gated model
-    DEEPSEEK_R1_8B = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+    def __init__(
+        self,
+        value,
+        supports_tools=False,
+        supports_thinking=False,
+        tool_call_prefix=ToolCallPrefix.XML,
+        generate_kwargs=None,
+    ):
+        super().__init__(value, supports_tools, supports_thinking)
+        self.tool_call_prefix = tool_call_prefix
+        self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
+        self.generate_kwargs.update(generate_kwargs or {})
+
+    GPT_OSS_20B = (
+        "openai/gpt-oss-20b",
+        True,
+        True,
+        ToolCallPrefix.XML,
+        {"temperature": 1.0, "top_p": 1.0, "top_k": 0},
+    )
+    LLAMA_3_1_8B = ("meta-llama/Meta-Llama-3.1-8B-Instruct", True, False, ToolCallPrefix.JSON_OBJECT)
+    LLAMA_3_2_3B = (
+        "unsloth/Llama-3.2-3B-Instruct",
+        True,
+        False,
+        ToolCallPrefix.JSON_OBJECT,
+    )  # using unsloth's version since gated model
+    DEEPSEEK_R1_8B = (
+        "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        False,
+        True,
+        ToolCallPrefix.XML,
+        {"temperature": 0.6},
+    )
     GEMMA_3_12B = "google/gemma-3-12b-it"
     PHI_4_14B = "microsoft/phi-4"
     PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
-    MISTRAL_7B = "mistralai/Mistral-7B-Instruct-v0.3"
-    MISTRAL_NEMO_12B = "mistralai/Mistral-Nemo-Instruct-2407"
-    MAGISTRAL_SMALL = "mistralai/Magistral-Small-2509"
-    QWEN_3_5_9B = "Qwen/Qwen3.5-9B"
-    QWEN_3_8B = "Qwen/Qwen3-8B"
-    SMOLLM3_3B = "HuggingFaceTB/SmolLM3-3B"
-
-
-MODEL_CAPABILITIES: dict[HuggingFaceModel, HFCapabilities] = {
-    HuggingFaceModel.GPT_OSS_20B: HFCapabilities(
-        supports_tools=True,
-        supports_thinking=True,
-        tool_call_prefix=ToolCallPrefix.XML_TOOL_CALL,
-        generate_kwargs={"temperature": 1.0, "top_p": 1.0, "top_k": 0},
-    ),
-    HuggingFaceModel.LLAMA_3_1_8B: HFCapabilities(
-        supports_tools=True,
-        tool_call_prefix=ToolCallPrefix.JSON_OBJECT,
-    ),
-    HuggingFaceModel.LLAMA_3_2_3B: HFCapabilities(
-        supports_tools=True,
-        tool_call_prefix=ToolCallPrefix.JSON_OBJECT,
-    ),
-    HuggingFaceModel.DEEPSEEK_R1_8B: HFCapabilities(
-        supports_thinking=True,
-        generate_kwargs={"temperature": 0.6},
-    ),
-    HuggingFaceModel.MISTRAL_7B: HFCapabilities(
-        supports_tools=True,
-        tool_call_prefix=ToolCallPrefix.JSON_ARRAY,
-    ),
-    HuggingFaceModel.MISTRAL_NEMO_12B: HFCapabilities(
-        supports_tools=True,
-        tool_call_prefix=ToolCallPrefix.JSON_ARRAY,
-    ),
-    HuggingFaceModel.MAGISTRAL_SMALL: HFCapabilities(
-        supports_tools=True,
-        tool_call_prefix=ToolCallPrefix.TOOL_CALLS_BRACKET,
-    ),
-    # TODO determine if Qwen 3.5-9B should have different defaults than 3_8B
-    HuggingFaceModel.QWEN_3_5_9B: HFCapabilities(
-        supports_tools=True,
-        supports_thinking=True,
-        tool_call_prefix=ToolCallPrefix.XML_TOOL_CALL,
-    ),
-    HuggingFaceModel.QWEN_3_8B: HFCapabilities(
-        supports_tools=True,
-        supports_thinking=True,
-        tool_call_prefix=ToolCallPrefix.XML_TOOL_CALL,
-        generate_kwargs={
-            ## thinking
-            "temperature": 0.6,
-            "top_p": 0.95,
-            "top_k": 20,
-            "min_p": 0,
-            ## TODO support non-thinking defaults
-            # "temperature": 0.7,
-            # "top_p": 0.8,
-        },
-    ),
-    HuggingFaceModel.SMOLLM3_3B: HFCapabilities(
-        supports_tools=True,
-        supports_thinking=True,
-        tool_call_prefix=ToolCallPrefix.XML_TOOL_CALL,
-    ),
-}
+    MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, ToolCallPrefix.JSON_ARRAY)
+    MISTRAL_NEMO_12B = ("mistralai/Mistral-Nemo-Instruct-2407", True, False, ToolCallPrefix.JSON_ARRAY)
+    MAGISTRAL_SMALL = ("mistralai/Magistral-Small-2509", True, False, ToolCallPrefix.BRACKETED)
+    QWEN_3_5_9B = ("Qwen/Qwen3.5-9B", True, True)
+    QWEN_3_8B = (
+        "Qwen/Qwen3-8B",
+        True,
+        True,
+        ToolCallPrefix.XML,
+        {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
+    )
+    SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True)
 
 
 class HuggingFaceClient(ModelClient):
@@ -139,16 +117,6 @@ class HuggingFaceClient(ModelClient):
     DEFAULT_MODEL_KWARGS = {
         "device_map": "auto",
         "torch_dtype": "auto",
-    }
-
-    DEFAULT_GENERATE_KWARGS = {
-        "max_new_tokens": 1024,
-        "temperature": 0.1,
-        "top_p": 0.95,
-        "top_k": 50,
-        "repetition_penalty": 1.1,
-        "do_sample": True,
-        "num_beams": 1,
     }
 
     def __init__(
@@ -160,8 +128,6 @@ class HuggingFaceClient(ModelClient):
         if model_kwargs is None:
             model_kwargs = self.DEFAULT_MODEL_KWARGS.copy()
         super().__init__(model, model_kwargs, system_message)
-
-        self.capabilities = MODEL_CAPABILITIES.get(model, HFCapabilities())
 
         if model == self.MODELS.MAGISTRAL_SMALL:
             from transformers import Mistral3ForConditionalGeneration
@@ -178,11 +144,6 @@ class HuggingFaceClient(ModelClient):
             self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value)
             self.hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
 
-        self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
-
-        if self.capabilities.generate_kwargs:
-            self.default_generate_kwargs.update(self.capabilities.generate_kwargs)
-
     def __del__(self):
         del self.hf_model
         del self.hf_tokenizer
@@ -198,9 +159,9 @@ class HuggingFaceClient(ModelClient):
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         if not generate_kwargs:
-            return self.default_generate_kwargs.copy()
-
-        kwargs = generate_kwargs.copy()
+            kwargs = self.model.generate_kwargs.copy()
+        else:
+            kwargs = generate_kwargs.copy()
 
         if "max_tokens" in kwargs:
             kwargs["max_new_tokens"] = kwargs.pop("max_tokens")
@@ -223,7 +184,7 @@ class HuggingFaceClient(ModelClient):
                 tokenize=False,
                 tools=tools,
             )
-        elif (tools and len(tools) == 0) or not self.capabilities.supports_tools:
+        elif (tools and len(tools) == 0) or not self.model.supports_tools:
             ## some models (e.g. Llama 3.1) misbehave if 'tools' is present, even if None
             text = self.hf_tokenizer.apply_chat_template(
                 messages,
@@ -261,7 +222,7 @@ class HuggingFaceClient(ModelClient):
 
         logger.debug("LLM raw response: %s", response)
 
-        if self.capabilities.supports_thinking and response.startswith("<think>"):
+        if self.model.supports_thinking and response.startswith("<think>"):
             self.last_thinking = response[len("<think>") : response.index("</think>")].strip()
             logger.debug("LLM thinking: %s", self.last_thinking)
             response = response[response.index("</think>") + len("</think>") :].strip()
@@ -287,7 +248,7 @@ class HuggingFaceClient(ModelClient):
         next(streamer)
         response_part = next(streamer)
 
-        if self.capabilities.supports_thinking and response_part.startswith("<think>"):
+        if self.model.supports_thinking and response_part.startswith("<think>"):
             while True:
                 response_part = next(streamer)
 
@@ -345,17 +306,16 @@ class HuggingFaceClient(ModelClient):
         response = self._generate_sync(self.messages, generate_kwargs, tools)
 
         # TODO: handle multiple tool calls
-        prefix = self.capabilities.tool_call_prefix
-        if prefix:
-            tool_calls = prefix.parse(response)
-            if tool_calls:
-                self._handle_tool_calls(tool_calls, tools)
+        prefix = self.model.tool_call_prefix
+        tool_calls = prefix.parse(response)
+        if tool_calls:
+            self._handle_tool_calls(tool_calls, tools)
 
-                # assign thinking to the tool call (the second to last message, before the tool response)
-                if self.last_thinking:
-                    self.messages[-2]["thinking"] = self.last_thinking
+            # assign thinking to the tool call (the second to last message, before the tool response)
+            if self.last_thinking:
+                self.messages[-2]["thinking"] = self.last_thinking
 
-                response = self._generate_sync(self.messages, generate_kwargs, tools)
+            response = self._generate_sync(self.messages, generate_kwargs, tools)
 
         self.messages.append({"role": "assistant", "content": response})
 
@@ -381,7 +341,8 @@ class HuggingFaceClient(ModelClient):
         msgs_before = len(self.messages)
 
         # TODO: handle multiple tool calls
-        prefix = self.capabilities.tool_call_prefix
+        prefix = self.model.tool_call_prefix
+
         if prefix and prefix.detected_in(response_part):
             parts = [response_part]
             parts.extend(it)

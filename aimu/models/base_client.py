@@ -2,7 +2,6 @@ import logging
 from enum import Enum, auto
 from typing import Optional, Iterator, Any, NamedTuple
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 import random
 import string
 
@@ -22,13 +21,10 @@ class StreamChunk(NamedTuple):
 
 
 class Model(Enum):
-    pass
-
-
-@dataclass(frozen=True)
-class ModelCapabilities:
-    supports_tools: bool = False
-    supports_thinking: bool = False
+    def __init__(self, value: str, supports_tools: bool = False, supports_thinking: bool = False):
+        self._value_ = value
+        self.supports_tools = supports_tools
+        self.supports_thinking = supports_thinking
 
 
 class ModelClient(ABC):
@@ -43,11 +39,14 @@ class ModelClient(ABC):
         self.messages = []
         self.mcp_client = None
         self.last_thinking = ""
-        self.capabilities: ModelCapabilities
 
     @property
     def is_thinking_model(self) -> bool:
-        return self.capabilities.supports_thinking
+        return self.model.supports_thinking
+
+    @property
+    def is_tool_using_model(self) -> bool:
+        return self.model.supports_tools
 
     @property
     def system_message(self):
@@ -148,7 +147,7 @@ class ModelClient(ABC):
         self.messages.append({"role": "user", "content": user_message})
 
         tools = []
-        if self.capabilities.supports_tools and use_tools and self.mcp_client:
+        if self.model.supports_tools and use_tools and self.mcp_client:
             tools = self.mcp_client.get_tools()
 
         return generate_kwargs, tools

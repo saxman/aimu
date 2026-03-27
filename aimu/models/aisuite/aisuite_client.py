@@ -1,42 +1,25 @@
 from typing import Any, Iterator, Optional
-from ..base_client import Model, ModelCapabilities, ModelClient, StreamChunk, StreamPhase
+from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
 
 import aisuite
 import logging
-from dataclasses import dataclass
 from dotenv import load_dotenv
 import json
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class AisuiteCapabilities(ModelCapabilities):
-    strip_top_p: bool = False
-    use_max_completion_tokens: bool = False
-    fixed_temperature: Optional[float] = None
+class AisuiteModel(Model):
+    def __init__(self, value, supports_tools=False, supports_thinking=False):
+        super().__init__(value, supports_tools, supports_thinking)
 
-
-class AisuiteModel(str, Model):
-    GPT_4O_MINI = "openai:gpt-4o-mini"
-    GPT_4O = "openai:gpt-4o"
+    GPT_4O_MINI = ("openai:gpt-4o-mini", True)
+    GPT_4O = ("openai:gpt-4o", True)
     GPT_5_NANO = "openai:gpt-5-nano"
     GPT_5_MINI = "openai:gpt-5-mini"
     GPT_5 = "openai:gpt-5"
-    CLAUDE_SONNET_3_5 = "anthropic:claude-sonnet-4-5-20250929"
+    CLAUDE_SONNET_3_5 = ("anthropic:claude-sonnet-4-5-20250929", True)
     CLAUDE_OPUS_4_1 = "anthropic:claude-opus-4-1-20250805"
-
-
-MODEL_CAPABILITIES: dict[AisuiteModel, AisuiteCapabilities] = {
-    AisuiteModel.GPT_4O_MINI: AisuiteCapabilities(supports_tools=True),
-    AisuiteModel.GPT_4O: AisuiteCapabilities(supports_tools=True),
-    AisuiteModel.GPT_5_NANO: AisuiteCapabilities(use_max_completion_tokens=True, strip_top_p=True, fixed_temperature=1),
-    AisuiteModel.GPT_5_MINI: AisuiteCapabilities(use_max_completion_tokens=True, strip_top_p=True, fixed_temperature=1),
-    AisuiteModel.GPT_5: AisuiteCapabilities(use_max_completion_tokens=True, strip_top_p=True, fixed_temperature=1),
-    AisuiteModel.CLAUDE_SONNET_3_5: AisuiteCapabilities(supports_tools=True, strip_top_p=True),
-    AisuiteModel.CLAUDE_OPUS_4_1: AisuiteCapabilities(strip_top_p=True),
-}
-
 
 class AisuiteClient(ModelClient):
     MODELS = AisuiteModel
@@ -55,7 +38,6 @@ class AisuiteClient(ModelClient):
     ):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
-        self.capabilities = MODEL_CAPABILITIES.get(model, AisuiteCapabilities())
 
         load_dotenv()
 

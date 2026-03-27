@@ -1,48 +1,32 @@
-from ..base_client import Model, ModelCapabilities, ModelClient, StreamChunk, StreamPhase
+from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
 
 import ollama
 import logging
 from typing import Iterator, Optional
-from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class OllamaCapabilities(ModelCapabilities):
-    pass
+class OllamaModel(Model):
+    def __init__(self, value, supports_tools=False, supports_thinking=False):
+        super().__init__(value, supports_tools, supports_thinking)
 
-
-class OllamaModel(str, Model):
-    GPT_OSS_20B = "gpt-oss:20b"
-    LLAMA_3_1_8B = "llama3.1:8b"
-    LLAMA_3_2_3B = "llama3.2:3b"
+    GPT_OSS_20B = ("gpt-oss:20b", True, True)
+    LLAMA_3_1_8B = ("llama3.1:8b", True)
+    LLAMA_3_2_3B = ("llama3.2:3b", True)
     # LLAMA_3_3_70B = "llama3.3:70b"  # model too big
     GEMMA_3_12B = "gemma3:12b"
     PHI_4_14B = "phi4:14b"
     PHI_4_MINI_3_8B = "phi4-mini:3.8b"
-    DEEPSEEK_R1_8B = "deepseek-r1:8b"
+    DEEPSEEK_R1_8B = ("deepseek-r1:8b", False, True)
     MISTRAL_7B = "mistral:7b"  # tool support disabled: issue with tool usage
     MISTRAL_NEMO_12B = "mistral-nemo:12b"  # tool support disabled: issue with tool usage
-    MISTRAL_SMALL_3_2_24B = "mistral-small3.2:24b"
+    MISTRAL_SMALL_3_2_24B = ("mistral-small3.2:24b", True)
     MAGISTRAL_SMALL_24B = "magistral:24b"  # tool/thinking support disabled: test issues
-    MINISTRAL_3_14B = "ministral-3:14b"
-    QWEN_3_5_9B = "qwen3.5:9b"
-    GLM_4_7_FLASH_31B_Q4 = "glm-4.7-flash:q4_K_M"
-    SMOLLM2_1_7B = "smollm2:latest"  # "smollm2:1.7b" error downloading model, using latest for now
-
-
-OLLAMA_CAPABILITIES: dict[OllamaModel, OllamaCapabilities] = {
-    OllamaModel.GPT_OSS_20B: OllamaCapabilities(supports_tools=True, supports_thinking=True),
-    OllamaModel.LLAMA_3_1_8B: OllamaCapabilities(supports_tools=True),
-    OllamaModel.LLAMA_3_2_3B: OllamaCapabilities(supports_tools=True),
-    OllamaModel.DEEPSEEK_R1_8B: OllamaCapabilities(supports_thinking=True),
-    OllamaModel.MISTRAL_SMALL_3_2_24B: OllamaCapabilities(supports_tools=True),
-    OllamaModel.MINISTRAL_3_14B: OllamaCapabilities(supports_tools=True),
-    OllamaModel.QWEN_3_5_9B: OllamaCapabilities(supports_tools=True, supports_thinking=True),
-    OllamaModel.GLM_4_7_FLASH_31B_Q4: OllamaCapabilities(supports_tools=True, supports_thinking=True),
-    OllamaModel.SMOLLM2_1_7B: OllamaCapabilities(supports_tools=True),
-}
+    MINISTRAL_3_14B = ("ministral-3:14b", True)
+    QWEN_3_5_9B = ("qwen3.5:9b", True, True)
+    GLM_4_7_FLASH_31B_Q4 = ("glm-4.7-flash:q4_K_M", True, True)
+    SMOLLM2_1_7B = ("smollm2:latest", True)  # "smollm2:1.7b" error downloading model, using latest for now
 
 
 class OllamaClient(ModelClient):
@@ -50,8 +34,6 @@ class OllamaClient(ModelClient):
 
     def __init__(self, model: OllamaModel, system_message: Optional[str] = None, model_keep_alive_seconds: int = 60):
         super().__init__(model, None, system_message)
-
-        self.capabilities = OLLAMA_CAPABILITIES.get(model, OllamaCapabilities())
 
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds
