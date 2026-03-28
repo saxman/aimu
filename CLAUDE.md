@@ -65,9 +65,14 @@ ruff format .
 
 ### Running the Chat UI
 
-Launch the Streamlit example chat application:
+Launch the Streamlit chat application:
 ```bash
-streamlit run streamlit/chatbot_example.py
+streamlit run web/streamlit_chatbot.py
+```
+
+Launch the Gradio chat application:
+```bash
+python web/gradio_chatbot.py
 ```
 
 ## Architecture
@@ -226,8 +231,9 @@ tests/                   # Pytest test suite
 ├── test_tools.py        # MCP tools tests
 └── test_prompt_*.py     # Prompt catalog and tuning tests
 
-streamlit/               # Example Streamlit chat UI
-└── chatbot_example.py   # Full-featured chat interface with streaming
+web/                     # Example chat UIs
+├── streamlit_chatbot.py # Full-featured Streamlit chat interface with streaming
+└── gradio_chatbot.py    # Full-featured Gradio chat interface with streaming
 
 notebooks/               # Jupyter notebook demos
 ```
