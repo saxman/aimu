@@ -26,6 +26,11 @@ class MCPClient:
         if self.loop.is_running():
             self.loop.stop()
 
+    def __deepcopy__(self, memo):
+        # MCPClient holds a live event loop and async connection context; it cannot be duplicated.
+        memo[id(self)] = self
+        return self
+
     async def _call_tool(self, tool_name: str, params: dict):
         return await self.client.call_tool(tool_name, params)
 

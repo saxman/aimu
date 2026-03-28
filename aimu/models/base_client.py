@@ -40,6 +40,11 @@ class ModelClient(ABC):
         self.mcp_client = None
         self.last_thinking = ""
 
+    def __deepcopy__(self, memo):
+        # ModelClient manages stateful conversation history and non-copyable backend resources.
+        memo[id(self)] = self
+        return self
+
     @property
     def is_thinking_model(self) -> bool:
         return self.model.supports_thinking

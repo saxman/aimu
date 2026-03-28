@@ -47,3 +47,7 @@ class ConversationManager:
 
     def close(self) -> None:
         self.__db.close()
+
+    def __deepcopy__(self, memo):
+        memo[id(self)] = self
+        return self
