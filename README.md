@@ -28,7 +28,7 @@ In addition to the AIMU package in the 'aimu' directory, the AIMU code repositor
 
 -   Jupyter notebooks demonstrating key AIMU features.
 
--   A example chat client, built with [Streamlit](https://streamlit.io/), using AIMU Model Client, MCP tools support, and chat conversation management.
+-   Example chat clients in the `web/` directory, built with [Streamlit](https://streamlit.io/) and [Gradio](https://www.gradio.app/), using AIMU Model Client, MCP tools support, and chat conversation management.
 
 -   A full suite of Pytest tests.
 
@@ -157,9 +157,18 @@ for chunk in model_client.chat_streamed("What is the capital of France?"):
 
 ### Chat UI (Streamlit)
 
+A full-featured chat UI with model/client selection, streaming, thinking model support, MCP tool calls, and conversation persistence.
+
 ``` bash
-cd streamlit
-streamlit run streamlit/chatbot_example.py
+streamlit run web/streamlit_chatbot.py
+```
+
+### Chat UI (Gradio)
+
+A full-featured chat UI equivalent to the Streamlit example above.
+
+``` bash
+python web/gradio_chatbot.py
 ```
 
 ### MCP Tool Usage
