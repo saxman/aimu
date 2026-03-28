@@ -196,3 +196,5 @@ cython_debug/
 
 # transient output files
 output/
+
+.claude/
