@@ -146,6 +146,24 @@ The codebase uses an abstract base class pattern for model clients:
   - `__len__()`: Count stored facts
   - Can also run as an MCP server: `python -m aimu.memory`
 
+### Agentic Workflows
+
+- **[aimu/agents/agent.py](aimu/agents/agent.py)**: `Agent` class for autonomous, multi-round tool execution
+  - Wraps any `ModelClient`; runs `chat()` in a loop until no tools are called
+  - Stop condition: scans `model_client.messages` in reverse — if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again
+  - `run(task, generate_kwargs)`: synchronous agentic loop, returns final response string
+  - `run_streamed(task, generate_kwargs)`: yields `AgentChunk(agent_name, iteration, phase, content)`
+  - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`)
+  - `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase, content)` — same phase/content semantics as `StreamChunk`
+
+- **[aimu/agents/workflow.py](aimu/agents/workflow.py)**: `Workflow` class for chaining agents sequentially
+  - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
+  - `run(task)`: runs all agents in order, returns final string
+  - `run_streamed(task)`: yields `WorkflowChunk(step, agent_name, iteration, phase, content)`
+  - `from_config(configs, client_factory)`: factory from list of dicts; `client_factory(cfg)` must return a `ModelClient`
+
+- **No changes to existing `ModelClient` or its subclasses** — agents use the public `chat()` / `chat_streamed()` API only
+
 ### Prompt Management
 
 - **[aimu/prompts/catalog.py](aimu/prompts/catalog.py)**: `PromptCatalog` for versioned prompt storage
@@ -216,6 +234,9 @@ aimu/
 ├── tools/               # MCP tools integration
 │   ├── client.py        # MCPClient wrapper
 │   └── servers.py       # Example FastMCP server with built-in tools
+├── agents/              # Agentic workflows
+│   ├── agent.py         # Agent class + AgentChunk (agentic loop over ModelClient.chat())
+│   └── workflow.py      # Workflow class + WorkflowChunk (sequential agent chaining)
 ├── history.py           # Conversation management (TinyDB)
 ├── memory.py            # Semantic memory store (ChromaDB); also runnable as MCP server
 ├── prompts/             # Prompt storage and management
@@ -229,6 +250,7 @@ tests/                   # Pytest test suite
 ├── test_history.py      # Conversation management tests
 ├── test_memory.py       # Semantic memory tests
 ├── test_tools.py        # MCP tools tests
+├── test_agents.py       # Agent and Workflow tests (mock ModelClient, no real backend needed)
 └── test_prompt_*.py     # Prompt catalog and tuning tests
 
 web/                     # Example chat UIs

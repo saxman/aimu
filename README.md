@@ -14,6 +14,8 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
 
+-   **Agentic Workflows**: `Agent` and `Workflow` classes for autonomous, tool-driven task execution. Agents loop over tool calls until the task is complete; workflows chain agents sequentially. Both are configurable from plain dicts with minimal code.
+
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
 
 -   **Chat Conversation Storage/Management**: Chat conversation history management using [TinyDB](https://tinydb.readthedocs.io).
@@ -170,6 +172,49 @@ A full-featured chat UI equivalent to the Streamlit example above.
 ``` bash
 python web/gradio_chatbot.py
 ```
+
+### Agentic Workflows
+
+An `Agent` wraps a `ModelClient` and runs a tool-calling loop until the model produces a response without invoking any tools.
+
+``` python
+from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.tools import MCPClient
+from aimu.agents import Agent
+
+client = OllamaClient(OllamaModel.QWEN_3_8B)
+client.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
+
+agent = Agent(client, name="assistant", max_iterations=10)
+result = agent.run("Find all log files modified today and summarise the errors.")
+```
+
+Agents are configurable from a plain dict, making them easy to embed in larger systems:
+
+``` python
+agent = Agent.from_config(
+    {"name": "researcher", "system_message": "Use tools to answer.", "max_iterations": 8},
+    client,
+)
+```
+
+A `Workflow` chains agents sequentially — the output of each step becomes the input to the next:
+
+``` python
+from aimu.agents import Workflow
+
+wf = Workflow.from_config(
+    [
+        {"name": "planner",   "system_message": "Break the task into steps.", "max_iterations": 3},
+        {"name": "executor",  "system_message": "Execute each step using tools.", "max_iterations": 10},
+        {"name": "formatter", "system_message": "Format the results clearly.", "max_iterations": 1},
+    ],
+    lambda cfg: OllamaClient(OllamaModel.QWEN_3_8B),
+)
+result = wf.run("Research the top Python web frameworks.")
+```
+
+Both `Agent` and `Workflow` support streaming via `run_streamed()`, which yields `AgentChunk` / `WorkflowChunk` objects tagged with agent name, iteration, and `StreamPhase`.
 
 ### MCP Tool Usage
 
