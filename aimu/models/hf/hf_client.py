@@ -61,6 +61,9 @@ class ToolCallPrefix(Enum):
 
 
 class HuggingFaceModel(Model):
+    tool_call_prefix: Optional[ToolCallPrefix]
+    generate_kwargs: dict[str, Any]
+
     def __init__(
         self,
         value,
@@ -115,9 +118,6 @@ class HuggingFaceModel(Model):
 class HuggingFaceClient(ModelClient):
     MODELS = HuggingFaceModel
 
-    TOOL_MODELS = [model for model in MODELS if model.supports_tools]
-    THINKING_MODELS = [model for model in MODELS if model.supports_thinking]
-
     DEFAULT_MODEL_KWARGS = {
         "device_map": "auto",
         "torch_dtype": "auto",
@@ -160,6 +160,14 @@ class HuggingFaceClient(ModelClient):
         elif torch.backends.mps.is_available():
             logger.info("Emptying MPS cache")
             torch.mps.empty_cache()
+
+    @property
+    def THINKING_MODELS(self) -> list[Model]:
+        return [m for m in self.MODELS if m.supports_thinking]
+    
+    @property
+    def TOOL_MODELS(self) -> list[Model]:
+        return [m for m in self.MODELS if m.supports_tools]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         if not generate_kwargs:

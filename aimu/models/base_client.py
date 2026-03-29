@@ -30,9 +30,6 @@ class Model(Enum):
 class ModelClient(ABC):
     MODELS = Model
 
-    THINKING_MODELS = []
-    TOOL_MODELS = []
-
     @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
         self.model = model
@@ -47,6 +44,16 @@ class ModelClient(ABC):
         # ModelClient manages stateful conversation history and non-copyable backend resources.
         memo[id(self)] = self
         return self
+
+    @property
+    @abstractmethod
+    def THINKING_MODELS(self) -> list[Model]:
+        pass
+
+    @property
+    @abstractmethod
+    def TOOL_MODELS(self) -> list[Model]:
+        pass
 
     @property
     def is_thinking_model(self) -> bool:

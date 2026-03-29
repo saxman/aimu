@@ -33,9 +33,6 @@ class OllamaModel(Model):
 class OllamaClient(ModelClient):
     MODELS = OllamaModel
 
-    TOOL_MODELS = [model for model in MODELS if model.supports_tools]
-    THINKING_MODELS = [model for model in MODELS if model.supports_thinking]
-
     def __init__(self, model: OllamaModel, system_message: Optional[str] = None, model_keep_alive_seconds: int = 60):
         super().__init__(model, None, system_message)
 
@@ -43,6 +40,14 @@ class OllamaClient(ModelClient):
         self.model_keep_alive_seconds = model_keep_alive_seconds
 
         ollama.pull(model.value)
+
+    @property
+    def THINKING_MODELS(self) -> list[Model]:
+        return [m for m in self.MODELS if m.supports_thinking]
+    
+    @property
+    def TOOL_MODELS(self) -> list[Model]:
+        return [m for m in self.MODELS if m.supports_tools]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
         if not generate_kwargs:
