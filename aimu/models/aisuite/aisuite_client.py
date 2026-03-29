@@ -1,5 +1,5 @@
 from typing import Any, Iterator, Optional
-from ..base_client import StreamingContentType, Model, ModelClient
+from ..base_client import StreamingContentType, Model, ModelClient, classproperty
 
 import aisuite
 import logging
@@ -24,6 +24,14 @@ class AisuiteModel(Model):
 
 class AisuiteClient(ModelClient):
     MODELS = AisuiteModel
+
+    @classproperty
+    def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_thinking]
+
+    @classproperty
+    def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_tools]
 
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,
@@ -70,7 +78,9 @@ class AisuiteClient(ModelClient):
 
         return response.choices[0].message.content
 
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None, include_thinking: bool = True) -> Iterator[str]:
+    def generate_streamed(
+        self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None, include_thinking: bool = True
+    ) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         messages = [{"role": "user", "content": prompt}]

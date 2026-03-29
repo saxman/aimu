@@ -22,6 +22,16 @@ class Model(Enum):
         self.supports_thinking = supports_thinking
 
 
+class classproperty:
+    def __init__(self, func):
+        self.func = func
+
+    def __get__(self, obj, cls=None):
+        if cls is None:
+            cls = type(obj)
+        return self.func(cls)
+
+
 class ModelClient(ABC):
     MODELS = Model
 
@@ -41,15 +51,13 @@ class ModelClient(ABC):
         memo[id(self)] = self
         return self
 
-    @property
-    @abstractmethod
-    def THINKING_MODELS(self) -> list[Model]:
-        pass
+    @classproperty
+    def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
+        raise NotImplementedError
 
-    @property
-    @abstractmethod
-    def TOOL_MODELS(self) -> list[Model]:
-        pass
+    @classproperty
+    def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
+        raise NotImplementedError
 
     @property
     def streaming_content_type(self) -> StreamingContentType:

@@ -1,4 +1,4 @@
-from ..base_client import StreamingContentType, Model, ModelClient
+from ..base_client import StreamingContentType, Model, ModelClient, classproperty
 
 import torch
 from transformers import AutoTokenizer
@@ -163,13 +163,13 @@ class HuggingFaceClient(ModelClient):
             logger.info("Emptying MPS cache")
             torch.mps.empty_cache()
 
-    @property
-    def THINKING_MODELS(self) -> list[Model]:
-        return [m for m in self.MODELS if m.supports_thinking]
-    
-    @property
-    def TOOL_MODELS(self) -> list[Model]:
-        return [m for m in self.MODELS if m.supports_tools]
+    @classproperty
+    def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_thinking]
+
+    @classproperty
+    def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_tools]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         if not generate_kwargs:
