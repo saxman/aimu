@@ -1,5 +1,6 @@
-from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
+from ..base_client import StreamingContentType, Model, ModelClient
 
+import json
 import ollama
 import logging
 from typing import Iterator, Optional
@@ -85,7 +86,7 @@ class OllamaClient(ModelClient):
         prompt: str,
         generate_kwargs: Optional[dict] = None,
         include_thinking: bool = True,
-    ) -> Iterator[StreamChunk]:
+    ) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         response = ollama.generate(
@@ -105,13 +106,15 @@ class OllamaClient(ModelClient):
             if response_part.thinking:
                 self.last_thinking += response_part.thinking
                 if include_thinking:
-                    yield StreamChunk(StreamPhase.THINKING, response_part.thinking)
+                    self._streaming_content_type = StreamingContentType.THINKING
+                    yield response_part.thinking
                 else:
                     continue
 
-            yield StreamChunk(StreamPhase.GENERATING, response_part["response"])
+            self._streaming_content_type = StreamingContentType.GENERATING
+            yield response_part["response"]
 
-        yield StreamChunk(StreamPhase.DONE, "")
+        self._streaming_content_type = StreamingContentType.DONE
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
@@ -162,7 +165,7 @@ class OllamaClient(ModelClient):
 
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
+    ) -> Iterator[str]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = ollama.chat(
@@ -181,12 +184,14 @@ class OllamaClient(ModelClient):
         thinking = ""
         if response_part["message"].thinking:
             thinking = response_part["message"].thinking
-            yield StreamChunk(StreamPhase.THINKING, thinking)
+            self._streaming_content_type = StreamingContentType.THINKING
+            yield thinking
             for response_part in response:
                 logger.debug("LLM raw response part: %s", response_part)
                 if response_part["message"].thinking:
                     thinking += response_part["message"].thinking
-                    yield StreamChunk(StreamPhase.THINKING, response_part["message"].thinking)
+                    self._streaming_content_type = StreamingContentType.THINKING
+                    yield response_part["message"].thinking
                 else:
                     break
 
@@ -204,7 +209,8 @@ class OllamaClient(ModelClient):
                 thinking = ""
 
             for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
-                yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
+                self._streaming_content_type = StreamingContentType.TOOL_CALLING
+                yield json.dumps({"name": tc["function"]["name"], "response": tr["content"]})
 
             response = ollama.chat(
                 model=self.model.value,
@@ -222,26 +228,30 @@ class OllamaClient(ModelClient):
             thinking = ""
             if response_part["message"].thinking:
                 thinking = response_part["message"].thinking
-                yield StreamChunk(StreamPhase.THINKING, thinking)
+                self._streaming_content_type = StreamingContentType.THINKING
+                yield thinking
                 for response_part in response:
                     logger.debug("LLM raw response part: %s", response_part)
                     if response_part["message"].thinking:
                         thinking += response_part["message"].thinking
-                        yield StreamChunk(StreamPhase.THINKING, response_part["message"].thinking)
+                        self._streaming_content_type = StreamingContentType.THINKING
+                        yield response_part["message"].thinking
                     else:
                         break
 
         content = response_part["message"].content
-        yield StreamChunk(StreamPhase.GENERATING, content)
+        self._streaming_content_type = StreamingContentType.GENERATING
+        yield content
 
         for response_part in response:
             logger.debug("LLM raw response part: %s", response_part)
             content += response_part["message"].content
-            yield StreamChunk(StreamPhase.GENERATING, response_part["message"].content)
+            self._streaming_content_type = StreamingContentType.GENERATING
+            yield response_part["message"].content
 
         message = {"role": response_part["message"].role, "content": content}
         if thinking:
             message["thinking"] = thinking
         self.messages.append(message)
 
-        yield StreamChunk(StreamPhase.DONE, "")
+        self._streaming_content_type = StreamingContentType.DONE

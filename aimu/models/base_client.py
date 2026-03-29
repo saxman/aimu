@@ -1,6 +1,6 @@
 import logging
-from enum import Enum, auto
-from typing import Optional, Iterator, Any, NamedTuple
+from enum import Enum
+from typing import Optional, Iterator, Any
 from abc import ABC, abstractmethod
 import random
 import string
@@ -8,16 +8,11 @@ import string
 logger = logging.getLogger(__name__)
 
 
-class StreamPhase(str, Enum):
-    THINKING = auto()
-    TOOL_CALLING = auto()
-    GENERATING = auto()
-    DONE = auto()
-
-
-class StreamChunk(NamedTuple):
-    phase: StreamPhase
-    content: Any
+class StreamingContentType(str, Enum):
+    THINKING = "thinking"
+    TOOL_CALLING = "tool_calling"
+    GENERATING = "generating"
+    DONE = "done"
 
 
 class Model(Enum):
@@ -39,6 +34,7 @@ class ModelClient(ABC):
         self.messages = []
         self.mcp_client = None
         self.last_thinking = ""
+        self._streaming_content_type = StreamingContentType.DONE
 
     def __deepcopy__(self, memo):
         # ModelClient manages stateful conversation history and non-copyable backend resources.
@@ -54,6 +50,10 @@ class ModelClient(ABC):
     @abstractmethod
     def TOOL_MODELS(self) -> list[Model]:
         pass
+
+    @property
+    def streaming_content_type(self) -> StreamingContentType:
+        return self._streaming_content_type
 
     @property
     def is_thinking_model(self) -> bool:
@@ -81,16 +81,6 @@ class ModelClient(ABC):
 
     @abstractmethod
     def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        """
-        Generates a response based on the provided prompt and optional generation parameters.
-
-        Args:
-            prompt (str): The input prompt to generate a response from.
-            generate_kwargs (Optional[dict[str, Any]]): Optional dictionary of model generation arguments.
-
-        Returns:
-            str: The generated response as a string.
-        """
         pass
 
     @abstractmethod
@@ -99,50 +89,17 @@ class ModelClient(ABC):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         include_thinking: bool = True,
-    ) -> Iterator[StreamChunk]:
-        """
-        Generates a stream of text responses based on the provided prompt.
-
-        Args:
-            prompt (str): The input prompt to generate a response from.
-            generate_kwargs (Optional[dict[str, Any]]): Optional dictionary of model generation arguments.
-            include_thinking (bool): Whether to include thinking chunks in the stream. Defaults to True.
-
-        Yields:
-            Iterator[StreamChunk]: An iterator that yields StreamChunk objects.
-        """
+    ) -> Iterator[str]:
         pass
 
     @abstractmethod
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
-        """
-        Provides a user message to the model and returns the response.
-
-        Args:
-            user_message (str): The message from the user to send to the model.
-            generate_kwargs (Optional[dict[str, Any]], optional): Optional dictionary of model generation arguments.
-            use_tools (bool, optional): Whether to enable the use of external tools during the chat. Defaults to True.
-
-        Returns:
-            str: The model's response to the user message.
-        """
         pass
 
     @abstractmethod
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
-        """
-        Streams responses to a user message as an iterator of strings.
-
-        Args:
-            user_message (str): The message from the user to send to the chat model.
-            generate_kwargs (Optional[dict[str, Any]], optional): Optional dictionary of model generation arguments.
-            use_tools (bool, optional): Whether to enable tool usage during chat generation. Defaults to True.
-
-        Yields:
-            Iterator[str]: An iterator over the streamed response strings from the chat model.
-        """
+    ) -> Iterator[str]:
         pass
 
     @abstractmethod
@@ -187,7 +144,7 @@ class ModelClient(ABC):
             )
 
             for tool in tools:
-                # If the tool is a callable python function, call it directly. Otherwise, use the MCP client to call the tool.
+                # If the tool is a call-able python function, call it directly. Otherwise, use the MCP client to call the tool.
                 if hasattr(tool, "__call__") and tool.__name__ == tool_call["name"]:
                     tool_response = tool(**tool_call["arguments"])
 

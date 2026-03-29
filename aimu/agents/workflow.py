@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterator, NamedTuple
 
 from aimu.agents.agent import Agent, AgentChunk
-from aimu.models.base_client import ModelClient, StreamPhase
+from aimu.models.base_client import StreamingContentType, ModelClient
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +16,8 @@ class WorkflowChunk(NamedTuple):
     step: int
     agent_name: str
     iteration: int
-    phase: StreamPhase
-    content: Any  # same semantics as StreamChunk.content
+    phase: StreamingContentType
+    content: str
 
 
 @dataclass
@@ -61,7 +61,7 @@ class Workflow:
             for chunk in agent.run_streamed(result):
                 step_chunks.append(chunk)
                 yield WorkflowChunk(step, chunk.agent_name, chunk.iteration, chunk.phase, chunk.content)
-            result = "".join(c.content for c in step_chunks if c.phase == StreamPhase.GENERATING)
+            result = "".join(c.content for c in step_chunks if c.phase == StreamingContentType.GENERATING)
 
     @classmethod
     def from_config(

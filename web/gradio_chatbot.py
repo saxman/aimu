@@ -6,12 +6,15 @@ MODEL_CLIENTS = [OllamaClient, HuggingFaceClient, AisuiteClient]
 
 
 def respond(message, history, client):
+    from aimu.models import StreamingContentType
+
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": ""})
 
     for chunk in client.chat_streamed(message):
-        history[-1]["content"] += chunk.content
-        yield history, ""
+        if client.streaming_content_type == StreamingContentType.GENERATING:
+            history[-1]["content"] += chunk
+            yield history, ""
 
 
 _default_class = MODEL_CLIENTS[0]

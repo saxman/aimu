@@ -1,5 +1,5 @@
 from aimu import paths
-from aimu.models import HuggingFaceClient, OllamaClient, AisuiteClient, StreamPhase
+from aimu.models import HuggingFaceClient, OllamaClient, AisuiteClient, StreamingContentType
 from aimu.tools.client import MCPClient
 from aimu.history import ConversationManager
 
@@ -26,30 +26,32 @@ MODEL_CLIENTS = [
 ]
 
 
-def stream_chat_response(streamed_response):
+def stream_chat_response(model_client, streamed_response):
     thinking_box = None
     thinking_text = ""
     response_placeholder = None
     response_text = ""
 
     for chunk in streamed_response:
-        if chunk.phase == StreamPhase.THINKING:
+        content_type = model_client.streaming_content_type
+        if content_type == StreamingContentType.THINKING:
             if thinking_box is None:
                 thinking_box = st.expander("🤔 Thinking").empty()
                 thinking_text = ""
-            thinking_text += chunk.content
+            thinking_text += chunk
             thinking_box.markdown(thinking_text)
-        elif chunk.phase == StreamPhase.TOOL_CALLING:
+        elif content_type == StreamingContentType.TOOL_CALLING:
             thinking_box = None  # reset so next thinking phase gets a fresh container
-            response_placeholder = None  # force new assistant block after tools]
+            response_placeholder = None  # force new assistant block after tools
+            tool_data = json.loads(chunk)
             with st.expander("🔧 Tool call"):
-                st.markdown(f"**Tool call:** {chunk.content['name']}")
-                st.markdown(f"**Tool response:** {chunk.content['response']}")
-        elif chunk.phase == StreamPhase.GENERATING:
+                st.markdown(f"**Tool call:** {tool_data['name']}")
+                st.markdown(f"**Tool response:** {tool_data['response']}")
+        elif content_type == StreamingContentType.GENERATING:
             if response_placeholder is None:
                 response_text = ""
                 response_placeholder = st.chat_message("assistant").empty()
-            response_text += chunk.content
+            response_text += chunk
             response_placeholder.markdown(response_text)
 
 
@@ -122,7 +124,7 @@ if len(st.session_state.model_client.messages) == 0:
         },
     )
 
-    stream_chat_response(streamed_response)
+    stream_chat_response(st.session_state.model_client, streamed_response)
 
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 else:
@@ -158,7 +160,7 @@ if prompt := st.chat_input("What's up?"):
         },
     )
 
-    stream_chat_response(streamed_response)
+    stream_chat_response(st.session_state.model_client, streamed_response)
 
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 

@@ -1,4 +1,4 @@
-from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
+from ..base_client import StreamingContentType, Model, ModelClient
 
 import torch
 from transformers import AutoTokenizer
@@ -122,6 +122,8 @@ class HuggingFaceClient(ModelClient):
         "device_map": "auto",
         "torch_dtype": "auto",
     }
+
+    model: HuggingFaceModel
 
     def __init__(
         self,
@@ -290,7 +292,7 @@ class HuggingFaceClient(ModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         include_thinking: bool = True,
-    ) -> Iterator[StreamChunk]:
+    ) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         messages = [
@@ -303,14 +305,16 @@ class HuggingFaceClient(ModelClient):
 
         if include_thinking:
             for token in self._pending_thinking_tokens:
-                yield StreamChunk(StreamPhase.THINKING, token)
+                self._streaming_content_type = StreamingContentType.THINKING
+                yield token
         self._pending_thinking_tokens = []
 
         for token in it:
             logger.debug("LLM raw token: %r", token)
-            yield StreamChunk(StreamPhase.GENERATING, token)
+            self._streaming_content_type = StreamingContentType.GENERATING
+            yield token
 
-        yield StreamChunk(StreamPhase.DONE, "")
+        self._streaming_content_type = StreamingContentType.DONE
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
@@ -319,7 +323,7 @@ class HuggingFaceClient(ModelClient):
 
         # TODO: handle multiple tool calls
         prefix = self.model.tool_call_prefix
-        tool_calls = prefix.parse(response)
+        tool_calls = prefix.parse(response) if prefix else None
         if tool_calls:
             self._handle_tool_calls(tool_calls, tools)
 
@@ -338,14 +342,15 @@ class HuggingFaceClient(ModelClient):
 
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
+    ) -> Iterator[str]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
         it = self._generate_streaming(self.messages, generate_kwargs, tools, streamer)
 
         for token in self._pending_thinking_tokens:
-            yield StreamChunk(StreamPhase.THINKING, token)
+            self._streaming_content_type = StreamingContentType.THINKING
+            yield token
         self._pending_thinking_tokens = []
 
         response_part = next(it)
@@ -368,18 +373,19 @@ class HuggingFaceClient(ModelClient):
                     self.messages[msgs_before]["thinking"] = self.last_thinking
 
                 for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
-                    yield StreamChunk(
-                        StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]}
-                    )
+                    self._streaming_content_type = StreamingContentType.TOOL_CALLING
+                    yield json.dumps({"name": tc["function"]["name"], "response": tr["content"]})
 
                 streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
                 it = self._generate_streaming(self.messages, generate_kwargs, tools, streamer)
         else:
             content += response_part
-            yield StreamChunk(StreamPhase.GENERATING, response_part)
+            self._streaming_content_type = StreamingContentType.GENERATING
+            yield response_part
 
         for token in self._pending_thinking_tokens:
-            yield StreamChunk(StreamPhase.THINKING, token)
+            self._streaming_content_type = StreamingContentType.THINKING
+            yield token
         self._pending_thinking_tokens = []
 
         eos_str = self.hf_tokenizer.decode(self.hf_model.config.eos_token_id)
@@ -390,14 +396,15 @@ class HuggingFaceClient(ModelClient):
 
             logger.debug("LLM raw token: %r", response_part)
             content += response_part
-            yield StreamChunk(StreamPhase.GENERATING, response_part)
+            self._streaming_content_type = StreamingContentType.GENERATING
+            yield response_part
 
         self.messages.append({"role": "assistant", "content": content})
 
         if self.last_thinking:
             self.messages[-1]["thinking"] = self.last_thinking
 
-        yield StreamChunk(StreamPhase.DONE, "")
+        self._streaming_content_type = StreamingContentType.DONE
 
     def print_model_info(self):
         print(f"model : size : {self.hf_model.get_memory_footprint() // 1024**2} MB")

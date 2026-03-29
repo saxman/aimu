@@ -1,5 +1,5 @@
 # Always available
-from .base_client import ModelClient, StreamChunk, StreamPhase
+from .base_client import ModelClient, StreamingContentType
 
 # Optional imports with graceful fallbacks
 try:
@@ -27,7 +27,7 @@ except ImportError:
     AisuiteClient = None
 
 # Expose what's available
-__all__ = ["ModelClient", "StreamChunk", "StreamPhase"]
+__all__ = ["ModelClient", "StreamingContentType"]
 if HAS_HF:
     __all__.append("HuggingFaceClient")
 if HAS_OLLAMA:

@@ -6,7 +6,7 @@ Uses a lightweight MockModelClient so no real model backend is required.
 
 from unittest.mock import MagicMock, patch
 from aimu.agents import Agent, AgentChunk, Workflow, WorkflowChunk
-from aimu.models.base_client import ModelClient, StreamChunk, StreamPhase
+from aimu.models.base_client import StreamingContentType, ModelClient
 
 
 # ---------------------------------------------------------------------------
@@ -32,6 +32,7 @@ class MockModelClient(ModelClient):
         self.messages = []
         self.mcp_client = None
         self.last_thinking = ""
+        self._streaming_content_type = StreamingContentType.DONE
         self._responses = list(responses)
         self._call_count = 0
 
@@ -59,15 +60,17 @@ class MockModelClient(ModelClient):
 
     def chat_streamed(self, user_message, generate_kwargs=None, use_tools=True):
         response = self.chat(user_message, generate_kwargs, use_tools)
-        yield StreamChunk(StreamPhase.GENERATING, response)
-        yield StreamChunk(StreamPhase.DONE, "")
+        self._streaming_content_type = StreamingContentType.GENERATING
+        yield response
+        self._streaming_content_type = StreamingContentType.DONE
 
     def generate(self, prompt, generate_kwargs=None):
         return self.chat(prompt, generate_kwargs)
 
     def generate_streamed(self, prompt, generate_kwargs=None, include_thinking=True):
-        yield StreamChunk(StreamPhase.GENERATING, self.generate(prompt, generate_kwargs))
-        yield StreamChunk(StreamPhase.DONE, "")
+        self._streaming_content_type = StreamingContentType.GENERATING
+        yield self.generate(prompt, generate_kwargs)
+        self._streaming_content_type = StreamingContentType.DONE
 
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
@@ -157,7 +160,7 @@ def test_agent_streamed_yields_agent_chunks():
 
     assert all(isinstance(c, AgentChunk) for c in chunks)
     assert all(c.agent_name == "streamer" for c in chunks)
-    generating = [c for c in chunks if c.phase == StreamPhase.GENERATING]
+    generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING]
     assert len(generating) == 1
     assert generating[0].content == "streamed answer"
 

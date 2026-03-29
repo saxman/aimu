@@ -1,5 +1,5 @@
 from typing import Any, Iterator, Optional
-from ..base_client import Model, ModelClient, StreamChunk, StreamPhase
+from ..base_client import StreamingContentType, Model, ModelClient
 
 import aisuite
 import logging
@@ -50,13 +50,14 @@ class AisuiteClient(ModelClient):
         else:
             generate_kwargs = {**self.default_generate_kwargs, **generate_kwargs}
 
-        caps = self.capabilities
-        if caps.strip_top_p:
-            generate_kwargs.pop("top_p", None)
-        if caps.use_max_completion_tokens:
-            generate_kwargs["max_completion_tokens"] = generate_kwargs.pop("max_tokens")
-        if caps.fixed_temperature is not None:
-            generate_kwargs["temperature"] = caps.fixed_temperature
+        # TODO: handle capability-based adjustments to generate_kwargs, such as stripping unsupported parameters or enforcing fixed values based on model capabilities
+        # caps = self.capabilities
+        # if caps.strip_top_p:
+        #     generate_kwargs.pop("top_p", None)
+        # if caps.use_max_completion_tokens:
+        #     generate_kwargs["max_completion_tokens"] = generate_kwargs.pop("max_tokens")
+        # if caps.fixed_temperature is not None:
+        #     generate_kwargs["temperature"] = caps.fixed_temperature
 
         return generate_kwargs
 
@@ -69,7 +70,7 @@ class AisuiteClient(ModelClient):
 
         return response.choices[0].message.content
 
-    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[str]:
+    def generate_streamed(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None, include_thinking: bool = True) -> Iterator[str]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         messages = [{"role": "user", "content": prompt}]
@@ -84,9 +85,11 @@ class AisuiteClient(ModelClient):
                 break
 
             content += response_part.choices[0].delta.content
+            self._streaming_content_type = StreamingContentType.GENERATING
             yield response_part.choices[0].delta.content
 
         message["content"] = content
+        self._streaming_content_type = StreamingContentType.DONE
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
@@ -129,7 +132,7 @@ class AisuiteClient(ModelClient):
 
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
+    ) -> Iterator[str]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
         response = self.ai_client.chat.completions.create(
@@ -162,7 +165,8 @@ class AisuiteClient(ModelClient):
             )
 
             for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
-                yield StreamChunk(StreamPhase.TOOL_CALLING, {"name": tc["function"]["name"], "response": tr["content"]})
+                self._streaming_content_type = StreamingContentType.TOOL_CALLING
+                yield json.dumps({"name": tc["function"]["name"], "response": tr["content"]})
 
             response = self.ai_client.chat.completions.create(
                 self.model.value, self.messages, stream=True, tools=tools, **generate_kwargs
@@ -176,9 +180,10 @@ class AisuiteClient(ModelClient):
             if response_part.choices[0].finish_reason is not None:
                 break
             content += response_part.choices[0].delta.content
-            yield StreamChunk(StreamPhase.GENERATING, response_part.choices[0].delta.content)
+            self._streaming_content_type = StreamingContentType.GENERATING
+            yield response_part.choices[0].delta.content
 
         message["content"] = content
         self.messages.append(message)
 
-        yield StreamChunk(StreamPhase.DONE, "")
+        self._streaming_content_type = StreamingContentType.DONE

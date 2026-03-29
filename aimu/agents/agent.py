@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Iterator, NamedTuple, Optional
 
-from aimu.models.base_client import ModelClient, StreamPhase
+from aimu.models.base_client import StreamingContentType, ModelClient
 
 logger = logging.getLogger(__name__)
 
@@ -12,12 +12,12 @@ DEFAULT_CONTINUATION_PROMPT = "Continue working on the task using available tool
 
 
 class AgentChunk(NamedTuple):
-    """A StreamChunk tagged with the agent name and loop iteration number."""
+    """A chunk tagged with the agent name and loop iteration number."""
 
     agent_name: str
     iteration: int
-    phase: StreamPhase
-    content: Any  # same semantics as StreamChunk.content
+    phase: StreamingContentType
+    content: str
 
 
 @dataclass
@@ -69,14 +69,14 @@ class Agent:
         chunk belongs to.
         """
         iteration = 0
-        for chunk in self.model_client.chat_streamed(task, generate_kwargs=generate_kwargs):
-            yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
+        for content in self.model_client.chat_streamed(task, generate_kwargs=generate_kwargs):
+            yield AgentChunk(self.name, iteration, self.model_client.streaming_content_type, content)
 
         iteration += 1
         while self._last_turn_called_tools() and iteration < self.max_iterations:
             logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-            for chunk in self.model_client.chat_streamed(self.continuation_prompt, generate_kwargs=generate_kwargs):
-                yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
+            for content in self.model_client.chat_streamed(self.continuation_prompt, generate_kwargs=generate_kwargs):
+                yield AgentChunk(self.name, iteration, self.model_client.streaming_content_type, content)
             iteration += 1
 
     def _last_turn_called_tools(self) -> bool:

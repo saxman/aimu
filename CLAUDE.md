@@ -87,13 +87,13 @@ The codebase uses an abstract base class pattern for model clients:
   - `_chat_setup()`: Prepares messages and tools before a chat call
   - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions)
   - `is_thinking_model` / `is_tool_using_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools`
+  - `streaming_content_type`: Read-only `ContentType` property tracking the type of the most recently yielded string
   - `system_message` property with setter that manages the system message in the messages list
   - Message history stored in `self.messages` (OpenAI-style format)
   - Optional `mcp_client` attribute for MCP tool integration
 
 - **Supporting types in base_client.py**:
-  - `StreamPhase(Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE
-  - `StreamChunk(NamedTuple)`: `(phase: StreamPhase, content: str)` — yielded by streamed methods
+  - `ContentType(str, Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE — string values (`"thinking"`, etc.)
   - `Model(Enum)`: Base enum class; each value carries `supports_tools` and `supports_thinking` boolean attributes
 
 - **Model Implementations**:
@@ -154,12 +154,12 @@ The codebase uses an abstract base class pattern for model clients:
   - `run(task, generate_kwargs)`: synchronous agentic loop, returns final response string
   - `run_streamed(task, generate_kwargs)`: yields `AgentChunk(agent_name, iteration, phase, content)`
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`)
-  - `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase, content)` — same phase/content semantics as `StreamChunk`
+  - `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: str)`
 
 - **[aimu/agents/workflow.py](aimu/agents/workflow.py)**: `Workflow` class for chaining agents sequentially
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
   - `run(task)`: runs all agents in order, returns final string
-  - `run_streamed(task)`: yields `WorkflowChunk(step, agent_name, iteration, phase, content)`
+  - `run_streamed(task)`: yields `WorkflowChunk(step, agent_name, iteration, phase: ContentType, content: str)`
   - `from_config(configs, client_factory)`: factory from list of dicts; `client_factory(cfg)` must return a `ModelClient`
 
 - **No changes to existing `ModelClient` or its subclasses** — agents use the public `chat()` / `chat_streamed()` API only
@@ -181,7 +181,7 @@ The codebase uses an abstract base class pattern for model clients:
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed
 3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format
 4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers
-5. **Streaming Support**: All clients support both streaming and non-streaming generation; streamed methods yield `StreamChunk(phase, content)` tuples
+5. **Streaming Support**: All clients support both streaming and non-streaming generation; streamed methods yield `str` and update `self._streaming_content_type` (`ContentType`) before each yield — callers read `client.streaming_content_type` to determine the type
 6. **Model Capability Flags**: `supports_tools` and `supports_thinking` are encoded directly on each `Model` enum member
 
 ## Important Implementation Notes
@@ -212,7 +212,7 @@ When adding new models to a client:
 
 Models with `supports_thinking=True` support extended reasoning:
 - Reasoning process stored in `self.last_thinking`
-- Streamed via `StreamChunk(StreamPhase.THINKING, content)` chunks
+- Streamed as plain strings with `client.streaming_content_type == ContentType.THINKING`
 - Pass `include_thinking=False` to `generate_streamed()` / `chat_streamed()` to suppress thinking chunks
 - Thinking content may also be stored in the messages dict under a "thinking" key
 
