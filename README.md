@@ -112,6 +112,8 @@ from aimu.models import OllamaClient as ModelClient
 
 model_client = ModelClient(ModelClient.MODELS.LLAMA_3_1_8B)
 response = model_client.chat("What is the capital of France?")
+
+print(model_client.messages)
 ```
 
 ### Thinking Models
@@ -127,34 +129,36 @@ model_client = ModelClient(ModelClient.MODELS.DEEPSEEK_R1_8B)
 response = model_client.generate("What is the capital of France?")
 
 print(model_client.last_thinking)  # reasoning trace
-print(response)                     # final answer
+print(response)                    # final answer
 ```
 
 During streamed generation via `generate_streamed()`, thinking tokens are yielded first followed by the response tokens as a single flat stream. For phase-separated streaming (thinking, tool calls, response), use `chat_streamed()` instead.
 
 ### Streamed Chat
 
-`chat_streamed()` yields `StreamChunk(phase, content)` objects. The `phase` field is a `StreamPhase` enum:
+`chat_streamed()` yields plain `str` chunks. After each chunk, read `client.streaming_content_type` (a `StreamingContentType` enum) to determine what kind of content was just yielded:
 
-| Phase | Content | Description |
+| `streaming_content_type` | Chunk content | Description |
 |---|---|---|
-| `StreamPhase.THINKING` | `str` | Reasoning token (thinking models only) |
-| `StreamPhase.TOOL_CALLING` | `{"name": str, "response": str}` | Tool call and its result |
-| `StreamPhase.GENERATING` | `str` | Final response token |
-| `StreamPhase.DONE` | `""` | Stream complete |
+| `StreamingContentType.THINKING` | `str` | Reasoning token (thinking models only) |
+| `StreamingContentType.TOOL_CALLING` | JSON string `{"name": str, "response": str}` | Tool call and its result |
+| `StreamingContentType.GENERATING` | `str` | Final response token |
+| `StreamingContentType.DONE` | `""` | Stream complete |
 
 ``` python
-from aimu.models import OllamaClient as ModelClient, StreamPhase
+import json
+from aimu.models import OllamaClient as ModelClient, StreamingContentType
 
 model_client = ModelClient(ModelClient.MODELS.LLAMA_3_1_8B)
+last_content_type = None
 
 for chunk in model_client.chat_streamed("What is the capital of France?"):
-    if chunk.phase == StreamPhase.THINKING:
-        print(f"[thinking] {chunk.content}", end="", flush=True)
-    elif chunk.phase == StreamPhase.TOOL_CALLING:
-        print(f"\n[tool: {chunk.content['name']}] {chunk.content['response']}")
-    elif chunk.phase == StreamPhase.GENERATING:
-        print(chunk.content, end="", flush=True)
+    content_type = model_client.streaming_content_type
+
+    if last_content_type != content_type:
+        print(f"--- {content_type} ---")
+        
+    print(f"{chunk}", end="", flush=True)
 ```
 
 ### Chat UI (Streamlit)

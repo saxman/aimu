@@ -181,7 +181,7 @@ The codebase uses an abstract base class pattern for model clients:
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed
 3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format
 4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers
-5. **Streaming Support**: All clients support both streaming and non-streaming generation; streamed methods yield `str` and update `self._streaming_content_type` (`ContentType`) before each yield — callers read `client.streaming_content_type` to determine the type
+5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat_streamed()` yields plain `str` chunks and sets `self._streaming_content_type` (`StreamingContentType`) before each yield — callers read `client.streaming_content_type` after each chunk to determine its type (THINKING, TOOL_CALLING, GENERATING, or DONE). TOOL_CALLING chunks are a JSON string `{"name": ..., "response": ...}`.
 6. **Model Capability Flags**: `supports_tools` and `supports_thinking` are encoded directly on each `Model` enum member
 
 ## Important Implementation Notes
@@ -218,8 +218,7 @@ Models with `supports_thinking=True` support extended reasoning:
 
 ### AisuiteClient Notes
 
-- `AisuiteClient` does not define `TOOL_MODELS` or `THINKING_MODELS` lists
-- Tool support is encoded per model via `supports_tools` flag on `AisuiteModel` enum members
+- `AisuiteClient` defines `TOOL_MODELS` and `THINKING_MODELS` via the shared `classproperty` pattern, derived from `supports_tools` / `supports_thinking` flags on `AisuiteModel` enum members
 - The client checks aisuite capabilities to decide whether to pass `max_tokens` vs `max_completion_tokens`
 
 ## Project Structure
