@@ -226,10 +226,12 @@ def test_chat_with_tools(model_client):
 
     # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
     if model_client.model.supports_thinking:
+        if (
+            model_client.model != OllamaClient.MODELS.GPT_OSS_20B
+            and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B
+        ):
+            assert "thinking" in model_client.messages[-1]
 
-        if model_client.model != OllamaClient.MODELS.GPT_OSS_20B and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
-            assert "thinking" in model_client.messages[-1] 
-        
         if model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
             assert "thinking" in model_client.messages[-3]
 
@@ -306,8 +308,11 @@ def test_chat_streamed_with_tools(model_client):
     assert "27" in content
 
     if model_client.model.supports_thinking:
-        if model_client.model != OllamaClient.MODELS.GPT_OSS_20B and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
-            assert "thinking" in model_client.messages[-1] 
-        
+        if (
+            model_client.model != OllamaClient.MODELS.GPT_OSS_20B
+            and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B
+        ):
+            assert "thinking" in model_client.messages[-1]
+
         if model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
             assert "thinking" in model_client.messages[-3]

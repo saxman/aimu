@@ -26,6 +26,7 @@ DEFAULT_GENERATE_KWARGS = {
     "num_beams": 1,
 }
 
+
 class ToolCallPrefix(Enum):
     """The prefix string that identifies a tool call in a model's raw response.
 

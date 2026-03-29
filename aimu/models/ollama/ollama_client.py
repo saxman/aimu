@@ -12,8 +12,8 @@ class OllamaModel(Model):
         super().__init__(value, supports_tools, supports_thinking)
 
     GPT_OSS_20B = ("gpt-oss:20b", True, True)
-    LLAMA_3_1_8B = ("llama3.1:8b", False) # doesn't use tools when expected
-    LLAMA_3_2_3B = ("llama3.2:3b", False) # doesn't use tools when expected
+    LLAMA_3_1_8B = ("llama3.1:8b", False)  # doesn't use tools when expected
+    LLAMA_3_2_3B = ("llama3.2:3b", False)  # doesn't use tools when expected
     # LLAMA_3_3_70B = "llama3.3:70b"  # model too big
     GEMMA_3_12B = "gemma3:12b"
     PHI_4_14B = "phi4:14b"

@@ -62,9 +62,7 @@ class Agent:
 
         return response
 
-    def run_streamed(
-        self, task: str, generate_kwargs: Optional[dict[str, Any]] = None
-    ) -> Iterator[AgentChunk]:
+    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
         """
         Stream the agentic loop, yielding AgentChunk for every StreamChunk produced
         across all iterations. AgentChunk.iteration indicates which loop round a

@@ -2,7 +2,8 @@ import gradio as gr
 
 from aimu.models import OllamaClient, HuggingFaceClient, AisuiteClient
 
-MODEL_CLIENTS = [OllamaClient, HuggingFaceClient,AisuiteClient]
+MODEL_CLIENTS = [OllamaClient, HuggingFaceClient, AisuiteClient]
+
 
 def respond(message, history, client):
     history.append({"role": "user", "content": message})

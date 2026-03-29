@@ -13,6 +13,7 @@ from aimu.models.base_client import ModelClient, StreamChunk, StreamPhase
 # Minimal mock ModelClient
 # ---------------------------------------------------------------------------
 
+
 class MockModelClient(ModelClient):
     """
     A ModelClient stub whose chat() responses are controlled via a response queue.
@@ -41,7 +42,12 @@ class MockModelClient(ModelClient):
 
         if response == "tool":
             # Simulate one tool-call round: append assistant+tool_calls, tool result, assistant+content
-            self.messages.append({"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "mock_tool", "arguments": {}}, "id": "x"}]})
+            self.messages.append(
+                {
+                    "role": "assistant",
+                    "tool_calls": [{"type": "function", "function": {"name": "mock_tool", "arguments": {}}, "id": "x"}],
+                }
+            )
             self.messages.append({"role": "tool", "name": "mock_tool", "content": "tool result", "tool_call_id": "x"})
             text = self._responses[self._call_count]
             self._call_count += 1
@@ -70,6 +76,7 @@ class MockModelClient(ModelClient):
 # ---------------------------------------------------------------------------
 # Agent tests
 # ---------------------------------------------------------------------------
+
 
 def test_agent_no_tools_calls_chat_once():
     """If the model never uses tools, Agent.run() calls chat() exactly once."""
@@ -169,6 +176,7 @@ def test_agent_streamed_iteration_increments_on_tool_use():
 # Workflow tests
 # ---------------------------------------------------------------------------
 
+
 def test_workflow_chains_output_to_next_input():
     """Output of step 0 becomes the task for step 1."""
     client_a = MockModelClient(["step A output"])
@@ -217,7 +225,7 @@ def test_workflow_from_config():
         return MockModelClient(responses)
 
     configs = [
-        {"name": "first",  "_test_responses": ["first output"]},
+        {"name": "first", "_test_responses": ["first output"]},
         {"name": "second", "_test_responses": ["second output"]},
     ]
     wf = Workflow.from_config(configs, make_client)
