@@ -15,6 +15,7 @@ dependencies = [
     "gradio",
     "watchdog",
     "tinydb",
+    "requests",
 ]
 
 [project.optional-dependencies]
