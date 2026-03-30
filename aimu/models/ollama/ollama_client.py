@@ -15,18 +15,17 @@ class OllamaModel(Model):
     GPT_OSS_20B = ("gpt-oss:20b", True, True)
     LLAMA_3_1_8B = ("llama3.1:8b", False)  # doesn't use tools when expected
     LLAMA_3_2_3B = ("llama3.2:3b", False)  # doesn't use tools when expected
-    # LLAMA_3_3_70B = "llama3.3:70b"  # model too big
     GEMMA_3_12B = "gemma3:12b"
     PHI_4_14B = "phi4:14b"
     PHI_4_MINI_3_8B = "phi4-mini:3.8b"
     DEEPSEEK_R1_8B = ("deepseek-r1:8b", False, True)
-    MAGISTRAL_SMALL_24B = ("magistral:24b", True, True)  # tool/thinking support disabled: test issues
+    MAGISTRAL_SMALL_24B = ("magistral:24b", True, True)
     MINISTRAL_3_14B = ("ministral-3:14b", True)
     QWEN_3_8B = ("qwen3:8b", True, True)
     QWEN_3_32B = ("qwen3:32b", True, True)
     QWEN_3_5_9B = ("qwen3.5:9b", True, True)
-    GLM_4_7_FLASH_31B_Q4 = ("glm-4.7-flash:q4_K_M", True, True)
-    SMOLLM2_1_7B = ("smollm2:latest", True)  # "smollm2:1.7b" error downloading model, using latest for now
+    GLM_4_7_FLASH_31B_Q4 = ("glm-4.7-flash:q4_K_M", False, True) # doesn't use tools when expected
+    SMOLLM2_1_7B = ("smollm2:1.7b", False) # tool call responses don't always look correct
     NEMOTRON_CASCADE_2_30B = ("nemotron-cascade-2:30b", True, True)
     NEMOTRON_3_NANO_30B = ("nemotron-3-nano:30b", True, True)
 
