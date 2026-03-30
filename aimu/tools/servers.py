@@ -1,5 +1,7 @@
 import datetime
 import os
+import re
+from html.parser import HTMLParser
 
 import requests
 from fastmcp import FastMCP
@@ -33,6 +35,55 @@ def calculate(expression: str) -> str:
         return str(eval(expression, {"__builtins__": {}}))
     except Exception as e:
         return f"Error: {e}"
+
+
+class _TextExtractor(HTMLParser):
+    """Strips HTML tags and decodes entities, collecting visible text."""
+
+    SKIP_TAGS = {"script", "style", "head", "meta", "link", "noscript"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self._parts: list[str] = []
+        self._skip = 0
+
+    def handle_starttag(self, tag, attrs):  # noqa: ARG002
+        if tag in self.SKIP_TAGS:
+            self._skip += 1
+
+    def handle_endtag(self, tag):
+        if tag in self.SKIP_TAGS and self._skip:
+            self._skip -= 1
+
+    def handle_data(self, data):
+        if not self._skip:
+            self._parts.append(data)
+
+    def get_text(self) -> str:
+        text = " ".join(self._parts)
+        return re.sub(r"\s+", " ", text).strip()
+
+
+@mcp.tool()
+def get_webpage(url: str) -> str:
+    """Fetches a web page and returns its visible text content with HTML stripped.
+
+    Args:
+        url: The URL of the page to retrieve.
+    """
+    try:
+        response = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; aimu-tools/1.0)"},
+            timeout=15,
+        )
+        response.raise_for_status()
+    except requests.RequestException as e:
+        return f"Error fetching page: {e}"
+
+    extractor = _TextExtractor()
+    extractor.feed(response.text)
+    return extractor.get_text()
 
 
 SEARXNG_BASE_URL = os.environ.get("SEARXNG_BASE_URL", "http://localhost:8080")
