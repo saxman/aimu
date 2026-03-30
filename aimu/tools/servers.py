@@ -1,3 +1,5 @@
+import datetime
+
 from fastmcp import FastMCP
 
 mcp = FastMCP("AIMU Tools")
@@ -10,11 +12,25 @@ def echo(echo_string: str) -> str:
 
 
 @mcp.tool()
-def get_current_data_and_time() -> str:
+def get_current_date_and_time() -> str:
     """Returns the current date and time."""
-    from datetime import datetime
+    return str(datetime.datetime.now())
 
-    return datetime.now().isoformat()
+
+@mcp.tool()
+def get_weather(location: str) -> str:
+    """Returns the current weather for a given location."""
+    # Stubbed for demo purposes
+    return f"Sunny, 22°C in {location}"
+
+
+@mcp.tool()
+def calculate(expression: str) -> str:
+    """Evaluates a simple arithmetic expression and returns the result."""
+    try:
+        return str(eval(expression, {"__builtins__": {}}))
+    except Exception as e:
+        return f"Error: {e}"
 
 
 if __name__ == "__main__":
