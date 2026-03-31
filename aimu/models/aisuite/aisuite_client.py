@@ -18,8 +18,8 @@ class AisuiteModel(Model):
     GPT_5_NANO = "openai:gpt-5-nano"
     GPT_5_MINI = "openai:gpt-5-mini"
     GPT_5 = "openai:gpt-5"
-    CLAUDE_SONNET_3_5 = ("anthropic:claude-sonnet-4-5-20250929", True)
-    CLAUDE_OPUS_4_1 = "anthropic:claude-opus-4-1-20250805"
+    CLAUDE_SONNET_4_6 = ("anthropic:claude-sonnet-4-6", True, True)
+    CLAUDE_OPUS_4_6 = ("anthropic:claude-opus-4-6", True, True)
 
 
 class AisuiteClient(ModelClient):
@@ -58,14 +58,11 @@ class AisuiteClient(ModelClient):
         else:
             generate_kwargs = {**self.default_generate_kwargs, **generate_kwargs}
 
-        # TODO: handle capability-based adjustments to generate_kwargs, such as stripping unsupported parameters or enforcing fixed values based on model capabilities
-        # caps = self.capabilities
-        # if caps.strip_top_p:
-        #     generate_kwargs.pop("top_p", None)
-        # if caps.use_max_completion_tokens:
-        #     generate_kwargs["max_completion_tokens"] = generate_kwargs.pop("max_tokens")
-        # if caps.fixed_temperature is not None:
-        #     generate_kwargs["temperature"] = caps.fixed_temperature
+        # TODO: handle model capabilities on a mode-by-model basis
+
+        # required bu Claude Sonnet
+        generate_kwargs.pop("top_p", None)
+        generate_kwargs.pop("temperature", None)
 
         return generate_kwargs
 
