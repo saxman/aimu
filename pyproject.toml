@@ -39,7 +39,8 @@ ollama = [
     "ollama",
 ]
 aisuite = [
-    "aisuite[openai,anthropic]>=0.1.14",
+    "aisuite[openai]>=0.1.14",
+    "anthropic>=0.50.0",
     "python-dotenv"
 ]
 all = ["aimu[hf,ollama,aisuite]"]
