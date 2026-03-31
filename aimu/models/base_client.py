@@ -169,15 +169,18 @@ class ModelClient(ABC):
 
                     tool_response = self.mcp_client.call_tool(tool["function"]["name"], tool_call["arguments"])
 
+                    # FastMCP call_tool returns a list of content objects directly
+                    response_content = tool_response if isinstance(tool_response, list) else tool_response.content
+
                     content = ""
-                    if len(tool_response.content) > 0:
+                    if len(response_content) > 0:
                         # TODO: handle different tool response types, errors, and multiple responses
-                        if tool_response.content[0].type != "text":
+                        if response_content[0].type != "text":
                             raise ValueError(
-                                f"Tool response type {tool_response.content[0].type} not supported. Supported types: text"
+                                f"Tool response type {response_content[0].type} not supported. Supported types: text"
                             )
 
-                        content = tool_response.content[0].text
+                        content = response_content[0].text
 
                     self.messages.append(
                         {"role": "tool", "name": tool["function"]["name"], "content": content, "tool_call_id": id}
