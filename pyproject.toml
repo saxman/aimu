@@ -15,7 +15,7 @@ dependencies = [
     "gradio",
     "watchdog",
     "tinydb",
-    "requests",
+    "requests"
 ]
 
 [project.optional-dependencies]
@@ -39,9 +39,7 @@ ollama = [
     "ollama",
 ]
 aisuite = [
-    "aisuite[openai,anthropic]", # for OpenAI and Anthropic model support
- #   "httpx==0.27.0", # required to fix an antropic issue
-    "docstring-parser", # requied by aisuite
+    "aisuite[openai,anthropic]>=0.1.14",
     "python-dotenv"
 ]
 all = ["aimu[hf,ollama,aisuite]"]
