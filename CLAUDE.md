@@ -87,7 +87,7 @@ The codebase uses an abstract base class pattern for model clients:
   - `_chat_setup()`: Prepares messages and tools before a chat call
   - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions)
   - `is_thinking_model` / `is_tool_using_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools`
-  - `streaming_content_type`: Read-only `ContentType` property tracking the type of the most recently yielded string
+  - `chat_streamed()` / `generate_streamed()` yield `StreamChunk(phase, content)` — type is self-contained in each chunk
   - `system_message` property with setter that manages the system message in the messages list
   - Message history stored in `self.messages` (OpenAI-style format)
   - Optional `mcp_client` attribute for MCP tool integration
@@ -181,7 +181,7 @@ The codebase uses an abstract base class pattern for model clients:
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed
 3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format
 4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers
-5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat_streamed()` yields plain `str` chunks and sets `self._streaming_content_type` (`StreamingContentType`) before each yield — callers read `client.streaming_content_type` after each chunk to determine its type (THINKING, TOOL_CALLING, GENERATING, or DONE). TOOL_CALLING chunks are a JSON string `{"name": ..., "response": ...}`.
+5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat_streamed()` and `generate_streamed()` yield `StreamChunk(phase, content)` named tuples — `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. `StreamPhase` is an alias for `StreamingContentType` used in notebooks and user-facing code.
 6. **Model Capability Flags**: `supports_tools` and `supports_thinking` are encoded directly on each `Model` enum member
 
 ## Important Implementation Notes
@@ -212,8 +212,8 @@ When adding new models to a client:
 
 Models with `supports_thinking=True` support extended reasoning:
 - Reasoning process stored in `self.last_thinking`
-- Streamed as plain strings with `client.streaming_content_type == ContentType.THINKING`
-- Pass `include_thinking=False` to `generate_streamed()` / `chat_streamed()` to suppress thinking chunks
+- Streamed as `StreamChunk(phase=StreamPhase.THINKING, content=str)` chunks
+- Pass `include_thinking=False` to `generate_streamed()` to suppress thinking chunks
 - Thinking content may also be stored in the messages dict under a "thinking" key
 
 ### AisuiteClient Notes

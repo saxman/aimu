@@ -17,7 +17,7 @@ class AgentChunk(NamedTuple):
     agent_name: str
     iteration: int
     phase: StreamingContentType
-    content: str
+    content: Any  # str for THINKING/GENERATING; dict {"name", "response"} for TOOL_CALLING
 
 
 @dataclass
@@ -69,14 +69,14 @@ class Agent:
         chunk belongs to.
         """
         iteration = 0
-        for content in self.model_client.chat_streamed(task, generate_kwargs=generate_kwargs):
-            yield AgentChunk(self.name, iteration, self.model_client.streaming_content_type, content)
+        for chunk in self.model_client.chat_streamed(task, generate_kwargs=generate_kwargs):
+            yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
 
         iteration += 1
         while self._last_turn_called_tools() and iteration < self.max_iterations:
             logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-            for content in self.model_client.chat_streamed(self.continuation_prompt, generate_kwargs=generate_kwargs):
-                yield AgentChunk(self.name, iteration, self.model_client.streaming_content_type, content)
+            for chunk in self.model_client.chat_streamed(self.continuation_prompt, generate_kwargs=generate_kwargs):
+                yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
             iteration += 1
 
     def _last_turn_called_tools(self) -> bool:

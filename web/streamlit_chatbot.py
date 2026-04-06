@@ -1,11 +1,11 @@
 from aimu import paths
-from aimu.models import HuggingFaceClient, OllamaClient, AisuiteClient, StreamingContentType
+from aimu.models import HuggingFaceClient, OllamaClient, AisuiteClient, StreamPhase
 from aimu.tools.client import MCPClient
 from aimu.history import ConversationManager
 
 import streamlit as st
 import torch
-import json
+import json  # used for the Messages debug popover
 
 # Avoid torch RuntimeError when using Hugging Face Transformers
 torch.classes.__path__ = []
@@ -26,32 +26,29 @@ MODEL_CLIENTS = [
 ]
 
 
-def stream_chat_response(model_client, streamed_response):
+def stream_chat_response(streamed_response):
     current_type = None
     current_box = None
     current_text = ""
 
     for chunk in streamed_response:
-        content_type = model_client.streaming_content_type
-
-        if content_type == StreamingContentType.TOOL_CALLING:
+        if chunk.phase == StreamPhase.TOOL_CALLING:
             current_type = None  # force a fresh box on the next phase
-            tool_data = json.loads(chunk)
             with st.expander("🔧 Tool call"):
-                st.markdown(f"**Tool call:** {tool_data['name']}")
-                st.markdown(f"**Tool response:** {tool_data['response']}")
+                st.markdown(f"**Tool call:** {chunk.content['name']}")
+                st.markdown(f"**Tool response:** {chunk.content['response']}")
             continue
 
-        if content_type != current_type:
-            current_type = content_type
+        if chunk.phase != current_type:
+            current_type = chunk.phase
             current_text = ""
             current_box = (
                 st.expander("🤔 Thinking").empty()
-                if content_type == StreamingContentType.THINKING
+                if chunk.phase == StreamPhase.THINKING
                 else st.chat_message("assistant").empty()
             )
 
-        current_text += chunk
+        current_text += chunk.content
         current_box.markdown(current_text)
 
 
@@ -124,7 +121,7 @@ if len(st.session_state.model_client.messages) == 0:
         },
     )
 
-    stream_chat_response(st.session_state.model_client, streamed_response)
+    stream_chat_response(streamed_response)
 
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 else:
@@ -160,7 +157,7 @@ if prompt := st.chat_input("What's up?"):
         },
     )
 
-    stream_chat_response(st.session_state.model_client, streamed_response)
+    stream_chat_response(streamed_response)
 
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 
