@@ -27,32 +27,32 @@ MODEL_CLIENTS = [
 
 
 def stream_chat_response(model_client, streamed_response):
-    thinking_box = None
-    thinking_text = ""
-    response_placeholder = None
-    response_text = ""
+    current_type = None
+    current_box = None
+    current_text = ""
 
     for chunk in streamed_response:
         content_type = model_client.streaming_content_type
-        if content_type == StreamingContentType.THINKING:
-            if thinking_box is None:
-                thinking_box = st.expander("🤔 Thinking").empty()
-                thinking_text = ""
-            thinking_text += chunk
-            thinking_box.markdown(thinking_text)
-        elif content_type == StreamingContentType.TOOL_CALLING:
-            thinking_box = None  # reset so next thinking phase gets a fresh container
-            response_placeholder = None  # force new assistant block after tools
+
+        if content_type == StreamingContentType.TOOL_CALLING:
+            current_type = None  # force a fresh box on the next phase
             tool_data = json.loads(chunk)
             with st.expander("🔧 Tool call"):
                 st.markdown(f"**Tool call:** {tool_data['name']}")
                 st.markdown(f"**Tool response:** {tool_data['response']}")
-        elif content_type == StreamingContentType.GENERATING:
-            if response_placeholder is None:
-                response_text = ""
-                response_placeholder = st.chat_message("assistant").empty()
-            response_text += chunk
-            response_placeholder.markdown(response_text)
+            continue
+
+        if content_type != current_type:
+            current_type = content_type
+            current_text = ""
+            current_box = (
+                st.expander("🤔 Thinking").empty()
+                if content_type == StreamingContentType.THINKING
+                else st.chat_message("assistant").empty()
+            )
+
+        current_text += chunk
+        current_box.markdown(current_text)
 
 
 MCP_SERVERS = {
