@@ -11,6 +11,7 @@ import logging
 from typing import Iterator, Optional, Any
 from enum import Enum
 import json
+import re
 import itertools
 
 logger = logging.getLogger(__name__)
@@ -47,16 +48,15 @@ class ToolCallPrefix(Enum):
         if not self.detected_in(response):
             return None
         if self == ToolCallPrefix.XML:
-            start = response.index("<tool_call>") + len("<tool_call>")
-            end = response.index("</tool_call>")
-            return [json.loads(response[start:end].strip())]
+            matches = re.findall(r"<tool_call>(.*?)</tool_call>", response, re.DOTALL)
+            return [json.loads(m.strip()) for m in matches] if matches else None
         elif self == ToolCallPrefix.BRACKETED:
             start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
             return json.loads(response[start:].strip())
         elif self == ToolCallPrefix.JSON_OBJECT:
             return [json.loads(response)]
         elif self == ToolCallPrefix.JSON_ARRAY:
-            return [json.loads(response)[0]]
+            return json.loads(response)
         return None
 
 
@@ -317,15 +317,14 @@ class HuggingFaceClient(ModelClient):
 
         response = self._generate_sync(self.messages, generate_kwargs, tools)
 
-        # TODO: handle multiple tool calls
         prefix = self.model.tool_call_prefix
         tool_calls = prefix.parse(response) if prefix else None
         if tool_calls:
+            msgs_before = len(self.messages)
             self._handle_tool_calls(tool_calls, tools)
 
-            # assign thinking to the tool call (the second to last message, before the tool response)
             if self.last_thinking:
-                self.messages[-2]["thinking"] = self.last_thinking
+                self.messages[msgs_before]["thinking"] = self.last_thinking
 
             response = self._generate_sync(self.messages, generate_kwargs, tools)
 
@@ -352,7 +351,6 @@ class HuggingFaceClient(ModelClient):
         content = ""
         msgs_before = len(self.messages)
 
-        # TODO: handle multiple tool calls
         prefix = self.model.tool_call_prefix
 
         if prefix and prefix.detected_in(response_part):
