@@ -1,6 +1,6 @@
 import logging
 from enum import Enum
-from typing import Optional, Iterator, Any
+from typing import Optional, Iterator, Any, NamedTuple, Union
 from abc import ABC, abstractmethod
 import random
 import string
@@ -13,6 +13,21 @@ class StreamingContentType(str, Enum):
     TOOL_CALLING = "tool_calling"
     GENERATING = "generating"
     DONE = "done"
+
+
+# Alias used in notebooks and user-facing code
+StreamPhase = StreamingContentType
+
+
+class StreamChunk(NamedTuple):
+    """A single chunk from a streamed chat or generation response.
+
+    phase   — the content type of this chunk (THINKING, TOOL_CALLING, GENERATING)
+    content — str for THINKING/GENERATING; dict {"name": ..., "response": ...} for TOOL_CALLING
+    """
+
+    phase: StreamingContentType
+    content: Union[str, dict]
 
 
 class Model(Enum):
@@ -44,7 +59,6 @@ class ModelClient(ABC):
         self.messages = []
         self.mcp_client = None
         self.last_thinking = ""
-        self._streaming_content_type = StreamingContentType.DONE
 
     def __deepcopy__(self, memo):
         # ModelClient manages stateful conversation history and non-copyable backend resources.
@@ -58,10 +72,6 @@ class ModelClient(ABC):
     @classproperty
     def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
         raise NotImplementedError
-
-    @property
-    def streaming_content_type(self) -> StreamingContentType:
-        return self._streaming_content_type
 
     @property
     def is_thinking_model(self) -> bool:
@@ -97,7 +107,7 @@ class ModelClient(ABC):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         include_thinking: bool = True,
-    ) -> Iterator[str]:
+    ) -> Iterator[StreamChunk]:
         pass
 
     @abstractmethod
@@ -107,7 +117,7 @@ class ModelClient(ABC):
     @abstractmethod
     def chat_streamed(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[str]:
+    ) -> Iterator[StreamChunk]:
         pass
 
     @abstractmethod
