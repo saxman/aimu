@@ -23,8 +23,8 @@ class OllamaModel(Model):
     QWEN_3_8B = ("qwen3:8b", True, True)
     QWEN_3_32B = ("qwen3:32b", True, True)
     QWEN_3_5_9B = ("qwen3.5:9b", True, True)
-    GLM_4_7_FLASH_31B_Q4 = ("glm-4.7-flash:q4_K_M", False, True) # doesn't use tools when expected
-    SMOLLM2_1_7B = ("smollm2:1.7b", False) # tool call responses don't always look correct
+    GLM_4_7_FLASH_31B_Q4 = ("glm-4.7-flash:q4_K_M", False, True)  # doesn't use tools when expected
+    SMOLLM2_1_7B = ("smollm2:1.7b", False)  # tool call responses don't always look correct
     NEMOTRON_CASCADE_2_30B = ("nemotron-cascade-2:30b", True, True)
     NEMOTRON_3_NANO_30B = ("nemotron-3-nano:30b", True, True)
 
