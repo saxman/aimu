@@ -1,57 +1,55 @@
 from fastmcp import FastMCP
 from fastmcp import Client
+from anyio.from_thread import start_blocking_portal
 
-import asyncio
 from typing import Optional
 
 
 class MCPClient:
-    """A MCP client that wraps the FastMCP client for easier tool calls and management."""
+    """Synchronous wrapper around an async FastMCP Client.
+
+    Uses anyio's BlockingPortal to run async operations from synchronous contexts,
+    making it safe to use from Jupyter notebooks and any other sync environment.
+    """
 
     def __init__(self, config: Optional[dict] = None, server: Optional[FastMCP] = None, file: Optional[str] = None):
-        self.loop = asyncio.new_event_loop()
+        self.mcp_config = server or config or file
 
-        if config:
-            self.mcp_config = config
-        if file:
-            self.mcp_config = file
-        if server:
-            self.mcp_config = server
+        self._portal_cm = start_blocking_portal(backend="asyncio")
+        self._portal = self._portal_cm.__enter__()
 
-        self.client = Client(self.mcp_config)
-        self.loop.run_until_complete(self.client.__aenter__())
+        async def connect():
+            self._client = Client(self.mcp_config)
+            await self._client.__aenter__()
+
+        self._portal.call(connect)
 
     def __del__(self):
-        self.loop.run_until_complete(self.client.__aexit__(None, None, None))
-        if self.loop.is_running():
-            self.loop.stop()
+        try:
+            self._portal.call(self._client.__aexit__, None, None, None)
+        except Exception:
+            pass
+        try:
+            self._portal_cm.__exit__(None, None, None)
+        except Exception:
+            pass
 
     def __deepcopy__(self, memo):
-        # MCPClient holds a live event loop and async connection context; it cannot be duplicated.
+        # MCPClient holds a live async connection context; it cannot be duplicated.
         memo[id(self)] = self
         return self
 
-    async def _call_tool(self, tool_name: str, params: dict):
-        return await self.client.call_tool(tool_name, params)
-
     def call_tool(self, tool_name: str, params: dict):
-        return self.loop.run_until_complete(self._call_tool(tool_name, params))
-
-    async def _list_tools(self):
-        return await self.client.list_tools()
+        return self._portal.call(self._client.call_tool, tool_name, params)
 
     def list_tools(self):
-        return self.loop.run_until_complete(self._list_tools())
+        return self._portal.call(self._client.list_tools)
 
     def get_tools(self) -> list[dict]:
-        tools = []
-
-        for tool in self.list_tools():
-            tools.append(
-                {
-                    "type": "function",
-                    "function": {"name": tool.name, "description": tool.description, "parameters": tool.inputSchema},
-                }
-            )
-
-        return tools
+        return [
+            {
+                "type": "function",
+                "function": {"name": t.name, "description": t.description, "parameters": t.inputSchema},
+            }
+            for t in self.list_tools()
+        ]
