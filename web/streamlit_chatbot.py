@@ -128,21 +128,27 @@ else:
     # Skip the initial system and user messages used for the introduction
     messages = st.session_state.model_client.messages[2:]
 
-    for message in messages:
+    i = 0
+    while i < len(messages):
+        message = messages[i]
+
         if "thinking" in message:
-            with st.expander(" 🤔 Thinking"):
+            with st.expander("🤔 Thinking"):
                 st.markdown(message["thinking"])
 
+        # tool_calls are always immediately followed by their response messages, so we can check for them and render them together
         if "tool_calls" in message:
-            for tool_call in message["tool_calls"]:
-                with st.chat_message("tool", avatar="🔧"):
+            responses = messages[i + 1 : i + 1 + len(message["tool_calls"])]
+            for tool_call, response_msg in zip(message["tool_calls"], responses):
+                with st.expander("🔧 Tool call"):
                     st.markdown(f"**Tool call:** {tool_call['function']['name']}")
-        elif message["role"] == "tool":
-            with st.chat_message("tool", avatar="🔧"):
-                st.markdown(f"**Tool response:** {message['content']}")
-        elif "content" in message:
+                    st.markdown(f"**Tool response:** {response_msg['content']}")
+            i += len(message["tool_calls"])  # skip the consumed tool response messages
+        elif message["role"] != "tool" and "content" in message:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
+
+        i += 1
 
 if prompt := st.chat_input("What's up?"):
     st.chat_message("user").markdown(prompt)
