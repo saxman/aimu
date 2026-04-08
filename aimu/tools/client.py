@@ -42,9 +42,7 @@ class MCPClient:
 
     def __del__(self):
         try:
-            future = asyncio.run_coroutine_threadsafe(
-                self._client.__aexit__(None, None, None), self._loop
-            )
+            future = asyncio.run_coroutine_threadsafe(self._client.__aexit__(None, None, None), self._loop)
             future.result(timeout=5)
         except Exception:
             pass
@@ -65,9 +63,7 @@ class MCPClient:
         return self._client
 
     def call_tool(self, tool_name: str, params: dict):
-        future = asyncio.run_coroutine_threadsafe(
-            self._client.call_tool(tool_name, params), self._loop
-        )
+        future = asyncio.run_coroutine_threadsafe(self._client.call_tool(tool_name, params), self._loop)
         return _ToolResponse(future.result())
 
     def list_tools(self):

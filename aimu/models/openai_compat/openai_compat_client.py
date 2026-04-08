@@ -47,7 +47,7 @@ class _ThinkingParser:
             else:
                 if idx > 0:
                     results.append((phase, self._buffer[:idx]))
-                self._buffer = self._buffer[idx + len(tag):]
+                self._buffer = self._buffer[idx + len(tag) :]
                 self._in_thinking = not self._in_thinking
 
         return results
@@ -163,8 +163,7 @@ class OpenAICompatClient(ModelClient):
 
         if msg.tool_calls:
             tool_calls = [
-                {"name": tc.function.name, "arguments": json.loads(tc.function.arguments)}
-                for tc in msg.tool_calls
+                {"name": tc.function.name, "arguments": json.loads(tc.function.arguments)} for tc in msg.tool_calls
             ]
             self._handle_tool_calls(tool_calls, tools)
 
@@ -242,10 +241,7 @@ class OpenAICompatClient(ModelClient):
             return
 
         # Tool call path: dispatch tool calls, emit TOOL_CALLING chunks, then stream second response
-        tool_calls = [
-            {"name": tc["name"], "arguments": json.loads(tc["arguments"])}
-            for tc in tool_calls_acc.values()
-        ]
+        tool_calls = [{"name": tc["name"], "arguments": json.loads(tc["arguments"])} for tc in tool_calls_acc.values()]
         msgs_before = len(self.messages)
         self._handle_tool_calls(tool_calls, tools)
 

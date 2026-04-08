@@ -27,7 +27,13 @@ except ImportError:
     AisuiteClient = None
 
 try:
-    from .openai_compat import OpenAICompatClient, LMStudioOpenAIClient, OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient
+    from .openai_compat import (
+        OpenAICompatClient,
+        LMStudioOpenAIClient,
+        OllamaOpenAIClient,
+        HFOpenAIClient,
+        VLLMOpenAIClient,
+    )
 
     HAS_OPENAI_COMPAT = True
 except ImportError:
@@ -47,4 +53,6 @@ if HAS_OLLAMA:
 if HAS_AISUITE:
     __all__.append("AisuiteClient")
 if HAS_OPENAI_COMPAT:
-    __all__.extend(["OpenAICompatClient", "LMStudioOpenAIClient", "OllamaOpenAIClient", "HFOpenAIClient", "VLLMOpenAIClient"])
+    __all__.extend(
+        ["OpenAICompatClient", "LMStudioOpenAIClient", "OllamaOpenAIClient", "HFOpenAIClient", "VLLMOpenAIClient"]
+    )
