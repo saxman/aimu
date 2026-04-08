@@ -14,7 +14,7 @@ class LMStudioOpenAIModel(Model):
     PHI_4_MINI = ("phi-4-mini-instruct", True)
     QWEN_3_4B = ("qwen3-4b", True, True)
     QWEN_3_8B = ("qwen3-8b", True, True)
-    QWEN_3_5_9B = ("qwen3.5:9b", True, True)
+    QWEN_3_5_9B = ("qwen3.5-9b", True, True)
     DEEPSEEK_R1_7B = ("deepseek-r1-distill-qwen-7b", False, True)
 
 
