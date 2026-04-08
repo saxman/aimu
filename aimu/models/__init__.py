@@ -26,6 +26,18 @@ except ImportError:
     HAS_AISUITE = False
     AisuiteClient = None
 
+try:
+    from .openai_compat import OpenAICompatClient, LMStudioOpenAIClient, OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient
+
+    HAS_OPENAI_COMPAT = True
+except ImportError:
+    HAS_OPENAI_COMPAT = False
+    OpenAICompatClient = None
+    LMStudioOpenAIClient = None
+    OllamaOpenAIClient = None
+    HFOpenAIClient = None
+    VLLMOpenAIClient = None
+
 # Expose what's available
 __all__ = ["ModelClient", "StreamingContentType", "StreamChunk", "StreamPhase"]
 if HAS_HF:
@@ -34,3 +46,5 @@ if HAS_OLLAMA:
     __all__.append("OllamaClient")
 if HAS_AISUITE:
     __all__.append("AisuiteClient")
+if HAS_OPENAI_COMPAT:
+    __all__.extend(["OpenAICompatClient", "LMStudioOpenAIClient", "OllamaOpenAIClient", "HFOpenAIClient", "VLLMOpenAIClient"])

@@ -6,6 +6,10 @@ Usage:
 - Run tests with only Ollama models: pytest tests/test_models.py --client=ollama
 - Run tests with only HuggingFace models: pytest tests/test_models.py --client=hf
 - Run tests with only Aisuite models: pytest tests/test_models.py --client=aisuite
+- Run tests with only OpenAI-compatible models: pytest tests/test_models.py --client=openai_compat
+- Run tests with only LM Studio models: pytest tests/test_models.py --client=lmstudio_openai
+- Run tests with only Ollama OpenAI models: pytest tests/test_models.py --client=ollama_openai
+- Run tests with only HuggingFace Transformers Serve models: pytest tests/test_models.py --client=hf_openai
 """
 
 import pytest
@@ -14,6 +18,7 @@ from fastmcp import FastMCP
 import time
 
 from aimu.models import ModelClient, HuggingFaceClient, OllamaClient, AisuiteClient, StreamingContentType, StreamChunk
+from aimu.models import OpenAICompatClient, LMStudioOpenAIClient, OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient
 from aimu.tools.client import MCPClient
 
 
@@ -28,14 +33,32 @@ def pytest_generate_tests(metafunc):
             client = HuggingFaceClient
         elif client_type == "aisuite":
             client = AisuiteClient
+        elif client_type == "openai_compat":
+            client = OpenAICompatClient
+        elif client_type == "lmstudio_openai":
+            client = LMStudioOpenAIClient
+        elif client_type == "ollama_openai":
+            client = OllamaOpenAIClient
+        elif client_type == "hf_openai":
+            client = HFOpenAIClient
+        elif client_type == "vllm_openai":
+            client = VLLMOpenAIClient
         else:
             client = OllamaClient  # default
 
         if model == "all":
             if client_type == "all":
-                test_models = list(OllamaClient.MODELS) + list(HuggingFaceClient.MODELS) + list(AisuiteClient.MODELS)
+                test_models = (
+                    list(OllamaClient.MODELS)
+                    + list(HuggingFaceClient.MODELS)
+                    + list(AisuiteClient.MODELS)
+                    + list(LMStudioOpenAIClient.MODELS)
+                    + list(OllamaOpenAIClient.MODELS)
+                    + list(HFOpenAIClient.MODELS)
+                    + list(VLLMOpenAIClient.MODELS)
+                )
             else:
-                test_models = client.MODELS
+                test_models = list(client.MODELS)
         else:
             if client_type == "all":
                 test_models = []
@@ -45,6 +68,14 @@ def pytest_generate_tests(metafunc):
                     test_models.append(HuggingFaceClient.MODELS[model])
                 if model in AisuiteClient.MODELS:
                     test_models.append(AisuiteClient.MODELS[model])
+                if model in LMStudioOpenAIClient.MODELS:
+                    test_models.append(LMStudioOpenAIClient.MODELS[model])
+                if model in OllamaOpenAIClient.MODELS:
+                    test_models.append(OllamaOpenAIClient.MODELS[model])
+                if model in HFOpenAIClient.MODELS:
+                    test_models.append(HFOpenAIClient.MODELS[model])
+                if model in VLLMOpenAIClient.MODELS:
+                    test_models.append(VLLMOpenAIClient.MODELS[model])
             else:
                 test_models = [client.MODELS[model]]
 
@@ -64,6 +95,14 @@ def model_client(request) -> Iterable[ModelClient]:
         client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
     elif model in AisuiteClient.MODELS:
         client = AisuiteClient(model, system_message="You are a helpful assistant.")
+    elif model in LMStudioOpenAIClient.MODELS:
+        client = LMStudioOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif model in OllamaOpenAIClient.MODELS:
+        client = OllamaOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif model in HFOpenAIClient.MODELS:
+        client = HFOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif model in VLLMOpenAIClient.MODELS:
+        client = VLLMOpenAIClient(model, system_message="You are a helpful assistant.")
     else:
         raise ValueError(f"Unknown model: {model}")
 

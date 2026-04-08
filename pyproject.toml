@@ -44,7 +44,10 @@ aisuite = [
     "docstring-parser>=0.15.0",
     "python-dotenv"
 ]
-all = ["aimu[hf,ollama,aisuite]"]
+openai_compat = [
+    "openai>=1.0.0",
+]
+all = ["aimu[hf,ollama,aisuite,openai_compat]"]
 
 [build-system]
 requires = ["setuptools"]

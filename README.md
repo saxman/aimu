@@ -2,15 +2,21 @@
 
 # AIMU - AI Model Utilities
 
-A Python package containing easy to use tools for working with various language models and AI services. AIMU is specifically designed for running models locally, using Ollama or Hugging Face Transformers. However, it can also be used with cloud models (OpenAI, Anthropic, Google, etc.) with [aisuite](https://github.com/andrewyng/aisuite) support (in development).
+A Python package containing easy to use tools for working with various language models and AI services. AIMU is specifically designed for running models locally, using Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework. It can also be used with cloud models (OpenAI, Anthropic, Google, etc.) via [aisuite](https://github.com/andrewyng/aisuite) support.
 
 ## Features
 
 -   **Model Clients**: Support for multiple AI model providers including:
 
-    -   [Ollama](https://ollama.com/) (local models)
+    -   [Ollama](https://ollama.com/) (local models, native API)
     -   [Hugging Face Transformers](https://huggingface.co/docs/transformers) (local models)
     -   [aisuite](https://github.com/andrewyng/aisuite) supported models (cloud and local models), including OpenAI (others coming)
+    -   OpenAI-compatible local serving frameworks via the `openai` SDK:
+        -   [LM Studio](https://lmstudio.ai/) (`LMStudioOpenAIClient`)
+        -   [Ollama](https://ollama.com/) OpenAI-compat endpoint (`OllamaOpenAIClient`)
+        -   [HuggingFace Transformers Serve](https://huggingface.co/docs/transformers/main/serving) (`HFOpenAIClient`)
+        -   [vLLM](https://docs.vllm.ai/) (`VLLMOpenAIClient`)
+        -   Any OpenAI-compatible server (`OpenAICompatClient`)
 
 -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
 
@@ -62,6 +68,12 @@ For aisuite models (e.g. OpenAI):
 pip install aimu[aisuite]
 ```
 
+For OpenAI-compatible local servers (LM Studio, Ollama, HuggingFace Transformers Serve, vLLM, etc.):
+
+``` bash
+pip install aimu[openai_compat]
+```
+
 For accessing potentially gated models via Hugging Face, you'll need to get and store (locally) a [Hugging Face Hub access token](https://huggingface.co/docs/huggingface_hub/en/quick-start). Once you have a token, you can install it locally with:
 
 ``` bash
@@ -99,9 +111,9 @@ pytest tests\test_models.py --client=ollama --model=GPT_OSS_20B
 ### Text Generation
 
 ``` python
-from aimu.models import OllamaClient as ModelClient ## or HuggingFaceClient, or AisuiteClient
+from aimu.models import OllamaClient as ModelClient ## or HuggingFaceClient, or OpenAiCompatClient
 
-model_client = ModelClient(ModelClient.MODEL_LLAMA_3_1_8B)
+model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
 response = model_client.generate("What is the capital of France?", {"temperature": 0.7})
 ```
 
@@ -110,7 +122,7 @@ response = model_client.generate("What is the capital of France?", {"temperature
 ``` python
 from aimu.models import OllamaClient as ModelClient
 
-model_client = ModelClient(ModelClient.MODELS.LLAMA_3_1_8B)
+model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
 response = model_client.chat("What is the capital of France?")
 
 print(model_client.messages)
@@ -147,7 +159,7 @@ During streamed generation via `generate_streamed()`, thinking tokens are yielde
 ``` python
 from aimu.models import OllamaClient as ModelClient, StreamPhase
 
-model_client = ModelClient(ModelClient.MODELS.LLAMA_3_1_8B)
+model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
 last_phase = None
 
 for chunk in model_client.chat_streamed("What is the capital of France?"):
@@ -157,6 +169,37 @@ for chunk in model_client.chat_streamed("What is the capital of France?"):
 
     print(chunk.content, end="", flush=True)
 ```
+
+### OpenAI-Compatible Local Servers
+
+Use `LMStudioOpenAIClient`, `OllamaOpenAIClient`, `HFOpenAIClient`, or `VLLMOpenAIClient` to connect to any local server that speaks the OpenAI REST API. Each client uses service-appropriate default URLs and model IDs:
+
+``` python
+from aimu.models import LMStudioOpenAIClient, LMStudioOpenAIModel
+
+# Connects to http://localhost:1234/v1 by default
+client = LMStudioOpenAIClient(LMStudioOpenAIModel.QWEN_3_8B)
+response = client.chat("What is the capital of France?")
+```
+
+``` python
+from aimu.models import OllamaOpenAIClient, OllamaOpenAIModel
+
+# Connects to Ollama's OpenAI-compat endpoint at http://localhost:11434/v1
+client = OllamaOpenAIClient(OllamaOpenAIModel.QWEN_3_8B)
+response = client.chat("What is the capital of France?")
+```
+
+For a custom server or model not in the enum, use `OpenAICompatClient` directly:
+
+``` python
+from aimu.models import OpenAICompatClient
+from aimu.models.openai_compat import OllamaOpenAIModel
+
+client = OpenAICompatClient(OllamaOpenAIModel.QWEN_3_8B, base_url="http://myserver:8080/v1")
+```
+
+All OpenAI-compatible clients support the full `ModelClient` API — streaming, tool calling, thinking models, and MCP tools work identically to the other clients.
 
 ### Chat UI (Streamlit)
 
@@ -243,7 +286,7 @@ mcp_client = MCPClient({
     }
 })
 
-model_client = ModelClient(ModelClient.MODEL_LLAMA_3_1_8B)
+model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
 model_client.mcp_client = mcp_client
 
 model_client.chat("use my tool please")
@@ -257,7 +300,7 @@ from aimu.memory import ConversationManager
 
 chat_manager = ConversationManager("conversations.json", use_last_conversation=True) # loads the last saved convesation
 
-model_client = new ModelClient(ModelClient.MODEL_LLAMA_3_1_8B)
+model_client = new ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
 model_client.messages = chat_manager.messages
 
 model_client.chat("What is the capital of France?")

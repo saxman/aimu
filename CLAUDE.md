@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AIMU (AI Model Utilities) is a Python package for working with language models, specifically designed for running models locally via Ollama or Hugging Face Transformers, with support for cloud models through aisuite. The package provides unified interfaces for model interaction, MCP tool integration, conversation management, semantic memory storage, and prompt storage/tuning.
+AIMU (AI Model Utilities) is a Python package for working with language models, specifically designed for running models locally via Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework, with support for cloud models through aisuite. The package provides unified interfaces for model interaction, MCP tool integration, conversation management, semantic memory storage, and prompt storage/tuning.
 
 ## Development Commands
 
@@ -22,9 +22,10 @@ uv sync --all-extras
 
 For specific model backends only:
 ```bash
-pip install -e '.[ollama]'      # Ollama only
-pip install -e '.[hf]'          # Hugging Face only
-pip install -e '.[aisuite]'     # Cloud models (OpenAI, Anthropic, etc.)
+pip install -e '.[ollama]'         # Ollama only
+pip install -e '.[hf]'             # Hugging Face only
+pip install -e '.[aisuite]'        # Cloud models (OpenAI, Anthropic, etc.)
+pip install -e '.[openai_compat]'  # OpenAI-compatible local servers (LM Studio, HF Transformers Serve, vLLM, etc.)
 ```
 
 ### Testing
@@ -39,6 +40,10 @@ Run tests for a specific client:
 pytest tests/test_models.py --client=ollama
 pytest tests/test_models.py --client=hf
 pytest tests/test_models.py --client=aisuite
+pytest tests/test_models.py --client=lmstudio_openai
+pytest tests/test_models.py --client=ollama_openai
+pytest tests/test_models.py --client=hf_openai
+pytest tests/test_models.py --client=vllm
 ```
 
 Run tests for a specific model:
@@ -97,15 +102,21 @@ The codebase uses an abstract base class pattern for model clients:
   - `Model(Enum)`: Base enum class; each value carries `supports_tools` and `supports_thinking` boolean attributes
 
 - **Model Implementations**:
-  - [aimu/models/ollama/ollama_client.py](aimu/models/ollama/ollama_client.py): `OllamaClient` for local Ollama models
+  - [aimu/models/ollama/ollama_client.py](aimu/models/ollama/ollama_client.py): `OllamaClient` for local Ollama models (native API)
   - [aimu/models/hf/hf_client.py](aimu/models/hf/hf_client.py): `HuggingFaceClient` for local Transformers models
   - [aimu/models/aisuite/aisuite_client.py](aimu/models/aisuite/aisuite_client.py): `AisuiteClient` for cloud models (OpenAI, Anthropic, etc.)
+  - [aimu/models/openai_compat/](aimu/models/openai_compat/): OpenAI-compatible REST API clients (require `openai_compat` extra):
+    - `OpenAICompatClient` — generic base for any OpenAI-compatible server
+    - `LMStudioOpenAIClient` — [LM Studio](https://lmstudio.ai/) (default: `localhost:1234`)
+    - `OllamaOpenAIClient` — Ollama OpenAI-compat endpoint (default: `localhost:11434`)
+    - `HFOpenAIClient` — HuggingFace Transformers Serve (default: `localhost:8000`)
+    - `VLLMOpenAIClient` — vLLM (default: `localhost:8000`)
 
 - **Model Definitions**: Each client defines a `Model` enum (e.g., `OllamaModel`) where each member encodes `(model_id, supports_tools, supports_thinking)`. Ollama and HuggingFace clients also expose:
   - `TOOL_MODELS`: Derived list of models where `supports_tools=True`
   - `THINKING_MODELS`: Derived list of models where `supports_thinking=True`
 
-- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies — clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_AISUITE`).
+- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies — clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_AISUITE`, `HAS_OPENAI_COMPAT`).
 
 ### MCP Tools Integration
 
@@ -216,6 +227,15 @@ Models with `supports_thinking=True` support extended reasoning:
 - Pass `include_thinking=False` to `generate_streamed()` to suppress thinking chunks
 - Thinking content may also be stored in the messages dict under a "thinking" key
 
+### OpenAICompatClient Notes
+
+- `OpenAICompatClient` uses the `openai` Python SDK with a configurable `base_url` — works with any server that speaks the OpenAI REST API
+- Service-specific subclasses (`LMStudioOpenAIClient`, `OllamaOpenAIClient`, `HFOpenAIClient`, `VLLMOpenAIClient`) each define their own `Model` enum with service-appropriate model IDs and a default `base_url`
+- Thinking model support uses `<think>...</think>` tag parsing (via `_split_thinking` and `_ThinkingParser`) since OpenAI-compat endpoints embed thinking in content rather than a dedicated field
+- Pass `tools=openai.NOT_GIVEN` (not `tools=[]`) when no tools are available — some local servers reject an empty tools array
+- Model ID format varies by service: LM Studio uses loaded model keys, Ollama uses `name:tag` format, HF Transformers Serve and vLLM use HuggingFace repo paths (e.g. `Qwen/Qwen3-8B`)
+- Test with `pytest tests/test_models.py --client=lmstudio_openai` (or `ollama_openai`, `hf_openai`, `vllm_openai`)
+
 ### AisuiteClient Notes
 
 - `AisuiteClient` defines `TOOL_MODELS` and `THINKING_MODELS` via the shared `classproperty` pattern, derived from `supports_tools` / `supports_thinking` flags on `AisuiteModel` enum members
@@ -229,7 +249,13 @@ aimu/
 │   ├── base_client.py   # Abstract base class (ModelClient, StreamChunk, StreamPhase, Model)
 │   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
 │   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallPrefix)
-│   └── aisuite/         # Cloud models client (AisuiteClient, AisuiteModel)
+│   ├── aisuite/         # Cloud models client (AisuiteClient, AisuiteModel)
+│   └── openai_compat/   # OpenAI-compatible clients (requires openai package)
+│       ├── openai_compat_client.py   # OpenAICompatClient base
+│       ├── lmstudio_openai_client.py # LMStudioOpenAIClient + LMStudioOpenAIModel
+│       ├── ollama_openai_client.py   # OllamaOpenAIClient + OllamaOpenAIModel
+│       ├── hf_openai_client.py       # HFOpenAIClient + HFOpenAIModel
+│       └── vllm_openai_client.py     # VLLMOpenAIClient + VLLMOpenAIModel
 ├── tools/               # MCP tools integration
 │   ├── client.py        # MCPClient wrapper
 │   └── servers.py       # Example FastMCP server with built-in tools
