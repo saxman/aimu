@@ -13,6 +13,7 @@ class AisuiteModel(Model):
     def __init__(self, value, supports_tools=False, supports_thinking=False):
         super().__init__(value, supports_tools, supports_thinking)
 
+    # TODO update tools and thinking for openai models
     GPT_4O_MINI = ("openai:gpt-4o-mini", True)
     GPT_4O = ("openai:gpt-4o", True)
     GPT_5_NANO = "openai:gpt-5-nano"
@@ -58,11 +59,16 @@ class AisuiteClient(ModelClient):
         else:
             generate_kwargs = {**self.default_generate_kwargs, **generate_kwargs}
 
-        # TODO: handle model capabilities on a mode-by-model basis
+        if self.model.value.startswith("openai:"):
+            # TODO verify if this is true for all OpenAI models
+            generate_kwargs["max_completion_tokens"] = generate_kwargs.pop("max_tokens", None)
+            generate_kwargs["temperature"] = 1
+            generate_kwargs.pop("top_p", None)
 
-        # required bu Claude Sonnet
-        generate_kwargs.pop("top_p", None)
-        generate_kwargs.pop("temperature", None)
+        if self.model.value.startswith("anthropic:"):
+            # TODO verify if this is true for all Anthropic models
+            generate_kwargs.pop("top_p", None)
+            generate_kwargs.pop("temperature", None)
 
         return generate_kwargs
 
