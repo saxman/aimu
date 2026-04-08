@@ -10,6 +10,7 @@ A Python package containing easy to use tools for working with various language 
 
     -   [Ollama](https://ollama.com/) (local models, native API)
     -   [Hugging Face Transformers](https://huggingface.co/docs/transformers) (local models)
+    -   [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) (local GGUF models, in-process, no external service required)
     -   [aisuite](https://github.com/andrewyng/aisuite) supported models (cloud and local models), including OpenAI (others coming)
     -   OpenAI-compatible local serving frameworks via the `openai` SDK:
         -   [LM Studio](https://lmstudio.ai/) (`LMStudioOpenAIClient`)
@@ -74,6 +75,12 @@ For OpenAI-compatible local servers (LM Studio, Ollama, HuggingFace Transformers
 pip install aimu[openai_compat]
 ```
 
+For local GGUF models via llama-cpp-python (no external service required):
+
+``` bash
+pip install aimu[llamacpp]
+```
+
 For accessing potentially gated models via Hugging Face, you'll need to get and store (locally) a [Hugging Face Hub access token](https://huggingface.co/docs/huggingface_hub/en/quick-start). Once you have a token, you can install it locally with:
 
 ``` bash
@@ -130,7 +137,7 @@ print(model_client.messages)
 
 ### Thinking Models
 
-Models with extended reasoning capabilities (e.g. DeepSeek-R1, Qwen3, GPT-OSS) are identified by the `THINKING_MODELS` list on each client. Thinking is enabled automatically when one of these models is selected — no extra configuration required.
+Models with extended reasoning capabilities (e.g. DeepSeek-R1, Qwen3, GPT-OSS) are identified by the `THINKING_MODELS` list on each client. Thinking is enabled automatically when one of these models is selected.
 
 After generation, the model's reasoning trace is available in `last_thinking`:
 
@@ -148,7 +155,7 @@ During streamed generation via `generate_streamed()`, thinking tokens are yielde
 
 ### Streamed Chat
 
-`chat_streamed()` yields `StreamChunk` objects. Each chunk carries its own type, so no side-channel reads are needed:
+`chat_streamed()` yields `StreamChunk` objects. Each chunk carries its own type:
 
 | `chunk.phase` | `chunk.content` type | Description |
 |---|---|---|
@@ -199,7 +206,31 @@ from aimu.models.openai_compat import OllamaOpenAIModel
 client = OpenAICompatClient(OllamaOpenAIModel.QWEN_3_8B, base_url="http://myserver:8080/v1")
 ```
 
-All OpenAI-compatible clients support the full `ModelClient` API — streaming, tool calling, thinking models, and MCP tools work identically to the other clients.
+All OpenAI-compatible clients support the full `ModelClient` API. Streaming, tool calling, thinking models, and MCP tools work identically to the other clients.
+
+### Local GGUF Models (llama-cpp-python)
+
+`LlamaCppClient` runs GGUF models directly in-process. Ollama, LM Studio, or another service are not required. Pass the path to any GGUF file and a `LlamaCppModel` enum value that describes the model's capabilities:
+
+``` python
+from aimu.models.llamacpp import LlamaCppClient, LlamaCppModel
+
+client = LlamaCppClient(LlamaCppModel.QWEN_3_4B, model_path="/path/to/qwen3-4b.Q4_K_M.gguf")
+response = client.chat("What is the capital of France?")
+```
+
+GPU offloading is enabled by default (`n_gpu_layers=-1`). To run on CPU only, pass `n_gpu_layers=0`. The context window defaults to 4096 tokens; increase with `n_ctx`:
+
+``` python
+client = LlamaCppClient(
+    LlamaCppModel.QWEN_3_4B,
+    model_path="/path/to/model.gguf",
+    n_ctx=8192,
+    n_gpu_layers=-1,  # offload all layers to GPU
+)
+```
+
+All standard `ModelClient` features work: Streaming, tool calling, thinking models, and MCP tools.
 
 ### Chat UI (Streamlit)
 
@@ -242,7 +273,7 @@ agent = Agent.from_config(
 )
 ```
 
-A `Workflow` chains agents sequentially — the output of each step becomes the input to the next:
+A `Workflow` chains agents sequentially. The output of each step becomes the input to the next:
 
 ``` python
 from aimu.agents import Workflow

@@ -19,7 +19,11 @@ import time
 
 from aimu.models import ModelClient, HuggingFaceClient, OllamaClient, AisuiteClient, StreamingContentType, StreamChunk
 from aimu.models import OpenAICompatClient, LMStudioOpenAIClient, OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient
+from aimu.models import HAS_LLAMACPP, LlamaCppClient
 from aimu.tools.client import MCPClient
+
+if HAS_LLAMACPP:
+    from aimu.models.llamacpp import LlamaCppModel
 
 
 def pytest_generate_tests(metafunc):
@@ -43,6 +47,10 @@ def pytest_generate_tests(metafunc):
             client = HFOpenAIClient
         elif client_type == "vllm_openai":
             client = VLLMOpenAIClient
+        elif client_type == "llamacpp":
+            if not HAS_LLAMACPP:
+                pytest.skip("llama-cpp-python not installed")
+            client = LlamaCppClient
         else:
             client = OllamaClient  # default
 
@@ -57,6 +65,8 @@ def pytest_generate_tests(metafunc):
                     + list(HFOpenAIClient.MODELS)
                     + list(VLLMOpenAIClient.MODELS)
                 )
+                if HAS_LLAMACPP:
+                    test_models += list(LlamaCppModel)
             else:
                 test_models = list(client.MODELS)
         else:
@@ -103,6 +113,11 @@ def model_client(request) -> Iterable[ModelClient]:
         client = HFOpenAIClient(model, system_message="You are a helpful assistant.")
     elif model in VLLMOpenAIClient.MODELS:
         client = VLLMOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif HAS_LLAMACPP and model in LlamaCppModel:
+        model_path = request.config.getoption("--model-path")
+        if not model_path:
+            pytest.skip("--model-path is required for llamacpp client tests")
+        client = LlamaCppClient(model, model_path=model_path, system_message="You are a helpful assistant.")
     else:
         raise ValueError(f"Unknown model: {model}")
 

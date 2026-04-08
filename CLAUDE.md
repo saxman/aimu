@@ -26,6 +26,7 @@ pip install -e '.[ollama]'         # Ollama only
 pip install -e '.[hf]'             # Hugging Face only
 pip install -e '.[aisuite]'        # Cloud models (OpenAI, Anthropic, etc.)
 pip install -e '.[openai_compat]'  # OpenAI-compatible local servers (LM Studio, HF Transformers Serve, vLLM, etc.)
+pip install -e '.[llamacpp]'       # Local GGUF models via llama-cpp-python (no external service)
 ```
 
 ### Testing
@@ -44,6 +45,7 @@ pytest tests/test_models.py --client=lmstudio_openai
 pytest tests/test_models.py --client=ollama_openai
 pytest tests/test_models.py --client=hf_openai
 pytest tests/test_models.py --client=vllm
+pytest tests/test_models.py --client=llamacpp --model-path=/path/to/model.gguf
 ```
 
 Run tests for a specific model:
@@ -111,12 +113,17 @@ The codebase uses an abstract base class pattern for model clients:
     - `OllamaOpenAIClient` — Ollama OpenAI-compat endpoint (default: `localhost:11434`)
     - `HFOpenAIClient` — HuggingFace Transformers Serve (default: `localhost:8000`)
     - `VLLMOpenAIClient` — vLLM (default: `localhost:8000`)
+  - [aimu/models/llamacpp/llamacpp_client.py](aimu/models/llamacpp/llamacpp_client.py): `LlamaCppClient` for local GGUF models via llama-cpp-python (requires `llamacpp` extra):
+    - Loads GGUF files in-process — no external service required
+    - Constructor takes `model_path` (GGUF file path) plus `n_ctx`, `n_gpu_layers`, `chat_format`, `verbose`
+    - GPU offloading via `n_gpu_layers=-1` (all layers); `n_gpu_layers=0` for CPU-only
+    - Thinking model support via `<think>...</think>` tag parsing (same as OpenAI-compat clients)
 
 - **Model Definitions**: Each client defines a `Model` enum (e.g., `OllamaModel`) where each member encodes `(model_id, supports_tools, supports_thinking)`. Ollama and HuggingFace clients also expose:
   - `TOOL_MODELS`: Derived list of models where `supports_tools=True`
   - `THINKING_MODELS`: Derived list of models where `supports_thinking=True`
 
-- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies — clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_AISUITE`, `HAS_OPENAI_COMPAT`).
+- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies — clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_AISUITE`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`).
 
 ### MCP Tools Integration
 
@@ -231,10 +238,21 @@ Models with `supports_thinking=True` support extended reasoning:
 
 - `OpenAICompatClient` uses the `openai` Python SDK with a configurable `base_url` — works with any server that speaks the OpenAI REST API
 - Service-specific subclasses (`LMStudioOpenAIClient`, `OllamaOpenAIClient`, `HFOpenAIClient`, `VLLMOpenAIClient`) each define their own `Model` enum with service-appropriate model IDs and a default `base_url`
-- Thinking model support uses `<think>...</think>` tag parsing (via `_split_thinking` and `_ThinkingParser`) since OpenAI-compat endpoints embed thinking in content rather than a dedicated field
+- Thinking model support uses `<think>...</think>` tag parsing (via `_split_thinking` and `_ThinkingParser` in [aimu/models/_thinking.py](aimu/models/_thinking.py)) since OpenAI-compat endpoints embed thinking in content rather than a dedicated field; `LlamaCppClient` uses the same shared utilities
 - Pass `tools=openai.NOT_GIVEN` (not `tools=[]`) when no tools are available — some local servers reject an empty tools array
 - Model ID format varies by service: LM Studio uses loaded model keys, Ollama uses `name:tag` format, HF Transformers Serve and vLLM use HuggingFace repo paths (e.g. `Qwen/Qwen3-8B`)
 - Test with `pytest tests/test_models.py --client=lmstudio_openai` (or `ollama_openai`, `hf_openai`, `vllm_openai`)
+
+### LlamaCppClient Notes
+
+- `LlamaCppClient` loads a GGUF file in-process via `llama_cpp.Llama` — no external service or server required
+- Constructor requires `model_path` (path to GGUF file); `model` enum specifies capability flags (`supports_tools`, `supports_thinking`)
+- `n_gpu_layers=-1` offloads all layers to GPU (default); `n_gpu_layers=0` forces CPU-only inference
+- `chat_format=None` (default) auto-detects from GGUF metadata; specify explicitly (e.g. `"chatml-function-calling"`) for older GGUFs that lack embedded templates
+- llama-cpp-python returns plain Python dicts, not OpenAI SDK objects — all response access uses dict indexing (`response["choices"][0]["message"]["content"]`)
+- Tool calling requires both `supports_tools=True` on the model enum AND a compatible `chat_format`; modern GGUFs auto-detect this
+- Thinking support works the same as `OpenAICompatClient` — `<think>...</think>` tags in content, parsed by shared utilities in `_thinking.py`
+- Test with `pytest tests/test_models.py --client=llamacpp --model-path=/path/to/model.gguf`
 
 ### AisuiteClient Notes
 
@@ -247,15 +265,18 @@ Models with `supports_thinking=True` support extended reasoning:
 aimu/
 ├── models/              # Model client implementations
 │   ├── base_client.py   # Abstract base class (ModelClient, StreamChunk, StreamPhase, Model)
+│   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
 │   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallPrefix)
 │   ├── aisuite/         # Cloud models client (AisuiteClient, AisuiteModel)
-│   └── openai_compat/   # OpenAI-compatible clients (requires openai package)
-│       ├── openai_compat_client.py   # OpenAICompatClient base
-│       ├── lmstudio_openai_client.py # LMStudioOpenAIClient + LMStudioOpenAIModel
-│       ├── ollama_openai_client.py   # OllamaOpenAIClient + OllamaOpenAIModel
-│       ├── hf_openai_client.py       # HFOpenAIClient + HFOpenAIModel
-│       └── vllm_openai_client.py     # VLLMOpenAIClient + VLLMOpenAIModel
+│   ├── openai_compat/   # OpenAI-compatible clients (requires openai package)
+│   │   ├── openai_compat_client.py   # OpenAICompatClient base
+│   │   ├── lmstudio_openai_client.py # LMStudioOpenAIClient + LMStudioOpenAIModel
+│   │   ├── ollama_openai_client.py   # OllamaOpenAIClient + OllamaOpenAIModel
+│   │   ├── hf_openai_client.py       # HFOpenAIClient + HFOpenAIModel
+│   │   └── vllm_openai_client.py     # VLLMOpenAIClient + VLLMOpenAIModel
+│   └── llamacpp/        # llama-cpp-python client (requires llamacpp package)
+│       └── llamacpp_client.py        # LlamaCppClient + LlamaCppModel
 ├── tools/               # MCP tools integration
 │   ├── client.py        # MCPClient wrapper
 │   └── servers.py       # Example FastMCP server with built-in tools

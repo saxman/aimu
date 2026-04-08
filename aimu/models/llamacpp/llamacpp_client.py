@@ -2,16 +2,27 @@ import json
 import logging
 from typing import Iterator, Optional, Any
 
-import openai
-
 from ..base_client import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
 from .._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
 
 
-class OpenAICompatClient(ModelClient):
-    MODELS = Model
+class LlamaCppModel(Model):
+    def __init__(self, value, supports_tools=False, supports_thinking=False):
+        super().__init__(value, supports_tools, supports_thinking)
+
+    LLAMA_3_1_8B = ("llama-3.1-8b", False)
+    LLAMA_3_2_3B = ("llama-3.2-3b", False)
+    MISTRAL_7B = ("mistral-7b", True)
+    QWEN_3_4B = ("qwen3-4b", True, True)
+    QWEN_3_8B = ("qwen3-8b", True, True)
+    DEEPSEEK_R1_7B = ("deepseek-r1-7b", False, True)
+    PHI_4_MINI = ("phi-4-mini", True)
+
+
+class LlamaCppClient(ModelClient):
+    MODELS = LlamaCppModel
 
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,
@@ -20,15 +31,27 @@ class OpenAICompatClient(ModelClient):
 
     def __init__(
         self,
-        model: Model,
-        base_url: str,
-        api_key: str = "not-needed",
+        model: LlamaCppModel,
+        model_path: str,
+        n_ctx: int = 4096,
+        n_gpu_layers: int = -1,
+        chat_format: Optional[str] = None,
+        verbose: bool = False,
         system_message: Optional[str] = None,
         model_kwargs: Optional[dict] = None,
     ):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
-        self._client = openai.OpenAI(base_url=base_url, api_key=api_key)
+
+        from llama_cpp import Llama
+
+        self._llm = Llama(
+            model_path=model_path,
+            n_ctx=n_ctx,
+            n_gpu_layers=n_gpu_layers,
+            chat_format=chat_format,
+            verbose=verbose,
+        )
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -49,31 +72,31 @@ class OpenAICompatClient(ModelClient):
         parser = _ThinkingParser() if self.is_thinking_model else None
 
         for chunk in stream:
-            delta = chunk.choices[0].delta
-            if delta.content is None:
+            delta = chunk["choices"][0]["delta"]
+            text = delta.get("content") or ""
+            if not text:
                 continue
             logger.debug("LLM raw chunk: %s", chunk)
             if parser:
-                for phase, text in parser.feed(delta.content):
+                for phase, part in parser.feed(text):
                     if phase == StreamingContentType.THINKING:
-                        self.last_thinking += text
+                        self.last_thinking += part
                         if include_thinking:
-                            yield StreamChunk(StreamingContentType.THINKING, text)
+                            yield StreamChunk(StreamingContentType.THINKING, part)
                     else:
-                        yield StreamChunk(StreamingContentType.GENERATING, text)
+                        yield StreamChunk(StreamingContentType.GENERATING, part)
             else:
-                yield StreamChunk(StreamingContentType.GENERATING, delta.content)
+                yield StreamChunk(StreamingContentType.GENERATING, text)
 
     def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        response = self._client.chat.completions.create(
-            model=self.model.value,
+        response = self._llm.create_chat_completion(
             messages=[{"role": "user", "content": prompt}],
             **generate_kwargs,
         )
         logger.debug("LLM raw response: %s", response)
-        content = response.choices[0].message.content or ""
+        content = response["choices"][0]["message"]["content"] or ""
 
         self.last_thinking = ""
         if self.is_thinking_model:
@@ -89,8 +112,7 @@ class OpenAICompatClient(ModelClient):
     ) -> Iterator[StreamChunk]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        stream = self._client.chat.completions.create(
-            model=self.model.value,
+        stream = self._llm.create_chat_completion(
             messages=[{"role": "user", "content": prompt}],
             stream=True,
             **generate_kwargs,
@@ -100,31 +122,30 @@ class OpenAICompatClient(ModelClient):
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
-        response = self._client.chat.completions.create(
-            model=self.model.value,
+        response = self._llm.create_chat_completion(
             messages=self.messages,
-            tools=tools if tools else openai.NOT_GIVEN,
+            tools=tools if tools else None,
             **generate_kwargs,
         )
         logger.debug("LLM raw response: %s", response)
-        msg = response.choices[0].message
+        msg = response["choices"][0]["message"]
 
-        if msg.tool_calls:
+        if msg.get("tool_calls"):
             tool_calls = [
-                {"name": tc.function.name, "arguments": json.loads(tc.function.arguments)} for tc in msg.tool_calls
+                {"name": tc["function"]["name"], "arguments": json.loads(tc["function"]["arguments"])}
+                for tc in msg["tool_calls"]
             ]
             self._handle_tool_calls(tool_calls, tools)
 
-            response = self._client.chat.completions.create(
-                model=self.model.value,
+            response = self._llm.create_chat_completion(
                 messages=self.messages,
-                tools=tools if tools else openai.NOT_GIVEN,
+                tools=tools if tools else None,
                 **generate_kwargs,
             )
             logger.debug("LLM raw response (after tools): %s", response)
-            msg = response.choices[0].message
+            msg = response["choices"][0]["message"]
 
-        content = msg.content or ""
+        content = msg.get("content") or ""
         self.last_thinking = ""
         if self.is_thinking_model:
             self.last_thinking, content = _split_thinking(content)
@@ -137,39 +158,39 @@ class OpenAICompatClient(ModelClient):
     ) -> Iterator[StreamChunk]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
-        stream = self._client.chat.completions.create(
-            model=self.model.value,
+        stream = self._llm.create_chat_completion(
             messages=self.messages,
             stream=True,
-            tools=tools if tools else openai.NOT_GIVEN,
+            tools=tools if tools else None,
             **generate_kwargs,
         )
 
-        # Consume the first stream to detect tool calls vs. content (mutually exclusive in practice,
-        # but we must buffer content since we can't yield before knowing whether tool calls follow).
+        # Buffer the first stream to detect tool calls vs. content.
         tool_calls_acc: dict[int, dict] = {}
         first_pass_chunks: list[StreamChunk] = []
         parser = _ThinkingParser() if self.is_thinking_model else None
         self.last_thinking = ""
 
         for chunk in stream:
-            delta = chunk.choices[0].delta
+            delta = chunk["choices"][0]["delta"]
             logger.debug("LLM raw chunk: %s", chunk)
-            if delta.tool_calls:
-                for tc_delta in delta.tool_calls:
-                    acc = tool_calls_acc.setdefault(tc_delta.index, {"name": "", "arguments": ""})
-                    if tc_delta.function and tc_delta.function.name:
-                        acc["name"] += tc_delta.function.name
-                    if tc_delta.function and tc_delta.function.arguments:
-                        acc["arguments"] += tc_delta.function.arguments
-            elif delta.content is not None:
+            if delta.get("tool_calls"):
+                for tc_delta in delta["tool_calls"]:
+                    acc = tool_calls_acc.setdefault(tc_delta["index"], {"name": "", "arguments": ""})
+                    fn = tc_delta.get("function") or {}
+                    if fn.get("name"):
+                        acc["name"] += fn["name"]
+                    if fn.get("arguments"):
+                        acc["arguments"] += fn["arguments"]
+            elif delta.get("content"):
+                text = delta["content"]
                 if parser:
-                    for phase, text in parser.feed(delta.content):
+                    for phase, part in parser.feed(text):
                         if phase == StreamingContentType.THINKING:
-                            self.last_thinking += text
-                        first_pass_chunks.append(StreamChunk(phase, text))
+                            self.last_thinking += part
+                        first_pass_chunks.append(StreamChunk(phase, part))
                 else:
-                    first_pass_chunks.append(StreamChunk(StreamingContentType.GENERATING, delta.content))
+                    first_pass_chunks.append(StreamChunk(StreamingContentType.GENERATING, text))
 
         if not tool_calls_acc:
             full_content = ""
@@ -191,11 +212,10 @@ class OpenAICompatClient(ModelClient):
                 {"name": tc["function"]["name"], "response": self.messages[msgs_before + 1 + i]["content"]},
             )
 
-        stream2 = self._client.chat.completions.create(
-            model=self.model.value,
+        stream2 = self._llm.create_chat_completion(
             messages=self.messages,
             stream=True,
-            tools=tools if tools else openai.NOT_GIVEN,
+            tools=tools if tools else None,
             **generate_kwargs,
         )
 

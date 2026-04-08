@@ -47,7 +47,10 @@ aisuite = [
 openai_compat = [
     "openai>=1.0.0",
 ]
-all = ["aimu[hf,ollama,aisuite,openai_compat]"]
+llamacpp = [
+    "llama-cpp-python",
+]
+all = ["aimu[hf,ollama,aisuite,openai_compat,llamacpp]"]
 
 [build-system]
 requires = ["setuptools"]

@@ -44,6 +44,14 @@ except ImportError:
     HFOpenAIClient = None
     VLLMOpenAIClient = None
 
+try:
+    from .llamacpp import LlamaCppClient
+
+    HAS_LLAMACPP = True
+except ImportError:
+    HAS_LLAMACPP = False
+    LlamaCppClient = None
+
 # Expose what's available
 __all__ = ["ModelClient", "StreamingContentType", "StreamChunk", "StreamPhase"]
 if HAS_HF:
@@ -56,3 +64,5 @@ if HAS_OPENAI_COMPAT:
     __all__.extend(
         ["OpenAICompatClient", "LMStudioOpenAIClient", "OllamaOpenAIClient", "HFOpenAIClient", "VLLMOpenAIClient"]
     )
+if HAS_LLAMACPP:
+    __all__.append("LlamaCppClient")

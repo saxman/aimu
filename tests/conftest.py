@@ -18,3 +18,10 @@ def pytest_addoption(parser):
         default="all",
         help="Model name to test (default: all)",
     )
+
+    parser.addoption(
+        "--model-path",
+        action="store",
+        default=None,
+        help="Path to a local GGUF model file (required for --client=llamacpp)",
+    )
