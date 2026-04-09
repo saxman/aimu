@@ -50,6 +50,14 @@ class classproperty:
 class ModelClient(ABC):
     MODELS = Model
 
+    model: Model
+    model_kwargs: Optional[dict]
+    _system_message: Optional[str]
+    default_generate_kwargs: dict
+    messages: list[dict]
+    mcp_client: Optional[Any]  # Avoid circular imports by not referencing MCPClient directly
+    last_thinking: str
+
     @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
         self.model = model
