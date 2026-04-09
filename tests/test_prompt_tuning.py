@@ -14,7 +14,7 @@ def model_client():
 
 @pytest.fixture(scope="session")
 def thinking_model_client():
-    client = OllamaClient(OllamaClient.MODELS.QWEN_3_8B)
+    client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
     yield client
     del client
 
