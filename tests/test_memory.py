@@ -2,6 +2,8 @@
 Tests for MemoryStore class.
 """
 
+import uuid
+
 import pytest
 
 from aimu.memory import MemoryStore
@@ -10,7 +12,7 @@ from aimu.memory import MemoryStore
 @pytest.fixture
 def store():
     """Ephemeral in-memory MemoryStore for each test."""
-    return MemoryStore()
+    return MemoryStore(collection_name=str(uuid.uuid4()))
 
 
 def test_initial_store_is_empty(store):
@@ -112,3 +114,15 @@ def test_store_and_retrieve_roundtrip(store):
 
     family_results = store.retrieve_facts("family relationships")
     assert any("sister" in r or "married" in r for r in family_results)
+
+
+def test_persistent_store_survives_reinstantiation(tmp_path):
+    store = MemoryStore(persist_path=str(tmp_path))
+    store.store_fact("Paul works at Google")
+    store.store_fact("Sarah is the sister of Emma")
+
+    # Reopen the same path — facts must still be there
+    store2 = MemoryStore(persist_path=str(tmp_path))
+    assert len(store2) == 2
+    results = store2.retrieve_facts("Paul works at Google")
+    assert "Paul works at Google" in results
