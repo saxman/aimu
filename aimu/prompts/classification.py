@@ -29,7 +29,7 @@ class ClassificationPromptTuner:
         self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
 
         # Reasoning models need more generation tokens (for thinking) and a higher temperature for better results
-        if model_client.model_id in model_client.THINKING_MODELS:
+        if model_client.model in model_client.THINKING_MODELS:
             self.generate_kwargs.update(
                 {
                     "max_new_tokens": 1024,
