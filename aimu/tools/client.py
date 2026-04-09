@@ -64,7 +64,10 @@ class MCPClient:
 
     def call_tool(self, tool_name: str, params: dict):
         future = asyncio.run_coroutine_threadsafe(self._client.call_tool(tool_name, params), self._loop)
-        return _ToolResponse(future.result())
+        result = future.result()
+        # FastMCP ≥2.x returns CallToolResult; older versions returned a list directly
+        content = result.content if hasattr(result, "content") else result
+        return _ToolResponse(content)
 
     def list_tools(self):
         future = asyncio.run_coroutine_threadsafe(self._client.list_tools(), self._loop)

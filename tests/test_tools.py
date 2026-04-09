@@ -1,5 +1,8 @@
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 
 from aimu import paths
@@ -76,15 +79,85 @@ def test_none_type_tool_response():
     assert len(response.content) == 0
 
 
-def _mock_response(json_data=None, text=None, status_code=200):
+_UNSET = object()
+
+
+def _mock_response(json_data=_UNSET, text=None, status_code=200):
     mock = MagicMock()
     mock.status_code = status_code
     mock.raise_for_status = MagicMock()
-    if json_data is not None:
+    if json_data is not _UNSET:
         mock.json.return_value = json_data
     if text is not None:
         mock.text = text
     return mock
+
+
+FAKE_GEO_RESPONSE = {
+    "results": [{"name": "London", "country": "United Kingdom", "latitude": 51.50853, "longitude": -0.12574}]
+}
+
+FAKE_WEATHER_RESPONSE = {
+    "current": {
+        "weather_code": 1,
+        "temperature_2m": 20.0,
+        "apparent_temperature": 18.0,
+        "relative_humidity_2m": 60,
+        "wind_speed_10m": 15.0,
+    }
+}
+
+
+def test_get_weather_returns_data():
+    client = MCPClient(server=mcp)
+    with patch("aimu.tools.servers.requests.get", side_effect=[
+        _mock_response(json_data=FAKE_GEO_RESPONSE),
+        _mock_response(json_data=FAKE_WEATHER_RESPONSE),
+    ]):
+        response = client.call_tool("get_weather", {"location": "London"})
+
+    text = _response_text(response)
+    assert "Mainly clear" in text
+    assert "20.0" in text
+    assert "London" in text
+    assert "United Kingdom" in text
+
+
+def test_get_weather_location_not_found():
+    client = MCPClient(server=mcp)
+    with patch("aimu.tools.servers.requests.get", return_value=_mock_response(json_data={"results": None})):
+        response = client.call_tool("get_weather", {"location": "unknownxyz"})
+
+    assert "Location not found" in _response_text(response)
+
+
+def test_get_weather_request_error():
+    client = MCPClient(server=mcp)
+    with patch("aimu.tools.servers.requests.get", side_effect=requests.RequestException("timeout")):
+        response = client.call_tool("get_weather", {"location": "London"})
+
+    assert "Error fetching weather" in _response_text(response)
+
+
+def test_get_weather_coordinates():
+    client = MCPClient(server=mcp)
+    with patch("aimu.tools.servers.requests.get", return_value=_mock_response(json_data=FAKE_WEATHER_RESPONSE)):
+        response = client.call_tool("get_weather", {"location": "51.5,-0.12"})
+
+    text = _response_text(response)
+    assert "20.0" in text
+    assert "°C" in text
+
+
+def test_get_weather_real_call():
+    client = MCPClient(server=mcp)
+    response = client.call_tool("get_weather", {"location": "London"})
+
+    text = _response_text(response)
+    if text.startswith("Error"):
+        pytest.skip(f"Open-Meteo unavailable: {text}")
+    assert "London" in text
+    assert "°C" in text
 
 
 def test_search_returns_results():
@@ -150,6 +223,79 @@ def test_get_webpage_request_error():
         response = client.call_tool("get_webpage", {"url": "https://example.com"})
 
     assert "Error fetching page" in _response_text(response)
+
+
+def test_list_directory_returns_entries():
+    client = MCPClient(server=mcp)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "file.txt").write_text("hello")
+        Path(tmp, "subdir").mkdir()
+        response = client.call_tool("list_directory", {"path": tmp})
+
+    text = _response_text(response)
+    assert "subdir/" in text
+    assert "file.txt" in text
+
+
+def test_list_directory_dirs_before_files():
+    client = MCPClient(server=mcp)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "aaa.txt").write_text("x")
+        Path(tmp, "zzz").mkdir()
+        response = client.call_tool("list_directory", {"path": tmp})
+
+    lines = _response_text(response).splitlines()
+    assert lines[0] == "zzz/"
+    assert lines[1] == "aaa.txt"
+
+
+def test_list_directory_missing_path():
+    client = MCPClient(server=mcp)
+    response = client.call_tool("list_directory", {"path": "/nonexistent/path/xyz"})
+    assert "does not exist" in _response_text(response)
+
+
+def test_list_directory_on_file():
+    client = MCPClient(server=mcp)
+    with tempfile.NamedTemporaryFile() as f:
+        response = client.call_tool("list_directory", {"path": f.name})
+    assert "Not a directory" in _response_text(response)
+
+
+def test_read_file_returns_content():
+    client = MCPClient(server=mcp)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write("line one\nline two\nline three")
+        name = f.name
+    response = client.call_tool("read_file", {"path": name})
+    text = _response_text(response)
+    assert "line one" in text
+    assert "line three" in text
+
+
+def test_read_file_truncates_at_max_lines():
+    client = MCPClient(server=mcp)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write("\n".join(str(i) for i in range(10)))
+        name = f.name
+    response = client.call_tool("read_file", {"path": name, "max_lines": 3})
+    text = _response_text(response)
+    assert "truncated" in text
+    assert "0" in text and "2" in text
+    assert "9" not in text
+
+
+def test_read_file_missing_path():
+    client = MCPClient(server=mcp)
+    response = client.call_tool("read_file", {"path": "/nonexistent/file.txt"})
+    assert "does not exist" in _response_text(response)
+
+
+def test_read_file_on_directory():
+    client = MCPClient(server=mcp)
+    with tempfile.TemporaryDirectory() as tmp:
+        response = client.call_tool("read_file", {"path": tmp})
+    assert "Not a file" in _response_text(response)
 
 
 def test_multiple_tool_calls_client_reused():
