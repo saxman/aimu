@@ -17,7 +17,6 @@ MCP_SERVERS_FILE = str(paths.package / "tools" / "servers.py")
 def _response_text(response) -> str:
     return response.content[0].text  # type: ignore[union-attr]
 
-
 def test_mcp_client_with_config():
     config = {
         "mcpServers": {"echo": {"command": "python", "args": [MCP_SERVERS_FILE]}},
@@ -29,6 +28,20 @@ def test_mcp_client_with_config():
     assert isinstance(tools, list)
     assert len(tools) > 0
 
+
+def test_mcp_client_with_config_module():
+    config = {
+        "mcpServers": {
+            "aimu": {"command": "python", "args": ["-m", "aimu.tools.servers"]},
+        }
+    }
+
+    client = MCPClient(config=config)
+    tools = client.list_tools()
+
+    assert isinstance(tools, list)
+    assert len(tools) > 0
+    
 
 def test_mcp_client_with_file():
     client = MCPClient(file=MCP_SERVERS_FILE)
