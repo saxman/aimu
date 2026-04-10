@@ -1,7 +1,6 @@
-import asyncio
-import threading
 from typing import Optional
 
+from anyio.from_thread import start_blocking_portal
 from fastmcp import Client, FastMCP
 from fastmcp.client.transports import StdioTransport
 
@@ -16,8 +15,8 @@ class _ToolResponse:
 class MCPClient:
     """Synchronous wrapper around an async FastMCP Client.
 
-    Runs an asyncio event loop in a background thread and submits coroutines
-    via run_coroutine_threadsafe, avoiding anyio cancel-scope nesting issues.
+    Uses anyio's start_blocking_portal() to run the FastMCP Client in a
+    background thread with a properly initialized anyio event loop.
     """
 
     def __init__(self, config: Optional[dict] = None, server: Optional[FastMCP] = None, file: Optional[str] = None):
@@ -29,12 +28,9 @@ class MCPClient:
         else:
             self._transport = server or file
 
-        self._loop = asyncio.new_event_loop()
-        self._thread = threading.Thread(target=self._loop.run_forever, daemon=True)
-        self._thread.start()
-
-        future = asyncio.run_coroutine_threadsafe(self._connect(), self._loop)
-        future.result()
+        self._portal_cm = start_blocking_portal(backend="asyncio")
+        self._portal = self._portal_cm.__enter__()
+        self._portal.call(self._connect)
 
     async def _connect(self):
         self._client = Client(self._transport)
@@ -42,14 +38,11 @@ class MCPClient:
 
     def __del__(self):
         try:
-            future = asyncio.run_coroutine_threadsafe(self._client.__aexit__(None, None, None), self._loop)
-            future.result(timeout=5)
+            self._portal.call(self._client.__aexit__, None, None, None)
         except Exception:
             pass
-        self._loop.call_soon_threadsafe(self._loop.stop)
-        self._thread.join(timeout=5)
         try:
-            self._loop.close()
+            self._portal_cm.__exit__(None, None, None)
         except Exception:
             pass
 
@@ -63,15 +56,12 @@ class MCPClient:
         return self._client
 
     def call_tool(self, tool_name: str, params: dict):
-        future = asyncio.run_coroutine_threadsafe(self._client.call_tool(tool_name, params), self._loop)
-        result = future.result()
-        # FastMCP ≥2.x returns CallToolResult; older versions returned a list directly
+        result = self._portal.call(self._client.call_tool, tool_name, params)
         content = result.content if hasattr(result, "content") else result
         return _ToolResponse(content)
 
     def list_tools(self):
-        future = asyncio.run_coroutine_threadsafe(self._client.list_tools(), self._loop)
-        return future.result()
+        return self._portal.call(self._client.list_tools)
 
     def get_tools(self) -> list[dict]:
         return [
