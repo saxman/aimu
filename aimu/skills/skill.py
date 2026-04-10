@@ -25,5 +25,5 @@ class Skill:
         if content.startswith("---"):
             end = content.find("---", 3)
             if end != -1:
-                return content[end + 3:].strip()
+                return content[end + 3 :].strip()
         return content.strip()

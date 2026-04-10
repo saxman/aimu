@@ -97,9 +97,7 @@ class Agent:
 
         catalog = self.skill_manager.catalog_prompt()
         instructions = (
-            "\n\n"
-            + catalog
-            + "\n\nWhen a task matches a skill's description, call `activate_skill` "
+            "\n\n" + catalog + "\n\nWhen a task matches a skill's description, call `activate_skill` "
             "with the skill name to load its full instructions before proceeding."
         )
         self.model_client.system_message = (self.model_client.system_message or "") + instructions
@@ -143,6 +141,7 @@ class Agent:
         skill_manager = None
         if "skill_dirs" in config or config.get("use_skills", False):
             from aimu.skills.manager import SkillManager
+
             skill_manager = SkillManager(skill_dirs=config.get("skill_dirs"))
 
         return cls(
