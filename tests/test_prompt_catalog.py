@@ -1,14 +1,14 @@
-import os
+from collections.abc import Iterator
+
 import pytest
 
 from aimu.prompts import Prompt, PromptCatalog
 
 
 @pytest.fixture
-def prompt_catalog() -> PromptCatalog:
-    catalog = PromptCatalog("test.db")
-    yield catalog
-    os.remove("test.db")
+def prompt_catalog(tmp_path) -> Iterator[PromptCatalog]:
+    with PromptCatalog(str(tmp_path / "test.db")) as catalog:
+        yield catalog
 
 
 def test_store_prompt(prompt_catalog):

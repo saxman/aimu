@@ -32,6 +32,16 @@ class PromptCatalog:
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
 
+    def close(self):
+        self.session.close()
+        self.engine.dispose()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
     def __del__(self):
         self.session.close()
 
