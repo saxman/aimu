@@ -6,7 +6,7 @@ Uses a lightweight MockModelClient so no real model backend is required.
 
 from unittest.mock import MagicMock, patch
 from aimu.agents import Agent, AgentChunk, Workflow, WorkflowChunk
-from aimu.models.base_client import StreamingContentType, ModelClient
+from aimu.models.base_client import StreamingContentType, StreamChunk, ModelClient
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ class MockModelClient(ModelClient):
     def chat_streamed(self, user_message, generate_kwargs=None, use_tools=True):
         response = self.chat(user_message, generate_kwargs, use_tools)
         self._streaming_content_type = StreamingContentType.GENERATING
-        yield response
+        yield StreamChunk(StreamingContentType.GENERATING, response)
         self._streaming_content_type = StreamingContentType.DONE
 
     def generate(self, prompt, generate_kwargs=None):
@@ -69,7 +69,7 @@ class MockModelClient(ModelClient):
 
     def generate_streamed(self, prompt, generate_kwargs=None, include_thinking=True):
         self._streaming_content_type = StreamingContentType.GENERATING
-        yield self.generate(prompt, generate_kwargs)
+        yield StreamChunk(StreamingContentType.GENERATING, self.generate(prompt, generate_kwargs))
         self._streaming_content_type = StreamingContentType.DONE
 
     def _update_generate_kwargs(self, generate_kwargs=None):
