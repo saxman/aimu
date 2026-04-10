@@ -15,9 +15,9 @@ class OllamaModel(Model):
     LLAMA_3_1_8B = ("llama3.1:8b", False)  # doesn't use tools when expected
     LLAMA_3_2_3B = ("llama3.2:3b", False)  # doesn't use tools when expected
     GEMMA_3_12B = "gemma3:12b"
-    GEMMA_4_E4B = ("gemma4:e4b", True, True)
-    GEMMA_4_26B = ("gemma4:26b", True, True)
-    GEMMA_4_31B = ("gemma4:31b", True, True)
+    GEMMA_4_E4B = ("gemma4:e4b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
+    GEMMA_4_26B = ("gemma4:26b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
+    GEMMA_4_31B = ("gemma4:31b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
     PHI_4_14B = "phi4:14b"
     PHI_4_MINI_3_8B = "phi4-mini:3.8b"
     DEEPSEEK_R1_8B = ("deepseek-r1:8b", False, True)
