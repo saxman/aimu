@@ -10,3 +10,9 @@ package = root / "aimu"
 
 # Path to transient output directory
 output = root / "output"
+
+# Path to persistent data directory
+data = root / "data"
+
+# Path to Agent skills directory
+skills = data / "skills"
