@@ -99,6 +99,13 @@ class HuggingFaceModel(Model):
         {"temperature": 0.6},
     )
     GEMMA_3_12B = "google/gemma-3-12b-it"
+    GEMMA_4_E4B = (
+        "google/gemma-4-E4B-it",
+        True,
+        False,
+        ToolCallPrefix.XML,
+        {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
+    )
     PHI_4_14B = "microsoft/phi-4"
     PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
     MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, ToolCallPrefix.JSON_ARRAY)
