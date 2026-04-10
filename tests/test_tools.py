@@ -17,6 +17,7 @@ MCP_SERVERS_FILE = str(paths.package / "tools" / "servers.py")
 def _response_text(response) -> str:
     return response.content[0].text  # type: ignore[union-attr]
 
+
 def test_mcp_client_with_config():
     config = {
         "mcpServers": {"echo": {"command": "python", "args": [MCP_SERVERS_FILE]}},
@@ -41,7 +42,7 @@ def test_mcp_client_with_config_module():
 
     assert isinstance(tools, list)
     assert len(tools) > 0
-    
+
 
 def test_mcp_client_with_file():
     client = MCPClient(file=MCP_SERVERS_FILE)
@@ -123,10 +124,13 @@ FAKE_WEATHER_RESPONSE = {
 
 def test_get_weather_returns_data():
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", side_effect=[
-        _mock_response(json_data=FAKE_GEO_RESPONSE),
-        _mock_response(json_data=FAKE_WEATHER_RESPONSE),
-    ]):
+    with patch(
+        "aimu.tools.servers.requests.get",
+        side_effect=[
+            _mock_response(json_data=FAKE_GEO_RESPONSE),
+            _mock_response(json_data=FAKE_WEATHER_RESPONSE),
+        ],
+    ):
         response = client.call_tool("get_weather", {"location": "London"})
 
     text = _response_text(response)

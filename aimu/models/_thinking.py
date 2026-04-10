@@ -39,7 +39,7 @@ class _ThinkingParser:
             else:
                 if idx > 0:
                     results.append((phase, self._buffer[:idx]))
-                self._buffer = self._buffer[idx + len(tag):]
+                self._buffer = self._buffer[idx + len(tag) :]
                 self._in_thinking = not self._in_thinking
 
         return results
