@@ -54,7 +54,7 @@ def stream_chat_response(streamed_response):
 
 MCP_SERVERS = {
     "mcpServers": {
-        "aimu": {"command": "python", "args": [str(paths.package / "tools" / "servers.py")]},
+        "aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]},
     }
 }
 

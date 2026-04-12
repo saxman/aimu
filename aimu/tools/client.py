@@ -2,11 +2,10 @@ from typing import Optional
 
 from anyio.from_thread import start_blocking_portal
 from fastmcp import Client, FastMCP
-from fastmcp.client.transports import StdioTransport
 
 
 class _ToolResponse:
-    """Wraps FastMCP 2.0 call_tool list result to preserve the .content API."""
+    """Wraps FastMCP call_tool list result to preserve the .content API."""
 
     def __init__(self, content: list):
         self.content = content
@@ -21,12 +20,11 @@ class MCPClient:
 
     def __init__(self, config: Optional[dict] = None, server: Optional[FastMCP] = None, file: Optional[str] = None):
         if config is not None:
-            servers = config.get("mcpServers", {})
-            first = next(iter(servers.values()))
-            transport = StdioTransport(command=first["command"], args=first.get("args", []))
-            self._transport = transport
+            self._transport = config
+        elif server is not None:
+            self._transport = server
         else:
-            self._transport = server or file
+            self._transport = file
 
         self._portal_cm = start_blocking_portal(backend="asyncio")
         self._portal = self._portal_cm.__enter__()

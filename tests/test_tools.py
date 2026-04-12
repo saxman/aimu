@@ -11,7 +11,9 @@ from aimu.tools.mcp import mcp
 
 from fastmcp import FastMCP
 
-MCP_SERVERS_FILE = str(paths.package / "tools" / "mcp.py")
+# Use -m to avoid naming conflict: files named mcp.py shadow the `mcp` package
+# when Python adds the script's directory to sys.path on direct execution.
+ECHO_SERVER_FILE = str(Path(__file__).parent / "echo_server.py")
 
 
 def _response_text(response) -> str:
@@ -20,7 +22,7 @@ def _response_text(response) -> str:
 
 def test_mcp_client_with_config():
     config = {
-        "mcpServers": {"echo": {"command": "python", "args": [MCP_SERVERS_FILE]}},
+        "mcpServers": {"aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]}},
     }
 
     client = MCPClient(config=config)
@@ -45,7 +47,8 @@ def test_mcp_client_with_config_module():
 
 
 def test_mcp_client_with_file():
-    client = MCPClient(file=MCP_SERVERS_FILE)
+    # Uses a helper script not named mcp.py to avoid shadowing the `mcp` package.
+    client = MCPClient(file=ECHO_SERVER_FILE)
     tools = client.list_tools()
 
     assert isinstance(tools, list)
