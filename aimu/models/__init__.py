@@ -33,6 +33,8 @@ try:
         OllamaOpenAIClient,
         HFOpenAIClient,
         VLLMOpenAIClient,
+        LlamaServerOpenAIClient,
+        SGLangOpenAIClient,
     )
 
     HAS_OPENAI_COMPAT = True
@@ -43,6 +45,8 @@ except ImportError:
     OllamaOpenAIClient = None
     HFOpenAIClient = None
     VLLMOpenAIClient = None
+    LlamaServerOpenAIClient = None
+    SGLangOpenAIClient = None
 
 try:
     from .llamacpp import LlamaCppClient
@@ -62,7 +66,15 @@ if HAS_AISUITE:
     __all__.append("AisuiteClient")
 if HAS_OPENAI_COMPAT:
     __all__.extend(
-        ["OpenAICompatClient", "LMStudioOpenAIClient", "OllamaOpenAIClient", "HFOpenAIClient", "VLLMOpenAIClient"]
+        [
+            "OpenAICompatClient",
+            "LMStudioOpenAIClient",
+            "OllamaOpenAIClient",
+            "HFOpenAIClient",
+            "VLLMOpenAIClient",
+            "LlamaServerOpenAIClient",
+            "SGLangOpenAIClient",
+        ]
     )
 if HAS_LLAMACPP:
     __all__.append("LlamaCppClient")

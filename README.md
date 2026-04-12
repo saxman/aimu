@@ -17,6 +17,8 @@ A Python package containing easy to use tools for working with various language 
         -   [Ollama](https://ollama.com/) OpenAI-compat endpoint (`OllamaOpenAIClient`)
         -   [HuggingFace Transformers Serve](https://huggingface.co/docs/transformers/main/serving) (`HFOpenAIClient`)
         -   [vLLM](https://docs.vllm.ai/) (`VLLMOpenAIClient`)
+        -   [llama.cpp llama-server](https://github.com/ggml-org/llama.cpp/tree/master/tools/server) (`LlamaServerOpenAIClient`)
+        -   [SGLang](https://docs.sglang.ai/) (`SGLangOpenAIClient`)
         -   Any OpenAI-compatible server (`OpenAICompatClient`)
 
 -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
@@ -181,7 +183,7 @@ for chunk in model_client.chat_streamed("What is the capital of France?"):
 
 ### OpenAI-Compatible Local Servers
 
-Use `LMStudioOpenAIClient`, `OllamaOpenAIClient`, `HFOpenAIClient`, or `VLLMOpenAIClient` to connect to any local server that speaks the OpenAI REST API. Each client uses service-appropriate default URLs and model IDs:
+Use any of the service-specific clients to connect to a local server that speaks the OpenAI REST API. Each client uses service-appropriate default URLs and model IDs:
 
 ``` python
 from aimu.models import LMStudioOpenAIClient, LMStudioOpenAIModel
@@ -196,6 +198,24 @@ from aimu.models import OllamaOpenAIClient, OllamaOpenAIModel
 
 # Connects to Ollama's OpenAI-compat endpoint at http://localhost:11434/v1
 client = OllamaOpenAIClient(OllamaOpenAIModel.QWEN_3_8B)
+response = client.chat("What is the capital of France?")
+```
+
+``` python
+from aimu.models import LlamaServerOpenAIClient, LlamaServerOpenAIModel
+
+# Connects to llama-server at http://localhost:8080/v1 by default
+# Start with: llama-server -m /path/to/model.gguf --port 8080
+client = LlamaServerOpenAIClient(LlamaServerOpenAIModel.QWEN_3_8B)
+response = client.chat("What is the capital of France?")
+```
+
+``` python
+from aimu.models import SGLangOpenAIClient, SGLangOpenAIModel
+
+# Connects to SGLang at http://localhost:30000/v1 by default
+# Start with: python -m sglang.launch_server --model-path Qwen/Qwen3-8B --port 30000
+client = SGLangOpenAIClient(SGLangOpenAIModel.QWEN_3_8B)
 response = client.chat("What is the capital of France?")
 ```
 
