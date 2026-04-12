@@ -38,19 +38,18 @@ hf = [
 ollama = [
     "ollama",
 ]
-aisuite = [
-    "aisuite[openai]>=0.1.14",
+anthropic = [
     "anthropic>=0.50.0",
-    "docstring-parser>=0.15.0",
-    "python-dotenv"
+    "python-dotenv",
 ]
 openai_compat = [
     "openai>=1.0.0",
+    "python-dotenv",
 ]
 llamacpp = [
     "llama-cpp-python",
 ]
-all = ["aimu[hf,ollama,aisuite,openai_compat,llamacpp]"]
+all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp]"]
 
 [build-system]
 requires = ["setuptools"]

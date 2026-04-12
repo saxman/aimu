@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AIMU (AI Model Utilities) is a Python package for working with language models, specifically designed for running models locally via Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework, with support for cloud models through aisuite. The package provides unified interfaces for model interaction, MCP tool integration, conversation management, semantic memory storage, and prompt storage/tuning.
+AIMU (AI Model Utilities) is a Python package for working with language models, designed for running models locally via Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework, with direct cloud provider support for OpenAI, Anthropic, and Google Gemini. The package provides unified interfaces for model interaction, MCP tool integration, conversation management, semantic memory storage, and prompt storage/tuning.
 
 ## Development Commands
 
@@ -24,8 +24,8 @@ For specific model backends only:
 ```bash
 pip install -e '.[ollama]'         # Ollama only
 pip install -e '.[hf]'             # Hugging Face only
-pip install -e '.[aisuite]'        # Cloud models (OpenAI, Anthropic, etc.)
-pip install -e '.[openai_compat]'  # OpenAI-compatible local servers (LM Studio, HF Transformers Serve, vLLM, etc.)
+pip install -e '.[anthropic]'      # Anthropic Claude models
+pip install -e '.[openai_compat]'  # OpenAI-compatible servers + cloud (OpenAI, Gemini, LM Studio, vLLM, etc.)
 pip install -e '.[llamacpp]'       # Local GGUF models via llama-cpp-python (no external service)
 ```
 
@@ -40,7 +40,9 @@ Run tests for a specific client:
 ```bash
 pytest tests/test_models.py --client=ollama
 pytest tests/test_models.py --client=hf
-pytest tests/test_models.py --client=aisuite
+pytest tests/test_models.py --client=openai
+pytest tests/test_models.py --client=anthropic
+pytest tests/test_models.py --client=gemini
 pytest tests/test_models.py --client=lmstudio_openai
 pytest tests/test_models.py --client=ollama_openai
 pytest tests/test_models.py --client=hf_openai
@@ -108,9 +110,11 @@ The codebase uses an abstract base class pattern for model clients:
 - **Model Implementations**:
   - [aimu/models/ollama/ollama_client.py](aimu/models/ollama/ollama_client.py): `OllamaClient` for local Ollama models (native API)
   - [aimu/models/hf/hf_client.py](aimu/models/hf/hf_client.py): `HuggingFaceClient` for local Transformers models
-  - [aimu/models/aisuite/aisuite_client.py](aimu/models/aisuite/aisuite_client.py): `AisuiteClient` for cloud models (OpenAI, Anthropic, etc.)
-  - [aimu/models/openai_compat/](aimu/models/openai_compat/): OpenAI-compatible REST API clients (require `openai_compat` extra):
+  - [aimu/models/anthropic/anthropic_client.py](aimu/models/anthropic/anthropic_client.py): `AnthropicClient` for Anthropic Claude models (native `anthropic` SDK)
+  - [aimu/models/openai_compat/](aimu/models/openai_compat/): All `openai`-SDK clients (require `openai_compat` extra):
     - `OpenAICompatClient` — generic base for any OpenAI-compatible server
+    - `OpenAIClient` — [OpenAI](https://platform.openai.com/) cloud API (GPT-4o, GPT-4.1, o-series); reads `OPENAI_API_KEY`
+    - `GeminiClient` — [Google Gemini](https://ai.google.dev/) via Google's OpenAI-compat endpoint; reads `GOOGLE_API_KEY`
     - `LMStudioOpenAIClient` — [LM Studio](https://lmstudio.ai/) (default: `localhost:1234`)
     - `OllamaOpenAIClient` — Ollama OpenAI-compat endpoint (default: `localhost:11434`)
     - `HFOpenAIClient` — HuggingFace Transformers Serve (default: `localhost:8000`)
@@ -127,7 +131,7 @@ The codebase uses an abstract base class pattern for model clients:
   - `TOOL_MODELS`: Derived list of models where `supports_tools=True`
   - `THINKING_MODELS`: Derived list of models where `supports_thinking=True`
 
-- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies — clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_AISUITE`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`).
+- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies — clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK.
 
 ### MCP Tools Integration
 
@@ -292,10 +296,12 @@ Models with `supports_thinking=True` support extended reasoning:
 - Thinking support works the same as `OpenAICompatClient` — `<think>...</think>` tags in content, parsed by shared utilities in `_thinking.py`
 - Test with `pytest tests/test_models.py --client=llamacpp --model-path=/path/to/model.gguf`
 
-### AisuiteClient Notes
+### Cloud Provider Client Notes
 
-- `AisuiteClient` defines `TOOL_MODELS` and `THINKING_MODELS` via the shared `classproperty` pattern, derived from `supports_tools` / `supports_thinking` flags on `AisuiteModel` enum members
-- The client checks aisuite capabilities to decide whether to pass `max_tokens` vs `max_completion_tokens`
+- **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/openai_compat/openai_client.py](aimu/models/openai_compat/openai_client.py).
+- **`AnthropicClient`** (`aimu[anthropic]`): full implementation using the native `anthropic` SDK; reads `ANTHROPIC_API_KEY`. `self.messages` is always stored in OpenAI format — conversion to Anthropic format (`_openai_messages_to_anthropic`) and tool format conversion (`_openai_tools_to_anthropic`) happen at call time. After `_handle_tool_calls()` assigns random IDs, `_patch_tool_ids()` replaces them with Anthropic's original `tool_use` block IDs so that tool results are correctly matched. Thinking is native (`thinking={"type": "enabled", "budget_tokens": N}`) — not `<think>` tag parsing.
+- **`GeminiClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://generativelanguage.googleapis.com/v1beta/openai/`; reads `GOOGLE_API_KEY`. Gemini 2.5 thinking models emit `<think>` tags on this endpoint, so `_ThinkingParser` works as-is. Lives in [aimu/models/openai_compat/gemini_client.py](aimu/models/openai_compat/gemini_client.py).
+- Test with `pytest tests/test_models.py --client=openai` (or `anthropic`, `gemini`)
 
 ## Project Structure
 
@@ -306,13 +312,15 @@ aimu/
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
 │   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallPrefix)
-│   ├── aisuite/         # Cloud models client (AisuiteClient, AisuiteModel)
+│   ├── anthropic/       # Anthropic Claude client (AnthropicClient, AnthropicModel)
 │   ├── openai_compat/   # OpenAI-compatible clients (requires openai package)
 │   │   ├── openai_compat_client.py      # OpenAICompatClient base
 │   │   ├── lmstudio_openai_client.py    # LMStudioOpenAIClient + LMStudioOpenAIModel
 │   │   ├── ollama_openai_client.py      # OllamaOpenAIClient + OllamaOpenAIModel
 │   │   ├── hf_openai_client.py          # HFOpenAIClient + HFOpenAIModel
 │   │   ├── vllm_openai_client.py        # VLLMOpenAIClient + VLLMOpenAIModel
+│   │   ├── openai_client.py             # OpenAIClient + OpenAIModel (OpenAI GPT/o-series)
+│   │   ├── gemini_client.py             # GeminiClient + GeminiModel (Google Gemini)
 │   │   ├── llamaserver_openai_client.py # LlamaServerOpenAIClient + LlamaServerOpenAIModel
 │   │   └── sglang_openai_client.py      # SGLangOpenAIClient + SGLangOpenAIModel
 │   └── llamacpp/        # llama-cpp-python client (requires llamacpp package)

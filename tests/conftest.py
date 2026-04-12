@@ -8,8 +8,9 @@ from typing import Iterator
 import pytest
 
 from aimu.models import (
-    AisuiteClient,
+    HAS_ANTHROPIC,
     HAS_LLAMACPP,
+    HAS_OPENAI_COMPAT,
     HFOpenAIClient,
     HuggingFaceClient,
     LMStudioOpenAIClient,
@@ -23,6 +24,12 @@ from aimu.models import (
 if HAS_LLAMACPP:
     from aimu.models.llamacpp import LlamaCppModel
 
+if HAS_ANTHROPIC:
+    from aimu.models import AnthropicClient
+
+if HAS_OPENAI_COMPAT:
+    from aimu.models import OpenAIClient, GeminiClient
+
 
 def pytest_addoption(parser):
     """Add custom command line options for pytest."""
@@ -30,7 +37,10 @@ def pytest_addoption(parser):
         "--client",
         action="store",
         default="all",
-        help="Client type to test: 'ollama', 'hf'/'huggingface', 'aisuite', or 'all' (default: all)",
+        help=(
+            "Client type to test: 'ollama', 'hf'/'huggingface', "
+            "'openai', 'anthropic', 'gemini', or 'all' (default: all)"
+        ),
     )
 
     parser.addoption(
@@ -57,8 +67,18 @@ def _resolve_client(client_type: str, config):
     """Return the client class for a given --client value (must not be 'all')."""
     if client_type in ["hf", "huggingface"]:
         return HuggingFaceClient
-    if client_type == "aisuite":
-        return AisuiteClient
+    if client_type == "openai":
+        if not HAS_OPENAI_COMPAT:
+            pytest.skip("openai package not installed")
+        return OpenAIClient
+    if client_type == "anthropic":
+        if not HAS_ANTHROPIC:
+            pytest.skip("anthropic package not installed")
+        return AnthropicClient
+    if client_type == "gemini":
+        if not HAS_OPENAI_COMPAT:
+            pytest.skip("openai package not installed")
+        return GeminiClient
     if client_type == "openai_compat":
         from aimu.models import OpenAICompatClient
         return OpenAICompatClient
@@ -101,20 +121,34 @@ def resolve_model_params(config, default_params=None) -> list:
             params = (
                 list(OllamaClient.MODELS)
                 + list(HuggingFaceClient.MODELS)
-                + list(AisuiteClient.MODELS)
+                + (list(AnthropicClient.MODELS) if HAS_ANTHROPIC else [])
                 + list(LMStudioOpenAIClient.MODELS)
                 + list(OllamaOpenAIClient.MODELS)
                 + list(HFOpenAIClient.MODELS)
                 + list(VLLMOpenAIClient.MODELS)
             )
+            if HAS_OPENAI_COMPAT:
+                params += list(OpenAIClient.MODELS) + list(GeminiClient.MODELS)
             if HAS_LLAMACPP:
                 params += list(LlamaCppModel)
             return params
         # Search for named model across all clients
+        extra_clients = []
+        if HAS_ANTHROPIC:
+            extra_clients.append(AnthropicClient)
+        if HAS_OPENAI_COMPAT:
+            extra_clients.extend([OpenAIClient, GeminiClient])
+
         params = []
-        for client in (OllamaClient, HuggingFaceClient, AisuiteClient,
-                       LMStudioOpenAIClient, OllamaOpenAIClient,
-                       HFOpenAIClient, VLLMOpenAIClient):
+        for client in (
+            OllamaClient,
+            HuggingFaceClient,
+            *extra_clients,
+            LMStudioOpenAIClient,
+            OllamaOpenAIClient,
+            HFOpenAIClient,
+            VLLMOpenAIClient,
+        ):
             if model in client.MODELS:
                 params.append(client.MODELS[model])
         return params
@@ -140,8 +174,12 @@ def create_real_model_client(request) -> Iterator[ModelClient]:
         client = OllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
     elif model in HuggingFaceClient.MODELS:
         client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
-    elif model in AisuiteClient.MODELS:
-        client = AisuiteClient(model, system_message="You are a helpful assistant.")
+    elif HAS_ANTHROPIC and model in AnthropicClient.MODELS:
+        client = AnthropicClient(model, system_message="You are a helpful assistant.")
+    elif HAS_OPENAI_COMPAT and model in OpenAIClient.MODELS:
+        client = OpenAIClient(model, system_message="You are a helpful assistant.")
+    elif HAS_OPENAI_COMPAT and model in GeminiClient.MODELS:
+        client = GeminiClient(model, system_message="You are a helpful assistant.")
     elif model in LMStudioOpenAIClient.MODELS:
         client = LMStudioOpenAIClient(model, system_message="You are a helpful assistant.")
     elif model in OllamaOpenAIClient.MODELS:

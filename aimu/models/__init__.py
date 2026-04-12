@@ -19,16 +19,21 @@ except ImportError:
     OllamaClient = None
 
 try:
-    from .aisuite import AisuiteClient
+    from .anthropic import AnthropicClient, AnthropicModel
 
-    HAS_AISUITE = True
+    HAS_ANTHROPIC = True
 except ImportError:
-    HAS_AISUITE = False
-    AisuiteClient = None
+    HAS_ANTHROPIC = False
+    AnthropicClient = None
+    AnthropicModel = None
 
 try:
     from .openai_compat import (
         OpenAICompatClient,
+        OpenAIClient,
+        OpenAIModel,
+        GeminiClient,
+        GeminiModel,
         LMStudioOpenAIClient,
         OllamaOpenAIClient,
         HFOpenAIClient,
@@ -41,6 +46,10 @@ try:
 except ImportError:
     HAS_OPENAI_COMPAT = False
     OpenAICompatClient = None
+    OpenAIClient = None
+    OpenAIModel = None
+    GeminiClient = None
+    GeminiModel = None
     LMStudioOpenAIClient = None
     OllamaOpenAIClient = None
     HFOpenAIClient = None
@@ -62,12 +71,16 @@ if HAS_HF:
     __all__.append("HuggingFaceClient")
 if HAS_OLLAMA:
     __all__.append("OllamaClient")
-if HAS_AISUITE:
-    __all__.append("AisuiteClient")
+if HAS_ANTHROPIC:
+    __all__.extend(["AnthropicClient", "AnthropicModel"])
 if HAS_OPENAI_COMPAT:
     __all__.extend(
         [
             "OpenAICompatClient",
+            "OpenAIClient",
+            "OpenAIModel",
+            "GeminiClient",
+            "GeminiModel",
             "LMStudioOpenAIClient",
             "OllamaOpenAIClient",
             "HFOpenAIClient",

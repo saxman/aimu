@@ -2,7 +2,7 @@
 
 # AIMU - AI Model Utilities
 
-A Python package containing easy to use tools for working with various language models and AI services. AIMU is specifically designed for running models locally, using Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework. It can also be used with cloud models (OpenAI, Anthropic, Google, etc.) via [aisuite](https://github.com/andrewyng/aisuite) support.
+A Python package containing easy to use tools for working with various language models and AI services. AIMU is designed for running models locally via Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework, and for cloud models via native provider SDKs (OpenAI, Anthropic, Google Gemini).
 
 ## Features
 
@@ -11,8 +11,10 @@ A Python package containing easy to use tools for working with various language 
     -   [Ollama](https://ollama.com/) (local models, native API)
     -   [Hugging Face Transformers](https://huggingface.co/docs/transformers) (local models)
     -   [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) (local GGUF models, in-process, no external service required)
-    -   [aisuite](https://github.com/andrewyng/aisuite) supported models (cloud and local models), including OpenAI (others coming)
-    -   OpenAI-compatible local serving frameworks via the `openai` SDK:
+    -   [Anthropic](https://www.anthropic.com/) Claude models via native `anthropic` SDK (`AnthropicClient`) — native thinking support
+    -   Cloud and local servers via the `openai` SDK (`aimu[openai_compat]`):
+        -   [OpenAI](https://platform.openai.com/) (`OpenAIClient`) — GPT-4o, GPT-4.1, o3, o4-mini, and more
+        -   [Google Gemini](https://ai.google.dev/) (`GeminiClient`) — Gemini 2.0/2.5 via Google's OpenAI-compatible endpoint
         -   [LM Studio](https://lmstudio.ai/) (`LMStudioOpenAIClient`)
         -   [Ollama](https://ollama.com/) OpenAI-compat endpoint (`OllamaOpenAIClient`)
         -   [HuggingFace Transformers Serve](https://huggingface.co/docs/transformers/main/serving) (`HFOpenAIClient`)
@@ -47,45 +49,23 @@ In addition to the AIMU package in the 'aimu' directory, the AIMU code repositor
 
 ## Installation
 
-AIMU can be installed with Ollama support, Hugging Face Transformers support, and/or aisuite (cloud models) support.
-
 For all features, run:
 
 ``` bash
 pip install aimu[all]
 ```
 
-Alternatively, for Ollama-only support:
+Or install only what you need:
 
 ``` bash
-pip install aimu[ollama]
+pip install aimu[ollama]        # Ollama (local models, native API)
+pip install aimu[hf]            # Hugging Face Transformers (local models)
+pip install aimu[anthropic]     # Anthropic Claude models
+pip install aimu[openai_compat] # OpenAI, Google Gemini, and OpenAI-compatible local servers
+pip install aimu[llamacpp]      # Local GGUF models via llama-cpp-python (no external service)
 ```
 
-For Hugging Face Tranformers model support:
-
-``` bash
-pip install aimu[hf]
-```
-
-For aisuite models (e.g. OpenAI):
-
-``` bash
-pip install aimu[aisuite]
-```
-
-For OpenAI-compatible local servers (LM Studio, Ollama, HuggingFace Transformers Serve, vLLM, etc.):
-
-``` bash
-pip install aimu[openai_compat]
-```
-
-For local GGUF models via llama-cpp-python (no external service required):
-
-``` bash
-pip install aimu[llamacpp]
-```
-
-For accessing potentially gated models via Hugging Face, you'll need to get and store (locally) a [Hugging Face Hub access token](https://huggingface.co/docs/huggingface_hub/en/quick-start). Once you have a token, you can install it locally with:
+For gated Hugging Face models, you'll need a [Hugging Face Hub access token](https://huggingface.co/docs/huggingface_hub/en/quick-start):
 
 ``` bash
 hf auth login
@@ -180,6 +160,38 @@ for chunk in model_client.chat_streamed("What is the capital of France?"):
 
     print(chunk.content, end="", flush=True)
 ```
+
+### Cloud Model Providers
+
+`OpenAIClient`, `AnthropicClient`, and `GeminiClient` connect to cloud APIs using each provider's native SDK or OpenAI-compatible endpoint. API keys are read from environment variables (or a `.env` file).
+
+``` python
+from aimu.models import OpenAIClient, OpenAIModel
+
+client = OpenAIClient(OpenAIModel.GPT_4O_MINI)
+response = client.chat("What is the capital of France?")
+```
+
+``` python
+from aimu.models import AnthropicClient, AnthropicModel
+
+client = AnthropicClient(AnthropicModel.CLAUDE_SONNET_4_6)
+response = client.chat("What is the capital of France?")
+```
+
+``` python
+from aimu.models import GeminiClient, GeminiModel
+
+client = GeminiClient(GeminiModel.GEMINI_2_0_FLASH)
+response = client.chat("What is the capital of France?")
+```
+
+All three support the full `ModelClient` API including streaming, tool calling, and thinking models (`AnthropicModel.CLAUDE_SONNET_4_6`, `GeminiModel.GEMINI_2_5_PRO`).
+
+Required environment variables:
+- OpenAI: `OPENAI_API_KEY`
+- Anthropic: `ANTHROPIC_API_KEY`
+- Google Gemini: `GOOGLE_API_KEY`
 
 ### OpenAI-Compatible Local Servers
 
