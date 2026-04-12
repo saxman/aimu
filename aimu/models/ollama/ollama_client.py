@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 
 class OllamaModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False):
-        super().__init__(value, supports_tools, supports_thinking)
+    def __init__(self, value, supports_tools=False, supports_thinking=False, generation_kwargs=None):
+        super().__init__(value, supports_tools, supports_thinking, generation_kwargs)
 
     GPT_OSS_20B = ("gpt-oss:20b", True, True)
     LLAMA_3_1_8B = ("llama3.1:8b", False)  # doesn't use tools when expected
@@ -40,6 +40,7 @@ class OllamaClient(ModelClient):
 
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds
+        self.default_generate_kwargs = dict(model.generation_kwargs)
 
         ollama.pull(model.value)
 

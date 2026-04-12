@@ -7,11 +7,11 @@ import requests
 
 from aimu import paths
 from aimu.tools.client import MCPClient
-from aimu.tools.servers import mcp
+from aimu.tools.mcp import mcp
 
 from fastmcp import FastMCP
 
-MCP_SERVERS_FILE = str(paths.package / "tools" / "servers.py")
+MCP_SERVERS_FILE = str(paths.package / "tools" / "mcp.py")
 
 
 def _response_text(response) -> str:
@@ -33,7 +33,7 @@ def test_mcp_client_with_config():
 def test_mcp_client_with_config_module():
     config = {
         "mcpServers": {
-            "aimu": {"command": "python", "args": ["-m", "aimu.tools.servers"]},
+            "aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]},
         }
     }
 
@@ -125,7 +125,7 @@ FAKE_WEATHER_RESPONSE = {
 def test_get_weather_returns_data():
     client = MCPClient(server=mcp)
     with patch(
-        "aimu.tools.servers.requests.get",
+        "aimu.tools.mcp.requests.get",
         side_effect=[
             _mock_response(json_data=FAKE_GEO_RESPONSE),
             _mock_response(json_data=FAKE_WEATHER_RESPONSE),
@@ -142,7 +142,7 @@ def test_get_weather_returns_data():
 
 def test_get_weather_location_not_found():
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", return_value=_mock_response(json_data={"results": None})):
+    with patch("aimu.tools.mcp.requests.get", return_value=_mock_response(json_data={"results": None})):
         response = client.call_tool("get_weather", {"location": "unknownxyz"})
 
     assert "Location not found" in _response_text(response)
@@ -150,7 +150,7 @@ def test_get_weather_location_not_found():
 
 def test_get_weather_request_error():
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", side_effect=requests.RequestException("timeout")):
+    with patch("aimu.tools.mcp.requests.get", side_effect=requests.RequestException("timeout")):
         response = client.call_tool("get_weather", {"location": "London"})
 
     assert "Error fetching weather" in _response_text(response)
@@ -158,7 +158,7 @@ def test_get_weather_request_error():
 
 def test_get_weather_coordinates():
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", return_value=_mock_response(json_data=FAKE_WEATHER_RESPONSE)):
+    with patch("aimu.tools.mcp.requests.get", return_value=_mock_response(json_data=FAKE_WEATHER_RESPONSE)):
         response = client.call_tool("get_weather", {"location": "51.5,-0.12"})
 
     text = _response_text(response)
@@ -185,7 +185,7 @@ def test_search_returns_results():
         ]
     }
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", return_value=_mock_response(json_data=fake_results)):
+    with patch("aimu.tools.mcp.requests.get", return_value=_mock_response(json_data=fake_results)):
         response = client.call_tool("search", {"query": "python", "num_results": 2})
 
     text = _response_text(response)
@@ -196,7 +196,7 @@ def test_search_returns_results():
 
 def test_search_no_results():
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", return_value=_mock_response(json_data={"results": []})):
+    with patch("aimu.tools.mcp.requests.get", return_value=_mock_response(json_data={"results": []})):
         response = client.call_tool("search", {"query": "xyzzy"})
 
     assert _response_text(response) == "No results found."
@@ -204,7 +204,7 @@ def test_search_no_results():
 
 def test_search_request_error():
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", side_effect=requests.RequestException("timeout")):
+    with patch("aimu.tools.mcp.requests.get", side_effect=requests.RequestException("timeout")):
         response = client.call_tool("search", {"query": "python"})
 
     assert "Error contacting SearXNG" in _response_text(response)
@@ -213,7 +213,7 @@ def test_search_request_error():
 def test_get_webpage_returns_text():
     html = "<html><head><title>Test</title></head><body><h1>Hello</h1><p>World</p></body></html>"
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", return_value=_mock_response(text=html)):
+    with patch("aimu.tools.mcp.requests.get", return_value=_mock_response(text=html)):
         response = client.call_tool("get_webpage", {"url": "https://example.com"})
 
     text = _response_text(response)
@@ -225,7 +225,7 @@ def test_get_webpage_returns_text():
 def test_get_webpage_strips_script_and_style():
     html = "<html><body><script>alert('x')</script><style>.a{}</style><p>Visible</p></body></html>"
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", return_value=_mock_response(text=html)):
+    with patch("aimu.tools.mcp.requests.get", return_value=_mock_response(text=html)):
         response = client.call_tool("get_webpage", {"url": "https://example.com"})
 
     text = _response_text(response)
@@ -236,7 +236,7 @@ def test_get_webpage_strips_script_and_style():
 
 def test_get_webpage_request_error():
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.servers.requests.get", side_effect=requests.RequestException("connection refused")):
+    with patch("aimu.tools.mcp.requests.get", side_effect=requests.RequestException("connection refused")):
         response = client.call_tool("get_webpage", {"url": "https://example.com"})
 
     assert "Error fetching page" in _response_text(response)

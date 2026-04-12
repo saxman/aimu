@@ -1,34 +1,16 @@
 """
-aimu.memory — Semantic fact storage using subject-predicate-object triples.
+aimu.memory.store — Semantic fact storage using subject-predicate-object triples.
 
 Facts like "Paul works at Google" are stored in ChromaDB and can be retrieved
 by semantic topic (e.g. "work", "family life") or by exact subject.
-
-MCP server
-----------
-This module also exposes MemoryStore operations as MCP tools via a FastMCP
-server. The storage path is configured with the MEMORY_STORE_PATH environment
-variable (defaults to ./memory_store).
-
-Run as a standalone MCP server::
-
-    python -m aimu.memory
-
-Or connect programmatically::
-
-    from aimu.tools.client import MCPClient
-    from aimu.memory import mcp
-    client = MCPClient(server=mcp)
 """
 
 from __future__ import annotations
 
-import os
 import uuid
 from typing import Optional
 
 import chromadb
-from fastmcp import FastMCP
 
 
 class MemoryStore:
@@ -119,40 +101,3 @@ class MemoryStore:
     def __len__(self) -> int:
         """Return the total number of stored facts."""
         return self._collection.count()
-
-
-_DEFAULT_PERSIST_PATH = os.environ.get("MEMORY_STORE_PATH", "./memory_store")
-
-mcp = FastMCP("AIMU Memory")
-_store = MemoryStore(persist_path=_DEFAULT_PERSIST_PATH)
-
-
-@mcp.tool()
-def search_memories(search_request: str) -> str:
-    """
-    Search for memories about the user.
-
-    Args:
-        search_request: Information about the user that's relevant to the conversation.
-
-    Returns:
-        Information about the user that's relevant to the conversation.
-    """
-    facts = _store.retrieve_facts(search_request)
-    return "\n".join(facts)
-
-
-@mcp.tool()
-def add_memories(memories: list[str]) -> None:
-    """
-    Add memories about the user.
-
-    Args:
-        memories: A list of memories, as strings, to save about the user.
-    """
-    for fact in memories:
-        _store.store_fact(fact)
-
-
-if __name__ == "__main__":
-    mcp.run()

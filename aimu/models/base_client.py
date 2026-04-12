@@ -31,10 +31,11 @@ class StreamChunk(NamedTuple):
 
 
 class Model(Enum):
-    def __init__(self, value: str, supports_tools: bool = False, supports_thinking: bool = False):
+    def __init__(self, value: str, supports_tools: bool = False, supports_thinking: bool = False, generation_kwargs: Optional[dict] = None):
         self._value_ = value
         self.supports_tools = supports_tools
         self.supports_thinking = supports_thinking
+        self.generation_kwargs = generation_kwargs or {}
 
 
 class classproperty:

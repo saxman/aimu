@@ -1,12 +1,38 @@
 """
 Tests for aimu.agents — Agent and Workflow classes.
 
-Uses a lightweight MockModelClient so no real model backend is required.
+Unit tests use MockModelClient inline (deterministic, no backend needed).
+The model_client fixture is available for integration tests:
+  - Default (no --client): MockModelClient
+  - pytest tests/test_agents.py --client=ollama --model=LLAMA_3_2_3B
 """
 
+from typing import Iterable
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from aimu.agents import Agent, AgentChunk, Workflow, WorkflowChunk
-from aimu.models.base_client import StreamingContentType, StreamChunk, ModelClient
+from aimu.models import ModelClient
+from aimu.models.base_client import StreamChunk, StreamingContentType
+from conftest import create_real_model_client, resolve_model_params
+
+_MOCK = "mock"
+
+
+def pytest_generate_tests(metafunc):
+    if "model_client" not in metafunc.fixturenames:
+        return
+    params = resolve_model_params(metafunc.config, default_params=[_MOCK])
+    metafunc.parametrize("model_client", params, indirect=True, scope="session")
+
+
+@pytest.fixture(scope="session")
+def model_client(request) -> Iterable[ModelClient]:
+    if request.param == _MOCK:
+        yield MockModelClient(["Hello, I am ready to help."])
+        return
+    yield from create_real_model_client(request)
 
 
 # ---------------------------------------------------------------------------

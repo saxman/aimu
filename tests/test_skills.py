@@ -2,14 +2,74 @@
 Tests for aimu.skills — Skill, SkillManager, and Agent skill integration.
 
 All filesystem tests use tmp_path so no real ~/.agents/skills paths are touched.
+Unit tests use MagicMock inline. The model_client fixture is available for
+integration tests:
+  - Default (no --client): MockModelClient
+  - pytest tests/test_skills.py --client=ollama --model=LLAMA_3_2_3B
 """
 
-import pytest
 from pathlib import Path
+from typing import Iterable
 from unittest.mock import MagicMock
 
-from aimu.skills.skill import Skill
+import pytest
+
+from aimu.models import ModelClient
+from aimu.models.base_client import StreamChunk, StreamingContentType
 from aimu.skills.manager import SkillManager
+from aimu.skills.skill import Skill
+from conftest import create_real_model_client, resolve_model_params
+
+_MOCK = "mock"
+
+
+class _MockModelClient(ModelClient):
+    """Minimal ModelClient stub for skill integration tests."""
+
+    def __init__(self):
+        self.model = MagicMock()
+        self.model.supports_tools = False
+        self.model.supports_thinking = False
+        self.model_kwargs = None
+        self._system_message = None
+        self.default_generate_kwargs = {}
+        self.messages = []
+        self.mcp_client = None
+        self.last_thinking = ""
+
+    def chat(self, user_message, generate_kwargs=None, use_tools=True):
+        self.messages.append({"role": "user", "content": user_message})
+        response = "I can help with that."
+        self.messages.append({"role": "assistant", "content": response})
+        return response
+
+    def chat_streamed(self, user_message, generate_kwargs=None, use_tools=True):
+        response = self.chat(user_message)
+        yield StreamChunk(StreamingContentType.GENERATING, response)
+
+    def generate(self, prompt, generate_kwargs=None):
+        return "Generated response."
+
+    def generate_streamed(self, prompt, generate_kwargs=None, include_thinking=True):
+        yield StreamChunk(StreamingContentType.GENERATING, "Generated response.")
+
+    def _update_generate_kwargs(self, generate_kwargs=None):
+        return generate_kwargs or {}
+
+
+def pytest_generate_tests(metafunc):
+    if "model_client" not in metafunc.fixturenames:
+        return
+    params = resolve_model_params(metafunc.config, default_params=[_MOCK])
+    metafunc.parametrize("model_client", params, indirect=True, scope="session")
+
+
+@pytest.fixture(scope="session")
+def model_client(request) -> Iterable[ModelClient]:
+    if request.param == _MOCK:
+        yield _MockModelClient()
+        return
+    yield from create_real_model_client(request)
 
 
 # ---------------------------------------------------------------------------

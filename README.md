@@ -29,7 +29,9 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Semantic Memory Storage**: Persistent fact memory using [ChromaDB](https://www.trychroma.com/). Facts are stored as natural-language subject-predicate-object strings (e.g. `"Paul works at Google"`) and retrieved by semantic topic (e.g. `"employment"`, `"family life"`).
 
--   **Prompt Storage/Management**: Prompt catalog for storing and versioning prompts using [SQLAlchemy](https://www.sqlalchemy.org/).
+-   **Agent Skills**: Filesystem-discovered skill definitions that inject instructions and tools into agents automatically. Skills are YAML-fronted Markdown files discovered from project and user directories.
+
+-   **Prompt Storage/Management**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)), plus a hill-climbing `PromptTuner` for automatic prompt optimization. A `ClassificationPromptTuner` is included for binary YES/NO classification tasks.
 
 ## Components
 
@@ -327,11 +329,11 @@ model_client.chat("use my tool please")
 
 ``` python
 from aimu.models import OllamaClient as ModelClient
-from aimu.memory import ConversationManager
+from aimu.history import ConversationManager
 
-chat_manager = ConversationManager("conversations.json", use_last_conversation=True) # loads the last saved convesation
+chat_manager = ConversationManager("conversations.json", use_last_conversation=True) # loads the last saved conversation
 
-model_client = new ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
+model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
 model_client.messages = chat_manager.messages
 
 model_client.chat("What is the capital of France?")
@@ -354,16 +356,59 @@ store.retrieve_facts("work and employment")   # ["Paul works at Google", ...]
 store.retrieve_facts("family relationships")  # ["Paul is married to Sarah", ...]
 ```
 
+### Agent Skills
+
+Skills are SKILL.md files discovered from `.agents/skills/` or `.claude/skills/` directories (project-level overrides user-level). Pass `skill_dirs` or `use_skills=True` to `Agent.from_config()` to enable them:
+
+``` python
+from aimu.agents import Agent
+from aimu.skills import SkillManager
+
+manager = SkillManager(skill_dirs=["./skills"])
+agent = Agent.from_config({"name": "assistant", "skill_dirs": ["./skills"]}, client)
+result = agent.run("Use the pdf-processing skill to extract pages from report.pdf")
+```
+
+Each skill directory contains a `SKILL.md` with YAML frontmatter (`name`, `description`) and optional `scripts/*.py` files that are registered as callable tools.
+
 ### Prompt Storage/Management
 
 ``` python
 from aimu.prompts import PromptCatalog, Prompt
 
-prompt_catalog = PromptCatalog("prompts.db")
+with PromptCatalog("prompts.db") as catalog:
+    prompt = Prompt(name="summarizer", prompt="Summarize the following: {content}", model_id="llama3.1:8b")
+    catalog.store_prompt(prompt)  # version and created_at assigned automatically
 
-prompt = Prompt("You are a helpful assistant", model_id="llama3.1:8b", version=1)
-prompt_catalog.store_prompt(prompt)
+    latest = catalog.retrieve_last("summarizer", "llama3.1:8b")
+    print(f"v{latest.version}: {latest.prompt}")
 ```
+
+### Prompt Tuning
+
+`ClassificationPromptTuner` uses hill-climbing to iteratively improve a prompt for binary YES/NO classification:
+
+``` python
+import pandas as pd
+from aimu.models import OllamaClient as ModelClient
+from aimu.prompts import ClassificationPromptTuner
+
+model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
+tuner = ClassificationPromptTuner(model_client=model_client)
+
+df = pd.DataFrame({
+    "content": ["LLMs are transforming AI.", "The recipe calls for flour.", ...],
+    "actual_class": [True, False, ...],
+})
+
+best_prompt = tuner.tune(
+    df,
+    initial_prompt="Is this about AI? Reply [YES] or [NO]. Content: {content}",
+    max_iterations=10,
+)
+```
+
+The tuner calls `apply_prompt` → `evaluate` → `mutation_prompt` in a loop, reverting on regression and saving each improvement to an optional `PromptCatalog`. Subclass `PromptTuner` to implement custom task types.
 
 ## License
 

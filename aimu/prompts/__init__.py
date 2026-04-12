@@ -1,8 +1,10 @@
 from .catalog import Prompt, PromptCatalog
-from .classification import ClassificationPromptTuner
+from .tuner import PromptTuner
+from .tuners import ClassificationPromptTuner
 
 __all__ = [
     "Prompt",
     "PromptCatalog",
+    "PromptTuner",
     "ClassificationPromptTuner",
 ]

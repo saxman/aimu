@@ -21,109 +21,23 @@ from aimu.models import ModelClient, HuggingFaceClient, OllamaClient, AisuiteCli
 from aimu.models import OpenAICompatClient, LMStudioOpenAIClient, OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient
 from aimu.models import HAS_LLAMACPP, LlamaCppClient
 from aimu.tools.client import MCPClient
+from conftest import resolve_model_params, create_real_model_client
 
 if HAS_LLAMACPP:
     from aimu.models.llamacpp import LlamaCppModel
 
 
 def pytest_generate_tests(metafunc):
-    """Generate tests based on command line options."""
-
-    if "model_client" in metafunc.fixturenames:
-        model = metafunc.config.getoption("--model", "all")
-        client_type = metafunc.config.getoption("--client", "all").lower()
-
-        if client_type in ["hf", "huggingface"]:
-            client = HuggingFaceClient
-        elif client_type == "aisuite":
-            client = AisuiteClient
-        elif client_type == "openai_compat":
-            client = OpenAICompatClient
-        elif client_type == "lmstudio_openai":
-            client = LMStudioOpenAIClient
-        elif client_type == "ollama_openai":
-            client = OllamaOpenAIClient
-        elif client_type == "hf_openai":
-            client = HFOpenAIClient
-        elif client_type == "vllm_openai":
-            client = VLLMOpenAIClient
-        elif client_type == "llamacpp":
-            if not HAS_LLAMACPP:
-                pytest.skip("llama-cpp-python not installed")
-            client = LlamaCppClient
-        else:
-            client = OllamaClient  # default
-
-        if model == "all":
-            if client_type == "all":
-                test_models = (
-                    list(OllamaClient.MODELS)
-                    + list(HuggingFaceClient.MODELS)
-                    + list(AisuiteClient.MODELS)
-                    + list(LMStudioOpenAIClient.MODELS)
-                    + list(OllamaOpenAIClient.MODELS)
-                    + list(HFOpenAIClient.MODELS)
-                    + list(VLLMOpenAIClient.MODELS)
-                )
-                if HAS_LLAMACPP:
-                    test_models += list(LlamaCppModel)
-            else:
-                test_models = list(client.MODELS)
-        else:
-            if client_type == "all":
-                test_models = []
-                if model in OllamaClient.MODELS:
-                    test_models.append(OllamaClient.MODELS[model])
-                if model in HuggingFaceClient.MODELS:
-                    test_models.append(HuggingFaceClient.MODELS[model])
-                if model in AisuiteClient.MODELS:
-                    test_models.append(AisuiteClient.MODELS[model])
-                if model in LMStudioOpenAIClient.MODELS:
-                    test_models.append(LMStudioOpenAIClient.MODELS[model])
-                if model in OllamaOpenAIClient.MODELS:
-                    test_models.append(OllamaOpenAIClient.MODELS[model])
-                if model in HFOpenAIClient.MODELS:
-                    test_models.append(HFOpenAIClient.MODELS[model])
-                if model in VLLMOpenAIClient.MODELS:
-                    test_models.append(VLLMOpenAIClient.MODELS[model])
-            else:
-                test_models = [client.MODELS[model]]
-
-        metafunc.parametrize("model_client", test_models, indirect=True, scope="session")
+    if "model_client" not in metafunc.fixturenames:
+        return
+    # default_params=None → full cross-client list when --client=all
+    params = resolve_model_params(metafunc.config, default_params=None)
+    metafunc.parametrize("model_client", params, indirect=True, scope="session")
 
 
 @pytest.fixture(scope="session")
 def model_client(request) -> Iterable[ModelClient]:
-    """Create model client based on the model parameter."""
-
-    model = request.param
-
-    if model in OllamaClient.MODELS:
-        time.sleep(2)  # give Ollama some time to free memory from the prior model
-        client = OllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
-    elif model in HuggingFaceClient.MODELS:
-        client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
-    elif model in AisuiteClient.MODELS:
-        client = AisuiteClient(model, system_message="You are a helpful assistant.")
-    elif model in LMStudioOpenAIClient.MODELS:
-        client = LMStudioOpenAIClient(model, system_message="You are a helpful assistant.")
-    elif model in OllamaOpenAIClient.MODELS:
-        client = OllamaOpenAIClient(model, system_message="You are a helpful assistant.")
-    elif model in HFOpenAIClient.MODELS:
-        client = HFOpenAIClient(model, system_message="You are a helpful assistant.")
-    elif model in VLLMOpenAIClient.MODELS:
-        client = VLLMOpenAIClient(model, system_message="You are a helpful assistant.")
-    elif HAS_LLAMACPP and model in LlamaCppModel:
-        model_path = request.config.getoption("--model-path")
-        if not model_path:
-            pytest.skip("--model-path is required for llamacpp client tests")
-        client = LlamaCppClient(model, model_path=model_path, system_message="You are a helpful assistant.")
-    else:
-        raise ValueError(f"Unknown model: {model}")
-
-    yield client
-
-    del client
+    yield from create_real_model_client(request)
 
 
 def test_class_properties(model_client):

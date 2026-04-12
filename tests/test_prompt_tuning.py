@@ -1,59 +1,104 @@
-from aimu.models.ollama.ollama_client import OllamaClient
-from aimu.prompts import ClassificationPromptTuner
+"""
+Prompt tuning tests.
 
-import pytest
+Usage:
+- pytest tests/test_prompt_tuning.py                            # mock client (no backend needed)
+- pytest tests/test_prompt_tuning.py --client=ollama            # all Ollama models
+- pytest tests/test_prompt_tuning.py --client=ollama --model=LLAMA_3_2_3B
+- pytest tests/test_prompt_tuning.py --client=hf
+- pytest tests/test_prompt_tuning.py --client=aisuite
+"""
+
+from typing import Iterable
+
 import pandas as pd
+import pytest
+
+from aimu.models import ModelClient
+from aimu.prompts import ClassificationPromptTuner
+from conftest import create_real_model_client, resolve_model_params
+
+_MOCK = "mock"
+
+
+# ---------------------------------------------------------------------------
+# Mock client — keyword-based [YES]/[NO] responses, no backend required
+# ---------------------------------------------------------------------------
+
+
+class _MockClassifyClient:
+    """Minimal client that returns [YES]/[NO] by keyword matching."""
+
+    is_thinking_model = False
+
+    def generate(self, prompt, generate_kwargs=None):
+        keywords = ["large language", "llm", "ai", "language model"]
+        return "[YES]" if any(kw in prompt.lower() for kw in keywords) else "[NO]"
+
+
+# ---------------------------------------------------------------------------
+# Parametrization — default is mock; real client when --client is specified
+# ---------------------------------------------------------------------------
+
+
+def pytest_generate_tests(metafunc):
+    if "model_client" not in metafunc.fixturenames:
+        return
+    params = resolve_model_params(metafunc.config, default_params=[_MOCK])
+    metafunc.parametrize("model_client", params, indirect=True, scope="session")
 
 
 @pytest.fixture(scope="session")
-def model_client():
-    client = OllamaClient(OllamaClient.MODELS.LLAMA_3_2_3B)
-    yield client
-    del client
+def model_client(request) -> Iterable[ModelClient]:
+    if request.param == _MOCK:
+        yield _MockClassifyClient()
+        return
+    yield from create_real_model_client(request)
 
 
-@pytest.fixture(scope="session")
-def thinking_model_client():
-    client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
-    yield client
-    del client
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
 
 
 def test_classify_data(model_client):
-    """Test classification with a standard model."""
+    """Test that classify_data populates a predicted_class column."""
+    tuner = ClassificationPromptTuner(model_client=model_client)
 
-    prompt_tuner = ClassificationPromptTuner(model_client=model_client)
-
-    classification_prompt = "Is the following content related to large language models?\nWrap your final answer in square braces, e.g. [YES] or [NO]. Only include [YES] or [NO] in your answer.\nContent: {content}"
+    classification_prompt = (
+        "Is the following content related to large language models?\n"
+        "Wrap your final answer in square braces, e.g. [YES] or [NO]. "
+        "Only include [YES] or [NO] in your answer.\n"
+        "Content: {content}"
+    )
 
     df = pd.DataFrame(
         {
             "content": [
                 "Large language models are a type of AI.",
-                "This is a random sentence.",
+                "This is a random sentence about cooking.",
                 "LLMs can generate text based on prompts.",
-                "This sentence is not related to AI.",
+                "The weather today is sunny and warm.",
             ]
         }
     )
 
-    df = prompt_tuner.classify_data(classification_prompt, df)
+    df = tuner.classify_data(classification_prompt, df)
 
     assert "predicted_class" in df.columns
     assert len(df.predicted_class) == 4
-    assert df.predicted_class.value_counts().get(True) + df.predicted_class.value_counts().get(False) == 4
+    assert df.predicted_class.value_counts().get(True, 0) + df.predicted_class.value_counts().get(False, 0) == 4
 
 
-def test_classify_data_thinking_model(thinking_model_client):
-    """Test classification with a thinking model."""
+class _MockClientForEval:
+    """Stub for constructing a tuner without calling the model."""
 
-    test_classify_data(thinking_model_client)
+    is_thinking_model = False
 
 
-def test_evaluate_results(model_client):
-    """Test the evaluation of classification results."""
-
-    prompt_tuner = ClassificationPromptTuner(model_client=model_client)
+def test_evaluate_results():
+    """Test metric calculations — no model call needed."""
+    tuner = ClassificationPromptTuner(model_client=_MockClientForEval())
 
     df = pd.DataFrame(
         {
@@ -61,12 +106,10 @@ def test_evaluate_results(model_client):
             "predicted_class": [True, False, True, False],
         }
     )
-
-    metrics = prompt_tuner.evaluate_results(df)
-
-    assert metrics["accuracy"] == 1.0, "Accuracy should be 100%."
-    assert metrics["precision"] == 1.0, "Precision should be 100%."
-    assert metrics["recall"] == 1.0, "Recall should be 100%."
+    metrics = tuner.evaluate_results(df)
+    assert metrics["accuracy"] == 1.0
+    assert metrics["precision"] == 1.0
+    assert metrics["recall"] == 1.0
 
     df = pd.DataFrame(
         {
@@ -74,9 +117,7 @@ def test_evaluate_results(model_client):
             "predicted_class": [True, False, True, False],
         }
     )
-
-    metrics = prompt_tuner.evaluate_results(df)
-
-    assert metrics["accuracy"] == 0.5, "Accuracy should be 50%."
-    assert metrics["precision"] == 0.5, "Precision should be 50%."
-    assert metrics["recall"] == 0.5, "Recall should be 50%."
+    metrics = tuner.evaluate_results(df)
+    assert metrics["accuracy"] == 0.5
+    assert metrics["precision"] == 0.5
+    assert metrics["recall"] == 0.5

@@ -134,9 +134,16 @@ The codebase uses an abstract base class pattern for model clients:
   - `list_tools()`: Returns available tool names
   - Integrates with ModelClient via `model_client.mcp_client` attribute
 
-- **[aimu/tools/servers.py](aimu/tools/servers.py)**: Example FastMCP server with built-in tools:
+- **[aimu/tools/mcp.py](aimu/tools/mcp.py)**: FastMCP server with built-in general-purpose tools:
   - `echo(echo_string)`: Returns input string
-  - `get_current_data_and_time()`: Returns ISO format datetime
+  - `get_current_date_and_time()`: Returns ISO format datetime
+  - `get_weather(location)`: Current weather via Open-Meteo API (city name or coordinates)
+  - `calculate(expression)`: Safe arithmetic expression evaluator
+  - `get_webpage(url)`: Fetches page and returns visible text with HTML stripped
+  - `search(query, num_results)`: Web search via SearXNG (`SEARXNG_BASE_URL` env var)
+  - `list_directory(path)`: Lists files and subdirectories
+  - `read_file(path, max_lines)`: Reads local file contents
+  - Run standalone: `python -m aimu.tools.mcp`
 
 - **Tool Calling Flow**:
   1. If model supports tools and `mcp_client` is set, tools are passed to model
@@ -156,13 +163,28 @@ The codebase uses an abstract base class pattern for model clients:
 
 ### Semantic Memory
 
-- **[aimu/memory.py](aimu/memory.py)**: `MemoryStore` class for semantic fact storage
+- **[aimu/memory/store.py](aimu/memory/store.py)**: `MemoryStore` class for semantic fact storage
   - Uses ChromaDB with cosine similarity for vector search
   - `store_fact(fact)`: Store a subject-predicate-object string
   - `retrieve_facts(topic, n_results)`: Vector semantic search
   - `delete_fact(fact)`: Remove exact fact
   - `__len__()`: Count stored facts
-  - Can also run as an MCP server: `python -m aimu.memory`
+- **[aimu/memory/mcp.py](aimu/memory/mcp.py)**: FastMCP server exposing `search_memories` / `add_memories` tools
+  - Run as MCP server: `python -m aimu.memory` or `python -m aimu.memory.mcp`
+  - Storage path via `MEMORY_STORE_PATH` env var
+
+### Agent Skills
+
+- **[aimu/skills/](aimu/skills/)**: Filesystem-discovered skills that inject instructions and tools into agents
+  - **[aimu/skills/manager.py](aimu/skills/manager.py)**: `SkillManager` discovers `SKILL.md` files from project and user dirs
+    - Default search paths (project-level wins on collision): `.agents/skills/`, `.claude/skills/`, `~/.agents/skills/`, `~/.claude/skills/`
+    - `catalog_prompt()`: Returns XML-formatted skill listing for system prompt injection
+    - `get_skill_body(name)`: Returns full SKILL.md instructions body
+  - **[aimu/skills/skill.py](aimu/skills/skill.py)**: `Skill` dataclass with `name`, `description`, `path`; `load_body()` strips YAML frontmatter
+  - **[aimu/skills/mcp.py](aimu/skills/mcp.py)**: `build_skills_server(manager)` creates a FastMCP server
+    - Registers `activate_skill(name)` tool
+    - Dynamically registers each `*.py` file in a skill's `scripts/` directory as a tool (`{skill_name}__{script_stem}()`)
+  - Skill SKILL.md requires YAML frontmatter with `name` and `description` fields
 
 ### Agentic Workflows
 
@@ -171,8 +193,9 @@ The codebase uses an abstract base class pattern for model clients:
   - Stop condition: scans `model_client.messages` in reverse — if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again
   - `run(task, generate_kwargs)`: synchronous agentic loop, returns final response string
   - `run_streamed(task, generate_kwargs)`: yields `AgentChunk(agent_name, iteration, phase, content)`
-  - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`)
+  - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`, `use_skills`)
   - `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: str)`
+  - Optional `skill_manager`: if set, `_setup_skills()` injects catalog into system message and attaches skills MCP client on first run
 
 - **[aimu/agents/workflow.py](aimu/agents/workflow.py)**: `Workflow` class for chaining agents sequentially
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
@@ -180,18 +203,29 @@ The codebase uses an abstract base class pattern for model clients:
   - `run_streamed(task)`: yields `WorkflowChunk(step, agent_name, iteration, phase: ContentType, content: str)`
   - `from_config(configs, client_factory)`: factory from list of dicts; `client_factory(cfg)` must return a `ModelClient`
 
-- **No changes to existing `ModelClient` or its subclasses** — agents use the public `chat()` / `chat_streamed()` API only
+- Agents use the public `chat()` / `chat_streamed()` API only — no changes to `ModelClient` subclasses
 
 ### Prompt Management
 
 - **[aimu/prompts/catalog.py](aimu/prompts/catalog.py)**: `PromptCatalog` for versioned prompt storage
-  - Uses SQLAlchemy ORM; `Prompt` model tracks id, parent_id, prompt, model_id, version, mutation_prompt, reasoning_prompt, metrics
-  - `store_prompt()`, `retrieve_last()`, `retrieve_all()`, `delete_all()`, `retrieve_model_ids()`
-- **[aimu/prompts/classification.py](aimu/prompts/classification.py)**: `ClassificationPromptTuner`
-  - Hill-climbing optimization to achieve 100% classification accuracy
-  - `tune_prompt(training_data)`: Main tuning loop
-  - `classify_data()`, `evaluate_results()`, mutation prompt helpers
-  - Thinking models automatically get higher `max_new_tokens` and `temperature`
+  - Uses SQLAlchemy ORM; `Prompt` model tracks `id`, `parent_id`, `name`, `prompt`, `model_id`, `version` (auto-assigned), `mutation_prompt`, `reasoning_prompt`, `metrics` (JSON), `created_at` (auto-set)
+  - All queries keyed on `(name, model_id)` pair to support multiple prompt lineages per model
+  - `store_prompt(prompt)`: auto-assigns version and timestamp; `retrieve_last(name, model_id)`, `retrieve_all(name, model_id)`, `delete_all(name, model_id)`, `retrieve_model_ids()`, `retrieve_names()`
+- **[aimu/prompts/mcp.py](aimu/prompts/mcp.py)**: FastMCP server exposing catalog as MCP tools
+  - `get_prompt(name, model_id)`, `list_prompts()`, `store_prompt_version(name, model_id, prompt, metrics)`
+  - DB path via `PROMPT_CATALOG_PATH` env var; run standalone: `python -m aimu.prompts.mcp`
+- **[aimu/prompts/tuner.py](aimu/prompts/tuner.py)**: `PromptTuner` abstract base class for hill-climbing prompt optimization
+  - Abstract methods: `apply_prompt(prompt, data)`, `evaluate(data) -> dict`, `mutation_prompt(current_prompt, items) -> str`
+  - `tune(training_data, initial_prompt, max_iterations=20, max_examples=5, catalog=None, prompt_name=None) -> str`
+  - Separate `generate_kwargs` (classification, 3 tokens) and `mutation_kwargs` (prompt generation, 512 tokens)
+  - Thinking models automatically get higher token limits and temperature
+  - Caches best state — regressing mutations revert without re-evaluation
+  - Saves each improvement to catalog when `catalog` and `prompt_name` are provided
+- **[aimu/prompts/tuners/classification.py](aimu/prompts/tuners/classification.py)**: `ClassificationPromptTuner(PromptTuner)`
+  - Binary YES/NO classification; prompt template must contain `{content}` placeholder
+  - Data must have `content` (text) and `actual_class` (bool) columns
+  - `classify_data(prompt, data)`: runs prompt on all rows, adds `predicted_class` column
+  - `evaluate_results(data)`: returns `{accuracy, precision, recall}`
 
 ### Key Design Patterns
 
@@ -279,25 +313,36 @@ aimu/
 │       └── llamacpp_client.py        # LlamaCppClient + LlamaCppModel
 ├── tools/               # MCP tools integration
 │   ├── client.py        # MCPClient wrapper
-│   └── servers.py       # Example FastMCP server with built-in tools
+│   └── mcp.py           # Example FastMCP server with built-in tools
 ├── agents/              # Agentic workflows
 │   ├── agent.py         # Agent class + AgentChunk (agentic loop over ModelClient.chat())
 │   └── workflow.py      # Workflow class + WorkflowChunk (sequential agent chaining)
 ├── history.py           # Conversation management (TinyDB)
-├── memory.py            # Semantic memory store (ChromaDB); also runnable as MCP server
+├── memory/              # Semantic memory store (ChromaDB)
+│   ├── store.py         # MemoryStore class
+│   ├── mcp.py           # FastMCP server (search_memories, add_memories tools)
+│   └── __main__.py      # Entrypoint for python -m aimu.memory
+├── skills/              # Agent skill discovery and MCP server
+│   ├── skill.py         # Skill dataclass (name, description, path, load_body())
+│   ├── manager.py       # SkillManager (discovery, catalog_prompt, get_skill_body)
+│   └── mcp.py           # build_skills_server() — FastMCP server from SkillManager
 ├── prompts/             # Prompt storage and management
-│   ├── catalog.py       # SQLAlchemy-based prompt catalog with versioning
-│   └── classification.py # ClassificationPromptTuner with hill-climbing optimization
-└── paths.py             # Path configuration (root, tests, package, output)
+│   ├── catalog.py       # PromptCatalog (SQLAlchemy, versioned, (name, model_id) keyed)
+│   ├── tuner.py         # PromptTuner ABC (hill-climbing loop, generate/mutation kwargs)
+│   ├── mcp.py           # FastMCP server for prompt catalog (python -m aimu.prompts.mcp)
+│   └── tuners/
+│       └── classification.py  # ClassificationPromptTuner (YES/NO, classify_data, evaluate_results)
+└── paths.py             # Path configuration (root, tests, package, output, skills)
 
 tests/                   # Pytest test suite
-├── conftest.py          # Pytest configuration (--client, --model options)
+├── conftest.py          # Shared helpers: resolve_model_params, create_real_model_client
 ├── test_models.py       # Model client tests (generate, chat, streaming, tools, thinking)
 ├── test_history.py      # Conversation management tests
 ├── test_memory.py       # Semantic memory tests
 ├── test_tools.py        # MCP tools tests
-├── test_agents.py       # Agent and Workflow tests (mock ModelClient, no real backend needed)
-└── test_prompt_*.py     # Prompt catalog and tuning tests
+├── test_agents.py       # Agent and Workflow tests (mock by default, real with --client)
+├── test_skills.py       # Skill discovery and Agent skill integration tests
+└── test_prompt_*.py     # Prompt catalog and tuning tests (mock by default, real with --client)
 
 web/                     # Example chat UIs
 ├── streamlit_chatbot.py # Full-featured Streamlit chat interface with streaming
