@@ -25,7 +25,7 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
 
--   **Agentic Workflows**: `Agent` and `Workflow` classes for autonomous, tool-driven task execution. Agents loop over tool calls until the task is complete; workflows chain agents sequentially. Both are configurable from plain dicts with minimal code.
+-   **Agentic Workflows**: `Agent` and `Workflow` classes for autonomous, tool-driven task execution. Agents loop over tool calls until the task is complete; workflows chain agents sequentially. `AgenticModelClient` wraps an `Agent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable anywhere a `ModelClient` is accepted.
 
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
 
@@ -324,6 +324,28 @@ result = wf.run("Research the top Python web frameworks.")
 ```
 
 Both `Agent` and `Workflow` support streaming via `run_streamed()`, which yields `AgentChunk` / `WorkflowChunk` objects tagged with agent name, iteration, and `StreamPhase`.
+
+### AgenticModelClient
+
+`AgenticModelClient` wraps an `Agent` behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted — web UIs, conversation managers, etc. — to get the full agentic loop transparently:
+
+``` python
+from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.tools import MCPClient
+from aimu.agents import Agent, AgenticModelClient
+
+inner = OllamaClient(OllamaModel.QWEN_3_8B)
+inner.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
+
+# Single-turn client
+client = inner
+
+# Agentic client — same interface, loops until tools stop being called
+client = AgenticModelClient(Agent(inner, max_iterations=10))
+
+# Both work identically here:
+response = client.chat("Find all log files modified today and summarise the errors.")
+```
 
 ### MCP Tool Usage
 

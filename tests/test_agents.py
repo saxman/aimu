@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aimu.agents import Agent, AgentChunk, Workflow, WorkflowChunk
+from aimu.agents import Agent, AgentChunk, AgenticModelClient, Workflow, WorkflowChunk
 from aimu.models import ModelClient
 from aimu.models.base_client import StreamChunk, StreamingContentType
 from conftest import create_real_model_client, resolve_model_params
@@ -263,3 +263,68 @@ def test_workflow_from_config():
     assert wf.agents[0].name == "first"
     assert wf.agents[1].name == "second"
     assert wf.run("go") == "second output"
+
+
+# ---------------------------------------------------------------------------
+# AgenticModelClient tests
+# ---------------------------------------------------------------------------
+
+
+def test_agentic_client_chat_runs_agent_loop():
+    """chat() runs the full Agent loop, not a single turn."""
+    client = MockModelClient(["tool", "after tool", "done"])
+    ac = AgenticModelClient(Agent(client, max_iterations=5))
+    result = ac.chat("do something with tools")
+    assert result == "done"
+    assert client._call_count == 3  # tool(2) + confirmation(1)
+
+
+def test_agentic_client_chat_no_tools_single_call():
+    """chat() without tool use resolves in one model call."""
+    client = MockModelClient(["plain answer"])
+    ac = AgenticModelClient(Agent(client))
+    assert ac.chat("hello") == "plain answer"
+    assert client._call_count == 1
+
+
+def test_agentic_client_chat_streamed_yields_stream_chunks():
+    """chat_streamed() yields StreamChunk, not AgentChunk."""
+    client = MockModelClient(["stream result"])
+    ac = AgenticModelClient(Agent(client))
+    chunks = list(ac.chat_streamed("task"))
+    assert all(isinstance(c, StreamChunk) for c in chunks)
+    assert not any(isinstance(c, AgentChunk) for c in chunks)
+
+
+def test_agentic_client_messages_delegated():
+    """messages property delegates to inner_client — both refer to the same list."""
+    client = MockModelClient(["reply"])
+    ac = AgenticModelClient(Agent(client))
+    ac.chat("hi")
+    assert ac.messages is client.messages
+
+
+def test_agentic_client_mcp_client_delegated():
+    """Setting mcp_client on AgenticModelClient propagates to inner_client."""
+    client = MockModelClient(["hi"])
+    ac = AgenticModelClient(Agent(client))
+    mock_mcp = object()
+    ac.mcp_client = mock_mcp
+    assert client.mcp_client is mock_mcp
+
+
+def test_agentic_client_system_message_delegated():
+    """system_message property delegates to inner_client."""
+    client = MockModelClient(["hi"])
+    ac = AgenticModelClient(Agent(client))
+    ac.system_message = "Be helpful."
+    assert client.system_message == "Be helpful."
+
+
+def test_agentic_client_generate_delegates_to_inner():
+    """generate() bypasses the Agent loop and calls inner_client directly."""
+    client = MockModelClient(["generated"])
+    ac = AgenticModelClient(Agent(client))
+    result = ac.generate("prompt")
+    assert result == "generated"
+    assert client._call_count == 1
