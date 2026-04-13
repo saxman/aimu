@@ -327,7 +327,7 @@ Both `SimpleAgent` and `WorkflowAgent` inherit from the `Agent` ABC and support 
 
 ### AgenticModelClient
 
-`AgenticModelClient` wraps any `Agent` (a `SimpleAgent` or a `WorkflowAgent`) behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted — web UIs, conversation managers, etc. — to get the full agentic loop transparently:
+`AgenticModelClient` wraps any `Agent` (a `SimpleAgent` or a `WorkflowAgent`) behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted - web UIs, conversation managers, etc. - to get the full agentic loop transparently:
 
 ``` python
 from aimu.models.ollama import OllamaClient, OllamaModel
@@ -340,7 +340,7 @@ inner.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "a
 # Single-turn client
 client = inner
 
-# Agentic client — same interface, loops until tools stop being called
+# Agentic client - same interface, loops until tools stop being called
 client = AgenticModelClient(SimpleAgent(inner, max_iterations=10))
 
 # Or wrap an entire pipeline behind the same interface
