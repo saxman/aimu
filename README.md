@@ -11,10 +11,10 @@ A Python package containing easy to use tools for working with various language 
     -   [Ollama](https://ollama.com/) (local models, native API)
     -   [Hugging Face Transformers](https://huggingface.co/docs/transformers) (local models)
     -   [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) (local GGUF models, in-process, no external service required)
-    -   [Anthropic](https://www.anthropic.com/) Claude models via native `anthropic` SDK (`AnthropicClient`) — native thinking support
+    -   [Anthropic](https://www.anthropic.com/) Claude models via native `anthropic` SDK (`AnthropicClient`) - native thinking support
     -   Cloud and local servers via the `openai` SDK (`aimu[openai_compat]`):
-        -   [OpenAI](https://platform.openai.com/) (`OpenAIClient`) — GPT-4o, GPT-4.1, o3, o4-mini, and more
-        -   [Google Gemini](https://ai.google.dev/) (`GeminiClient`) — Gemini 2.0/2.5 via Google's OpenAI-compatible endpoint
+        -   [OpenAI](https://platform.openai.com/) (`OpenAIClient`) - GPT-4o, GPT-4.1, o3, o4-mini, and more
+        -   [Google Gemini](https://ai.google.dev/) (`GeminiClient`) - Gemini 2.0/2.5 via Google's OpenAI-compatible endpoint
         -   [LM Studio](https://lmstudio.ai/) (`LMStudioOpenAIClient`)
         -   [Ollama](https://ollama.com/) OpenAI-compat endpoint (`OllamaOpenAIClient`)
         -   [HuggingFace Transformers Serve](https://huggingface.co/docs/transformers/main/serving) (`HFOpenAIClient`)
@@ -327,7 +327,7 @@ Both `Agent` and `Workflow` support streaming via `run_streamed()`, which yields
 
 ### AgenticModelClient
 
-`AgenticModelClient` wraps an `Agent` behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted — web UIs, conversation managers, etc. — to get the full agentic loop transparently:
+`AgenticModelClient` wraps an `Agent` behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted - web UIs, conversation managers, etc. - to get the full agentic loop transparently:
 
 ``` python
 from aimu.models.ollama import OllamaClient, OllamaModel
@@ -340,7 +340,7 @@ inner.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "a
 # Single-turn client
 client = inner
 
-# Agentic client — same interface, loops until tools stop being called
+# Agentic client - same interface, loops until tools stop being called
 client = AgenticModelClient(Agent(inner, max_iterations=10))
 
 # Both work identically here:
