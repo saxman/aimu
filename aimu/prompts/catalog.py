@@ -97,11 +97,7 @@ class PromptCatalog:
         """Delete all versions for the given name and model. Returns row count."""
         rows_deleted = 0
         try:
-            rows_deleted = (
-                self.session.query(Prompt)
-                .filter(Prompt.name == name, Prompt.model_id == model_id)
-                .delete()
-            )
+            rows_deleted = self.session.query(Prompt).filter(Prompt.name == name, Prompt.model_id == model_id).delete()
         except Exception:
             self.session.rollback()
             raise

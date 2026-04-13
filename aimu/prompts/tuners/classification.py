@@ -63,7 +63,9 @@ class ClassificationPromptTuner(PromptTuner):
             parts.append("\nThe following examples should be classified as NO but were classified as YES:")
             parts.extend(f"- {c}" for c in negatives)
 
-        parts.append("\nPlease improve the task prompt to correctly handle all of these examples. Return the improved prompt wrapped in <prompt></prompt> tags.")
+        parts.append(
+            "\nPlease improve the task prompt to correctly handle all of these examples. Return the improved prompt wrapped in <prompt></prompt> tags."
+        )
         return "\n".join(parts)
 
     # --- Public helpers (also usable standalone) ---
@@ -123,4 +125,3 @@ class ClassificationPromptTuner(PromptTuner):
         recall = true_pos / pos if pos > 0 else 0
 
         return {"accuracy": accuracy, "precision": precision, "recall": recall}
-

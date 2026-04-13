@@ -157,7 +157,11 @@ class PromptTuner(ABC):
                 break
 
             if iteration >= max_iterations:
-                logger.warning("Reached max_iterations=%d without 100%% accuracy. Best accuracy=%.3f", max_iterations, best_metrics["accuracy"])
+                logger.warning(
+                    "Reached max_iterations=%d without 100%% accuracy. Best accuracy=%.3f",
+                    max_iterations,
+                    best_metrics["accuracy"],
+                )
                 break
 
             bad_sample = bad.sample(min(len(bad), max_examples))

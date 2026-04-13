@@ -17,16 +17,16 @@ class OpenAIModel(Model):
         super().__init__(value, supports_tools, supports_thinking)
 
     # Standard GPT models
-    GPT_4O_MINI  = ("gpt-4o-mini", True)
-    GPT_4O       = ("gpt-4o", True)
-    GPT_4_1      = ("gpt-4.1", True)
+    GPT_4O_MINI = ("gpt-4o-mini", True)
+    GPT_4O = ("gpt-4o", True)
+    GPT_4_1 = ("gpt-4.1", True)
     GPT_4_1_MINI = ("gpt-4.1-mini", True)
     GPT_4_1_NANO = ("gpt-4.1-nano", True)
     # o-series reasoning models — reasoning tokens not accessible as text chunks,
     # so supports_thinking=False; pass reasoning_effort via generate_kwargs if needed
-    O4_MINI      = ("o4-mini", True)
-    O3           = ("o3", True)
-    O3_MINI      = ("o3-mini", True)
+    O4_MINI = ("o4-mini", True)
+    O3 = ("o3", True)
+    O3_MINI = ("o3-mini", True)
 
 
 class OpenAIClient(OpenAICompatClient):
@@ -45,8 +45,9 @@ class OpenAIClient(OpenAICompatClient):
     ):
         load_dotenv()
         api_key = os.environ.get("OPENAI_API_KEY", "not-set")
-        super().__init__(model, base_url=OPENAI_BASE_URL, api_key=api_key,
-                         system_message=system_message, model_kwargs=model_kwargs)
+        super().__init__(
+            model, base_url=OPENAI_BASE_URL, api_key=api_key, system_message=system_message, model_kwargs=model_kwargs
+        )
 
     def _update_generate_kwargs(self, generate_kwargs=None) -> dict:
         kwargs = super()._update_generate_kwargs(generate_kwargs)

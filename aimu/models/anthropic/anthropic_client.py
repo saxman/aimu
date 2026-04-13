@@ -20,11 +20,11 @@ class AnthropicModel(Model):
     def __init__(self, value, supports_tools=False, supports_thinking=False):
         super().__init__(value, supports_tools, supports_thinking)
 
-    CLAUDE_3_5_HAIKU  = ("claude-3-5-haiku-20241022", True)
+    CLAUDE_3_5_HAIKU = ("claude-3-5-haiku-20241022", True)
     CLAUDE_3_5_SONNET = ("claude-3-5-sonnet-20241022", True)
     CLAUDE_3_7_SONNET = ("claude-3-7-sonnet-20250219", True, True)
     CLAUDE_SONNET_4_6 = ("claude-sonnet-4-6", True, True)
-    CLAUDE_OPUS_4_6   = ("claude-opus-4-6", True, True)
+    CLAUDE_OPUS_4_6 = ("claude-opus-4-6", True, True)
 
 
 class AnthropicClient(ModelClient):
@@ -135,19 +135,23 @@ class AnthropicClient(ModelClient):
                         args = tc["function"]["arguments"]
                         if isinstance(args, str):
                             args = json.loads(args)
-                        content_blocks.append({
-                            "type": "tool_use",
-                            "id": tc["id"],
-                            "name": tc["function"]["name"],
-                            "input": args,
-                        })
+                        content_blocks.append(
+                            {
+                                "type": "tool_use",
+                                "id": tc["id"],
+                                "name": tc["function"]["name"],
+                                "input": args,
+                            }
+                        )
                     ant_messages.append({"role": "assistant", "content": content_blocks})
                 else:
                     text = msg.get("content") or ""
-                    ant_messages.append({
-                        "role": "assistant",
-                        "content": [{"type": "text", "text": text}],
-                    })
+                    ant_messages.append(
+                        {
+                            "role": "assistant",
+                            "content": [{"type": "text", "text": text}],
+                        }
+                    )
                 i += 1
 
             elif role == "tool":
@@ -155,11 +159,13 @@ class AnthropicClient(ModelClient):
                 tool_results = []
                 while i < len(messages) and messages[i]["role"] == "tool":
                     tm = messages[i]
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tm["tool_call_id"],
-                        "content": tm["content"],
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": tm["tool_call_id"],
+                            "content": tm["content"],
+                        }
+                    )
                     i += 1
                 ant_messages.append({"role": "user", "content": tool_results})
 
@@ -316,7 +322,7 @@ class AnthropicClient(ModelClient):
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
 
         # Accumulated state from first stream pass
-        tool_use_acc: list[dict] = []   # {"id": str, "name": str, "input_json": str}
+        tool_use_acc: list[dict] = []  # {"id": str, "name": str, "input_json": str}
         first_pass_chunks: list[StreamChunk] = []
         self.last_thinking = ""
 

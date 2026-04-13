@@ -1,4 +1,5 @@
 """Minimal FastMCP server used by test_mcp_client_with_file."""
+
 from fastmcp import FastMCP
 
 mcp = FastMCP("Echo")

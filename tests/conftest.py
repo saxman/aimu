@@ -81,6 +81,7 @@ def _resolve_client(client_type: str, config):
         return GeminiClient
     if client_type == "openai_compat":
         from aimu.models import OpenAICompatClient
+
         return OpenAICompatClient
     if client_type == "lmstudio_openai":
         return LMStudioOpenAIClient
