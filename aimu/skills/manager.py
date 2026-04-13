@@ -15,34 +15,21 @@ class SkillManager:
     """
     Discovers and manages Agent Skills from the filesystem.
 
-    Scans standard locations for skill directories (each containing a SKILL.md file).
-    Project-level skills take precedence over user-level skills on name collision.
-
-    Default scan paths:
-        Project: <cwd>/.agents/skills/, <cwd>/.claude/skills/
-        User:    ~/.agents/skills/,     ~/.claude/skills/
+    Scans the explicitly-supplied directories for skill subdirectories (each
+    containing a SKILL.md file).  The first directory wins on name collision.
 
     Usage::
 
-        manager = SkillManager()
+        manager = SkillManager(skill_dirs=["/path/to/my/skills"])
         print(manager.catalog_prompt())   # XML catalog for system prompt
         body = manager.get_skill_body("pdf-processing")
-
-    With custom directories::
-
-        manager = SkillManager(skill_dirs=["/path/to/my/skills"])
     """
-
-    _PROJECT_DIRS = [".agents/skills", ".claude/skills"]
-    _USER_DIRS = ["~/.agents/skills", "~/.claude/skills"]
 
     def __init__(
         self,
         skill_dirs: Optional[list[str]] = None,
-        cwd: Optional[str] = None,
     ):
-        self._cwd = Path(cwd).resolve() if cwd else Path.cwd()
-        self._custom_dirs = [Path(d).expanduser().resolve() for d in skill_dirs] if skill_dirs else None
+        self._custom_dirs = [Path(d).expanduser().resolve() for d in skill_dirs] if skill_dirs else []
         self._skills: Optional[dict[str, Skill]] = None
 
     @property
@@ -52,14 +39,7 @@ class SkillManager:
         return self._skills
 
     def _search_dirs(self) -> list[Path]:
-        if self._custom_dirs is not None:
-            return self._custom_dirs
-        dirs: list[Path] = []
-        for d in self._PROJECT_DIRS:
-            dirs.append(self._cwd / d)
-        for d in self._USER_DIRS:
-            dirs.append(Path(d).expanduser())
-        return dirs
+        return self._custom_dirs
 
     def _discover(self) -> dict[str, Skill]:
         skills: dict[str, Skill] = {}

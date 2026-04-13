@@ -2,40 +2,18 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Optional
 
-from aimu.agents.base_agent import Agent
+from aimu.agents.simple_agent import SimpleAgent
 from aimu.models.base_client import ModelClient, StreamChunk
-
-
-def _extract_model_client(agent: Agent) -> ModelClient:
-    """
-    Walk the agent tree to find a ModelClient for state delegation.
-
-    SimpleAgent exposes model_client directly.
-    WorkflowAgent delegates to its last step's agent (recursively).
-    """
-    from aimu.agents.simple_agent import SimpleAgent
-    from aimu.agents.workflow_agent import WorkflowAgent
-
-    if isinstance(agent, SimpleAgent):
-        return agent.model_client
-    if isinstance(agent, WorkflowAgent):
-        if not agent.agents:
-            raise ValueError("WorkflowAgent has no agents; cannot determine model_client.")
-        return _extract_model_client(agent.agents[-1])
-    raise TypeError(
-        f"Cannot extract model_client from {type(agent).__name__}. "
-        "Override _extract_model_client or use SimpleAgent / WorkflowAgent."
-    )
 
 
 class AgenticModelClient(ModelClient):
     """
-    A ModelClient whose chat() runs the full Agent loop — looping
+    A ModelClient whose chat() runs the full SimpleAgent agentic loop — looping
     until the model stops calling tools — rather than a single model turn.
 
-    Drop-in replacement anywhere a ModelClient is accepted. Accepts either a
-    SimpleAgent or a WorkflowAgent (or any Agent subclass that contains a
-    SimpleAgent somewhere in its tree).
+    Drop-in replacement anywhere a ModelClient is accepted.
+
+    Only accepts SimpleAgent. For WorkflowAgent, call run() / run_streamed() directly.
 
     Usage::
 
@@ -44,15 +22,16 @@ class AgenticModelClient(ModelClient):
         agent = SimpleAgent(inner, max_iterations=8)
         client = AgenticModelClient(agent)
         client.chat("Research the top Python web frameworks.")  # loops until done
-
-        # Or wrap a full pipeline:
-        wf = WorkflowAgent(agents=[SimpleAgent(inner_a), SimpleAgent(inner_b)])
-        client = AgenticModelClient(wf)
     """
 
-    def __init__(self, agent: Agent):
+    def __init__(self, agent: SimpleAgent):
+        if not isinstance(agent, SimpleAgent):
+            raise TypeError(
+                f"AgenticModelClient only accepts SimpleAgent, got {type(agent).__name__}. "
+                "To run a WorkflowAgent, call its run() or run_streamed() directly."
+            )
         self._agent = agent
-        self._inner_client = _extract_model_client(agent)
+        self._inner_client = agent.model_client
         # Mirror base attributes from inner_client (model caps, generate kwargs).
         # super().__init__() is intentionally not called — it would reset inner_client
         # state (messages, mcp_client, etc.) to defaults.
@@ -97,7 +76,7 @@ class AgenticModelClient(ModelClient):
     # --- Agentic overrides ---
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
-        """Run the full Agent loop; returns only when the model stops calling tools."""
+        """Run the full SimpleAgent loop; returns only when the model stops calling tools."""
         return self._agent.run(user_message, generate_kwargs=generate_kwargs)
 
     def chat_streamed(
@@ -106,7 +85,7 @@ class AgenticModelClient(ModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
     ) -> Iterator[StreamChunk]:
-        """Stream the Agent loop, adapting AgentChunk → StreamChunk."""
+        """Stream the SimpleAgent loop, adapting AgentChunk → StreamChunk."""
         for chunk in self._agent.run_streamed(user_message, generate_kwargs=generate_kwargs):
             yield StreamChunk(chunk.phase, chunk.content)
 

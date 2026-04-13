@@ -364,13 +364,9 @@ def test_agentic_client_generate_delegates_to_inner():
     assert client._call_count == 1
 
 
-def test_agentic_client_wraps_workflow():
-    """AgenticModelClient can wrap a WorkflowAgent; state delegates to last agent's client."""
-    client_a = MockModelClient(["step one output"])
-    client_b = MockModelClient(["final output"])
-    wf = WorkflowAgent(agents=[SimpleAgent(client_a, name="a"), SimpleAgent(client_b, name="b")])
-    ac = AgenticModelClient(wf)
-    result = ac.chat("start task")
-    assert result == "final output"
-    # State delegates to last agent's client
-    assert ac.messages is client_b.messages
+def test_agentic_client_rejects_workflow_agent():
+    """AgenticModelClient raises TypeError when given a WorkflowAgent."""
+    client = MockModelClient(["hi"])
+    wf = WorkflowAgent(agents=[SimpleAgent(client)])
+    with pytest.raises(TypeError, match="AgenticModelClient only accepts SimpleAgent"):
+        AgenticModelClient(wf)

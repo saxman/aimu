@@ -312,18 +312,6 @@ def test_agent_from_config_with_skill_dirs(tmp_path):
     assert "cfg-skill" in agent.skill_manager.skills
 
 
-def test_agent_from_config_use_skills_flag(tmp_path):
-    """from_config with use_skills=True creates a SkillManager with default dirs."""
-    from unittest.mock import MagicMock
-    from aimu.agents.simple_agent import SimpleAgent
-
-    client = MagicMock()
-    client.system_message = None
-
-    agent = SimpleAgent.from_config({"use_skills": True}, client)
-
-    assert agent.skill_manager is not None
-
 
 def test_agent_from_config_without_skills_has_no_manager():
     """from_config without skill keys leaves skill_manager as None."""

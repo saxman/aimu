@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Iterator, NamedTuple, Optional
 
 from aimu.agents.base_agent import Agent, AgentChunk
@@ -26,11 +26,20 @@ class WorkflowAgent(Agent):
     Chains agents sequentially. The text output of step N becomes the task
     input for step N+1.
 
-    The simplest way to build a WorkflowAgent is from a list of config dicts and
-    a single ModelClient. The client is reused across all steps; before each step
-    its messages are cleared and system_message is set from the step's config.
+    The simplest way to build a WorkflowAgent is ``from_config``: pass a list of
+    config dicts and a single ModelClient. Each step is a SimpleAgent with
+    ``reset_messages_on_run=True``, so the client's messages are cleared and
+    ``system_message`` applied before every step — giving each step a clean slate
+    even though they share one client.
 
-    Usage::
+    For direct construction (each agent owns its own client)::
+
+        wf = WorkflowAgent(agents=[
+            SimpleAgent(client_a, name="planner"),
+            SimpleAgent(client_b, name="executor"),
+        ])
+
+    Via from_config (shared client)::
 
         client = OllamaClient(OllamaModel.QWEN_3_8B)
         client.mcp_client = MCPClient(server=mcp)
@@ -47,23 +56,11 @@ class WorkflowAgent(Agent):
 
     agents: list[Agent]
     name: str = "workflow"
-    # Populated by from_config; None when agents were constructed externally.
-    _shared_client: Optional[ModelClient] = field(default=None, init=False, repr=False)
-    _step_system_messages: list[Optional[str]] = field(default_factory=list, init=False, repr=False)
-
-    def _prepare_step(self, step: int) -> None:
-        """Reset the shared client before a step. No-op when agents own their clients."""
-        if self._shared_client is None:
-            return
-        self._shared_client.messages = []
-        msg = self._step_system_messages[step] if step < len(self._step_system_messages) else None
-        self._shared_client.system_message = msg
 
     def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         """Run all agents sequentially and return the final response."""
         result = task
         for step, agent in enumerate(self.agents):
-            self._prepare_step(step)
             logger.debug("Workflow step %d — agent '%s'.", step, agent.name)
             result = agent.run(result, generate_kwargs=generate_kwargs)
         return result
@@ -76,7 +73,6 @@ class WorkflowAgent(Agent):
         """
         result = task
         for step, agent in enumerate(self.agents):
-            self._prepare_step(step)
             logger.debug("Workflow step %d — agent '%s'.", step, agent.name)
             step_chunks: list[AgentChunk] = []
             for chunk in agent.run_streamed(result, generate_kwargs=generate_kwargs):
@@ -93,9 +89,9 @@ class WorkflowAgent(Agent):
         """
         Build a WorkflowAgent from a list of agent config dicts and a single ModelClient.
 
-        The client is shared across all steps. Before each step runs, its ``messages``
-        are cleared and ``system_message`` is set from the step's config, so steps
-        remain isolated from one another.
+        The client is shared across all steps. Each step's SimpleAgent has
+        ``reset_messages_on_run=True`` so it clears the client's messages and
+        applies its own ``system_message`` before running, keeping steps isolated.
 
         Example::
 
@@ -105,13 +101,9 @@ class WorkflowAgent(Agent):
         """
         from aimu.agents.simple_agent import SimpleAgent
 
-        # Extract system_message per step; exclude it from construction so that
-        # _prepare_step can apply the correct value at run time.
-        system_messages = [cfg.get("system_message") for cfg in configs]
-        configs_without_sm = [{k: v for k, v in cfg.items() if k != "system_message"} for cfg in configs]
-        agents = [SimpleAgent.from_config(cfg, client) for cfg in configs_without_sm]
-
-        wf = cls(agents=agents)
-        wf._shared_client = client
-        wf._step_system_messages = system_messages
-        return wf
+        agents = []
+        for cfg in configs:
+            agent = SimpleAgent.from_config(cfg, client)
+            agent.reset_messages_on_run = True
+            agents.append(agent)
+        return cls(agents=agents)

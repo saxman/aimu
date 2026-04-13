@@ -209,12 +209,12 @@ The codebase uses an abstract base class pattern for model clients:
   - Optional `skill_manager`: if set, `_setup_skills()` injects catalog into system message and attaches skills MCP client on first run
 
 - **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(ModelClient)` — drop-in agentic wrapper
-  - Wraps any `Agent` (`SimpleAgent` or `WorkflowAgent`) and exposes the standard `ModelClient` interface
-  - `chat()` / `chat_streamed()` run the full Agent loop (multi-turn until tools stop); `chat_streamed()` adapts `AgentChunk` → `StreamChunk`
+  - Wraps a `SimpleAgent` and exposes the standard `ModelClient` interface; raises `TypeError` for any other agent type
+  - `chat()` / `chat_streamed()` run the full SimpleAgent loop (multi-turn until tools stop); `chat_streamed()` adapts `AgentChunk` → `StreamChunk`
   - `generate()` / `generate_streamed()` pass through to the inner client unchanged (no loop)
-  - `messages`, `mcp_client`, `system_message`, `last_thinking` delegate to the innermost `SimpleAgent`'s `model_client` (last agent in chain for `WorkflowAgent`)
-  - Constructor: `AgenticModelClient(agent: Agent)` — accepts `SimpleAgent` or `WorkflowAgent`
-  - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently
+  - `messages`, `mcp_client`, `system_message`, `last_thinking` delegate to `SimpleAgent.model_client`
+  - Constructor: `AgenticModelClient(agent: SimpleAgent)`
+  - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently; for `WorkflowAgent`, call `run()` / `run_streamed()` directly
 
 - **[aimu/agents/workflow_agent.py](aimu/agents/workflow_agent.py)**: `WorkflowAgent(Agent)` for chaining agents sequentially
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
