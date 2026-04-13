@@ -1,5 +1,5 @@
 from aimu import paths
-from aimu.models import HuggingFaceClient, OllamaClient, AisuiteClient, StreamPhase
+from aimu.models import HuggingFaceClient, OllamaClient, StreamPhase
 from aimu.tools.client import MCPClient
 from aimu.history import ConversationManager
 
@@ -19,11 +19,7 @@ INITIAL_USER_MESSAGE = """
 Introduce what model that you are and share what tools you have access to.
 """
 
-MODEL_CLIENTS = [
-    OllamaClient,
-    HuggingFaceClient,
-    AisuiteClient,
-]
+MODEL_CLIENTS = [OllamaClient, HuggingFaceClient]
 
 
 def stream_chat_response(streamed_response):
