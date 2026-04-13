@@ -222,7 +222,7 @@ def test_skill_manager_get_skill_body_unknown_name(tmp_path):
 def test_agent_setup_skills_injects_catalog(tmp_path):
     """_setup_skills() appends the skill catalog to the model client's system message."""
     from unittest.mock import MagicMock
-    from aimu.agents.agent import Agent
+    from aimu.agents.simple_agent import SimpleAgent
 
     make_skill_dir(tmp_path, "my-skill", "Does my thing.")
 
@@ -231,7 +231,7 @@ def test_agent_setup_skills_injects_catalog(tmp_path):
     client.mcp_client = None
 
     manager = SkillManager(skill_dirs=[str(tmp_path)])
-    agent = Agent(model_client=client, skill_manager=manager)
+    agent = SimpleAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
 
     assert "my-skill" in client.system_message
@@ -242,7 +242,7 @@ def test_agent_setup_skills_injects_catalog(tmp_path):
 def test_agent_setup_skills_attaches_mcp_client(tmp_path):
     """_setup_skills() creates and attaches an MCPClient to the model client."""
     from unittest.mock import MagicMock
-    from aimu.agents.agent import Agent
+    from aimu.agents.simple_agent import SimpleAgent
 
     make_skill_dir(tmp_path, "my-skill", "Does my thing.")
 
@@ -251,7 +251,7 @@ def test_agent_setup_skills_attaches_mcp_client(tmp_path):
     client.mcp_client = None
 
     manager = SkillManager(skill_dirs=[str(tmp_path)])
-    agent = Agent(model_client=client, skill_manager=manager)
+    agent = SimpleAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
 
     assert client.mcp_client is not None
@@ -260,14 +260,14 @@ def test_agent_setup_skills_attaches_mcp_client(tmp_path):
 def test_agent_setup_skills_no_op_when_no_skills(tmp_path):
     """_setup_skills() does nothing when no skills are found."""
     from unittest.mock import MagicMock
-    from aimu.agents.agent import Agent
+    from aimu.agents.simple_agent import SimpleAgent
 
     client = MagicMock()
     client.system_message = "Original."
     client.mcp_client = None
 
     manager = SkillManager(skill_dirs=[str(tmp_path)])
-    agent = Agent(model_client=client, skill_manager=manager)
+    agent = SimpleAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
 
     # No skills found — mcp_client must not have been set
@@ -277,7 +277,7 @@ def test_agent_setup_skills_no_op_when_no_skills(tmp_path):
 def test_agent_setup_skills_runs_only_once(tmp_path):
     """_setup_skills() is idempotent — calling it twice doesn't duplicate catalog."""
     from unittest.mock import MagicMock, patch
-    from aimu.agents.agent import Agent
+    from aimu.agents.simple_agent import SimpleAgent
 
     make_skill_dir(tmp_path, "once-skill", "Run only once.")
 
@@ -286,7 +286,7 @@ def test_agent_setup_skills_runs_only_once(tmp_path):
     client.mcp_client = None
 
     manager = SkillManager(skill_dirs=[str(tmp_path)])
-    agent = Agent(model_client=client, skill_manager=manager)
+    agent = SimpleAgent(model_client=client, skill_manager=manager)
 
     agent._setup_skills()
     first_msg = client.system_message
@@ -299,14 +299,14 @@ def test_agent_setup_skills_runs_only_once(tmp_path):
 def test_agent_from_config_with_skill_dirs(tmp_path):
     """from_config with skill_dirs creates a SkillManager."""
     from unittest.mock import MagicMock
-    from aimu.agents.agent import Agent
+    from aimu.agents.simple_agent import SimpleAgent
 
     make_skill_dir(tmp_path, "cfg-skill", "From config.")
 
     client = MagicMock()
     client.system_message = None
 
-    agent = Agent.from_config({"name": "cfg-agent", "skill_dirs": [str(tmp_path)]}, client)
+    agent = SimpleAgent.from_config({"name": "cfg-agent", "skill_dirs": [str(tmp_path)]}, client)
 
     assert agent.skill_manager is not None
     assert "cfg-skill" in agent.skill_manager.skills
@@ -315,12 +315,12 @@ def test_agent_from_config_with_skill_dirs(tmp_path):
 def test_agent_from_config_use_skills_flag(tmp_path):
     """from_config with use_skills=True creates a SkillManager with default dirs."""
     from unittest.mock import MagicMock
-    from aimu.agents.agent import Agent
+    from aimu.agents.simple_agent import SimpleAgent
 
     client = MagicMock()
     client.system_message = None
 
-    agent = Agent.from_config({"use_skills": True}, client)
+    agent = SimpleAgent.from_config({"use_skills": True}, client)
 
     assert agent.skill_manager is not None
 
@@ -328,11 +328,11 @@ def test_agent_from_config_use_skills_flag(tmp_path):
 def test_agent_from_config_without_skills_has_no_manager():
     """from_config without skill keys leaves skill_manager as None."""
     from unittest.mock import MagicMock
-    from aimu.agents.agent import Agent
+    from aimu.agents.simple_agent import SimpleAgent
 
     client = MagicMock()
     client.system_message = None
 
-    agent = Agent.from_config({"name": "plain"}, client)
+    agent = SimpleAgent.from_config({"name": "plain"}, client)
 
     assert agent.skill_manager is None

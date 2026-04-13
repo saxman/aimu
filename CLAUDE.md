@@ -196,28 +196,32 @@ The codebase uses an abstract base class pattern for model clients:
 
 ### Agentic Workflows
 
-- **[aimu/agents/agent.py](aimu/agents/agent.py)**: `Agent` class for autonomous, multi-round tool execution
+- **[aimu/agents/base_agent.py](aimu/agents/base_agent.py)**: `Agent` ABC — shared interface for all agent runners
+  - Abstract `run(task, generate_kwargs)` and `run_streamed(task, generate_kwargs)` methods
+  - `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: Any)`
+
+- **[aimu/agents/simple_agent.py](aimu/agents/simple_agent.py)**: `SimpleAgent(Agent)` for autonomous, multi-round tool execution
   - Wraps any `ModelClient`; runs `chat()` in a loop until no tools are called
   - Stop condition: scans `model_client.messages` in reverse — if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again
   - `run(task, generate_kwargs)`: synchronous agentic loop, returns final response string
   - `run_streamed(task, generate_kwargs)`: yields `AgentChunk(agent_name, iteration, phase, content)`
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`, `use_skills`)
-  - `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: str)`
   - Optional `skill_manager`: if set, `_setup_skills()` injects catalog into system message and attaches skills MCP client on first run
 
 - **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(ModelClient)` — drop-in agentic wrapper
-  - Wraps an `Agent` and exposes the standard `ModelClient` interface
+  - Wraps any `Agent` (`SimpleAgent` or `WorkflowAgent`) and exposes the standard `ModelClient` interface
   - `chat()` / `chat_streamed()` run the full Agent loop (multi-turn until tools stop); `chat_streamed()` adapts `AgentChunk` → `StreamChunk`
   - `generate()` / `generate_streamed()` pass through to the inner client unchanged (no loop)
-  - `messages`, `mcp_client`, `system_message`, `last_thinking` are properties that delegate to the inner `ModelClient` so state stays in sync
-  - Constructor: `AgenticModelClient(agent: Agent)` — configure the `Agent` (name, max_iterations, skills, etc.) before wrapping
+  - `messages`, `mcp_client`, `system_message`, `last_thinking` delegate to the innermost `SimpleAgent`'s `model_client` (last agent in chain for `WorkflowAgent`)
+  - Constructor: `AgenticModelClient(agent: Agent)` — accepts `SimpleAgent` or `WorkflowAgent`
   - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently
 
-- **[aimu/agents/workflow.py](aimu/agents/workflow.py)**: `Workflow` class for chaining agents sequentially
+- **[aimu/agents/workflow_agent.py](aimu/agents/workflow_agent.py)**: `WorkflowAgent(Agent)` for chaining agents sequentially
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
-  - `run(task)`: runs all agents in order, returns final string
-  - `run_streamed(task)`: yields `WorkflowChunk(step, agent_name, iteration, phase: ContentType, content: str)`
+  - `run(task, generate_kwargs)`: runs all agents in order, returns final string
+  - `run_streamed(task, generate_kwargs)`: yields `WorkflowChunk(step, agent_name, iteration, phase: ContentType, content: str)`
   - `from_config(configs, client_factory)`: factory from list of dicts; `client_factory(cfg)` must return a `ModelClient`
+  - `agents: list[Agent]` — steps may be `SimpleAgent` or nested `WorkflowAgent` instances
 
 - Agents use the public `chat()` / `chat_streamed()` API only — no changes to `ModelClient` subclasses
 
@@ -337,9 +341,10 @@ aimu/
 │   ├── client.py        # MCPClient wrapper
 │   └── mcp.py           # Example FastMCP server with built-in tools
 ├── agents/              # Agentic workflows
-│   ├── agent.py         # Agent class + AgentChunk (agentic loop over ModelClient.chat())
-│   ├── agentic_client.py # AgenticModelClient (ModelClient wrapper around Agent)
-│   └── workflow.py      # Workflow class + WorkflowChunk (sequential agent chaining)
+│   ├── base_agent.py    # Agent ABC + AgentChunk
+│   ├── simple_agent.py  # SimpleAgent (agentic loop over ModelClient.chat())
+│   ├── agentic_client.py # AgenticModelClient (ModelClient wrapper, accepts any Agent)
+│   └── workflow_agent.py # WorkflowAgent + WorkflowChunk (sequential agent chaining)
 ├── history.py           # Conversation management (TinyDB)
 ├── memory/              # Semantic memory store (ChromaDB)
 │   ├── store.py         # MemoryStore class

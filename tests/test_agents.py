@@ -1,5 +1,5 @@
 """
-Tests for aimu.agents — Agent and Workflow classes.
+Tests for aimu.agents — SimpleAgent, WorkflowAgent, and AgenticModelClient.
 
 Unit tests use MockModelClient inline (deterministic, no backend needed).
 The model_client fixture is available for integration tests:
@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aimu.agents import Agent, AgentChunk, AgenticModelClient, Workflow, WorkflowChunk
+from aimu.agents import Agent, AgentChunk, AgenticModelClient, SimpleAgent, WorkflowAgent, WorkflowChunk
 from aimu.models import ModelClient
 from aimu.models.base_client import StreamChunk, StreamingContentType
 from conftest import create_real_model_client, resolve_model_params
@@ -103,14 +103,14 @@ class MockModelClient(ModelClient):
 
 
 # ---------------------------------------------------------------------------
-# Agent tests
+# SimpleAgent tests
 # ---------------------------------------------------------------------------
 
 
 def test_agent_no_tools_calls_chat_once():
-    """If the model never uses tools, Agent.run() calls chat() exactly once."""
+    """If the model never uses tools, SimpleAgent.run() calls chat() exactly once."""
     client = MockModelClient(["final answer"])
-    agent = Agent(client, name="test")
+    agent = SimpleAgent(client, name="test")
     result = agent.run("do something")
 
     assert result == "final answer"
@@ -123,7 +123,7 @@ def test_agent_one_tool_round_then_done():
     is done. Responses consumed: tool(2 slots) + plain confirmation(1 slot) = 3.
     """
     client = MockModelClient(["tool", "after tool answer", "all done"])
-    agent = Agent(client, name="test")
+    agent = SimpleAgent(client, name="test")
     result = agent.run("do something with tools")
 
     assert result == "all done"
@@ -136,7 +136,7 @@ def test_agent_two_tool_rounds():
     Loop: chat(task)→tool → continuation→tool → continuation→plain → stop.
     """
     client = MockModelClient(["tool", "after first tool", "tool", "after second tool", "final answer"])
-    agent = Agent(client, name="test", max_iterations=10)
+    agent = SimpleAgent(client, name="test", max_iterations=10)
     result = agent.run("multi-round task")
 
     assert result == "final answer"
@@ -144,19 +144,19 @@ def test_agent_two_tool_rounds():
 
 
 def test_agent_max_iterations_stops_loop():
-    """Agent stops after max_iterations even if tools keep being called."""
+    """SimpleAgent stops after max_iterations even if tools keep being called."""
     # All responses are tool calls — would loop forever without a limit
     client = MockModelClient(["tool", "still going"] * 10)
-    agent = Agent(client, name="test", max_iterations=3)
+    agent = SimpleAgent(client, name="test", max_iterations=3)
     agent.run("never-ending task")
 
     assert client._call_count <= 6  # 3 iterations × 2 reads each at most
 
 
 def test_agent_uses_continuation_prompt():
-    """After a tool-calling turn, Agent sends the continuation_prompt."""
+    """After a tool-calling turn, SimpleAgent sends the continuation_prompt."""
     client = MockModelClient(["tool", "done", "confirmed"])
-    agent = Agent(client, name="test", continuation_prompt="KEEP GOING")
+    agent = SimpleAgent(client, name="test", continuation_prompt="KEEP GOING")
     agent.run("start")
 
     user_messages = [m["content"] for m in client.messages if m["role"] == "user"]
@@ -166,14 +166,14 @@ def test_agent_uses_continuation_prompt():
 
 def test_agent_from_config_sets_system_message():
     client = MockModelClient(["hello"])
-    Agent.from_config({"name": "cfg_agent", "system_message": "Be helpful.", "max_iterations": 5}, client)
+    SimpleAgent.from_config({"name": "cfg_agent", "system_message": "Be helpful.", "max_iterations": 5}, client)
 
     assert client.system_message == "Be helpful."
 
 
 def test_agent_from_config_defaults():
     client = MockModelClient(["hello"])
-    agent = Agent.from_config({}, client)
+    agent = SimpleAgent.from_config({}, client)
 
     assert agent.name == "agent"
     assert agent.max_iterations == 10
@@ -181,7 +181,7 @@ def test_agent_from_config_defaults():
 
 def test_agent_streamed_yields_agent_chunks():
     client = MockModelClient(["streamed answer"])
-    agent = Agent(client, name="streamer")
+    agent = SimpleAgent(client, name="streamer")
     chunks = list(agent.run_streamed("task"))
 
     assert all(isinstance(c, AgentChunk) for c in chunks)
@@ -193,7 +193,7 @@ def test_agent_streamed_yields_agent_chunks():
 
 def test_agent_streamed_iteration_increments_on_tool_use():
     client = MockModelClient(["tool", "done", "confirmed"])
-    agent = Agent(client, name="it_agent")
+    agent = SimpleAgent(client, name="it_agent")
     chunks = list(agent.run_streamed("task"))
 
     iterations = {c.iteration for c in chunks}
@@ -201,8 +201,15 @@ def test_agent_streamed_iteration_increments_on_tool_use():
     assert 1 in iterations  # continuation after tool use
 
 
+def test_simple_agent_is_agent_subclass():
+    """SimpleAgent must be a concrete subclass of the Agent ABC."""
+    client = MockModelClient(["hi"])
+    agent = SimpleAgent(client)
+    assert isinstance(agent, Agent)
+
+
 # ---------------------------------------------------------------------------
-# Workflow tests
+# WorkflowAgent tests
 # ---------------------------------------------------------------------------
 
 
@@ -210,7 +217,7 @@ def test_workflow_chains_output_to_next_input():
     """Output of step 0 becomes the task for step 1."""
     client_a = MockModelClient(["step A output"])
     client_b = MockModelClient(["step B output"])
-    wf = Workflow(agents=[Agent(client_a, name="a"), Agent(client_b, name="b")])
+    wf = WorkflowAgent(agents=[SimpleAgent(client_a, name="a"), SimpleAgent(client_b, name="b")])
     result = wf.run("initial task")
 
     assert result == "step B output"
@@ -221,14 +228,14 @@ def test_workflow_chains_output_to_next_input():
 
 def test_workflow_run_single_agent():
     client = MockModelClient(["only answer"])
-    wf = Workflow(agents=[Agent(client, name="solo")])
+    wf = WorkflowAgent(agents=[SimpleAgent(client, name="solo")])
     assert wf.run("task") == "only answer"
 
 
 def test_workflow_streamed_yields_workflow_chunks():
     client_a = MockModelClient(["part one"])
     client_b = MockModelClient(["part two"])
-    wf = Workflow(agents=[Agent(client_a, name="a"), Agent(client_b, name="b")])
+    wf = WorkflowAgent(agents=[SimpleAgent(client_a, name="a"), SimpleAgent(client_b, name="b")])
     chunks = list(wf.run_streamed("go"))
 
     assert all(isinstance(c, WorkflowChunk) for c in chunks)
@@ -239,7 +246,7 @@ def test_workflow_streamed_yields_workflow_chunks():
 def test_workflow_streamed_step_tags():
     client_a = MockModelClient(["result a"])
     client_b = MockModelClient(["result b"])
-    wf = Workflow(agents=[Agent(client_a, name="alpha"), Agent(client_b, name="beta")])
+    wf = WorkflowAgent(agents=[SimpleAgent(client_a, name="alpha"), SimpleAgent(client_b, name="beta")])
     chunks = list(wf.run_streamed("start"))
 
     step0 = [c for c in chunks if c.step == 0]
@@ -257,12 +264,19 @@ def test_workflow_from_config():
         {"name": "first", "_test_responses": ["first output"]},
         {"name": "second", "_test_responses": ["second output"]},
     ]
-    wf = Workflow.from_config(configs, make_client)
+    wf = WorkflowAgent.from_config(configs, make_client)
 
     assert len(wf.agents) == 2
     assert wf.agents[0].name == "first"
     assert wf.agents[1].name == "second"
     assert wf.run("go") == "second output"
+
+
+def test_workflow_agent_is_agent_subclass():
+    """WorkflowAgent must be a concrete subclass of the Agent ABC."""
+    client = MockModelClient(["hi"])
+    wf = WorkflowAgent(agents=[SimpleAgent(client)])
+    assert isinstance(wf, Agent)
 
 
 # ---------------------------------------------------------------------------
@@ -271,9 +285,9 @@ def test_workflow_from_config():
 
 
 def test_agentic_client_chat_runs_agent_loop():
-    """chat() runs the full Agent loop, not a single turn."""
+    """chat() runs the full SimpleAgent loop, not a single turn."""
     client = MockModelClient(["tool", "after tool", "done"])
-    ac = AgenticModelClient(Agent(client, max_iterations=5))
+    ac = AgenticModelClient(SimpleAgent(client, max_iterations=5))
     result = ac.chat("do something with tools")
     assert result == "done"
     assert client._call_count == 3  # tool(2) + confirmation(1)
@@ -282,7 +296,7 @@ def test_agentic_client_chat_runs_agent_loop():
 def test_agentic_client_chat_no_tools_single_call():
     """chat() without tool use resolves in one model call."""
     client = MockModelClient(["plain answer"])
-    ac = AgenticModelClient(Agent(client))
+    ac = AgenticModelClient(SimpleAgent(client))
     assert ac.chat("hello") == "plain answer"
     assert client._call_count == 1
 
@@ -290,7 +304,7 @@ def test_agentic_client_chat_no_tools_single_call():
 def test_agentic_client_chat_streamed_yields_stream_chunks():
     """chat_streamed() yields StreamChunk, not AgentChunk."""
     client = MockModelClient(["stream result"])
-    ac = AgenticModelClient(Agent(client))
+    ac = AgenticModelClient(SimpleAgent(client))
     chunks = list(ac.chat_streamed("task"))
     assert all(isinstance(c, StreamChunk) for c in chunks)
     assert not any(isinstance(c, AgentChunk) for c in chunks)
@@ -299,7 +313,7 @@ def test_agentic_client_chat_streamed_yields_stream_chunks():
 def test_agentic_client_messages_delegated():
     """messages property delegates to inner_client — both refer to the same list."""
     client = MockModelClient(["reply"])
-    ac = AgenticModelClient(Agent(client))
+    ac = AgenticModelClient(SimpleAgent(client))
     ac.chat("hi")
     assert ac.messages is client.messages
 
@@ -307,7 +321,7 @@ def test_agentic_client_messages_delegated():
 def test_agentic_client_mcp_client_delegated():
     """Setting mcp_client on AgenticModelClient propagates to inner_client."""
     client = MockModelClient(["hi"])
-    ac = AgenticModelClient(Agent(client))
+    ac = AgenticModelClient(SimpleAgent(client))
     mock_mcp = object()
     ac.mcp_client = mock_mcp
     assert client.mcp_client is mock_mcp
@@ -316,7 +330,7 @@ def test_agentic_client_mcp_client_delegated():
 def test_agentic_client_system_message_delegated():
     """system_message property delegates to inner_client."""
     client = MockModelClient(["hi"])
-    ac = AgenticModelClient(Agent(client))
+    ac = AgenticModelClient(SimpleAgent(client))
     ac.system_message = "Be helpful."
     assert client.system_message == "Be helpful."
 
@@ -324,7 +338,19 @@ def test_agentic_client_system_message_delegated():
 def test_agentic_client_generate_delegates_to_inner():
     """generate() bypasses the Agent loop and calls inner_client directly."""
     client = MockModelClient(["generated"])
-    ac = AgenticModelClient(Agent(client))
+    ac = AgenticModelClient(SimpleAgent(client))
     result = ac.generate("prompt")
     assert result == "generated"
     assert client._call_count == 1
+
+
+def test_agentic_client_wraps_workflow():
+    """AgenticModelClient can wrap a WorkflowAgent; state delegates to last agent's client."""
+    client_a = MockModelClient(["step one output"])
+    client_b = MockModelClient(["final output"])
+    wf = WorkflowAgent(agents=[SimpleAgent(client_a, name="a"), SimpleAgent(client_b, name="b")])
+    ac = AgenticModelClient(wf)
+    result = ac.chat("start task")
+    assert result == "final output"
+    # State delegates to last agent's client
+    assert ac.messages is client_b.messages

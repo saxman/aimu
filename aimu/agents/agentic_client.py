@@ -2,29 +2,57 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Optional
 
-from aimu.agents.agent import Agent
+from aimu.agents.base_agent import Agent
 from aimu.models.base_client import ModelClient, StreamChunk
+
+
+def _extract_model_client(agent: Agent) -> ModelClient:
+    """
+    Walk the agent tree to find a ModelClient for state delegation.
+
+    SimpleAgent exposes model_client directly.
+    WorkflowAgent delegates to its last step's agent (recursively).
+    """
+    from aimu.agents.simple_agent import SimpleAgent
+    from aimu.agents.workflow_agent import WorkflowAgent
+
+    if isinstance(agent, SimpleAgent):
+        return agent.model_client
+    if isinstance(agent, WorkflowAgent):
+        if not agent.agents:
+            raise ValueError("WorkflowAgent has no agents; cannot determine model_client.")
+        return _extract_model_client(agent.agents[-1])
+    raise TypeError(
+        f"Cannot extract model_client from {type(agent).__name__}. "
+        "Override _extract_model_client or use SimpleAgent / WorkflowAgent."
+    )
 
 
 class AgenticModelClient(ModelClient):
     """
-    A ModelClient whose chat() runs the full Agent agentic loop — looping
+    A ModelClient whose chat() runs the full Agent loop — looping
     until the model stops calling tools — rather than a single model turn.
 
-    Drop-in replacement anywhere a ModelClient is accepted.
+    Drop-in replacement anywhere a ModelClient is accepted. Accepts either a
+    SimpleAgent or a WorkflowAgent (or any Agent subclass that contains a
+    SimpleAgent somewhere in its tree).
 
     Usage::
 
         inner = OllamaClient(OllamaModel.QWEN_3_8B)
         inner.mcp_client = MCPClient(MCP_SERVERS)
-        agent = Agent(inner, max_iterations=8)
+        agent = SimpleAgent(inner, max_iterations=8)
         client = AgenticModelClient(agent)
         client.chat("Research the top Python web frameworks.")  # loops until done
+
+        # Or wrap a full pipeline:
+        wf = WorkflowAgent(agents=[SimpleAgent(inner_a), SimpleAgent(inner_b)])
+        client = AgenticModelClient(wf)
     """
 
     def __init__(self, agent: Agent):
         self._agent = agent
-        self._inner_client = agent.model_client
+        self._inner_client = _extract_model_client(agent)
         # Mirror base attributes from inner_client (model caps, generate kwargs).
         # super().__init__() is intentionally not called — it would reset inner_client
         # state (messages, mcp_client, etc.) to defaults.

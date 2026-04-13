@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Iterator, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, Iterator, Optional
 
+from aimu.agents.base_agent import Agent, AgentChunk
 from aimu.models.base_client import StreamingContentType, ModelClient
 
 if TYPE_CHECKING:
@@ -14,17 +15,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_CONTINUATION_PROMPT = "Continue working on the task using available tools as needed."
 
 
-class AgentChunk(NamedTuple):
-    """A chunk tagged with the agent name and loop iteration number."""
-
-    agent_name: str
-    iteration: int
-    phase: StreamingContentType
-    content: Any  # str for THINKING/GENERATING; dict {"name", "response"} for TOOL_CALLING
-
-
 @dataclass
-class Agent:
+class SimpleAgent(Agent):
     """
     Wraps a ModelClient with an agentic loop.
 
@@ -37,12 +29,12 @@ class Agent:
 
         client = OllamaClient(OllamaModel.QWEN_3_8B)
         client.mcp_client = MCPClient(MCP_SERVERS)
-        agent = Agent(client, name="researcher", max_iterations=8)
+        agent = SimpleAgent(client, name="researcher", max_iterations=8)
         result = agent.run("Summarise the files in /tmp.")
 
     From config::
 
-        agent = Agent.from_config(
+        agent = SimpleAgent.from_config(
             {"name": "helper", "system_message": "Use tools.", "max_iterations": 5},
             client,
         )
@@ -123,9 +115,9 @@ class Agent:
         return False
 
     @classmethod
-    def from_config(cls, config: dict[str, Any], model_client: ModelClient) -> Agent:
+    def from_config(cls, config: dict[str, Any], model_client: ModelClient) -> SimpleAgent:
         """
-        Create an Agent from a plain dict config.
+        Create a SimpleAgent from a plain dict config.
 
         Recognised keys:
             name (str)              — agent identifier

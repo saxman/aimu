@@ -1,5 +1,13 @@
-from .agent import Agent, AgentChunk
+from .base_agent import Agent, AgentChunk
+from .simple_agent import SimpleAgent
 from .agentic_client import AgenticModelClient
-from .workflow import Workflow, WorkflowChunk
+from .workflow_agent import WorkflowAgent, WorkflowChunk
 
-__all__ = ["Agent", "AgentChunk", "AgenticModelClient", "Workflow", "WorkflowChunk"]
+__all__ = [
+    "Agent",
+    "AgentChunk",
+    "AgenticModelClient",
+    "SimpleAgent",
+    "WorkflowAgent",
+    "WorkflowChunk",
+]
