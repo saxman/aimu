@@ -307,10 +307,13 @@ agent = SimpleAgent.from_config(
 )
 ```
 
-`WorkflowAgent` chains agents sequentially. The output of each step becomes the input to the next:
+`WorkflowAgent` chains agents sequentially. The output of each step becomes the input to the next. Pass a single `ModelClient` — it is shared across steps, with `messages` cleared and `system_message` applied from each step's config before it runs:
 
 ``` python
 from aimu.agents import WorkflowAgent
+
+client = OllamaClient(OllamaModel.QWEN_3_8B)
+client.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
 
 wf = WorkflowAgent.from_config(
     [
@@ -318,7 +321,7 @@ wf = WorkflowAgent.from_config(
         {"name": "executor",  "system_message": "Execute each step using tools.", "max_iterations": 10},
         {"name": "formatter", "system_message": "Format the results clearly.", "max_iterations": 1},
     ],
-    lambda cfg: OllamaClient(OllamaModel.QWEN_3_8B),
+    client,
 )
 result = wf.run("Research the top Python web frameworks.")
 ```
@@ -344,7 +347,7 @@ client = inner
 client = AgenticModelClient(SimpleAgent(inner, max_iterations=10))
 
 # Or wrap an entire pipeline behind the same interface
-client = AgenticModelClient(WorkflowAgent.from_config(configs, lambda cfg: inner))
+client = AgenticModelClient(WorkflowAgent.from_config(configs, inner))
 
 # All three work identically here:
 response = client.chat("Find all log files modified today and summarise the errors.")

@@ -256,20 +256,40 @@ def test_workflow_streamed_step_tags():
 
 
 def test_workflow_from_config():
-    def make_client(cfg):
-        responses = cfg.get("_test_responses", ["ok"])
-        return MockModelClient(responses)
-
-    configs = [
-        {"name": "first", "_test_responses": ["first output"]},
-        {"name": "second", "_test_responses": ["second output"]},
-    ]
-    wf = WorkflowAgent.from_config(configs, make_client)
+    client = MockModelClient(["first output", "second output"])
+    configs = [{"name": "first"}, {"name": "second"}]
+    wf = WorkflowAgent.from_config(configs, client)
 
     assert len(wf.agents) == 2
     assert wf.agents[0].name == "first"
     assert wf.agents[1].name == "second"
     assert wf.run("go") == "second output"
+
+
+def test_workflow_from_config_resets_messages_between_steps():
+    """from_config shared-client mode clears messages before each step."""
+    client = MockModelClient(["step A output", "step B output"])
+    configs = [{"name": "a"}, {"name": "b"}]
+    wf = WorkflowAgent.from_config(configs, client)
+    wf.run("start")
+
+    # After the run, messages belong to the last step only
+    user_msgs = [m["content"] for m in client.messages if m["role"] == "user"]
+    assert user_msgs == ["step A output"]  # step B received step A's output as task
+
+
+def test_workflow_from_config_sets_system_message_per_step():
+    """from_config applies each step's system_message at run time."""
+    client = MockModelClient(["out a", "out b"])
+    configs = [
+        {"name": "a", "system_message": "You are A."},
+        {"name": "b", "system_message": "You are B."},
+    ]
+    wf = WorkflowAgent.from_config(configs, client)
+    wf.run("go")
+
+    # After the run the client holds the last step's system_message
+    assert client.system_message == "You are B."
 
 
 def test_workflow_agent_is_agent_subclass():

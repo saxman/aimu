@@ -220,7 +220,7 @@ The codebase uses an abstract base class pattern for model clients:
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
   - `run(task, generate_kwargs)`: runs all agents in order, returns final string
   - `run_streamed(task, generate_kwargs)`: yields `WorkflowChunk(step, agent_name, iteration, phase: ContentType, content: str)`
-  - `from_config(configs, client_factory)`: factory from list of dicts; `client_factory(cfg)` must return a `ModelClient`
+  - `from_config(configs, client)`: builds from a list of dicts and a single `ModelClient`; the client is shared across steps — `messages` cleared and `system_message` set from each step's config before it runs
   - `agents: list[Agent]` — steps may be `SimpleAgent` or nested `WorkflowAgent` instances
 
 - Agents use the public `chat()` / `chat_streamed()` API only — no changes to `ModelClient` subclasses

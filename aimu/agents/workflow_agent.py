@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterator, NamedTuple, Optional
+from typing import Any, Iterator, NamedTuple, Optional
 
 from aimu.agents.base_agent import Agent, AgentChunk
 from aimu.models.base_client import StreamingContentType, ModelClient
@@ -26,25 +26,44 @@ class WorkflowAgent(Agent):
     Chains agents sequentially. The text output of step N becomes the task
     input for step N+1.
 
+    The simplest way to build a WorkflowAgent is from a list of config dicts and
+    a single ModelClient. The client is reused across all steps; before each step
+    its messages are cleared and system_message is set from the step's config.
+
     Usage::
+
+        client = OllamaClient(OllamaModel.QWEN_3_8B)
+        client.mcp_client = MCPClient(server=mcp)
 
         wf = WorkflowAgent.from_config(
             [
                 {"name": "planner",  "system_message": "Break the task into steps.", "max_iterations": 3},
                 {"name": "executor", "system_message": "Execute each step.",         "max_iterations": 10},
             ],
-            lambda cfg: OllamaClient(OllamaModel.QWEN_3_8B),
+            client,
         )
         result = wf.run("Research the top Python web frameworks.")
     """
 
     agents: list[Agent]
     name: str = "workflow"
+    # Populated by from_config; None when agents were constructed externally.
+    _shared_client: Optional[ModelClient] = field(default=None, init=False, repr=False)
+    _step_system_messages: list[Optional[str]] = field(default_factory=list, init=False, repr=False)
+
+    def _prepare_step(self, step: int) -> None:
+        """Reset the shared client before a step. No-op when agents own their clients."""
+        if self._shared_client is None:
+            return
+        self._shared_client.messages = []
+        msg = self._step_system_messages[step] if step < len(self._step_system_messages) else None
+        self._shared_client.system_message = msg
 
     def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         """Run all agents sequentially and return the final response."""
         result = task
         for step, agent in enumerate(self.agents):
+            self._prepare_step(step)
             logger.debug("Workflow step %d — agent '%s'.", step, agent.name)
             result = agent.run(result, generate_kwargs=generate_kwargs)
         return result
@@ -57,6 +76,7 @@ class WorkflowAgent(Agent):
         """
         result = task
         for step, agent in enumerate(self.agents):
+            self._prepare_step(step)
             logger.debug("Workflow step %d — agent '%s'.", step, agent.name)
             step_chunks: list[AgentChunk] = []
             for chunk in agent.run_streamed(result, generate_kwargs=generate_kwargs):
@@ -68,18 +88,30 @@ class WorkflowAgent(Agent):
     def from_config(
         cls,
         configs: list[dict[str, Any]],
-        client_factory: Callable[[dict[str, Any]], ModelClient],
+        client: ModelClient,
     ) -> WorkflowAgent:
         """
-        Build a WorkflowAgent from a list of agent config dicts.
+        Build a WorkflowAgent from a list of agent config dicts and a single ModelClient.
 
-        client_factory receives each config dict and must return a configured
-        ModelClient. This lets the caller choose client type and model per step.
+        The client is shared across all steps. Before each step runs, its ``messages``
+        are cleared and ``system_message`` is set from the step's config, so steps
+        remain isolated from one another.
 
         Example::
 
-            WorkflowAgent.from_config(configs, lambda cfg: OllamaClient(OllamaModel.QWEN_3_8B))
+            client = OllamaClient(OllamaModel.QWEN_3_8B)
+            client.mcp_client = MCPClient(server=mcp)
+            WorkflowAgent.from_config(configs, client)
         """
         from aimu.agents.simple_agent import SimpleAgent
 
-        return cls(agents=[SimpleAgent.from_config(cfg, client_factory(cfg)) for cfg in configs])
+        # Extract system_message per step; exclude it from construction so that
+        # _prepare_step can apply the correct value at run time.
+        system_messages = [cfg.get("system_message") for cfg in configs]
+        configs_without_sm = [{k: v for k, v in cfg.items() if k != "system_message"} for cfg in configs]
+        agents = [SimpleAgent.from_config(cfg, client) for cfg in configs_without_sm]
+
+        wf = cls(agents=agents)
+        wf._shared_client = client
+        wf._step_system_messages = system_messages
+        return wf
