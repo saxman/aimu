@@ -25,7 +25,7 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
 
--   **Agentic Workflows**: `SimpleAgent` and `WorkflowAgent` classes for autonomous, tool-driven task execution, both inheriting from a shared `Agent` ABC. Agents loop over tool calls until the task is complete; workflows chain agents sequentially. `AgenticModelClient` wraps any `Agent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable anywhere a `ModelClient` is accepted.
+-   **Agentic Workflows**: `SimpleAgent`, `SkillAgent`, and `WorkflowAgent` classes for autonomous, tool-driven task execution, all inheriting from a shared `Agent` ABC. Agents loop over tool calls until the task is complete; workflows chain agents sequentially. `AgenticModelClient` wraps any `Agent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable anywhere a `ModelClient` is accepted.
 
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
 
@@ -418,14 +418,20 @@ store.retrieve_facts("family relationships")  # ["Paul is married to Sarah", ...
 
 ### Agent Skills
 
-Skills are SKILL.md files discovered from `.agents/skills/` or `.claude/skills/` directories (project-level overrides user-level). Pass `skill_dirs` or `use_skills=True` to `Agent.from_config()` to enable them:
+Skills are SKILL.md files discovered from `.agents/skills/` or `.claude/skills/` directories (project-level overrides user-level). Use `SkillAgent` instead of `SimpleAgent` to enable skill support:
 
 ``` python
-from aimu.agents import SimpleAgent
+from aimu.agents import SkillAgent
 from aimu.skills import SkillManager
 
-manager = SkillManager(skill_dirs=["./skills"])
-agent = SimpleAgent.from_config({"name": "assistant", "skill_dirs": ["./skills"]}, client)
+# Auto-discover skills from default paths
+agent = SkillAgent(client, name="assistant")
+
+# Or point at specific directories
+agent = SkillAgent(client, skill_manager=SkillManager(skill_dirs=["./skills"]))
+
+# Or use from_config (skill_dirs optional — omit to auto-discover)
+agent = SkillAgent.from_config({"name": "assistant", "skill_dirs": ["./skills"]}, client)
 result = agent.run("Use the pdf-processing skill to extract pages from report.pdf")
 ```
 

@@ -1,3 +1,4 @@
+---
 name: haiku-poet
 description: Write haiku poems in the classic 5-7-5 syllable format. Use when asked to write poetry, a haiku, or short verse.
 ---

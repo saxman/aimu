@@ -1,3 +1,4 @@
+---
 name: unit-converter
 description: Convert between units of measurement including length, weight, temperature, and volume. Use when asked to convert units.
 ---
@@ -16,8 +17,8 @@ description: Convert between units of measurement including length, weight, temp
 - 1 ounce = 28.3495 g
 
 **Temperature**
-- Celsius to Fahrenheit: (\u00b0C \u00d7 9/5) + 32
-- Fahrenheit to Celsius: (\u00b0F \u2212 32) \u00d7 5/9
+- Celsius to Fahrenheit: (°C × 9/5) + 32
+- Fahrenheit to Celsius: (°F − 32) × 5/9
 
 **Volume**
 - 1 US gallon = 3.78541 L

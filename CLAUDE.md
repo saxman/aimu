@@ -205,11 +205,16 @@ The codebase uses an abstract base class pattern for model clients:
   - Stop condition: scans `model_client.messages` in reverse — if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again
   - `run(task, generate_kwargs)`: synchronous agentic loop, returns final response string
   - `run_streamed(task, generate_kwargs)`: yields `AgentChunk(agent_name, iteration, phase, content)`
-  - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`, `use_skills`)
-  - Optional `skill_manager`: if set, `_setup_skills()` injects catalog into system message and attaches skills MCP client on first run
+  - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`)
+
+- **[aimu/agents/skill_agent.py](aimu/agents/skill_agent.py)**: `SkillAgent(SimpleAgent)` — adds skill discovery and injection
+  - Extends `SimpleAgent` with a `skill_manager: SkillManager` field (defaults to `SkillManager()` for auto-discovery)
+  - On first `run()` (or after a message reset), `_setup_skills()` appends the skill catalog to the system message and attaches a skills MCPClient — the model can then call `activate_skill` to load full skill instructions
+  - `_prepare_run()` resets the `_skills_setup_done` flag when messages are cleared, so skills are re-injected on each fresh run
+  - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`); omit `skill_dirs` to auto-discover
 
 - **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(ModelClient)` — drop-in agentic wrapper
-  - Wraps a `SimpleAgent` and exposes the standard `ModelClient` interface; raises `TypeError` for any other agent type
+  - Wraps a `SimpleAgent` (or `SkillAgent`, which inherits from it) and exposes the standard `ModelClient` interface; raises `TypeError` for any other agent type
   - `chat()` / `chat_streamed()` run the full SimpleAgent loop (multi-turn until tools stop); `chat_streamed()` adapts `AgentChunk` → `StreamChunk`
   - `generate()` / `generate_streamed()` pass through to the inner client unchanged (no loop)
   - `messages`, `mcp_client`, `system_message`, `last_thinking` delegate to `SimpleAgent.model_client`
@@ -343,6 +348,7 @@ aimu/
 ├── agents/              # Agentic workflows
 │   ├── base_agent.py    # Agent ABC + AgentChunk
 │   ├── simple_agent.py  # SimpleAgent (agentic loop over ModelClient.chat())
+│   ├── skill_agent.py   # SkillAgent (SimpleAgent + skill discovery/injection)
 │   ├── agentic_client.py # AgenticModelClient (ModelClient wrapper, accepts any Agent)
 │   └── workflow_agent.py # WorkflowAgent + WorkflowChunk (sequential agent chaining)
 ├── history.py           # Conversation management (TinyDB)
