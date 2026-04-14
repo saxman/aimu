@@ -22,7 +22,7 @@ from fastmcp import FastMCP
 
 from aimu.memory.store import MemoryStore
 
-_DEFAULT_PERSIST_PATH = os.environ.get("MEMORY_STORE_PATH", "./memory_store")
+_DEFAULT_PERSIST_PATH = os.environ.get("MEMORY_STORE_PATH")  # None → ephemeral (in-memory)
 
 mcp = FastMCP("AIMU Memory")
 _store = MemoryStore(persist_path=_DEFAULT_PERSIST_PATH)
