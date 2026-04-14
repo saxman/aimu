@@ -37,6 +37,21 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Prompt Storage/Management**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)), plus a hill-climbing `PromptTuner` for automatic prompt optimization. A `ClassificationPromptTuner` is included for binary YES/NO classification tasks.
 
+## Examples
+
+The following Jupyter notebooks demonstrate key AIMU features:
+
+| Notebook | Description |
+|---|---|
+| [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) | Text generation, chat, streaming, and thinking models |
+| [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb) | MCP tool integration with model clients |
+| [03 - Prompts](notebooks/03%20-%20Prompts.ipynb) | Versioned prompt storage and hill-climbing tuning |
+| [04 - Conversations](notebooks/04%20-%20Conversations.ipynb) | Persistent chat conversation management |
+| [05 - Memory](notebooks/05%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
+| [06 - Agents](notebooks/06%20-%20Agents.ipynb) | SimpleAgent and AgenticModelClient |
+| [07 - Agent Skills](notebooks/07%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
+| [08 - Agent Workflows](notebooks/08%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
+
 ## Components
 
 In addition to the AIMU package in the 'aimu' directory, the AIMU code repository includes:
