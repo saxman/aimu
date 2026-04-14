@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Iterator, Optional
 
 from aimu.agents.base_agent import Agent, AgentChunk
-from aimu.models.base_client import StreamingContentType, ModelClient
+from aimu.models.base_client import ModelClient
 
 if TYPE_CHECKING:
     from aimu.skills.manager import SkillManager
