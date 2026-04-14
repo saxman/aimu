@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional
 
-from aimu.agents.base_agent import Workflow, Runner, AgentChunk
+from aimu.agents.base_agent import Workflow, Runner, AgentChunk, MessageHistory
 from aimu.agents.simple_agent import SimpleAgent
 from aimu.models.base_client import StreamingContentType, ModelClient
 
@@ -77,6 +77,16 @@ class Router(Workflow):
             raise ValueError(f"No handler for route '{route}' and no fallback set.")
         logger.debug("Router '%s' dispatching to '%s'.", self.name, route)
         yield from handler.run_streamed(task, generate_kwargs=generate_kwargs)
+
+    @property
+    def messages(self) -> MessageHistory:
+        result: MessageHistory = {}
+        result.update(self.routing_agent.messages)
+        for handler in self.handlers.values():
+            result.update(handler.messages)
+        if self.fallback:
+            result.update(self.fallback.messages)
+        return result
 
     @classmethod
     def from_config(

@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Iterator, NamedTuple, Optional
 
-from aimu.agents.base_agent import Workflow, AgentChunk
+from aimu.agents.base_agent import Workflow, AgentChunk, MessageHistory
 from aimu.models.base_client import StreamingContentType, ModelClient
 
 logger = logging.getLogger(__name__)
@@ -82,6 +82,13 @@ class Chain(Workflow):
                 step_chunks.append(chunk)
                 yield ChainChunk(step, chunk.agent_name, chunk.iteration, chunk.phase, chunk.content)
             result = "".join(c.content for c in step_chunks if c.phase == StreamingContentType.GENERATING)
+
+    @property
+    def messages(self) -> MessageHistory:
+        result: MessageHistory = {}
+        for agent in self.agents:
+            result.update(agent.messages)
+        return result
 
     @classmethod
     def from_config(

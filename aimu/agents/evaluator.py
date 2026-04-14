@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional
 
-from aimu.agents.base_agent import Workflow, AgentChunk
+from aimu.agents.base_agent import Workflow, AgentChunk, MessageHistory
 from aimu.agents.simple_agent import SimpleAgent
 from aimu.models.base_client import StreamingContentType
 
@@ -46,6 +46,13 @@ class EvaluatorOptimizer(Workflow):
     name: str = "evaluator_optimizer"
     max_rounds: int = 3
     pass_keyword: str = "PASS"
+
+    @property
+    def messages(self) -> MessageHistory:
+        result: MessageHistory = {}
+        result.update(self.generator.messages)
+        result.update(self.evaluator.messages)
+        return result
 
     def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         """Run the generate-evaluate loop and return the best output."""

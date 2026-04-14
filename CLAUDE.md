@@ -199,15 +199,17 @@ The codebase uses an abstract base class pattern for model clients:
 AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base with `run()` / `run_streamed()`. **Agents** direct their own tool use autonomously; **workflows** have code-controlled flow.
 
 - **[aimu/agents/base_agent.py](aimu/agents/base_agent.py)**: Root ABCs for the agent/workflow hierarchy
-  - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs)` and `run_streamed(task, generate_kwargs)`; `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: Any)`
+  - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs)`, `run_streamed(task, generate_kwargs)`, and `messages` property; `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: Any)`
   - `Agent(Runner)`: marker ABC for autonomous agents (LLM directs tool use and stop condition); concrete: `SimpleAgent`, `SkillAgent`
   - `Workflow(Runner)`: marker ABC for predetermined workflow patterns (code controls routing/sequencing); concrete: `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`
+  - `MessageHistory`: type alias for `dict[str, list[dict]]` — the return type of `.messages` across the hierarchy; exported from `aimu.agents`
 
 - **[aimu/agents/simple_agent.py](aimu/agents/simple_agent.py)**: `SimpleAgent(Agent)` for autonomous, multi-round tool execution
   - Wraps any `ModelClient`; runs `chat()` in a loop until no tools are called
   - Stop condition: scans `model_client.messages` in reverse — if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again
   - `run(task, generate_kwargs)`: synchronous agentic loop, returns final response string
   - `run_streamed(task, generate_kwargs)`: yields `AgentChunk(agent_name, iteration, phase, content)`
+  - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` or `run_streamed()` call — stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`)
 
 - **[aimu/agents/skill_agent.py](aimu/agents/skill_agent.py)**: `SkillAgent(SimpleAgent)` — adds skill discovery and injection
@@ -230,24 +232,29 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `run_streamed(task, generate_kwargs)`: yields `ChainChunk(step, agent_name, iteration, phase, content)`
   - `from_config(configs, client)`: builds from a list of dicts and a single `ModelClient`; the client is shared across steps — `messages` cleared and `system_message` set from each step's config before it runs
   - `agents: list[Runner]` — steps may be `SimpleAgent` or nested workflows
+  - `messages` property: merges `agent.messages` for all steps into one `MessageHistory` dict
 
 - **[aimu/agents/router.py](aimu/agents/router.py)**: `Router(Workflow)` — Anthropic's **Routing** pattern
   - `routing_agent` classifies the task; output (stripped, lowercased) is matched against `handlers: dict[str, Runner]`
   - Falls back to `fallback: Runner` if set; raises `ValueError` otherwise
   - `run_streamed()` yields routing chunks then streams the matched handler
   - `from_config(routing_config, handler_configs, client, fallback_config)`: factory from dicts
+  - `messages` property: merges `routing_agent.messages` + all `handler.messages` + `fallback.messages` (if set); unvisited handlers have empty lists
 
 - **[aimu/agents/parallel.py](aimu/agents/parallel.py)**: `Parallel(Workflow)` — Anthropic's **Parallelization** pattern
   - Runs `workers: list[Runner]` concurrently via `ThreadPoolExecutor`; workers complete before streaming to avoid interleaved output
   - `aggregator: Runner` (optional) receives all worker outputs joined by `separator`; without an aggregator, the joined string is returned directly
   - `run_streamed()` streams only the aggregator phase (or yields a single GENERATING chunk)
+  - `messages` property: merges all `worker.messages` + `aggregator.messages` (if set)
 
 - **[aimu/agents/evaluator.py](aimu/agents/evaluator.py)**: `EvaluatorOptimizer(Workflow)` — Anthropic's **Evaluator-Optimizer** pattern
   - `generator` produces output; `evaluator` reviews it against the original task
   - Loop stops when `pass_keyword` appears in evaluator feedback or `max_rounds` is reached
   - `run_streamed()` yields a single GENERATING chunk with the final output (intermediate drafts not streamed)
+  - `messages` property: merges `generator.messages` + `evaluator.messages`
 
 - All agents/workflows use the public `chat()` / `chat_streamed()` API only — no changes to `ModelClient` subclasses
+- `messages` is composable: nested workflows (e.g. a `Router` dispatching to a `Chain`) merge recursively, so all sub-agent names appear at the top level
 
 ### Prompt Management
 

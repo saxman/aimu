@@ -1,4 +1,4 @@
-from .base_agent import Runner, Agent, Workflow, AgentChunk
+from .base_agent import Runner, Agent, Workflow, AgentChunk, MessageHistory
 from .simple_agent import SimpleAgent
 from .skill_agent import SkillAgent
 from .agentic_client import AgenticModelClient
@@ -13,6 +13,7 @@ __all__ = [
     "Agent",
     "Workflow",
     "AgentChunk",
+    "MessageHistory",
     # Agents (autonomous)
     "SimpleAgent",
     "SkillAgent",

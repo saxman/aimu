@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional
 
-from aimu.agents.base_agent import Workflow, Runner, AgentChunk
+from aimu.agents.base_agent import Workflow, Runner, AgentChunk, MessageHistory
 from aimu.models.base_client import StreamingContentType, ModelClient
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,15 @@ class Parallel(Workflow):
     aggregator: Optional[Runner] = None
     separator: str = "\n\n---\n\n"
     max_workers: Optional[int] = None  # None = one thread per worker
+
+    @property
+    def messages(self) -> MessageHistory:
+        result: MessageHistory = {}
+        for worker in self.workers:
+            result.update(worker.messages)
+        if self.aggregator:
+            result.update(self.aggregator.messages)
+        return result
 
     def _run_workers(self, task: str, generate_kwargs: Optional[dict[str, Any]]) -> list[str]:
         """Run all workers concurrently and return their results in submission order."""

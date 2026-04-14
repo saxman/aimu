@@ -20,10 +20,12 @@ def test_parallel_all_workers_receive_same_task():
     client_a = MockModelClient(["perspective A"])
     client_b = MockModelClient(["perspective B"])
 
-    parallel = Parallel(workers=[
-        SimpleAgent(client_a, name="worker-a"),
-        SimpleAgent(client_b, name="worker-b"),
-    ])
+    parallel = Parallel(
+        workers=[
+            SimpleAgent(client_a, name="worker-a"),
+            SimpleAgent(client_b, name="worker-b"),
+        ]
+    )
     parallel.run("What is the meaning of life?")
 
     user_msgs_a = [m["content"] for m in client_a.messages if m["role"] == "user"]

@@ -5,6 +5,9 @@ from typing import Any, Iterator, NamedTuple, Optional
 
 from aimu.models.base_client import StreamingContentType
 
+# Type alias used by the messages property across the runner hierarchy.
+MessageHistory = dict[str, list[dict]]
+
 
 class AgentChunk(NamedTuple):
     """A chunk tagged with the runner name and loop iteration number."""
@@ -29,10 +32,24 @@ class Runner(ABC):
         ...
 
     @abstractmethod
-    def run_streamed(
-        self, task: str, generate_kwargs: Optional[dict[str, Any]] = None
-    ) -> Iterator[AgentChunk]:
+    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
         """Stream execution, yielding AgentChunk for every chunk produced."""
+        ...
+
+    @property
+    @abstractmethod
+    def messages(self) -> MessageHistory:
+        """
+        Return the message histories of all agents in this runner, keyed by agent name.
+
+        For a leaf agent (SimpleAgent / SkillAgent) this is ``{agent.name: model_client.messages}``.
+        For composite workflows the dicts from every constituent runner are merged, so the
+        result spans the full sub-tree regardless of nesting depth.
+
+        Note: when agents share a single ModelClient (e.g. a Chain built via
+        ``Chain.from_config``), all agents reference the same messages list. After the
+        run, every key in the returned dict will point at the last step's messages.
+        """
         ...
 
 

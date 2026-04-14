@@ -364,6 +364,23 @@ router = Router(
 result = router.run("What is the weather in Tokyo?")
 ```
 
+#### Inspecting message histories
+
+Every `Runner` exposes a `messages` property that returns a `dict[str, list[dict]]` mapping each agent name to its message history snapshot. For workflows the dict is merged recursively across all sub-agents, so you can inspect every exchange after a run:
+
+``` python
+router.run("What is the weather in Tokyo?")
+
+router.messages
+# {
+#   "routing-agent": [{"role": "user", ...}, {"role": "assistant", "content": "weather"}],
+#   "weather-specialist": [{"role": "user", ...}, {"role": "assistant", "content": "..."}],
+#   "math-specialist": [],     # not dispatched — empty snapshot
+# }
+```
+
+Snapshots are taken at the end of each `run()` / `run_streamed()` call, so they survive subsequent runs even when agents share a single `ModelClient`.
+
 #### Parallel (Parallelization)
 
 `Parallel` runs workers concurrently via `ThreadPoolExecutor` and optionally aggregates their outputs:
