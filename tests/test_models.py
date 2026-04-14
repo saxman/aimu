@@ -17,14 +17,11 @@ from typing import Iterable
 from fastmcp import FastMCP
 import time
 
-from aimu.models import ModelClient, HuggingFaceClient, OllamaClient, AisuiteClient, StreamingContentType, StreamChunk
+from conftest import create_real_model_client, resolve_model_params
+from aimu.models import ModelClient, OllamaClient, StreamingContentType, StreamChunk
 from aimu.models import OpenAICompatClient, LMStudioOpenAIClient, OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient
-from aimu.models import HAS_LLAMACPP, LlamaCppClient
+from aimu.models import LlamaCppClient, HuggingFaceClient
 from aimu.tools.client import MCPClient
-from conftest import resolve_model_params, create_real_model_client
-
-if HAS_LLAMACPP:
-    from aimu.models.llamacpp import LlamaCppModel
 
 
 def pytest_generate_tests(metafunc):
