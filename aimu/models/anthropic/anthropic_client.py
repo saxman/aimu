@@ -20,11 +20,9 @@ class AnthropicModel(Model):
     def __init__(self, value, supports_tools=False, supports_thinking=False):
         super().__init__(value, supports_tools, supports_thinking)
 
-    CLAUDE_3_5_HAIKU = ("claude-3-5-haiku-20241022", True)
-    CLAUDE_3_5_SONNET = ("claude-3-5-sonnet-20241022", True)
-    CLAUDE_3_7_SONNET = ("claude-3-7-sonnet-20250219", True, True)
     CLAUDE_SONNET_4_6 = ("claude-sonnet-4-6", True, True)
     CLAUDE_OPUS_4_6 = ("claude-opus-4-6", True, True)
+    CLAUDE_HAIKU_4_5 = ("claude-haiku-4-5", True, False)
 
 
 class AnthropicClient(ModelClient):
@@ -238,7 +236,7 @@ class AnthropicClient(ModelClient):
             messages=[{"role": "user", "content": prompt}],
             **generate_kwargs,
         ) as stream:
-            for event in stream.raw_stream:
+            for event in stream:
                 if event.type == "content_block_delta":
                     delta = event.delta
                     if delta.type == "thinking_delta":
@@ -333,7 +331,7 @@ class AnthropicClient(ModelClient):
             tools=ant_tools,
             **generate_kwargs,
         ) as stream:
-            for event in stream.raw_stream:
+            for event in stream:
                 if event.type == "content_block_start":
                     block = event.content_block
                     if block.type == "tool_use":
@@ -391,7 +389,7 @@ class AnthropicClient(ModelClient):
             tools=ant_tools,
             **generate_kwargs,
         ) as stream2:
-            for event in stream2.raw_stream:
+            for event in stream2:
                 if event.type == "content_block_delta":
                     delta = event.delta
                     if delta.type == "thinking_delta":
