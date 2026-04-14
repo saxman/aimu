@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Iterator, Optional
+from typing import Any, Iterator, Optional
 
-from aimu.agents.base_agent import Agent, AgentChunk
-from aimu.models.base_client import ModelClient
-
-if TYPE_CHECKING:
-    from aimu.skills.manager import SkillManager
+from aimu.agents.base_agent import Agent, AgentChunk, MessageHistory
+from aimu.models.base_client import StreamingContentType, ModelClient
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONTINUATION_PROMPT = "Continue working on the task using available tools as needed."
+DEFAULT_CONTINUATION_PROMPT = "Continue working on the task using available tools as needed. If you have the answer and don't need to use any more tools, just provide the final response."
 
 
 @dataclass
@@ -28,7 +25,7 @@ class SimpleAgent(Agent):
     When ``system_message`` is set or ``reset_messages_on_run`` is True, the agent
     clears ``model_client.messages`` and re-applies ``system_message`` before every
     run. This enables clean state isolation when a client is shared across agents
-    (e.g. inside a WorkflowAgent).
+    (e.g. inside an Chain).
 
     Usage::
 
@@ -51,21 +48,18 @@ class SimpleAgent(Agent):
     continuation_prompt: str = field(default=DEFAULT_CONTINUATION_PROMPT)
     system_message: Optional[str] = field(default=None)
     reset_messages_on_run: bool = field(default=False)
-    skill_manager: Optional["SkillManager"] = field(default=None, repr=False)
-    _skills_setup_done: bool = field(default=False, init=False, repr=False)
+    _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def _prepare_run(self) -> None:
         """Reset client state and re-apply system_message before a run, when configured."""
         if self.reset_messages_on_run or self.system_message is not None:
             self.model_client.messages = []
-            self._skills_setup_done = False  # re-inject skills into the fresh system_message
         if self.system_message is not None:
             self.model_client.system_message = self.system_message
 
     def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
         """Run the agentic loop synchronously and return the final response."""
         self._prepare_run()
-        self._setup_skills()
         response = self.model_client.chat(task, generate_kwargs=generate_kwargs)
 
         for _ in range(self.max_iterations - 1):
@@ -74,6 +68,7 @@ class SimpleAgent(Agent):
             logger.debug("Agent '%s' continuing — tools were used in last turn.", self.name)
             response = self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs)
 
+        self._last_messages = list(self.model_client.messages)
         return response
 
     def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
@@ -83,7 +78,6 @@ class SimpleAgent(Agent):
         chunk belongs to.
         """
         self._prepare_run()
-        self._setup_skills()
         iteration = 0
         for chunk in self.model_client.chat_streamed(task, generate_kwargs=generate_kwargs):
             yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
@@ -95,27 +89,11 @@ class SimpleAgent(Agent):
                 yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
             iteration += 1
 
-    def _setup_skills(self) -> None:
-        """Inject the skill catalog into the system message and attach a skills MCPClient. Called once per run."""
-        if self._skills_setup_done or self.skill_manager is None:
-            return
-        self._skills_setup_done = True
+        self._last_messages = list(self.model_client.messages)
 
-        if not self.skill_manager.skills:
-            return
-
-        catalog = self.skill_manager.catalog_prompt()
-        instructions = (
-            "\n\n" + catalog + "\n\nWhen a task matches a skill's description, call `activate_skill` "
-            "with the skill name to load its full instructions before proceeding."
-        )
-        self.model_client.system_message = (self.model_client.system_message or "") + instructions
-
-        from aimu.skills.mcp import build_skills_server
-        from aimu.tools.client import MCPClient
-
-        skills_server = build_skills_server(self.skill_manager)
-        self.model_client.mcp_client = MCPClient(server=skills_server)
+    @property
+    def messages(self) -> MessageHistory:
+        return {self.name: self._last_messages}
 
     def _last_turn_called_tools(self) -> bool:
         """
@@ -142,17 +120,10 @@ class SimpleAgent(Agent):
                                       and stored for re-application before each run
             max_iterations (int)    — max tool-call rounds (default 10)
             continuation_prompt (str)
-            skill_dirs (list[str])  — explicit skill search paths
         """
         sm = config.get("system_message")
         if sm is not None:
             model_client.system_message = sm
-
-        skill_manager = None
-        if "skill_dirs" in config:
-            from aimu.skills.manager import SkillManager
-
-            skill_manager = SkillManager(skill_dirs=config["skill_dirs"])
 
         return cls(
             model_client=model_client,
@@ -160,5 +131,4 @@ class SimpleAgent(Agent):
             max_iterations=config.get("max_iterations", 10),
             continuation_prompt=config.get("continuation_prompt", DEFAULT_CONTINUATION_PROMPT),
             system_message=sm,
-            skill_manager=skill_manager,
         )

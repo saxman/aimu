@@ -192,20 +192,21 @@ class ModelClient(ABC):
                             "MCP client not initialized. Please initialize and assign an MCP client before using MCP tools."
                         )
 
-                    tool_response = self.mcp_client.call_tool(tool["function"]["name"], tool_call["arguments"])
+                    try:
+                        tool_response = self.mcp_client.call_tool(tool["function"]["name"], tool_call["arguments"])
 
-                    # FastMCP call_tool returns a list of content objects directly
-                    response_content = tool_response if isinstance(tool_response, list) else tool_response.content
+                        # FastMCP call_tool returns a list of content objects directly
+                        response_content = tool_response if isinstance(tool_response, list) else tool_response.content
 
-                    content = ""
-                    if len(response_content) > 0:
-                        # TODO: handle different tool response types, errors, and multiple responses
-                        if response_content[0].type != "text":
-                            raise ValueError(
-                                f"Tool response type {response_content[0].type} not supported. Supported types: text"
-                            )
-
-                        content = response_content[0].text
+                        content = ""
+                        for part in response_content:
+                            if part.type == "text":
+                                content += part.text
+                            else:
+                                logger.debug("Skipping unsupported tool response part type: %s", part.type)
+                    except Exception as exc:
+                        content = f"Tool '{tool_call['name']}' raised an error: {exc}"
+                        logger.warning("Tool call '%s' failed: %s", tool_call["name"], exc)
 
                     self.messages.append(
                         {"role": "tool", "name": tool["function"]["name"], "content": content, "tool_call_id": id}

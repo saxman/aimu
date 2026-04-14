@@ -22,7 +22,7 @@ from fastmcp import FastMCP
 
 from aimu.memory.store import MemoryStore
 
-_DEFAULT_PERSIST_PATH = os.environ.get("MEMORY_STORE_PATH", "./memory_store")
+_DEFAULT_PERSIST_PATH = os.environ.get("MEMORY_STORE_PATH")  # None → ephemeral (in-memory)
 
 mcp = FastMCP("AIMU Memory")
 _store = MemoryStore(persist_path=_DEFAULT_PERSIST_PATH)
@@ -53,6 +53,32 @@ def add_memories(memories: list[str]) -> None:
     """
     for fact in memories:
         _store.store_fact(fact)
+
+
+@mcp.tool()
+def delete_memory(memory: str) -> str:
+    """
+    Delete a specific stored memory (exact match).
+
+    Args:
+        memory: The exact memory string to remove.
+
+    Returns:
+        Confirmation message.
+    """
+    _store.delete_fact(memory)
+    return f"Deleted: {memory}"
+
+
+@mcp.tool()
+def list_memories() -> list[str]:
+    """
+    Return all stored memories.
+
+    Returns:
+        List of all stored memory strings.
+    """
+    return _store.list_facts()
 
 
 if __name__ == "__main__":

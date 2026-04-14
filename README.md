@@ -25,7 +25,7 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
 
--   **Agentic Workflows**: `SimpleAgent` and `WorkflowAgent` classes for autonomous, tool-driven task execution, both inheriting from a shared `Agent` ABC. Agents loop over tool calls until the task is complete; workflows chain agents sequentially. `AgenticModelClient` wraps any `Agent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable anywhere a `ModelClient` is accepted.
+-   **Agentic Workflows**: Per Anthropic's taxonomy, AIMU separates **agents** (autonomous, tool-driven) from **workflows** (code-controlled). `SimpleAgent` and `SkillAgent` implement the agent side; `Chain`, `Router`, `Parallel`, and `EvaluatorOptimizer` implement Anthropic's four workflow patterns. All share a `Runner` base class with `run()` / `run_streamed()`. `AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable.
 
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
 
@@ -46,6 +46,21 @@ In addition to the AIMU package in the 'aimu' directory, the AIMU code repositor
 -   Example chat clients in the `web/` directory, built with [Streamlit](https://streamlit.io/) and [Gradio](https://www.gradio.app/), using AIMU Model Client, MCP tools support, and chat conversation management.
 
 -   A full suite of Pytest tests.
+
+## Examples
+
+The following Jupyter notebooks demonstrate key AIMU features:
+
+| Notebook | Description |
+|---|---|
+| [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) | Text generation, chat, streaming, and thinking models |
+| [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb) | MCP tool integration with model clients |
+| [03 - Prompts](notebooks/03%20-%20Prompts.ipynb) | Versioned prompt storage and hill-climbing tuning |
+| [04 - Conversations](notebooks/04%20-%20Conversations.ipynb) | Persistent chat conversation management |
+| [05 - Memory](notebooks/05%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
+| [06 - Agents](notebooks/06%20-%20Agents.ipynb) | SimpleAgent and AgenticModelClient |
+| [07 - Agent Skills](notebooks/07%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
+| [08 - Agent Workflows](notebooks/08%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
 
 ## Installation
 
@@ -284,7 +299,11 @@ python web/gradio_chatbot.py
 
 ### Agentic Workflows
 
-`SimpleAgent` wraps a `ModelClient` and runs a tool-calling loop until the model produces a response without invoking any tools.
+AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base class with `run()` and `run_streamed()`. **Agents** (`SimpleAgent`, `SkillAgent`) autonomously direct tool use; **workflows** (`Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`) have code-controlled flow.
+
+#### SimpleAgent
+
+`SimpleAgent` wraps a `ModelClient` and runs a tool-calling loop until the model stops invoking tools.
 
 ``` python
 from aimu.models.ollama import OllamaClient, OllamaModel
@@ -298,7 +317,7 @@ agent = SimpleAgent(client, name="assistant", max_iterations=10)
 result = agent.run("Find all log files modified today and summarise the errors.")
 ```
 
-Agents are configurable from a plain dict, making them easy to embed in larger systems:
+Agents are configurable from a plain dict:
 
 ``` python
 agent = SimpleAgent.from_config(
@@ -307,15 +326,16 @@ agent = SimpleAgent.from_config(
 )
 ```
 
-`WorkflowAgent` chains agents sequentially. The output of each step becomes the input to the next. Pass a single `ModelClient` — it is shared across steps, with `messages` cleared and `system_message` applied from each step's config before it runs:
+`run_streamed()` yields `AgentChunk` objects tagged with `agent_name`, `iteration`, and `StreamPhase`.
+
+#### Chain (Prompt Chaining)
+
+`Chain` sequences agents so the output of each step becomes the input to the next. Pass a single `ModelClient` — it is shared across steps, with `messages` cleared and `system_message` applied from each step's config before it runs:
 
 ``` python
-from aimu.agents import WorkflowAgent
+from aimu.agents import Chain
 
-client = OllamaClient(OllamaModel.QWEN_3_8B)
-client.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
-
-wf = WorkflowAgent.from_config(
+chain = Chain.from_config(
     [
         {"name": "planner",   "system_message": "Break the task into steps.", "max_iterations": 3},
         {"name": "executor",  "system_message": "Execute each step using tools.", "max_iterations": 10},
@@ -323,19 +343,81 @@ wf = WorkflowAgent.from_config(
     ],
     client,
 )
-result = wf.run("Research the top Python web frameworks.")
+result = chain.run("Research the top Python web frameworks.")
 ```
 
-Both `SimpleAgent` and `WorkflowAgent` inherit from the `Agent` ABC and support streaming via `run_streamed()`, which yields `AgentChunk` / `WorkflowChunk` objects tagged with agent name, iteration, and `StreamPhase`.
+`run_streamed()` yields `ChainChunk` objects that extend `AgentChunk` with a `step` index.
+
+#### Router (Routing)
+
+`Router` classifies input with a routing agent and dispatches to the matching handler:
+
+``` python
+from aimu.agents import Router, SimpleAgent
+
+routing_agent = SimpleAgent.from_config({"system_message": "Reply with only: weather, math, or general"}, client)
+router = Router(
+    routing_agent=routing_agent,
+    handlers={"weather": weather_agent, "math": math_agent},
+    fallback=general_agent,
+)
+result = router.run("What is the weather in Tokyo?")
+```
+
+#### Inspecting message histories
+
+Every `Runner` exposes a `messages` property that returns a `dict[str, list[dict]]` mapping each agent name to its message history snapshot. For workflows the dict is merged recursively across all sub-agents, so you can inspect every exchange after a run:
+
+``` python
+router.run("What is the weather in Tokyo?")
+
+router.messages
+# {
+#   "routing-agent": [{"role": "user", ...}, {"role": "assistant", "content": "weather"}],
+#   "weather-specialist": [{"role": "user", ...}, {"role": "assistant", "content": "..."}],
+#   "math-specialist": [],     # not dispatched — empty snapshot
+# }
+```
+
+Snapshots are taken at the end of each `run()` / `run_streamed()` call, so they survive subsequent runs even when agents share a single `ModelClient`.
+
+#### Parallel (Parallelization)
+
+`Parallel` runs workers concurrently via `ThreadPoolExecutor` and optionally aggregates their outputs:
+
+``` python
+from aimu.agents import Parallel
+
+parallel = Parallel(
+    workers=[perspective_a_agent, perspective_b_agent, perspective_c_agent],
+    aggregator=summarizer_agent,
+)
+result = parallel.run("Analyse the impact of remote work on productivity.")
+```
+
+#### EvaluatorOptimizer
+
+`EvaluatorOptimizer` runs a generate → evaluate → revise loop until the evaluator emits a pass signal or `max_rounds` is reached:
+
+``` python
+from aimu.agents import EvaluatorOptimizer
+
+eo = EvaluatorOptimizer(
+    generator=writer_agent,
+    evaluator=critic_agent,
+    max_rounds=4,
+    pass_keyword="PASS",
+)
+result = eo.run("Write a concise explanation of transformer attention.")
 
 ### AgenticModelClient
 
-`AgenticModelClient` wraps any `Agent` (a `SimpleAgent` or a `WorkflowAgent`) behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted - web UIs, conversation managers, etc. - to get the full agentic loop transparently:
+`AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted — web UIs, conversation managers, etc. — to get the full agentic loop transparently:
 
 ``` python
 from aimu.models.ollama import OllamaClient, OllamaModel
 from aimu.tools import MCPClient
-from aimu.agents import SimpleAgent, WorkflowAgent, AgenticModelClient
+from aimu.agents import SimpleAgent, AgenticModelClient
 
 inner = OllamaClient(OllamaModel.QWEN_3_8B)
 inner.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
@@ -343,15 +425,14 @@ inner.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "a
 # Single-turn client
 client = inner
 
-# Agentic client - same interface, loops until tools stop being called
+# Agentic client — same interface, loops until tools stop being called
 client = AgenticModelClient(SimpleAgent(inner, max_iterations=10))
 
-# Or wrap an entire pipeline behind the same interface
-client = AgenticModelClient(WorkflowAgent.from_config(configs, inner))
-
-# All three work identically here:
+# Both work identically here:
 response = client.chat("Find all log files modified today and summarise the errors.")
 ```
+
+For workflow patterns (`Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`), call `run()` / `run_streamed()` directly instead.
 
 ### MCP Tool Usage
 
@@ -418,14 +499,20 @@ store.retrieve_facts("family relationships")  # ["Paul is married to Sarah", ...
 
 ### Agent Skills
 
-Skills are SKILL.md files discovered from `.agents/skills/` or `.claude/skills/` directories (project-level overrides user-level). Pass `skill_dirs` or `use_skills=True` to `Agent.from_config()` to enable them:
+Skills are SKILL.md files discovered from `.agents/skills/` or `.claude/skills/` directories (project-level overrides user-level). Use `SkillAgent` instead of `SimpleAgent` to enable skill support:
 
 ``` python
-from aimu.agents import SimpleAgent
+from aimu.agents import SkillAgent
 from aimu.skills import SkillManager
 
-manager = SkillManager(skill_dirs=["./skills"])
-agent = SimpleAgent.from_config({"name": "assistant", "skill_dirs": ["./skills"]}, client)
+# Auto-discover skills from default paths
+agent = SkillAgent(client, name="assistant")
+
+# Or point at specific directories
+agent = SkillAgent(client, skill_manager=SkillManager(skill_dirs=["./skills"]))
+
+# Or use from_config (skill_dirs optional — omit to auto-discover)
+agent = SkillAgent.from_config({"name": "assistant", "skill_dirs": ["./skills"]}, client)
 result = agent.run("Use the pdf-processing skill to extract pages from report.pdf")
 ```
 

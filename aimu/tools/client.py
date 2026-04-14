@@ -27,8 +27,15 @@ class MCPClient:
             self._transport = file
 
         self._portal_cm = start_blocking_portal(backend="asyncio")
-        self._portal = self._portal_cm.__enter__()
-        self._portal.call(self._connect)
+        try:
+            self._portal = self._portal_cm.__enter__()
+            self._portal.call(self._connect)
+        except Exception:
+            try:
+                self._portal_cm.__exit__(None, None, None)
+            except Exception:
+                pass
+            raise
 
     async def _connect(self):
         self._client = Client(self._transport)

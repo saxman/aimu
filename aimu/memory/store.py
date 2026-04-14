@@ -98,6 +98,11 @@ class MemoryStore:
         if matching_ids:
             self._collection.delete(ids=matching_ids)
 
+    def list_facts(self) -> list[str]:
+        """Return all stored fact strings."""
+        result = self._collection.get()
+        return result["documents"] or []
+
     def __len__(self) -> int:
         """Return the total number of stored facts."""
         return self._collection.count()

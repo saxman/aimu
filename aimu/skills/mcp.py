@@ -52,11 +52,15 @@ def _register_script_tool(server: FastMCP, skill_name: str, script: Path) -> Non
     # Build the tool function dynamically so each closure captures its own script_path
     def _make_tool(path: str):
         def run_script() -> str:
-            result = subprocess.run(
-                [sys.executable, path],
-                capture_output=True,
-                text=True,
-            )
+            try:
+                result = subprocess.run(
+                    [sys.executable, path],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+            except subprocess.TimeoutExpired:
+                return f"Script timed out after 30 seconds."
             if result.returncode != 0:
                 return f"Script exited with code {result.returncode}.\nstdout: {result.stdout}\nstderr: {result.stderr}"
             return result.stdout
