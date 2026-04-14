@@ -44,7 +44,7 @@ with gr.Blocks(title="AIMU Chatbot") as demo:
 
     def on_client_change(client_name):
         client_class = next(c for c in MODEL_CLIENTS if c.__name__ == client_name)
-        models = client_class.TOOL_MODELS[0]
+        models = client_class.TOOL_MODELS
         new_model = models[0]
         return gr.update(choices=[(m.name, m) for m in models], value=new_model), client_class(new_model), []
 

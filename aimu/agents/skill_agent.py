@@ -46,6 +46,7 @@ class SkillAgent(SimpleAgent):
 
     skill_manager: SkillManager = field(default_factory=SkillManager, repr=False)
     _skills_setup_done: bool = field(default=False, init=False, repr=False)
+    _skills_mcp_client: Optional[Any] = field(default=None, init=False, repr=False)
 
     def _prepare_run(self) -> None:
         if self.reset_messages_on_run or self.system_message is not None:
@@ -66,11 +67,13 @@ class SkillAgent(SimpleAgent):
         )
         self.model_client.system_message = (self.model_client.system_message or "") + instructions
 
-        from aimu.skills.mcp import build_skills_server
-        from aimu.tools.client import MCPClient
+        if self._skills_mcp_client is None:
+            from aimu.skills.mcp import build_skills_server
+            from aimu.tools.client import MCPClient
 
-        skills_server = build_skills_server(self.skill_manager)
-        self.model_client.mcp_client = MCPClient(server=skills_server)
+            skills_server = build_skills_server(self.skill_manager)
+            self._skills_mcp_client = MCPClient(server=skills_server)
+        self.model_client.mcp_client = self._skills_mcp_client
 
     @classmethod
     def from_config(cls, config: dict[str, Any], model_client: ModelClient) -> SkillAgent:

@@ -55,5 +55,31 @@ def add_memories(memories: list[str]) -> None:
         _store.store_fact(fact)
 
 
+@mcp.tool()
+def delete_memory(memory: str) -> str:
+    """
+    Delete a specific stored memory (exact match).
+
+    Args:
+        memory: The exact memory string to remove.
+
+    Returns:
+        Confirmation message.
+    """
+    _store.delete_fact(memory)
+    return f"Deleted: {memory}"
+
+
+@mcp.tool()
+def list_memories() -> list[str]:
+    """
+    Return all stored memories.
+
+    Returns:
+        List of all stored memory strings.
+    """
+    return _store.list_facts()
+
+
 if __name__ == "__main__":
     mcp.run()

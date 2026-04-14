@@ -1,11 +1,12 @@
 """
-Tests for MemoryStore class.
+Tests for MemoryStore class and the memory MCP server tools.
 """
 
 import uuid
 
 import pytest
 
+import aimu.memory.mcp as memory_mcp
 from aimu.memory import MemoryStore
 
 
@@ -126,3 +127,60 @@ def test_persistent_store_survives_reinstantiation(tmp_path):
     assert len(store2) == 2
     results = store2.retrieve_facts("Paul works at Google")
     assert "Paul works at Google" in results
+
+
+def test_list_facts_empty(store):
+    assert store.list_facts() == []
+
+
+def test_list_facts_returns_all(store):
+    facts = ["Paul works at Google", "Sarah is the sister of Emma", "Paul is married to Sarah"]
+    for f in facts:
+        store.store_fact(f)
+    result = store.list_facts()
+    assert len(result) == 3
+    assert set(result) == set(facts)
+
+
+# ---------------------------------------------------------------------------
+# Memory MCP server tool tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mcp_store(monkeypatch):
+    """Replace the module-level _store with a fresh ephemeral MemoryStore."""
+    fresh = MemoryStore(collection_name=str(uuid.uuid4()))
+    monkeypatch.setattr(memory_mcp, "_store", fresh)
+    return fresh
+
+
+def test_mcp_add_and_search(mcp_store):
+    memory_mcp.add_memories(["Paul works at Google", "Sarah is the sister of Emma"])
+    result = memory_mcp.search_memories("Paul works at Google")
+    assert "Paul works at Google" in result
+
+
+def test_mcp_search_empty_store(mcp_store):
+    result = memory_mcp.search_memories("anything")
+    assert result == ""
+
+
+def test_mcp_delete_memory(mcp_store):
+    memory_mcp.add_memories(["Paul works at Google", "Sarah is the sister of Emma"])
+    memory_mcp.delete_memory("Paul works at Google")
+    assert len(mcp_store) == 1
+    result = memory_mcp.search_memories("Paul works at Google")
+    assert "Paul works at Google" not in result
+
+
+def test_mcp_list_memories_empty(mcp_store):
+    assert memory_mcp.list_memories() == []
+
+
+def test_mcp_list_memories_returns_all(mcp_store):
+    facts = ["Paul works at Google", "Sarah is the sister of Emma"]
+    memory_mcp.add_memories(facts)
+    result = memory_mcp.list_memories()
+    assert len(result) == 2
+    assert set(result) == set(facts)
