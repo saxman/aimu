@@ -1,21 +1,21 @@
 """
-Tests for aimu.agents — SimpleAgent, WorkflowAgent, and AgenticModelClient.
+Tests for aimu.agents — SimpleAgent, Chain, and AgenticModelClient.
 
-Unit tests use MockModelClient inline (deterministic, no backend needed).
+Unit tests use MockModelClient from conftest (deterministic, no backend needed).
 The model_client fixture is available for integration tests:
   - Default (no --client): MockModelClient
   - pytest tests/test_agents.py --client=ollama --model=LLAMA_3_2_3B
 """
 
 from typing import Iterable
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from aimu.agents import Agent, AgentChunk, AgenticModelClient, SimpleAgent, WorkflowAgent, WorkflowChunk
+from aimu.agents import Agent, Chain, AgentChunk, AgenticModelClient, Runner, SimpleAgent, Workflow
 from aimu.models import ModelClient
 from aimu.models.base_client import StreamChunk, StreamingContentType
-from conftest import create_real_model_client, resolve_model_params
+from conftest import MockModelClient, create_real_model_client, resolve_model_params
 
 _MOCK = "mock"
 
@@ -33,73 +33,6 @@ def model_client(request) -> Iterable[ModelClient]:
         yield MockModelClient(["Hello, I am ready to help."])
         return
     yield from create_real_model_client(request)
-
-
-# ---------------------------------------------------------------------------
-# Minimal mock ModelClient
-# ---------------------------------------------------------------------------
-
-
-class MockModelClient(ModelClient):
-    """
-    A ModelClient stub whose chat() responses are controlled via a response queue.
-    Each entry in `responses` is either:
-      - str: plain text response (no tool calls)
-      - "tool": simulates one tool call by appending the expected messages and returning a follow-up text
-    """
-
-    def __init__(self, responses: list):
-        self.model = MagicMock()
-        self.model.supports_tools = True
-        self.model.supports_thinking = False
-        self.model_kwargs = None
-        self._system_message = None
-        self.default_generate_kwargs = {}
-        self.messages = []
-        self.mcp_client = None
-        self.last_thinking = ""
-        self._streaming_content_type = StreamingContentType.DONE
-        self._responses = list(responses)
-        self._call_count = 0
-
-    def chat(self, user_message, generate_kwargs=None, use_tools=True):
-        self.messages.append({"role": "user", "content": user_message})
-        response = self._responses[self._call_count]
-        self._call_count += 1
-
-        if response == "tool":
-            # Simulate one tool-call round: append assistant+tool_calls, tool result, assistant+content
-            self.messages.append(
-                {
-                    "role": "assistant",
-                    "tool_calls": [{"type": "function", "function": {"name": "mock_tool", "arguments": {}}, "id": "x"}],
-                }
-            )
-            self.messages.append({"role": "tool", "name": "mock_tool", "content": "tool result", "tool_call_id": "x"})
-            text = self._responses[self._call_count]
-            self._call_count += 1
-            self.messages.append({"role": "assistant", "content": text})
-            return text
-        else:
-            self.messages.append({"role": "assistant", "content": response})
-            return response
-
-    def chat_streamed(self, user_message, generate_kwargs=None, use_tools=True):
-        response = self.chat(user_message, generate_kwargs, use_tools)
-        self._streaming_content_type = StreamingContentType.GENERATING
-        yield StreamChunk(StreamingContentType.GENERATING, response)
-        self._streaming_content_type = StreamingContentType.DONE
-
-    def generate(self, prompt, generate_kwargs=None):
-        return self.chat(prompt, generate_kwargs)
-
-    def generate_streamed(self, prompt, generate_kwargs=None, include_thinking=True):
-        self._streaming_content_type = StreamingContentType.GENERATING
-        yield StreamChunk(StreamingContentType.GENERATING, self.generate(prompt, generate_kwargs))
-        self._streaming_content_type = StreamingContentType.DONE
-
-    def _update_generate_kwargs(self, generate_kwargs=None):
-        return generate_kwargs or {}
 
 
 # ---------------------------------------------------------------------------
@@ -209,97 +142,6 @@ def test_simple_agent_is_agent_subclass():
 
 
 # ---------------------------------------------------------------------------
-# WorkflowAgent tests
-# ---------------------------------------------------------------------------
-
-
-def test_workflow_chains_output_to_next_input():
-    """Output of step 0 becomes the task for step 1."""
-    client_a = MockModelClient(["step A output"])
-    client_b = MockModelClient(["step B output"])
-    wf = WorkflowAgent(agents=[SimpleAgent(client_a, name="a"), SimpleAgent(client_b, name="b")])
-    result = wf.run("initial task")
-
-    assert result == "step B output"
-    # Step B received step A's output as its task
-    user_msgs_b = [m["content"] for m in client_b.messages if m["role"] == "user"]
-    assert user_msgs_b[0] == "step A output"
-
-
-def test_workflow_run_single_agent():
-    client = MockModelClient(["only answer"])
-    wf = WorkflowAgent(agents=[SimpleAgent(client, name="solo")])
-    assert wf.run("task") == "only answer"
-
-
-def test_workflow_streamed_yields_workflow_chunks():
-    client_a = MockModelClient(["part one"])
-    client_b = MockModelClient(["part two"])
-    wf = WorkflowAgent(agents=[SimpleAgent(client_a, name="a"), SimpleAgent(client_b, name="b")])
-    chunks = list(wf.run_streamed("go"))
-
-    assert all(isinstance(c, WorkflowChunk) for c in chunks)
-    steps = {c.step for c in chunks}
-    assert steps == {0, 1}
-
-
-def test_workflow_streamed_step_tags():
-    client_a = MockModelClient(["result a"])
-    client_b = MockModelClient(["result b"])
-    wf = WorkflowAgent(agents=[SimpleAgent(client_a, name="alpha"), SimpleAgent(client_b, name="beta")])
-    chunks = list(wf.run_streamed("start"))
-
-    step0 = [c for c in chunks if c.step == 0]
-    step1 = [c for c in chunks if c.step == 1]
-    assert all(c.agent_name == "alpha" for c in step0)
-    assert all(c.agent_name == "beta" for c in step1)
-
-
-def test_workflow_from_config():
-    client = MockModelClient(["first output", "second output"])
-    configs = [{"name": "first"}, {"name": "second"}]
-    wf = WorkflowAgent.from_config(configs, client)
-
-    assert len(wf.agents) == 2
-    assert wf.agents[0].name == "first"
-    assert wf.agents[1].name == "second"
-    assert wf.run("go") == "second output"
-
-
-def test_workflow_from_config_resets_messages_between_steps():
-    """from_config shared-client mode clears messages before each step."""
-    client = MockModelClient(["step A output", "step B output"])
-    configs = [{"name": "a"}, {"name": "b"}]
-    wf = WorkflowAgent.from_config(configs, client)
-    wf.run("start")
-
-    # After the run, messages belong to the last step only
-    user_msgs = [m["content"] for m in client.messages if m["role"] == "user"]
-    assert user_msgs == ["step A output"]  # step B received step A's output as task
-
-
-def test_workflow_from_config_sets_system_message_per_step():
-    """from_config applies each step's system_message at run time."""
-    client = MockModelClient(["out a", "out b"])
-    configs = [
-        {"name": "a", "system_message": "You are A."},
-        {"name": "b", "system_message": "You are B."},
-    ]
-    wf = WorkflowAgent.from_config(configs, client)
-    wf.run("go")
-
-    # After the run the client holds the last step's system_message
-    assert client.system_message == "You are B."
-
-
-def test_workflow_agent_is_agent_subclass():
-    """WorkflowAgent must be a concrete subclass of the Agent ABC."""
-    client = MockModelClient(["hi"])
-    wf = WorkflowAgent(agents=[SimpleAgent(client)])
-    assert isinstance(wf, Agent)
-
-
-# ---------------------------------------------------------------------------
 # AgenticModelClient tests
 # ---------------------------------------------------------------------------
 
@@ -364,9 +206,9 @@ def test_agentic_client_generate_delegates_to_inner():
     assert client._call_count == 1
 
 
-def test_agentic_client_rejects_workflow_agent():
-    """AgenticModelClient raises TypeError when given a WorkflowAgent."""
+def test_agentic_client_rejects_workflow():
+    """AgenticModelClient raises TypeError when given a Workflow (Chain)."""
     client = MockModelClient(["hi"])
-    wf = WorkflowAgent(agents=[SimpleAgent(client)])
+    chain = Chain(agents=[SimpleAgent(client)])
     with pytest.raises(TypeError, match="AgenticModelClient only accepts SimpleAgent"):
-        AgenticModelClient(wf)
+        AgenticModelClient(chain)

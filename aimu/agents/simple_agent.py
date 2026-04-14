@@ -25,7 +25,7 @@ class SimpleAgent(Agent):
     When ``system_message`` is set or ``reset_messages_on_run`` is True, the agent
     clears ``model_client.messages`` and re-applies ``system_message`` before every
     run. This enables clean state isolation when a client is shared across agents
-    (e.g. inside a WorkflowAgent).
+    (e.g. inside an Chain).
 
     Usage::
 

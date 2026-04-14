@@ -4,6 +4,7 @@ Pytest configuration for model tests.
 
 import time
 from typing import Iterator
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,6 +21,7 @@ from aimu.models import (
     OllamaOpenAIClient,
     VLLMOpenAIClient,
 )
+from aimu.models.base_client import StreamChunk, StreamingContentType
 
 if HAS_LLAMACPP:
     from aimu.models.llamacpp import LlamaCppModel
@@ -29,6 +31,73 @@ if HAS_ANTHROPIC:
 
 if HAS_OPENAI_COMPAT:
     from aimu.models import OpenAIClient, GeminiClient
+
+
+# ---------------------------------------------------------------------------
+# Shared mock ModelClient
+# ---------------------------------------------------------------------------
+
+
+class MockModelClient(ModelClient):
+    """
+    A ModelClient stub whose chat() responses are controlled via a response queue.
+    Each entry in `responses` is either:
+      - str: plain text response (no tool calls)
+      - "tool": simulates one tool call by appending the expected messages and returning a follow-up text
+    """
+
+    def __init__(self, responses: list):
+        self.model = MagicMock()
+        self.model.supports_tools = True
+        self.model.supports_thinking = False
+        self.model_kwargs = None
+        self._system_message = None
+        self.default_generate_kwargs = {}
+        self.messages = []
+        self.mcp_client = None
+        self.last_thinking = ""
+        self._streaming_content_type = StreamingContentType.DONE
+        self._responses = list(responses)
+        self._call_count = 0
+
+    def _update_generate_kwargs(self, generate_kwargs=None):
+        return generate_kwargs or {}
+
+    def chat(self, user_message, generate_kwargs=None, use_tools=True):
+        self.messages.append({"role": "user", "content": user_message})
+        response = self._responses[self._call_count]
+        self._call_count += 1
+
+        if response == "tool":
+            # Simulate one tool-call round: append assistant+tool_calls, tool result, assistant+content
+            self.messages.append(
+                {
+                    "role": "assistant",
+                    "tool_calls": [{"type": "function", "function": {"name": "mock_tool", "arguments": {}}, "id": "x"}],
+                }
+            )
+            self.messages.append({"role": "tool", "name": "mock_tool", "content": "tool result", "tool_call_id": "x"})
+            text = self._responses[self._call_count]
+            self._call_count += 1
+            self.messages.append({"role": "assistant", "content": text})
+            return text
+        else:
+            self.messages.append({"role": "assistant", "content": response})
+            return response
+
+    def chat_streamed(self, user_message, generate_kwargs=None, use_tools=True):
+        response = self.chat(user_message, generate_kwargs, use_tools)
+        self._streaming_content_type = StreamingContentType.GENERATING
+        yield StreamChunk(StreamingContentType.GENERATING, response)
+        self._streaming_content_type = StreamingContentType.DONE
+
+    def generate(self, prompt, generate_kwargs=None):
+        return self.chat(prompt, generate_kwargs)
+
+    def generate_streamed(self, prompt, generate_kwargs=None, include_thinking=True):
+        self._streaming_content_type = StreamingContentType.GENERATING
+        yield StreamChunk(StreamingContentType.GENERATING, self.generate(prompt, generate_kwargs))
+        self._streaming_content_type = StreamingContentType.DONE
 
 
 def pytest_addoption(parser):

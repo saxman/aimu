@@ -13,7 +13,7 @@ class AgenticModelClient(ModelClient):
 
     Drop-in replacement anywhere a ModelClient is accepted.
 
-    Only accepts SimpleAgent. For WorkflowAgent, call run() / run_streamed() directly.
+    Only accepts SimpleAgent. For workflow patterns (Chain, Router, etc.), call run() / run_streamed() directly.
 
     Usage::
 
@@ -28,7 +28,7 @@ class AgenticModelClient(ModelClient):
         if not isinstance(agent, SimpleAgent):
             raise TypeError(
                 f"AgenticModelClient only accepts SimpleAgent, got {type(agent).__name__}. "
-                "To run a WorkflowAgent, call its run() or run_streamed() directly."
+                "To run a Workflow (Chain, Router, Parallel, etc.), call its run() or run_streamed() directly."
             )
         self._agent = agent
         self._inner_client = agent.model_client

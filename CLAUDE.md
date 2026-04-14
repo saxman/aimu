@@ -196,9 +196,12 @@ The codebase uses an abstract base class pattern for model clients:
 
 ### Agentic Workflows
 
-- **[aimu/agents/base_agent.py](aimu/agents/base_agent.py)**: `Agent` ABC — shared interface for all agent runners
-  - Abstract `run(task, generate_kwargs)` and `run_streamed(task, generate_kwargs)` methods
-  - `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: Any)`
+AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base with `run()` / `run_streamed()`. **Agents** direct their own tool use autonomously; **workflows** have code-controlled flow.
+
+- **[aimu/agents/base_agent.py](aimu/agents/base_agent.py)**: Root ABCs for the agent/workflow hierarchy
+  - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs)` and `run_streamed(task, generate_kwargs)`; `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: Any)`
+  - `Agent(Runner)`: marker ABC for autonomous agents (LLM directs tool use and stop condition); concrete: `SimpleAgent`, `SkillAgent`
+  - `Workflow(Runner)`: marker ABC for predetermined workflow patterns (code controls routing/sequencing); concrete: `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`
 
 - **[aimu/agents/simple_agent.py](aimu/agents/simple_agent.py)**: `SimpleAgent(Agent)` for autonomous, multi-round tool execution
   - Wraps any `ModelClient`; runs `chat()` in a loop until no tools are called
@@ -214,21 +217,37 @@ The codebase uses an abstract base class pattern for model clients:
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`); omit `skill_dirs` to auto-discover
 
 - **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(ModelClient)` — drop-in agentic wrapper
-  - Wraps a `SimpleAgent` (or `SkillAgent`, which inherits from it) and exposes the standard `ModelClient` interface; raises `TypeError` for any other agent type
+  - Wraps a `SimpleAgent` (or `SkillAgent`, which inherits from it) and exposes the standard `ModelClient` interface; raises `TypeError` for any other type
   - `chat()` / `chat_streamed()` run the full SimpleAgent loop (multi-turn until tools stop); `chat_streamed()` adapts `AgentChunk` → `StreamChunk`
   - `generate()` / `generate_streamed()` pass through to the inner client unchanged (no loop)
   - `messages`, `mcp_client`, `system_message`, `last_thinking` delegate to `SimpleAgent.model_client`
   - Constructor: `AgenticModelClient(agent: SimpleAgent)`
-  - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently; for `WorkflowAgent`, call `run()` / `run_streamed()` directly
+  - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently; for workflows, call `run()` / `run_streamed()` directly
 
-- **[aimu/agents/workflow_agent.py](aimu/agents/workflow_agent.py)**: `WorkflowAgent(Agent)` for chaining agents sequentially
+- **[aimu/agents/chain.py](aimu/agents/chain.py)**: `Chain(Workflow)` — Anthropic's **Prompt Chaining** pattern
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
   - `run(task, generate_kwargs)`: runs all agents in order, returns final string
-  - `run_streamed(task, generate_kwargs)`: yields `WorkflowChunk(step, agent_name, iteration, phase: ContentType, content: str)`
+  - `run_streamed(task, generate_kwargs)`: yields `ChainChunk(step, agent_name, iteration, phase, content)`
   - `from_config(configs, client)`: builds from a list of dicts and a single `ModelClient`; the client is shared across steps — `messages` cleared and `system_message` set from each step's config before it runs
-  - `agents: list[Agent]` — steps may be `SimpleAgent` or nested `WorkflowAgent` instances
+  - `agents: list[Runner]` — steps may be `SimpleAgent` or nested workflows
 
-- Agents use the public `chat()` / `chat_streamed()` API only — no changes to `ModelClient` subclasses
+- **[aimu/agents/router.py](aimu/agents/router.py)**: `Router(Workflow)` — Anthropic's **Routing** pattern
+  - `routing_agent` classifies the task; output (stripped, lowercased) is matched against `handlers: dict[str, Runner]`
+  - Falls back to `fallback: Runner` if set; raises `ValueError` otherwise
+  - `run_streamed()` yields routing chunks then streams the matched handler
+  - `from_config(routing_config, handler_configs, client, fallback_config)`: factory from dicts
+
+- **[aimu/agents/parallel.py](aimu/agents/parallel.py)**: `Parallel(Workflow)` — Anthropic's **Parallelization** pattern
+  - Runs `workers: list[Runner]` concurrently via `ThreadPoolExecutor`; workers complete before streaming to avoid interleaved output
+  - `aggregator: Runner` (optional) receives all worker outputs joined by `separator`; without an aggregator, the joined string is returned directly
+  - `run_streamed()` streams only the aggregator phase (or yields a single GENERATING chunk)
+
+- **[aimu/agents/evaluator.py](aimu/agents/evaluator.py)**: `EvaluatorOptimizer(Workflow)` — Anthropic's **Evaluator-Optimizer** pattern
+  - `generator` produces output; `evaluator` reviews it against the original task
+  - Loop stops when `pass_keyword` appears in evaluator feedback or `max_rounds` is reached
+  - `run_streamed()` yields a single GENERATING chunk with the final output (intermediate drafts not streamed)
+
+- All agents/workflows use the public `chat()` / `chat_streamed()` API only — no changes to `ModelClient` subclasses
 
 ### Prompt Management
 
@@ -345,12 +364,15 @@ aimu/
 ├── tools/               # MCP tools integration
 │   ├── client.py        # MCPClient wrapper
 │   └── mcp.py           # Example FastMCP server with built-in tools
-├── agents/              # Agentic workflows
-│   ├── base_agent.py    # Agent ABC + AgentChunk
+├── agents/              # Agents and workflow patterns
+│   ├── base_agent.py    # Runner/Agent/Workflow ABCs + AgentChunk
 │   ├── simple_agent.py  # SimpleAgent (agentic loop over ModelClient.chat())
 │   ├── skill_agent.py   # SkillAgent (SimpleAgent + skill discovery/injection)
-│   ├── agentic_client.py # AgenticModelClient (ModelClient wrapper, accepts any Agent)
-│   └── workflow_agent.py # WorkflowAgent + WorkflowChunk (sequential agent chaining)
+│   ├── agentic_client.py # AgenticModelClient (ModelClient wrapper for SimpleAgent)
+│   ├── chain.py         # Chain + ChainChunk (prompt chaining workflow)
+│   ├── router.py        # Router (routing workflow — classify + dispatch)
+│   ├── parallel.py      # Parallel (parallelization workflow — concurrent workers)
+│   └── evaluator.py     # EvaluatorOptimizer (evaluator-optimizer workflow)
 ├── history.py           # Conversation management (TinyDB)
 ├── memory/              # Semantic memory store (ChromaDB)
 │   ├── store.py         # MemoryStore class
@@ -374,7 +396,11 @@ tests/                   # Pytest test suite
 ├── test_history.py      # Conversation management tests
 ├── test_memory.py       # Semantic memory tests
 ├── test_tools.py        # MCP tools tests
-├── test_agents.py       # Agent and Workflow tests (mock by default, real with --client)
+├── test_agents.py       # SimpleAgent and AgenticModelClient tests (mock by default, real with --client)
+├── test_chain.py        # Chain workflow tests
+├── test_router.py       # Router workflow tests
+├── test_parallel.py     # Parallel workflow tests
+├── test_evaluator.py    # EvaluatorOptimizer workflow tests
 ├── test_skills.py       # Skill discovery and Agent skill integration tests
 └── test_prompt_*.py     # Prompt catalog and tuning tests (mock by default, real with --client)
 
