@@ -1,6 +1,6 @@
 import re
 
-from .base_client import StreamingContentType
+from .base import StreamingContentType
 
 
 def _split_thinking(content: str) -> tuple[str, str]:

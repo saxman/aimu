@@ -1,4 +1,4 @@
-from ..base_client import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
 
 import torch
 from transformers import AutoTokenizer

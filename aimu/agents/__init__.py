@@ -1,4 +1,4 @@
-from .base_agent import Runner, Agent, Workflow, AgentChunk, MessageHistory
+from .base import Runner, Agent, Workflow, AgentChunk, MessageHistory
 from .simple_agent import SimpleAgent
 from .skill_agent import SkillAgent
 from .agentic_client import AgenticModelClient

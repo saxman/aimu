@@ -7,13 +7,13 @@ import uuid
 import pytest
 
 import aimu.memory.mcp as memory_mcp
-from aimu.memory import MemoryStore
+from aimu.memory import SemanticMemoryStore
 
 
 @pytest.fixture
 def store():
-    """Ephemeral in-memory MemoryStore for each test."""
-    return MemoryStore(collection_name=str(uuid.uuid4()))
+    """Ephemeral in-memory SemanticMemoryStore for each test."""
+    return SemanticMemoryStore(collection_name=str(uuid.uuid4()))
 
 
 def test_initial_store_is_empty(store):
@@ -118,12 +118,12 @@ def test_store_and_retrieve_roundtrip(store):
 
 
 def test_persistent_store_survives_reinstantiation(tmp_path):
-    store = MemoryStore(persist_path=str(tmp_path))
+    store = SemanticMemoryStore(persist_path=str(tmp_path))
     store.store_fact("Paul works at Google")
     store.store_fact("Sarah is the sister of Emma")
 
     # Reopen the same path — facts must still be there
-    store2 = MemoryStore(persist_path=str(tmp_path))
+    store2 = SemanticMemoryStore(persist_path=str(tmp_path))
     assert len(store2) == 2
     results = store2.retrieve_facts("Paul works at Google")
     assert "Paul works at Google" in results
@@ -149,8 +149,8 @@ def test_list_facts_returns_all(store):
 
 @pytest.fixture
 def mcp_store(monkeypatch):
-    """Replace the module-level _store with a fresh ephemeral MemoryStore."""
-    fresh = MemoryStore(collection_name=str(uuid.uuid4()))
+    """Replace the module-level _store with a fresh ephemeral SemanticMemoryStore."""
+    fresh = SemanticMemoryStore(collection_name=str(uuid.uuid4()))
     monkeypatch.setattr(memory_mcp, "_store", fresh)
     return fresh
 

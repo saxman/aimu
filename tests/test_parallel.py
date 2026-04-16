@@ -6,7 +6,7 @@ All tests use MockModelClient from conftest (deterministic, no backend needed).
 
 from aimu.agents import AgentChunk, Runner, SimpleAgent, Workflow
 from aimu.agents.parallel import Parallel
-from aimu.models.base_client import StreamingContentType
+from aimu.models.base import StreamingContentType
 from conftest import MockModelClient
 
 

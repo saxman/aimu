@@ -4,8 +4,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Iterator, Optional
 
-from aimu.agents.base_agent import Agent, AgentChunk, MessageHistory
-from aimu.models.base_client import ModelClient
+from aimu.agents.base import Agent, AgentChunk, MessageHistory
+from aimu.models.base import ModelClient
 
 logger = logging.getLogger(__name__)
 

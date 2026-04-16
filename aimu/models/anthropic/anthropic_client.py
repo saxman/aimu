@@ -7,7 +7,7 @@ from typing import Any, Iterator, Optional
 import anthropic
 from dotenv import load_dotenv
 
-from ..base_client import ModelClient, Model, StreamingContentType, StreamChunk, classproperty
+from ..base import ModelClient, Model, StreamingContentType, StreamChunk, classproperty
 
 logger = logging.getLogger(__name__)
 
@@ -285,6 +285,13 @@ class AnthropicClient(ModelClient):
             self._handle_tool_calls(tool_calls, tools)
             self._patch_tool_ids(msgs_before, tool_use_blocks)
 
+            # Store thinking from first call in the tool-call assistant message
+            if self.last_thinking:
+                self.messages[msgs_before]["thinking"] = self.last_thinking
+
+            # Preserve thinking from first call; second call may not emit thinking
+            first_call_thinking = self.last_thinking
+
             # Re-convert with tool results included and make the follow-up call
             system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
             response = self._client.messages.create(
@@ -304,7 +311,14 @@ class AnthropicClient(ModelClient):
                 elif block.type == "text":
                     text_content = block.text
 
-        self.messages.append({"role": "assistant", "content": text_content})
+            # Fall back to first-call thinking if second call produced none
+            if not self.last_thinking:
+                self.last_thinking = first_call_thinking
+
+        assistant_msg: dict = {"role": "assistant", "content": text_content}
+        if self.last_thinking:
+            assistant_msg["thinking"] = self.last_thinking
+        self.messages.append(assistant_msg)
         return text_content
 
     def chat_streamed(
@@ -371,6 +385,10 @@ class AnthropicClient(ModelClient):
         self._handle_tool_calls(tool_calls, tools)
         self._patch_tool_ids(msgs_before, parsed_blocks)
 
+        # Store thinking from first stream pass in the tool-call assistant message
+        if self.last_thinking:
+            self.messages[msgs_before]["thinking"] = self.last_thinking
+
         for i, tc in enumerate(self.messages[msgs_before]["tool_calls"]):
             yield StreamChunk(
                 StreamingContentType.TOOL_CALLING,
@@ -380,6 +398,8 @@ class AnthropicClient(ModelClient):
         # Second streaming call with tool results
         system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
         full_content = ""
+        # Preserve thinking from first stream pass; second call may not emit thinking
+        first_pass_thinking = self.last_thinking
         self.last_thinking = ""
 
         with self._client.messages.stream(
@@ -399,4 +419,11 @@ class AnthropicClient(ModelClient):
                         full_content += delta.text
                         yield StreamChunk(StreamingContentType.GENERATING, delta.text)
 
-        self.messages.append({"role": "assistant", "content": full_content})
+        # Fall back to first-pass thinking if second call produced none
+        if not self.last_thinking:
+            self.last_thinking = first_pass_thinking
+
+        assistant_msg: dict = {"role": "assistant", "content": full_content}
+        if self.last_thinking:
+            assistant_msg["thinking"] = self.last_thinking
+        self.messages.append(assistant_msg)

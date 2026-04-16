@@ -5,8 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional
 
-from aimu.agents.base_agent import Workflow, Runner, AgentChunk, MessageHistory
-from aimu.models.base_client import StreamingContentType, ModelClient
+from aimu.agents.base import Workflow, Runner, AgentChunk, MessageHistory
+from aimu.models.base import StreamingContentType, ModelClient
 
 logger = logging.getLogger(__name__)
 

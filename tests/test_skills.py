@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from aimu.models import ModelClient
-from aimu.models.base_client import StreamChunk, StreamingContentType
+from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.skills.manager import SkillManager
 from aimu.skills.skill import Skill
 from conftest import create_real_model_client, resolve_model_params

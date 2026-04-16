@@ -20,12 +20,12 @@ import os
 
 from fastmcp import FastMCP
 
-from aimu.memory.store import MemoryStore
+from aimu.memory.semantic_store import SemanticMemoryStore
 
 _DEFAULT_PERSIST_PATH = os.environ.get("MEMORY_STORE_PATH")  # None → ephemeral (in-memory)
 
 mcp = FastMCP("AIMU Memory")
-_store = MemoryStore(persist_path=_DEFAULT_PERSIST_PATH)
+_store = SemanticMemoryStore(persist_path=_DEFAULT_PERSIST_PATH)
 
 
 @mcp.tool()

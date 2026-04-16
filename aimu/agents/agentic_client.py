@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Iterator, Optional
 
 from aimu.agents.simple_agent import SimpleAgent
-from aimu.models.base_client import ModelClient, StreamChunk
+from aimu.models.base import ModelClient, StreamChunk
 
 
 class AgenticModelClient(ModelClient):

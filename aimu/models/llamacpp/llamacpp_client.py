@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Iterator, Optional, Any
 
-from ..base_client import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
 from .._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)

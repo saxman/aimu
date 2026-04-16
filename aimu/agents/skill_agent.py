@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from aimu.agents.simple_agent import SimpleAgent, DEFAULT_CONTINUATION_PROMPT
-from aimu.models.base_client import ModelClient
+from aimu.models.base import ModelClient
 from aimu.skills.manager import SkillManager
 
 logger = logging.getLogger(__name__)

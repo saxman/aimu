@@ -1,4 +1,4 @@
-from ..base_client import Model
+from ..base import Model
 from .openai_compat_client import OpenAICompatClient
 
 OLLAMA_BASE_URL = "http://localhost:11434/v1"

@@ -3,7 +3,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from ..base_client import Model
+from ..base import Model
 from .openai_compat_client import OpenAICompatClient
 
 # Google's OpenAI-compatible endpoint — same openai SDK, different base_url + key

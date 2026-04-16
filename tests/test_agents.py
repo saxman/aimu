@@ -14,7 +14,7 @@ import pytest
 
 from aimu.agents import Agent, Chain, AgentChunk, AgenticModelClient, Runner, SimpleAgent, Workflow
 from aimu.models import ModelClient
-from aimu.models.base_client import StreamChunk, StreamingContentType
+from aimu.models.base import StreamChunk, StreamingContentType
 from conftest import MockModelClient, create_real_model_client, resolve_model_params
 
 _MOCK = "mock"

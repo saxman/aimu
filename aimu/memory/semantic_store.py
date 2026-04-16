@@ -12,8 +12,10 @@ from typing import Optional
 
 import chromadb
 
+from aimu.memory.base import MemoryStore
 
-class MemoryStore:
+
+class SemanticMemoryStore(MemoryStore):
     """
     Persistent store for factual memories backed by ChromaDB.
 
@@ -28,12 +30,12 @@ class MemoryStore:
             in-memory ephemeral client.
 
     Examples:
-        >>> store = MemoryStore()
-        >>> store.store_fact("Paul works at Google")
-        >>> store.store_fact("Paul is married to Sarah")
-        >>> store.store_fact("Sarah is the sister of Emma")
-        >>> store.retrieve_facts("work")        # ["Paul works at Google"]
-        >>> store.retrieve_facts("family life") # marriage / sibling facts
+        >>> store = SemanticMemoryStore()
+        >>> store.store("Paul works at Google")
+        >>> store.store("Paul is married to Sarah")
+        >>> store.store("Sarah is the sister of Emma")
+        >>> store.search("work")        # ["Paul works at Google"]
+        >>> store.search("family life") # marriage / sibling facts
     """
 
     def __init__(self, collection_name: str = "memories", persist_path: Optional[str] = None):
@@ -47,7 +49,11 @@ class MemoryStore:
             metadata={"hnsw:space": "cosine"},
         )
 
-    def store_fact(self, fact: str) -> None:
+    # ------------------------------------------------------------------
+    # MemoryStore abstract interface
+    # ------------------------------------------------------------------
+
+    def store(self, content: str) -> None:
         """
         Store a fact string in the memory store.
 
@@ -55,54 +61,74 @@ class MemoryStore:
         form, e.g. "Paul works at Google" or "Sarah is the sister of Emma".
 
         Args:
-            fact: The fact string to store.
+            content: The fact string to store.
         """
         self._collection.add(
             ids=[str(uuid.uuid4())],
-            documents=[fact],
+            documents=[content],
         )
 
-    def retrieve_facts(self, topic: str, n_results: int = 10) -> list[str]:
+    def search(self, query: str, n_results: int = 10) -> list[str]:
         """
-        Retrieve facts semantically related to a topic.
+        Retrieve facts semantically related to a query.
 
         Uses ChromaDB's vector similarity search so broad topics like "work"
         or "family life" match relevant facts without exact-string matching.
 
         Args:
-            topic:     Natural-language topic to search for (e.g. "work", "family").
+            query:     Natural-language query (e.g. "work", "family").
             n_results: Maximum number of facts to return.
 
         Returns:
             List of fact strings ordered by relevance.
         """
-        count = len(self)
+        count = self._collection.count()
         if count == 0:
             return []
 
         results = self._collection.query(
-            query_texts=[topic],
+            query_texts=[query],
             n_results=min(n_results, count),
         )
         return results["documents"][0]
 
-    def delete_fact(self, fact: str) -> None:
+    def delete(self, identifier: str) -> None:
         """
         Remove all stored facts that exactly match the given string.
 
         Args:
-            fact: The exact fact string to remove.
+            identifier: The exact fact string to remove.
         """
-        results = self._collection.get(where_document={"$contains": fact})
-        matching_ids = [doc_id for doc_id, document in zip(results["ids"], results["documents"]) if document == fact]
+        results = self._collection.get(where_document={"$contains": identifier})
+        matching_ids = [
+            doc_id
+            for doc_id, document in zip(results["ids"], results["documents"])
+            if document == identifier
+        ]
         if matching_ids:
             self._collection.delete(ids=matching_ids)
 
-    def list_facts(self) -> list[str]:
+    def list_all(self) -> list[str]:
         """Return all stored fact strings."""
         result = self._collection.get()
         return result["documents"] or []
 
-    def __len__(self) -> int:
-        """Return the total number of stored facts."""
-        return self._collection.count()
+    # ------------------------------------------------------------------
+    # Backward-compatible aliases
+    # ------------------------------------------------------------------
+
+    def store_fact(self, fact: str) -> None:
+        """Alias for :meth:`store` (backward compatibility)."""
+        self.store(fact)
+
+    def retrieve_facts(self, topic: str, n_results: int = 10) -> list[str]:
+        """Alias for :meth:`search` (backward compatibility)."""
+        return self.search(topic, n_results)
+
+    def delete_fact(self, fact: str) -> None:
+        """Alias for :meth:`delete` (backward compatibility)."""
+        self.delete(fact)
+
+    def list_facts(self) -> list[str]:
+        """Alias for :meth:`list_all` (backward compatibility)."""
+        return self.list_all()

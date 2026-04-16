@@ -3,7 +3,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from ..base_client import Model
+from ..base import Model
 from .openai_compat_client import OpenAICompatClient
 
 OPENAI_BASE_URL = "https://api.openai.com/v1"

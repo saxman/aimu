@@ -4,9 +4,9 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional
 
-from aimu.agents.base_agent import Workflow, AgentChunk, MessageHistory
+from aimu.agents.base import Workflow, AgentChunk, MessageHistory
 from aimu.agents.simple_agent import SimpleAgent
-from aimu.models.base_client import StreamingContentType
+from aimu.models.base import StreamingContentType
 
 logger = logging.getLogger(__name__)
 

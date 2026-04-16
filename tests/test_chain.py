@@ -5,7 +5,7 @@ All tests use MockModelClient from conftest (deterministic, no backend needed).
 """
 
 from aimu.agents import Agent, Chain, ChainChunk, Runner, SimpleAgent, Workflow
-from aimu.models.base_client import StreamingContentType
+from aimu.models.base import StreamingContentType
 from conftest import MockModelClient
 
 

@@ -1,4 +1,4 @@
-from ..base_client import Model
+from ..base import Model
 from .openai_compat_client import OpenAICompatClient
 
 LLAMASERVER_BASE_URL = "http://localhost:8080/v1"

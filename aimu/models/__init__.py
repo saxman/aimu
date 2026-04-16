@@ -1,5 +1,5 @@
 # Always available
-from .base_client import ModelClient, StreamingContentType, StreamChunk, StreamPhase
+from .base import ModelClient, StreamingContentType, StreamChunk, StreamPhase
 
 # Optional imports with graceful fallbacks
 try:

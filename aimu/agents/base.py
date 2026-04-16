@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Iterator, NamedTuple, Optional
 
-from aimu.models.base_client import StreamingContentType
+from aimu.models.base import StreamingContentType
 
 # Type alias used by the messages property across the runner hierarchy.
 MessageHistory = dict[str, list[dict]]

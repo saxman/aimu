@@ -21,7 +21,7 @@ from aimu.models import (
     OllamaOpenAIClient,
     VLLMOpenAIClient,
 )
-from aimu.models.base_client import StreamChunk, StreamingContentType
+from aimu.models.base import StreamChunk, StreamingContentType
 
 if HAS_LLAMACPP:
     from aimu.models.llamacpp import LlamaCppModel

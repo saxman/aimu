@@ -8,7 +8,7 @@ import pytest
 
 from aimu.agents import AgentChunk, Runner, SimpleAgent, Workflow
 from aimu.agents.router import Router
-from aimu.models.base_client import StreamingContentType
+from aimu.models.base import StreamingContentType
 from conftest import MockModelClient
 
 
