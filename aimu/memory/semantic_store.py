@@ -110,9 +110,7 @@ class SemanticMemoryStore(MemoryStore):
         """
         results = self._collection.get(where_document={"$contains": identifier})
         matching_ids = [
-            doc_id
-            for doc_id, document in zip(results["ids"], results["documents"])
-            if document == identifier
+            doc_id for doc_id, document in zip(results["ids"], results["documents"]) if document == identifier
         ]
         if matching_ids:
             self._collection.delete(ids=matching_ids)

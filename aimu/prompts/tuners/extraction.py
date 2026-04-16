@@ -173,8 +173,9 @@ class ExtractionPromptTuner(PromptTuner):
 
         for field in self.fields:
             correct_count = data.apply(
-                lambda row, f=field: str((row.extracted or {}).get(f, "")).strip()
-                == str((row.expected or {}).get(f, "")).strip(),
+                lambda row, f=field: (
+                    str((row.extracted or {}).get(f, "")).strip() == str((row.expected or {}).get(f, "")).strip()
+                ),
                 axis=1,
             ).sum()
             metrics[f"field_{field}_accuracy"] = correct_count / n
@@ -186,6 +187,4 @@ class ExtractionPromptTuner(PromptTuner):
     def _row_correct(self, row) -> bool:
         extracted = row.extracted if isinstance(row.extracted, dict) else {}
         expected = row.expected if isinstance(row.expected, dict) else {}
-        return all(
-            str(extracted.get(f, "")).strip() == str(expected.get(f, "")).strip() for f in self.fields
-        )
+        return all(str(extracted.get(f, "")).strip() == str(expected.get(f, "")).strip() for f in self.fields)

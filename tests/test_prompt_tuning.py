@@ -372,7 +372,7 @@ def test_multiclass_evaluate_results():
     tuner = MultiClassPromptTuner(model_client=_MockClientForEval(), classes=_SENTIMENT_CLASSES)
     df = pd.DataFrame(
         {
-            "actual_class":    ["positive", "negative", "neutral", "positive"],
+            "actual_class": ["positive", "negative", "neutral", "positive"],
             "predicted_class": ["positive", "negative", "neutral", "positive"],
         }
     )
@@ -386,7 +386,7 @@ def test_multiclass_evaluate_results():
     # Partial accuracy
     df2 = pd.DataFrame(
         {
-            "actual_class":    ["positive", "negative"],
+            "actual_class": ["positive", "negative"],
             "predicted_class": ["negative", "negative"],
         }
     )
@@ -399,17 +399,17 @@ def test_multiclass_tune():
     # 3 classes; 2-row dataset; iter 0: row 0 wrong; mutation; iter 1: perfect
     client = _TuneSeqClient(
         [
-            "[negative]",                                    # iter 0, row 0: wrong (actual positive)
-            "[negative]",                                    # iter 0, row 1: correct (actual negative)
-            "<prompt>better multiclass: {content}</prompt>", # mutation
-            "[positive]",                                    # iter 1, row 0: correct
-            "[negative]",                                    # iter 1, row 1: correct → 100%
+            "[negative]",  # iter 0, row 0: wrong (actual positive)
+            "[negative]",  # iter 0, row 1: correct (actual negative)
+            "<prompt>better multiclass: {content}</prompt>",  # mutation
+            "[positive]",  # iter 1, row 0: correct
+            "[negative]",  # iter 1, row 1: correct → 100%
         ]
     )
     tuner = MultiClassPromptTuner(model_client=client, classes=_SENTIMENT_CLASSES)
     df = pd.DataFrame(
         {
-            "content":      ["I love it", "I hate it"],
+            "content": ["I love it", "I hate it"],
             "actual_class": ["positive", "negative"],
         }
     )
@@ -460,7 +460,7 @@ def test_extraction_apply_prompt():
     client = _MockExtractionClient(
         [
             '{"name": "Alice Smith", "company": "Acme Corp."}',  # correct
-            '{"name": "Bob Jones", "company": "WRONG"}',         # wrong company
+            '{"name": "Bob Jones", "company": "WRONG"}',  # wrong company
         ]
     )
     tuner = ExtractionPromptTuner(model_client=client, fields=_EXTRACTION_FIELDS)
@@ -475,9 +475,9 @@ def test_extraction_evaluate_results():
     tuner = ExtractionPromptTuner(model_client=_MockClientForEval(), fields=_EXTRACTION_FIELDS)
     df = pd.DataFrame(
         {
-            "expected":  [{"name": "Alice", "company": "Acme"}, {"name": "Bob", "company": "Initech"}],
+            "expected": [{"name": "Alice", "company": "Acme"}, {"name": "Bob", "company": "Initech"}],
             "extracted": [{"name": "Alice", "company": "Acme"}, {"name": "Bob", "company": "WRONG"}],
-            "_correct":  [True, False],
+            "_correct": [True, False],
         }
     )
     metrics = tuner.evaluate_results(df)
@@ -491,11 +491,11 @@ def test_extraction_tune():
     """tune() loop extracts, mutates on errors, then returns improved prompt."""
     client = _TuneSeqClient(
         [
-            '{"name": "Alice Smith", "company": "Acme Corp."}',   # iter 0, row 0: correct
-            '{"name": "Bob Jones", "company": "WRONG"}',           # iter 0, row 1: wrong → 50%
-            "<prompt>better extraction: {content}</prompt>",        # mutation
-            '{"name": "Alice Smith", "company": "Acme Corp."}',   # iter 1, row 0: correct
-            '{"name": "Bob Jones", "company": "Initech"}',         # iter 1, row 1: correct → 100%
+            '{"name": "Alice Smith", "company": "Acme Corp."}',  # iter 0, row 0: correct
+            '{"name": "Bob Jones", "company": "WRONG"}',  # iter 0, row 1: wrong → 50%
+            "<prompt>better extraction: {content}</prompt>",  # mutation
+            '{"name": "Alice Smith", "company": "Acme Corp."}',  # iter 1, row 0: correct
+            '{"name": "Bob Jones", "company": "Initech"}',  # iter 1, row 1: correct → 100%
         ]
     )
     tuner = ExtractionPromptTuner(model_client=client, fields=_EXTRACTION_FIELDS)
@@ -537,7 +537,7 @@ def test_judged_apply_prompt():
     result = tuner.apply_prompt("Summarise: {content}", df)
 
     assert list(result["judge_score"]) == [0.7, 0.5]
-    assert result.iloc[0]["_correct"]    # 0.7 >= 0.6
+    assert result.iloc[0]["_correct"]  # 0.7 >= 0.6
     assert not result.iloc[1]["_correct"]  # 0.5 < 0.6
 
 
@@ -551,7 +551,7 @@ def test_judged_evaluate_results():
     df = pd.DataFrame(
         {
             "judge_score": [0.8, 0.6, 0.4],
-            "_correct":    [True, True, False],
+            "_correct": [True, True, False],
         }
     )
     metrics = tuner.evaluate_results(df)
@@ -567,9 +567,9 @@ def test_judged_tune():
     df = pd.DataFrame({"content": ["Some input text."]})
     main_client = _TuneSeqClient(
         [
-            "bad response",                               # iter 0: generate response
-            "<prompt>improved: {content}</prompt>",       # mutation
-            "good response",                              # iter 1: generate response
+            "bad response",  # iter 0: generate response
+            "<prompt>improved: {content}</prompt>",  # mutation
+            "good response",  # iter 1: generate response
         ]
     )
     judge_client = _TuneSeqClient(["5", "8"])
