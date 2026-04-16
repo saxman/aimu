@@ -4,8 +4,7 @@ Tests for aimu.agents.Parallel — the Parallelization workflow pattern.
 All tests use MockModelClient from conftest (deterministic, no backend needed).
 """
 
-from aimu.agents import AgentChunk, Runner, SimpleAgent, Workflow
-from aimu.agents.parallel import Parallel
+from aimu.agents import AgentChunk, Parallel, Runner, SimpleAgent, Workflow
 from aimu.models.base import StreamingContentType
 from conftest import MockModelClient
 
