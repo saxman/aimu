@@ -293,11 +293,37 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - Thinking models automatically get higher token limits and temperature
   - Caches best state — regressing mutations revert without re-evaluation
   - Saves each improvement to catalog when `catalog` and `prompt_name` are provided
+  - `score(metrics) -> float`: overrideable optimization target; default `metrics["accuracy"]`; override to maximise a different metric (e.g. `metrics["score"]` for `JudgedPromptTuner`)
+  - `extract_mutated_prompt(result) -> str`: overrideable parser for mutation LLM responses; default extracts `<prompt>...</prompt>` tag content
 - **[aimu/prompts/tuners/classification.py](aimu/prompts/tuners/classification.py)**: `ClassificationPromptTuner(PromptTuner)`
   - Binary YES/NO classification; prompt template must contain `{content}` placeholder
   - Data must have `content` (text) and `actual_class` (bool) columns
   - `classify_data(prompt, data)`: runs prompt on all rows, adds `predicted_class` column
   - `evaluate_results(data)`: returns `{accuracy, precision, recall}`
+- **[aimu/prompts/tuners/multiclass.py](aimu/prompts/tuners/multiclass.py)**: `MultiClassPromptTuner(PromptTuner)`
+  - N-way classification; constructor takes `classes: list[str]`
+  - Prompt template must contain `{content}`; model output must include `[ClassName]` for one of the registered classes
+  - Data must have `content` (str) and `actual_class` (str) columns
+  - `classify_data(prompt, data)`: scans output for first `[ClassName]` match (case-insensitive); raises `ValueError` if none found
+  - `evaluate_results(data)`: returns `{accuracy, macro_f1, per_class_{name}_precision/recall/f1}` for each class
+  - Mutation prompt groups failures by `(predicted, actual)` confusion pair
+- **[aimu/prompts/tuners/extraction.py](aimu/prompts/tuners/extraction.py)**: `ExtractionPromptTuner(PromptTuner)`
+  - Structured field extraction; constructor takes `fields: list[str]`
+  - Prompt template must contain `{content}`; model output must be parseable as JSON (raw, fenced block, or `{...}` substring)
+  - Data must have `content` (str) and `expected` (dict mapping field→value) columns
+  - `extract_data(prompt, data)`: calls model, parses JSON, stores result in `extracted` column
+  - `_correct` per row: all fields in `self.fields` match between `extracted` and `expected`
+  - `evaluate_results(data)`: returns `{accuracy, field_{name}_accuracy}` for each field
+  - Mutation prompt shows field-by-field expected vs. actual mismatches per failed row
+- **[aimu/prompts/tuners/judged.py](aimu/prompts/tuners/judged.py)**: `JudgedPromptTuner(PromptTuner)`
+  - Open-ended generation evaluated by a judge model; constructor takes `judge_client`, `criteria: str`, `pass_threshold: float = 0.7`, optional `judge_prompt_template`
+  - Data must have `content` (str) column; optional `reference` (str) column included in judge prompt when present
+  - `generate_responses(prompt, data)`: applies prompt to each row, stores output in `output` column using `response_kwargs` (longer token budget than `generate_kwargs`)
+  - `judge_responses(data)`: calls `judge_client` with judge prompt, parses 1–10 score, stores `judge_score` (0–1) and `judge_feedback`
+  - `_correct`: `judge_score >= pass_threshold`
+  - `evaluate_results(data)`: returns `{score: mean judge_score, pass_rate}`
+  - **Overrides `score()` to return `metrics["score"]`** — optimises mean quality instead of binary pass rate
+  - Mutation prompt includes input, output, score, and judge rationale for each failing example
 
 ### Key Design Patterns
 
@@ -418,7 +444,10 @@ aimu/
 │   ├── tuner.py         # PromptTuner ABC (hill-climbing loop, generate/mutation kwargs)
 │   ├── mcp.py           # FastMCP server for prompt catalog (python -m aimu.prompts.mcp)
 │   └── tuners/
-│       └── classification.py  # ClassificationPromptTuner (YES/NO, classify_data, evaluate_results)
+│       ├── classification.py  # ClassificationPromptTuner (YES/NO, classify_data, evaluate_results)
+│       ├── multiclass.py      # MultiClassPromptTuner (N-way [ClassName], per-class F1)
+│       ├── extraction.py      # ExtractionPromptTuner (JSON field extraction, per-field accuracy)
+│       └── judged.py          # JudgedPromptTuner (LLM-as-judge, score() override)
 └── paths.py             # Path configuration (root, tests, package, output, skills)
 
 tests/                   # Pytest test suite

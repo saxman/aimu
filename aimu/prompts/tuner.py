@@ -83,6 +83,24 @@ class PromptTuner(ABC):
         """
         ...
 
+    def score(self, metrics: dict) -> float:
+        """
+        Scalar to maximise during hill-climbing. Default: ``metrics['accuracy']``.
+
+        Override to optimise a different metric (e.g. ``metrics['score']`` for
+        a judge-based tuner, or ``metrics['macro_f1']`` for multi-class tasks).
+        """
+        return metrics["accuracy"]
+
+    def extract_mutated_prompt(self, result: str) -> str:
+        """
+        Extract the improved prompt text from a mutation LLM response.
+
+        Default: parses content between ``<prompt>`` and ``</prompt>`` tags.
+        Override for a different extraction format (JSON, bare text, etc.).
+        """
+        return result.split("<prompt>")[-1].split("</prompt>")[0].strip()
+
     def tune(
         self,
         training_data,
@@ -133,7 +151,7 @@ class PromptTuner(ABC):
 
             iteration += 1
 
-            if best_metrics is not None and metrics["accuracy"] < best_metrics["accuracy"]:
+            if best_metrics is not None and self.score(metrics) < self.score(best_metrics):
                 # Mutation made things worse — revert to cached best state without
                 # re-evaluating (avoids a full classification pass).
                 print("reverting to last best prompt")
@@ -173,7 +191,7 @@ class PromptTuner(ABC):
             result = self.model_client.generate(mut_prompt, self.mutation_kwargs)
             logger.info(f"raw mutation result:\n{result}")
 
-            current_prompt = result.split("<prompt>")[-1].split("</prompt>")[0].strip()
+            current_prompt = self.extract_mutated_prompt(result)
             logger.info(f"mutated prompt:\n{current_prompt}")
 
             mutation += 1

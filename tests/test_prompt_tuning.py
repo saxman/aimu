@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 
 from aimu.models import ModelClient
-from aimu.prompts import ClassificationPromptTuner
+from aimu.prompts import ClassificationPromptTuner, ExtractionPromptTuner, JudgedPromptTuner, MultiClassPromptTuner
 from conftest import create_real_model_client, resolve_model_params
 
 # ---------------------------------------------------------------------------
@@ -295,3 +295,292 @@ def test_tune_handles_missing_prompt_tags():
     # The loop should complete without crashing; result is the best prompt found
     assert isinstance(result, str)
     assert len(result) > 0
+
+
+# ---------------------------------------------------------------------------
+# Base class method tests — score() and extract_mutated_prompt()
+# ---------------------------------------------------------------------------
+
+
+def test_score_default():
+    """Default score() returns metrics['accuracy']."""
+    tuner = ClassificationPromptTuner(model_client=_MockClientForEval())
+    assert tuner.score({"accuracy": 0.85, "precision": 0.9, "recall": 0.8}) == 0.85
+
+
+def test_extract_mutated_prompt_with_tags():
+    """extract_mutated_prompt() parses content between <prompt> tags."""
+    tuner = ClassificationPromptTuner(model_client=_MockClientForEval())
+    assert tuner.extract_mutated_prompt("<prompt>improved prompt text</prompt>") == "improved prompt text"
+
+
+def test_extract_mutated_prompt_no_tags():
+    """Without <prompt> tags, extract_mutated_prompt() returns the raw string (stripped)."""
+    tuner = ClassificationPromptTuner(model_client=_MockClientForEval())
+    result = tuner.extract_mutated_prompt("plain text no tags")
+    assert result == "plain text no tags"
+
+
+# ---------------------------------------------------------------------------
+# MultiClassPromptTuner tests
+# ---------------------------------------------------------------------------
+
+_SENTIMENT_CLASSES = ["positive", "negative", "neutral"]
+
+_SENTIMENT_DF = pd.DataFrame(
+    {
+        "content": [
+            "I love this product!",
+            "This is terrible.",
+            "It's okay, nothing special.",
+            "Absolutely fantastic experience.",
+        ],
+        "actual_class": ["positive", "negative", "neutral", "positive"],
+    }
+)
+
+
+class _MockMulticlassClient:
+    """Returns [positive]/[negative]/[neutral] by simple keyword matching."""
+
+    is_thinking_model = False
+
+    _KEYWORDS = {
+        "positive": ["love", "fantastic", "great", "good"],
+        "negative": ["terrible", "awful", "bad", "worst"],
+    }
+
+    def generate(self, prompt, generate_kwargs=None):
+        p = prompt.lower()
+        for cls, kws in self._KEYWORDS.items():
+            if any(kw in p for kw in kws):
+                return f"[{cls}]"
+        return "[neutral]"
+
+
+def test_multiclass_classify_data():
+    """classify_data assigns predicted_class from [ClassName] output."""
+    tuner = MultiClassPromptTuner(model_client=_MockMulticlassClient(), classes=_SENTIMENT_CLASSES)
+    df = tuner.classify_data("Classify sentiment: {content}", _SENTIMENT_DF)
+
+    assert "predicted_class" in df.columns
+    assert set(df["predicted_class"]).issubset(set(_SENTIMENT_CLASSES))
+
+
+def test_multiclass_evaluate_results():
+    """evaluate_results computes accuracy and per-class precision/recall/f1."""
+    tuner = MultiClassPromptTuner(model_client=_MockClientForEval(), classes=_SENTIMENT_CLASSES)
+    df = pd.DataFrame(
+        {
+            "actual_class":    ["positive", "negative", "neutral", "positive"],
+            "predicted_class": ["positive", "negative", "neutral", "positive"],
+        }
+    )
+    metrics = tuner.evaluate_results(df)
+
+    assert metrics["accuracy"] == 1.0
+    assert metrics["macro_f1"] == 1.0
+    for cls in _SENTIMENT_CLASSES:
+        assert metrics[f"per_class_{cls}_f1"] == 1.0
+
+    # Partial accuracy
+    df2 = pd.DataFrame(
+        {
+            "actual_class":    ["positive", "negative"],
+            "predicted_class": ["negative", "negative"],
+        }
+    )
+    metrics2 = tuner.evaluate_results(df2)
+    assert metrics2["accuracy"] == 0.5
+
+
+def test_multiclass_tune():
+    """tune() loop classifies, mutates on errors, then returns improved prompt."""
+    # 3 classes; 2-row dataset; iter 0: row 0 wrong; mutation; iter 1: perfect
+    client = _TuneSeqClient(
+        [
+            "[negative]",                                    # iter 0, row 0: wrong (actual positive)
+            "[negative]",                                    # iter 0, row 1: correct (actual negative)
+            "<prompt>better multiclass: {content}</prompt>", # mutation
+            "[positive]",                                    # iter 1, row 0: correct
+            "[negative]",                                    # iter 1, row 1: correct → 100%
+        ]
+    )
+    tuner = MultiClassPromptTuner(model_client=client, classes=_SENTIMENT_CLASSES)
+    df = pd.DataFrame(
+        {
+            "content":      ["I love it", "I hate it"],
+            "actual_class": ["positive", "negative"],
+        }
+    )
+
+    result = tuner.tune(df, "Classify: {content}")
+
+    assert result == "better multiclass: {content}"
+    assert client.calls_made == 5
+
+
+# ---------------------------------------------------------------------------
+# ExtractionPromptTuner tests
+# ---------------------------------------------------------------------------
+
+_EXTRACTION_FIELDS = ["name", "company"]
+
+_EXTRACTION_DF = pd.DataFrame(
+    {
+        "content": [
+            "Alice Smith works at Acme Corp.",
+            "Bob Jones is employed by Initech.",
+        ],
+        "expected": [
+            {"name": "Alice Smith", "company": "Acme Corp."},
+            {"name": "Bob Jones", "company": "Initech"},
+        ],
+    }
+)
+
+
+class _MockExtractionClient:
+    """Returns correct JSON for the first row, incorrect for the second."""
+
+    is_thinking_model = False
+
+    def __init__(self, responses):
+        self._responses = list(responses)
+        self._idx = 0
+
+    def generate(self, prompt, generate_kwargs=None):
+        resp = self._responses[self._idx % len(self._responses)]
+        self._idx += 1
+        return resp
+
+
+def test_extraction_apply_prompt():
+    """apply_prompt parses JSON responses and sets _correct correctly."""
+    client = _MockExtractionClient(
+        [
+            '{"name": "Alice Smith", "company": "Acme Corp."}',  # correct
+            '{"name": "Bob Jones", "company": "WRONG"}',         # wrong company
+        ]
+    )
+    tuner = ExtractionPromptTuner(model_client=client, fields=_EXTRACTION_FIELDS)
+    result = tuner.apply_prompt("Extract fields as JSON: {content}", _EXTRACTION_DF)
+
+    assert result.iloc[0]["_correct"]
+    assert not result.iloc[1]["_correct"]
+
+
+def test_extraction_evaluate_results():
+    """evaluate_results returns row accuracy and per-field accuracy."""
+    tuner = ExtractionPromptTuner(model_client=_MockClientForEval(), fields=_EXTRACTION_FIELDS)
+    df = pd.DataFrame(
+        {
+            "expected":  [{"name": "Alice", "company": "Acme"}, {"name": "Bob", "company": "Initech"}],
+            "extracted": [{"name": "Alice", "company": "Acme"}, {"name": "Bob", "company": "WRONG"}],
+            "_correct":  [True, False],
+        }
+    )
+    metrics = tuner.evaluate_results(df)
+
+    assert metrics["accuracy"] == 0.5
+    assert metrics["field_name_accuracy"] == 1.0
+    assert metrics["field_company_accuracy"] == 0.5
+
+
+def test_extraction_tune():
+    """tune() loop extracts, mutates on errors, then returns improved prompt."""
+    client = _TuneSeqClient(
+        [
+            '{"name": "Alice Smith", "company": "Acme Corp."}',   # iter 0, row 0: correct
+            '{"name": "Bob Jones", "company": "WRONG"}',           # iter 0, row 1: wrong → 50%
+            "<prompt>better extraction: {content}</prompt>",        # mutation
+            '{"name": "Alice Smith", "company": "Acme Corp."}',   # iter 1, row 0: correct
+            '{"name": "Bob Jones", "company": "Initech"}',         # iter 1, row 1: correct → 100%
+        ]
+    )
+    tuner = ExtractionPromptTuner(model_client=client, fields=_EXTRACTION_FIELDS)
+
+    result = tuner.tune(_EXTRACTION_DF, "Extract fields as JSON: {content}")
+
+    assert result == "better extraction: {content}"
+    assert client.calls_made == 5
+
+
+# ---------------------------------------------------------------------------
+# JudgedPromptTuner tests
+# ---------------------------------------------------------------------------
+
+
+def test_judged_score_override():
+    """JudgedPromptTuner.score() returns metrics['score'], not metrics['accuracy']."""
+    tuner = JudgedPromptTuner(
+        model_client=_MockClientForEval(),
+        judge_client=_MockClientForEval(),
+        criteria="Be concise.",
+    )
+    assert tuner.score({"score": 0.8, "pass_rate": 0.6}) == 0.8
+
+
+def test_judged_apply_prompt():
+    """apply_prompt generates output and judges it; judge_score and _correct are set."""
+    main_client = _TuneSeqClient(["This is a summary.", "Another summary."])
+    judge_client = _TuneSeqClient(["7", "5"])  # scores: 0.7, 0.5
+
+    tuner = JudgedPromptTuner(
+        model_client=main_client,
+        judge_client=judge_client,
+        criteria="Good summaries are short.",
+        pass_threshold=0.6,
+    )
+    df = pd.DataFrame({"content": ["Long article text.", "Another long text."]})
+
+    result = tuner.apply_prompt("Summarise: {content}", df)
+
+    assert list(result["judge_score"]) == [0.7, 0.5]
+    assert result.iloc[0]["_correct"]    # 0.7 >= 0.6
+    assert not result.iloc[1]["_correct"]  # 0.5 < 0.6
+
+
+def test_judged_evaluate_results():
+    """evaluate_results computes mean score and pass_rate."""
+    tuner = JudgedPromptTuner(
+        model_client=_MockClientForEval(),
+        judge_client=_MockClientForEval(),
+        criteria="Be helpful.",
+    )
+    df = pd.DataFrame(
+        {
+            "judge_score": [0.8, 0.6, 0.4],
+            "_correct":    [True, True, False],
+        }
+    )
+    metrics = tuner.evaluate_results(df)
+
+    assert abs(metrics["score"] - (0.8 + 0.6 + 0.4) / 3) < 1e-9
+    assert abs(metrics["pass_rate"] - 2 / 3) < 1e-9
+
+
+def test_judged_tune():
+    """tune() loop generates, judges, mutates on low scores, then terminates."""
+    # generate(response), judge(score), generate(mutation), generate(response), judge(score)
+    # iter 0: response scored 0.5 → below threshold → mutate; iter 1: scored 0.8 → passes → stop
+    df = pd.DataFrame({"content": ["Some input text."]})
+    main_client = _TuneSeqClient(
+        [
+            "bad response",                               # iter 0: generate response
+            "<prompt>improved: {content}</prompt>",       # mutation
+            "good response",                              # iter 1: generate response
+        ]
+    )
+    judge_client = _TuneSeqClient(["5", "8"])
+
+    tuner = JudgedPromptTuner(
+        model_client=main_client,
+        judge_client=judge_client,
+        criteria="Be concise and accurate.",
+        pass_threshold=0.7,
+    )
+
+    result = tuner.tune(df, "Answer this: {content}")
+
+    assert result == "improved: {content}"

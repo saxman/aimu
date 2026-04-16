@@ -38,7 +38,7 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Agent Skills**: Filesystem-discovered skill definitions that inject instructions and tools into agents automatically. Skills are YAML-fronted Markdown files discovered from project and user directories.
 
--   **Prompt Storage/Management**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)), plus a hill-climbing `PromptTuner` for automatic prompt optimization. A `ClassificationPromptTuner` is included for binary YES/NO classification tasks.
+-   **Prompt Storage/Management**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)), plus a hill-climbing `PromptTuner` for automatic prompt optimization. Four concrete tuners are included: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated by a second LLM). Subclass `PromptTuner` to implement custom task types.
 
 ## Components
 
@@ -554,7 +554,9 @@ with PromptCatalog("prompts.db") as catalog:
 
 ### Prompt Tuning
 
-`ClassificationPromptTuner` uses hill-climbing to iteratively improve a prompt for binary YES/NO classification:
+Four concrete tuners ship out of the box, all sharing the same hill-climbing loop inherited from `PromptTuner`.
+
+#### Binary classification
 
 ``` python
 import pandas as pd
@@ -576,7 +578,100 @@ best_prompt = tuner.tune(
 )
 ```
 
-The tuner calls `apply_prompt` → `evaluate` → `mutation_prompt` in a loop, reverting on regression and saving each improvement to an optional `PromptCatalog`. Subclass `PromptTuner` to implement custom task types.
+#### Multi-class classification
+
+``` python
+from aimu.prompts import MultiClassPromptTuner
+
+tuner = MultiClassPromptTuner(model_client, classes=["positive", "negative", "neutral"])
+
+df = pd.DataFrame({
+    "content": ["Loved it!", "Terrible experience.", "It was okay."],
+    "actual_class": ["positive", "negative", "neutral"],
+})
+
+best_prompt = tuner.tune(
+    df,
+    initial_prompt="Classify the sentiment as [positive], [negative], or [neutral]. Text: {content}",
+)
+```
+
+Metrics include per-class precision, recall, F1, and macro F1.
+
+#### Structured field extraction
+
+``` python
+from aimu.prompts import ExtractionPromptTuner
+
+tuner = ExtractionPromptTuner(model_client, fields=["name", "company"])
+
+df = pd.DataFrame({
+    "content": ["Alice Smith works at Acme Corp.", "Bob Jones is at Initech."],
+    "expected": [{"name": "Alice Smith", "company": "Acme Corp."}, {"name": "Bob Jones", "company": "Initech"}],
+})
+
+best_prompt = tuner.tune(
+    df,
+    initial_prompt='Extract "name" and "company" as JSON. Text: {content}',
+)
+```
+
+Metrics include row-level accuracy and per-field match rates. The model may return raw JSON, a fenced block, or any JSON object substring — all are handled automatically.
+
+#### Open-ended generation (LLM-as-judge)
+
+`JudgedPromptTuner` uses a second model to score each output on a 1–10 scale. The primary optimisation target is mean judge score rather than binary accuracy.
+
+``` python
+from aimu.prompts import JudgedPromptTuner
+
+tuner = JudgedPromptTuner(
+    model_client=writer_client,
+    judge_client=judge_client,
+    criteria="Summaries should be under three sentences and mention the key conclusion.",
+    pass_threshold=0.7,
+)
+
+df = pd.DataFrame({"content": [long_article_1, long_article_2, ...]})
+
+best_prompt = tuner.tune(
+    df,
+    initial_prompt="Summarise this article: {content}",
+    max_iterations=10,
+)
+```
+
+#### Custom tuners
+
+Subclass `PromptTuner` and implement three methods:
+
+``` python
+from aimu.prompts import PromptTuner
+
+class MyTuner(PromptTuner):
+    def apply_prompt(self, prompt, data):
+        # Run prompt on data; set data["_correct"] boolean column
+        ...
+
+    def evaluate(self, data) -> dict:
+        # Return metrics dict; must include "accuracy" key (or override score())
+        ...
+
+    def mutation_prompt(self, current_prompt, items) -> str:
+        # Return a prompt asking the LLM to improve current_prompt given failing items
+        # LLM response should contain the improved prompt in <prompt>...</prompt> tags
+        ...
+
+    # Optional: override to optimise a different metric
+    def score(self, metrics) -> float:
+        return metrics["my_metric"]
+
+    # Optional: override to parse mutations in a different format
+    def extract_mutated_prompt(self, result) -> str:
+        return result.strip()
+```
+
+The tuner calls `apply_prompt` → `evaluate` → `mutation_prompt` in a loop, reverting on regression and saving each improvement to an optional `PromptCatalog`.
 
 ## License
 
