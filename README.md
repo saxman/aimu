@@ -496,8 +496,9 @@ store.store("Paul works at Google")
 store.store("Paul is married to Sarah")
 store.store("Sarah is the sister of Emma")
 
-store.search("work and employment")   # ["Paul works at Google", ...]
-store.search("family relationships")  # ["Paul is married to Sarah", ...]
+store.search("work and employment")                    # ["Paul works at Google", ...]
+store.search("family relationships")                   # ["Paul is married to Sarah", ...]
+store.search("work and employment", max_distance=0.4)  # only close matches
 ```
 
 ### Document Memory Storage

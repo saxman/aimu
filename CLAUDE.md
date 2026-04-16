@@ -178,7 +178,7 @@ The codebase uses an abstract base class pattern for model clients:
 - **[aimu/memory/semantic_store.py](aimu/memory/semantic_store.py)**: `SemanticMemoryStore(MemoryStore)` for semantic fact storage
   - Uses ChromaDB with cosine similarity for vector search
   - `store(fact)`: Store a subject-predicate-object string; auto-assigns UUID
-  - `search(topic, n_results)`: Semantic vector search by topic
+  - `search(topic, n_results, max_distance)`: Semantic vector search by topic; `max_distance` is an optional cosine-distance cutoff (0 = identical, 2 = maximally dissimilar; useful range ~0.3–0.6; default `None` = no cutoff)
   - `delete(fact)`: Remove by exact-string match; no-op if not found
   - `list_all()`: Return all stored fact strings
   - Legacy aliases: `store_fact()`, `retrieve_facts()`, `delete_fact()`, `list_facts()`

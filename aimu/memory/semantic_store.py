@@ -68,7 +68,7 @@ class SemanticMemoryStore(MemoryStore):
             documents=[content],
         )
 
-    def search(self, query: str, n_results: int = 10) -> list[str]:
+    def search(self, query: str, n_results: int = 10, max_distance: float | None = None) -> list[str]:
         """
         Retrieve facts semantically related to a query.
 
@@ -76,8 +76,13 @@ class SemanticMemoryStore(MemoryStore):
         or "family life" match relevant facts without exact-string matching.
 
         Args:
-            query:     Natural-language query (e.g. "work", "family").
-            n_results: Maximum number of facts to return.
+            query:        Natural-language query (e.g. "work", "family").
+            n_results:    Maximum number of facts to return.
+            max_distance: Optional cosine-distance cutoff (0 = identical,
+                          2 = maximally dissimilar). Facts with a distance
+                          above this threshold are excluded. Typical useful
+                          range: 0.3 (tight) – 0.6 (loose). Defaults to
+                          None (no cutoff).
 
         Returns:
             List of fact strings ordered by relevance.
@@ -90,7 +95,11 @@ class SemanticMemoryStore(MemoryStore):
             query_texts=[query],
             n_results=min(n_results, count),
         )
-        return results["documents"][0]
+        documents = results["documents"][0]
+        if max_distance is not None:
+            distances = results["distances"][0]
+            documents = [doc for doc, dist in zip(documents, distances) if dist <= max_distance]
+        return documents
 
     def delete(self, identifier: str) -> None:
         """
@@ -121,9 +130,9 @@ class SemanticMemoryStore(MemoryStore):
         """Alias for :meth:`store` (backward compatibility)."""
         self.store(fact)
 
-    def retrieve_facts(self, topic: str, n_results: int = 10) -> list[str]:
+    def retrieve_facts(self, topic: str, n_results: int = 10, max_distance: float | None = None) -> list[str]:
         """Alias for :meth:`search` (backward compatibility)."""
-        return self.search(topic, n_results)
+        return self.search(topic, n_results, max_distance)
 
     def delete_fact(self, fact: str) -> None:
         """Alias for :meth:`delete` (backward compatibility)."""
