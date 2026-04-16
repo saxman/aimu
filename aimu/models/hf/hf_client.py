@@ -203,6 +203,10 @@ class HuggingFaceClient(ModelClient):
         if "repeat_penalty" in kwargs:
             kwargs["repetition_penalty"] = kwargs.pop("repeat_penalty")
 
+        # presence_penalty is an OpenAI API concept; Transformers' generate() does not
+        # accept it and raises a ValueError. Drop it silently.
+        kwargs.pop("presence_penalty", None)
+
         return kwargs
 
     def _apply_chat_template(
