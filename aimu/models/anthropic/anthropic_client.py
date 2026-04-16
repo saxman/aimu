@@ -67,11 +67,17 @@ class AnthropicClient(ModelClient):
     # generate_kwargs helpers                                              #
     # ------------------------------------------------------------------ #
 
+    # Parameters not accepted by the Anthropic Messages API (e.g. HuggingFace-specific)
+    _UNSUPPORTED_KWARGS = frozenset({"max_new_tokens", "do_sample", "num_return_sequences"})
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         if not generate_kwargs:
             kwargs = self.default_generate_kwargs.copy()
         else:
             kwargs = {**self.default_generate_kwargs, **generate_kwargs}
+        # Strip HuggingFace / other framework-specific keys the Anthropic API rejects
+        for key in self._UNSUPPORTED_KWARGS:
+            kwargs.pop(key, None)
         # Anthropic rejects top_p alongside thinking; drop it unconditionally
         kwargs.pop("top_p", None)
         # Thinking models require temperature=1
