@@ -31,7 +31,10 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Chat Conversation Storage/Management**: Chat conversation history management using [TinyDB](https://tinydb.readthedocs.io).
 
--   **Semantic Memory Storage**: Persistent fact memory using [ChromaDB](https://www.trychroma.com/). Facts are stored as natural-language subject-predicate-object strings (e.g. `"Paul works at Google"`) and retrieved by semantic topic (e.g. `"employment"`, `"family life"`).
+-   **Memory Storage**: Two complementary persistent memory stores:
+
+    -   **Semantic Memory** (`SemanticMemoryStore`): Fact storage using [ChromaDB](https://www.trychroma.com/) vector embeddings. Store natural-language subject-predicate-object strings (e.g. `"Paul works at Google"`) and retrieve by semantic topic (e.g. `"employment"`, `"family life"`).
+    -   **Document Memory** (`DocumentStore`): Path-based document store mirroring Anthropic's Managed Agents Memory API. Supports `write`, `read`, `edit`, `delete`, and full-text `search` on named paths (e.g. `/preferences.md`).
 
 -   **Agent Skills**: Filesystem-discovered skill definitions that inject instructions and tools into agents automatically. Skills are YAML-fronted Markdown files discovered from project and user directories.
 
@@ -485,16 +488,33 @@ chat_manager.update_conversation(model_client.messages) # store the updated conv
 ### Semantic Memory Storage
 
 ``` python
-from aimu.memory import MemoryStore
+from aimu.memory import SemanticMemoryStore
 
-store = MemoryStore(persist_path="./memory_store")
+store = SemanticMemoryStore(persist_path="./memory_store")
 
-store.store_fact("Paul works at Google")
-store.store_fact("Paul is married to Sarah")
-store.store_fact("Sarah is the sister of Emma")
+store.store("Paul works at Google")
+store.store("Paul is married to Sarah")
+store.store("Sarah is the sister of Emma")
 
-store.retrieve_facts("work and employment")   # ["Paul works at Google", ...]
-store.retrieve_facts("family relationships")  # ["Paul is married to Sarah", ...]
+store.search("work and employment")   # ["Paul works at Google", ...]
+store.search("family relationships")  # ["Paul is married to Sarah", ...]
+```
+
+### Document Memory Storage
+
+``` python
+from aimu.memory import DocumentStore
+
+store = DocumentStore(persist_path="./doc_store")
+
+store.write("/preferences.md", "Always use concise responses.")
+store.write("/notes/meeting.md", "Discussed Q3 roadmap with team.")
+
+store.read("/preferences.md")                        # "Always use concise responses."
+store.edit("/preferences.md", "concise", "detailed") # in-place edit
+store.list_paths()                                   # ["/notes/meeting.md", "/preferences.md"]
+store.search_full_text("roadmap")                    # [{"path": ..., "content": ...}]
+store.delete("/notes/meeting.md")
 ```
 
 ### Agent Skills

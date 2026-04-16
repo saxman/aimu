@@ -171,15 +171,36 @@ The codebase uses an abstract base class pattern for model clients:
 
 ### Semantic Memory
 
-- **[aimu/memory/store.py](aimu/memory/store.py)**: `MemoryStore` class for semantic fact storage
+- **[aimu/memory/base.py](aimu/memory/base.py)**: `MemoryStore` abstract base class
+  - Defines the shared interface: `store(content)`, `search(query, n_results)`, `delete(identifier)`, `list_all()`, `__len__()`
+  - All concrete stores implement this interface
+
+- **[aimu/memory/semantic_store.py](aimu/memory/semantic_store.py)**: `SemanticMemoryStore(MemoryStore)` for semantic fact storage
   - Uses ChromaDB with cosine similarity for vector search
-  - `store_fact(fact)`: Store a subject-predicate-object string
-  - `retrieve_facts(topic, n_results)`: Vector semantic search
-  - `delete_fact(fact)`: Remove exact fact
-  - `__len__()`: Count stored facts
-- **[aimu/memory/mcp.py](aimu/memory/mcp.py)**: FastMCP server exposing `search_memories` / `add_memories` tools
-  - Run as MCP server: `python -m aimu.memory` or `python -m aimu.memory.mcp`
-  - Storage path via `MEMORY_STORE_PATH` env var
+  - `store(fact)`: Store a subject-predicate-object string; auto-assigns UUID
+  - `search(topic, n_results)`: Semantic vector search by topic
+  - `delete(fact)`: Remove by exact-string match; no-op if not found
+  - `list_all()`: Return all stored fact strings
+  - Legacy aliases: `store_fact()`, `retrieve_facts()`, `delete_fact()`, `list_facts()`
+  - Constructor: `SemanticMemoryStore(collection_name="memories", persist_path=None)` — `persist_path=None` → ephemeral
+
+- **[aimu/memory/document_store.py](aimu/memory/document_store.py)**: `DocumentStore(MemoryStore)` — path-based document store
+  - Mirrors Anthropic's Managed Agents Memory API for drop-in compatibility
+  - `write(path, content)`: Create/overwrite document at path (recommended ≤ 100 KB)
+  - `read(path)`: Retrieve document; raises `KeyError` if not found
+  - `edit(path, old_str, new_str)`: Replace first occurrence; raises `ValueError` if not found
+  - `list_paths(prefix=None)`: Sorted paths, optionally filtered by prefix
+  - `search_full_text(query, n_results)`: Case-insensitive substring search; returns `[{"path": ..., "content": ...}]`
+  - `MemoryStore` interface: `store()` auto-assigns `/note-{uuid}.md` path; `search()` wraps `search_full_text()`; `delete()` treats identifier as path; `list_all()` delegates to `list_paths()`
+  - Constructor: `DocumentStore(persist_path=None)` — `persist_path=None` → ephemeral
+
+- **[aimu/memory/mcp.py](aimu/memory/mcp.py)**: FastMCP server exposing `SemanticMemoryStore` as tools
+  - `search_memories(search_request)`, `add_memories(memories)`, `delete_memory(memory)`, `list_memories()`
+  - Storage path via `MEMORY_STORE_PATH` env var; run: `python -m aimu.memory` or `python -m aimu.memory.mcp`
+
+- **[aimu/memory/document_mcp.py](aimu/memory/document_mcp.py)**: FastMCP server exposing `DocumentStore` as tools (matches Anthropic's Managed Agents Memory API naming)
+  - `memory_list(path_prefix)`, `memory_search(query)`, `memory_read(path)`, `memory_write(path, content)`, `memory_edit(path, old_str, new_str)`, `memory_delete(path)`
+  - Storage path via `DOCUMENT_STORE_PATH` env var; run: `python -m aimu.memory.document_mcp`
 
 ### Agent Skills
 
@@ -381,9 +402,12 @@ aimu/
 │   ├── parallel.py      # Parallel (parallelization workflow — concurrent workers)
 │   └── evaluator.py     # EvaluatorOptimizer (evaluator-optimizer workflow)
 ├── history.py           # Conversation management (TinyDB)
-├── memory/              # Semantic memory store (ChromaDB)
-│   ├── store.py         # MemoryStore class
-│   ├── mcp.py           # FastMCP server (search_memories, add_memories tools)
+├── memory/              # Memory stores
+│   ├── base.py          # MemoryStore abstract base class
+│   ├── semantic_store.py # SemanticMemoryStore (ChromaDB vector search)
+│   ├── document_store.py # DocumentStore (path-based, Anthropic API-compatible)
+│   ├── mcp.py           # FastMCP server for SemanticMemoryStore (search_memories, add_memories, delete_memory, list_memories)
+│   ├── document_mcp.py  # FastMCP server for DocumentStore (memory_list/search/read/write/edit/delete)
 │   └── __main__.py      # Entrypoint for python -m aimu.memory
 ├── skills/              # Agent skill discovery and MCP server
 │   ├── skill.py         # Skill dataclass (name, description, path, load_body())
