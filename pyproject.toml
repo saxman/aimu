@@ -30,6 +30,7 @@ notebooks = [
 hf = [
     "torch",
     "transformers",
+    "torchvision", # required for gemma 4 e4b
     "accelerate",
     "sentencepiece",
     "mistral-common", # required for Mistral-Small-3.2 model
