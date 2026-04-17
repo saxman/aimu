@@ -3,6 +3,7 @@ from ..base import StreamingContentType, StreamChunk, Model, ModelClient, classp
 import torch
 from transformers import AutoTokenizer
 from transformers import AutoModelForCausalLM
+from transformers import AutoProcessor
 from transformers.utils import logging as log
 from transformers import TextIteratorStreamer
 import gc
@@ -39,6 +40,7 @@ class ToolCallPrefix(Enum):
     BRACKETED = "[TOOL_CALLS]"
     JSON_OBJECT = '{"name":'
     JSON_ARRAY = '[{"name":'
+    NA = ""
 
     def detected_in(self, text: str) -> bool:
         return self.value in text
@@ -103,7 +105,7 @@ class HuggingFaceModel(Model):
         "google/gemma-4-E4B-it",
         True,
         False,
-        ToolCallPrefix.XML,
+        ToolCallPrefix.NA,
         {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
     )
     PHI_4_14B = "microsoft/phi-4"
@@ -155,24 +157,34 @@ class HuggingFaceClient(ModelClient):
             model_kwargs = self.DEFAULT_MODEL_KWARGS.copy()
         super().__init__(model, model_kwargs, system_message)
 
+        self._hf_processor = None
+        self._parsed_tool_calls = None
+
         if model == self.MODELS.MAGISTRAL_SMALL:
             from transformers import Mistral3ForConditionalGeneration
 
-            self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
+            self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
+            
             # device_map="auto" causes OOM on dual 4090 GPUs
-            self.hf_model = Mistral3ForConditionalGeneration.from_pretrained(
+            self._hf_model = Mistral3ForConditionalGeneration.from_pretrained(
                 model.value, torch_dtype=torch.bfloat16, device_map="sequential"
             )
         elif model == self.MODELS.GPT_OSS_20B and torch.backends.mps.is_available():
             raise ValueError("GPT-OSS-20B is not supported on MPS devices.")
+        elif model.value.startswith("google/gemma-4"):
+            self._hf_processor = AutoProcessor.from_pretrained(model.value)
+            self._hf_tokenizer = self._hf_processor.tokenizer
+            self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
         else:
             ## TODO ensure we're using attention appropriately for single (flash_attention_2) vs multi GPU setups
-            self.hf_tokenizer = AutoTokenizer.from_pretrained(model.value)
-            self.hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
+            self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value)
+            self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
 
     def __del__(self):
-        del self.hf_model
-        del self.hf_tokenizer
+        del self._hf_model
+        del self._hf_tokenizer
+        if self._hf_processor is not None:
+            del self._hf_processor
 
         gc.collect()
 
@@ -214,9 +226,18 @@ class HuggingFaceClient(ModelClient):
         messages: list[dict],
         tools: Optional[list[dict]] = None,
     ) -> Any:
+        if self._hf_processor is not None:
+            text = self._hf_processor.apply_chat_template(
+                messages,
+                tools=tools if self.model.supports_tools else None,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=self.model.supports_thinking,
+            )
+            return self._hf_processor(text=text, return_tensors="pt").to(self._hf_model.device)
         if self.model == self.MODELS.MAGISTRAL_SMALL:
             # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
-            text = self.hf_tokenizer.apply_chat_template(
+            text = self._hf_tokenizer.apply_chat_template(
                 messages,
                 return_tensors="pt",
                 tokenize=False,
@@ -224,7 +245,7 @@ class HuggingFaceClient(ModelClient):
             )
         elif (tools and len(tools) == 0) or not self.model.supports_tools:
             ## some models (e.g. Llama 3.1) misbehave if 'tools' is present, even if None
-            text = self.hf_tokenizer.apply_chat_template(
+            text = self._hf_tokenizer.apply_chat_template(
                 messages,
                 add_generation_prompt=True,
                 return_tensors="pt",
@@ -232,7 +253,7 @@ class HuggingFaceClient(ModelClient):
                 enable_thinking=True,
             )
         else:
-            text = self.hf_tokenizer.apply_chat_template(
+            text = self._hf_tokenizer.apply_chat_template(
                 messages,
                 add_generation_prompt=True,
                 return_tensors="pt",
@@ -241,7 +262,7 @@ class HuggingFaceClient(ModelClient):
                 tools=tools,
                 xml_tools=tools,
             )
-        return self.hf_tokenizer([text], return_tensors="pt").to(self.hf_model.device)
+        return self._hf_tokenizer([text], return_tensors="pt").to(self._hf_model.device)
 
     def _generate_sync(
         self,
@@ -251,12 +272,40 @@ class HuggingFaceClient(ModelClient):
     ) -> str:
         self.last_thinking = ""
         self._pending_thinking_tokens = []
+        self._parsed_tool_calls = None
 
         model_inputs = self._apply_chat_template(messages, tools)
-        generated_ids = self.hf_model.generate(**model_inputs, **generate_kwargs)
+        generated_ids = self._hf_model.generate(**model_inputs, **generate_kwargs)
 
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
-        response = self.hf_tokenizer.decode(output_ids, skip_special_tokens=True).strip()
+
+        if self._hf_processor is not None:
+            raw = self._hf_processor.decode(output_ids, skip_special_tokens=False)
+            logger.debug("LLM raw response: %s", raw)
+            parsed = self._hf_processor.parse_response(raw)
+            self.last_thinking = (parsed.get("thinking") or "").strip()
+
+            tool_calls = parsed.get("tool_calls") or []
+            if tool_calls:
+                # parse_response returns the OpenAI function-calling envelope;
+                # unwrap to the flat {"name": ..., "arguments": ...} form that
+                # _handle_tool_calls expects (matches every other client).
+                self._parsed_tool_calls = [
+                    {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]}
+                    for tc in tool_calls
+                ]
+                response = ""
+            else:
+                self._parsed_tool_calls = None
+                # parse_response leaves EOS in content when decoded with
+                # skip_special_tokens=False; use a clean tokenizer decode for
+                # the user-facing text.
+                response = self._hf_tokenizer.decode(output_ids, skip_special_tokens=True).strip()
+
+            logger.debug("LLM final response: %s", response)
+            return response
+
+        response = self._hf_tokenizer.decode(output_ids, skip_special_tokens=True).strip()
 
         logger.debug("LLM raw response: %s", response)
 
@@ -280,7 +329,7 @@ class HuggingFaceClient(ModelClient):
         self._pending_thinking_tokens = []
 
         model_inputs = self._apply_chat_template(messages, tools)
-        self.hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
+        self._hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
 
         # first part is always empty
         next(streamer)
@@ -323,7 +372,7 @@ class HuggingFaceClient(ModelClient):
             {"role": "user", "content": prompt},
         ]
 
-        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
+        streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
 
         it = self._generate_streaming(messages, generate_kwargs, None, streamer)
 
@@ -341,8 +390,11 @@ class HuggingFaceClient(ModelClient):
 
         response = self._generate_sync(self.messages, generate_kwargs, tools)
 
-        prefix = self.model.tool_call_prefix
-        tool_calls = prefix.parse(response) if prefix else None
+        if self._hf_processor is not None:
+            tool_calls = self._parsed_tool_calls
+        else:
+            prefix = self.model.tool_call_prefix
+            tool_calls = prefix.parse(response) if prefix else None
         if tool_calls:
             msgs_before = len(self.messages)
             self._handle_tool_calls(tool_calls, tools)
@@ -364,7 +416,15 @@ class HuggingFaceClient(ModelClient):
     ) -> Iterator[StreamChunk]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
 
-        streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
+        if self._hf_processor is not None:
+            # Gemma 4 uses special tokens (<|channel>, <|tool_call>, ...) and
+            # requires processor.parse_response for structured extraction.
+            # Token-level streaming with ToolCallPrefix doesn't apply here, so
+            # route through _generate_sync and yield the parsed result.
+            yield from self._chat_streamed_via_processor(generate_kwargs, tools)
+            return
+
+        streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
         it = self._generate_streaming(self.messages, generate_kwargs, tools, streamer)
 
         for token in self._pending_thinking_tokens:
@@ -395,7 +455,7 @@ class HuggingFaceClient(ModelClient):
                         {"name": tc["function"]["name"], "response": tr["content"]},
                     )
 
-                streamer = TextIteratorStreamer(self.hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
+                streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
                 it = self._generate_streaming(self.messages, generate_kwargs, tools, streamer)
         else:
             content += response_part
@@ -405,7 +465,7 @@ class HuggingFaceClient(ModelClient):
             yield StreamChunk(StreamingContentType.THINKING, token)
         self._pending_thinking_tokens = []
 
-        eos_str = self.hf_tokenizer.decode(self.hf_model.config.eos_token_id)
+        eos_str = self._hf_tokenizer.decode(self._hf_model.config.eos_token_id)
 
         for response_part in it:
             if eos_str in response_part:
@@ -420,30 +480,62 @@ class HuggingFaceClient(ModelClient):
         if self.last_thinking:
             self.messages[-1]["thinking"] = self.last_thinking
 
+    def _chat_streamed_via_processor(
+        self, generate_kwargs: dict[str, Any], tools: Optional[list[dict]]
+    ) -> Iterator[StreamChunk]:
+        """Buffered streaming for models that require processor.parse_response (Gemma 4)."""
+        response = self._generate_sync(self.messages, generate_kwargs, tools)
+
+        if self._parsed_tool_calls:
+            msgs_before = len(self.messages)
+            self._handle_tool_calls(self._parsed_tool_calls, tools)
+
+            if self.last_thinking:
+                self.messages[msgs_before]["thinking"] = self.last_thinking
+
+            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
+                yield StreamChunk(
+                    StreamingContentType.TOOL_CALLING,
+                    {"name": tc["function"]["name"], "response": tr["content"]},
+                )
+
+            response = self._generate_sync(self.messages, generate_kwargs, tools)
+
+        if self.last_thinking:
+            yield StreamChunk(StreamingContentType.THINKING, self.last_thinking)
+
+        if response:
+            yield StreamChunk(StreamingContentType.GENERATING, response)
+
+        self.messages.append({"role": "assistant", "content": response})
+
+        if self.last_thinking:
+            self.messages[-1]["thinking"] = self.last_thinking
+
     def print_model_info(self):
-        print(f"model : size : {self.hf_model.get_memory_footprint() // 1024**2} MB")
+        print(f"model : size : {self._hf_model.get_memory_footprint() // 1024**2} MB")
 
         try:
-            print(f"model : is quantized : {self.hf_model.is_quantized}")
-            print(f"model : quantization method : {self.hf_model.quantization_method}")
+            print(f"model : is quantized : {self._hf_model.is_quantized}")
+            print(f"model : quantization method : {self._hf_model.quantization_method}")
         except AttributeError:
             print("model : is quantized : False")
             pass
 
         try:
-            print(f"model : 8-bit quantized : {self.hf_model.is_loaded_in_8bit}")
+            print(f"model : 8-bit quantized : {self._hf_model.is_loaded_in_8bit}")
         except AttributeError:
             pass
 
         try:
-            print(f"model : 4-bit quantized : {self.hf_model.is_loaded_in_4bit}")
+            print(f"model : 4-bit quantized : {self._hf_model.is_loaded_in_4bit}")
         except AttributeError:
             pass
 
-        param = next(self.hf_model.parameters())
+        param = next(self._hf_model.parameters())
         print(f"model : on GPU (CUDA) : {param.is_cuda}")
         print(f"model : on GPU (MPS) : {param.is_mps}")
 
     def print_device_map(self):
         pp = pprint.PrettyPrinter(indent=2)
-        pp.pprint(self.hf_model.hf_device_map)
+        pp.pprint(self._hf_model.hf_device_map)
