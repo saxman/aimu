@@ -36,7 +36,8 @@ class ToolCallPrefix(Enum):
     as the anchor for parsing.
     """
 
-    XML = "<tool_call>"
+    XML_JSON = "<tool_call>"  # <tool_call>{"name": ..., "arguments": ...}</tool_call>
+    XML_QWEN = "<function="  # <tool_call><function=NAME><parameter=KEY>VAL</parameter>...</function></tool_call>
     BRACKETED = "[TOOL_CALLS]"
     JSON_OBJECT = '{"name":'
     JSON_ARRAY = '[{"name":'
@@ -49,9 +50,35 @@ class ToolCallPrefix(Enum):
         """Extract tool calls from a full response. Returns None if the prefix is absent."""
         if not self.detected_in(response):
             return None
-        if self == ToolCallPrefix.XML:
+        if self == ToolCallPrefix.XML_JSON:
             matches = re.findall(r"<tool_call>(.*?)</tool_call>", response, re.DOTALL)
             return [json.loads(m.strip()) for m in matches] if matches else None
+        elif self == ToolCallPrefix.XML_QWEN:
+            matches = re.findall(r"<tool_call>(.*?)</tool_call>", response, re.DOTALL)
+            if not matches:
+                return None
+            tool_calls = []
+            for m in matches:
+                content = m.strip()
+                name_match = re.search(r"<function=([^>]+)>", content)
+                if not name_match:
+                    continue
+                arguments = {}
+                for param_match in re.finditer(
+                    r"<parameter=([^>]+)>\s*(.*?)\s*</parameter>", content, re.DOTALL
+                ):
+                    key = param_match.group(1).strip()
+                    val = param_match.group(2).strip()
+                    try:
+                        val = int(val)
+                    except ValueError:
+                        try:
+                            val = float(val)
+                        except ValueError:
+                            pass
+                    arguments[key] = val
+                tool_calls.append({"name": name_match.group(1).strip(), "arguments": arguments})
+            return tool_calls if tool_calls else None
         elif self == ToolCallPrefix.BRACKETED:
             start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
             return json.loads(response[start:].strip())
@@ -65,25 +92,33 @@ class ToolCallPrefix(Enum):
 class HuggingFaceModel(Model):
     tool_call_prefix: Optional[ToolCallPrefix]
     generate_kwargs: dict[str, Any]
+    think_opener_in_prompt: bool
 
     def __init__(
         self,
         value,
         supports_tools=False,
         supports_thinking=False,
-        tool_call_prefix=ToolCallPrefix.XML,
+        tool_call_prefix=ToolCallPrefix.XML_JSON,
         generate_kwargs=None,
+        think_opener_in_prompt=False,
     ):
         super().__init__(value, supports_tools, supports_thinking)
         self.tool_call_prefix = tool_call_prefix
         self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
         self.generate_kwargs.update(generate_kwargs or {})
+        # Qwen 3.5's chat template appends <think>\n to the generation prompt,
+        # so the model generates starting inside the thinking block and only
+        # emits the closing </think>. Set True for such models so streaming
+        # thinking extraction can anchor on </think> instead of a leading
+        # <think> token that never appears in the stream.
+        self.think_opener_in_prompt = think_opener_in_prompt
 
     GPT_OSS_20B = (
         "openai/gpt-oss-20b",
         True,
         True,
-        ToolCallPrefix.XML,
+        ToolCallPrefix.XML_JSON,
         {"temperature": 1.0, "top_p": 1.0, "top_k": 0},
     )
     LLAMA_3_1_8B = ("meta-llama/Meta-Llama-3.1-8B-Instruct", True, False, ToolCallPrefix.JSON_OBJECT)
@@ -97,7 +132,7 @@ class HuggingFaceModel(Model):
         "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
         False,
         True,
-        ToolCallPrefix.XML,
+        ToolCallPrefix.XML_JSON,
         {"temperature": 0.6},
     )
     GEMMA_3_12B = "google/gemma-3-12b-it"
@@ -117,7 +152,7 @@ class HuggingFaceModel(Model):
         "Qwen/Qwen3.5-9B",
         True,
         True,
-        ToolCallPrefix.XML,
+        ToolCallPrefix.XML_QWEN,
         {
             "temperature": 1.0,
             "top_p": 0.95,
@@ -126,12 +161,13 @@ class HuggingFaceModel(Model):
             "presence_penalty": 1.5,
             "repetition_penalty": 1.0,
         },
+        True,  # think_opener_in_prompt
     )
     QWEN_3_8B = (
         "Qwen/Qwen3-8B",
         True,
         True,
-        ToolCallPrefix.XML,
+        ToolCallPrefix.XML_JSON,
         {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
     )
     SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True)
@@ -145,7 +181,7 @@ class HuggingFaceClient(ModelClient):
         "torch_dtype": "auto",
     }
 
-    model: HuggingFaceModel
+    model: HuggingFaceModel # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __init__(
         self,
@@ -171,7 +207,7 @@ class HuggingFaceClient(ModelClient):
             )
         elif model == self.MODELS.GPT_OSS_20B and torch.backends.mps.is_available():
             raise ValueError("GPT-OSS-20B is not supported on MPS devices.")
-        elif model.value.startswith("google/gemma-4"):
+        elif model.value.startswith("google/gemma-4") or model.value.startswith("qwen/qwen3.5"):
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
@@ -281,9 +317,11 @@ class HuggingFaceClient(ModelClient):
 
         if self._hf_processor is not None:
             raw = self._hf_processor.decode(output_ids, skip_special_tokens=False)
-            logger.debug("LLM raw response: %s", raw)
+            logger.debug("[raw] processor response: %s", raw)
             parsed = self._hf_processor.parse_response(raw)
             self.last_thinking = (parsed.get("thinking") or "").strip()
+            if self.last_thinking:
+                logger.debug("[thinking] %s", self.last_thinking)
 
             tool_calls = parsed.get("tool_calls") or []
             if tool_calls:
@@ -294,6 +332,7 @@ class HuggingFaceClient(ModelClient):
                     {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]}
                     for tc in tool_calls
                 ]
+                logger.debug("[tool_call] parsed: %s", self._parsed_tool_calls)
                 response = ""
             else:
                 self._parsed_tool_calls = None
@@ -302,19 +341,28 @@ class HuggingFaceClient(ModelClient):
                 # the user-facing text.
                 response = self._hf_tokenizer.decode(output_ids, skip_special_tokens=True).strip()
 
-            logger.debug("LLM final response: %s", response)
+            logger.debug("[generating] %s", response)
             return response
 
         response = self._hf_tokenizer.decode(output_ids, skip_special_tokens=True).strip()
 
-        logger.debug("LLM raw response: %s", response)
+        logger.debug("[raw] response: %s", response)
 
-        if self.model.supports_thinking and response.startswith("<think>"):
-            self.last_thinking = response[len("<think>") : response.index("</think>")].strip()
-            logger.debug("LLM thinking: %s", self.last_thinking)
-            response = response[response.index("</think>") + len("</think>") :].strip()
+        if (
+            self.model.supports_thinking
+            and (response.startswith("<think>") or self.model.think_opener_in_prompt)
+            and "</think>" in response
+        ):
+            # For models where the <think> opener is injected into the prompt
+            # (Qwen 3.5), the response starts with thinking content directly;
+            # otherwise skip the explicit opener. Anchor the split on </think>.
+            think_end = response.index("</think>")
+            think_start = len("<think>") if response.startswith("<think>") else 0
+            self.last_thinking = response[think_start:think_end].strip()
+            logger.debug("[thinking] %s", self.last_thinking)
+            response = response[think_end + len("</think>") :].strip()
 
-        logger.debug("LLM final response: %s", response)
+        logger.debug("[generating] %s", response)
 
         return response
 
@@ -334,20 +382,37 @@ class HuggingFaceClient(ModelClient):
         # first part is always empty
         next(streamer)
         response_part = next(streamer)
+        logger.debug("[raw] first token: %r", response_part)
 
-        if self.model.supports_thinking and response_part.startswith("<think>"):
-            while True:
-                response_part = next(streamer)
+        if self.model.supports_thinking and (
+            response_part.startswith("<think>") or self.model.think_opener_in_prompt
+        ):
+            # Advance past the explicit <think> token. For models where the
+            # opener is injected into the generation prompt (Qwen 3.5), the
+            # first streamed token is already thinking content.
+            #
+            # Wrap in try/except: a thinking model can hit max_new_tokens
+            # before emitting </think>. Treat that as "all thinking, no
+            # content" rather than crashing the generator with StopIteration.
+            try:
+                if response_part.startswith("<think>"):
+                    response_part = next(streamer)
 
-                if "</think>" in response_part:
-                    next(streamer)  # following </think> there's a newline
-                    response_part = next(streamer)  # get the first valid token after thinking
-                    break
+                while "</think>" not in response_part:
+                    logger.debug("[thinking] token: %r", response_part)
+                    self.last_thinking += response_part
+                    self._pending_thinking_tokens.append(response_part)
+                    response_part = next(streamer)
 
-                self.last_thinking += response_part
-                self._pending_thinking_tokens.append(response_part)
+                next(streamer)  # newline after </think>
+                response_part = next(streamer)  # first content token
+                logger.debug("[generating] first token (post-thinking): %r", response_part)
+            except StopIteration:
+                logger.debug("[thinking] stream exhausted before </think>")
+                response_part = ""
 
             self.last_thinking = self.last_thinking.strip()
+            logger.debug("[thinking] collected: %s", self.last_thinking)
 
         return itertools.chain([response_part], streamer)
 
@@ -382,7 +447,7 @@ class HuggingFaceClient(ModelClient):
         self._pending_thinking_tokens = []
 
         for token in it:
-            logger.debug("LLM raw token: %r", token)
+            logger.debug("[generating] token: %r", token)
             yield StreamChunk(StreamingContentType.GENERATING, token)
 
     def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
@@ -396,6 +461,7 @@ class HuggingFaceClient(ModelClient):
             prefix = self.model.tool_call_prefix
             tool_calls = prefix.parse(response) if prefix else None
         if tool_calls:
+            logger.debug("[tool_call] parsed: %s", tool_calls)
             msgs_before = len(self.messages)
             self._handle_tool_calls(tool_calls, tools)
 
@@ -404,6 +470,7 @@ class HuggingFaceClient(ModelClient):
 
             response = self._generate_sync(self.messages, generate_kwargs, tools)
 
+        logger.debug("[generating] chat response: %s", response)
         self.messages.append({"role": "assistant", "content": response})
 
         if self.last_thinking:
@@ -441,15 +508,22 @@ class HuggingFaceClient(ModelClient):
             parts = [response_part]
             parts.extend(it)
             response = "".join(parts)
+            logger.debug("[tool_call] raw: %s", response)
 
             tool_calls = prefix.parse(response)
             if tool_calls:
+                logger.debug("[tool_call] parsed: %s", tool_calls)
                 self._handle_tool_calls(tool_calls, tools)
 
                 if self.last_thinking:
                     self.messages[msgs_before]["thinking"] = self.last_thinking
 
                 for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
+                    logger.debug(
+                        "[tool_call] response: name=%s, response=%s",
+                        tc["function"]["name"],
+                        tr["content"],
+                    )
                     yield StreamChunk(
                         StreamingContentType.TOOL_CALLING,
                         {"name": tc["function"]["name"], "response": tr["content"]},
@@ -459,9 +533,11 @@ class HuggingFaceClient(ModelClient):
                 it = self._generate_streaming(self.messages, generate_kwargs, tools, streamer)
         else:
             content += response_part
+            logger.debug("[generating] token: %r", response_part)
             yield StreamChunk(StreamingContentType.GENERATING, response_part)
 
         for token in self._pending_thinking_tokens:
+            logger.debug("[thinking] token: %r", token)
             yield StreamChunk(StreamingContentType.THINKING, token)
         self._pending_thinking_tokens = []
 
@@ -471,10 +547,11 @@ class HuggingFaceClient(ModelClient):
             if eos_str in response_part:
                 response_part = response_part.replace(eos_str, "")
 
-            logger.debug("LLM raw token: %r", response_part)
+            logger.debug("[generating] token: %r", response_part)
             content += response_part
             yield StreamChunk(StreamingContentType.GENERATING, response_part)
 
+        logger.debug("[generating] collected: %s", content)
         self.messages.append({"role": "assistant", "content": content})
 
         if self.last_thinking:
@@ -487,6 +564,7 @@ class HuggingFaceClient(ModelClient):
         response = self._generate_sync(self.messages, generate_kwargs, tools)
 
         if self._parsed_tool_calls:
+            logger.debug("[tool_call] parsed: %s", self._parsed_tool_calls)
             msgs_before = len(self.messages)
             self._handle_tool_calls(self._parsed_tool_calls, tools)
 
@@ -494,6 +572,11 @@ class HuggingFaceClient(ModelClient):
                 self.messages[msgs_before]["thinking"] = self.last_thinking
 
             for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
+                logger.debug(
+                    "[tool_call] response: name=%s, response=%s",
+                    tc["function"]["name"],
+                    tr["content"],
+                )
                 yield StreamChunk(
                     StreamingContentType.TOOL_CALLING,
                     {"name": tc["function"]["name"], "response": tr["content"]},
@@ -502,9 +585,11 @@ class HuggingFaceClient(ModelClient):
             response = self._generate_sync(self.messages, generate_kwargs, tools)
 
         if self.last_thinking:
+            logger.debug("[thinking] collected: %s", self.last_thinking)
             yield StreamChunk(StreamingContentType.THINKING, self.last_thinking)
 
         if response:
+            logger.debug("[generating] collected: %s", response)
             yield StreamChunk(StreamingContentType.GENERATING, response)
 
         self.messages.append({"role": "assistant", "content": response})
