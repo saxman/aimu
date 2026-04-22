@@ -145,7 +145,7 @@ class HuggingFaceClient(ModelClient):
         "torch_dtype": "auto",
     }
 
-    model: HuggingFaceModel
+    model: HuggingFaceModel # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __init__(
         self,
