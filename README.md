@@ -38,7 +38,10 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Agent Skills**: Filesystem-discovered skill definitions that inject instructions and tools into agents automatically. Skills are YAML-fronted Markdown files discovered from project and user directories.
 
--   **Prompt Storage/Management**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)), plus a hill-climbing `PromptTuner` for automatic prompt optimization. Four concrete tuners are included: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated by a second LLM). Subclass `PromptTuner` to implement custom task types.
+-   **Prompt Management**: Versioned prompt storage and automatic prompt optimization:
+
+    -   **Prompt Storage**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)). Prompts are keyed by `(name, model_id)` and auto-versioned on each store.
+    -   **Prompt Tuning**: Hill-climbing `PromptTuner` for automatic prompt optimization. Four concrete tuners: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated by a second LLM). Subclass `PromptTuner` to implement custom task types.
 
 ## Components
 
