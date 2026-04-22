@@ -25,7 +25,11 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
 
--   **Agentic Workflows**: Per Anthropic's taxonomy, AIMU separates **agents** (autonomous, tool-driven) from **workflows** (code-controlled). `SimpleAgent` and `SkillAgent` implement the agent side; `Chain`, `Router`, `Parallel`, and `EvaluatorOptimizer` implement Anthropic's four workflow patterns. All share a `Runner` base class with `run()` / `run_streamed()`. `AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable.
+-   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. All share a `Runner` base class with `run()` / `run_streamed()`.
+
+    -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable.
+    -   **Workflows**: Four code-controlled patterns — `Chain` (prompt chaining), `Router` (classify and dispatch), `Parallel` (concurrent workers with optional aggregation), and `EvaluatorOptimizer` (generate → evaluate → revise loop).
+    -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are discovered from project and user directories (`.agents/skills/`, `.claude/skills/`).
 
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
 
@@ -35,8 +39,6 @@ A Python package containing easy to use tools for working with various language 
 
     -   **Semantic Memory** (`SemanticMemoryStore`): Fact storage using [ChromaDB](https://www.trychroma.com/) vector embeddings. Store natural-language subject-predicate-object strings (e.g. `"Paul works at Google"`) and retrieve by semantic topic (e.g. `"employment"`, `"family life"`).
     -   **Document Memory** (`DocumentStore`): Path-based document store mirroring Anthropic's Managed Agents Memory API. Supports `write`, `read`, `edit`, `delete`, and full-text `search` on named paths (e.g. `/preferences.md`).
-
--   **Agent Skills**: Filesystem-discovered skill definitions that inject instructions and tools into agents automatically. Skills are YAML-fronted Markdown files discovered from project and user directories.
 
 -   **Prompt Management**: Versioned prompt storage and automatic prompt optimization:
 
