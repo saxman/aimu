@@ -111,8 +111,20 @@ class HuggingFaceModel(Model):
     PHI_4_14B = "microsoft/phi-4"
     PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
     MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, ToolCallPrefix.JSON_ARRAY)
-    MISTRAL_NEMO_12B = ("mistralai/Mistral-Nemo-Instruct-2407", True, False, ToolCallPrefix.JSON_ARRAY)
-    MAGISTRAL_SMALL = ("mistralai/Magistral-Small-2509", True, False, ToolCallPrefix.BRACKETED)
+    MISTRAL_NEMO_12B = (
+        "mistralai/Mistral-Nemo-Instruct-2407",
+        True,
+        False,
+        ToolCallPrefix.JSON_ARRAY,
+        {"temperature": 0.3},
+    )
+    MAGISTRAL_SMALL = (
+        "mistralai/Magistral-Small-2509",
+        True,
+        False,
+        ToolCallPrefix.BRACKETED,
+        {"top_p": 0.95, "temperature": 0.7},
+    )
     QWEN_3_5_9B = (
         "Qwen/Qwen3.5-9B",
         True,
@@ -134,7 +146,7 @@ class HuggingFaceModel(Model):
         ToolCallPrefix.XML,
         {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
     )
-    SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True)
+    SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True, ToolCallPrefix.XML, {"temperature": 0.6, "top_p": 0.95})
 
 
 class HuggingFaceClient(ModelClient):
@@ -145,7 +157,7 @@ class HuggingFaceClient(ModelClient):
         "torch_dtype": "auto",
     }
 
-    model: HuggingFaceModel # pyright: ignore[reportIncompatibleVariableOverride]
+    model: HuggingFaceModel  # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __init__(
         self,
@@ -164,7 +176,7 @@ class HuggingFaceClient(ModelClient):
             from transformers import Mistral3ForConditionalGeneration
 
             self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
-            
+
             # device_map="auto" causes OOM on dual 4090 GPUs
             self._hf_model = Mistral3ForConditionalGeneration.from_pretrained(
                 model.value, torch_dtype=torch.bfloat16, device_map="sequential"
@@ -291,8 +303,7 @@ class HuggingFaceClient(ModelClient):
                 # unwrap to the flat {"name": ..., "arguments": ...} form that
                 # _handle_tool_calls expects (matches every other client).
                 self._parsed_tool_calls = [
-                    {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]}
-                    for tc in tool_calls
+                    {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]} for tc in tool_calls
                 ]
                 response = ""
             else:
