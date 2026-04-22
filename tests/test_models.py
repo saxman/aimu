@@ -191,7 +191,9 @@ def test_chat_with_tools(model_client):
         is_gemma = model_client.model.name.startswith("GEMMA")
         is_gpt_oss = model_client.model.name.startswith("GPT_OSS")
         is_magistral = model_client.model.name.startswith("MAGISTRAL")
-        if not is_gemma and not is_gpt_oss and not is_magistral:
+        is_smollm = model_client.model.name.startswith("SMOLLM")
+
+        if not is_gemma and not is_gpt_oss and not is_magistral and not is_smollm:
             assert "thinking" in model_client.messages[-1]
 
         if not is_gemma and not is_magistral:

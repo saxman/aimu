@@ -413,7 +413,9 @@ class HuggingFaceClient(ModelClient):
             if self.last_thinking:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
 
-            response = self._generate_sync(self.messages, generate_kwargs, tools)
+            # Omit tools so the model generates text rather than calling tools again;
+            # multi-round tool use is handled by SimpleAgent, not chat().
+            response = self._generate_sync(self.messages, generate_kwargs, None)
 
         self.messages.append({"role": "assistant", "content": response})
 
@@ -467,7 +469,9 @@ class HuggingFaceClient(ModelClient):
                     )
 
                 streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
-                it = self._generate_streaming(self.messages, generate_kwargs, tools, streamer)
+                # Omit tools so the model generates text rather than calling tools again;
+                # multi-round tool use is handled by SimpleAgent, not chat_streamed().
+                it = self._generate_streaming(self.messages, generate_kwargs, None, streamer)
         else:
             content += response_part
             yield StreamChunk(StreamingContentType.GENERATING, response_part)
