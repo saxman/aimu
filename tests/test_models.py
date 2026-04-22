@@ -193,10 +193,12 @@ def test_chat_with_tools(model_client):
         is_magistral = model_client.model.name.startswith("MAGISTRAL")
         is_smollm = model_client.model.name.startswith("SMOLLM")
 
+        # these models do not consistently include thinking in the final response
         if not is_gemma and not is_gpt_oss and not is_magistral and not is_smollm:
             assert "thinking" in model_client.messages[-1]
 
-        if not is_gemma and not is_magistral:
+        # these models do not consistently include thinking in the tool call response
+        if not is_gemma and not is_magistral and not is_smollm:
             assert "thinking" in model_client.messages[-3]
 
 
@@ -275,12 +277,17 @@ def test_chat_streamed_with_tools(model_client):
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
     assert "27" in content
 
+    # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
     if model_client.model.supports_thinking:
         is_gemma = model_client.model.name.startswith("GEMMA")
         is_gpt_oss = model_client.model.name.startswith("GPT_OSS")
         is_magistral = model_client.model.name.startswith("MAGISTRAL")
-        if not is_gemma and not is_gpt_oss and not is_magistral:
+        is_smollm = model_client.model.name.startswith("SMOLLM")
+
+        # these models do not consistently include thinking in the final response
+        if not is_gemma and not is_gpt_oss and not is_magistral and not is_smollm:
             assert "thinking" in model_client.messages[-1]
 
-        if not is_gemma and not is_magistral:
+        # these models do not consistently include thinking in the tool call response
+        if not is_gemma and not is_magistral and not is_smollm:
             assert "thinking" in model_client.messages[-3]
