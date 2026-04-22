@@ -18,7 +18,7 @@ from fastmcp import FastMCP
 import time
 
 from conftest import create_real_model_client, resolve_model_params
-from aimu.models import ModelClient, OllamaClient, StreamingContentType, StreamChunk
+from aimu.models import ModelClient, StreamingContentType, StreamChunk
 from aimu.models import OpenAICompatClient, LMStudioOpenAIClient, OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient
 from aimu.models import LlamaCppClient, HuggingFaceClient
 from aimu.tools.client import MCPClient
@@ -188,13 +188,13 @@ def test_chat_with_tools(model_client):
 
     # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
     if model_client.model.supports_thinking:
-        if (
-            model_client.model != OllamaClient.MODELS.GPT_OSS_20B
-            and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B
-        ):
+        is_gemma = model_client.model.name.startswith("GEMMA")
+        is_gpt_oss = model_client.model.name.startswith("GPT_OSS")
+        is_magistral = model_client.model.name.startswith("MAGISTRAL")
+        if not is_gemma and not is_gpt_oss and not is_magistral:
             assert "thinking" in model_client.messages[-1]
 
-        if model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
+        if not is_gemma and not is_magistral:
             assert "thinking" in model_client.messages[-3]
 
 
@@ -203,6 +203,8 @@ def test_generate_streamed_thinking(model_client):
 
     if not model_client.model.supports_thinking:
         pytest.skip("Model does not support thinking")
+    if model_client.model.name.startswith("GEMMA"):
+        pytest.skip("Gemma models do not include thinking in responses")
 
     content = ""
     thinking = ""
@@ -222,6 +224,8 @@ def test_generate_streamed_include_thinking_false(model_client):
 
     if not model_client.model.supports_thinking:
         pytest.skip("Model does not support thinking")
+    if model_client.model.name.startswith("GEMMA"):
+        pytest.skip("Gemma models do not include thinking in responses")
 
     content = ""
     thinking = ""
@@ -270,11 +274,11 @@ def test_chat_streamed_with_tools(model_client):
     assert "27" in content
 
     if model_client.model.supports_thinking:
-        if (
-            model_client.model != OllamaClient.MODELS.GPT_OSS_20B
-            and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B
-        ):
+        is_gemma = model_client.model.name.startswith("GEMMA")
+        is_gpt_oss = model_client.model.name.startswith("GPT_OSS")
+        is_magistral = model_client.model.name.startswith("MAGISTRAL")
+        if not is_gemma and not is_gpt_oss and not is_magistral:
             assert "thinking" in model_client.messages[-1]
 
-        if model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
+        if not is_gemma and not is_magistral:
             assert "thinking" in model_client.messages[-3]
