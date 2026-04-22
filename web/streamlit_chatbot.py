@@ -21,6 +21,13 @@ Introduce what model that you are and share what tools you have access to.
 
 MODEL_CLIENTS = [OllamaClient, HuggingFaceClient]
 
+SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
+
+
+def _set_slider_defaults(model):
+    for key, default in SLIDER_DEFAULTS.items():
+        st.session_state[f"slider_{key}"] = model.generation_kwargs.get(key, default)
+
 
 def stream_chat_response(streamed_response):
     current_type = None
@@ -62,6 +69,8 @@ if "model_client" not in st.session_state:
     st.session_state.mcp_client = MCPClient(MCP_SERVERS)
     st.session_state.model_client.mcp_client = st.session_state.mcp_client
 
+    _set_slider_defaults(st.session_state.model)
+
     st.session_state.conversation_manager = ConversationManager(
         db_path=str(paths.output / "chat_history.json"),
         use_last_conversation=True,
@@ -73,13 +82,12 @@ with st.sidebar:
     st.write("Example AI Assistant")
 
     model = st.selectbox("Model", options=st.session_state.model_client.TOOL_MODELS, format_func=lambda x: x.name)
-    temperature = st.sidebar.slider("temperature", min_value=0.01, max_value=1.0, value=0.15, step=0.01)
-    top_p = st.sidebar.slider("top_p", min_value=0.01, max_value=1.0, value=0.9, step=0.01)
-    repeat_penalty = st.sidebar.slider("repeat_penalty", min_value=0.9, max_value=1.5, value=1.1, step=0.1)
     model_client = st.selectbox("Model Client", options=MODEL_CLIENTS, format_func=lambda x: x.__name__)
 
     # If the model client has changed (e.g. OllamaClient to HuggingFaceClient), create a new mode client instance.
     # Otherwise, if the model has changed, create a new instance of the model client using the new model.
+    # These checks must run before the sliders are rendered so that _set_slider_defaults can update
+    # session state keys that are bound to slider widgets without triggering a StreamlitAPIException.
     if not isinstance(st.session_state.model_client, model_client):
         del st.session_state.model_client
 
@@ -88,6 +96,7 @@ with st.sidebar:
 
         st.session_state.model_client.mcp_client = st.session_state.mcp_client
 
+        _set_slider_defaults(st.session_state.model)
         st.rerun()
     elif st.session_state.model != model:
         del st.session_state.model_client
@@ -97,7 +106,12 @@ with st.sidebar:
 
         st.session_state.model_client.mcp_client = st.session_state.mcp_client
 
+        _set_slider_defaults(model)
         st.rerun()
+
+    temperature = st.sidebar.slider("temperature", min_value=0.01, max_value=1.0, step=0.01, key="slider_temperature")
+    top_p = st.sidebar.slider("top_p", min_value=0.01, max_value=1.0, step=0.01, key="slider_top_p")
+    repeat_penalty = st.sidebar.slider("repeat_penalty", min_value=0.9, max_value=1.5, step=0.1, key="slider_repeat_penalty")
 
     if st.button("Reset chat"):
         # Create a new conversation that will be used as the "last" conversation when the app is reloaded.
