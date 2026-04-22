@@ -111,7 +111,9 @@ with st.sidebar:
 
     temperature = st.sidebar.slider("temperature", min_value=0.01, max_value=1.0, step=0.01, key="slider_temperature")
     top_p = st.sidebar.slider("top_p", min_value=0.01, max_value=1.0, step=0.01, key="slider_top_p")
-    repeat_penalty = st.sidebar.slider("repeat_penalty", min_value=0.9, max_value=1.5, step=0.1, key="slider_repeat_penalty")
+    repeat_penalty = st.sidebar.slider(
+        "repeat_penalty", min_value=0.9, max_value=1.5, step=0.1, key="slider_repeat_penalty"
+    )
 
     if st.button("Reset chat"):
         # Create a new conversation that will be used as the "last" conversation when the app is reloaded.
