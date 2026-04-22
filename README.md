@@ -22,8 +22,7 @@ A Python package containing easy to use tools for working with various language 
         -   [llama.cpp llama-server](https://github.com/ggml-org/llama.cpp/tree/master/tools/server) (`LlamaServerOpenAIClient`)
         -   [SGLang](https://docs.sglang.ai/) (`SGLangOpenAIClient`)
         -   Any OpenAI-compatible server (`OpenAICompatClient`)
-
--   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
+    -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Enabled automatically for supported models, with access to reasoning traces via `last_thinking` and `StreamPhase.THINKING` stream chunks.
 
 -   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. All share a `Runner` base class with `run()` / `run_streamed()`.
 
@@ -33,10 +32,9 @@ A Python package containing easy to use tools for working with various language 
 
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
 
--   **Chat Conversation Storage/Management**: Chat conversation history management using [TinyDB](https://tinydb.readthedocs.io).
+-   **Persistence**: Three complementary stores for persisting conversation and knowledge:
 
--   **Memory Storage**: Two complementary persistent memory stores:
-
+    -   **Conversation History** (`ConversationManager`): Persistent chat message history backed by [TinyDB](https://tinydb.readthedocs.io). Load the last conversation on startup and save updates after each turn.
     -   **Semantic Memory** (`SemanticMemoryStore`): Fact storage using [ChromaDB](https://www.trychroma.com/) vector embeddings. Store natural-language subject-predicate-object strings (e.g. `"Paul works at Google"`) and retrieve by semantic topic (e.g. `"employment"`, `"family life"`).
     -   **Document Memory** (`DocumentStore`): Path-based document store mirroring Anthropic's Managed Agents Memory API. Supports `write`, `read`, `edit`, `delete`, and full-text `search` on named paths (e.g. `/preferences.md`).
 
