@@ -63,7 +63,7 @@ class ModelClient(ABC):
     default_generate_kwargs: dict
     messages: list[dict]
     mcp_client: Optional[Any]  # Avoid circular imports by not referencing MCPClient directly
-    last_thinking: str
+    last_thinking: str | None
 
     @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
