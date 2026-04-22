@@ -204,7 +204,7 @@ def test_generate_streamed_thinking(model_client):
     if not model_client.model.supports_thinking:
         pytest.skip("Model does not support thinking")
     if model_client.model.name.startswith("GEMMA"):
-        pytest.skip("Gemma models do not include thinking in responses")
+        pytest.skip("Gemma models do not consistently include thinking in responses")
 
     content = ""
     thinking = ""
@@ -225,7 +225,7 @@ def test_generate_streamed_include_thinking_false(model_client):
     if not model_client.model.supports_thinking:
         pytest.skip("Model does not support thinking")
     if model_client.model.name.startswith("GEMMA"):
-        pytest.skip("Gemma models do not include thinking in responses")
+        pytest.skip("Gemma models do not consistently include thinking in responses")
 
     content = ""
     thinking = ""
