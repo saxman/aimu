@@ -42,7 +42,7 @@ A Python package containing easy to use tools for working with various language 
 -   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. All share a `Runner` base class with `run()` / `run_streamed()`.
 
     -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable.
-    -   **Workflows**: Four code-controlled patterns — `Chain` (prompt chaining), `Router` (classify and dispatch), `Parallel` (concurrent workers with optional aggregation), and `EvaluatorOptimizer` (generate → evaluate → revise loop).
+    -   **Workflows**: Four code-controlled patterns: `Chain` (prompt chaining), `Router` (classify and dispatch), `Parallel` (concurrent workers with optional aggregation), and `EvaluatorOptimizer` (generate → evaluate → revise loop).
     -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are discovered from project and user directories (`.agents/skills/`, `.claude/skills/`).
 
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
@@ -149,12 +149,12 @@ response = client.chat("What is the capital of France?")                  # mult
 print(client.messages)  # full message history
 ```
 
-Cloud and local server clients follow the same pattern — only the import and model enum differ:
+Cloud and local server clients follow the same pattern; only the import and model enum differ:
 
 | Client | Extra | API key / notes |
 |---|---|---|
-| `OllamaClient` | `aimu[ollama]` | — |
-| `HuggingFaceClient` | `aimu[hf]` | — |
+| `OllamaClient` | `aimu[ollama]` | - |
+| `HuggingFaceClient` | `aimu[hf]` | - |
 | `LlamaCppClient` | `aimu[llamacpp]` | `model_path=` (GGUF file); no external service |
 | `OpenAIClient` | `aimu[openai_compat]` | `OPENAI_API_KEY` |
 | `AnthropicClient` | `aimu[anthropic]` | `ANTHROPIC_API_KEY` |
@@ -165,7 +165,7 @@ Cloud and local server clients follow the same pattern — only the import and m
 | `LlamaServerOpenAIClient` | `aimu[openai_compat]` | localhost:8080 |
 | `SGLangOpenAIClient` | `aimu[openai_compat]` | localhost:30000 |
 
-**Streaming** — `chat_streamed()` yields `StreamChunk` objects tagged by phase:
+**Streaming**: `chat_streamed()` yields `StreamChunk` objects tagged by phase:
 
 | `chunk.phase` | `chunk.content` type | Description |
 |---|---|---|
@@ -173,9 +173,9 @@ Cloud and local server clients follow the same pattern — only the import and m
 | `StreamPhase.TOOL_CALLING` | `dict` `{"name": str, "response": str}` | Tool call and result |
 | `StreamPhase.GENERATING` | `str` | Final response token |
 
-**Thinking models** — extended reasoning (e.g. DeepSeek-R1, Qwen3, GPT-OSS) is enabled automatically for supported models. The reasoning trace is available in `client.last_thinking` after generation, or as `StreamPhase.THINKING` chunks during streaming.
+**Thinking models**: extended reasoning (e.g. DeepSeek-R1, Qwen3, GPT-OSS) is enabled automatically for supported models. The reasoning trace is available in `client.last_thinking` after generation, or as `StreamPhase.THINKING` chunks during streaming.
 
-**Chat UIs** — full-featured UIs with streaming, tool calls, and conversation persistence: `streamlit run web/streamlit_chatbot.py` ([Streamlit](web/streamlit_chatbot.py)) or `python web/gradio_chatbot.py` ([Gradio](web/gradio_chatbot.py)).
+**Chat UIs**: full-featured UIs with streaming, tool calls, and conversation persistence: `streamlit run web/streamlit_chatbot.py` ([Streamlit](web/streamlit_chatbot.py)) or `python web/gradio_chatbot.py` ([Gradio](web/gradio_chatbot.py)).
 
 See [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) for detailed examples.
 
@@ -223,7 +223,7 @@ chain = Chain.from_config(
 result = chain.run("Research the top Python web frameworks.")
 ```
 
-Every `Runner` exposes `.messages` — a `dict[str, list[dict]]` mapping each agent name to its message history snapshot after a run.
+Every `Runner` exposes `.messages`, a `dict[str, list[dict]]` mapping each agent name to its message history snapshot after a run.
 
 See [06 - Agents](notebooks/06%20-%20Agents.ipynb), [07 - Agent Skills](notebooks/07%20-%20Agent%20Skills.ipynb), and [08 - Agent Workflows](notebooks/08%20-%20Agent%20Workflows.ipynb).
 
@@ -244,7 +244,7 @@ mcp_client = MCPClient({
 # Use standalone
 mcp_client.call_tool("mytool", {"input": "hello world!"})
 
-# Or attach to a model client — tools are passed to the model automatically
+# Or attach to a model client; tools are passed to the model automatically
 model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
 model_client.mcp_client = mcp_client
 model_client.chat("use my tool please")
@@ -254,7 +254,7 @@ See [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb).
 
 ### Persistence
 
-**Conversation history** — `ConversationManager` persists chat message sequences across sessions:
+**Conversation history**: `ConversationManager` persists chat message sequences across sessions:
 
 ``` python
 from aimu.models import OllamaClient as ModelClient
@@ -268,7 +268,7 @@ model_client.chat("What is the capital of France?")
 manager.update_conversation(model_client.messages)
 ```
 
-**Semantic memory** — `SemanticMemoryStore` stores and retrieves facts by semantic similarity:
+**Semantic memory**: `SemanticMemoryStore` stores and retrieves facts by semantic similarity:
 
 ``` python
 from aimu.memory import SemanticMemoryStore
@@ -279,7 +279,7 @@ store.search("employment")                    # ["Paul works at Google"]
 store.search("employment", max_distance=0.4)  # only close matches
 ```
 
-**Document memory** — `DocumentStore` is a path-keyed document store mirroring Anthropic's Managed Agents Memory API:
+**Document memory**: `DocumentStore` is a path-keyed document store mirroring Anthropic's Managed Agents Memory API:
 
 ``` python
 from aimu.memory import DocumentStore
@@ -294,7 +294,7 @@ See [04 - Conversations](notebooks/04%20-%20Conversations.ipynb) and [05 - Memor
 
 ### Prompt Management
 
-**Prompt catalog** — `PromptCatalog` stores versioned prompts keyed by `(name, model_id)`:
+**Prompt catalog**: `PromptCatalog` stores versioned prompts keyed by `(name, model_id)`:
 
 ``` python
 from aimu.prompts import PromptCatalog, Prompt
@@ -307,7 +307,7 @@ with PromptCatalog("prompts.db") as catalog:
     print(f"v{latest.version}: {latest.prompt}")
 ```
 
-**Prompt tuning** — `PromptTuner` runs a hill-climbing loop to automatically improve a prompt against labelled data. Pass a DataFrame with `content` and `actual_class` columns:
+**Prompt tuning**: `PromptTuner` runs a hill-climbing loop to automatically improve a prompt against labelled data. Pass a DataFrame with `content` and `actual_class` columns:
 
 ``` python
 import pandas as pd
