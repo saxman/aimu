@@ -4,6 +4,21 @@
 
 A Python package containing easy to use tools for working with various language models and AI services. AIMU is designed for running models locally via Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework, and for cloud models via native provider SDKs (OpenAI, Anthropic, Google Gemini).
 
+## Table of Contents
+
+-   [Features](#features)
+-   [Components](#components)
+-   [Examples](#examples)
+-   [Installation](#installation)
+-   [Development](#development)
+-   [Usage](#usage)
+    -   [Model Clients](#model-clients)
+    -   [Agents & Workflows](#agents--workflows)
+    -   [MCP Tools](#mcp-tools)
+    -   [Persistence](#persistence)
+    -   [Prompt Management](#prompt-management)
+-   [License](#license)
+
 ## Features
 
 -   **Model Clients**: Support for multiple AI model providers including:
