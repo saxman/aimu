@@ -122,7 +122,7 @@ def test_persistent_store_survives_reinstantiation(tmp_path):
     store.store_fact("Paul works at Google")
     store.store_fact("Sarah is the sister of Emma")
 
-    # Reopen the same path — facts must still be there
+    # Reopen the same path; facts must still be there
     store2 = SemanticMemoryStore(persist_path=str(tmp_path))
     assert len(store2) == 2
     results = store2.retrieve_facts("Paul works at Google")

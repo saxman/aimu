@@ -21,7 +21,7 @@ class Parallel(Workflow):
     result. If no aggregator is provided, the joined worker outputs are returned
     directly.
 
-    Workers run concurrently via ``ThreadPoolExecutor`` — results are collected
+    Workers run concurrently via ``ThreadPoolExecutor``; results are collected
     in submission order. Workers may be any Runner subclass (agents or workflows).
 
     Usage::

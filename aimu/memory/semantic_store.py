@@ -1,5 +1,5 @@
 """
-aimu.memory.store — Semantic fact storage using subject-predicate-object triples.
+aimu.memory.store: Semantic fact storage using subject-predicate-object triples.
 
 Facts like "Paul works at Google" are stored in ChromaDB and can be retrieved
 by semantic topic (e.g. "work", "family life") or by exact subject.

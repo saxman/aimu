@@ -333,7 +333,7 @@ agent = SimpleAgent.from_config(
 
 #### Chain (Prompt Chaining)
 
-`Chain` sequences agents so the output of each step becomes the input to the next. Pass a single `ModelClient` — it is shared across steps, with `messages` cleared and `system_message` applied from each step's config before it runs:
+`Chain` sequences agents so the output of each step becomes the input to the next. Pass a single `ModelClient`; it is shared across steps, with `messages` cleared and `system_message` applied from each step's config before it runs:
 
 ``` python
 from aimu.agents import Chain
@@ -378,7 +378,7 @@ router.messages
 # {
 #   "routing-agent": [{"role": "user", ...}, {"role": "assistant", "content": "weather"}],
 #   "weather-specialist": [{"role": "user", ...}, {"role": "assistant", "content": "..."}],
-#   "math-specialist": [],     # not dispatched — empty snapshot
+#   "math-specialist": [],     # not dispatched; empty snapshot
 # }
 ```
 
@@ -415,7 +415,7 @@ result = eo.run("Write a concise explanation of transformer attention.")
 
 ### AgenticModelClient
 
-`AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted — web UIs, conversation managers, etc. — to get the full agentic loop transparently:
+`AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted (web UIs, conversation managers, etc.) to get the full agentic loop transparently:
 
 ``` python
 from aimu.models.ollama import OllamaClient, OllamaModel
@@ -428,7 +428,7 @@ inner.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "a
 # Single-turn client
 client = inner
 
-# Agentic client — same interface, loops until tools stop being called
+# Agentic client: same interface, loops until tools stop being called
 client = AgenticModelClient(SimpleAgent(inner, max_iterations=10))
 
 # Both work identically here:
@@ -532,7 +532,7 @@ agent = SkillAgent(client, name="assistant")
 # Or point at specific directories
 agent = SkillAgent(client, skill_manager=SkillManager(skill_dirs=["./skills"]))
 
-# Or use from_config (skill_dirs optional — omit to auto-discover)
+# Or use from_config (skill_dirs optional; omit to auto-discover)
 agent = SkillAgent.from_config({"name": "assistant", "skill_dirs": ["./skills"]}, client)
 result = agent.run("Use the pdf-processing skill to extract pages from report.pdf")
 ```
@@ -616,7 +616,7 @@ best_prompt = tuner.tune(
 )
 ```
 
-Metrics include row-level accuracy and per-field match rates. The model may return raw JSON, a fenced block, or any JSON object substring — all are handled automatically.
+Metrics include row-level accuracy and per-field match rates. The model may return raw JSON, a fenced block, or any JSON object substring; all are handled automatically.
 
 #### Open-ended generation (LLM-as-judge)
 

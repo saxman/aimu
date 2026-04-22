@@ -8,8 +8,8 @@ from aimu.models.base import ModelClient, StreamChunk
 
 class AgenticModelClient(ModelClient):
     """
-    A ModelClient whose chat() runs the full SimpleAgent agentic loop — looping
-    until the model stops calling tools — rather than a single model turn.
+    A ModelClient whose chat() runs the full SimpleAgent agentic loop, looping
+    until the model stops calling tools, rather than a single model turn.
 
     Drop-in replacement anywhere a ModelClient is accepted.
 
@@ -33,7 +33,7 @@ class AgenticModelClient(ModelClient):
         self._agent = agent
         self._inner_client = agent.model_client
         # Mirror base attributes from inner_client (model caps, generate kwargs).
-        # super().__init__() is intentionally not called — it would reset inner_client
+        # super().__init__() is intentionally not called; it would reset inner_client
         # state (messages, mcp_client, etc.) to defaults.
         self.model = self._inner_client.model
         self.model_kwargs = self._inner_client.model_kwargs

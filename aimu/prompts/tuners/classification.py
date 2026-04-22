@@ -1,5 +1,5 @@
 """
-aimu.prompts.tuners.classification — Prompt tuner for binary classification tasks.
+aimu.prompts.tuners.classification: Prompt tuner for binary classification tasks.
 
 ClassificationPromptTuner implements the three abstract methods of PromptTuner
 for the common case of yes/no classification:

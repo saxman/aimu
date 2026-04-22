@@ -1,5 +1,5 @@
 """
-aimu.prompts.tuners.multiclass — Prompt tuner for multi-class classification tasks.
+aimu.prompts.tuners.multiclass: Prompt tuner for multi-class classification tasks.
 
 MultiClassPromptTuner extends PromptTuner for tasks where the model must assign
 one of N named categories to each input, rather than a binary YES/NO decision.

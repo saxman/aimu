@@ -1,5 +1,5 @@
 """
-aimu.prompts.catalog — Versioned prompt storage backed by SQLite.
+aimu.prompts.catalog: Versioned prompt storage backed by SQLite.
 
 Prompts are keyed by (name, model_id) and versioned automatically on each
 store. Metrics are stored as plain JSON dicts so they can be inspected without

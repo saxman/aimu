@@ -1,5 +1,5 @@
 """
-Tests for aimu.skills — Skill, SkillManager, and Agent skill integration.
+Tests for aimu.skills: Skill, SkillManager, and Agent skill integration.
 
 All filesystem tests use tmp_path so no real ~/.agents/skills paths are touched.
 Unit tests use MagicMock inline. The model_client fixture is available for
@@ -172,7 +172,7 @@ def test_skill_manager_project_overrides_user(tmp_path):
     make_skill_dir(project_dir, "shared", "Project version.")
     make_skill_dir(user_dir, "shared", "User version.")
 
-    # Pass project dir first — it wins on collision
+    # Pass project dir first; it wins on collision
     manager = SkillManager(skill_dirs=[str(project_dir), str(user_dir)])
     assert manager.skills["shared"].description == "Project version."
 
@@ -270,12 +270,12 @@ def test_agent_setup_skills_no_op_when_no_skills(tmp_path):
     agent = SkillAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
 
-    # No skills found — mcp_client must not have been set
+    # No skills found; mcp_client must not have been set
     assert client.mcp_client is None
 
 
 def test_agent_setup_skills_runs_only_once(tmp_path):
-    """_setup_skills() is idempotent — calling it twice doesn't duplicate catalog."""
+    """_setup_skills() is idempotent: calling it twice doesn't duplicate catalog."""
     from unittest.mock import MagicMock
     from aimu.agents.skill_agent import SkillAgent
 
@@ -289,7 +289,7 @@ def test_agent_setup_skills_runs_only_once(tmp_path):
     agent = SkillAgent(model_client=client, skill_manager=manager)
 
     agent._setup_skills()
-    agent._setup_skills()  # second call — should be a no-op
+    agent._setup_skills()  # second call; should be a no-op
     assert agent._skills_setup_done is True
 
 

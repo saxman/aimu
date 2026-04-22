@@ -22,8 +22,8 @@ StreamPhase = StreamingContentType
 class StreamChunk(NamedTuple):
     """A single chunk from a streamed chat or generation response.
 
-    phase   — the content type of this chunk (THINKING, TOOL_CALLING, GENERATING)
-    content — str for THINKING/GENERATING; dict {"name": ..., "response": ...} for TOOL_CALLING
+    phase:   the content type of this chunk (THINKING, TOOL_CALLING, GENERATING)
+    content: str for THINKING/GENERATING; dict {"name": ..., "response": ...} for TOOL_CALLING
     """
 
     phase: StreamingContentType

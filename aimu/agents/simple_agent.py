@@ -65,7 +65,7 @@ class SimpleAgent(Agent):
         for _ in range(self.max_iterations - 1):
             if not self._last_turn_called_tools():
                 break
-            logger.debug("Agent '%s' continuing — tools were used in last turn.", self.name)
+            logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
             response = self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs)
 
         self._last_messages = list(self.model_client.messages)
@@ -115,10 +115,10 @@ class SimpleAgent(Agent):
         Create a SimpleAgent from a plain dict config.
 
         Recognised keys:
-            name (str)              — agent identifier
-            system_message (str)    — applied to model_client.system_message at construction
+            name (str):              agent identifier
+            system_message (str):    applied to model_client.system_message at construction
                                       and stored for re-application before each run
-            max_iterations (int)    — max tool-call rounds (default 10)
+            max_iterations (int):    max tool-call rounds (default 10)
             continuation_prompt (str)
         """
         sm = config.get("system_message")

@@ -1,5 +1,5 @@
 """
-aimu.memory.base — Abstract base class for memory store implementations.
+aimu.memory.base: Abstract base class for memory store implementations.
 
 Defines the minimal common interface so that SemanticMemoryStore,
 DocumentStore, and any future implementations are interchangeable

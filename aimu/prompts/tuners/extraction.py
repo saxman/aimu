@@ -1,7 +1,7 @@
 """
-aimu.prompts.tuners.extraction — Prompt tuner for structured field extraction tasks.
+aimu.prompts.tuners.extraction: Prompt tuner for structured field extraction tasks.
 
-ExtractionPromptTuner tunes prompts that pull structured data from text — named
+ExtractionPromptTuner tunes prompts that pull structured data from text, including named
 entities, key-value pairs, or any fixed set of fields that can be expressed as JSON.
 
 - Data must have a ``content`` column (source text) and an ``expected`` column

@@ -1,5 +1,5 @@
 """
-Tests for aimu.agents — SimpleAgent, Chain, and AgenticModelClient.
+Tests for aimu.agents: SimpleAgent, Chain, and AgenticModelClient.
 
 Unit tests use MockModelClient from conftest (deterministic, no backend needed).
 The model_client fixture is available for integration tests:
@@ -78,7 +78,7 @@ def test_agent_two_tool_rounds():
 
 def test_agent_max_iterations_stops_loop():
     """SimpleAgent stops after max_iterations even if tools keep being called."""
-    # All responses are tool calls — would loop forever without a limit
+    # All responses are tool calls; would loop forever without a limit
     client = MockModelClient(["tool", "still going"] * 10)
     agent = SimpleAgent(client, name="test", max_iterations=3)
     agent.run("never-ending task")
@@ -173,7 +173,7 @@ def test_agentic_client_chat_streamed_yields_stream_chunks():
 
 
 def test_agentic_client_messages_delegated():
-    """messages property delegates to inner_client — both refer to the same list."""
+    """messages property delegates to inner_client; both refer to the same list."""
     client = MockModelClient(["reply"])
     ac = AgenticModelClient(SimpleAgent(client))
     ac.chat("hi")

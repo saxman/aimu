@@ -81,11 +81,11 @@ class SkillAgent(SimpleAgent):
         Create a SkillAgent from a plain dict config.
 
         Recognised keys:
-            name (str)              — agent identifier
-            system_message (str)    — applied before each run
-            max_iterations (int)    — max tool-call rounds (default 10)
+            name (str):              agent identifier
+            system_message (str):    applied before each run
+            max_iterations (int):    max tool-call rounds (default 10)
             continuation_prompt (str)
-            skill_dirs (list[str])  — explicit skill search paths; omit to auto-discover
+            skill_dirs (list[str]):  explicit skill search paths; omit to auto-discover
         """
         sm = config.get("system_message")
         if sm is not None:

@@ -20,7 +20,7 @@ class Router(Workflow):
     its response. The Router dispatches to the matching handler. Route names are
     compared case-insensitively after stripping whitespace.
 
-    Handlers may be any Runner subclass — agents or nested workflows — so a
+    Handlers may be any Runner subclass (agents or nested workflows), so a
     Router can dispatch to another Router, a Parallel, or a SimpleAgent.
 
     Usage::

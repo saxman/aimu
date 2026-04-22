@@ -1,5 +1,5 @@
 """
-Tests for aimu.agents.Parallel — the Parallelization workflow pattern.
+Tests for aimu.agents.Parallel: the Parallelization workflow pattern.
 
 All tests use MockModelClient from conftest (deterministic, no backend needed).
 """

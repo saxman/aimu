@@ -367,7 +367,7 @@ class AnthropicClient(ModelClient):
                         tool_use_acc[-1]["input_json"] += delta.partial_json
 
         if not tool_use_acc:
-            # No tool calls — yield buffered chunks and store assistant message
+            # No tool calls; yield buffered chunks and store assistant message
             full_content = ""
             for sc in first_pass_chunks:
                 if sc.phase == StreamingContentType.GENERATING:

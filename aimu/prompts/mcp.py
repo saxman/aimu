@@ -1,5 +1,5 @@
 """
-aimu.prompts.mcp — MCP server for the prompt catalog.
+aimu.prompts.mcp: MCP server for the prompt catalog.
 
 Exposes PromptCatalog operations as MCP tools so agents can fetch and update
 their own prompts at runtime.

@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from ..base import Model
 from .openai_compat_client import OpenAICompatClient
 
-# Google's OpenAI-compatible endpoint — same openai SDK, different base_url + key
+# Google's OpenAI-compatible endpoint; same openai SDK, different base_url + key
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 

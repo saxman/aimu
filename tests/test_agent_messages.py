@@ -1,7 +1,7 @@
 """
 Tests for the .messages property across the Runner hierarchy.
 
-Covers SimpleAgent, Chain, Router, Parallel, and EvaluatorOptimizer — including the
+Covers SimpleAgent, Chain, Router, Parallel, and EvaluatorOptimizer, including the
 shared-client scenario that surfaced in the notebook, where a single ModelClient is
 reused across all agents in a Router and each agent's _prepare_run() wipes the client's
 messages before it runs.  Without snapshotting, every key in router.messages would alias
@@ -220,7 +220,7 @@ def test_router_messages_shared_client_isolation():
     classifier_msgs = router.messages["classifier"]
     mathematician_msgs = router.messages["mathematician"]
 
-    # Each agent has its own snapshot — not the same list object
+    # Each agent has its own snapshot; not the same list object
     assert classifier_msgs is not mathematician_msgs
 
     # Classifier recorded the routing exchange

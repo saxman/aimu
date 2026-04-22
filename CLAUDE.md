@@ -98,13 +98,13 @@ The codebase uses an abstract base class pattern for model clients:
   - `_chat_setup()`: Prepares messages and tools before a chat call
   - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions)
   - `is_thinking_model` / `is_tool_using_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools`
-  - `chat_streamed()` / `generate_streamed()` yield `StreamChunk(phase, content)` — type is self-contained in each chunk
+  - `chat_streamed()` / `generate_streamed()` yield `StreamChunk(phase, content)`; type is self-contained in each chunk
   - `system_message` property with setter that manages the system message in the messages list
   - Message history stored in `self.messages` (OpenAI-style format)
   - Optional `mcp_client` attribute for MCP tool integration
 
 - **Supporting types in base_client.py**:
-  - `ContentType(str, Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE — string values (`"thinking"`, etc.)
+  - `ContentType(str, Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE; string values (`"thinking"`, etc.)
   - `Model(Enum)`: Base enum class; each value carries `supports_tools` and `supports_thinking` boolean attributes
 
 - **Model Implementations**:
@@ -112,17 +112,17 @@ The codebase uses an abstract base class pattern for model clients:
   - [aimu/models/hf/hf_client.py](aimu/models/hf/hf_client.py): `HuggingFaceClient` for local Transformers models
   - [aimu/models/anthropic/anthropic_client.py](aimu/models/anthropic/anthropic_client.py): `AnthropicClient` for Anthropic Claude models (native `anthropic` SDK)
   - [aimu/models/openai_compat/](aimu/models/openai_compat/): All `openai`-SDK clients (require `openai_compat` extra):
-    - `OpenAICompatClient` — generic base for any OpenAI-compatible server
-    - `OpenAIClient` — [OpenAI](https://platform.openai.com/) cloud API (GPT-4o, GPT-4.1, o-series); reads `OPENAI_API_KEY`
-    - `GeminiClient` — [Google Gemini](https://ai.google.dev/) via Google's OpenAI-compat endpoint; reads `GOOGLE_API_KEY`
-    - `LMStudioOpenAIClient` — [LM Studio](https://lmstudio.ai/) (default: `localhost:1234`)
-    - `OllamaOpenAIClient` — Ollama OpenAI-compat endpoint (default: `localhost:11434`)
-    - `HFOpenAIClient` — HuggingFace Transformers Serve (default: `localhost:8000`)
-    - `VLLMOpenAIClient` — vLLM (default: `localhost:8000`)
-    - `LlamaServerOpenAIClient` — llama.cpp llama-server (default: `localhost:8080`)
-    - `SGLangOpenAIClient` — SGLang (default: `localhost:30000`)
+    - `OpenAICompatClient`: generic base for any OpenAI-compatible server
+    - `OpenAIClient`: [OpenAI](https://platform.openai.com/) cloud API (GPT-4o, GPT-4.1, o-series); reads `OPENAI_API_KEY`
+    - `GeminiClient`: [Google Gemini](https://ai.google.dev/) via Google's OpenAI-compat endpoint; reads `GOOGLE_API_KEY`
+    - `LMStudioOpenAIClient`: [LM Studio](https://lmstudio.ai/) (default: `localhost:1234`)
+    - `OllamaOpenAIClient`: Ollama OpenAI-compat endpoint (default: `localhost:11434`)
+    - `HFOpenAIClient`: HuggingFace Transformers Serve (default: `localhost:8000`)
+    - `VLLMOpenAIClient`: vLLM (default: `localhost:8000`)
+    - `LlamaServerOpenAIClient`: llama.cpp llama-server (default: `localhost:8080`)
+    - `SGLangOpenAIClient`: SGLang (default: `localhost:30000`)
   - [aimu/models/llamacpp/llamacpp_client.py](aimu/models/llamacpp/llamacpp_client.py): `LlamaCppClient` for local GGUF models via llama-cpp-python (requires `llamacpp` extra):
-    - Loads GGUF files in-process — no external service required
+    - Loads GGUF files in-process; no external service required
     - Constructor takes `model_path` (GGUF file path) plus `n_ctx`, `n_gpu_layers`, `chat_format`, `verbose`
     - GPU offloading via `n_gpu_layers=-1` (all layers); `n_gpu_layers=0` for CPU-only
     - Thinking model support via `<think>...</think>` tag parsing (same as OpenAI-compat clients)
@@ -131,7 +131,7 @@ The codebase uses an abstract base class pattern for model clients:
   - `TOOL_MODELS`: Derived list of models where `supports_tools=True`
   - `THINKING_MODELS`: Derived list of models where `supports_thinking=True`
 
-- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies — clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK.
+- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK.
 
 ### MCP Tools Integration
 
@@ -182,9 +182,9 @@ The codebase uses an abstract base class pattern for model clients:
   - `delete(fact)`: Remove by exact-string match; no-op if not found
   - `list_all()`: Return all stored fact strings
   - Legacy aliases: `store_fact()`, `retrieve_facts()`, `delete_fact()`, `list_facts()`
-  - Constructor: `SemanticMemoryStore(collection_name="memories", persist_path=None)` — `persist_path=None` → ephemeral
+  - Constructor: `SemanticMemoryStore(collection_name="memories", persist_path=None)`; `persist_path=None` → ephemeral
 
-- **[aimu/memory/document_store.py](aimu/memory/document_store.py)**: `DocumentStore(MemoryStore)` — path-based document store
+- **[aimu/memory/document_store.py](aimu/memory/document_store.py)**: `DocumentStore(MemoryStore)`: path-based document store
   - Mirrors Anthropic's Managed Agents Memory API for drop-in compatibility
   - `write(path, content)`: Create/overwrite document at path (recommended ≤ 100 KB)
   - `read(path)`: Retrieve document; raises `KeyError` if not found
@@ -192,7 +192,7 @@ The codebase uses an abstract base class pattern for model clients:
   - `list_paths(prefix=None)`: Sorted paths, optionally filtered by prefix
   - `search_full_text(query, n_results)`: Case-insensitive substring search; returns `[{"path": ..., "content": ...}]`
   - `MemoryStore` interface: `store()` auto-assigns `/note-{uuid}.md` path; `search()` wraps `search_full_text()`; `delete()` treats identifier as path; `list_all()` delegates to `list_paths()`
-  - Constructor: `DocumentStore(persist_path=None)` — `persist_path=None` → ephemeral
+  - Constructor: `DocumentStore(persist_path=None)`; `persist_path=None` → ephemeral
 
 - **[aimu/memory/mcp.py](aimu/memory/mcp.py)**: FastMCP server exposing `SemanticMemoryStore` as tools
   - `search_memories(search_request)`, `add_memories(memories)`, `delete_memory(memory)`, `list_memories()`
@@ -223,23 +223,23 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs)`, `run_streamed(task, generate_kwargs)`, and `messages` property; `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: Any)`
   - `Agent(Runner)`: marker ABC for autonomous agents (LLM directs tool use and stop condition); concrete: `SimpleAgent`, `SkillAgent`
   - `Workflow(Runner)`: marker ABC for predetermined workflow patterns (code controls routing/sequencing); concrete: `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`
-  - `MessageHistory`: type alias for `dict[str, list[dict]]` — the return type of `.messages` across the hierarchy; exported from `aimu.agents`
+  - `MessageHistory`: type alias for `dict[str, list[dict]]`, the return type of `.messages` across the hierarchy; exported from `aimu.agents`
 
 - **[aimu/agents/simple_agent.py](aimu/agents/simple_agent.py)**: `SimpleAgent(Agent)` for autonomous, multi-round tool execution
   - Wraps any `ModelClient`; runs `chat()` in a loop until no tools are called
-  - Stop condition: scans `model_client.messages` in reverse — if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again
+  - Stop condition: scans `model_client.messages` in reverse; if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again
   - `run(task, generate_kwargs)`: synchronous agentic loop, returns final response string
   - `run_streamed(task, generate_kwargs)`: yields `AgentChunk(agent_name, iteration, phase, content)`
-  - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` or `run_streamed()` call — stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages
+  - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` or `run_streamed()` call; stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`)
 
-- **[aimu/agents/skill_agent.py](aimu/agents/skill_agent.py)**: `SkillAgent(SimpleAgent)` — adds skill discovery and injection
+- **[aimu/agents/skill_agent.py](aimu/agents/skill_agent.py)**: `SkillAgent(SimpleAgent)`: adds skill discovery and injection
   - Extends `SimpleAgent` with a `skill_manager: SkillManager` field (defaults to `SkillManager()` for auto-discovery)
-  - On first `run()` (or after a message reset), `_setup_skills()` appends the skill catalog to the system message and attaches a skills MCPClient — the model can then call `activate_skill` to load full skill instructions
+  - On first `run()` (or after a message reset), `_setup_skills()` appends the skill catalog to the system message and attaches a skills MCPClient; the model can then call `activate_skill` to load full skill instructions
   - `_prepare_run()` resets the `_skills_setup_done` flag when messages are cleared, so skills are re-injected on each fresh run
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`); omit `skill_dirs` to auto-discover
 
-- **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(ModelClient)` — drop-in agentic wrapper
+- **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(ModelClient)`: drop-in agentic wrapper
   - Wraps a `SimpleAgent` (or `SkillAgent`, which inherits from it) and exposes the standard `ModelClient` interface; raises `TypeError` for any other type
   - `chat()` / `chat_streamed()` run the full SimpleAgent loop (multi-turn until tools stop); `chat_streamed()` adapts `AgentChunk` → `StreamChunk`
   - `generate()` / `generate_streamed()` pass through to the inner client unchanged (no loop)
@@ -247,34 +247,34 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - Constructor: `AgenticModelClient(agent: SimpleAgent)`
   - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently; for workflows, call `run()` / `run_streamed()` directly
 
-- **[aimu/agents/chain.py](aimu/agents/chain.py)**: `Chain(Workflow)` — Anthropic's **Prompt Chaining** pattern
+- **[aimu/agents/chain.py](aimu/agents/chain.py)**: `Chain(Workflow)`: Anthropic's **Prompt Chaining** pattern
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
   - `run(task, generate_kwargs)`: runs all agents in order, returns final string
   - `run_streamed(task, generate_kwargs)`: yields `ChainChunk(step, agent_name, iteration, phase, content)`
-  - `from_config(configs, client)`: builds from a list of dicts and a single `ModelClient`; the client is shared across steps — `messages` cleared and `system_message` set from each step's config before it runs
-  - `agents: list[Runner]` — steps may be `SimpleAgent` or nested workflows
+  - `from_config(configs, client)`: builds from a list of dicts and a single `ModelClient`; the client is shared across steps; `messages` cleared and `system_message` set from each step's config before it runs
+  - `agents: list[Runner]`: steps may be `SimpleAgent` or nested workflows
   - `messages` property: merges `agent.messages` for all steps into one `MessageHistory` dict
 
-- **[aimu/agents/router.py](aimu/agents/router.py)**: `Router(Workflow)` — Anthropic's **Routing** pattern
+- **[aimu/agents/router.py](aimu/agents/router.py)**: `Router(Workflow)`: Anthropic's **Routing** pattern
   - `routing_agent` classifies the task; output (stripped, lowercased) is matched against `handlers: dict[str, Runner]`
   - Falls back to `fallback: Runner` if set; raises `ValueError` otherwise
   - `run_streamed()` yields routing chunks then streams the matched handler
   - `from_config(routing_config, handler_configs, client, fallback_config)`: factory from dicts
   - `messages` property: merges `routing_agent.messages` + all `handler.messages` + `fallback.messages` (if set); unvisited handlers have empty lists
 
-- **[aimu/agents/parallel.py](aimu/agents/parallel.py)**: `Parallel(Workflow)` — Anthropic's **Parallelization** pattern
+- **[aimu/agents/parallel.py](aimu/agents/parallel.py)**: `Parallel(Workflow)`: Anthropic's **Parallelization** pattern
   - Runs `workers: list[Runner]` concurrently via `ThreadPoolExecutor`; workers complete before streaming to avoid interleaved output
   - `aggregator: Runner` (optional) receives all worker outputs joined by `separator`; without an aggregator, the joined string is returned directly
   - `run_streamed()` streams only the aggregator phase (or yields a single GENERATING chunk)
   - `messages` property: merges all `worker.messages` + `aggregator.messages` (if set)
 
-- **[aimu/agents/evaluator.py](aimu/agents/evaluator.py)**: `EvaluatorOptimizer(Workflow)` — Anthropic's **Evaluator-Optimizer** pattern
+- **[aimu/agents/evaluator.py](aimu/agents/evaluator.py)**: `EvaluatorOptimizer(Workflow)`: Anthropic's **Evaluator-Optimizer** pattern
   - `generator` produces output; `evaluator` reviews it against the original task
   - Loop stops when `pass_keyword` appears in evaluator feedback or `max_rounds` is reached
   - `run_streamed()` yields a single GENERATING chunk with the final output (intermediate drafts not streamed)
   - `messages` property: merges `generator.messages` + `evaluator.messages`
 
-- All agents/workflows use the public `chat()` / `chat_streamed()` API only — no changes to `ModelClient` subclasses
+- All agents/workflows use the public `chat()` / `chat_streamed()` API only; no changes to `ModelClient` subclasses
 - `messages` is composable: nested workflows (e.g. a `Router` dispatching to a `Chain`) merge recursively, so all sub-agent names appear at the top level
 
 ### Prompt Management
@@ -291,7 +291,7 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `tune(training_data, initial_prompt, max_iterations=20, max_examples=5, catalog=None, prompt_name=None) -> str`
   - Separate `generate_kwargs` (classification, 3 tokens) and `mutation_kwargs` (prompt generation, 512 tokens)
   - Thinking models automatically get higher token limits and temperature
-  - Caches best state — regressing mutations revert without re-evaluation
+  - Caches best state; regressing mutations revert without re-evaluation
   - Saves each improvement to catalog when `catalog` and `prompt_name` are provided
   - `score(metrics) -> float`: overrideable optimization target; default `metrics["accuracy"]`; override to maximise a different metric (e.g. `metrics["score"]` for `JudgedPromptTuner`)
   - `extract_mutated_prompt(result) -> str`: overrideable parser for mutation LLM responses; default extracts `<prompt>...</prompt>` tag content
@@ -322,7 +322,7 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `judge_responses(data)`: calls `judge_client` with judge prompt, parses 1–10 score, stores `judge_score` (0–1) and `judge_feedback`
   - `_correct`: `judge_score >= pass_threshold`
   - `evaluate_results(data)`: returns `{score: mean judge_score, pass_rate}`
-  - **Overrides `score()` to return `metrics["score"]`** — optimises mean quality instead of binary pass rate
+  - **Overrides `score()` to return `metrics["score"]`**; optimises mean quality instead of binary pass rate
   - Mutation prompt includes input, output, score, and judge rationale for each failing example
 
 ### Key Design Patterns
@@ -331,7 +331,7 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed
 3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format
 4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers
-5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat_streamed()` and `generate_streamed()` yield `StreamChunk(phase, content)` named tuples — `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. `StreamPhase` is an alias for `StreamingContentType` used in notebooks and user-facing code.
+5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat_streamed()` and `generate_streamed()` yield `StreamChunk(phase, content)` named tuples; `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. `StreamPhase` is an alias for `StreamingContentType` used in notebooks and user-facing code.
 6. **Model Capability Flags**: `supports_tools` and `supports_thinking` are encoded directly on each `Model` enum member
 
 ## Important Implementation Notes
@@ -340,14 +340,14 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 
 When adding new models to a client:
 1. Add model enum member to the client's `Model` class (e.g., `OllamaModel`) with `(model_id, supports_tools, supports_thinking)` tuple
-2. `TOOL_MODELS` and `THINKING_MODELS` lists are derived automatically from the enum flags — no manual update needed for Ollama/HF clients
+2. `TOOL_MODELS` and `THINKING_MODELS` lists are derived automatically from the enum flags; no manual update needed for Ollama/HF clients
 3. For HuggingFace models, also specify the `ToolCallPrefix` format (XML, JSON_OBJECT, JSON_ARRAY, BRACKETED)
 4. Test with `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`
 
 ### Tool Calling Compatibility
 
 - Tool calls use OpenAI format: `{"type": "function", "function": {"name": "...", "arguments": {...}}}`
-- Some models (e.g., Llama 3.1) use `parameters` instead of `arguments` — this is normalized in `_handle_tool_calls()`
+- Some models (e.g., Llama 3.1) use `parameters` instead of `arguments`; this is normalized in `_handle_tool_calls()`
 - Tool responses must be added to messages with role "tool" and include `tool_call_id`
 - HuggingFace client uses `ToolCallPrefix` enum to detect and parse different tool call response formats per model
 
@@ -368,28 +368,28 @@ Models with `supports_thinking=True` support extended reasoning:
 
 ### OpenAICompatClient Notes
 
-- `OpenAICompatClient` uses the `openai` Python SDK with a configurable `base_url` — works with any server that speaks the OpenAI REST API
+- `OpenAICompatClient` uses the `openai` Python SDK with a configurable `base_url`; works with any server that speaks the OpenAI REST API
 - Service-specific subclasses each define their own `Model` enum with service-appropriate model IDs and a default `base_url`
 - Thinking model support uses `<think>...</think>` tag parsing (via `_split_thinking` and `_ThinkingParser` in [aimu/models/_thinking.py](aimu/models/_thinking.py)) since OpenAI-compat endpoints embed thinking in content rather than a dedicated field; `LlamaCppClient` uses the same shared utilities
-- Pass `tools=openai.NOT_GIVEN` (not `tools=[]`) when no tools are available — some local servers reject an empty tools array
+- Pass `tools=openai.NOT_GIVEN` (not `tools=[]`) when no tools are available; some local servers reject an empty tools array
 - Model ID format varies by service: LM Studio uses loaded model keys, Ollama uses `name:tag` format, HF Transformers Serve, vLLM, and SGLang use HuggingFace repo paths (e.g. `Qwen/Qwen3-8B`); llama-server uses GGUF filenames (the model field is ignored server-side, so these are capability-lookup only)
 - Test with `pytest tests/test_models.py --client=lmstudio_openai` (or `ollama_openai`, `hf_openai`, `vllm_openai`, `llamaserver_openai`, `sglang_openai`)
 
 ### LlamaCppClient Notes
 
-- `LlamaCppClient` loads a GGUF file in-process via `llama_cpp.Llama` — no external service or server required
+- `LlamaCppClient` loads a GGUF file in-process via `llama_cpp.Llama`; no external service or server required
 - Constructor requires `model_path` (path to GGUF file); `model` enum specifies capability flags (`supports_tools`, `supports_thinking`)
 - `n_gpu_layers=-1` offloads all layers to GPU (default); `n_gpu_layers=0` forces CPU-only inference
 - `chat_format=None` (default) auto-detects from GGUF metadata; specify explicitly (e.g. `"chatml-function-calling"`) for older GGUFs that lack embedded templates
-- llama-cpp-python returns plain Python dicts, not OpenAI SDK objects — all response access uses dict indexing (`response["choices"][0]["message"]["content"]`)
+- llama-cpp-python returns plain Python dicts, not OpenAI SDK objects; all response access uses dict indexing (`response["choices"][0]["message"]["content"]`)
 - Tool calling requires both `supports_tools=True` on the model enum AND a compatible `chat_format`; modern GGUFs auto-detect this
-- Thinking support works the same as `OpenAICompatClient` — `<think>...</think>` tags in content, parsed by shared utilities in `_thinking.py`
+- Thinking support works the same as `OpenAICompatClient`; `<think>...</think>` tags in content, parsed by shared utilities in `_thinking.py`
 - Test with `pytest tests/test_models.py --client=llamacpp --model-path=/path/to/model.gguf`
 
 ### Cloud Provider Client Notes
 
 - **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/openai_compat/openai_client.py](aimu/models/openai_compat/openai_client.py).
-- **`AnthropicClient`** (`aimu[anthropic]`): full implementation using the native `anthropic` SDK; reads `ANTHROPIC_API_KEY`. `self.messages` is always stored in OpenAI format — conversion to Anthropic format (`_openai_messages_to_anthropic`) and tool format conversion (`_openai_tools_to_anthropic`) happen at call time. After `_handle_tool_calls()` assigns random IDs, `_patch_tool_ids()` replaces them with Anthropic's original `tool_use` block IDs so that tool results are correctly matched. Thinking is native (`thinking={"type": "enabled", "budget_tokens": N}`) — not `<think>` tag parsing.
+- **`AnthropicClient`** (`aimu[anthropic]`): full implementation using the native `anthropic` SDK; reads `ANTHROPIC_API_KEY`. `self.messages` is always stored in OpenAI format; conversion to Anthropic format (`_openai_messages_to_anthropic`) and tool format conversion (`_openai_tools_to_anthropic`) happen at call time. After `_handle_tool_calls()` assigns random IDs, `_patch_tool_ids()` replaces them with Anthropic's original `tool_use` block IDs so that tool results are correctly matched. Thinking is native (`thinking={"type": "enabled", "budget_tokens": N}`), not `<think>` tag parsing.
 - **`GeminiClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://generativelanguage.googleapis.com/v1beta/openai/`; reads `GOOGLE_API_KEY`. Gemini 2.5 thinking models emit `<think>` tags on this endpoint, so `_ThinkingParser` works as-is. Lives in [aimu/models/openai_compat/gemini_client.py](aimu/models/openai_compat/gemini_client.py).
 - Test with `pytest tests/test_models.py --client=openai` (or `anthropic`, `gemini`)
 
@@ -424,8 +424,8 @@ aimu/
 │   ├── skill_agent.py   # SkillAgent (SimpleAgent + skill discovery/injection)
 │   ├── agentic_client.py # AgenticModelClient (ModelClient wrapper for SimpleAgent)
 │   ├── chain.py         # Chain + ChainChunk (prompt chaining workflow)
-│   ├── router.py        # Router (routing workflow — classify + dispatch)
-│   ├── parallel.py      # Parallel (parallelization workflow — concurrent workers)
+│   ├── router.py        # Router (routing workflow: classify + dispatch)
+│   ├── parallel.py      # Parallel (parallelization workflow: concurrent workers)
 │   └── evaluator.py     # EvaluatorOptimizer (evaluator-optimizer workflow)
 ├── history.py           # Conversation management (TinyDB)
 ├── memory/              # Memory stores
@@ -438,7 +438,7 @@ aimu/
 ├── skills/              # Agent skill discovery and MCP server
 │   ├── skill.py         # Skill dataclass (name, description, path, load_body())
 │   ├── manager.py       # SkillManager (discovery, catalog_prompt, get_skill_body)
-│   └── mcp.py           # build_skills_server() — FastMCP server from SkillManager
+│   └── mcp.py           # build_skills_server(): FastMCP server from SkillManager
 ├── prompts/             # Prompt storage and management
 │   ├── catalog.py       # PromptCatalog (SQLAlchemy, versioned, (name, model_id) keyed)
 │   ├── tuner.py         # PromptTuner ABC (hill-climbing loop, generate/mutation kwargs)

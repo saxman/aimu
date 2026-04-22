@@ -1,13 +1,13 @@
 """
-aimu.prompts.tuner — Abstract base class for hill-climbing prompt optimisation.
+aimu.prompts.tuner: Abstract base class for hill-climbing prompt optimisation.
 
 Subclass PromptTuner and implement three methods:
 
-- apply_prompt(prompt, data)  — run the prompt on the dataset, return annotated
+- apply_prompt(prompt, data): run the prompt on the dataset, return annotated
   data that includes a boolean '_correct' column.
-- evaluate(data) -> dict       — score the annotated data; the dict must contain
+- evaluate(data) -> dict: score the annotated data; the dict must contain
   an 'accuracy' key so the loop knows whether to keep or revert a mutation.
-- mutation_prompt(prompt, items) -> str — return a prompt that asks the LLM to
+- mutation_prompt(prompt, items) -> str: return a prompt that asks the LLM to
   improve *prompt* given the list of incorrectly handled *items*.
 
 The shared hill-climbing loop lives in tune().
@@ -114,8 +114,8 @@ class PromptTuner(ABC):
         Hill-climbing loop: mutate the prompt until 100% accuracy is reached
         or *max_iterations* is exhausted.
 
-        Each iteration applies the current prompt, evaluates results, and — if
-        accuracy improved — picks up to *max_examples* incorrect items and asks
+        Each iteration applies the current prompt, evaluates results, and, if
+        accuracy improved, picks up to *max_examples* incorrect items and asks
         the LLM to produce a better prompt. If a mutation makes accuracy worse
         the previous best prompt is restored immediately without re-evaluating.
 
@@ -152,7 +152,7 @@ class PromptTuner(ABC):
             iteration += 1
 
             if best_metrics is not None and self.score(metrics) < self.score(best_metrics):
-                # Mutation made things worse — revert to cached best state without
+                # Mutation made things worse; revert to cached best state without
                 # re-evaluating (avoids a full classification pass).
                 print("reverting to last best prompt")
                 logger.info("reverting to last best prompt")
@@ -161,7 +161,7 @@ class PromptTuner(ABC):
                 metrics = best_metrics
                 mutation -= 1
             else:
-                # Equal or better — promote to best and optionally persist.
+                # Equal or better; promote to best and optionally persist.
                 best_prompt = current_prompt
                 best_metrics = metrics
                 best_data = data.copy()

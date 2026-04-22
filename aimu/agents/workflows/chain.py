@@ -32,7 +32,7 @@ class Chain(Workflow):
     The simplest way to build a Chain is ``from_config``: pass a list of config
     dicts and a single ModelClient. Each step is a SimpleAgent with
     ``reset_messages_on_run=True``, so the client's messages are cleared and
-    ``system_message`` applied before every step — giving each step a clean slate
+    ``system_message`` applied before every step, giving each step a clean slate
     even though they share one client.
 
     For direct construction (each agent owns its own client)::
@@ -64,7 +64,7 @@ class Chain(Workflow):
         """Run all agents sequentially and return the final response."""
         result = task
         for step, agent in enumerate(self.agents):
-            logger.debug("Chain step %d — agent '%s'.", step, agent.name)
+            logger.debug("Chain step %d, agent '%s'.", step, agent.name)
             result = agent.run(result, generate_kwargs=generate_kwargs)
         return result
 
@@ -76,7 +76,7 @@ class Chain(Workflow):
         """
         result = task
         for step, agent in enumerate(self.agents):
-            logger.debug("Chain step %d — agent '%s'.", step, agent.name)
+            logger.debug("Chain step %d, agent '%s'.", step, agent.name)
             step_chunks: list[AgentChunk] = []
             for chunk in agent.run_streamed(result, generate_kwargs=generate_kwargs):
                 step_chunks.append(chunk)

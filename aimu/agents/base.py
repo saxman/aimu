@@ -20,7 +20,7 @@ class AgentChunk(NamedTuple):
 
 class Runner(ABC):
     """
-    Abstract base class for all executable units — agents and workflows alike.
+    Abstract base class for all executable units, agents and workflows alike.
 
     Both autonomous agents and workflow patterns share this interface:
     ``run()`` for synchronous execution and ``run_streamed()`` for streaming.

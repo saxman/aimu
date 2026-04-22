@@ -1,5 +1,5 @@
 """
-aimu.memory.mcp — MCP server exposing MemoryStore operations as tools.
+aimu.memory.mcp: MCP server exposing MemoryStore operations as tools.
 
 The storage path is configured with the MEMORY_STORE_PATH environment
 variable (defaults to ./memory_store).
