@@ -6,6 +6,7 @@ from transformers import AutoModelForCausalLM
 from transformers import AutoProcessor
 from transformers.utils import logging as log
 from transformers import TextIteratorStreamer
+from transformers import Mistral3ForConditionalGeneration
 import gc
 import pprint
 import logging
@@ -137,8 +138,8 @@ class HuggingFaceModel(Model):
         ToolCallFormat.BRACKETED,
         {"top_p": 0.95, "temperature": 0.7},
     )
-    QWEN_3_6_35B = (
-        "Qwen/Qwen3.6-35B-A3B-FP8",
+    QWEN_3_6_27B = (
+        "Qwen/Qwen3.6-27B-FP8",
         True,
         True,
         ToolCallFormat.XML,
@@ -183,8 +184,6 @@ class HuggingFaceClient(ModelClient):
         "torch_dtype": "auto",
     }
 
-    model: HuggingFaceModel  # pyright: ignore[reportIncompatibleVariableOverride]
-
     def __init__(
         self,
         model: HuggingFaceModel,
@@ -199,8 +198,6 @@ class HuggingFaceClient(ModelClient):
         self._parsed_tool_calls = None
 
         if model == self.MODELS.MAGISTRAL_SMALL:
-            from transformers import Mistral3ForConditionalGeneration
-
             self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
 
             # device_map="auto" causes OOM on dual 4090 GPUs
@@ -234,11 +231,11 @@ class HuggingFaceClient(ModelClient):
             torch.mps.empty_cache()
 
     @classproperty
-    def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
+    def THINKING_MODELS(cls) -> list[Model]:
         return [m for m in cls.MODELS if m.supports_thinking]
 
     @classproperty
-    def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
+    def TOOL_MODELS(cls) -> list[Model]:
         return [m for m in cls.MODELS if m.supports_tools]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
