@@ -341,7 +341,7 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 When adding new models to a client:
 1. Add model enum member to the client's `Model` class (e.g., `OllamaModel`) with `(model_id, supports_tools, supports_thinking)` tuple
 2. `TOOL_MODELS` and `THINKING_MODELS` lists are derived automatically from the enum flags; no manual update needed for Ollama/HF clients
-3. For HuggingFace models, also specify the `ToolCallPrefix` format (XML, JSON_OBJECT, JSON_ARRAY, BRACKETED)
+3. For HuggingFace models, also specify the `ToolCallFormat` format (XML, JSON_OBJECT, JSON_ARRAY, BRACKETED)
 4. Test with `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`
 
 ### Tool Calling Compatibility
@@ -349,7 +349,7 @@ When adding new models to a client:
 - Tool calls use OpenAI format: `{"type": "function", "function": {"name": "...", "arguments": {...}}}`
 - Some models (e.g., Llama 3.1) use `parameters` instead of `arguments`; this is normalized in `_handle_tool_calls()`
 - Tool responses must be added to messages with role "tool" and include `tool_call_id`
-- HuggingFace client uses `ToolCallPrefix` enum to detect and parse different tool call response formats per model
+- HuggingFace client uses `ToolCallFormat` enum to detect and parse different tool call response formats per model
 
 ### Message History Management
 
@@ -401,7 +401,7 @@ aimu/
 │   ├── base_client.py   # Abstract base class (ModelClient, StreamChunk, StreamPhase, Model)
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
-│   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallPrefix)
+│   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallFormat)
 │   ├── anthropic/       # Anthropic Claude client (AnthropicClient, AnthropicModel)
 │   ├── openai_compat/   # OpenAI-compatible clients (requires openai package)
 │   │   ├── openai_compat_client.py      # OpenAICompatClient base

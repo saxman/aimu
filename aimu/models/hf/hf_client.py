@@ -29,7 +29,7 @@ DEFAULT_GENERATE_KWARGS = {
 }
 
 
-class ToolCallPrefix(Enum):
+class ToolCallFormat(Enum):
     """The prefix string that identifies a tool call in a model's raw response.
 
     The enum value is the literal prefix used both for detection (via `in`) and
@@ -49,21 +49,33 @@ class ToolCallPrefix(Enum):
         """Extract tool calls from a full response. Returns None if the prefix is absent."""
         if not self.detected_in(response):
             return None
-        if self == ToolCallPrefix.XML:
+        if self == ToolCallFormat.XML:
             matches = re.findall(r"<tool_call>(.*?)</tool_call>", response, re.DOTALL)
-            return [json.loads(m.strip()) for m in matches] if matches else None
-        elif self == ToolCallPrefix.BRACKETED:
+            if not matches:
+                return None
+            result = []
+            for m in matches:
+                m = m.strip()
+                if "<function=" in m:
+                    # Qwen-style: <function=name><parameter=key>value</parameter></function>
+                    name_m = re.search(r"<function=(\w+)>", m)
+                    args = {k: v.strip() for k, v in re.findall(r"<parameter=(\w+)>(.*?)</parameter>", m, re.DOTALL)}
+                    result.append({"name": name_m.group(1), "arguments": args})
+                else:
+                    result.append(json.loads(m))
+            return result
+        elif self == ToolCallFormat.BRACKETED:
             start = response.index("[TOOL_CALLS]") + len("[TOOL_CALLS]")
             return json.loads(response[start:].strip())
-        elif self == ToolCallPrefix.JSON_OBJECT:
+        elif self == ToolCallFormat.JSON_OBJECT:
             return [json.loads(response)]
-        elif self == ToolCallPrefix.JSON_ARRAY:
+        elif self == ToolCallFormat.JSON_ARRAY:
             return json.loads(response)
         return None
 
 
 class HuggingFaceModel(Model):
-    tool_call_prefix: Optional[ToolCallPrefix]
+    tool_call_format: Optional[ToolCallFormat]
     generate_kwargs: dict[str, Any]
 
     def __init__(
@@ -71,11 +83,11 @@ class HuggingFaceModel(Model):
         value,
         supports_tools=False,
         supports_thinking=False,
-        tool_call_prefix=ToolCallPrefix.XML,
+        tool_call_format=ToolCallFormat.XML,
         generate_kwargs=None,
     ):
         super().__init__(value, supports_tools, supports_thinking)
-        self.tool_call_prefix = tool_call_prefix
+        self.tool_call_format = tool_call_format
         self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
         self.generate_kwargs.update(generate_kwargs or {})
 
@@ -83,21 +95,21 @@ class HuggingFaceModel(Model):
         "openai/gpt-oss-20b",
         True,
         True,
-        ToolCallPrefix.XML,
+        ToolCallFormat.XML,
         {"temperature": 1.0, "top_p": 1.0, "top_k": 0},
     )
-    LLAMA_3_1_8B = ("meta-llama/Meta-Llama-3.1-8B-Instruct", True, False, ToolCallPrefix.JSON_OBJECT)
+    LLAMA_3_1_8B = ("meta-llama/Meta-Llama-3.1-8B-Instruct", True, False, ToolCallFormat.JSON_OBJECT)
     LLAMA_3_2_3B = (
         "unsloth/Llama-3.2-3B-Instruct",
         True,
         False,
-        ToolCallPrefix.JSON_OBJECT,
+        ToolCallFormat.JSON_OBJECT,
     )  # using unsloth's version since gated model
     DEEPSEEK_R1_8B = (
         "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
         False,
         True,
-        ToolCallPrefix.XML,
+        ToolCallFormat.XML,
         {"temperature": 0.6},
     )
     GEMMA_3_12B = "google/gemma-3-12b-it"
@@ -105,31 +117,45 @@ class HuggingFaceModel(Model):
         "google/gemma-4-E4B-it",
         True,
         False,
-        ToolCallPrefix.NA,
+        ToolCallFormat.NA,
         {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
     )
     PHI_4_14B = "microsoft/phi-4"
     PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
-    MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, ToolCallPrefix.JSON_ARRAY)
+    MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, ToolCallFormat.JSON_ARRAY)
     MISTRAL_NEMO_12B = (
         "mistralai/Mistral-Nemo-Instruct-2407",
         True,
         False,
-        ToolCallPrefix.JSON_ARRAY,
+        ToolCallFormat.JSON_ARRAY,
         {"temperature": 0.3},
     )
     MAGISTRAL_SMALL = (
         "mistralai/Magistral-Small-2509",
         True,
         False,
-        ToolCallPrefix.BRACKETED,
+        ToolCallFormat.BRACKETED,
         {"top_p": 0.95, "temperature": 0.7},
+    )
+    QWEN_3_6_35B = (
+        "Qwen/Qwen3.6-35B-A3B-FP8",
+        True,
+        True,
+        ToolCallFormat.XML,
+        {
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0.0,
+            "presence_penalty": 1.5,
+            "repetition_penalty": 1.0,
+        },
     )
     QWEN_3_5_9B = (
         "Qwen/Qwen3.5-9B",
         True,
         True,
-        ToolCallPrefix.XML,
+        ToolCallFormat.XML,
         {
             "temperature": 1.0,
             "top_p": 0.95,
@@ -143,10 +169,10 @@ class HuggingFaceModel(Model):
         "Qwen/Qwen3-8B",
         True,
         True,
-        ToolCallPrefix.XML,
+        ToolCallFormat.XML,
         {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
     )
-    SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True, ToolCallPrefix.XML, {"temperature": 0.6, "top_p": 0.95})
+    SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True, ToolCallFormat.XML, {"temperature": 0.6, "top_p": 0.95})
 
 
 class HuggingFaceClient(ModelClient):
@@ -282,7 +308,7 @@ class HuggingFaceClient(ModelClient):
         generate_kwargs: dict[str, Any],
         tools: Optional[list[dict]] = None,
     ) -> str:
-        self.last_thinking = ""
+        self.last_thinking = None
         self._pending_thinking_tokens = []
         self._parsed_tool_calls = None
 
@@ -295,7 +321,8 @@ class HuggingFaceClient(ModelClient):
             raw = self._hf_processor.decode(output_ids, skip_special_tokens=False)
             logger.debug("LLM raw response: %s", raw)
             parsed = self._hf_processor.parse_response(raw)
-            self.last_thinking = (parsed.get("thinking") or "").strip()
+            thinking = parsed.get("thinking")
+            self.last_thinking = thinking.strip() if thinking else None
 
             tool_calls = parsed.get("tool_calls") or []
             if tool_calls:
@@ -320,10 +347,12 @@ class HuggingFaceClient(ModelClient):
 
         logger.debug("LLM raw response: %s", response)
 
-        if self.model.supports_thinking and response.startswith("<think>"):
-            self.last_thinking = response[len("<think>") : response.index("</think>")].strip()
+        if self.model.supports_thinking and "</think>" in response:
+            idx = response.index("</think>")
+            start = len("<think>") if response.startswith("<think>") else 0
+            self.last_thinking = response[start:idx].strip()
             logger.debug("LLM thinking: %s", self.last_thinking)
-            response = response[response.index("</think>") + len("</think>") :].strip()
+            response = response[idx + len("</think>") :].strip()
 
         logger.debug("LLM final response: %s", response)
 
@@ -336,7 +365,7 @@ class HuggingFaceClient(ModelClient):
         tools: Optional[list[dict]],
         streamer: TextIteratorStreamer,
     ) -> Iterator[str]:
-        self.last_thinking = ""
+        self.last_thinking = None
         self._pending_thinking_tokens = []
 
         model_inputs = self._apply_chat_template(messages, tools)
@@ -346,19 +375,45 @@ class HuggingFaceClient(ModelClient):
         next(streamer)
         response_part = next(streamer)
 
-        if self.model.supports_thinking and response_part.startswith("<think>"):
-            while True:
-                response_part = next(streamer)
+        if self.model.supports_thinking:
+            # <think> may be pre-filled in the prompt template (e.g. Qwen3.5) and thus
+            # consumed by skip_prompt=True before streaming begins. Detect thinking by
+            # scanning for </think> rather than requiring <think> at the start.
+            if response_part.startswith("<think>"):
+                response_part = response_part[len("<think>") :]
 
-                if "</think>" in response_part:
-                    next(streamer)  # following </think> there's a newline
-                    response_part = next(streamer)  # get the first valid token after thinking
+            self.last_thinking = ""
+            buffered = []
+            cur = response_part
+            found_end = False
+            while cur is not None:
+                if "</think>" in cur:
+                    before, _, rest = cur.partition("</think>")
+                    if before:
+                        self.last_thinking += before
+                        self._pending_thinking_tokens.append(before)
+                    self.last_thinking = self.last_thinking.strip()
+                    rest = rest.lstrip("\n")
+                    response_part = rest
+                    # Skip any empty tokens between </think> and the first real token
+                    while not response_part:
+                        response_part = next(streamer, None)
+                        if response_part is None:
+                            response_part = ""
+                            break
+                    found_end = True
                     break
+                if cur:
+                    buffered.append(cur)
+                    self.last_thinking += cur
+                    self._pending_thinking_tokens.append(cur)
+                cur = next(streamer, None)
 
-                self.last_thinking += response_part
-                self._pending_thinking_tokens.append(response_part)
-
-            self.last_thinking = self.last_thinking.strip()
+            if not found_end:
+                # No </think> in this response — not a thinking turn
+                self.last_thinking = None
+                self._pending_thinking_tokens = []
+                return iter(buffered)
 
         return itertools.chain([response_part], streamer)
 
@@ -404,13 +459,13 @@ class HuggingFaceClient(ModelClient):
         if self._hf_processor is not None:
             tool_calls = self._parsed_tool_calls
         else:
-            prefix = self.model.tool_call_prefix
+            prefix = self.model.tool_call_format
             tool_calls = prefix.parse(response) if prefix else None
         if tool_calls:
             msgs_before = len(self.messages)
             self._handle_tool_calls(tool_calls, tools)
 
-            if self.last_thinking:
+            if self.last_thinking is not None:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
 
             # Omit tools so the model generates text rather than calling tools again;
@@ -419,7 +474,7 @@ class HuggingFaceClient(ModelClient):
 
         self.messages.append({"role": "assistant", "content": response})
 
-        if self.last_thinking:
+        if self.last_thinking is not None:
             self.messages[-1]["thinking"] = self.last_thinking
 
         return response
@@ -432,12 +487,12 @@ class HuggingFaceClient(ModelClient):
         if self._hf_processor is not None:
             # Gemma 4 uses special tokens (<|channel>, <|tool_call>, ...) and
             # requires processor.parse_response for structured extraction.
-            # Token-level streaming with ToolCallPrefix doesn't apply here, so
+            # Token-level streaming with ToolCallFormat doesn't apply here, so
             # route through _generate_sync and yield the parsed result.
             yield from self._chat_streamed_via_processor(generate_kwargs, tools)
             return
 
-        streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
+        streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
         it = self._generate_streaming(self.messages, generate_kwargs, tools, streamer)
 
         for token in self._pending_thinking_tokens:
@@ -448,7 +503,7 @@ class HuggingFaceClient(ModelClient):
         content = ""
         msgs_before = len(self.messages)
 
-        prefix = self.model.tool_call_prefix
+        prefix = self.model.tool_call_format
 
         if prefix and prefix.detected_in(response_part):
             parts = [response_part]
@@ -459,7 +514,7 @@ class HuggingFaceClient(ModelClient):
             if tool_calls:
                 self._handle_tool_calls(tool_calls, tools)
 
-                if self.last_thinking:
+                if self.last_thinking is not None:
                     self.messages[msgs_before]["thinking"] = self.last_thinking
 
                 for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
@@ -468,7 +523,7 @@ class HuggingFaceClient(ModelClient):
                         {"name": tc["function"]["name"], "response": tr["content"]},
                     )
 
-                streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=False)
+                streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
                 # Omit tools so the model generates text rather than calling tools again;
                 # multi-round tool use is handled by SimpleAgent, not chat_streamed().
                 it = self._generate_streaming(self.messages, generate_kwargs, None, streamer)
@@ -492,7 +547,7 @@ class HuggingFaceClient(ModelClient):
 
         self.messages.append({"role": "assistant", "content": content})
 
-        if self.last_thinking:
+        if self.last_thinking is not None:
             self.messages[-1]["thinking"] = self.last_thinking
 
     def _chat_streamed_via_processor(
@@ -505,7 +560,7 @@ class HuggingFaceClient(ModelClient):
             msgs_before = len(self.messages)
             self._handle_tool_calls(self._parsed_tool_calls, tools)
 
-            if self.last_thinking:
+            if self.last_thinking is not None:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
 
             for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
@@ -524,7 +579,7 @@ class HuggingFaceClient(ModelClient):
 
         self.messages.append({"role": "assistant", "content": response})
 
-        if self.last_thinking:
+        if self.last_thinking is not None:
             self.messages[-1]["thinking"] = self.last_thinking
 
     def print_model_info(self):
