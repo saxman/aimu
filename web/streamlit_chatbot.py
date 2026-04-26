@@ -36,6 +36,17 @@ def _wrap_agent(base_client, max_iterations):
     return AgenticModelClient(agent)
 
 
+def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
+    base_client = model_cls(model, system_message=SYSTEM_MESSAGE)
+    base_client.mcp_client = st.session_state.mcp_client
+    st.session_state.base_client = base_client
+    st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
+    st.session_state.model = model
+    st.session_state.agentic_mode = agentic_mode
+    st.session_state.max_iterations = max_iterations
+    _set_slider_defaults(model)
+
+
 def stream_chat_response(streamed_response):
     current_type = None
     current_box = None
@@ -73,17 +84,8 @@ MCP_SERVERS = {
 
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
-    st.session_state.model = MODEL_CLIENTS[0].TOOL_MODELS[0]
     st.session_state.mcp_client = MCPClient(MCP_SERVERS)
-    st.session_state.agentic_mode = False
-    st.session_state.max_iterations = 10
-
-    base_client = MODEL_CLIENTS[0](st.session_state.model, system_message=SYSTEM_MESSAGE)
-    base_client.mcp_client = st.session_state.mcp_client
-    st.session_state.base_client = base_client
-    st.session_state.model_client = base_client
-
-    _set_slider_defaults(st.session_state.model)
+    _rebuild_client(MODEL_CLIENTS[0], MODEL_CLIENTS[0].TOOL_MODELS[0], False, 10)
 
     st.session_state.conversation_manager = ConversationManager(
         db_path=str(paths.output / "chat_history.json"),
@@ -108,35 +110,14 @@ with st.sidebar:
     # session state keys that are bound to slider widgets without triggering a StreamlitAPIException.
     # Use base_client for isinstance checks — model_client may be AgenticModelClient.
     if not isinstance(st.session_state.base_client, model_client):
-        del st.session_state.model_client
-
-        st.session_state.model = model_client.TOOL_MODELS[0]
-        base_client = model_client(st.session_state.model, system_message=SYSTEM_MESSAGE)
-        base_client.mcp_client = st.session_state.mcp_client
-        st.session_state.base_client = base_client
-        st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
-        st.session_state.agentic_mode = agentic_mode
-        st.session_state.max_iterations = max_iterations
-
-        _set_slider_defaults(st.session_state.model)
+        _rebuild_client(model_client, model_client.TOOL_MODELS[0], agentic_mode, max_iterations)
         st.rerun()
     elif st.session_state.model != model:
-        del st.session_state.model_client
-
-        st.session_state.model = model
-        base_client = model_client(model, system_message=SYSTEM_MESSAGE)
-        base_client.mcp_client = st.session_state.mcp_client
-        st.session_state.base_client = base_client
-        st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
-        st.session_state.agentic_mode = agentic_mode
-        st.session_state.max_iterations = max_iterations
-
-        _set_slider_defaults(model)
+        _rebuild_client(model_client, model, agentic_mode, max_iterations)
         st.rerun()
     elif agentic_mode != st.session_state.agentic_mode or (agentic_mode and max_iterations != st.session_state.max_iterations):
         # Rewrap (or unwrap) without rebuilding the base client, preserving message history.
-        base_client = st.session_state.base_client
-        st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
+        st.session_state.model_client = _wrap_agent(st.session_state.base_client, max_iterations) if agentic_mode else st.session_state.base_client
         st.session_state.agentic_mode = agentic_mode
         st.session_state.max_iterations = max_iterations
         st.rerun()
@@ -158,63 +139,35 @@ with st.sidebar:
         st.session_state.max_iterations = saved_max_iterations
         st.rerun()
 
+generate_kwargs = {
+    "temperature": temperature,
+    "top_p": top_p,
+    "max_new_tokens": 1024,
+    "repeat_penalty": repeat_penalty,
+}
+
 if len(st.session_state.model_client.messages) == 0:
-    streamed_response = st.session_state.model_client.chat(
-        INITIAL_USER_MESSAGE,
-        generate_kwargs={
-            "temperature": temperature,
-            "top_p": top_p,
-            "max_new_tokens": 1024,
-            "repeat_penalty": repeat_penalty,
-        },
-        stream=True,
-    )
-
-    stream_chat_response(streamed_response)
-
+    stream_chat_response(st.session_state.model_client.chat(INITIAL_USER_MESSAGE, generate_kwargs=generate_kwargs, stream=True))
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 else:
     # Skip the initial system and user messages used for the introduction
-    messages = st.session_state.model_client.messages[2:]
-
-    i = 0
-    while i < len(messages):
-        message = messages[i]
-
+    msg_iter = iter(st.session_state.model_client.messages[2:])
+    for message in msg_iter:
         if "thinking" in message:
             with st.expander("🤔 Thinking"):
                 st.markdown(message["thinking"])
-
-        # tool_calls are always immediately followed by their response messages, so we can check for them and render them together
         if "tool_calls" in message:
-            responses = messages[i + 1 : i + 1 + len(message["tool_calls"])]
-            for tool_call, response_msg in zip(message["tool_calls"], responses):
+            for tool_call, resp in zip(message["tool_calls"], [next(msg_iter) for _ in message["tool_calls"]]):
                 with st.expander("🔧 Tool call"):
                     st.markdown(f"**Tool call:** {tool_call['function']['name']}")
-                    st.markdown(f"**Tool response:** {response_msg['content']}")
-            i += len(message["tool_calls"])  # skip the consumed tool response messages
+                    st.markdown(f"**Tool response:** {resp['content']}")
         elif message["role"] != "tool" and message.get("content"):
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        i += 1
-
 if prompt := st.chat_input("What's up?"):
     st.chat_message("user").markdown(prompt)
-
-    streamed_response = st.session_state.model_client.chat(
-        prompt,
-        generate_kwargs={
-            "temperature": temperature,
-            "top_p": top_p,
-            "max_new_tokens": 1024,
-            "repeat_penalty": repeat_penalty,
-        },
-        stream=True,
-    )
-
-    stream_chat_response(streamed_response)
-
+    stream_chat_response(st.session_state.model_client.chat(prompt, generate_kwargs=generate_kwargs, stream=True))
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 
 # TODO: Determine better layout
