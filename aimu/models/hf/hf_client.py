@@ -37,8 +37,7 @@ class ToolCallFormat(Enum):
     as the anchor for parsing.
     """
 
-    XML_JSON = "<tool_call>"  # <tool_call>{"name": ..., "arguments": ...}</tool_call>
-    XML_QWEN = "<function="  # <tool_call><function=NAME><parameter=KEY>VAL</parameter>...</function></tool_call>
+    XML = "<tool_call>"  # <tool_call>{"name": ..., "arguments": ...}</tool_call>
     BRACKETED = "[TOOL_CALLS]"
     JSON_OBJECT = '{"name":'
     JSON_ARRAY = '[{"name":'
