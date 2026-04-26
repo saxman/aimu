@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.base import Workflow, Runner, AgentChunk, MessageHistory
-from aimu.models.base import StreamingContentType, ModelClient
+from aimu.models.base import StreamingContentType
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class Parallel(Workflow):
     result. If no aggregator is provided, the joined worker outputs are returned
     directly.
 
-    Workers run concurrently via ``ThreadPoolExecutor`` — results are collected
+    Workers run concurrently via ``ThreadPoolExecutor``; results are collected
     in submission order. Workers may be any Runner subclass (agents or workflows).
 
     Usage::
@@ -59,23 +59,25 @@ class Parallel(Workflow):
             futures = [ex.submit(w.run, task, generate_kwargs) for w in self.workers]
             return [f.result() for f in futures]
 
-    def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        """Run workers concurrently, then aggregate."""
+    def run(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+    ) -> Union[str, Iterator[AgentChunk]]:
+        """Run workers concurrently then aggregate. Returns str or AgentChunk iterator."""
+        if stream:
+            return self._run_streamed(task, generate_kwargs)
         results = self._run_workers(task, generate_kwargs)
         combined = self.separator.join(results)
         if self.aggregator:
             return self.aggregator.run(combined, generate_kwargs=generate_kwargs)
         return combined
 
-    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
-        """
-        Run workers concurrently to completion (not streamed, to avoid interleaved output),
-        then stream the aggregator's response. If no aggregator, yield the combined result
-        as a single GENERATING chunk.
-        """
+    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
         results = self._run_workers(task, generate_kwargs)
         combined = self.separator.join(results)
         if self.aggregator:
-            yield from self.aggregator.run_streamed(combined, generate_kwargs=generate_kwargs)
+            yield from self.aggregator.run(combined, generate_kwargs=generate_kwargs, stream=True)
         else:
             yield AgentChunk(self.name, 0, StreamingContentType.GENERATING, combined)

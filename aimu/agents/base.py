@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Iterator, NamedTuple, Optional
+from typing import Any, Iterator, NamedTuple, Optional, Union
 
 from aimu.models.base import StreamingContentType
 
@@ -20,21 +20,25 @@ class AgentChunk(NamedTuple):
 
 class Runner(ABC):
     """
-    Abstract base class for all executable units — agents and workflows alike.
+    Abstract base class for all executable units, agents and workflows alike.
 
     Both autonomous agents and workflow patterns share this interface:
     ``run()`` for synchronous execution and ``run_streamed()`` for streaming.
     """
 
     @abstractmethod
-    def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        """Run synchronously and return the final response string."""
+    def run(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+    ) -> Union[str, Iterator[AgentChunk]]:
+        """Run synchronously (stream=False) or streaming (stream=True)."""
         ...
 
-    @abstractmethod
     def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
-        """Stream execution, yielding AgentChunk for every chunk produced."""
-        ...
+        """Compatibility alias for run(..., stream=True)."""
+        return self.run(task, generate_kwargs=generate_kwargs, stream=True)
 
     @property
     @abstractmethod

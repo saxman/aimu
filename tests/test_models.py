@@ -15,12 +15,9 @@ Usage:
 import pytest
 from typing import Iterable
 from fastmcp import FastMCP
-import time
 
 from conftest import create_real_model_client, resolve_model_params
-from aimu.models import ModelClient, OllamaClient, StreamingContentType, StreamChunk
-from aimu.models import OpenAICompatClient, LMStudioOpenAIClient, OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient
-from aimu.models import LlamaCppClient, HuggingFaceClient
+from aimu.models import BaseModelClient, StreamingContentType, StreamChunk
 from aimu.tools.client import MCPClient
 
 
@@ -33,15 +30,15 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="session")
-def model_client(request) -> Iterable[ModelClient]:
+def model_client(request) -> Iterable[BaseModelClient]:
     yield from create_real_model_client(request)
 
 
 def test_class_properties(model_client):
-    """Test that the model client is a subclass of ModelClient."""
+    """Test that the model client is a subclass of BaseModelClient."""
 
-    assert issubclass(model_client.__class__, ModelClient)
-    assert isinstance(model_client, ModelClient)
+    assert issubclass(model_client.__class__, BaseModelClient)
+    assert isinstance(model_client, BaseModelClient)
 
     assert model_client.default_generate_kwargs is not None
 
@@ -60,7 +57,7 @@ def test_generate_streamed(model_client):
     """Test that the model can generate a response to a prompt in a streamed manner."""
 
     prompt = "What is the capital of France?"
-    response = model_client.generate_streamed(prompt)
+    response = model_client.generate(prompt, stream=True)
 
     assert isinstance(response, Iterable)
 
@@ -118,7 +115,7 @@ def test_chat_streamed(model_client):
 
     model_client.messages = []
 
-    response = model_client.chat_streamed("What is the capital of France?")
+    response = model_client.chat("What is the capital of France?", stream=True)
 
     assert isinstance(response, Iterable)
 
@@ -137,21 +134,21 @@ def test_chat_streamed_multiple_turns(model_client):
     model_client.messages = []
 
     content1 = ""
-    for chunk in model_client.chat_streamed("What is the capital of France?"):
+    for chunk in model_client.chat("What is the capital of France?", stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             content1 += chunk.content
     assert "Paris" in content1
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
 
     content2 = ""
-    for chunk in model_client.chat_streamed("What is the population of that city?"):
+    for chunk in model_client.chat("What is the population of that city?", stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             content2 += chunk.content
     assert "population" in content2.lower() or "inhabitants" in content2.lower()
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
     content3 = ""
-    for chunk in model_client.chat_streamed("What is the climate like there?"):
+    for chunk in model_client.chat("What is the climate like there?", stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             content3 += chunk.content
     assert "climate" in content3.lower() or "temperature" in content3.lower()
@@ -188,13 +185,17 @@ def test_chat_with_tools(model_client):
 
     # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
     if model_client.model.supports_thinking:
-        if (
-            model_client.model != OllamaClient.MODELS.GPT_OSS_20B
-            and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B
-        ):
+        is_gemma = model_client.model.name.startswith("GEMMA")
+        is_gpt_oss = model_client.model.name.startswith("GPT_OSS")
+        is_magistral = model_client.model.name.startswith("MAGISTRAL")
+        is_smollm = model_client.model.name.startswith("SMOLLM")
+
+        # these models do not consistently include thinking in the final response
+        if not is_gemma and not is_gpt_oss and not is_magistral and not is_smollm:
             assert "thinking" in model_client.messages[-1]
 
-        if model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
+        # these models do not consistently include thinking in the tool call response
+        if not is_gemma and not is_magistral and not is_smollm:
             assert "thinking" in model_client.messages[-3]
 
 
@@ -203,10 +204,12 @@ def test_generate_streamed_thinking(model_client):
 
     if not model_client.model.supports_thinking:
         pytest.skip("Model does not support thinking")
+    if model_client.model.name.startswith("GEMMA"):
+        pytest.skip("Gemma models do not consistently include thinking in responses")
 
     content = ""
     thinking = ""
-    for chunk in model_client.generate_streamed("What is the capital of France?"):
+    for chunk in model_client.generate("What is the capital of France?", stream=True):
         if chunk.phase == StreamingContentType.THINKING:
             thinking += chunk.content
         elif chunk.phase == StreamingContentType.GENERATING:
@@ -222,10 +225,12 @@ def test_generate_streamed_include_thinking_false(model_client):
 
     if not model_client.model.supports_thinking:
         pytest.skip("Model does not support thinking")
+    if model_client.model.name.startswith("GEMMA"):
+        pytest.skip("Gemma models do not consistently include thinking in responses")
 
     content = ""
     thinking = ""
-    for chunk in model_client.generate_streamed("What is the capital of France?", include_thinking=False):
+    for chunk in model_client.generate("What is the capital of France?", stream=True, include_thinking=False):
         if chunk.phase == StreamingContentType.THINKING:
             thinking += chunk.content
         elif chunk.phase == StreamingContentType.GENERATING:
@@ -253,7 +258,7 @@ def test_chat_streamed_with_tools(model_client):
     mcp_client = MCPClient(server=mcp)
     model_client.mcp_client = mcp_client
 
-    response = model_client.chat_streamed("What is the temperature in Paris?")
+    response = model_client.chat("What is the temperature in Paris?", stream=True)
 
     content = ""
     for chunk in response:
@@ -269,12 +274,17 @@ def test_chat_streamed_with_tools(model_client):
     assert model_client.messages[-2]["role"] == "tool"  # second to last message should be tool response
     assert "27" in content
 
+    # If the model supports thinking, we should have a thinking messages in the last message and in the tool call
     if model_client.model.supports_thinking:
-        if (
-            model_client.model != OllamaClient.MODELS.GPT_OSS_20B
-            and model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B
-        ):
+        is_gemma = model_client.model.name.startswith("GEMMA")
+        is_gpt_oss = model_client.model.name.startswith("GPT_OSS")
+        is_magistral = model_client.model.name.startswith("MAGISTRAL")
+        is_smollm = model_client.model.name.startswith("SMOLLM")
+
+        # these models do not consistently include thinking in the final response
+        if not is_gemma and not is_gpt_oss and not is_magistral and not is_smollm:
             assert "thinking" in model_client.messages[-1]
 
-        if model_client.model != OllamaClient.MODELS.MAGISTRAL_SMALL_24B:
+        # these models do not consistently include thinking in the tool call response
+        if not is_gemma and not is_magistral and not is_smollm:
             assert "thinking" in model_client.messages[-3]

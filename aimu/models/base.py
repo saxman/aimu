@@ -22,8 +22,8 @@ StreamPhase = StreamingContentType
 class StreamChunk(NamedTuple):
     """A single chunk from a streamed chat or generation response.
 
-    phase   — the content type of this chunk (THINKING, TOOL_CALLING, GENERATING)
-    content — str for THINKING/GENERATING; dict {"name": ..., "response": ...} for TOOL_CALLING
+    phase:   the content type of this chunk (THINKING, TOOL_CALLING, GENERATING)
+    content: str for THINKING/GENERATING; dict {"name": ..., "response": ...} for TOOL_CALLING
     """
 
     phase: StreamingContentType
@@ -54,7 +54,7 @@ class classproperty:
         return self.func(cls)
 
 
-class ModelClient(ABC):
+class BaseModelClient(ABC):
     MODELS = Model
 
     model: Model
@@ -63,7 +63,7 @@ class ModelClient(ABC):
     default_generate_kwargs: dict
     messages: list[dict]
     mcp_client: Optional[Any]  # Avoid circular imports by not referencing MCPClient directly
-    last_thinking: str
+    last_thinking: str | None
 
     @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
@@ -76,7 +76,7 @@ class ModelClient(ABC):
         self.last_thinking = ""
 
     def __deepcopy__(self, memo):
-        # ModelClient manages stateful conversation history and non-copyable backend resources.
+        # BaseModelClient manages stateful conversation history and non-copyable backend resources.
         memo[id(self)] = self
         return self
 
@@ -113,26 +113,23 @@ class ModelClient(ABC):
                 self.messages.insert(0, {"role": "system", "content": message})
 
     @abstractmethod
-    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        pass
-
-    @abstractmethod
-    def generate_streamed(
+    def generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
         include_thinking: bool = True,
-    ) -> Iterator[StreamChunk]:
+    ) -> Union[str, Iterator[StreamChunk]]:
         pass
 
     @abstractmethod
-    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
-        pass
-
-    @abstractmethod
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
+    def chat(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        use_tools: bool = True,
+        stream: bool = False,
+    ) -> Union[str, Iterator[StreamChunk]]:
         pass
 
     @abstractmethod

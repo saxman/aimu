@@ -2,11 +2,26 @@
 
 # AIMU - AI Model Utilities
 
-A Python package containing easy to use tools for working with various language models and AI services. AIMU is designed for running models locally via Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework, and for cloud models via native provider SDKs (OpenAI, Anthropic, Google Gemini).
+AIMU is a Python library for building LLM-powered applications with a consistent interface across local and cloud providers. It separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a simple model is accepted. MCP tool integration is structural (not a plugin), semantic and/or document memory can be dropped in, and prompt management and tuning make it easy to optimize prompts for concrete use cases.
+
+## Table of Contents
+
+-   [Features](#features)
+-   [Components](#components)
+-   [Examples](#examples)
+-   [Installation](#installation)
+-   [Development](#development)
+-   [Usage](#usage)
+    -   [Model Clients](#model-clients)
+    -   [Agents & Workflows](#agents--workflows)
+    -   [MCP Tools](#mcp-tools)
+    -   [Persistence](#persistence)
+    -   [Prompt Management](#prompt-management)
+-   [License](#license)
 
 ## Features
 
--   **Model Clients**: Support for multiple AI model providers including:
+-   **Model Clients**: A factory selects the right provider client from the model enum, so you can swap providers without changing call sites. Streaming output is typed by phase (thinking, tool calling, response generation), making it straightforward to build UIs or observability on top. All clients support extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS) with reasoning traces available in both streaming and non-streaming modes.
 
     -   [Ollama](https://ollama.com/) (local models, native API)
     -   [Hugging Face Transformers](https://huggingface.co/docs/transformers) (local models)
@@ -23,22 +38,25 @@ A Python package containing easy to use tools for working with various language 
         -   [SGLang](https://docs.sglang.ai/) (`SGLangOpenAIClient`)
         -   Any OpenAI-compatible server (`OpenAICompatClient`)
 
--   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Thinking is enabled automatically for supported models, with access to the reasoning traces.
+-   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. Agents expose the same interface as plain model clients, so they can be used as drop-in replacements anywhere a client is accepted, enabling recursive composition of agents within workflows and workflows within agents.
 
--   **Agentic Workflows**: Per Anthropic's taxonomy, AIMU separates **agents** (autonomous, tool-driven) from **workflows** (code-controlled). `SimpleAgent` and `SkillAgent` implement the agent side; `Chain`, `Router`, `Parallel`, and `EvaluatorOptimizer` implement Anthropic's four workflow patterns. All share a `Runner` base class with `run()` / `run_streamed()`. `AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable.
+    -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard model client interface, making agentic and single-turn clients interchangeable.
+    -   **Workflows**: Four code-controlled patterns: `Chain` (prompt chaining), `Router` (classify and dispatch), `Parallel` (concurrent workers with optional aggregation), and `EvaluatorOptimizer` (generate → evaluate → revise loop).
+    -   **Example Agents**: Ready-to-use orchestrator agents in `aimu.agents.examples` that demonstrate the orchestrator + worker tools pattern: `ResearchReportAgent`, `CodeReviewAgent`, and `ContentCreationAgent`. Each coordinates worker sub-agents via MCP tools, letting the LLM decide how to use them.
+    -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are discovered from project and user directories (`.agents/skills/`, `.claude/skills/`).
 
--   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
+-   **MCP Tools**: MCP tool integration is built into the base model client as a first-class attribute, not a plugin. Attach an `MCPClient` to any model client and tools are passed to the model automatically. Provides a simpler interface for [FastMCP 2.0](https://gofastmcp.com).
 
--   **Chat Conversation Storage/Management**: Chat conversation history management using [TinyDB](https://tinydb.readthedocs.io).
+-   **Prompt Management**: Versioned prompt storage and automatic prompt optimization:
 
--   **Memory Storage**: Two complementary persistent memory stores:
+    -   **Prompt Storage**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)). Prompts are keyed by `(name, model_id)` and auto-versioned on each store.
+    -   **Prompt Tuning**: Hill-climbing `PromptTuner` for automatic prompt optimization against labelled data, without ML machinery. Four concrete tuners: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated by a second LLM). Subclass `PromptTuner` to implement custom task types.
 
+-   **Persistence**: Three complementary stores for persisting conversation and knowledge:
+
+    -   **Conversation History** (`ConversationManager`): Persistent chat message history backed by [TinyDB](https://tinydb.readthedocs.io). Load the last conversation on startup and save updates after each turn.
     -   **Semantic Memory** (`SemanticMemoryStore`): Fact storage using [ChromaDB](https://www.trychroma.com/) vector embeddings. Store natural-language subject-predicate-object strings (e.g. `"Paul works at Google"`) and retrieve by semantic topic (e.g. `"employment"`, `"family life"`).
     -   **Document Memory** (`DocumentStore`): Path-based document store mirroring Anthropic's Managed Agents Memory API. Supports `write`, `read`, `edit`, `delete`, and full-text `search` on named paths (e.g. `/preferences.md`).
-
--   **Agent Skills**: Filesystem-discovered skill definitions that inject instructions and tools into agents automatically. Skills are YAML-fronted Markdown files discovered from project and user directories.
-
--   **Prompt Storage/Management**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)), plus a hill-climbing `PromptTuner` for automatic prompt optimization. Four concrete tuners are included: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated by a second LLM). Subclass `PromptTuner` to implement custom task types.
 
 ## Components
 
@@ -58,12 +76,14 @@ The following Jupyter notebooks demonstrate key AIMU features:
 |---|---|
 | [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) | Text generation, chat, streaming, and thinking models |
 | [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb) | MCP tool integration with model clients |
-| [03 - Prompts](notebooks/03%20-%20Prompts.ipynb) | Versioned prompt storage and hill-climbing tuning |
-| [04 - Conversations](notebooks/04%20-%20Conversations.ipynb) | Persistent chat conversation management |
-| [05 - Memory](notebooks/05%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
-| [06 - Agents](notebooks/06%20-%20Agents.ipynb) | SimpleAgent and AgenticModelClient |
-| [07 - Agent Skills](notebooks/07%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
-| [08 - Agent Workflows](notebooks/08%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
+| [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) | Versioned prompt storage |
+| [04 - Prompt Tuning](notebooks/04%20-%20Prompt%20Tuning.ipynb) | ClassificationPromptTuner, MultiClassPromptTuner, ExtractionPromptTuner, JudgedPromptTuner |
+| [05 - Conversations](notebooks/05%20-%20Conversations.ipynb) | Persistent chat conversation management |
+| [06 - Memory](notebooks/06%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
+| [07 - Agents](notebooks/07%20-%20Agents.ipynb) | SimpleAgent and AgenticModelClient |
+| [08 - Agent Skills](notebooks/08%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
+| [09 - Agent Workflows](notebooks/09%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
+| [10 - Agent Examples](notebooks/10%20-%20Agent%20Examples.ipynb) | `ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent` — orchestrator + worker tools pattern |
 
 ## Installation
 
@@ -117,196 +137,62 @@ pytest tests\test_models.py --client=ollama --model=GPT_OSS_20B
 
 ## Usage
 
-### Text Generation
+### Model Clients
+
+All clients implement the `BaseModelClient` abstract interface. `ModelClient` is a factory that automatically selects the right client from a model enum, so you can swap providers without changing call sites:
 
 ``` python
-from aimu.models import OllamaClient as ModelClient ## or HuggingFaceClient, or OpenAiCompatClient
+from aimu.models import ModelClient
+from aimu.models.ollama.ollama_client import OllamaModel
 
-model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
-response = model_client.generate("What is the capital of France?", {"temperature": 0.7})
+client = ModelClient(OllamaModel.QWEN_3_8B)  # factory: picks OllamaClient automatically
+
+response = client.generate("Summarise this text.", {"temperature": 0.7})  # stateless
+response = client.chat("What is the capital of France?")                  # multi-turn
+print(client.messages)  # full message history
 ```
 
-### Chat
+You can also import the concrete client directly when you prefer explicit control:
 
 ``` python
-from aimu.models import OllamaClient as ModelClient
+from aimu.models.ollama import OllamaClient, OllamaModel
 
-model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
-response = model_client.chat("What is the capital of France?")
-
-print(model_client.messages)
+client = OllamaClient(OllamaModel.QWEN_3_8B)
 ```
 
-### Thinking Models
+Cloud and local server clients follow the same pattern; only the model enum (and optional kwargs) differ:
 
-Models with extended reasoning capabilities (e.g. DeepSeek-R1, Qwen3, GPT-OSS) are identified by the `THINKING_MODELS` list on each client. Thinking is enabled automatically when one of these models is selected.
+| Client | Extra | API key / notes |
+|---|---|---|
+| `OllamaClient` | `aimu[ollama]` | - |
+| `HuggingFaceClient` | `aimu[hf]` | - |
+| `LlamaCppClient` | `aimu[llamacpp]` | `model_path=` (GGUF file); no external service |
+| `OpenAIClient` | `aimu[openai_compat]` | `OPENAI_API_KEY` |
+| `AnthropicClient` | `aimu[anthropic]` | `ANTHROPIC_API_KEY` |
+| `GeminiClient` | `aimu[openai_compat]` | `GOOGLE_API_KEY` |
+| `LMStudioOpenAIClient` | `aimu[openai_compat]` | localhost:1234 |
+| `OllamaOpenAIClient` | `aimu[openai_compat]` | localhost:11434 |
+| `VLLMOpenAIClient` | `aimu[openai_compat]` | localhost:8000 |
+| `LlamaServerOpenAIClient` | `aimu[openai_compat]` | localhost:8080 |
+| `SGLangOpenAIClient` | `aimu[openai_compat]` | localhost:30000 |
 
-After generation, the model's reasoning trace is available in `last_thinking`:
-
-``` python
-from aimu.models import OllamaClient as ModelClient
-
-model_client = ModelClient(ModelClient.MODELS.DEEPSEEK_R1_8B)
-response = model_client.generate("What is the capital of France?")
-
-print(model_client.last_thinking)  # reasoning trace
-print(response)                    # final answer
-```
-
-During streamed generation via `generate_streamed()`, thinking tokens are yielded first followed by the response tokens as a single flat stream. For phase-separated streaming (thinking, tool calls, response), use `chat_streamed()` instead.
-
-### Streamed Chat
-
-`chat_streamed()` yields `StreamChunk` objects. Each chunk carries its own type:
+**Streaming**: `chat(..., stream=True)` yields `StreamChunk` objects tagged by phase:
 
 | `chunk.phase` | `chunk.content` type | Description |
 |---|---|---|
 | `StreamPhase.THINKING` | `str` | Reasoning token (thinking models only) |
-| `StreamPhase.TOOL_CALLING` | `dict` `{"name": str, "response": str}` | Tool call and its result |
+| `StreamPhase.TOOL_CALLING` | `dict` `{"name": str, "response": str}` | Tool call and result |
 | `StreamPhase.GENERATING` | `str` | Final response token |
 
-``` python
-from aimu.models import OllamaClient as ModelClient, StreamPhase
+**Thinking models**: extended reasoning (e.g. DeepSeek-R1, Qwen3, GPT-OSS) is enabled automatically for supported models. The reasoning trace is available in `client.last_thinking` after generation, or as `StreamPhase.THINKING` chunks during streaming.
 
-model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
-last_phase = None
+**Chat UIs**: full-featured UIs with streaming, tool calls, and conversation persistence: `streamlit run web/streamlit_chatbot.py` ([Streamlit](web/streamlit_chatbot.py)) or `python web/gradio_chatbot.py` ([Gradio](web/gradio_chatbot.py)).
 
-for chunk in model_client.chat_streamed("What is the capital of France?"):
-    if last_phase != chunk.phase:
-        print(f"--- {chunk.phase} ---")
-        last_phase = chunk.phase
+See [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) for detailed examples.
 
-    print(chunk.content, end="", flush=True)
-```
+### Agents & Workflows
 
-### Cloud Model Providers
-
-`OpenAIClient`, `AnthropicClient`, and `GeminiClient` connect to cloud APIs using each provider's native SDK or OpenAI-compatible endpoint. API keys are read from environment variables (or a `.env` file).
-
-``` python
-from aimu.models import OpenAIClient, OpenAIModel
-
-client = OpenAIClient(OpenAIModel.GPT_4O_MINI)
-response = client.chat("What is the capital of France?")
-```
-
-``` python
-from aimu.models import AnthropicClient, AnthropicModel
-
-client = AnthropicClient(AnthropicModel.CLAUDE_SONNET_4_6)
-response = client.chat("What is the capital of France?")
-```
-
-``` python
-from aimu.models import GeminiClient, GeminiModel
-
-client = GeminiClient(GeminiModel.GEMINI_2_0_FLASH)
-response = client.chat("What is the capital of France?")
-```
-
-All three support the full `ModelClient` API including streaming, tool calling, and thinking models (`AnthropicModel.CLAUDE_SONNET_4_6`, `GeminiModel.GEMINI_2_5_PRO`).
-
-Required environment variables:
-- OpenAI: `OPENAI_API_KEY`
-- Anthropic: `ANTHROPIC_API_KEY`
-- Google Gemini: `GOOGLE_API_KEY`
-
-### OpenAI-Compatible Local Servers
-
-Use any of the service-specific clients to connect to a local server that speaks the OpenAI REST API. Each client uses service-appropriate default URLs and model IDs:
-
-``` python
-from aimu.models import LMStudioOpenAIClient, LMStudioOpenAIModel
-
-# Connects to http://localhost:1234/v1 by default
-client = LMStudioOpenAIClient(LMStudioOpenAIModel.QWEN_3_8B)
-response = client.chat("What is the capital of France?")
-```
-
-``` python
-from aimu.models import OllamaOpenAIClient, OllamaOpenAIModel
-
-# Connects to Ollama's OpenAI-compat endpoint at http://localhost:11434/v1
-client = OllamaOpenAIClient(OllamaOpenAIModel.QWEN_3_8B)
-response = client.chat("What is the capital of France?")
-```
-
-``` python
-from aimu.models import LlamaServerOpenAIClient, LlamaServerOpenAIModel
-
-# Connects to llama-server at http://localhost:8080/v1 by default
-# Start with: llama-server -m /path/to/model.gguf --port 8080
-client = LlamaServerOpenAIClient(LlamaServerOpenAIModel.QWEN_3_8B)
-response = client.chat("What is the capital of France?")
-```
-
-``` python
-from aimu.models import SGLangOpenAIClient, SGLangOpenAIModel
-
-# Connects to SGLang at http://localhost:30000/v1 by default
-# Start with: python -m sglang.launch_server --model-path Qwen/Qwen3-8B --port 30000
-client = SGLangOpenAIClient(SGLangOpenAIModel.QWEN_3_8B)
-response = client.chat("What is the capital of France?")
-```
-
-For a custom server or model not in the enum, use `OpenAICompatClient` directly:
-
-``` python
-from aimu.models import OpenAICompatClient
-from aimu.models.openai_compat import OllamaOpenAIModel
-
-client = OpenAICompatClient(OllamaOpenAIModel.QWEN_3_8B, base_url="http://myserver:8080/v1")
-```
-
-All OpenAI-compatible clients support the full `ModelClient` API. Streaming, tool calling, thinking models, and MCP tools work identically to the other clients.
-
-### Local GGUF Models (llama-cpp-python)
-
-`LlamaCppClient` runs GGUF models directly in-process. Ollama, LM Studio, or another service are not required. Pass the path to any GGUF file and a `LlamaCppModel` enum value that describes the model's capabilities:
-
-``` python
-from aimu.models.llamacpp import LlamaCppClient, LlamaCppModel
-
-client = LlamaCppClient(LlamaCppModel.QWEN_3_4B, model_path="/path/to/qwen3-4b.Q4_K_M.gguf")
-response = client.chat("What is the capital of France?")
-```
-
-GPU offloading is enabled by default (`n_gpu_layers=-1`). To run on CPU only, pass `n_gpu_layers=0`. The context window defaults to 4096 tokens; increase with `n_ctx`:
-
-``` python
-client = LlamaCppClient(
-    LlamaCppModel.QWEN_3_4B,
-    model_path="/path/to/model.gguf",
-    n_ctx=8192,
-    n_gpu_layers=-1,  # offload all layers to GPU
-)
-```
-
-All standard `ModelClient` features work: Streaming, tool calling, thinking models, and MCP tools.
-
-### Chat UI (Streamlit)
-
-A full-featured chat UI with model/client selection, streaming, thinking model support, MCP tool calls, and conversation persistence.
-
-``` bash
-streamlit run web/streamlit_chatbot.py
-```
-
-### Chat UI (Gradio)
-
-A full-featured chat UI equivalent to the Streamlit example above.
-
-``` bash
-python web/gradio_chatbot.py
-```
-
-### Agentic Workflows
-
-AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base class with `run()` and `run_streamed()`. **Agents** (`SimpleAgent`, `SkillAgent`) autonomously direct tool use; **workflows** (`Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`) have code-controlled flow.
-
-#### SimpleAgent
-
-`SimpleAgent` wraps a `ModelClient` and runs a tool-calling loop until the model stops invoking tools.
+`SimpleAgent` wraps a `ModelClient` and runs a tool-calling loop until the model stops invoking tools:
 
 ``` python
 from aimu.models.ollama import OllamaClient, OllamaModel
@@ -316,24 +202,23 @@ from aimu.agents import SimpleAgent
 client = OllamaClient(OllamaModel.QWEN_3_8B)
 client.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
 
-agent = SimpleAgent(client, name="assistant", max_iterations=10)
-result = agent.run("Find all log files modified today and summarise the errors.")
-```
-
-Agents are configurable from a plain dict:
-
-``` python
 agent = SimpleAgent.from_config(
     {"name": "researcher", "system_message": "Use tools to answer.", "max_iterations": 8},
     client,
 )
+result = agent.run("Find all log files modified today and summarise the errors.")
 ```
 
-`run_streamed()` yields `AgentChunk` objects tagged with `agent_name`, `iteration`, and `StreamPhase`.
+`SkillAgent` extends `SimpleAgent` with automatic discovery and injection of `SKILL.md` skill files:
 
-#### Chain (Prompt Chaining)
+``` python
+from aimu.agents import SkillAgent
 
-`Chain` sequences agents so the output of each step becomes the input to the next. Pass a single `ModelClient` — it is shared across steps, with `messages` cleared and `system_message` applied from each step's config before it runs:
+agent = SkillAgent(client, name="assistant")  # discovers skills from .agents/skills/ and .claude/skills/
+result = agent.run("Use the pdf-processing skill to extract pages from report.pdf")
+```
+
+Workflow patterns have code-controlled flow. `Chain` sequences agents so each step's output becomes the next step's input:
 
 ``` python
 from aimu.agents import Chain
@@ -349,97 +234,32 @@ chain = Chain.from_config(
 result = chain.run("Research the top Python web frameworks.")
 ```
 
-`run_streamed()` yields `ChainChunk` objects that extend `AgentChunk` with a `step` index.
+Every `Runner` exposes `run(task, stream=False)` and `.messages`. Pass `stream=True` to get an `AgentChunk` iterator instead of a string.
 
-#### Router (Routing)
-
-`Router` classifies input with a routing agent and dispatches to the matching handler:
+**Example agents** in `aimu.agents.examples` wire up an orchestrator with worker sub-agents as MCP tools — the LLM coordinates them autonomously:
 
 ``` python
-from aimu.agents import Router, SimpleAgent
+from aimu.models.ollama import OllamaClient
+from aimu.agents.examples import ResearchReportAgent
 
-routing_agent = SimpleAgent.from_config({"system_message": "Reply with only: weather, math, or general"}, client)
-router = Router(
-    routing_agent=routing_agent,
-    handlers={"weather": weather_agent, "math": math_agent},
-    fallback=general_agent,
-)
-result = router.run("What is the weather in Tokyo?")
+client = OllamaClient(OllamaClient.MODELS.QWEN_3_8B)
+agent = ResearchReportAgent(client)
+report = agent.run("What is retrieval-augmented generation?")
+
+for chunk in agent.run("Explain transformer attention", stream=True):
+    if chunk.phase == StreamPhase.GENERATING:
+        print(chunk.content, end="", flush=True)
 ```
 
-#### Inspecting message histories
+See [07 - Agents](notebooks/07%20-%20Agents.ipynb), [08 - Agent Skills](notebooks/08%20-%20Agent%20Skills.ipynb), [09 - Agent Workflows](notebooks/09%20-%20Agent%20Workflows.ipynb), and [10 - Agent Examples](notebooks/10%20-%20Agent%20Examples.ipynb) for the example agents.
 
-Every `Runner` exposes a `messages` property that returns a `dict[str, list[dict]]` mapping each agent name to its message history snapshot. For workflows the dict is merged recursively across all sub-agents, so you can inspect every exchange after a run:
+### MCP Tools
 
-``` python
-router.run("What is the weather in Tokyo?")
-
-router.messages
-# {
-#   "routing-agent": [{"role": "user", ...}, {"role": "assistant", "content": "weather"}],
-#   "weather-specialist": [{"role": "user", ...}, {"role": "assistant", "content": "..."}],
-#   "math-specialist": [],     # not dispatched — empty snapshot
-# }
-```
-
-Snapshots are taken at the end of each `run()` / `run_streamed()` call, so they survive subsequent runs even when agents share a single `ModelClient`.
-
-#### Parallel (Parallelization)
-
-`Parallel` runs workers concurrently via `ThreadPoolExecutor` and optionally aggregates their outputs:
+`MCPClient` wraps a FastMCP 2.0 server and integrates with any `ModelClient` via `model_client.mcp_client`:
 
 ``` python
-from aimu.agents import Parallel
-
-parallel = Parallel(
-    workers=[perspective_a_agent, perspective_b_agent, perspective_c_agent],
-    aggregator=summarizer_agent,
-)
-result = parallel.run("Analyse the impact of remote work on productivity.")
-```
-
-#### EvaluatorOptimizer
-
-`EvaluatorOptimizer` runs a generate → evaluate → revise loop until the evaluator emits a pass signal or `max_rounds` is reached:
-
-``` python
-from aimu.agents import EvaluatorOptimizer
-
-eo = EvaluatorOptimizer(
-    generator=writer_agent,
-    evaluator=critic_agent,
-    max_rounds=4,
-    pass_keyword="PASS",
-)
-result = eo.run("Write a concise explanation of transformer attention.")
-
-### AgenticModelClient
-
-`AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface. Use it anywhere a `ModelClient` is accepted — web UIs, conversation managers, etc. — to get the full agentic loop transparently:
-
-``` python
-from aimu.models.ollama import OllamaClient, OllamaModel
-from aimu.tools import MCPClient
-from aimu.agents import SimpleAgent, AgenticModelClient
-
-inner = OllamaClient(OllamaModel.QWEN_3_8B)
-inner.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
-
-# Single-turn client
-client = inner
-
-# Agentic client — same interface, loops until tools stop being called
-client = AgenticModelClient(SimpleAgent(inner, max_iterations=10))
-
-# Both work identically here:
-response = client.chat("Find all log files modified today and summarise the errors.")
-```
-
-For workflow patterns (`Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`), call `run()` / `run_streamed()` directly instead.
-
-### MCP Tool Usage
-
-``` python
+from aimu.models import ModelClient
+from aimu.models.ollama.ollama_client import OllamaModel
 from aimu.tools import MCPClient
 
 mcp_client = MCPClient({
@@ -448,98 +268,61 @@ mcp_client = MCPClient({
     }
 })
 
+# Use standalone
 mcp_client.call_tool("mytool", {"input": "hello world!"})
-```
 
-### MCP Tool Usage with ModelClient
-
-``` python
-from aimu.models import OllamaClient as ModelClient
-from aimu.tools import MCPClient
-
-mcp_client = MCPClient({
-    "mcpServers": {
-        "mytools": {"command": "python", "args": ["tools.py"]},
-    }
-})
-
-model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
+# Or attach to a model client; tools are passed to the model automatically
+model_client = ModelClient(OllamaModel.QWEN_3_8B)
 model_client.mcp_client = mcp_client
-
 model_client.chat("use my tool please")
 ```
 
-### Chat Conversation Storage/Management
+See [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb).
+
+### Persistence
+
+**Conversation history**: `ConversationManager` persists chat message sequences across sessions:
 
 ``` python
-from aimu.models import OllamaClient as ModelClient
+from aimu.models import ModelClient
+from aimu.models.ollama.ollama_client import OllamaModel
 from aimu.history import ConversationManager
 
-chat_manager = ConversationManager("conversations.json", use_last_conversation=True) # loads the last saved conversation
-
-model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
-model_client.messages = chat_manager.messages
+manager = ConversationManager("conversations.json", use_last_conversation=True)
+model_client = ModelClient(OllamaModel.QWEN_3_8B)
+model_client.messages = manager.messages
 
 model_client.chat("What is the capital of France?")
-
-chat_manager.update_conversation(model_client.messages) # store the updated conversation
+manager.update_conversation(model_client.messages)
 ```
 
-### Semantic Memory Storage
+**Semantic memory**: `SemanticMemoryStore` stores and retrieves facts by semantic similarity:
 
 ``` python
 from aimu.memory import SemanticMemoryStore
 
 store = SemanticMemoryStore(persist_path="./memory_store")
-
 store.store("Paul works at Google")
-store.store("Paul is married to Sarah")
-store.store("Sarah is the sister of Emma")
-
-store.search("work and employment")                    # ["Paul works at Google", ...]
-store.search("family relationships")                   # ["Paul is married to Sarah", ...]
-store.search("work and employment", max_distance=0.4)  # only close matches
+store.search("employment")                    # ["Paul works at Google"]
+store.search("employment", max_distance=0.4)  # only close matches
 ```
 
-### Document Memory Storage
+**Document memory**: `DocumentStore` is a path-keyed document store mirroring Anthropic's Managed Agents Memory API:
 
 ``` python
 from aimu.memory import DocumentStore
 
 store = DocumentStore(persist_path="./doc_store")
-
 store.write("/preferences.md", "Always use concise responses.")
-store.write("/notes/meeting.md", "Discussed Q3 roadmap with team.")
-
-store.read("/preferences.md")                        # "Always use concise responses."
-store.edit("/preferences.md", "concise", "detailed") # in-place edit
-store.list_paths()                                   # ["/notes/meeting.md", "/preferences.md"]
-store.search_full_text("roadmap")                    # [{"path": ..., "content": ...}]
-store.delete("/notes/meeting.md")
+store.edit("/preferences.md", "concise", "detailed")
+store.search_full_text("detailed")
 ```
 
-### Agent Skills
+See [05 - Conversations](notebooks/05%20-%20Conversations.ipynb) and [06 - Memory](notebooks/06%20-%20Memory.ipynb).
 
-Skills are SKILL.md files discovered from `.agents/skills/` or `.claude/skills/` directories (project-level overrides user-level). Use `SkillAgent` instead of `SimpleAgent` to enable skill support:
+### Prompt Management
 
-``` python
-from aimu.agents import SkillAgent
-from aimu.skills import SkillManager
-
-# Auto-discover skills from default paths
-agent = SkillAgent(client, name="assistant")
-
-# Or point at specific directories
-agent = SkillAgent(client, skill_manager=SkillManager(skill_dirs=["./skills"]))
-
-# Or use from_config (skill_dirs optional — omit to auto-discover)
-agent = SkillAgent.from_config({"name": "assistant", "skill_dirs": ["./skills"]}, client)
-result = agent.run("Use the pdf-processing skill to extract pages from report.pdf")
-```
-
-Each skill directory contains a `SKILL.md` with YAML frontmatter (`name`, `description`) and optional `scripts/*.py` files that are registered as callable tools.
-
-### Prompt Storage/Management
+**Prompt catalog**: `PromptCatalog` stores versioned prompts keyed by `(name, model_id)`:
 
 ``` python
 from aimu.prompts import PromptCatalog, Prompt
@@ -552,126 +335,23 @@ with PromptCatalog("prompts.db") as catalog:
     print(f"v{latest.version}: {latest.prompt}")
 ```
 
-### Prompt Tuning
-
-Four concrete tuners ship out of the box, all sharing the same hill-climbing loop inherited from `PromptTuner`.
-
-#### Binary classification
+**Prompt tuning**: `PromptTuner` runs a hill-climbing loop to automatically improve a prompt against labelled data. Pass a DataFrame with `content` and `actual_class` columns:
 
 ``` python
 import pandas as pd
-from aimu.models import OllamaClient as ModelClient
 from aimu.prompts import ClassificationPromptTuner
 
-model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
-tuner = ClassificationPromptTuner(model_client=model_client)
-
+tuner = ClassificationPromptTuner(model_client=client)
 df = pd.DataFrame({
     "content": ["LLMs are transforming AI.", "The recipe calls for flour.", ...],
     "actual_class": [True, False, ...],
 })
-
-best_prompt = tuner.tune(
-    df,
-    initial_prompt="Is this about AI? Reply [YES] or [NO]. Content: {content}",
-    max_iterations=10,
-)
+best_prompt = tuner.tune(df, initial_prompt="Is this about AI? Reply [YES] or [NO]. Content: {content}")
 ```
 
-#### Multi-class classification
+`MultiClassPromptTuner`, `ExtractionPromptTuner`, and `JudgedPromptTuner` follow the same pattern. Subclass `PromptTuner` and implement `apply_prompt`, `evaluate`, and `mutation_prompt` for custom task types.
 
-``` python
-from aimu.prompts import MultiClassPromptTuner
-
-tuner = MultiClassPromptTuner(model_client, classes=["positive", "negative", "neutral"])
-
-df = pd.DataFrame({
-    "content": ["Loved it!", "Terrible experience.", "It was okay."],
-    "actual_class": ["positive", "negative", "neutral"],
-})
-
-best_prompt = tuner.tune(
-    df,
-    initial_prompt="Classify the sentiment as [positive], [negative], or [neutral]. Text: {content}",
-)
-```
-
-Metrics include per-class precision, recall, F1, and macro F1.
-
-#### Structured field extraction
-
-``` python
-from aimu.prompts import ExtractionPromptTuner
-
-tuner = ExtractionPromptTuner(model_client, fields=["name", "company"])
-
-df = pd.DataFrame({
-    "content": ["Alice Smith works at Acme Corp.", "Bob Jones is at Initech."],
-    "expected": [{"name": "Alice Smith", "company": "Acme Corp."}, {"name": "Bob Jones", "company": "Initech"}],
-})
-
-best_prompt = tuner.tune(
-    df,
-    initial_prompt='Extract "name" and "company" as JSON. Text: {content}',
-)
-```
-
-Metrics include row-level accuracy and per-field match rates. The model may return raw JSON, a fenced block, or any JSON object substring — all are handled automatically.
-
-#### Open-ended generation (LLM-as-judge)
-
-`JudgedPromptTuner` uses a second model to score each output on a 1–10 scale. The primary optimisation target is mean judge score rather than binary accuracy.
-
-``` python
-from aimu.prompts import JudgedPromptTuner
-
-tuner = JudgedPromptTuner(
-    model_client=writer_client,
-    judge_client=judge_client,
-    criteria="Summaries should be under three sentences and mention the key conclusion.",
-    pass_threshold=0.7,
-)
-
-df = pd.DataFrame({"content": [long_article_1, long_article_2, ...]})
-
-best_prompt = tuner.tune(
-    df,
-    initial_prompt="Summarise this article: {content}",
-    max_iterations=10,
-)
-```
-
-#### Custom tuners
-
-Subclass `PromptTuner` and implement three methods:
-
-``` python
-from aimu.prompts import PromptTuner
-
-class MyTuner(PromptTuner):
-    def apply_prompt(self, prompt, data):
-        # Run prompt on data; set data["_correct"] boolean column
-        ...
-
-    def evaluate(self, data) -> dict:
-        # Return metrics dict; must include "accuracy" key (or override score())
-        ...
-
-    def mutation_prompt(self, current_prompt, items) -> str:
-        # Return a prompt asking the LLM to improve current_prompt given failing items
-        # LLM response should contain the improved prompt in <prompt>...</prompt> tags
-        ...
-
-    # Optional: override to optimise a different metric
-    def score(self, metrics) -> float:
-        return metrics["my_metric"]
-
-    # Optional: override to parse mutations in a different format
-    def extract_mutated_prompt(self, result) -> str:
-        return result.strip()
-```
-
-The tuner calls `apply_prompt` → `evaluate` → `mutation_prompt` in a loop, reverting on regression and saving each improvement to an optional `PromptCatalog`.
+See [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) and [04 - Prompt Tuning](notebooks/04%20-%20Prompt%20Tuning.ipynb).
 
 ## License
 

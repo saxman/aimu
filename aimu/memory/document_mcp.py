@@ -1,5 +1,5 @@
 """
-aimu.memory.document_mcp — MCP server exposing DocumentStore as memory tools.
+aimu.memory.document_mcp: MCP server exposing DocumentStore as memory tools.
 
 Tool names and semantics match Anthropic's Managed Agents Memory API so that
 this server can be used as a drop-in replacement for Anthropic's hosted

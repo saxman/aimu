@@ -18,5 +18,5 @@ Include a seasonal reference (kigo) when possible.
 ## Example
 
 An old silent pond... (5)
-A frog jumps into the pond— (7)
+A frog jumps into the pond, (7)
 Splash! Silence again. (5)

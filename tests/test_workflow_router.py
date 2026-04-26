@@ -1,5 +1,5 @@
 """
-Tests for aimu.agents.Router — the Routing workflow pattern.
+Tests for aimu.agents.Router: the Routing workflow pattern.
 
 All tests use MockModelClient from conftest (deterministic, no backend needed).
 """

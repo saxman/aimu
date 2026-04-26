@@ -1,10 +1,10 @@
 """
-Tests for aimu.skills — Skill, SkillManager, and Agent skill integration.
+Tests for aimu.skills: Skill, SkillManager, and Agent skill integration.
 
 All filesystem tests use tmp_path so no real ~/.agents/skills paths are touched.
 Unit tests use MagicMock inline. The model_client fixture is available for
 integration tests:
-  - Default (no --client): MockModelClient
+  - Default (no --client): MockBaseModelClient
   - pytest tests/test_skills.py --client=ollama --model=LLAMA_3_2_3B
 """
 
@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aimu.models import ModelClient
+from aimu.models import BaseModelClient
 from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.skills.manager import SkillManager
 from aimu.skills.skill import Skill
@@ -23,8 +23,8 @@ from conftest import create_real_model_client, resolve_model_params
 _MOCK = "mock"
 
 
-class _MockModelClient(ModelClient):
-    """Minimal ModelClient stub for skill integration tests."""
+class _MockBaseModelClient(BaseModelClient):
+    """Minimal BaseModelClient stub for skill integration tests."""
 
     def __init__(self):
         self.model = MagicMock()
@@ -37,20 +37,24 @@ class _MockModelClient(ModelClient):
         self.mcp_client = None
         self.last_thinking = ""
 
-    def chat(self, user_message, generate_kwargs=None, use_tools=True):
+    def chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False):
+        if stream:
+            return self._chat_streamed(user_message)
         self.messages.append({"role": "user", "content": user_message})
         response = "I can help with that."
         self.messages.append({"role": "assistant", "content": response})
         return response
 
-    def chat_streamed(self, user_message, generate_kwargs=None, use_tools=True):
+    def _chat_streamed(self, user_message):
         response = self.chat(user_message)
         yield StreamChunk(StreamingContentType.GENERATING, response)
 
-    def generate(self, prompt, generate_kwargs=None):
+    def generate(self, prompt, generate_kwargs=None, stream=False, include_thinking=True):
+        if stream:
+            return self._generate_streamed()
         return "Generated response."
 
-    def generate_streamed(self, prompt, generate_kwargs=None, include_thinking=True):
+    def _generate_streamed(self):
         yield StreamChunk(StreamingContentType.GENERATING, "Generated response.")
 
     def _update_generate_kwargs(self, generate_kwargs=None):
@@ -65,9 +69,9 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="session")
-def model_client(request) -> Iterable[ModelClient]:
+def model_client(request) -> Iterable[BaseModelClient]:
     if request.param == _MOCK:
-        yield _MockModelClient()
+        yield _MockBaseModelClient()
         return
     yield from create_real_model_client(request)
 
@@ -172,7 +176,7 @@ def test_skill_manager_project_overrides_user(tmp_path):
     make_skill_dir(project_dir, "shared", "Project version.")
     make_skill_dir(user_dir, "shared", "User version.")
 
-    # Pass project dir first — it wins on collision
+    # Pass project dir first; it wins on collision
     manager = SkillManager(skill_dirs=[str(project_dir), str(user_dir)])
     assert manager.skills["shared"].description == "Project version."
 
@@ -270,12 +274,12 @@ def test_agent_setup_skills_no_op_when_no_skills(tmp_path):
     agent = SkillAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
 
-    # No skills found — mcp_client must not have been set
+    # No skills found; mcp_client must not have been set
     assert client.mcp_client is None
 
 
 def test_agent_setup_skills_runs_only_once(tmp_path):
-    """_setup_skills() is idempotent — calling it twice doesn't duplicate catalog."""
+    """_setup_skills() is idempotent: calling it twice doesn't duplicate catalog."""
     from unittest.mock import MagicMock
     from aimu.agents.skill_agent import SkillAgent
 
@@ -289,7 +293,7 @@ def test_agent_setup_skills_runs_only_once(tmp_path):
     agent = SkillAgent(model_client=client, skill_manager=manager)
 
     agent._setup_skills()
-    agent._setup_skills()  # second call — should be a no-op
+    agent._setup_skills()  # second call; should be a no-op
     assert agent._skills_setup_done is True
 
 

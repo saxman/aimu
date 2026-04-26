@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from aimu.agents.simple_agent import SimpleAgent, DEFAULT_CONTINUATION_PROMPT
-from aimu.models.base import ModelClient
+from aimu.models.base import BaseModelClient
 from aimu.skills.manager import SkillManager
 
 logger = logging.getLogger(__name__)
@@ -76,16 +76,16 @@ class SkillAgent(SimpleAgent):
         self.model_client.mcp_client = self._skills_mcp_client
 
     @classmethod
-    def from_config(cls, config: dict[str, Any], model_client: ModelClient) -> SkillAgent:
+    def from_config(cls, config: dict[str, Any], model_client: BaseModelClient) -> SkillAgent:
         """
         Create a SkillAgent from a plain dict config.
 
         Recognised keys:
-            name (str)              — agent identifier
-            system_message (str)    — applied before each run
-            max_iterations (int)    — max tool-call rounds (default 10)
+            name (str):              agent identifier
+            system_message (str):    applied before each run
+            max_iterations (int):    max tool-call rounds (default 10)
             continuation_prompt (str)
-            skill_dirs (list[str])  — explicit skill search paths; omit to auto-discover
+            skill_dirs (list[str]):  explicit skill search paths; omit to auto-discover
         """
         sm = config.get("system_message")
         if sm is not None:

@@ -22,7 +22,7 @@ class OpenAIModel(Model):
     GPT_4_1 = ("gpt-4.1", True)
     GPT_4_1_MINI = ("gpt-4.1-mini", True)
     GPT_4_1_NANO = ("gpt-4.1-nano", True)
-    # o-series reasoning models — reasoning tokens not accessible as text chunks,
+    # o-series reasoning models: reasoning tokens not accessible as text chunks,
     # so supports_thinking=False; pass reasoning_effort via generate_kwargs if needed
     O4_MINI = ("o4-mini", True)
     O3 = ("o3", True)

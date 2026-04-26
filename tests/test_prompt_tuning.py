@@ -14,12 +14,12 @@ from typing import Iterable
 import pandas as pd
 import pytest
 
-from aimu.models import ModelClient
+from aimu.models import BaseModelClient
 from aimu.prompts import ClassificationPromptTuner, ExtractionPromptTuner, JudgedPromptTuner, MultiClassPromptTuner
 from conftest import create_real_model_client, resolve_model_params
 
 # ---------------------------------------------------------------------------
-# Sequential mock client — returns responses one-by-one from a fixed list.
+# Sequential mock client: returns responses one-by-one from a fixed list.
 # Used for tune() tests where generate() is called multiple times in sequence.
 # ---------------------------------------------------------------------------
 
@@ -57,7 +57,7 @@ _MOCK = "mock"
 
 
 # ---------------------------------------------------------------------------
-# Mock client — keyword-based [YES]/[NO] responses, no backend required
+# Mock client: keyword-based [YES]/[NO] responses, no backend required
 # ---------------------------------------------------------------------------
 
 
@@ -72,7 +72,7 @@ class _MockClassifyClient:
 
 
 # ---------------------------------------------------------------------------
-# Parametrization — default is mock; real client when --client is specified
+# Parametrization: default is mock; real client when --client is specified
 # ---------------------------------------------------------------------------
 
 
@@ -84,7 +84,7 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="session")
-def model_client(request) -> Iterable[ModelClient]:
+def model_client(request) -> Iterable[BaseModelClient]:
     if request.param == _MOCK:
         yield _MockClassifyClient()
         return
@@ -132,7 +132,7 @@ class _MockClientForEval:
 
 
 def test_evaluate_results():
-    """Test metric calculations — no model call needed."""
+    """Test metric calculations: no model call needed."""
     tuner = ClassificationPromptTuner(model_client=_MockClientForEval())
 
     df = pd.DataFrame(
@@ -159,7 +159,7 @@ def test_evaluate_results():
 
 
 # ---------------------------------------------------------------------------
-# tune() tests — exercise the hill-climbing loop with _TuneSeqClient
+# tune() tests: exercise the hill-climbing loop with _TuneSeqClient
 # ---------------------------------------------------------------------------
 
 _INITIAL_PROMPT = "Does this text discuss AI? Answer [YES] or [NO]. Content: {content}"
@@ -298,7 +298,7 @@ def test_tune_handles_missing_prompt_tags():
 
 
 # ---------------------------------------------------------------------------
-# Base class method tests — score() and extract_mutated_prompt()
+# Base class method tests: score() and extract_mutated_prompt()
 # ---------------------------------------------------------------------------
 
 

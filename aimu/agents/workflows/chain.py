@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator, NamedTuple, Optional
+from typing import Any, Iterator, NamedTuple, Optional, Union
 
 from aimu.agents.base import Workflow, AgentChunk, MessageHistory
-from aimu.models.base import StreamingContentType, ModelClient
+from aimu.models.base import StreamingContentType, BaseModelClient
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +30,9 @@ class Chain(Workflow):
     can itself run a multi-iteration agentic loop with tool access.
 
     The simplest way to build a Chain is ``from_config``: pass a list of config
-    dicts and a single ModelClient. Each step is a SimpleAgent with
+    dicts and a single BaseModelClient. Each step is a SimpleAgent with
     ``reset_messages_on_run=True``, so the client's messages are cleared and
-    ``system_message`` applied before every step — giving each step a clean slate
+    ``system_message`` applied before every step, giving each step a clean slate
     even though they share one client.
 
     For direct construction (each agent owns its own client)::
@@ -60,25 +60,27 @@ class Chain(Workflow):
     agents: list
     name: str = "chain"
 
-    def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        """Run all agents sequentially and return the final response."""
+    def run(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+    ) -> Union[str, Iterator[ChainChunk]]:
+        """Run all agents sequentially. Returns a string (stream=False) or a ChainChunk iterator (stream=True)."""
+        if stream:
+            return self._run_streamed(task, generate_kwargs)
         result = task
         for step, agent in enumerate(self.agents):
-            logger.debug("Chain step %d — agent '%s'.", step, agent.name)
+            logger.debug("Chain step %d, agent '%s'.", step, agent.name)
             result = agent.run(result, generate_kwargs=generate_kwargs)
         return result
 
-    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[ChainChunk]:
-        """
-        Stream all agents sequentially. Yields ChainChunk for every chunk
-        produced. The text output of each step is accumulated from GENERATING
-        chunks and passed as the task to the next step.
-        """
+    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[ChainChunk]:
         result = task
         for step, agent in enumerate(self.agents):
-            logger.debug("Chain step %d — agent '%s'.", step, agent.name)
+            logger.debug("Chain step %d, agent '%s'.", step, agent.name)
             step_chunks: list[AgentChunk] = []
-            for chunk in agent.run_streamed(result, generate_kwargs=generate_kwargs):
+            for chunk in agent.run(result, generate_kwargs=generate_kwargs, stream=True):
                 step_chunks.append(chunk)
                 yield ChainChunk(step, chunk.agent_name, chunk.iteration, chunk.phase, chunk.content)
             result = "".join(c.content for c in step_chunks if c.phase == StreamingContentType.GENERATING)
@@ -94,10 +96,10 @@ class Chain(Workflow):
     def from_config(
         cls,
         configs: list[dict[str, Any]],
-        client: ModelClient,
+        client: BaseModelClient,
     ) -> Chain:
         """
-        Build a Chain from a list of agent config dicts and a single ModelClient.
+        Build a Chain from a list of agent config dicts and a single BaseModelClient.
 
         The client is shared across all steps. Each step's SimpleAgent has
         ``reset_messages_on_run=True`` so it clears the client's messages and

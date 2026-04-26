@@ -1,8 +1,8 @@
 """
-aimu.prompts.tuners.judged — Prompt tuner for open-ended generation judged by an LLM.
+aimu.prompts.tuners.judged: Prompt tuner for open-ended generation judged by an LLM.
 
-JudgedPromptTuner handles tasks where there is no single correct answer — summarisation,
-rewriting, question answering, creative generation — by delegating evaluation to a
+JudgedPromptTuner handles tasks where there is no single correct answer (summarisation,
+rewriting, question answering, creative generation) by delegating evaluation to a
 separate judge model that scores each output on a 1–10 scale.
 
 Unlike other tuners, the primary optimisation target is the mean judge *score* (0–1),

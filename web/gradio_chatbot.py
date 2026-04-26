@@ -11,7 +11,7 @@ def respond(message, history, client):
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": ""})
 
-    for chunk in client.chat_streamed(message):
+    for chunk in client.chat(message, stream=True):
         if chunk.phase == StreamPhase.GENERATING:
             history[-1]["content"] += chunk.content
             yield history, ""

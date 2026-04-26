@@ -1,5 +1,5 @@
 """
-Tests for aimu.agents.EvaluatorOptimizer — the Evaluator-Optimizer workflow pattern.
+Tests for aimu.agents.EvaluatorOptimizer: the Evaluator-Optimizer workflow pattern.
 
 All tests use MockModelClient from conftest (deterministic, no backend needed).
 """
@@ -102,7 +102,7 @@ def test_evaluator_streamed_yields_single_generating_chunk():
 
 
 def test_evaluator_streamed_does_not_yield_intermediate_drafts():
-    """Intermediate revision rounds are not streamed — only the final result is."""
+    """Intermediate revision rounds are not streamed; only the final result is."""
     gen_client = MockModelClient(["draft", "final"])
     eval_client = MockModelClient(["REVISE", "PASS"])
 

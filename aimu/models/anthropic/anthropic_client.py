@@ -2,12 +2,12 @@ import json
 import logging
 import os
 from types import SimpleNamespace
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Union
 
 import anthropic
 from dotenv import load_dotenv
 
-from ..base import ModelClient, Model, StreamingContentType, StreamChunk, classproperty
+from ..base import BaseModelClient, Model, StreamingContentType, StreamChunk, classproperty
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class AnthropicModel(Model):
     CLAUDE_HAIKU_4_5 = ("claude-haiku-4-5", True, False)
 
 
-class AnthropicClient(ModelClient):
+class AnthropicClient(BaseModelClient):
     """Client for Anthropic Claude models using the native anthropic SDK.
 
     Reads ANTHROPIC_API_KEY from the environment (or a .env file).
@@ -207,9 +207,18 @@ class AnthropicClient(ModelClient):
     # ModelClient abstract method implementations                          #
     # ------------------------------------------------------------------ #
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+    def generate(
+        self,
+        prompt: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+        include_thinking: bool = True,
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
+
+        if stream:
+            return self._generate_streamed(prompt, generate_kwargs, include_thinking)
 
         response = self._client.messages.create(
             model=self.model.value,
@@ -227,14 +236,12 @@ class AnthropicClient(ModelClient):
                 content = block.text
         return content
 
-    def generate_streamed(
+    def _generate_streamed(
         self,
         prompt: str,
-        generate_kwargs: Optional[dict[str, Any]] = None,
-        include_thinking: bool = True,
+        generate_kwargs: dict[str, Any],
+        include_thinking: bool,
     ) -> Iterator[StreamChunk]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
-        generate_kwargs = self._thinking_kwargs(generate_kwargs)
         self.last_thinking = ""
 
         with self._client.messages.stream(
@@ -257,9 +264,13 @@ class AnthropicClient(ModelClient):
         user_message: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
-    ) -> str:
+        stream: bool = False,
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
+
+        if stream:
+            return self._chat_streamed(generate_kwargs, tools)
 
         system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
@@ -327,15 +338,7 @@ class AnthropicClient(ModelClient):
         self.messages.append(assistant_msg)
         return text_content
 
-    def chat_streamed(
-        self,
-        user_message: str,
-        generate_kwargs: Optional[dict[str, Any]] = None,
-        use_tools: bool = True,
-    ) -> Iterator[StreamChunk]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
-        generate_kwargs = self._thinking_kwargs(generate_kwargs)
-
+    def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
         system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
 
@@ -367,7 +370,7 @@ class AnthropicClient(ModelClient):
                         tool_use_acc[-1]["input_json"] += delta.partial_json
 
         if not tool_use_acc:
-            # No tool calls — yield buffered chunks and store assistant message
+            # No tool calls; yield buffered chunks and store assistant message
             full_content = ""
             for sc in first_pass_chunks:
                 if sc.phase == StreamingContentType.GENERATING:

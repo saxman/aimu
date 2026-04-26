@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.base import Agent, AgentChunk, MessageHistory
-from aimu.models.base import ModelClient
+from aimu.models.base import BaseModelClient
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ DEFAULT_CONTINUATION_PROMPT = "Continue working on the task using available tool
 @dataclass
 class SimpleAgent(Agent):
     """
-    Wraps a ModelClient with an agentic loop.
+    Wraps a BaseModelClient with an agentic loop.
 
     On each iteration, the agent calls model_client.chat(). If the model invoked
     tools during that turn, the agent sends continuation_prompt and loops again.
@@ -42,7 +42,7 @@ class SimpleAgent(Agent):
         )
     """
 
-    model_client: ModelClient
+    model_client: BaseModelClient
     name: str = "agent"
     max_iterations: int = 10
     continuation_prompt: str = field(default=DEFAULT_CONTINUATION_PROMPT)
@@ -57,35 +57,37 @@ class SimpleAgent(Agent):
         if self.system_message is not None:
             self.model_client.system_message = self.system_message
 
-    def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        """Run the agentic loop synchronously and return the final response."""
+    def run(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+    ) -> Union[str, Iterator[AgentChunk]]:
+        """Run the agentic loop. Returns a string when stream=False, or an AgentChunk iterator when stream=True."""
+        if stream:
+            return self._run_streamed(task, generate_kwargs)
         self._prepare_run()
         response = self.model_client.chat(task, generate_kwargs=generate_kwargs)
 
         for _ in range(self.max_iterations - 1):
             if not self._last_turn_called_tools():
                 break
-            logger.debug("Agent '%s' continuing — tools were used in last turn.", self.name)
+            logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
             response = self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs)
 
         self._last_messages = list(self.model_client.messages)
         return response
 
-    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
-        """
-        Stream the agentic loop, yielding AgentChunk for every StreamChunk produced
-        across all iterations. AgentChunk.iteration indicates which loop round a
-        chunk belongs to.
-        """
+    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
         self._prepare_run()
         iteration = 0
-        for chunk in self.model_client.chat_streamed(task, generate_kwargs=generate_kwargs):
+        for chunk in self.model_client.chat(task, generate_kwargs=generate_kwargs, stream=True):
             yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
 
         iteration += 1
         while self._last_turn_called_tools() and iteration < self.max_iterations:
             logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-            for chunk in self.model_client.chat_streamed(self.continuation_prompt, generate_kwargs=generate_kwargs):
+            for chunk in self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True):
                 yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
             iteration += 1
 
@@ -110,15 +112,15 @@ class SimpleAgent(Agent):
         return False
 
     @classmethod
-    def from_config(cls, config: dict[str, Any], model_client: ModelClient) -> SimpleAgent:
+    def from_config(cls, config: dict[str, Any], model_client: BaseModelClient) -> SimpleAgent:
         """
         Create a SimpleAgent from a plain dict config.
 
         Recognised keys:
-            name (str)              — agent identifier
-            system_message (str)    — applied to model_client.system_message at construction
+            name (str):              agent identifier
+            system_message (str):    applied to model_client.system_message at construction
                                       and stored for re-application before each run
-            max_iterations (int)    — max tool-call rounds (default 10)
+            max_iterations (int):    max tool-call rounds (default 10)
             continuation_prompt (str)
         """
         sm = config.get("system_message")

@@ -1,5 +1,5 @@
 """
-Tests for aimu.agents.Chain — the sequential chaining workflow pattern.
+Tests for aimu.agents.Chain: the sequential chaining workflow pattern.
 
 All tests use MockModelClient from conftest (deterministic, no backend needed).
 """

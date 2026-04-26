@@ -1,5 +1,5 @@
 """
-Tests for aimu.agents — SimpleAgent, Chain, and AgenticModelClient.
+Tests for aimu.agents: SimpleAgent, Chain, and AgenticModelClient.
 
 Unit tests use MockModelClient from conftest (deterministic, no backend needed).
 The model_client fixture is available for integration tests:
@@ -13,7 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from aimu.agents import Agent, Chain, AgentChunk, AgenticModelClient, Runner, SimpleAgent, Workflow
-from aimu.models import ModelClient
+from aimu.models import BaseModelClient
 from aimu.models.base import StreamChunk, StreamingContentType
 from conftest import MockModelClient, create_real_model_client, resolve_model_params
 
@@ -28,7 +28,7 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="session")
-def model_client(request) -> Iterable[ModelClient]:
+def model_client(request) -> Iterable[BaseModelClient]:
     if request.param == _MOCK:
         yield MockModelClient(["Hello, I am ready to help."])
         return
@@ -78,7 +78,7 @@ def test_agent_two_tool_rounds():
 
 def test_agent_max_iterations_stops_loop():
     """SimpleAgent stops after max_iterations even if tools keep being called."""
-    # All responses are tool calls — would loop forever without a limit
+    # All responses are tool calls; would loop forever without a limit
     client = MockModelClient(["tool", "still going"] * 10)
     agent = SimpleAgent(client, name="test", max_iterations=3)
     agent.run("never-ending task")
@@ -164,16 +164,16 @@ def test_agentic_client_chat_no_tools_single_call():
 
 
 def test_agentic_client_chat_streamed_yields_stream_chunks():
-    """chat_streamed() yields StreamChunk, not AgentChunk."""
+    """chat(..., stream=True) yields StreamChunk, not AgentChunk."""
     client = MockModelClient(["stream result"])
     ac = AgenticModelClient(SimpleAgent(client))
-    chunks = list(ac.chat_streamed("task"))
+    chunks = list(ac.chat("task", stream=True))
     assert all(isinstance(c, StreamChunk) for c in chunks)
     assert not any(isinstance(c, AgentChunk) for c in chunks)
 
 
 def test_agentic_client_messages_delegated():
-    """messages property delegates to inner_client — both refer to the same list."""
+    """messages property delegates to inner_client; both refer to the same list."""
     client = MockModelClient(["reply"])
     ac = AgenticModelClient(SimpleAgent(client))
     ac.chat("hi")

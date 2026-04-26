@@ -28,7 +28,7 @@ def mcp_store(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# DocumentStore — rich path-based API
+# DocumentStore: rich path-based API
 # ---------------------------------------------------------------------------
 
 

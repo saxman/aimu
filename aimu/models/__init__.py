@@ -1,5 +1,6 @@
 # Always available
-from .base import ModelClient, StreamingContentType, StreamChunk, StreamPhase
+from .base import BaseModelClient, StreamingContentType, StreamChunk, StreamPhase
+from .model_client import ModelClient
 
 # Optional imports with graceful fallbacks
 try:
@@ -34,12 +35,12 @@ try:
         OpenAIModel,
         GeminiClient,
         GeminiModel,
-        LMStudioOpenAIClient,
-        OllamaOpenAIClient,
-        HFOpenAIClient,
-        VLLMOpenAIClient,
-        LlamaServerOpenAIClient,
-        SGLangOpenAIClient,
+        LMStudioOpenAIModel,
+        OllamaOpenAIModel,
+        HFOpenAIModel,
+        VLLMOpenAIModel,
+        LlamaServerOpenAIModel,
+        SGLangOpenAIModel,
     )
 
     HAS_OPENAI_COMPAT = True
@@ -50,12 +51,12 @@ except ImportError:
     OpenAIModel = None
     GeminiClient = None
     GeminiModel = None
-    LMStudioOpenAIClient = None
-    OllamaOpenAIClient = None
-    HFOpenAIClient = None
-    VLLMOpenAIClient = None
-    LlamaServerOpenAIClient = None
-    SGLangOpenAIClient = None
+    LMStudioOpenAIModel = None
+    OllamaOpenAIModel = None
+    HFOpenAIModel = None
+    VLLMOpenAIModel = None
+    LlamaServerOpenAIModel = None
+    SGLangOpenAIModel = None
 
 try:
     from .llamacpp import LlamaCppClient
@@ -66,7 +67,7 @@ except ImportError:
     LlamaCppClient = None
 
 # Expose what's available
-__all__ = ["ModelClient", "StreamingContentType", "StreamChunk", "StreamPhase"]
+__all__ = ["BaseModelClient", "ModelClient", "StreamingContentType", "StreamChunk", "StreamPhase"]
 if HAS_HF:
     __all__.append("HuggingFaceClient")
 if HAS_OLLAMA:
@@ -81,12 +82,12 @@ if HAS_OPENAI_COMPAT:
             "OpenAIModel",
             "GeminiClient",
             "GeminiModel",
-            "LMStudioOpenAIClient",
-            "OllamaOpenAIClient",
-            "HFOpenAIClient",
-            "VLLMOpenAIClient",
-            "LlamaServerOpenAIClient",
-            "SGLangOpenAIClient",
+            "LMStudioOpenAIModel",
+            "OllamaOpenAIModel",
+            "HFOpenAIModel",
+            "VLLMOpenAIModel",
+            "LlamaServerOpenAIModel",
+            "SGLangOpenAIModel",
         ]
     )
 if HAS_LLAMACPP:

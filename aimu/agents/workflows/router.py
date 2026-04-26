@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.base import Workflow, Runner, AgentChunk, MessageHistory
 from aimu.agents.simple_agent import SimpleAgent
-from aimu.models.base import StreamingContentType, ModelClient
+from aimu.models.base import StreamingContentType, BaseModelClient
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class Router(Workflow):
     its response. The Router dispatches to the matching handler. Route names are
     compared case-insensitively after stripping whitespace.
 
-    Handlers may be any Runner subclass — agents or nested workflows — so a
+    Handlers may be any Runner subclass (agents or nested workflows), so a
     Router can dispatch to another Router, a Parallel, or a SimpleAgent.
 
     Usage::
@@ -52,8 +52,15 @@ class Router(Workflow):
         route = self.routing_agent.run(task, generate_kwargs=generate_kwargs)
         return route.strip().lower()
 
-    def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        """Classify the task and dispatch to the matched handler."""
+    def run(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+    ) -> Union[str, Iterator[AgentChunk]]:
+        """Classify the task and dispatch to the matched handler. Returns str or AgentChunk iterator."""
+        if stream:
+            return self._run_streamed(task, generate_kwargs)
         route = self._classify(task, generate_kwargs)
         handler = self.handlers.get(route, self.fallback)
         if handler is None:
@@ -61,13 +68,9 @@ class Router(Workflow):
         logger.debug("Router '%s' dispatching to '%s'.", self.name, route)
         return handler.run(task, generate_kwargs=generate_kwargs)
 
-    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
-        """
-        Stream execution. Classifier chunks are yielded first, then the selected
-        handler's chunks follow.
-        """
+    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
         route_parts: list[str] = []
-        for chunk in self.routing_agent.run_streamed(task, generate_kwargs=generate_kwargs):
+        for chunk in self.routing_agent.run(task, generate_kwargs=generate_kwargs, stream=True):
             yield chunk
             if chunk.phase == StreamingContentType.GENERATING:
                 route_parts.append(chunk.content)
@@ -76,7 +79,7 @@ class Router(Workflow):
         if handler is None:
             raise ValueError(f"No handler for route '{route}' and no fallback set.")
         logger.debug("Router '%s' dispatching to '%s'.", self.name, route)
-        yield from handler.run_streamed(task, generate_kwargs=generate_kwargs)
+        yield from handler.run(task, generate_kwargs=generate_kwargs, stream=True)
 
     @property
     def messages(self) -> MessageHistory:
@@ -93,16 +96,16 @@ class Router(Workflow):
         cls,
         routing_config: dict[str, Any],
         handler_configs: dict[str, dict[str, Any]],
-        client: ModelClient,
+        client: BaseModelClient,
         fallback_config: Optional[dict[str, Any]] = None,
     ) -> Router:
         """
-        Build a Router from config dicts and a single ModelClient.
+        Build a Router from config dicts and a single BaseModelClient.
 
         Args:
             routing_config: Config dict for the routing SimpleAgent (name, system_message, etc.)
             handler_configs: Mapping of route name → SimpleAgent config dict
-            client: Shared ModelClient for all agents
+            client: Shared BaseModelClient for all agents
             fallback_config: Optional config dict for the fallback SimpleAgent
         """
         routing_agent = SimpleAgent.from_config(routing_config, client)

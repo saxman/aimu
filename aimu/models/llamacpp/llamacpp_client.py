@@ -1,8 +1,8 @@
 import json
 import logging
-from typing import Iterator, Optional, Any
+from typing import Iterator, Optional, Any, Union
 
-from ..base import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
 from .._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class LlamaCppModel(Model):
     PHI_4_MINI = ("phi-4-mini", True)
 
 
-class LlamaCppClient(ModelClient):
+class LlamaCppClient(BaseModelClient):
     MODELS = LlamaCppModel
 
     DEFAULT_GENERATE_KWARGS = {
@@ -88,8 +88,17 @@ class LlamaCppClient(ModelClient):
             else:
                 yield StreamChunk(StreamingContentType.GENERATING, text)
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+    def generate(
+        self,
+        prompt: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+        include_thinking: bool = True,
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
+        if stream:
+            return self._generate_streamed(prompt, generate_kwargs, include_thinking)
 
         response = self._llm.create_chat_completion(
             messages=[{"role": "user", "content": prompt}],
@@ -104,14 +113,12 @@ class LlamaCppClient(ModelClient):
 
         return content
 
-    def generate_streamed(
+    def _generate_streamed(
         self,
         prompt: str,
-        generate_kwargs: Optional[dict[str, Any]] = None,
-        include_thinking: bool = True,
+        generate_kwargs: dict[str, Any],
+        include_thinking: bool,
     ) -> Iterator[StreamChunk]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
-
         stream = self._llm.create_chat_completion(
             messages=[{"role": "user", "content": prompt}],
             stream=True,
@@ -119,8 +126,17 @@ class LlamaCppClient(ModelClient):
         )
         yield from self._iter_stream(stream, include_thinking)
 
-    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
+    def chat(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        use_tools: bool = True,
+        stream: bool = False,
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+
+        if stream:
+            return self._chat_streamed(generate_kwargs, tools)
 
         response = self._llm.create_chat_completion(
             messages=self.messages,
@@ -153,11 +169,7 @@ class LlamaCppClient(ModelClient):
         self.messages.append({"role": "assistant", "content": content})
         return content
 
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
-
+    def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
         stream = self._llm.create_chat_completion(
             messages=self.messages,
             stream=True,

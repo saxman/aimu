@@ -1,8 +1,8 @@
-from ..base import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
 
 import ollama
 import logging
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class OllamaModel(Model):
     NEMOTRON_3_NANO_30B = ("nemotron-3-nano:30b", True, True)
 
 
-class OllamaClient(ModelClient):
+class OllamaClient(BaseModelClient):
     MODELS = OllamaModel
 
     def __init__(self, model: OllamaModel, system_message: Optional[str] = None, model_keep_alive_seconds: int = 60):
@@ -61,8 +61,17 @@ class OllamaClient(ModelClient):
 
         return generate_kwargs
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict] = None) -> str:
+    def generate(
+        self,
+        prompt: str,
+        generate_kwargs: Optional[dict] = None,
+        stream: bool = False,
+        include_thinking: bool = True,
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
+        if stream:
+            return self._generate_streamed(prompt, generate_kwargs, include_thinking)
 
         response = ollama.generate(
             model=self.model.value,
@@ -83,14 +92,12 @@ class OllamaClient(ModelClient):
 
         return response.response
 
-    def generate_streamed(
+    def _generate_streamed(
         self,
         prompt: str,
-        generate_kwargs: Optional[dict] = None,
-        include_thinking: bool = True,
+        generate_kwargs: dict,
+        include_thinking: bool,
     ) -> Iterator[StreamChunk]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
-
         response = ollama.generate(
             model=self.model.value,
             prompt=prompt,
@@ -114,8 +121,17 @@ class OllamaClient(ModelClient):
 
             yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
 
-    def chat(self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: bool = True) -> str:
+    def chat(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict] = None,
+        use_tools: bool = True,
+        stream: bool = False,
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+
+        if stream:
+            return self._chat_streamed(generate_kwargs, tools)
 
         response = ollama.chat(
             model=self.model.value,
@@ -161,11 +177,7 @@ class OllamaClient(ModelClient):
 
         return response["message"].content
 
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
-
+    def _chat_streamed(self, generate_kwargs: dict, tools: list) -> Iterator[StreamChunk]:
         response = ollama.chat(
             model=self.model.value,
             messages=self.messages,

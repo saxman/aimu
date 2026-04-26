@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.base import Workflow, AgentChunk, MessageHistory
 from aimu.agents.simple_agent import SimpleAgent
@@ -54,8 +54,15 @@ class EvaluatorOptimizer(Workflow):
         result.update(self.evaluator.messages)
         return result
 
-    def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        """Run the generate-evaluate loop and return the best output."""
+    def run(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+    ) -> Union[str, Iterator[AgentChunk]]:
+        """Run the generate-evaluate loop. stream=True yields the final output as a single GENERATING chunk."""
+        if stream:
+            return self._run_streamed(task, generate_kwargs)
         output = self.generator.run(task, generate_kwargs=generate_kwargs)
         for round_num in range(self.max_rounds - 1):
             eval_input = f"Task: {task}\n\nResponse:\n{output}"
@@ -68,11 +75,6 @@ class EvaluatorOptimizer(Workflow):
             output = self.generator.run(revision_prompt, generate_kwargs=generate_kwargs)
         return output
 
-    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
-        """
-        Run all rounds to completion, then yield the final output as a single
-        GENERATING chunk. Internal round outputs are not streamed to avoid
-        presenting intermediate (not-yet-accepted) responses to the caller.
-        """
+    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
         output = self.run(task, generate_kwargs=generate_kwargs)
         yield AgentChunk(self.name, 0, StreamingContentType.GENERATING, output)

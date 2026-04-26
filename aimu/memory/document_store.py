@@ -1,5 +1,5 @@
 """
-aimu.memory.document_store — Path-based document memory store.
+aimu.memory.document_store: Path-based document memory store.
 
 Follows Anthropic's Managed Agents Memory API pattern: documents are
 addressed by path (e.g. "/preferences.md"), stored as plain text, and
