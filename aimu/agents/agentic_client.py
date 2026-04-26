@@ -87,9 +87,7 @@ class AgenticModelClient(BaseModelClient):
             return self._stream_agent(user_message, generate_kwargs)
         return self._agent.run(user_message, generate_kwargs=generate_kwargs)
 
-    def _stream_agent(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]]
-    ) -> Iterator[StreamChunk]:
+    def _stream_agent(self, user_message: str, generate_kwargs: Optional[dict[str, Any]]) -> Iterator[StreamChunk]:
         for chunk in self._agent.run(user_message, generate_kwargs=generate_kwargs, stream=True):
             yield StreamChunk(chunk.phase, chunk.content)
 
