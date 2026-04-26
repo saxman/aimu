@@ -92,7 +92,7 @@ python web/gradio_chatbot.py
 
 The codebase uses an abstract base class pattern for model clients:
 
-- **[aimu/models/base_client.py](aimu/models/base_client.py)**: Defines `ModelClient` abstract base class with:
+- **[aimu/models/base.py](aimu/models/base.py)**: Defines `BaseModelClient` abstract base class with:
   - `generate(prompt, generate_kwargs, stream=False, include_thinking=True)`: Single-turn text generation; returns `str` or `Iterator[StreamChunk]`
   - `chat(user_message, generate_kwargs, use_tools=True, stream=False)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`
   - `_chat_setup()`: Prepares messages and tools before a chat call
@@ -103,9 +103,16 @@ The codebase uses an abstract base class pattern for model clients:
   - Message history stored in `self.messages` (OpenAI-style format)
   - Optional `mcp_client` attribute for MCP tool integration
 
-- **Supporting types in base_client.py**:
+- **Supporting types in base.py**:
   - `ContentType(str, Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE; string values (`"thinking"`, etc.)
   - `Model(Enum)`: Base enum class; each value carries `supports_tools` and `supports_thinking` boolean attributes
+
+- **[aimu/models/model_client.py](aimu/models/model_client.py)**: `ModelClient(BaseModelClient)` factory/wrapper class:
+  - Single entry point: pass any provider model enum and receive a fully configured client
+  - Detects provider from the model enum type and instantiates the corresponding concrete client
+  - Delegates all `BaseModelClient` methods and properties to the inner client
+  - Provider-specific kwargs (e.g. `model_path`, `base_url`, `model_keep_alive_seconds`) are passed through to the concrete constructor
+  - Usage: `ModelClient(OllamaModel.QWEN_3_8B)`, `ModelClient(LlamaCppModel.QWEN_3_8B, model_path="/path/to/model.gguf")`
 
 - **Model Implementations**:
   - [aimu/models/ollama/ollama_client.py](aimu/models/ollama/ollama_client.py): `OllamaClient` for local Ollama models (native API)
@@ -131,7 +138,7 @@ The codebase uses an abstract base class pattern for model clients:
   - `TOOL_MODELS`: Derived list of models where `supports_tools=True`
   - `THINKING_MODELS`: Derived list of models where `supports_thinking=True`
 
-- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK.
+- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK. `model_client.py` performs the same guarded imports independently to avoid a circular import with `__init__.py`.
 
 ### MCP Tools Integration
 
@@ -239,8 +246,8 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `_prepare_run()` resets the `_skills_setup_done` flag when messages are cleared, so skills are re-injected on each fresh run
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`); omit `skill_dirs` to auto-discover
 
-- **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(ModelClient)`: drop-in agentic wrapper
-  - Wraps a `SimpleAgent` (or `SkillAgent`, which inherits from it) and exposes the standard `ModelClient` interface; raises `TypeError` for any other type
+- **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(BaseModelClient)`: drop-in agentic wrapper
+  - Wraps a `SimpleAgent` (or `SkillAgent`, which inherits from it) and exposes the standard `BaseModelClient` interface; raises `TypeError` for any other type
   - `chat(stream=False)` runs the full SimpleAgent loop (multi-turn until tools stop); `chat(stream=True)` adapts `AgentChunk` → `StreamChunk`
   - `generate(stream=False)` passes through to the inner client unchanged (no loop)
   - `messages`, `mcp_client`, `system_message`, `last_thinking` delegate to `SimpleAgent.model_client`
@@ -327,7 +334,7 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 
 ### Key Design Patterns
 
-1. **Abstract Base Class**: All model clients inherit from `ModelClient` and implement abstract methods
+1. **Abstract Base Class**: All model clients inherit from `BaseModelClient` and implement abstract methods. `ModelClient` is a factory/wrapper that also extends `BaseModelClient` and delegates to a concrete provider client selected by model enum type.
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed
 3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format
 4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers
@@ -398,7 +405,8 @@ Models with `supports_thinking=True` support extended reasoning:
 ```
 aimu/
 ├── models/              # Model client implementations
-│   ├── base_client.py   # Abstract base class (ModelClient, StreamChunk, StreamPhase, Model)
+│   ├── base.py          # Abstract base class (BaseModelClient, StreamChunk, StreamPhase, Model)
+│   ├── model_client.py  # ModelClient factory/wrapper (dispatches by model enum type)
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
 │   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallFormat)

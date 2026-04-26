@@ -54,7 +54,7 @@ class classproperty:
         return self.func(cls)
 
 
-class ModelClient(ABC):
+class BaseModelClient(ABC):
     MODELS = Model
 
     model: Model
@@ -76,7 +76,7 @@ class ModelClient(ABC):
         self.last_thinking = ""
 
     def __deepcopy__(self, memo):
-        # ModelClient manages stateful conversation history and non-copyable backend resources.
+        # BaseModelClient manages stateful conversation history and non-copyable backend resources.
         memo[id(self)] = self
         return self
 

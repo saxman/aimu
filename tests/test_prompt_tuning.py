@@ -14,7 +14,7 @@ from typing import Iterable
 import pandas as pd
 import pytest
 
-from aimu.models import ModelClient
+from aimu.models import BaseModelClient
 from aimu.prompts import ClassificationPromptTuner, ExtractionPromptTuner, JudgedPromptTuner, MultiClassPromptTuner
 from conftest import create_real_model_client, resolve_model_params
 
@@ -84,7 +84,7 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="session")
-def model_client(request) -> Iterable[ModelClient]:
+def model_client(request) -> Iterable[BaseModelClient]:
     if request.param == _MOCK:
         yield _MockClassifyClient()
         return

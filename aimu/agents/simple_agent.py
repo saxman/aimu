@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterator, Optional
 
 from aimu.agents.base import Agent, AgentChunk, MessageHistory
-from aimu.models.base import ModelClient
+from aimu.models.base import BaseModelClient
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ DEFAULT_CONTINUATION_PROMPT = "Continue working on the task using available tool
 @dataclass
 class SimpleAgent(Agent):
     """
-    Wraps a ModelClient with an agentic loop.
+    Wraps a BaseModelClient with an agentic loop.
 
     On each iteration, the agent calls model_client.chat(). If the model invoked
     tools during that turn, the agent sends continuation_prompt and loops again.
@@ -42,7 +42,7 @@ class SimpleAgent(Agent):
         )
     """
 
-    model_client: ModelClient
+    model_client: BaseModelClient
     name: str = "agent"
     max_iterations: int = 10
     continuation_prompt: str = field(default=DEFAULT_CONTINUATION_PROMPT)
@@ -110,7 +110,7 @@ class SimpleAgent(Agent):
         return False
 
     @classmethod
-    def from_config(cls, config: dict[str, Any], model_client: ModelClient) -> SimpleAgent:
+    def from_config(cls, config: dict[str, Any], model_client: BaseModelClient) -> SimpleAgent:
         """
         Create a SimpleAgent from a plain dict config.
 

@@ -1,4 +1,4 @@
-from ..base import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
 
 import torch
 from transformers import AutoTokenizer
@@ -176,7 +176,7 @@ class HuggingFaceModel(Model):
     SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True, ToolCallFormat.XML, {"temperature": 0.6, "top_p": 0.95})
 
 
-class HuggingFaceClient(ModelClient):
+class HuggingFaceClient(BaseModelClient):
     MODELS = HuggingFaceModel
 
     DEFAULT_MODEL_KWARGS = {

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional
 
 from aimu.agents.base import Workflow, Runner, AgentChunk, MessageHistory
-from aimu.models.base import StreamingContentType, ModelClient
+from aimu.models.base import StreamingContentType, BaseModelClient
 
 logger = logging.getLogger(__name__)
 

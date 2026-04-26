@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Iterator, Optional, Any, Union
 
-from ..base import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
 from .._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class LlamaCppModel(Model):
     PHI_4_MINI = ("phi-4-mini", True)
 
 
-class LlamaCppClient(ModelClient):
+class LlamaCppClient(BaseModelClient):
     MODELS = LlamaCppModel
 
     DEFAULT_GENERATE_KWARGS = {

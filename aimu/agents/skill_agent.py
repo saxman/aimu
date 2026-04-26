@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from aimu.agents.simple_agent import SimpleAgent, DEFAULT_CONTINUATION_PROMPT
-from aimu.models.base import ModelClient
+from aimu.models.base import BaseModelClient
 from aimu.skills.manager import SkillManager
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ class SkillAgent(SimpleAgent):
         self.model_client.mcp_client = self._skills_mcp_client
 
     @classmethod
-    def from_config(cls, config: dict[str, Any], model_client: ModelClient) -> SkillAgent:
+    def from_config(cls, config: dict[str, Any], model_client: BaseModelClient) -> SkillAgent:
         """
         Create a SkillAgent from a plain dict config.
 

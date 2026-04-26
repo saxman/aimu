@@ -1,4 +1,4 @@
-from ..base import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
 
 import ollama
 import logging
@@ -32,7 +32,7 @@ class OllamaModel(Model):
     NEMOTRON_3_NANO_30B = ("nemotron-3-nano:30b", True, True)
 
 
-class OllamaClient(ModelClient):
+class OllamaClient(BaseModelClient):
     MODELS = OllamaModel
 
     def __init__(self, model: OllamaModel, system_message: Optional[str] = None, model_keep_alive_seconds: int = 60):

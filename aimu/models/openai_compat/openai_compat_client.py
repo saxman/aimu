@@ -4,13 +4,13 @@ from typing import Iterator, Optional, Any, Union
 
 import openai
 
-from ..base import StreamingContentType, StreamChunk, Model, ModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
 from .._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
 
 
-class OpenAICompatClient(ModelClient):
+class OpenAICompatClient(BaseModelClient):
     MODELS = Model
 
     DEFAULT_GENERATE_KWARGS = {

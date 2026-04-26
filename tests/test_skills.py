@@ -4,7 +4,7 @@ Tests for aimu.skills: Skill, SkillManager, and Agent skill integration.
 All filesystem tests use tmp_path so no real ~/.agents/skills paths are touched.
 Unit tests use MagicMock inline. The model_client fixture is available for
 integration tests:
-  - Default (no --client): MockModelClient
+  - Default (no --client): MockBaseModelClient
   - pytest tests/test_skills.py --client=ollama --model=LLAMA_3_2_3B
 """
 
@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aimu.models import ModelClient
+from aimu.models import BaseModelClient
 from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.skills.manager import SkillManager
 from aimu.skills.skill import Skill
@@ -23,8 +23,8 @@ from conftest import create_real_model_client, resolve_model_params
 _MOCK = "mock"
 
 
-class _MockModelClient(ModelClient):
-    """Minimal ModelClient stub for skill integration tests."""
+class _MockBaseModelClient(BaseModelClient):
+    """Minimal BaseModelClient stub for skill integration tests."""
 
     def __init__(self):
         self.model = MagicMock()
@@ -69,9 +69,9 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="session")
-def model_client(request) -> Iterable[ModelClient]:
+def model_client(request) -> Iterable[BaseModelClient]:
     if request.param == _MOCK:
-        yield _MockModelClient()
+        yield _MockBaseModelClient()
         return
     yield from create_real_model_client(request)
 

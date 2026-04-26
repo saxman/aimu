@@ -15,12 +15,9 @@ Usage:
 import pytest
 from typing import Iterable
 from fastmcp import FastMCP
-import time
 
 from conftest import create_real_model_client, resolve_model_params
-from aimu.models import ModelClient, StreamingContentType, StreamChunk
-from aimu.models import OpenAICompatClient, LMStudioOpenAIClient, OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient
-from aimu.models import LlamaCppClient, HuggingFaceClient
+from aimu.models import BaseModelClient, StreamingContentType, StreamChunk
 from aimu.tools.client import MCPClient
 
 
@@ -33,15 +30,15 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="session")
-def model_client(request) -> Iterable[ModelClient]:
+def model_client(request) -> Iterable[BaseModelClient]:
     yield from create_real_model_client(request)
 
 
 def test_class_properties(model_client):
-    """Test that the model client is a subclass of ModelClient."""
+    """Test that the model client is a subclass of BaseModelClient."""
 
-    assert issubclass(model_client.__class__, ModelClient)
-    assert isinstance(model_client, ModelClient)
+    assert issubclass(model_client.__class__, BaseModelClient)
+    assert isinstance(model_client, BaseModelClient)
 
     assert model_client.default_generate_kwargs is not None
 

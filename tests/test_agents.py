@@ -13,7 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from aimu.agents import Agent, Chain, AgentChunk, AgenticModelClient, Runner, SimpleAgent, Workflow
-from aimu.models import ModelClient
+from aimu.models import BaseModelClient
 from aimu.models.base import StreamChunk, StreamingContentType
 from conftest import MockModelClient, create_real_model_client, resolve_model_params
 
@@ -28,7 +28,7 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="session")
-def model_client(request) -> Iterable[ModelClient]:
+def model_client(request) -> Iterable[BaseModelClient]:
     if request.param == _MOCK:
         yield MockModelClient(["Hello, I am ready to help."])
         return

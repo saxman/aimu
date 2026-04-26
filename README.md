@@ -41,7 +41,7 @@ A Python package containing easy to use tools for working with various language 
 
 -   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. All share a `Runner` base class with `run()` / `run_streamed()`.
 
-    -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard `ModelClient` interface, making agentic and single-turn clients interchangeable.
+    -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard `BaseModelClient` interface, making agentic and single-turn clients interchangeable.
     -   **Workflows**: Four code-controlled patterns: `Chain` (prompt chaining), `Router` (classify and dispatch), `Parallel` (concurrent workers with optional aggregation), and `EvaluatorOptimizer` (generate → evaluate → revise loop).
     -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are discovered from project and user directories (`.agents/skills/`, `.claude/skills/`).
 
@@ -137,19 +137,28 @@ pytest tests\test_models.py --client=ollama --model=GPT_OSS_20B
 
 ### Model Clients
 
-All clients share a common `ModelClient` interface. Swap any client for another without changing call sites:
+All clients implement the `BaseModelClient` abstract interface. `ModelClient` is a factory that automatically selects the right client from a model enum, so you can swap providers without changing call sites:
 
 ``` python
-from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.models import ModelClient
+from aimu.models.ollama.ollama_client import OllamaModel
 
-client = OllamaClient(OllamaModel.QWEN_3_8B)
+client = ModelClient(OllamaModel.QWEN_3_8B)  # factory: picks OllamaClient automatically
 
 response = client.generate("Summarise this text.", {"temperature": 0.7})  # stateless
 response = client.chat("What is the capital of France?")                  # multi-turn
 print(client.messages)  # full message history
 ```
 
-Cloud and local server clients follow the same pattern; only the import and model enum differ:
+You can also import the concrete client directly when you prefer explicit control:
+
+``` python
+from aimu.models.ollama import OllamaClient, OllamaModel
+
+client = OllamaClient(OllamaModel.QWEN_3_8B)
+```
+
+Cloud and local server clients follow the same pattern; only the model enum (and optional kwargs) differ:
 
 | Client | Extra | API key / notes |
 |---|---|---|
@@ -232,7 +241,8 @@ See [06 - Agents](notebooks/06%20-%20Agents.ipynb), [07 - Agent Skills](notebook
 `MCPClient` wraps a FastMCP 2.0 server and integrates with any `ModelClient` via `model_client.mcp_client`:
 
 ``` python
-from aimu.models import OllamaClient as ModelClient
+from aimu.models import ModelClient
+from aimu.models.ollama.ollama_client import OllamaModel
 from aimu.tools import MCPClient
 
 mcp_client = MCPClient({
@@ -245,7 +255,7 @@ mcp_client = MCPClient({
 mcp_client.call_tool("mytool", {"input": "hello world!"})
 
 # Or attach to a model client; tools are passed to the model automatically
-model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
+model_client = ModelClient(OllamaModel.QWEN_3_8B)
 model_client.mcp_client = mcp_client
 model_client.chat("use my tool please")
 ```
@@ -257,11 +267,12 @@ See [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb).
 **Conversation history**: `ConversationManager` persists chat message sequences across sessions:
 
 ``` python
-from aimu.models import OllamaClient as ModelClient
+from aimu.models import ModelClient
+from aimu.models.ollama.ollama_client import OllamaModel
 from aimu.history import ConversationManager
 
 manager = ConversationManager("conversations.json", use_last_conversation=True)
-model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
+model_client = ModelClient(OllamaModel.QWEN_3_8B)
 model_client.messages = manager.messages
 
 model_client.chat("What is the capital of France?")

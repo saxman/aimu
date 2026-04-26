@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Iterator, NamedTuple, Optional
 
 from aimu.agents.base import Workflow, AgentChunk, MessageHistory
-from aimu.models.base import StreamingContentType, ModelClient
+from aimu.models.base import StreamingContentType, BaseModelClient
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class Chain(Workflow):
     can itself run a multi-iteration agentic loop with tool access.
 
     The simplest way to build a Chain is ``from_config``: pass a list of config
-    dicts and a single ModelClient. Each step is a SimpleAgent with
+    dicts and a single BaseModelClient. Each step is a SimpleAgent with
     ``reset_messages_on_run=True``, so the client's messages are cleared and
     ``system_message`` applied before every step, giving each step a clean slate
     even though they share one client.
@@ -94,10 +94,10 @@ class Chain(Workflow):
     def from_config(
         cls,
         configs: list[dict[str, Any]],
-        client: ModelClient,
+        client: BaseModelClient,
     ) -> Chain:
         """
-        Build a Chain from a list of agent config dicts and a single ModelClient.
+        Build a Chain from a list of agent config dicts and a single BaseModelClient.
 
         The client is shared across all steps. Each step's SimpleAgent has
         ``reset_messages_on_run=True`` so it clears the client's messages and

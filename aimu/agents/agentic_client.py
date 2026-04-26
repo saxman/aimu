@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.simple_agent import SimpleAgent
-from aimu.models.base import ModelClient, StreamChunk
+from aimu.models.base import BaseModelClient, StreamChunk
 
 
-class AgenticModelClient(ModelClient):
+class AgenticModelClient(BaseModelClient):
     """
     A ModelClient whose chat() runs the full SimpleAgent agentic loop, looping
     until the model stops calling tools, rather than a single model turn.

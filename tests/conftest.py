@@ -12,14 +12,10 @@ from aimu.models import (
     HAS_ANTHROPIC,
     HAS_LLAMACPP,
     HAS_OPENAI_COMPAT,
-    HFOpenAIClient,
     HuggingFaceClient,
-    LMStudioOpenAIClient,
     LlamaCppClient,
-    ModelClient,
+    BaseModelClient,
     OllamaClient,
-    OllamaOpenAIClient,
-    VLLMOpenAIClient,
 )
 from aimu.models.base import StreamChunk, StreamingContentType
 
@@ -31,6 +27,15 @@ if HAS_ANTHROPIC:
 
 if HAS_OPENAI_COMPAT:
     from aimu.models import OpenAIClient, GeminiClient
+    from aimu.models.openai_compat.lmstudio_openai_client import LMStudioOpenAIClient
+    from aimu.models.openai_compat.ollama_openai_client import OllamaOpenAIClient
+    from aimu.models.openai_compat.hf_openai_client import HFOpenAIClient
+    from aimu.models.openai_compat.vllm_openai_client import VLLMOpenAIClient
+else:
+    LMStudioOpenAIClient = None
+    OllamaOpenAIClient = None
+    HFOpenAIClient = None
+    VLLMOpenAIClient = None
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +43,7 @@ if HAS_OPENAI_COMPAT:
 # ---------------------------------------------------------------------------
 
 
-class MockModelClient(ModelClient):
+class MockModelClient(BaseModelClient):
     """
     A ModelClient stub whose chat() responses are controlled via a response queue.
     Each entry in `responses` is either:
@@ -233,7 +238,7 @@ def resolve_model_params(config, default_params=None) -> list:
     return [client.MODELS[model]]
 
 
-def create_real_model_client(request) -> Iterator[ModelClient]:
+def create_real_model_client(request) -> Iterator[BaseModelClient]:
     """
     Dispatch request.param (a model enum value) to the correct client class,
     yield the constructed client, then delete it.

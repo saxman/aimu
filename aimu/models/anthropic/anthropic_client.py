@@ -7,7 +7,7 @@ from typing import Any, Iterator, Optional, Union
 import anthropic
 from dotenv import load_dotenv
 
-from ..base import ModelClient, Model, StreamingContentType, StreamChunk, classproperty
+from ..base import BaseModelClient, Model, StreamingContentType, StreamChunk, classproperty
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class AnthropicModel(Model):
     CLAUDE_HAIKU_4_5 = ("claude-haiku-4-5", True, False)
 
 
-class AnthropicClient(ModelClient):
+class AnthropicClient(BaseModelClient):
     """Client for Anthropic Claude models using the native anthropic SDK.
 
     Reads ANTHROPIC_API_KEY from the environment (or a .env file).
