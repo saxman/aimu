@@ -1,4 +1,6 @@
 from aimu import paths
+from aimu.agents.agentic_client import AgenticModelClient
+from aimu.agents.simple_agent import SimpleAgent
 from aimu.models import HuggingFaceClient, OllamaClient, StreamPhase
 from aimu.tools.client import MCPClient
 from aimu.history import ConversationManager
@@ -27,6 +29,11 @@ SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 def _set_slider_defaults(model):
     for key, default in SLIDER_DEFAULTS.items():
         st.session_state[f"slider_{key}"] = model.generation_kwargs.get(key, default)
+
+
+def _wrap_agent(base_client, max_iterations):
+    agent = SimpleAgent(base_client, max_iterations=max_iterations)
+    return AgenticModelClient(agent)
 
 
 def stream_chat_response(streamed_response):
@@ -64,10 +71,14 @@ MCP_SERVERS = {
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
     st.session_state.model = MODEL_CLIENTS[0].TOOL_MODELS[0]
-    st.session_state.model_client = MODEL_CLIENTS[0](st.session_state.model, system_message=SYSTEM_MESSAGE)
-
     st.session_state.mcp_client = MCPClient(MCP_SERVERS)
-    st.session_state.model_client.mcp_client = st.session_state.mcp_client
+    st.session_state.agentic_mode = False
+    st.session_state.max_iterations = 10
+
+    base_client = MODEL_CLIENTS[0](st.session_state.model, system_message=SYSTEM_MESSAGE)
+    base_client.mcp_client = st.session_state.mcp_client
+    st.session_state.base_client = base_client
+    st.session_state.model_client = base_client
 
     _set_slider_defaults(st.session_state.model)
 
@@ -81,20 +92,28 @@ with st.sidebar:
     st.title("AIMU Chatbot")
     st.write("Example AI Assistant")
 
-    model = st.selectbox("Model", options=st.session_state.model_client.TOOL_MODELS, format_func=lambda x: x.name)
+    # Model/client selectors use base_client since AgenticModelClient doesn't have TOOL_MODELS.
+    model = st.selectbox("Model", options=st.session_state.base_client.TOOL_MODELS, format_func=lambda x: x.name)
     model_client = st.selectbox("Model Client", options=MODEL_CLIENTS, format_func=lambda x: x.__name__)
+    agentic_mode = st.checkbox("Agentic mode", value=st.session_state.agentic_mode)
+    max_iterations = st.number_input(
+        "Max iterations", min_value=1, max_value=50, step=1,
+        value=st.session_state.max_iterations, disabled=not agentic_mode,
+    )
 
-    # If the model client has changed (e.g. OllamaClient to HuggingFaceClient), create a new mode client instance.
-    # Otherwise, if the model has changed, create a new instance of the model client using the new model.
     # These checks must run before the sliders are rendered so that _set_slider_defaults can update
     # session state keys that are bound to slider widgets without triggering a StreamlitAPIException.
-    if not isinstance(st.session_state.model_client, model_client):
+    # Use base_client for isinstance checks — model_client may be AgenticModelClient.
+    if not isinstance(st.session_state.base_client, model_client):
         del st.session_state.model_client
 
         st.session_state.model = model_client.TOOL_MODELS[0]
-        st.session_state.model_client = model_client(st.session_state.model, system_message=SYSTEM_MESSAGE)
-
-        st.session_state.model_client.mcp_client = st.session_state.mcp_client
+        base_client = model_client(st.session_state.model, system_message=SYSTEM_MESSAGE)
+        base_client.mcp_client = st.session_state.mcp_client
+        st.session_state.base_client = base_client
+        st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
+        st.session_state.agentic_mode = agentic_mode
+        st.session_state.max_iterations = max_iterations
 
         _set_slider_defaults(st.session_state.model)
         st.rerun()
@@ -102,11 +121,21 @@ with st.sidebar:
         del st.session_state.model_client
 
         st.session_state.model = model
-        st.session_state.model_client = model_client(st.session_state.model, system_message=SYSTEM_MESSAGE)
-
-        st.session_state.model_client.mcp_client = st.session_state.mcp_client
+        base_client = model_client(model, system_message=SYSTEM_MESSAGE)
+        base_client.mcp_client = st.session_state.mcp_client
+        st.session_state.base_client = base_client
+        st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
+        st.session_state.agentic_mode = agentic_mode
+        st.session_state.max_iterations = max_iterations
 
         _set_slider_defaults(model)
+        st.rerun()
+    elif agentic_mode != st.session_state.agentic_mode or (agentic_mode and max_iterations != st.session_state.max_iterations):
+        # Rewrap (or unwrap) without rebuilding the base client, preserving message history.
+        base_client = st.session_state.base_client
+        st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
+        st.session_state.agentic_mode = agentic_mode
+        st.session_state.max_iterations = max_iterations
         st.rerun()
 
     temperature = st.sidebar.slider("temperature", min_value=0.01, max_value=1.0, step=0.01, key="slider_temperature")
@@ -119,7 +148,11 @@ with st.sidebar:
         # Create a new conversation that will be used as the "last" conversation when the app is reloaded.
         st.session_state.conversation_manager.create_new_conversation()
 
+        saved_agentic_mode = st.session_state.agentic_mode
+        saved_max_iterations = st.session_state.max_iterations
         st.session_state.clear()
+        st.session_state.agentic_mode = saved_agentic_mode
+        st.session_state.max_iterations = saved_max_iterations
         st.rerun()
 
 if len(st.session_state.model_client.messages) == 0:
