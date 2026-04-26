@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Iterator, Optional, Any
+from typing import Iterator, Optional, Any, Union
 
 import openai
 
@@ -64,8 +64,17 @@ class OpenAICompatClient(ModelClient):
             else:
                 yield StreamChunk(StreamingContentType.GENERATING, delta.content)
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
+    def generate(
+        self,
+        prompt: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+        include_thinking: bool = True,
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
+        if stream:
+            return self._generate_streamed(prompt, generate_kwargs, include_thinking)
 
         response = self._client.chat.completions.create(
             model=self.model.value,
@@ -81,14 +90,12 @@ class OpenAICompatClient(ModelClient):
 
         return content
 
-    def generate_streamed(
+    def _generate_streamed(
         self,
         prompt: str,
-        generate_kwargs: Optional[dict[str, Any]] = None,
-        include_thinking: bool = True,
+        generate_kwargs: dict[str, Any],
+        include_thinking: bool,
     ) -> Iterator[StreamChunk]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
-
         stream = self._client.chat.completions.create(
             model=self.model.value,
             messages=[{"role": "user", "content": prompt}],
@@ -97,8 +104,17 @@ class OpenAICompatClient(ModelClient):
         )
         yield from self._iter_stream(stream, include_thinking)
 
-    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
+    def chat(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        use_tools: bool = True,
+        stream: bool = False,
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+
+        if stream:
+            return self._chat_streamed(generate_kwargs, tools)
 
         response = self._client.chat.completions.create(
             model=self.model.value,
@@ -132,11 +148,7 @@ class OpenAICompatClient(ModelClient):
         self.messages.append({"role": "assistant", "content": content})
         return content
 
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
-
+    def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
         stream = self._client.chat.completions.create(
             model=self.model.value,
             messages=self.messages,

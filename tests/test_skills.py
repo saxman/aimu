@@ -37,20 +37,24 @@ class _MockModelClient(ModelClient):
         self.mcp_client = None
         self.last_thinking = ""
 
-    def chat(self, user_message, generate_kwargs=None, use_tools=True):
+    def chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False):
+        if stream:
+            return self._chat_streamed(user_message)
         self.messages.append({"role": "user", "content": user_message})
         response = "I can help with that."
         self.messages.append({"role": "assistant", "content": response})
         return response
 
-    def chat_streamed(self, user_message, generate_kwargs=None, use_tools=True):
+    def _chat_streamed(self, user_message):
         response = self.chat(user_message)
         yield StreamChunk(StreamingContentType.GENERATING, response)
 
-    def generate(self, prompt, generate_kwargs=None):
+    def generate(self, prompt, generate_kwargs=None, stream=False, include_thinking=True):
+        if stream:
+            return self._generate_streamed()
         return "Generated response."
 
-    def generate_streamed(self, prompt, generate_kwargs=None, include_thinking=True):
+    def _generate_streamed(self):
         yield StreamChunk(StreamingContentType.GENERATING, "Generated response.")
 
     def _update_generate_kwargs(self, generate_kwargs=None):

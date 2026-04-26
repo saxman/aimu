@@ -60,7 +60,7 @@ def test_generate_streamed(model_client):
     """Test that the model can generate a response to a prompt in a streamed manner."""
 
     prompt = "What is the capital of France?"
-    response = model_client.generate_streamed(prompt)
+    response = model_client.generate(prompt, stream=True)
 
     assert isinstance(response, Iterable)
 
@@ -118,7 +118,7 @@ def test_chat_streamed(model_client):
 
     model_client.messages = []
 
-    response = model_client.chat_streamed("What is the capital of France?")
+    response = model_client.chat("What is the capital of France?", stream=True)
 
     assert isinstance(response, Iterable)
 
@@ -137,21 +137,21 @@ def test_chat_streamed_multiple_turns(model_client):
     model_client.messages = []
 
     content1 = ""
-    for chunk in model_client.chat_streamed("What is the capital of France?"):
+    for chunk in model_client.chat("What is the capital of France?", stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             content1 += chunk.content
     assert "Paris" in content1
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
 
     content2 = ""
-    for chunk in model_client.chat_streamed("What is the population of that city?"):
+    for chunk in model_client.chat("What is the population of that city?", stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             content2 += chunk.content
     assert "population" in content2.lower() or "inhabitants" in content2.lower()
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
     content3 = ""
-    for chunk in model_client.chat_streamed("What is the climate like there?"):
+    for chunk in model_client.chat("What is the climate like there?", stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             content3 += chunk.content
     assert "climate" in content3.lower() or "temperature" in content3.lower()
@@ -212,7 +212,7 @@ def test_generate_streamed_thinking(model_client):
 
     content = ""
     thinking = ""
-    for chunk in model_client.generate_streamed("What is the capital of France?"):
+    for chunk in model_client.generate("What is the capital of France?", stream=True):
         if chunk.phase == StreamingContentType.THINKING:
             thinking += chunk.content
         elif chunk.phase == StreamingContentType.GENERATING:
@@ -233,7 +233,7 @@ def test_generate_streamed_include_thinking_false(model_client):
 
     content = ""
     thinking = ""
-    for chunk in model_client.generate_streamed("What is the capital of France?", include_thinking=False):
+    for chunk in model_client.generate("What is the capital of France?", stream=True, include_thinking=False):
         if chunk.phase == StreamingContentType.THINKING:
             thinking += chunk.content
         elif chunk.phase == StreamingContentType.GENERATING:
@@ -261,7 +261,7 @@ def test_chat_streamed_with_tools(model_client):
     mcp_client = MCPClient(server=mcp)
     model_client.mcp_client = mcp_client
 
-    response = model_client.chat_streamed("What is the temperature in Paris?")
+    response = model_client.chat("What is the temperature in Paris?", stream=True)
 
     content = ""
     for chunk in response:

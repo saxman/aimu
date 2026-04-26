@@ -9,7 +9,7 @@ from transformers import TextIteratorStreamer
 import gc
 import pprint
 import logging
-from typing import Iterator, Optional, Any
+from typing import Iterator, Optional, Any, Union
 from enum import Enum
 import json
 import re
@@ -417,29 +417,29 @@ class HuggingFaceClient(ModelClient):
 
         return itertools.chain([response_part], streamer)
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
-
-        messages = [
-            {"role": "user", "content": prompt},
-        ]
-
-        return self._generate_sync(messages, generate_kwargs)
-
-    def generate_streamed(
+    def generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
         include_thinking: bool = True,
-    ) -> Iterator[StreamChunk]:
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        messages = [
-            {"role": "user", "content": prompt},
-        ]
+        messages = [{"role": "user", "content": prompt}]
 
+        if stream:
+            return self._generate_streamed(messages, generate_kwargs, include_thinking)
+
+        return self._generate_sync(messages, generate_kwargs)
+
+    def _generate_streamed(
+        self,
+        messages: list,
+        generate_kwargs: dict[str, Any],
+        include_thinking: bool,
+    ) -> Iterator[StreamChunk]:
         streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
-
         it = self._generate_streaming(messages, generate_kwargs, None, streamer)
 
         if include_thinking:
@@ -451,8 +451,17 @@ class HuggingFaceClient(ModelClient):
             logger.debug("LLM raw token: %r", token)
             yield StreamChunk(StreamingContentType.GENERATING, token)
 
-    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
+    def chat(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        use_tools: bool = True,
+        stream: bool = False,
+    ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+
+        if stream:
+            return self._chat_streamed(generate_kwargs, tools)
 
         response = self._generate_sync(self.messages, generate_kwargs, tools)
 
@@ -479,11 +488,7 @@ class HuggingFaceClient(ModelClient):
 
         return response
 
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
-
+    def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
         if self._hf_processor is not None:
             # Gemma 4 uses special tokens (<|channel>, <|tool_call>, ...) and
             # requires processor.parse_response for structured extraction.
@@ -525,7 +530,7 @@ class HuggingFaceClient(ModelClient):
 
                 streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
                 # Omit tools so the model generates text rather than calling tools again;
-                # multi-round tool use is handled by SimpleAgent, not chat_streamed().
+                # multi-round tool use is handled by SimpleAgent, not chat().
                 it = self._generate_streaming(self.messages, generate_kwargs, None, streamer)
         else:
             content += response_part

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.simple_agent import SimpleAgent
 from aimu.models.base import ModelClient, StreamChunk
@@ -75,32 +75,34 @@ class AgenticModelClient(ModelClient):
 
     # --- Agentic overrides ---
 
-    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
-        """Run the full SimpleAgent loop; returns only when the model stops calling tools."""
-        return self._agent.run(user_message, generate_kwargs=generate_kwargs)
-
-    def chat_streamed(
+    def chat(
         self,
         user_message: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
+        stream: bool = False,
+    ) -> Union[str, Iterator[StreamChunk]]:
+        """Run the full SimpleAgent loop; returns only when the model stops calling tools."""
+        if stream:
+            return self._stream_agent(user_message, generate_kwargs)
+        return self._agent.run(user_message, generate_kwargs=generate_kwargs)
+
+    def _stream_agent(
+        self, user_message: str, generate_kwargs: Optional[dict[str, Any]]
     ) -> Iterator[StreamChunk]:
-        """Stream the SimpleAgent loop, adapting AgentChunk → StreamChunk."""
         for chunk in self._agent.run_streamed(user_message, generate_kwargs=generate_kwargs):
             yield StreamChunk(chunk.phase, chunk.content)
 
     # --- Pass-through for stateless generation ---
 
-    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        return self._inner_client.generate(prompt, generate_kwargs)
-
-    def generate_streamed(
+    def generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
         include_thinking: bool = True,
-    ) -> Iterator[StreamChunk]:
-        return self._inner_client.generate_streamed(prompt, generate_kwargs, include_thinking)
+    ) -> Union[str, Iterator[StreamChunk]]:
+        return self._inner_client.generate(prompt, generate_kwargs, stream=stream, include_thinking=include_thinking)
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         return self._inner_client._update_generate_kwargs(generate_kwargs)

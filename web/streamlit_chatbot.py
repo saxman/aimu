@@ -123,7 +123,7 @@ with st.sidebar:
         st.rerun()
 
 if len(st.session_state.model_client.messages) == 0:
-    streamed_response = st.session_state.model_client.chat_streamed(
+    streamed_response = st.session_state.model_client.chat(
         INITIAL_USER_MESSAGE,
         generate_kwargs={
             "temperature": temperature,
@@ -131,6 +131,7 @@ if len(st.session_state.model_client.messages) == 0:
             "max_new_tokens": 1024,
             "repeat_penalty": repeat_penalty,
         },
+        stream=True,
     )
 
     stream_chat_response(streamed_response)
@@ -165,7 +166,7 @@ else:
 if prompt := st.chat_input("What's up?"):
     st.chat_message("user").markdown(prompt)
 
-    streamed_response = st.session_state.model_client.chat_streamed(
+    streamed_response = st.session_state.model_client.chat(
         prompt,
         generate_kwargs={
             "temperature": temperature,
@@ -173,6 +174,7 @@ if prompt := st.chat_input("What's up?"):
             "max_new_tokens": 1024,
             "repeat_penalty": repeat_penalty,
         },
+        stream=True,
     )
 
     stream_chat_response(streamed_response)

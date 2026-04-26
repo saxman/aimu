@@ -93,12 +93,12 @@ python web/gradio_chatbot.py
 The codebase uses an abstract base class pattern for model clients:
 
 - **[aimu/models/base_client.py](aimu/models/base_client.py)**: Defines `ModelClient` abstract base class with:
-  - `generate()` / `generate_streamed()`: Single-turn text generation
-  - `chat()` / `chat_streamed()`: Multi-turn chat with message history
+  - `generate(prompt, generate_kwargs, stream=False, include_thinking=True)`: Single-turn text generation; returns `str` or `Iterator[StreamChunk]`
+  - `chat(user_message, generate_kwargs, use_tools=True, stream=False)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`
   - `_chat_setup()`: Prepares messages and tools before a chat call
   - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions)
   - `is_thinking_model` / `is_tool_using_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools`
-  - `chat_streamed()` / `generate_streamed()` yield `StreamChunk(phase, content)`; type is self-contained in each chunk
+  - `chat(..., stream=True)` / `generate(..., stream=True)` yield `StreamChunk(phase, content)`; type is self-contained in each chunk
   - `system_message` property with setter that manages the system message in the messages list
   - Message history stored in `self.messages` (OpenAI-style format)
   - Optional `mcp_client` attribute for MCP tool integration
@@ -241,8 +241,8 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 
 - **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(ModelClient)`: drop-in agentic wrapper
   - Wraps a `SimpleAgent` (or `SkillAgent`, which inherits from it) and exposes the standard `ModelClient` interface; raises `TypeError` for any other type
-  - `chat()` / `chat_streamed()` run the full SimpleAgent loop (multi-turn until tools stop); `chat_streamed()` adapts `AgentChunk` → `StreamChunk`
-  - `generate()` / `generate_streamed()` pass through to the inner client unchanged (no loop)
+  - `chat(stream=False)` runs the full SimpleAgent loop (multi-turn until tools stop); `chat(stream=True)` adapts `AgentChunk` → `StreamChunk`
+  - `generate(stream=False)` passes through to the inner client unchanged (no loop)
   - `messages`, `mcp_client`, `system_message`, `last_thinking` delegate to `SimpleAgent.model_client`
   - Constructor: `AgenticModelClient(agent: SimpleAgent)`
   - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently; for workflows, call `run()` / `run_streamed()` directly
@@ -274,7 +274,7 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `run_streamed()` yields a single GENERATING chunk with the final output (intermediate drafts not streamed)
   - `messages` property: merges `generator.messages` + `evaluator.messages`
 
-- All agents/workflows use the public `chat()` / `chat_streamed()` API only; no changes to `ModelClient` subclasses
+- All agents/workflows use the public `chat()` / `chat(..., stream=True)` API only; no changes to `ModelClient` subclasses
 - `messages` is composable: nested workflows (e.g. a `Router` dispatching to a `Chain`) merge recursively, so all sub-agent names appear at the top level
 
 ### Prompt Management
@@ -331,7 +331,7 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed
 3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format
 4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers
-5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat_streamed()` and `generate_streamed()` yield `StreamChunk(phase, content)` named tuples; `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. `StreamPhase` is an alias for `StreamingContentType` used in notebooks and user-facing code.
+5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat(..., stream=True)` and `generate(..., stream=True)` yield `StreamChunk(phase, content)` named tuples; `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. `StreamPhase` is an alias for `StreamingContentType` used in notebooks and user-facing code.
 6. **Model Capability Flags**: `supports_tools` and `supports_thinking` are encoded directly on each `Model` enum member
 
 ## Important Implementation Notes
@@ -363,7 +363,7 @@ When adding new models to a client:
 Models with `supports_thinking=True` support extended reasoning:
 - Reasoning process stored in `self.last_thinking`
 - Streamed as `StreamChunk(phase=StreamPhase.THINKING, content=str)` chunks
-- Pass `include_thinking=False` to `generate_streamed()` to suppress thinking chunks
+- Pass `include_thinking=False` to `generate(..., stream=True)` to suppress thinking chunks
 - Thinking content may also be stored in the messages dict under a "thinking" key
 
 ### OpenAICompatClient Notes

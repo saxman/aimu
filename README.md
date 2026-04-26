@@ -165,7 +165,7 @@ Cloud and local server clients follow the same pattern; only the import and mode
 | `LlamaServerOpenAIClient` | `aimu[openai_compat]` | localhost:8080 |
 | `SGLangOpenAIClient` | `aimu[openai_compat]` | localhost:30000 |
 
-**Streaming**: `chat_streamed()` yields `StreamChunk` objects tagged by phase:
+**Streaming**: `chat(..., stream=True)` yields `StreamChunk` objects tagged by phase:
 
 | `chunk.phase` | `chunk.content` type | Description |
 |---|---|---|

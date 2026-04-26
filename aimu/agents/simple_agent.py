@@ -79,13 +79,13 @@ class SimpleAgent(Agent):
         """
         self._prepare_run()
         iteration = 0
-        for chunk in self.model_client.chat_streamed(task, generate_kwargs=generate_kwargs):
+        for chunk in self.model_client.chat(task, generate_kwargs=generate_kwargs, stream=True):
             yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
 
         iteration += 1
         while self._last_turn_called_tools() and iteration < self.max_iterations:
             logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-            for chunk in self.model_client.chat_streamed(self.continuation_prompt, generate_kwargs=generate_kwargs):
+            for chunk in self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True):
                 yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
             iteration += 1
 

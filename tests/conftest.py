@@ -63,7 +63,9 @@ class MockModelClient(ModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    def chat(self, user_message, generate_kwargs=None, use_tools=True):
+    def chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False):
+        if stream:
+            return self._chat_streamed(user_message, generate_kwargs, use_tools)
         self.messages.append({"role": "user", "content": user_message})
         response = self._responses[self._call_count]
         self._call_count += 1
@@ -85,16 +87,18 @@ class MockModelClient(ModelClient):
             self.messages.append({"role": "assistant", "content": response})
             return response
 
-    def chat_streamed(self, user_message, generate_kwargs=None, use_tools=True):
+    def _chat_streamed(self, user_message, generate_kwargs=None, use_tools=True):
         response = self.chat(user_message, generate_kwargs, use_tools)
         self._streaming_content_type = StreamingContentType.GENERATING
         yield StreamChunk(StreamingContentType.GENERATING, response)
         self._streaming_content_type = StreamingContentType.DONE
 
-    def generate(self, prompt, generate_kwargs=None):
+    def generate(self, prompt, generate_kwargs=None, stream=False, include_thinking=True):
+        if stream:
+            return self._generate_streamed(prompt, generate_kwargs)
         return self.chat(prompt, generate_kwargs)
 
-    def generate_streamed(self, prompt, generate_kwargs=None, include_thinking=True):
+    def _generate_streamed(self, prompt, generate_kwargs=None):
         self._streaming_content_type = StreamingContentType.GENERATING
         yield StreamChunk(StreamingContentType.GENERATING, self.generate(prompt, generate_kwargs))
         self._streaming_content_type = StreamingContentType.DONE

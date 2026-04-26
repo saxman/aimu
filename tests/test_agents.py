@@ -164,10 +164,10 @@ def test_agentic_client_chat_no_tools_single_call():
 
 
 def test_agentic_client_chat_streamed_yields_stream_chunks():
-    """chat_streamed() yields StreamChunk, not AgentChunk."""
+    """chat(..., stream=True) yields StreamChunk, not AgentChunk."""
     client = MockModelClient(["stream result"])
     ac = AgenticModelClient(SimpleAgent(client))
-    chunks = list(ac.chat_streamed("task"))
+    chunks = list(ac.chat("task", stream=True))
     assert all(isinstance(c, StreamChunk) for c in chunks)
     assert not any(isinstance(c, AgentChunk) for c in chunks)
 

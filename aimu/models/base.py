@@ -113,26 +113,23 @@ class ModelClient(ABC):
                 self.messages.insert(0, {"role": "system", "content": message})
 
     @abstractmethod
-    def generate(self, prompt: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        pass
-
-    @abstractmethod
-    def generate_streamed(
+    def generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
         include_thinking: bool = True,
-    ) -> Iterator[StreamChunk]:
+    ) -> Union[str, Iterator[StreamChunk]]:
         pass
 
     @abstractmethod
-    def chat(self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True) -> str:
-        pass
-
-    @abstractmethod
-    def chat_streamed(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
-    ) -> Iterator[StreamChunk]:
+    def chat(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        use_tools: bool = True,
+        stream: bool = False,
+    ) -> Union[str, Iterator[StreamChunk]]:
         pass
 
     @abstractmethod
