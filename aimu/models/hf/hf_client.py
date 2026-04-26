@@ -100,52 +100,7 @@ class HuggingFaceModel(Model):
         # <think> token that never appears in the stream.
         self.think_opener_in_prompt = think_opener_in_prompt
 
-    GPT_OSS_20B = (
-        "openai/gpt-oss-20b",
-        True,
-        True,
-        ToolCallFormat.XML,
-        {"temperature": 1.0, "top_p": 1.0, "top_k": 0},
-    )
-    LLAMA_3_1_8B = ("meta-llama/Meta-Llama-3.1-8B-Instruct", True, False, ToolCallFormat.JSON_OBJECT)
-    LLAMA_3_2_3B = (
-        "unsloth/Llama-3.2-3B-Instruct",
-        True,
-        False,
-        ToolCallFormat.JSON_OBJECT,
-    )  # using unsloth's version since gated model
-    DEEPSEEK_R1_8B = (
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-        False,
-        True,
-        ToolCallFormat.XML,
-        {"temperature": 0.6},
-    )
-    GEMMA_3_12B = "google/gemma-3-12b-it"
-    GEMMA_4_E4B = (
-        "google/gemma-4-E4B-it",
-        True,
-        False,
-        ToolCallFormat.NA,
-        {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
-    )
-    PHI_4_14B = "microsoft/phi-4"
-    PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
-    MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, ToolCallFormat.JSON_ARRAY)
-    MISTRAL_NEMO_12B = (
-        "mistralai/Mistral-Nemo-Instruct-2407",
-        True,
-        False,
-        ToolCallFormat.JSON_ARRAY,
-        {"temperature": 0.3},
-    )
-    MAGISTRAL_SMALL = (
-        "mistralai/Magistral-Small-2509",
-        True,
-        False,
-        ToolCallFormat.BRACKETED,
-        {"top_p": 0.95, "temperature": 0.7},
-    )
+    # Alibaba
     QWEN_3_6_27B = (
         "Qwen/Qwen3.6-27B-FP8",
         True,
@@ -182,7 +137,67 @@ class HuggingFaceModel(Model):
         ToolCallFormat.XML,
         {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
     )
+
+    # Google
+    GEMMA_4_E4B = (
+        "google/gemma-4-E4B-it",
+        True,
+        False,
+        ToolCallFormat.NA,
+        {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
+    )
+    GEMMA_3_12B = "google/gemma-3-12b-it"
+
+    # OpenAI
+    GPT_OSS_20B = (
+        "openai/gpt-oss-20b",
+        True,
+        True,
+        ToolCallFormat.XML,
+        {"temperature": 1.0, "top_p": 1.0, "top_k": 0},
+    )
+
+    # Mistral
+    MAGISTRAL_SMALL = (
+        "mistralai/Magistral-Small-2509",
+        True,
+        False,
+        ToolCallFormat.BRACKETED,
+        {"top_p": 0.95, "temperature": 0.7},
+    )
+    MISTRAL_NEMO_12B = (
+        "mistralai/Mistral-Nemo-Instruct-2407",
+        True,
+        False,
+        ToolCallFormat.JSON_ARRAY,
+        {"temperature": 0.3},
+    )
+    MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, ToolCallFormat.JSON_ARRAY)
+
+    # Microsoft
+    PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
+    PHI_4_14B = "microsoft/phi-4"
+
+    # DeepSeek
+    DEEPSEEK_R1_8B = (
+        "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        False,
+        True,
+        ToolCallFormat.XML,
+        {"temperature": 0.6},
+    )
+
+    # HuggingFace
     SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True, ToolCallFormat.XML, {"temperature": 0.6, "top_p": 0.95})
+
+    # Meta
+    LLAMA_3_2_3B = (
+        "unsloth/Llama-3.2-3B-Instruct",
+        True,
+        False,
+        ToolCallFormat.JSON_OBJECT,
+    )  # using unsloth's version since gated model
+    LLAMA_3_1_8B = ("meta-llama/Meta-Llama-3.1-8B-Instruct", True, False, ToolCallFormat.JSON_OBJECT)
 
 
 class HuggingFaceClient(BaseModelClient):
