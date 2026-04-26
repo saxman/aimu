@@ -39,10 +39,11 @@ A Python package containing easy to use tools for working with various language 
         -   Any OpenAI-compatible server (`OpenAICompatClient`)
     -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Enabled automatically for supported models, with access to reasoning traces via `last_thinking` and `StreamPhase.THINKING` stream chunks.
 
--   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. All share a `Runner` base class with `run()` / `run_streamed()`.
+-   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. All share a `Runner` base class with `run(stream=False)`.
 
     -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard `BaseModelClient` interface, making agentic and single-turn clients interchangeable.
     -   **Workflows**: Four code-controlled patterns: `Chain` (prompt chaining), `Router` (classify and dispatch), `Parallel` (concurrent workers with optional aggregation), and `EvaluatorOptimizer` (generate → evaluate → revise loop).
+    -   **Example Agents**: Ready-to-use orchestrator agents in `aimu.agents.examples` that demonstrate the orchestrator + worker tools pattern: `ResearchReportAgent`, `CodeReviewAgent`, and `ContentCreationAgent`. Each coordinates worker sub-agents via MCP tools, letting the LLM decide how to use them.
     -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are discovered from project and user directories (`.agents/skills/`, `.claude/skills/`).
 
 -   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
@@ -77,12 +78,13 @@ The following Jupyter notebooks demonstrate key AIMU features:
 | [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) | Text generation, chat, streaming, and thinking models |
 | [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb) | MCP tool integration with model clients |
 | [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) | Versioned prompt storage |
-| [04 - Conversations](notebooks/04%20-%20Conversations.ipynb) | Persistent chat conversation management |
-| [05 - Memory](notebooks/05%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
-| [06 - Agents](notebooks/06%20-%20Agents.ipynb) | SimpleAgent and AgenticModelClient |
-| [07 - Agent Skills](notebooks/07%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
-| [08 - Agent Workflows](notebooks/08%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
-| [09 - Prompt Tuning](notebooks/03%20-%20Prompt%20Tuning.ipynb) | Prompt tuning |
+| [04 - Prompt Tuning](notebooks/04%20-%20Prompt%20Tuning.ipynb) | ClassificationPromptTuner, MultiClassPromptTuner, ExtractionPromptTuner, JudgedPromptTuner |
+| [05 - Conversations](notebooks/05%20-%20Conversations.ipynb) | Persistent chat conversation management |
+| [06 - Memory](notebooks/06%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
+| [07 - Agents](notebooks/07%20-%20Agents.ipynb) | SimpleAgent and AgenticModelClient |
+| [08 - Agent Skills](notebooks/08%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
+| [09 - Agent Workflows](notebooks/09%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
+| [10 - Agent Examples](notebooks/10%20-%20Agent%20Examples.ipynb) | `ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent` — orchestrator + worker tools pattern |
 
 ## Installation
 
@@ -233,9 +235,24 @@ chain = Chain.from_config(
 result = chain.run("Research the top Python web frameworks.")
 ```
 
-Every `Runner` exposes `.messages`, a `dict[str, list[dict]]` mapping each agent name to its message history snapshot after a run.
+Every `Runner` exposes `run(task, stream=False)` and `.messages`. Pass `stream=True` to get an `AgentChunk` iterator instead of a string.
 
-See [06 - Agents](notebooks/06%20-%20Agents.ipynb), [07 - Agent Skills](notebooks/07%20-%20Agent%20Skills.ipynb), and [08 - Agent Workflows](notebooks/08%20-%20Agent%20Workflows.ipynb).
+**Example agents** in `aimu.agents.examples` wire up an orchestrator with worker sub-agents as MCP tools — the LLM coordinates them autonomously:
+
+``` python
+from aimu.models.ollama import OllamaClient
+from aimu.agents.examples import ResearchReportAgent
+
+client = OllamaClient(OllamaClient.MODELS.QWEN_3_8B)
+agent = ResearchReportAgent(client)
+report = agent.run("What is retrieval-augmented generation?")
+
+for chunk in agent.run("Explain transformer attention", stream=True):
+    if chunk.phase == StreamPhase.GENERATING:
+        print(chunk.content, end="", flush=True)
+```
+
+See [07 - Agents](notebooks/07%20-%20Agents.ipynb), [08 - Agent Skills](notebooks/08%20-%20Agent%20Skills.ipynb), [09 - Agent Workflows](notebooks/09%20-%20Agent%20Workflows.ipynb), and [10 - Agent Examples](notebooks/10%20-%20Agent%20Examples.ipynb) for the example agents.
 
 ### MCP Tools
 
@@ -302,7 +319,7 @@ store.edit("/preferences.md", "concise", "detailed")
 store.search_full_text("detailed")
 ```
 
-See [04 - Conversations](notebooks/04%20-%20Conversations.ipynb) and [05 - Memory](notebooks/05%20-%20Memory.ipynb).
+See [05 - Conversations](notebooks/05%20-%20Conversations.ipynb) and [06 - Memory](notebooks/06%20-%20Memory.ipynb).
 
 ### Prompt Management
 
@@ -335,7 +352,7 @@ best_prompt = tuner.tune(df, initial_prompt="Is this about AI? Reply [YES] or [N
 
 `MultiClassPromptTuner`, `ExtractionPromptTuner`, and `JudgedPromptTuner` follow the same pattern. Subclass `PromptTuner` and implement `apply_prompt`, `evaluate`, and `mutation_prompt` for custom task types.
 
-See [03 - Prompts](notebooks/03%20-%20Prompts.ipynb).
+See [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) and [04 - Prompt Tuning](notebooks/04%20-%20Prompt%20Tuning.ipynb).
 
 ## License
 

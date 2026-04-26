@@ -224,20 +224,19 @@ The codebase uses an abstract base class pattern for model clients:
 
 ### Agentic Workflows
 
-AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base with `run()` / `run_streamed()`. **Agents** direct their own tool use autonomously; **workflows** have code-controlled flow.
+AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base with `run(stream=False)`; `run_streamed()` is a backward-compat alias for `run(stream=True)`. **Agents** direct their own tool use autonomously; **workflows** have code-controlled flow.
 
-- **[aimu/agents/base_agent.py](aimu/agents/base_agent.py)**: Root ABCs for the agent/workflow hierarchy
-  - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs)`, `run_streamed(task, generate_kwargs)`, and `messages` property; `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: Any)`
-  - `Agent(Runner)`: marker ABC for autonomous agents (LLM directs tool use and stop condition); concrete: `SimpleAgent`, `SkillAgent`
+- **[aimu/agents/base.py](aimu/agents/base.py)**: Root ABCs for the agent/workflow hierarchy
+  - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs, stream=False)` and `messages` property; concrete `run_streamed(task, generate_kwargs)` alias calls `run(stream=True)`; `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: Any)`
+  - `Agent(Runner)`: marker ABC for autonomous agents (LLM directs tool use and stop condition); concrete: `SimpleAgent`, `SkillAgent`, and example agents
   - `Workflow(Runner)`: marker ABC for predetermined workflow patterns (code controls routing/sequencing); concrete: `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`
   - `MessageHistory`: type alias for `dict[str, list[dict]]`, the return type of `.messages` across the hierarchy; exported from `aimu.agents`
 
 - **[aimu/agents/simple_agent.py](aimu/agents/simple_agent.py)**: `SimpleAgent(Agent)` for autonomous, multi-round tool execution
   - Wraps any `ModelClient`; runs `chat()` in a loop until no tools are called
   - Stop condition: scans `model_client.messages` in reverse; if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again
-  - `run(task, generate_kwargs)`: synchronous agentic loop, returns final response string
-  - `run_streamed(task, generate_kwargs)`: yields `AgentChunk(agent_name, iteration, phase, content)`
-  - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` or `run_streamed()` call; stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages
+  - `run(task, generate_kwargs, stream=False)`: returns final response string or `Iterator[AgentChunk]`; streaming logic in private `_run_streamed()`
+  - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` call; stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`)
 
 - **[aimu/agents/skill_agent.py](aimu/agents/skill_agent.py)**: `SkillAgent(SimpleAgent)`: adds skill discovery and injection
@@ -252,34 +251,40 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `generate(stream=False)` passes through to the inner client unchanged (no loop)
   - `messages`, `mcp_client`, `system_message`, `last_thinking` delegate to `SimpleAgent.model_client`
   - Constructor: `AgenticModelClient(agent: SimpleAgent)`
-  - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently; for workflows, call `run()` / `run_streamed()` directly
+  - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently; for workflows, call `run()` or `run(stream=True)` directly
 
-- **[aimu/agents/chain.py](aimu/agents/chain.py)**: `Chain(Workflow)`: Anthropic's **Prompt Chaining** pattern
+- **[aimu/agents/workflows/chain.py](aimu/agents/workflows/chain.py)**: `Chain(Workflow)`: Anthropic's **Prompt Chaining** pattern
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
-  - `run(task, generate_kwargs)`: runs all agents in order, returns final string
-  - `run_streamed(task, generate_kwargs)`: yields `ChainChunk(step, agent_name, iteration, phase, content)`
+  - `run(task, generate_kwargs, stream=False)`: returns final string or `Iterator[ChainChunk]`; `ChainChunk` extends `AgentChunk` with a `step` index
   - `from_config(configs, client)`: builds from a list of dicts and a single `ModelClient`; the client is shared across steps; `messages` cleared and `system_message` set from each step's config before it runs
   - `agents: list[Runner]`: steps may be `SimpleAgent` or nested workflows
   - `messages` property: merges `agent.messages` for all steps into one `MessageHistory` dict
 
-- **[aimu/agents/router.py](aimu/agents/router.py)**: `Router(Workflow)`: Anthropic's **Routing** pattern
+- **[aimu/agents/workflows/router.py](aimu/agents/workflows/router.py)**: `Router(Workflow)`: Anthropic's **Routing** pattern
   - `routing_agent` classifies the task; output (stripped, lowercased) is matched against `handlers: dict[str, Runner]`
   - Falls back to `fallback: Runner` if set; raises `ValueError` otherwise
-  - `run_streamed()` yields routing chunks then streams the matched handler
+  - `run(stream=True)` yields routing chunks then the matched handler's chunks
   - `from_config(routing_config, handler_configs, client, fallback_config)`: factory from dicts
   - `messages` property: merges `routing_agent.messages` + all `handler.messages` + `fallback.messages` (if set); unvisited handlers have empty lists
 
-- **[aimu/agents/parallel.py](aimu/agents/parallel.py)**: `Parallel(Workflow)`: Anthropic's **Parallelization** pattern
+- **[aimu/agents/workflows/parallel.py](aimu/agents/workflows/parallel.py)**: `Parallel(Workflow)`: Anthropic's **Parallelization** pattern
   - Runs `workers: list[Runner]` concurrently via `ThreadPoolExecutor`; workers complete before streaming to avoid interleaved output
   - `aggregator: Runner` (optional) receives all worker outputs joined by `separator`; without an aggregator, the joined string is returned directly
-  - `run_streamed()` streams only the aggregator phase (or yields a single GENERATING chunk)
+  - `run(stream=True)` streams only the aggregator phase (or yields a single GENERATING chunk)
   - `messages` property: merges all `worker.messages` + `aggregator.messages` (if set)
 
-- **[aimu/agents/evaluator.py](aimu/agents/evaluator.py)**: `EvaluatorOptimizer(Workflow)`: Anthropic's **Evaluator-Optimizer** pattern
+- **[aimu/agents/workflows/evaluator.py](aimu/agents/workflows/evaluator.py)**: `EvaluatorOptimizer(Workflow)`: Anthropic's **Evaluator-Optimizer** pattern
   - `generator` produces output; `evaluator` reviews it against the original task
   - Loop stops when `pass_keyword` appears in evaluator feedback or `max_rounds` is reached
-  - `run_streamed()` yields a single GENERATING chunk with the final output (intermediate drafts not streamed)
+  - `run(stream=True)` yields a single GENERATING chunk with the final output (intermediate drafts not streamed)
   - `messages` property: merges `generator.messages` + `evaluator.messages`
+
+- **[aimu/agents/examples/](aimu/agents/examples/)**: Ready-to-use `Agent` subclasses demonstrating the orchestrator + worker tools pattern
+  - Each class accepts a `ModelClient`, builds a FastMCP server exposing worker `SimpleAgent` runs as tools, and wires the orchestrator's `mcp_client` automatically
+  - `ResearchReportAgent`: orchestrator + `research_overview`, `find_examples`, `find_counterpoints` worker tools
+  - `CodeReviewAgent`: orchestrator + `review_security`, `review_performance`, `review_readability` worker tools
+  - `ContentCreationAgent`: orchestrator + `research_topic`, `create_outline`, `write_section` worker tools
+  - All three inherit from `Agent(Runner)` and expose `run(task, stream=False)` and `messages`
 
 - All agents/workflows use the public `chat()` / `chat(..., stream=True)` API only; no changes to `ModelClient` subclasses
 - `messages` is composable: nested workflows (e.g. a `Router` dispatching to a `Chain`) merge recursively, so all sub-agent names appear at the top level
@@ -427,14 +432,19 @@ aimu/
 │   ├── client.py        # MCPClient wrapper
 │   └── mcp.py           # Example FastMCP server with built-in tools
 ├── agents/              # Agents and workflow patterns
-│   ├── base_agent.py    # Runner/Agent/Workflow ABCs + AgentChunk
+│   ├── base.py          # Runner/Agent/Workflow ABCs + AgentChunk
 │   ├── simple_agent.py  # SimpleAgent (agentic loop over ModelClient.chat())
 │   ├── skill_agent.py   # SkillAgent (SimpleAgent + skill discovery/injection)
 │   ├── agentic_client.py # AgenticModelClient (ModelClient wrapper for SimpleAgent)
-│   ├── chain.py         # Chain + ChainChunk (prompt chaining workflow)
-│   ├── router.py        # Router (routing workflow: classify + dispatch)
-│   ├── parallel.py      # Parallel (parallelization workflow: concurrent workers)
-│   └── evaluator.py     # EvaluatorOptimizer (evaluator-optimizer workflow)
+│   ├── workflows/       # Code-controlled workflow patterns
+│   │   ├── chain.py     # Chain + ChainChunk (prompt chaining workflow)
+│   │   ├── router.py    # Router (routing workflow: classify + dispatch)
+│   │   ├── parallel.py  # Parallel (parallelization workflow: concurrent workers)
+│   │   └── evaluator.py # EvaluatorOptimizer (evaluator-optimizer workflow)
+│   └── examples/        # Example Agent subclasses (orchestrator + worker tools)
+│       ├── research_report.py  # ResearchReportAgent
+│       ├── code_review.py      # CodeReviewAgent
+│       └── content_creation.py # ContentCreationAgent
 ├── history.py           # Conversation management (TinyDB)
 ├── memory/              # Memory stores
 │   ├── base.py          # MemoryStore abstract base class
