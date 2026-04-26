@@ -2,7 +2,7 @@
 
 # AIMU - AI Model Utilities
 
-A Python package containing easy to use tools for working with various language models and AI services. AIMU is designed for running models locally via Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework, and for cloud models via native provider SDKs (OpenAI, Anthropic, Google Gemini).
+AIMU is a Python library for building LLM-powered applications with a consistent interface across local and cloud providers. It separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a simple model is accepted. MCP tool integration is structural (not a plugin), semantic and/or document memory can be dropped in, and prompt management and tuning make it easy to optimize prompts for concrete use cases.
 
 ## Table of Contents
 
@@ -21,7 +21,7 @@ A Python package containing easy to use tools for working with various language 
 
 ## Features
 
--   **Model Clients**: Support for multiple AI model providers including:
+-   **Model Clients**: A factory selects the right provider client from the model enum, so you can swap providers without changing call sites. Streaming output is typed by phase (thinking, tool calling, response generation), making it straightforward to build UIs or observability on top. All clients support extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS) with reasoning traces available in both streaming and non-streaming modes.
 
     -   [Ollama](https://ollama.com/) (local models, native API)
     -   [Hugging Face Transformers](https://huggingface.co/docs/transformers) (local models)
@@ -37,27 +37,26 @@ A Python package containing easy to use tools for working with various language 
         -   [llama.cpp llama-server](https://github.com/ggml-org/llama.cpp/tree/master/tools/server) (`LlamaServerOpenAIClient`)
         -   [SGLang](https://docs.sglang.ai/) (`SGLangOpenAIClient`)
         -   Any OpenAI-compatible server (`OpenAICompatClient`)
-    -   **Thinking Models**: First-class support for extended reasoning models (e.g. DeepSeek-R1, Qwen3, GPT-OSS). Enabled automatically for supported models, with access to reasoning traces via `last_thinking` and `StreamPhase.THINKING` stream chunks.
 
--   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. All share a `Runner` base class with `run(stream=False)`.
+-   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. Agents expose the same interface as plain model clients, so they can be used as drop-in replacements anywhere a client is accepted, enabling recursive composition of agents within workflows and workflows within agents.
 
-    -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard `BaseModelClient` interface, making agentic and single-turn clients interchangeable.
+    -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard model client interface, making agentic and single-turn clients interchangeable.
     -   **Workflows**: Four code-controlled patterns: `Chain` (prompt chaining), `Router` (classify and dispatch), `Parallel` (concurrent workers with optional aggregation), and `EvaluatorOptimizer` (generate → evaluate → revise loop).
     -   **Example Agents**: Ready-to-use orchestrator agents in `aimu.agents.examples` that demonstrate the orchestrator + worker tools pattern: `ResearchReportAgent`, `CodeReviewAgent`, and `ContentCreationAgent`. Each coordinates worker sub-agents via MCP tools, letting the LLM decide how to use them.
     -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are discovered from project and user directories (`.agents/skills/`, `.claude/skills/`).
 
--   **MCP Tools**: Model Context Protocol (MCP) client for enhancing AI capabilities. Provides a simple(r) interface for [FastMCP 2.0](https://gofastmcp.com).
+-   **MCP Tools**: MCP tool integration is built into the base model client as a first-class attribute, not a plugin. Attach an `MCPClient` to any model client and tools are passed to the model automatically. Provides a simpler interface for [FastMCP 2.0](https://gofastmcp.com).
+
+-   **Prompt Management**: Versioned prompt storage and automatic prompt optimization:
+
+    -   **Prompt Storage**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)). Prompts are keyed by `(name, model_id)` and auto-versioned on each store.
+    -   **Prompt Tuning**: Hill-climbing `PromptTuner` for automatic prompt optimization against labelled data, without ML machinery. Four concrete tuners: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated by a second LLM). Subclass `PromptTuner` to implement custom task types.
 
 -   **Persistence**: Three complementary stores for persisting conversation and knowledge:
 
     -   **Conversation History** (`ConversationManager`): Persistent chat message history backed by [TinyDB](https://tinydb.readthedocs.io). Load the last conversation on startup and save updates after each turn.
     -   **Semantic Memory** (`SemanticMemoryStore`): Fact storage using [ChromaDB](https://www.trychroma.com/) vector embeddings. Store natural-language subject-predicate-object strings (e.g. `"Paul works at Google"`) and retrieve by semantic topic (e.g. `"employment"`, `"family life"`).
     -   **Document Memory** (`DocumentStore`): Path-based document store mirroring Anthropic's Managed Agents Memory API. Supports `write`, `read`, `edit`, `delete`, and full-text `search` on named paths (e.g. `/preferences.md`).
-
--   **Prompt Management**: Versioned prompt storage and automatic prompt optimization:
-
-    -   **Prompt Storage**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)). Prompts are keyed by `(name, model_id)` and auto-versioned on each store.
-    -   **Prompt Tuning**: Hill-climbing `PromptTuner` for automatic prompt optimization. Four concrete tuners: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated by a second LLM). Subclass `PromptTuner` to implement custom task types.
 
 ## Components
 

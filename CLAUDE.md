@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AIMU (AI Model Utilities) is a Python package for working with language models, designed for running models locally via Ollama, Hugging Face Transformers, or any OpenAI-compatible local serving framework, with direct cloud provider support for OpenAI, Anthropic, and Google Gemini. The package provides unified interfaces for model interaction, MCP tool integration, conversation management, semantic memory storage, and prompt storage/tuning.
+AIMU (AI Model Utilities) is a Python library for building LLM-powered applications. It provides a unified model client interface across local backends (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) and cloud providers (OpenAI, Anthropic, Google Gemini). MCP tool integration and typed streaming output (thinking, tool calling, generation phases) are built into the base model client, not layered on top.
+
+AIMU implements Anthropic's agent/workflow taxonomy: autonomous agents run open-ended tool-calling loops; code-controlled workflows implement four patterns (prompt chaining, routing, parallelization, evaluator-optimizer). Agents are composable because they expose the same interface as plain model clients, allowing them to be used as drop-in replacements anywhere a client is accepted. Example agents in `aimu.agents.examples` demonstrate the orchestrator-with-worker-tools pattern. A hill-climbing prompt tuner optimizes prompts against labelled data without ML machinery.
 
 ## Development Commands
 
@@ -104,7 +106,7 @@ The codebase uses an abstract base class pattern for model clients:
   - Optional `mcp_client` attribute for MCP tool integration
 
 - **Supporting types in base.py**:
-  - `ContentType(str, Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE; string values (`"thinking"`, etc.)
+  - `StreamingContentType(str, Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE; string values (`"thinking"`, etc.)
   - `Model(Enum)`: Base enum class; each value carries `supports_tools` and `supports_thinking` boolean attributes
 
 - **[aimu/models/model_client.py](aimu/models/model_client.py)**: `ModelClient(BaseModelClient)` factory/wrapper class:
@@ -227,7 +229,7 @@ The codebase uses an abstract base class pattern for model clients:
 AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base with `run(stream=False)`; `run_streamed()` is a backward-compat alias for `run(stream=True)`. **Agents** direct their own tool use autonomously; **workflows** have code-controlled flow.
 
 - **[aimu/agents/base.py](aimu/agents/base.py)**: Root ABCs for the agent/workflow hierarchy
-  - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs, stream=False)` and `messages` property; concrete `run_streamed(task, generate_kwargs)` alias calls `run(stream=True)`; `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: ContentType, content: Any)`
+  - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs, stream=False)` and `messages` property; concrete `run_streamed(task, generate_kwargs)` alias calls `run(stream=True)`; `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: StreamingContentType, content: Any)`
   - `Agent(Runner)`: marker ABC for autonomous agents (LLM directs tool use and stop condition); concrete: `SimpleAgent`, `SkillAgent`, and example agents
   - `Workflow(Runner)`: marker ABC for predetermined workflow patterns (code controls routing/sequencing); concrete: `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`
   - `MessageHistory`: type alias for `dict[str, list[dict]]`, the return type of `.messages` across the hierarchy; exported from `aimu.agents`
