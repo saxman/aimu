@@ -52,14 +52,17 @@ def stream_chat_response(streamed_response):
         if chunk.phase != current_type:
             current_type = chunk.phase
             current_text = ""
-            current_box = (
-                st.expander("🤔 Thinking").empty()
-                if chunk.phase == StreamPhase.THINKING
-                else st.chat_message("assistant").empty()
-            )
+            current_box = None
 
         current_text += chunk.content
-        current_box.markdown(current_text)
+        if current_text:
+            if current_box is None:
+                current_box = (
+                    st.expander("🤔 Thinking").empty()
+                    if chunk.phase == StreamPhase.THINKING
+                    else st.chat_message("assistant").empty()
+                )
+            current_box.markdown(current_text)
 
 
 MCP_SERVERS = {
@@ -190,7 +193,7 @@ else:
                     st.markdown(f"**Tool call:** {tool_call['function']['name']}")
                     st.markdown(f"**Tool response:** {response_msg['content']}")
             i += len(message["tool_calls"])  # skip the consumed tool response messages
-        elif message["role"] != "tool" and "content" in message:
+        elif message["role"] != "tool" and message.get("content"):
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
