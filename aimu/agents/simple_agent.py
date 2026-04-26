@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.base import Agent, AgentChunk, MessageHistory
 from aimu.models.base import BaseModelClient
@@ -57,8 +57,15 @@ class SimpleAgent(Agent):
         if self.system_message is not None:
             self.model_client.system_message = self.system_message
 
-    def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        """Run the agentic loop synchronously and return the final response."""
+    def run(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+    ) -> Union[str, Iterator[AgentChunk]]:
+        """Run the agentic loop. Returns a string when stream=False, or an AgentChunk iterator when stream=True."""
+        if stream:
+            return self._run_streamed(task, generate_kwargs)
         self._prepare_run()
         response = self.model_client.chat(task, generate_kwargs=generate_kwargs)
 
@@ -71,12 +78,7 @@ class SimpleAgent(Agent):
         self._last_messages = list(self.model_client.messages)
         return response
 
-    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
-        """
-        Stream the agentic loop, yielding AgentChunk for every StreamChunk produced
-        across all iterations. AgentChunk.iteration indicates which loop round a
-        chunk belongs to.
-        """
+    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
         self._prepare_run()
         iteration = 0
         for chunk in self.model_client.chat(task, generate_kwargs=generate_kwargs, stream=True):

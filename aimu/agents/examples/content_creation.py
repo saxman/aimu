@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Union
 
 from fastmcp import FastMCP
 
-from aimu.agents.base import AgentChunk, MessageHistory
+from aimu.agents.base import Agent, AgentChunk, MessageHistory
 from aimu.agents.simple_agent import SimpleAgent
 from aimu.models.model_client import ModelClient
 from aimu.tools.client import MCPClient
 
 
-class ContentCreationAgent:
+class ContentCreationAgent(Agent):
     """
     Orchestrator agent that coordinates three worker sub-agents to build
     content step by step.
@@ -93,11 +93,13 @@ class ContentCreationAgent:
             ),
         )
 
-    def run(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> str:
-        return self._orchestrator.run(task, generate_kwargs)
-
-    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
-        return self._orchestrator.run_streamed(task, generate_kwargs)
+    def run(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        stream: bool = False,
+    ) -> Union[str, Iterator[AgentChunk]]:
+        return self._orchestrator.run(task, generate_kwargs, stream=stream)
 
     @property
     def messages(self) -> MessageHistory:

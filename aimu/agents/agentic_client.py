@@ -90,7 +90,7 @@ class AgenticModelClient(BaseModelClient):
     def _stream_agent(
         self, user_message: str, generate_kwargs: Optional[dict[str, Any]]
     ) -> Iterator[StreamChunk]:
-        for chunk in self._agent.run_streamed(user_message, generate_kwargs=generate_kwargs):
+        for chunk in self._agent.run(user_message, generate_kwargs=generate_kwargs, stream=True):
             yield StreamChunk(chunk.phase, chunk.content)
 
     # --- Pass-through for stateless generation ---
