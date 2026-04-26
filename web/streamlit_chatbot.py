@@ -102,8 +102,12 @@ with st.sidebar:
     model_client = st.selectbox("Model Client", options=MODEL_CLIENTS, format_func=lambda x: x.__name__)
     agentic_mode = st.checkbox("Agentic mode", value=st.session_state.agentic_mode)
     max_iterations = st.number_input(
-        "Max iterations", min_value=1, max_value=50, step=1,
-        value=st.session_state.max_iterations, disabled=not agentic_mode,
+        "Max iterations",
+        min_value=1,
+        max_value=50,
+        step=1,
+        value=st.session_state.max_iterations,
+        disabled=not agentic_mode,
     )
 
     # These checks must run before the sliders are rendered so that _set_slider_defaults can update
@@ -115,9 +119,13 @@ with st.sidebar:
     elif st.session_state.model != model:
         _rebuild_client(model_client, model, agentic_mode, max_iterations)
         st.rerun()
-    elif agentic_mode != st.session_state.agentic_mode or (agentic_mode and max_iterations != st.session_state.max_iterations):
+    elif agentic_mode != st.session_state.agentic_mode or (
+        agentic_mode and max_iterations != st.session_state.max_iterations
+    ):
         # Rewrap (or unwrap) without rebuilding the base client, preserving message history.
-        st.session_state.model_client = _wrap_agent(st.session_state.base_client, max_iterations) if agentic_mode else st.session_state.base_client
+        st.session_state.model_client = (
+            _wrap_agent(st.session_state.base_client, max_iterations) if agentic_mode else st.session_state.base_client
+        )
         st.session_state.agentic_mode = agentic_mode
         st.session_state.max_iterations = max_iterations
         st.rerun()
@@ -147,7 +155,9 @@ generate_kwargs = {
 }
 
 if len(st.session_state.model_client.messages) == 0:
-    stream_chat_response(st.session_state.model_client.chat(INITIAL_USER_MESSAGE, generate_kwargs=generate_kwargs, stream=True))
+    stream_chat_response(
+        st.session_state.model_client.chat(INITIAL_USER_MESSAGE, generate_kwargs=generate_kwargs, stream=True)
+    )
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 else:
     # Skip the initial system and user messages used for the introduction
