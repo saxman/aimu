@@ -51,7 +51,10 @@ openai_compat = [
 llamacpp = [
     "llama-cpp-python",
 ]
-all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp]"]
+deepeval = [
+    "deepeval",
+]
+all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,deepeval]"]
 
 [build-system]
 requires = ["setuptools"]

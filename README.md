@@ -17,6 +17,7 @@ AIMU is a Python library for building LLM-powered applications with a consistent
     -   [MCP Tools](#mcp-tools)
     -   [Persistence](#persistence)
     -   [Prompt Management](#prompt-management)
+    -   [Evaluations](#evaluations)
 -   [License](#license)
 
 ## Features
@@ -52,6 +53,8 @@ AIMU is a Python library for building LLM-powered applications with a consistent
     -   **Prompt Storage**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)). Prompts are keyed by `(name, model_id)` and auto-versioned on each store.
     -   **Prompt Tuning**: Hill-climbing `PromptTuner` for automatic prompt optimization against labelled data, without ML machinery. Four concrete tuners: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated by a second LLM). Subclass `PromptTuner` to implement custom task types.
 
+-   **Evaluations** (`aimu[deepeval]`): `DeepEvalModel` is a thin adapter that wraps any AIMU `ModelClient` to satisfy [DeepEval](https://deepeval.com/)'s `DeepEvalBaseLLM` interface. Pass it as the `model=` argument to any DeepEval metric — `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, and others — to use a local Ollama model, HuggingFace model, or any cloud provider as your evaluation judge.
+
 -   **Persistence**: Three complementary stores for persisting conversation and knowledge:
 
     -   **Conversation History** (`ConversationManager`): Persistent chat message history backed by [TinyDB](https://tinydb.readthedocs.io). Load the last conversation on startup and save updates after each turn.
@@ -84,6 +87,7 @@ The following Jupyter notebooks demonstrate key AIMU features:
 | [08 - Agent Skills](notebooks/08%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
 | [09 - Agent Workflows](notebooks/09%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
 | [10 - Agent Examples](notebooks/10%20-%20Agent%20Examples.ipynb) | `ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent` — orchestrator + worker tools pattern |
+| [11 - Evaluations](notebooks/11%20-%20Evaluations.ipynb) | DeepEval integration: GEval, AnswerRelevancy, Faithfulness, and batch evaluation |
 
 ## Installation
 
@@ -101,6 +105,7 @@ pip install aimu[hf]            # Hugging Face Transformers (local models)
 pip install aimu[anthropic]     # Anthropic Claude models
 pip install aimu[openai_compat] # OpenAI, Google Gemini, and OpenAI-compatible local servers
 pip install aimu[llamacpp]      # Local GGUF models via llama-cpp-python (no external service)
+pip install aimu[deepeval]      # DeepEval evaluation metrics (GEval, AnswerRelevancy, Faithfulness, etc.)
 ```
 
 For gated Hugging Face models, you'll need a [Hugging Face Hub access token](https://huggingface.co/docs/huggingface_hub/en/quick-start):
@@ -352,6 +357,43 @@ best_prompt = tuner.tune(df, initial_prompt="Is this about AI? Reply [YES] or [N
 `MultiClassPromptTuner`, `ExtractionPromptTuner`, and `JudgedPromptTuner` follow the same pattern. Subclass `PromptTuner` and implement `apply_prompt`, `evaluate`, and `mutation_prompt` for custom task types.
 
 See [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) and [04 - Prompt Tuning](notebooks/04%20-%20Prompt%20Tuning.ipynb).
+
+### Evaluations
+
+`DeepEvalModel` wraps any AIMU `ModelClient` as a DeepEval judge. Pass it to any DeepEval metric via the `model=` argument:
+
+``` python
+from aimu.models.ollama import OllamaClient
+from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.evals import DeepEvalModel
+from deepeval.metrics import GEval
+from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+
+judge = DeepEvalModel(OllamaClient(OllamaModel.QWEN_3_8B))
+
+metric = GEval(
+    name="Correctness",
+    criteria="Is the actual output factually correct and directly responsive to the question?",
+    evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+    model=judge,
+    threshold=0.5,
+)
+
+test_case = LLMTestCase(input="What is the capital of France?", actual_output="Paris.")
+metric.measure(test_case)
+print(metric.score, metric.reason)
+```
+
+Any AIMU client — Ollama, HuggingFace, Anthropic, OpenAI, or any OpenAI-compatible server — can be used as the judge. Swap in a stronger cloud model for more reliable judgments on complex tasks:
+
+``` python
+from aimu.models.anthropic import AnthropicClient
+from aimu.models.anthropic.anthropic_client import AnthropicModel
+
+judge = DeepEvalModel(AnthropicClient(AnthropicModel.CLAUDE_SONNET_4))
+```
+
+See [11 - Evaluations](notebooks/11%20-%20Evaluations.ipynb) for GEval, AnswerRelevancy, Faithfulness, and batch evaluation examples.
 
 ## License
 

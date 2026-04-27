@@ -29,6 +29,7 @@ pip install -e '.[hf]'             # Hugging Face only
 pip install -e '.[anthropic]'      # Anthropic Claude models
 pip install -e '.[openai_compat]'  # OpenAI-compatible servers + cloud (OpenAI, Gemini, LM Studio, vLLM, etc.)
 pip install -e '.[llamacpp]'       # Local GGUF models via llama-cpp-python (no external service)
+pip install -e '.[deepeval]'      # DeepEval evaluation metrics
 ```
 
 ### Testing
@@ -140,7 +141,7 @@ The codebase uses an abstract base class pattern for model clients:
   - `TOOL_MODELS`: Derived list of models where `supports_tools=True`
   - `THINKING_MODELS`: Derived list of models where `supports_thinking=True`
 
-- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK. `model_client.py` performs the same guarded imports independently to avoid a circular import with `__init__.py`.
+- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK. `model_client.py` performs the same guarded imports independently to avoid a circular import with `__init__.py`. The `aimu/evals/` package uses the same guarded-import pattern with `HAS_DEEPEVAL`.
 
 ### MCP Tools Integration
 
@@ -290,6 +291,17 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 
 - All agents/workflows use the public `chat()` / `chat(..., stream=True)` API only; no changes to `ModelClient` subclasses
 - `messages` is composable: nested workflows (e.g. a `Router` dispatching to a `Chain`) merge recursively, so all sub-agent names appear at the top level
+
+### Evaluations
+
+- **[aimu/evals/](aimu/evals/)**: Optional DeepEval integration (`aimu[deepeval]` extra)
+  - **[aimu/evals/deepeval.py](aimu/evals/deepeval.py)**: `DeepEvalModel(DeepEvalBaseLLM)` adapter
+    - Wraps any `BaseModelClient` to satisfy DeepEval's judge interface
+    - `get_model_name()`: returns the model enum member name
+    - `generate(prompt, schema=None)`: calls `model_client.generate(prompt)`; when `schema` is a Pydantic `BaseModel` subclass, parses JSON from the response using a 3-stage strategy (raw → fenced block → `{...}` substring) and validates into the schema
+    - `a_generate(prompt, schema=None)`: async wrapper using `run_in_executor` (AIMU clients are synchronous)
+    - Pass to any DeepEval metric via `model=DeepEvalModel(client)`: `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, etc.
+  - **[aimu/evals/__init__.py](aimu/evals/__init__.py)**: guarded import; exposes `DeepEvalModel` and `HAS_DEEPEVAL` flag
 
 ### Prompt Management
 
@@ -459,6 +471,9 @@ aimu/
 │   ├── skill.py         # Skill dataclass (name, description, path, load_body())
 │   ├── manager.py       # SkillManager (discovery, catalog_prompt, get_skill_body)
 │   └── mcp.py           # build_skills_server(): FastMCP server from SkillManager
+├── evals/               # Evaluation framework adapters (optional)
+│   ├── __init__.py      # Guarded import; HAS_DEEPEVAL flag
+│   └── deepeval.py      # DeepEvalModel(DeepEvalBaseLLM) adapter for any BaseModelClient
 ├── prompts/             # Prompt storage and management
 │   ├── catalog.py       # PromptCatalog (SQLAlchemy, versioned, (name, model_id) keyed)
 │   ├── tuner.py         # PromptTuner ABC (hill-climbing loop, generate/mutation kwargs)
