@@ -35,6 +35,7 @@ hf = [
     "sentencepiece",
     "mistral-common", # required for Mistral-Small-3.2 model
     "kernels", # required for GPT-OSS
+    "bitsandbytes", # for models that require quantization before loading (e.g. Magistral)
 ]
 ollama = [
     "ollama",
