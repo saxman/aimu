@@ -7,6 +7,7 @@ from transformers import AutoProcessor
 from transformers.utils import logging as log
 from transformers import TextIteratorStreamer
 from transformers import Mistral3ForConditionalGeneration
+from transformers import BitsAndBytesConfig
 import gc
 import pprint
 import logging
@@ -224,13 +225,13 @@ class HuggingFaceClient(BaseModelClient):
         if model == self.MODELS.MAGISTRAL_SMALL:
             self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
 
-            # device_map="auto" causes OOM on dual 4090 GPUs
+            bnb_config = BitsAndBytesConfig(load_in_8bit=True, bnb_8bit_compute_dtype=torch.bfloat16)
             self._hf_model = Mistral3ForConditionalGeneration.from_pretrained(
-                model.value, torch_dtype=torch.bfloat16, device_map="sequential"
+                model.value, quantization_config=bnb_config, device_map="balanced"
             )
         elif model == self.MODELS.GPT_OSS_20B and torch.backends.mps.is_available():
             raise ValueError("GPT-OSS-20B is not supported on MPS devices.")
-        elif model.value.startswith("google/gemma-4") or model.value.startswith("qwen/qwen3.5"):
+        elif model.value.startswith("google/gemma-4"):
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
