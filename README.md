@@ -51,9 +51,9 @@ AIMU is a Python library for building LLM-powered applications with a consistent
 -   **Prompt Management**: Versioned prompt storage and automatic prompt optimization:
 
     -   **Prompt Storage**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)). Prompts are keyed by `(name, model_id)` and auto-versioned on each store.
-    -   **Prompt Tuning**: Hill-climbing `PromptTuner` for automatic prompt optimization against labelled data, without ML machinery. Four concrete tuners: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated by a second LLM). Subclass `PromptTuner` to implement custom task types.
+    -   **Prompt Tuning**: Hill-climbing `PromptTuner` for automatic prompt optimization against labelled data, without ML machinery. Four concrete tuners: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated per-row by a pluggable `Scorer` — built-in `LLMJudgeScorer` or `DeepEvalScorer` for DeepEval metrics). Subclass `PromptTuner` to implement custom task types.
 
--   **Evaluations** (`aimu[deepeval]`): `DeepEvalModel` is a thin adapter that wraps any AIMU `ModelClient` to satisfy [DeepEval](https://deepeval.com/)'s `DeepEvalBaseLLM` interface. Pass it as the `model=` argument to any DeepEval metric — `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, and others — to use a local Ollama model, HuggingFace model, or any cloud provider as your evaluation judge.
+-   **Evaluations** (`aimu[deepeval]`): `DeepEvalModel` is a thin adapter that wraps any AIMU `ModelClient` to satisfy [DeepEval](https://deepeval.com/)'s `DeepEvalBaseLLM` interface. Pass it as the `model=` argument to any DeepEval metric — `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, and others — to use a local Ollama model, HuggingFace model, or any cloud provider as your evaluation judge. The same metrics also drop directly into `JudgedPromptTuner` via `DeepEvalScorer` to drive prompt optimization.
 
 -   **Persistence**: Three complementary stores for persisting conversation and knowledge:
 
@@ -354,7 +354,32 @@ df = pd.DataFrame({
 best_prompt = tuner.tune(df, initial_prompt="Is this about AI? Reply [YES] or [NO]. Content: {content}")
 ```
 
-`MultiClassPromptTuner`, `ExtractionPromptTuner`, and `JudgedPromptTuner` follow the same pattern. Subclass `PromptTuner` and implement `apply_prompt`, `evaluate`, and `mutation_prompt` for custom task types.
+`MultiClassPromptTuner` and `ExtractionPromptTuner` follow the same pattern. `JudgedPromptTuner` handles open-ended generation by delegating per-row scoring to a `Scorer`:
+
+``` python
+from aimu.prompts import JudgedPromptTuner, LLMJudgeScorer
+
+# Built-in: a separate judge model rates each output 1-10
+tuner = JudgedPromptTuner(
+    model_client=writer_client,
+    scorer=LLMJudgeScorer(judge_client, criteria="Concise, accurate, plain English."),
+)
+
+# Or drive the same loop with DeepEval metrics (aimu[deepeval])
+from deepeval.metrics import GEval
+from deepeval.test_case import LLMTestCaseParams
+from aimu.evals import DeepEvalModel, DeepEvalScorer
+
+geval = GEval(
+    name="quality",
+    criteria="Concise, accurate, plain English.",
+    evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+    model=DeepEvalModel(judge_client),
+)
+tuner = JudgedPromptTuner(model_client=writer_client, scorer=DeepEvalScorer([geval]))
+```
+
+Subclass `PromptTuner` and implement `apply_prompt`, `evaluate`, and `mutation_prompt` for custom task types.
 
 See [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) and [04 - Prompt Tuning](notebooks/04%20-%20Prompt%20Tuning.ipynb).
 

@@ -16,6 +16,7 @@ import pytest
 
 from aimu.models import BaseModelClient
 from aimu.prompts import ClassificationPromptTuner, ExtractionPromptTuner, JudgedPromptTuner, MultiClassPromptTuner
+from aimu.prompts.tuners.scorers import LLMJudgeScorer, _parse_judge_score
 from conftest import create_real_model_client, resolve_model_params
 
 # ---------------------------------------------------------------------------
@@ -515,8 +516,7 @@ def test_judged_score_override():
     """JudgedPromptTuner.score() returns metrics['score'], not metrics['accuracy']."""
     tuner = JudgedPromptTuner(
         model_client=_MockClientForEval(),
-        judge_client=_MockClientForEval(),
-        criteria="Be concise.",
+        scorer=LLMJudgeScorer(_MockClientForEval(), criteria="Be concise."),
     )
     assert tuner.score({"score": 0.8, "pass_rate": 0.6}) == 0.8
 
@@ -528,8 +528,7 @@ def test_judged_apply_prompt():
 
     tuner = JudgedPromptTuner(
         model_client=main_client,
-        judge_client=judge_client,
-        criteria="Good summaries are short.",
+        scorer=LLMJudgeScorer(judge_client, criteria="Good summaries are short."),
         pass_threshold=0.6,
     )
     df = pd.DataFrame({"content": ["Long article text.", "Another long text."]})
@@ -545,8 +544,7 @@ def test_judged_evaluate_results():
     """evaluate_results computes mean score and pass_rate."""
     tuner = JudgedPromptTuner(
         model_client=_MockClientForEval(),
-        judge_client=_MockClientForEval(),
-        criteria="Be helpful.",
+        scorer=LLMJudgeScorer(_MockClientForEval(), criteria="Be helpful."),
     )
     df = pd.DataFrame(
         {
@@ -576,8 +574,163 @@ def test_judged_tune():
 
     tuner = JudgedPromptTuner(
         model_client=main_client,
-        judge_client=judge_client,
-        criteria="Be concise and accurate.",
+        scorer=LLMJudgeScorer(judge_client, criteria="Be concise and accurate."),
+        pass_threshold=0.7,
+    )
+
+    result = tuner.tune(df, "Answer this: {content}")
+
+    assert result == "improved: {content}"
+
+
+# ---------------------------------------------------------------------------
+# Scorer tests
+# ---------------------------------------------------------------------------
+
+
+def test_parse_judge_score_valid():
+    """_parse_judge_score normalises 1-10 ratings to 0-1."""
+    assert _parse_judge_score("7") == 0.7
+    assert _parse_judge_score("Score: 10/10, great work") == 1.0
+    assert _parse_judge_score("I'd rate this 4 out of 10") == 0.4
+
+
+def test_parse_judge_score_fallback():
+    """_parse_judge_score falls back to 0.5 when no 1-10 integer is present."""
+    assert _parse_judge_score("no number here") == 0.5
+    assert _parse_judge_score("score is 11 (out of range)") == 0.5
+
+
+def test_llm_judge_scorer_returns_score_and_feedback():
+    """LLMJudgeScorer.score returns parsed score + raw judge text."""
+    judge = _TuneSeqClient(["8 - the response is concise"])
+    scorer = LLMJudgeScorer(judge, criteria="Be concise.")
+    row = pd.Series({"content": "input", "output": "response"})
+
+    score, feedback = scorer.score(row)
+
+    assert score == 0.8
+    assert feedback == "8 - the response is concise"
+
+
+def test_llm_judge_scorer_uses_reference_when_present():
+    """When the row has a non-empty reference, it is included in the judge prompt."""
+
+    captured: list[str] = []
+
+    class _Capture:
+        is_thinking_model = False
+
+        def generate(self, prompt, generate_kwargs=None):
+            captured.append(prompt)
+            return "9"
+
+    scorer = LLMJudgeScorer(_Capture(), criteria="Match reference.")
+    row = pd.Series({"content": "input", "output": "actual", "reference": "ideal"})
+
+    scorer.score(row)
+
+    assert "Reference: ideal" in captured[0]
+
+
+# ---------------------------------------------------------------------------
+# DeepEvalScorer tests (skipped if deepeval is not installed)
+# ---------------------------------------------------------------------------
+
+
+def test_deepeval_scorer_averages_metric_scores():
+    pytest.importorskip("deepeval")
+    from aimu.evals import DeepEvalScorer
+
+    class _StubMetric:
+        score = 0.0
+        reason = ""
+
+        def __init__(self, score: float, reason: str):
+            self._score = score
+            self._reason = reason
+
+        def measure(self, test_case):
+            self.score = self._score
+            self.reason = self._reason
+            self.last_test_case = test_case
+
+    m1 = _StubMetric(0.8, "concise and accurate")
+    m2 = _StubMetric(0.6, "could be tighter")
+    scorer = DeepEvalScorer([m1, m2])
+    row = pd.Series({"content": "input text", "output": "actual response"})
+
+    score, feedback = scorer.score(row)
+
+    assert score == pytest.approx(0.7)
+    assert "_StubMetric: concise and accurate" in feedback
+    assert "_StubMetric: could be tighter" in feedback
+    assert m1.last_test_case.input == "input text"
+    assert m1.last_test_case.actual_output == "actual response"
+    assert m1.last_test_case.expected_output is None
+
+
+def test_deepeval_scorer_passes_reference_as_expected_output():
+    pytest.importorskip("deepeval")
+    from aimu.evals import DeepEvalScorer
+
+    captured: list = []
+
+    class _CaptureMetric:
+        score = 0.5
+        reason = "ok"
+
+        def measure(self, test_case):
+            captured.append(test_case)
+
+    scorer = DeepEvalScorer([_CaptureMetric()])
+    row = pd.Series({"content": "in", "output": "out", "reference": "expected"})
+    scorer.score(row)
+
+    assert captured[0].expected_output == "expected"
+
+
+def test_deepeval_scorer_rejects_empty_metrics():
+    pytest.importorskip("deepeval")
+    from aimu.evals import DeepEvalScorer
+
+    with pytest.raises(ValueError):
+        DeepEvalScorer([])
+
+
+def test_judged_tune_with_deepeval_scorer():
+    """JudgedPromptTuner drives the loop using a DeepEvalScorer."""
+    pytest.importorskip("deepeval")
+    from aimu.evals import DeepEvalScorer
+
+    class _SeqMetric:
+        """Returns scores from a fixed sequence; mirrors _TuneSeqClient."""
+
+        score = 0.0
+        reason = ""
+
+        def __init__(self, scores):
+            self._scores = list(scores)
+            self._idx = 0
+
+        def measure(self, test_case):
+            self.score = self._scores[self._idx]
+            self.reason = f"score {self.score}"
+            self._idx += 1
+
+    df = pd.DataFrame({"content": ["Some input text."]})
+    main_client = _TuneSeqClient(
+        [
+            "bad response",  # iter 0: generate response
+            "<prompt>improved: {content}</prompt>",  # mutation
+            "good response",  # iter 1: generate response
+        ]
+    )
+    metric = _SeqMetric([0.5, 0.8])
+
+    tuner = JudgedPromptTuner(
+        model_client=main_client,
+        scorer=DeepEvalScorer([metric]),
         pass_threshold=0.7,
     )
 

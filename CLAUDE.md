@@ -301,7 +301,10 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
     - `generate(prompt, schema=None)`: calls `model_client.generate(prompt)`; when `schema` is a Pydantic `BaseModel` subclass, parses JSON from the response using a 3-stage strategy (raw → fenced block → `{...}` substring) and validates into the schema
     - `a_generate(prompt, schema=None)`: async wrapper using `run_in_executor` (AIMU clients are synchronous)
     - Pass to any DeepEval metric via `model=DeepEvalModel(client)`: `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, etc.
-  - **[aimu/evals/__init__.py](aimu/evals/__init__.py)**: guarded import; exposes `DeepEvalModel` and `HAS_DEEPEVAL` flag
+  - **[aimu/evals/deepeval_scorer.py](aimu/evals/deepeval_scorer.py)**: `DeepEvalScorer(Scorer)`: drop-in `Scorer` for `JudgedPromptTuner` backed by DeepEval metrics
+    - Constructor: `DeepEvalScorer(metrics: list[BaseMetric], input_field="content", output_field="output")`
+    - `score(row)` builds an `LLMTestCase(input=row[input_field], actual_output=row[output_field], expected_output=row.get("reference"))`, calls `metric.measure()` on every metric, returns `(mean(scores), "\n".join(reasons))`
+  - **[aimu/evals/__init__.py](aimu/evals/__init__.py)**: guarded import; exposes `DeepEvalModel`, `DeepEvalScorer`, and `HAS_DEEPEVAL` flag
 
 ### Prompt Management
 
@@ -342,14 +345,22 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `evaluate_results(data)`: returns `{accuracy, field_{name}_accuracy}` for each field
   - Mutation prompt shows field-by-field expected vs. actual mismatches per failed row
 - **[aimu/prompts/tuners/judged.py](aimu/prompts/tuners/judged.py)**: `JudgedPromptTuner(PromptTuner)`
-  - Open-ended generation evaluated by a judge model; constructor takes `judge_client`, `criteria: str`, `pass_threshold: float = 0.7`, optional `judge_prompt_template`
-  - Data must have `content` (str) column; optional `reference` (str) column included in judge prompt when present
+  - Open-ended generation evaluated by a pluggable [`Scorer`](aimu/prompts/tuners/scorers.py); constructor takes `scorer: Scorer`, `pass_threshold: float = 0.7`
+  - Data must have `content` (str) column; optional `reference` (str) column is forwarded to scorers that consume it
   - `generate_responses(prompt, data)`: applies prompt to each row, stores output in `output` column using `response_kwargs` (longer token budget than `generate_kwargs`)
-  - `judge_responses(data)`: calls `judge_client` with judge prompt, parses 1–10 score, stores `judge_score` (0–1) and `judge_feedback`
+  - `judge_responses(data)`: calls `scorer.score(row)` per row; stores `judge_score` (0-1) and `judge_feedback` (string)
   - `_correct`: `judge_score >= pass_threshold`
   - `evaluate_results(data)`: returns `{score: mean judge_score, pass_rate}`
   - **Overrides `score()` to return `metrics["score"]`**; optimises mean quality instead of binary pass rate
-  - Mutation prompt includes input, output, score, and judge rationale for each failing example
+  - Mutation prompt includes input, output, score, and judge feedback for each failing example
+- **[aimu/prompts/tuners/scorers.py](aimu/prompts/tuners/scorers.py)**: `Scorer` ABC and built-in `LLMJudgeScorer`
+  - `Scorer.score(row) -> tuple[float, str]`: returns normalised score (0-1) and feedback string for one row
+  - `LLMJudgeScorer(judge_client, criteria, prompt_template=None, generate_kwargs=None)`: asks `judge_client` to rate 1-10 and parses the first standalone integer in that range; defaults to 0.5 on parse failure
+- **[aimu/evals/deepeval_scorer.py](aimu/evals/deepeval_scorer.py)**: `DeepEvalScorer(Scorer)` (requires `aimu[deepeval]`)
+  - Constructor: `DeepEvalScorer(metrics: list[BaseMetric], input_field="content", output_field="output")`
+  - Each row is converted to `LLMTestCase(input=row[input_field], actual_output=row[output_field], expected_output=row.get("reference"))`
+  - Calls `metric.measure(test_case)` for every metric; returns `(mean(metric.score for metric in metrics), "\n".join(f"{type(metric).__name__}: {metric.reason}" for metric in metrics))`
+  - Use any DeepEval metric (`GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, etc.) wired with a `DeepEvalModel(judge_client)` as the metric's `model`
 
 ### Key Design Patterns
 
@@ -472,8 +483,9 @@ aimu/
 │   ├── manager.py       # SkillManager (discovery, catalog_prompt, get_skill_body)
 │   └── mcp.py           # build_skills_server(): FastMCP server from SkillManager
 ├── evals/               # Evaluation framework adapters (optional)
-│   ├── __init__.py      # Guarded import; HAS_DEEPEVAL flag
-│   └── deepeval.py      # DeepEvalModel(DeepEvalBaseLLM) adapter for any BaseModelClient
+│   ├── __init__.py        # Guarded import; HAS_DEEPEVAL flag
+│   ├── deepeval.py        # DeepEvalModel(DeepEvalBaseLLM) adapter for any BaseModelClient
+│   └── deepeval_scorer.py # DeepEvalScorer(Scorer) wrapping list[BaseMetric] for JudgedPromptTuner
 ├── prompts/             # Prompt storage and management
 │   ├── catalog.py       # PromptCatalog (SQLAlchemy, versioned, (name, model_id) keyed)
 │   ├── tuner.py         # PromptTuner ABC (hill-climbing loop, generate/mutation kwargs)
@@ -482,7 +494,8 @@ aimu/
 │       ├── classification.py  # ClassificationPromptTuner (YES/NO, classify_data, evaluate_results)
 │       ├── multiclass.py      # MultiClassPromptTuner (N-way [ClassName], per-class F1)
 │       ├── extraction.py      # ExtractionPromptTuner (JSON field extraction, per-field accuracy)
-│       └── judged.py          # JudgedPromptTuner (LLM-as-judge, score() override)
+│       ├── judged.py          # JudgedPromptTuner (Scorer-driven, score() override)
+│       └── scorers.py         # Scorer ABC + LLMJudgeScorer (built-in 1-10 LLM rating)
 └── paths.py             # Path configuration (root, tests, package, output, skills)
 
 tests/                   # Pytest test suite

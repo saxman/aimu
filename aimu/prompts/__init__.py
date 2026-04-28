@@ -1,6 +1,13 @@
 from .catalog import Prompt, PromptCatalog
 from .tuner import PromptTuner
-from .tuners import ClassificationPromptTuner, ExtractionPromptTuner, JudgedPromptTuner, MultiClassPromptTuner
+from .tuners import (
+    ClassificationPromptTuner,
+    ExtractionPromptTuner,
+    JudgedPromptTuner,
+    LLMJudgeScorer,
+    MultiClassPromptTuner,
+    Scorer,
+)
 
 __all__ = [
     "Prompt",
@@ -9,5 +16,7 @@ __all__ = [
     "ClassificationPromptTuner",
     "ExtractionPromptTuner",
     "JudgedPromptTuner",
+    "LLMJudgeScorer",
     "MultiClassPromptTuner",
+    "Scorer",
 ]

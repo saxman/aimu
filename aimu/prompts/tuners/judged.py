@@ -1,102 +1,82 @@
 """
-aimu.prompts.tuners.judged: Prompt tuner for open-ended generation judged by an LLM.
+aimu.prompts.tuners.judged: Prompt tuner for open-ended generation evaluated by a Scorer.
 
 JudgedPromptTuner handles tasks where there is no single correct answer (summarisation,
-rewriting, question answering, creative generation) by delegating evaluation to a
-separate judge model that scores each output on a 1–10 scale.
+rewriting, question answering, creative generation) by delegating per-row evaluation
+to a pluggable :class:`Scorer`.
 
-Unlike other tuners, the primary optimisation target is the mean judge *score* (0–1),
-not binary accuracy. JudgedPromptTuner overrides ``score()`` to demonstrate how the
+Unlike other tuners, the primary optimisation target is the mean score (0-1), not
+binary accuracy. JudgedPromptTuner overrides ``score()`` to demonstrate how the
 base-class design supports non-accuracy primary metrics.
 
 - Data must have a ``content`` column (input text). An optional ``reference`` column
-  (ideal/expected output) is included in the judge prompt when present.
+  (ideal/expected output) is forwarded to scorers that consume it.
 - The main prompt template must contain a ``{content}`` placeholder.
-- The judge prompt template uses ``{criteria}``, ``{content}``, ``{output}``, and
-  ``{reference_line}`` (empty string when no reference is available).
 
-Example::
+Example with the built-in LLM-as-judge scorer::
 
     from aimu.prompts import JudgedPromptTuner
+    from aimu.prompts.tuners.scorers import LLMJudgeScorer
 
     tuner = JudgedPromptTuner(
         model_client=main_client,
-        judge_client=judge_client,
-        criteria="Responses should be concise, accurate, and in plain English.",
+        scorer=LLMJudgeScorer(judge_client, criteria="Concise, accurate, plain English."),
     )
     prompt = tuner.tune(df, initial_prompt="Summarise this article: {content}")
+
+Example with DeepEval metrics::
+
+    from deepeval.metrics import GEval
+    from deepeval.test_case import LLMTestCaseParams
+    from aimu.evals import DeepEvalModel, DeepEvalScorer
+
+    geval = GEval(
+        name="quality",
+        criteria="Concise, accurate, plain English.",
+        evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+        model=DeepEvalModel(judge_client),
+    )
+    tuner = JudgedPromptTuner(model_client=main_client, scorer=DeepEvalScorer([geval]))
 """
 
 from __future__ import annotations
 
 import logging
-import re
 
 from tqdm import tqdm
 
 from aimu.prompts.tuner import DEFAULT_MUTATION_KWARGS, PromptTuner
+from aimu.prompts.tuners.scorers import Scorer
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_JUDGE_TEMPLATE = """\
-Task criteria: {criteria}
-
-Input: {content}
-{reference_line}
-Response: {output}
-
-Rate how well this response satisfies the criteria. \
-Reply with only a number from 1 to 10.\
-"""
-
-_SCORE_RE = re.compile(r"\b(10|[1-9])\b")
-
-
-def _parse_judge_score(text: str) -> float:
-    """
-    Parse a 1–10 integer score from judge output and normalise to 0–1.
-
-    Finds the first standalone integer in 1–10. Returns 0.5 as a neutral
-    fallback when no number is found, and logs a warning.
-    """
-    m = _SCORE_RE.search(text)
-    if m:
-        return int(m.group(1)) / 10.0
-    logger.warning("Could not parse a 1-10 score from judge output, defaulting to 0.5: %r", text)
-    return 0.5
 
 
 class JudgedPromptTuner(PromptTuner):
     """
-    Prompt tuner for open-ended generation tasks evaluated by a judge model.
+    Prompt tuner for open-ended generation tasks evaluated by a :class:`Scorer`.
 
     Overrides ``score()`` to optimise mean judge score rather than accuracy,
     demonstrating the PromptTuner base-class extension point.
 
     Args:
-        model_client:          ModelClient that generates responses.
-        judge_client:          Separate ModelClient used only for evaluation.
-        criteria:              Plain-text description of what a good response looks like.
-        pass_threshold:        Minimum normalised score (0–1) for a row to be ``_correct``.
-                               Default ``0.7`` (i.e. judge score ≥ 7/10).
-        judge_prompt_template: Override the default judge prompt. Must contain
-                               ``{criteria}``, ``{content}``, ``{output}``, and
-                               ``{reference_line}`` placeholders.
+        model_client:   ModelClient that generates responses.
+        scorer:         Per-row :class:`Scorer` used for evaluation. Use
+                        :class:`aimu.prompts.tuners.scorers.LLMJudgeScorer` for
+                        LLM-as-judge or :class:`aimu.evals.DeepEvalScorer` for
+                        DeepEval-backed metrics.
+        pass_threshold: Minimum normalised score (0-1) for a row to be ``_correct``.
+                        Default ``0.7``.
     """
 
     def __init__(
         self,
         model_client,
-        judge_client,
-        criteria: str,
+        scorer: Scorer,
         pass_threshold: float = 0.7,
-        judge_prompt_template: str | None = None,
     ):
         super().__init__(model_client)
-        self.judge_client = judge_client
-        self.criteria = criteria
+        self.scorer = scorer
         self.pass_threshold = pass_threshold
-        self.judge_prompt_template = judge_prompt_template or _DEFAULT_JUDGE_TEMPLATE
         # Generating full responses needs more tokens than short classification outputs.
         self.response_kwargs = DEFAULT_MUTATION_KWARGS.copy()
         if model_client.is_thinking_model:
@@ -124,14 +104,13 @@ class JudgedPromptTuner(PromptTuner):
     def mutation_prompt(self, current_prompt: str, items: list) -> str:
         parts = [
             f"Given this task prompt:\n{current_prompt}\n",
-            f"Task criteria: {self.criteria}\n",
             "The following responses scored below the quality threshold:\n",
         ]
 
         for item in items:
             parts.append(f"Input: {item.content}")
             parts.append(f"Response: {item.output}")
-            parts.append(f"Score: {item.judge_score:.1f}/1.0")
+            parts.append(f"Score: {item.judge_score:.2f}/1.0")
             feedback = getattr(item, "judge_feedback", "")
             if feedback:
                 parts.append(f"Judge feedback: {feedback}")
@@ -171,14 +150,13 @@ class JudgedPromptTuner(PromptTuner):
 
     def judge_responses(self, data):
         """
-        Judge every row's ``output`` and store normalised scores in ``judge_score``
-        and the full judge response in ``judge_feedback``.
+        Run the configured :class:`Scorer` on every row and store results.
 
         Args:
             data: DataFrame with ``content`` and ``output`` columns.
 
         Returns:
-            DataFrame with added ``judge_score`` (float 0–1) and ``judge_feedback`` columns.
+            DataFrame with added ``judge_score`` (float 0-1) and ``judge_feedback`` columns.
         """
         scores = []
         feedbacks = []
@@ -186,20 +164,7 @@ class JudgedPromptTuner(PromptTuner):
 
         for i in tqdm(range(len(data)), desc="judging"):
             row = data.iloc[i]
-            reference_line = ""
-            if "reference" in data.columns and row.reference:
-                reference_line = f"Reference: {row.reference}"
-
-            judge_prompt = self.judge_prompt_template.format(
-                criteria=self.criteria,
-                content=row.content,
-                output=row.output,
-                reference_line=reference_line,
-            )
-            feedback = self.judge_client.generate(judge_prompt, self.generate_kwargs)
-            logger.info(f"judge feedback: {feedback}")
-
-            score = _parse_judge_score(feedback)
+            score, feedback = self.scorer.score(row)
             scores.append(score)
             feedbacks.append(feedback)
 
@@ -215,7 +180,7 @@ class JudgedPromptTuner(PromptTuner):
             data: DataFrame with ``judge_score`` (float) and ``_correct`` (bool) columns.
 
         Returns:
-            Dict with ``score`` (mean judge score, 0–1) and ``pass_rate`` (fraction passing).
+            Dict with ``score`` (mean judge score, 0-1) and ``pass_rate`` (fraction passing).
         """
         return {
             "score": data["judge_score"].mean(),
