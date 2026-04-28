@@ -61,6 +61,9 @@ class ToolCallFormat(Enum):
                 if "<function=" in m:
                     # Qwen-style: <function=name><parameter=key>value</parameter></function>
                     name_m = re.search(r"<function=(\w+)>", m)
+                    if not name_m:
+                        logger.warning("Could not parse tool name from tool call: %r", m)
+                        continue
                     args = {k: v.strip() for k, v in re.findall(r"<parameter=(\w+)>(.*?)</parameter>", m, re.DOTALL)}
                     result.append({"name": name_m.group(1), "arguments": args})
                 else:
@@ -78,7 +81,6 @@ class ToolCallFormat(Enum):
 
 class HuggingFaceModel(Model):
     tool_call_format: Optional[ToolCallFormat]
-    generate_kwargs: dict[str, Any]
     think_opener_in_prompt: bool
 
     def __init__(
@@ -87,13 +89,13 @@ class HuggingFaceModel(Model):
         supports_tools=False,
         supports_thinking=False,
         tool_call_format=ToolCallFormat.XML,
-        generate_kwargs=None,
+        generation_kwargs=None,
         think_opener_in_prompt=False,
     ):
-        super().__init__(value, supports_tools, supports_thinking)
+        merged_kwargs = DEFAULT_GENERATE_KWARGS.copy()
+        merged_kwargs.update(generation_kwargs or {})
+        super().__init__(value, supports_tools, supports_thinking, merged_kwargs)
         self.tool_call_format = tool_call_format
-        self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
-        self.generate_kwargs.update(generate_kwargs or {})
         # Qwen 3.5's chat template appends <think>\n to the generation prompt,
         # so the model generates starting inside the thinking block and only
         # emits the closing </think>. Set True for such models so streaming
@@ -265,7 +267,7 @@ class HuggingFaceClient(BaseModelClient):
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         if not generate_kwargs:
-            kwargs = self.model.generate_kwargs.copy()
+            kwargs = self.model.generation_kwargs.copy()
         else:
             kwargs = generate_kwargs.copy()
 
