@@ -16,7 +16,7 @@ import pytest
 from typing import Iterable
 from fastmcp import FastMCP
 
-from conftest import create_real_model_client, resolve_model_params
+from helpers import create_real_model_client, resolve_model_params
 from aimu.models import BaseModelClient, StreamingContentType, StreamChunk
 from aimu.tools.client import MCPClient
 

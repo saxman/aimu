@@ -12,7 +12,7 @@ SimpleAgent.run() / run_streamed() isolates each agent's history.
 import pytest
 
 from aimu.agents import Chain, EvaluatorOptimizer, MessageHistory, Parallel, Router, SimpleAgent
-from conftest import MockModelClient
+from helpers import MockModelClient
 
 
 # ---------------------------------------------------------------------------

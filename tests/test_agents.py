@@ -1,7 +1,7 @@
 """
 Tests for aimu.agents: SimpleAgent, Chain, and AgenticModelClient.
 
-Unit tests use MockModelClient from conftest (deterministic, no backend needed).
+Unit tests use MockModelClient from helpers (deterministic, no backend needed).
 The model_client fixture is available for integration tests:
   - Default (no --client): MockModelClient
   - pytest tests/test_agents.py --client=ollama --model=LLAMA_3_2_3B
@@ -15,7 +15,7 @@ import pytest
 from aimu.agents import Agent, Chain, AgentChunk, AgenticModelClient, Runner, SimpleAgent, Workflow
 from aimu.models import BaseModelClient
 from aimu.models.base import StreamChunk, StreamingContentType
-from conftest import MockModelClient, create_real_model_client, resolve_model_params
+from helpers import MockModelClient, create_real_model_client, resolve_model_params
 
 _MOCK = "mock"
 

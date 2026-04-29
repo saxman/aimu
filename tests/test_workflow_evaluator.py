@@ -1,12 +1,12 @@
 """
 Tests for aimu.agents.EvaluatorOptimizer: the Evaluator-Optimizer workflow pattern.
 
-All tests use MockModelClient from conftest (deterministic, no backend needed).
+All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
 from aimu.agents import AgentChunk, EvaluatorOptimizer, Runner, SimpleAgent, Workflow
 from aimu.models.base import StreamingContentType
-from conftest import MockModelClient
+from helpers import MockModelClient
 
 
 # ---------------------------------------------------------------------------

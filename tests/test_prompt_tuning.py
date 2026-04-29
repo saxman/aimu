@@ -17,7 +17,7 @@ import pytest
 from aimu.models import BaseModelClient
 from aimu.prompts import ClassificationPromptTuner, ExtractionPromptTuner, JudgedPromptTuner, MultiClassPromptTuner
 from aimu.prompts.tuners.scorers import LLMJudgeScorer, _parse_judge_score
-from conftest import create_real_model_client, resolve_model_params
+from helpers import create_real_model_client, resolve_model_params
 
 # ---------------------------------------------------------------------------
 # Sequential mock client: returns responses one-by-one from a fixed list.

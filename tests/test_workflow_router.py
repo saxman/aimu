@@ -1,14 +1,14 @@
 """
 Tests for aimu.agents.Router: the Routing workflow pattern.
 
-All tests use MockModelClient from conftest (deterministic, no backend needed).
+All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
 import pytest
 
 from aimu.agents import AgentChunk, Router, Runner, SimpleAgent, Workflow
 from aimu.models.base import StreamingContentType
-from conftest import MockModelClient
+from helpers import MockModelClient
 
 
 # ---------------------------------------------------------------------------

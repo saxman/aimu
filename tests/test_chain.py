@@ -1,12 +1,12 @@
 """
 Tests for aimu.agents.Chain: the sequential chaining workflow pattern.
 
-All tests use MockModelClient from conftest (deterministic, no backend needed).
+All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
 from aimu.agents import Agent, Chain, ChainChunk, Runner, SimpleAgent, Workflow
 from aimu.models.base import StreamingContentType
-from conftest import MockModelClient
+from helpers import MockModelClient
 
 
 # ---------------------------------------------------------------------------

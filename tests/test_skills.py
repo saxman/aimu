@@ -18,7 +18,7 @@ from aimu.models import BaseModelClient
 from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.skills.manager import SkillManager
 from aimu.skills.skill import Skill
-from conftest import create_real_model_client, resolve_model_params
+from helpers import create_real_model_client, resolve_model_params
 
 _MOCK = "mock"
 
