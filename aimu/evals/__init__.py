@@ -1,3 +1,5 @@
+from aimu.evals.benchmark import Benchmark, BenchmarkResults
+
 try:
     from aimu.evals.deepeval import DeepEvalModel
     from aimu.evals.deepeval_scorer import DeepEvalScorer
@@ -8,4 +10,4 @@ except ImportError:
     DeepEvalModel = None
     DeepEvalScorer = None
 
-__all__ = ["HAS_DEEPEVAL", "DeepEvalModel", "DeepEvalScorer"]
+__all__ = ["HAS_DEEPEVAL", "Benchmark", "BenchmarkResults", "DeepEvalModel", "DeepEvalScorer"]

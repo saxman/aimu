@@ -18,6 +18,7 @@ AIMU is a Python library for building LLM-powered applications with a consistent
     -   [Persistence](#persistence)
     -   [Prompt Management](#prompt-management)
     -   [Evaluations](#evaluations)
+    -   [Benchmarking](#benchmarking)
 -   [License](#license)
 
 ## Features
@@ -53,7 +54,10 @@ AIMU is a Python library for building LLM-powered applications with a consistent
     -   **Prompt Storage**: Versioned prompt catalog backed by SQLite ([SQLAlchemy](https://www.sqlalchemy.org/)). Prompts are keyed by `(name, model_id)` and auto-versioned on each store.
     -   **Prompt Tuning**: Hill-climbing `PromptTuner` for automatic prompt optimization against labelled data, without ML machinery. Four concrete tuners: `ClassificationPromptTuner` (binary YES/NO), `MultiClassPromptTuner` (N-way), `ExtractionPromptTuner` (JSON field extraction), and `JudgedPromptTuner` (open-ended generation rated per-row by a pluggable `Scorer` — built-in `LLMJudgeScorer` or `DeepEvalScorer` for DeepEval metrics). Subclass `PromptTuner` to implement custom task types.
 
--   **Evaluations** (`aimu[deepeval]`): `DeepEvalModel` is a thin adapter that wraps any AIMU `ModelClient` to satisfy [DeepEval](https://deepeval.com/)'s `DeepEvalBaseLLM` interface. Pass it as the `model=` argument to any DeepEval metric — `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, and others — to use a local Ollama model, HuggingFace model, or any cloud provider as your evaluation judge. The same metrics also drop directly into `JudgedPromptTuner` via `DeepEvalScorer` to drive prompt optimization.
+-   **Evaluations & Benchmarking**:
+
+    -   **DeepEval integration** (`aimu[deepeval]`): `DeepEvalModel` is a thin adapter that wraps any AIMU `ModelClient` to satisfy [DeepEval](https://deepeval.com/)'s `DeepEvalBaseLLM` interface. Pass it as the `model=` argument to any DeepEval metric — `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, and others — to use a local Ollama model, HuggingFace model, or any cloud provider as your evaluation judge. The same metrics also drop directly into `JudgedPromptTuner` via `DeepEvalScorer` to drive prompt optimization.
+    -   **Benchmarking**: `Benchmark` runs the same prompt and dataset across multiple `BaseModelClient` instances and aggregates per-row scores into a comparison DataFrame. Because rows are driven through `chat()` (with messages reset between rows), the harness works uniformly for plain `ModelClient` instances and `AgenticModelClient` wrapping a `SimpleAgent`. Scoring is delegated to any `Scorer` (`LLMJudgeScorer`, `DeepEvalScorer`, or custom). Results export to CSV / JSON and persist to `PromptCatalog` with auto-versioning.
 
 -   **Persistence**: Three complementary stores for persisting conversation and knowledge:
 
@@ -88,6 +92,7 @@ The following Jupyter notebooks demonstrate key AIMU features:
 | [09 - Agent Workflows](notebooks/09%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
 | [10 - Agent Examples](notebooks/10%20-%20Agent%20Examples.ipynb) | `ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent` — orchestrator + worker tools pattern |
 | [11 - Evaluations](notebooks/11%20-%20Evaluations.ipynb) | DeepEval integration: GEval, AnswerRelevancy, Faithfulness, and batch evaluation |
+| [12 - Benchmarking](notebooks/12%20-%20Benchmarking.ipynb) | Compare model clients (and agentic workflows) on a shared task; export to CSV/JSON/PromptCatalog |
 
 ## Installation
 
@@ -419,6 +424,40 @@ judge = DeepEvalModel(AnthropicClient(AnthropicModel.CLAUDE_SONNET_4))
 ```
 
 See [11 - Evaluations](notebooks/11%20-%20Evaluations.ipynb) for GEval, AnswerRelevancy, Faithfulness, and batch evaluation examples.
+
+### Benchmarking
+
+`Benchmark` runs one prompt and dataset across multiple model clients and returns aggregate metrics for direct comparison. Rows are driven through `chat()` with `messages = []` reset between rows, so the harness handles plain `ModelClient` instances and `AgenticModelClient` wrapping a `SimpleAgent` uniformly:
+
+``` python
+import pandas as pd
+from aimu.evals import Benchmark
+from aimu.prompts.tuners.scorers import LLMJudgeScorer
+from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.agents import AgenticModelClient, SimpleAgent
+
+df = pd.DataFrame({"content": ["Summarise the water cycle.", "Explain photosynthesis briefly."]})
+prompt = "Answer in one sentence: {content}"
+
+judge = OllamaClient(OllamaModel.QWEN_3_8B)
+scorer = LLMJudgeScorer(judge, criteria="Concise, accurate, plain English.")
+
+bench = Benchmark(prompt=prompt, data=df, scorer=scorer, pass_threshold=0.7)
+results = bench.run({
+    "qwen3-8b":           OllamaClient(OllamaModel.QWEN_3_8B),
+    "llama3.1-8b":        OllamaClient(OllamaModel.LLAMA_3_1_8B),
+    "qwen3-8b (agentic)": AgenticModelClient(SimpleAgent(OllamaClient(OllamaModel.QWEN_3_8B))),
+})
+
+print(results.metrics)            # rows = client names, cols = score / pass_rate
+results.to_csv("bench.csv")
+results.to_json("bench.json")
+results.to_catalog(catalog, prompt_name="summary-bench")  # persists per-client metrics, auto-versioned
+```
+
+Swap `LLMJudgeScorer` for `DeepEvalScorer([metric, ...])` to score with any DeepEval metric (`GEval`, `AnswerRelevancyMetric`, etc.).
+
+See [12 - Benchmarking](notebooks/12%20-%20Benchmarking.ipynb) for the end-to-end workflow including agentic comparisons and DeepEval-backed scoring.
 
 ## License
 

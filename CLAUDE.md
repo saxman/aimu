@@ -292,19 +292,26 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 - All agents/workflows use the public `chat()` / `chat(..., stream=True)` API only; no changes to `ModelClient` subclasses
 - `messages` is composable: nested workflows (e.g. a `Router` dispatching to a `Chain`) merge recursively, so all sub-agent names appear at the top level
 
-### Evaluations
+### Evaluations & Benchmarking
 
-- **[aimu/evals/](aimu/evals/)**: Optional DeepEval integration (`aimu[deepeval]` extra)
+- **[aimu/evals/](aimu/evals/)**: DeepEval adapters (`aimu[deepeval]` extra) plus a multi-model benchmark harness (no extras required)
   - **[aimu/evals/deepeval.py](aimu/evals/deepeval.py)**: `DeepEvalModel(DeepEvalBaseLLM)` adapter
     - Wraps any `BaseModelClient` to satisfy DeepEval's judge interface
     - `get_model_name()`: returns the model enum member name
     - `generate(prompt, schema=None)`: calls `model_client.generate(prompt)`; when `schema` is a Pydantic `BaseModel` subclass, parses JSON from the response using a 3-stage strategy (raw → fenced block → `{...}` substring) and validates into the schema
     - `a_generate(prompt, schema=None)`: async wrapper using `run_in_executor` (AIMU clients are synchronous)
     - Pass to any DeepEval metric via `model=DeepEvalModel(client)`: `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, etc.
-  - **[aimu/evals/deepeval_scorer.py](aimu/evals/deepeval_scorer.py)**: `DeepEvalScorer(Scorer)`: drop-in `Scorer` for `JudgedPromptTuner` backed by DeepEval metrics
+  - **[aimu/evals/deepeval_scorer.py](aimu/evals/deepeval_scorer.py)**: `DeepEvalScorer(Scorer)`: drop-in `Scorer` for `JudgedPromptTuner` and `Benchmark` backed by DeepEval metrics
     - Constructor: `DeepEvalScorer(metrics: list[BaseMetric], input_field="content", output_field="output")`
     - `score(row)` builds an `LLMTestCase(input=row[input_field], actual_output=row[output_field], expected_output=row.get("reference"))`, calls `metric.measure()` on every metric, returns `(mean(scores), "\n".join(reasons))`
-  - **[aimu/evals/__init__.py](aimu/evals/__init__.py)**: guarded import; exposes `DeepEvalModel`, `DeepEvalScorer`, and `HAS_DEEPEVAL` flag
+  - **[aimu/evals/benchmark.py](aimu/evals/benchmark.py)**: `Benchmark` and `BenchmarkResults` for multi-model comparison
+    - `Benchmark(prompt: str, data: pd.DataFrame, scorer: Scorer, pass_threshold: float = 0.7, generate_kwargs: dict | None = None)`: validates that `data` has a unique index and a `content` column up front; optional `reference` column is forwarded to scorers
+    - `run(clients: dict[str, BaseModelClient]) -> BenchmarkResults`: for each client, snapshots `client.messages`, then for every row sets `client.messages = []` and calls `client.chat(prompt.format(content=row.content), generate_kwargs)`, scoring each output via `scorer.score(row_with_output)`. Original messages are restored in a `try/finally` so a failure during one client doesn't leak state to the next
+    - **Critical**: drives rows through `chat()` (not `generate()`) because `AgenticModelClient.generate()` is a passthrough that skips the agent loop; only `chat()` engages the agent. Resetting `messages = []` is safe because `system_message` lives in `_system_message` on `BaseModelClient` and is re-injected on the next `chat()` call
+    - Aggregates per-client to `{score: mean(scores), pass_rate: mean(scores >= pass_threshold)}`
+    - `BenchmarkResults`: dataclass holding `metrics: pd.DataFrame` (rows = client names, cols = metrics) and the `prompt` used; exposes `to_csv(path)`, `to_json(path)`, and `to_catalog(catalog: PromptCatalog, prompt_name: str)` which stores one `Prompt(name=prompt_name, model_id=client_name, prompt=self.prompt, metrics=row)` per client; catalog auto-versions on each store so re-runs append new versions
+    - Out of scope (deferred): multi-prompt grids, classification/extraction harnesses, per-row retention, cross-client concurrency
+  - **[aimu/evals/__init__.py](aimu/evals/__init__.py)**: unconditional exports of `Benchmark` and `BenchmarkResults`; guarded imports for `DeepEvalModel`, `DeepEvalScorer`, and `HAS_DEEPEVAL` flag
 
 ### Prompt Management
 
@@ -482,10 +489,11 @@ aimu/
 │   ├── skill.py         # Skill dataclass (name, description, path, load_body())
 │   ├── manager.py       # SkillManager (discovery, catalog_prompt, get_skill_body)
 │   └── mcp.py           # build_skills_server(): FastMCP server from SkillManager
-├── evals/               # Evaluation framework adapters (optional)
-│   ├── __init__.py        # Guarded import; HAS_DEEPEVAL flag
+├── evals/               # Evaluation adapters and benchmark harness
+│   ├── __init__.py        # Exports Benchmark + BenchmarkResults; guarded DeepEval imports; HAS_DEEPEVAL flag
+│   ├── benchmark.py       # Benchmark + BenchmarkResults: multi-model harness over chat(), CSV/JSON/PromptCatalog export
 │   ├── deepeval.py        # DeepEvalModel(DeepEvalBaseLLM) adapter for any BaseModelClient
-│   └── deepeval_scorer.py # DeepEvalScorer(Scorer) wrapping list[BaseMetric] for JudgedPromptTuner
+│   └── deepeval_scorer.py # DeepEvalScorer(Scorer) wrapping list[BaseMetric] for JudgedPromptTuner / Benchmark
 ├── prompts/             # Prompt storage and management
 │   ├── catalog.py       # PromptCatalog (SQLAlchemy, versioned, (name, model_id) keyed)
 │   ├── tuner.py         # PromptTuner ABC (hill-climbing loop, generate/mutation kwargs)
@@ -510,7 +518,8 @@ tests/                   # Pytest test suite
 ├── test_parallel.py     # Parallel workflow tests
 ├── test_evaluator.py    # EvaluatorOptimizer workflow tests
 ├── test_skills.py       # Skill discovery and Agent skill integration tests
-└── test_prompt_*.py     # Prompt catalog and tuning tests (mock by default, real with --client)
+├── test_prompt_*.py     # Prompt catalog and tuning tests (mock by default, real with --client)
+└── test_benchmark.py    # Benchmark harness tests (mock-based: validation, scoring, message reset, CSV/JSON/PromptCatalog export)
 
 web/                     # Example chat UIs
 ├── streamlit_chatbot.py # Full-featured Streamlit chat interface with streaming
