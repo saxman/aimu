@@ -57,7 +57,7 @@ pytest tests/test_models.py --client=llamacpp --model-path=/path/to/model.gguf
 
 Run tests for a specific model:
 ```bash
-pytest tests/test_models.py --client=ollama --model=LLAMA_3_1_8B
+pytest tests/test_models.py --client=ollama --model=GEMMA_4_E4B
 pytest tests/test_models.py --client=hf --model=GPT_OSS_20B
 ```
 
@@ -115,7 +115,7 @@ The codebase uses an abstract base class pattern for model clients:
   - Detects provider from the model enum type and instantiates the corresponding concrete client
   - Delegates all `BaseModelClient` methods and properties to the inner client
   - Provider-specific kwargs (e.g. `model_path`, `base_url`, `model_keep_alive_seconds`) are passed through to the concrete constructor
-  - Usage: `ModelClient(OllamaModel.QWEN_3_8B)`, `ModelClient(LlamaCppModel.QWEN_3_8B, model_path="/path/to/model.gguf")`
+  - Usage: `ModelClient(OllamaModel.QWEN_3_5_9B)`, `ModelClient(LlamaCppModel.QWEN_3_5_9B, model_path="/path/to/model.gguf")`
 
 - **Model Implementations**:
   - [aimu/models/ollama/ollama_client.py](aimu/models/ollama/ollama_client.py): `OllamaClient` for local Ollama models (native API)

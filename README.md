@@ -155,7 +155,7 @@ All clients implement the `BaseModelClient` abstract interface. `ModelClient` is
 from aimu.models import ModelClient
 from aimu.models.ollama.ollama_client import OllamaModel
 
-client = ModelClient(OllamaModel.QWEN_3_8B)  # factory: picks OllamaClient automatically
+client = ModelClient(OllamaModel.QWEN_3_5_9B)  # factory: picks OllamaClient automatically
 
 response = client.generate("Summarise this text.", {"temperature": 0.7})  # stateless
 response = client.chat("What is the capital of France?")                  # multi-turn
@@ -167,7 +167,7 @@ You can also import the concrete client directly when you prefer explicit contro
 ``` python
 from aimu.models.ollama import OllamaClient, OllamaModel
 
-client = OllamaClient(OllamaModel.QWEN_3_8B)
+client = OllamaClient(OllamaModel.QWEN_3_5_9B)
 ```
 
 Cloud and local server clients follow the same pattern; only the model enum (and optional kwargs) differ:
@@ -209,7 +209,7 @@ from aimu.models.ollama import OllamaClient, OllamaModel
 from aimu.tools import MCPClient
 from aimu.agents import SimpleAgent
 
-client = OllamaClient(OllamaModel.QWEN_3_8B)
+client = OllamaClient(OllamaModel.QWEN_3_5_9B)
 client.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
 
 agent = SimpleAgent.from_config(
@@ -252,7 +252,7 @@ Every `Runner` exposes `run(task, stream=False)` and `.messages`. Pass `stream=T
 from aimu.models.ollama import OllamaClient
 from aimu.agents.examples import ResearchReportAgent
 
-client = OllamaClient(OllamaClient.MODELS.QWEN_3_8B)
+client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
 agent = ResearchReportAgent(client)
 report = agent.run("What is retrieval-augmented generation?")
 
@@ -282,7 +282,7 @@ mcp_client = MCPClient({
 mcp_client.call_tool("mytool", {"input": "hello world!"})
 
 # Or attach to a model client; tools are passed to the model automatically
-model_client = ModelClient(OllamaModel.QWEN_3_8B)
+model_client = ModelClient(OllamaModel.QWEN_3_5_9B)
 model_client.mcp_client = mcp_client
 model_client.chat("use my tool please")
 ```
@@ -299,7 +299,7 @@ from aimu.models.ollama.ollama_client import OllamaModel
 from aimu.history import ConversationManager
 
 manager = ConversationManager("conversations.json", use_last_conversation=True)
-model_client = ModelClient(OllamaModel.QWEN_3_8B)
+model_client = ModelClient(OllamaModel.QWEN_3_5_9B)
 model_client.messages = manager.messages
 
 model_client.chat("What is the capital of France?")
@@ -338,10 +338,10 @@ See [05 - Conversations](notebooks/05%20-%20Conversations.ipynb) and [06 - Memor
 from aimu.prompts import PromptCatalog, Prompt
 
 with PromptCatalog("prompts.db") as catalog:
-    prompt = Prompt(name="summarizer", prompt="Summarize the following: {content}", model_id="llama3.1:8b")
+    prompt = Prompt(name="summarizer", prompt="Summarize the following: {content}", model_id="qwen3.5:9b")
     catalog.store_prompt(prompt)  # version and created_at assigned automatically
 
-    latest = catalog.retrieve_last("summarizer", "llama3.1:8b")
+    latest = catalog.retrieve_last("summarizer", "qwen3.5:9b")
     print(f"v{latest.version}: {latest.prompt}")
 ```
 
@@ -399,7 +399,7 @@ from aimu.evals import DeepEvalModel
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 
-judge = DeepEvalModel(OllamaClient(OllamaModel.QWEN_3_8B))
+judge = DeepEvalModel(OllamaClient(OllamaModel.QWEN_3_5_9B))
 
 metric = GEval(
     name="Correctness",
@@ -439,14 +439,14 @@ from aimu.agents import AgenticModelClient, SimpleAgent
 df = pd.DataFrame({"content": ["Summarise the water cycle.", "Explain photosynthesis briefly."]})
 prompt = "Answer in one sentence: {content}"
 
-judge = OllamaClient(OllamaModel.QWEN_3_8B)
+judge = OllamaClient(OllamaModel.QWEN_3_5_9B)
 scorer = LLMJudgeScorer(judge, criteria="Concise, accurate, plain English.")
 
 bench = Benchmark(prompt=prompt, data=df, scorer=scorer, pass_threshold=0.7)
 results = bench.run({
-    "qwen3-8b":           OllamaClient(OllamaModel.QWEN_3_8B),
-    "llama3.1-8b":        OllamaClient(OllamaModel.LLAMA_3_1_8B),
-    "qwen3-8b (agentic)": AgenticModelClient(SimpleAgent(OllamaClient(OllamaModel.QWEN_3_8B))),
+    "qwen3.5-9b":           OllamaClient(OllamaModel.QWEN_3_5_9B),
+    "gemma4-e4b":           OllamaClient(OllamaModel.GEMMA_4_E4B),
+    "qwen3.5-9b (agentic)": AgenticModelClient(SimpleAgent(OllamaClient(OllamaModel.QWEN_3_5_9B))),
 })
 
 print(results.metrics)            # rows = client names, cols = score / pass_rate
