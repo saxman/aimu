@@ -19,21 +19,25 @@ from aimu.models import (
     LlamaCppClient,
     BaseModelClient,
     OllamaClient,
+    StreamChunk,
+    StreamingContentType,
 )
-from aimu.models.base import StreamChunk, StreamingContentType
 
 if HAS_LLAMACPP:
-    from aimu.models.llamacpp import LlamaCppModel
+    from aimu.models import LlamaCppModel
 
 if HAS_ANTHROPIC:
     from aimu.models import AnthropicClient
 
 if HAS_OPENAI_COMPAT:
-    from aimu.models import OpenAIClient, GeminiClient
-    from aimu.models.openai_compat.lmstudio_openai_client import LMStudioOpenAIClient
-    from aimu.models.openai_compat.ollama_openai_client import OllamaOpenAIClient
-    from aimu.models.openai_compat.hf_openai_client import HFOpenAIClient
-    from aimu.models.openai_compat.vllm_openai_client import VLLMOpenAIClient
+    from aimu.models import (
+        OpenAIClient,
+        GeminiClient,
+        LMStudioOpenAIClient,
+        OllamaOpenAIClient,
+        HFOpenAIClient,
+        VLLMOpenAIClient,
+    )
 else:
     LMStudioOpenAIClient = None
     OllamaOpenAIClient = None

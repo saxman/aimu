@@ -7,7 +7,7 @@ All tests use MockModelClient from helpers (deterministic, no backend needed).
 import pytest
 
 from aimu.agents import AgentChunk, Router, Runner, SimpleAgent, Workflow
-from aimu.models.base import StreamingContentType
+from aimu.models import StreamingContentType
 from helpers import MockModelClient
 
 

@@ -26,8 +26,7 @@ class CodeReviewAgent(Agent):
 
     Usage::
 
-        from aimu.models import ModelClient
-        from aimu.models.ollama.ollama_client import OllamaModel
+        from aimu.models import ModelClient, OllamaModel
         from aimu.agents.examples import CodeReviewAgent
 
         client = ModelClient(OllamaModel.QWEN_3_8B)

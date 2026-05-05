@@ -152,8 +152,7 @@ pytest tests\test_models.py --client=ollama --model=GPT_OSS_20B
 All clients implement the `BaseModelClient` abstract interface. `ModelClient` is a factory that automatically selects the right client from a model enum, so you can swap providers without changing call sites:
 
 ``` python
-from aimu.models import ModelClient
-from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.models import ModelClient, OllamaModel
 
 client = ModelClient(OllamaModel.QWEN_3_5_9B)  # factory: picks OllamaClient automatically
 
@@ -165,7 +164,7 @@ print(client.messages)  # full message history
 You can also import the concrete client directly when you prefer explicit control:
 
 ``` python
-from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.models import OllamaClient, OllamaModel
 
 client = OllamaClient(OllamaModel.QWEN_3_5_9B)
 ```
@@ -205,7 +204,7 @@ See [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) for detailed ex
 `SimpleAgent` wraps a `ModelClient` and runs a tool-calling loop until the model stops invoking tools:
 
 ``` python
-from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.models import OllamaClient, OllamaModel
 from aimu.tools import MCPClient
 from aimu.agents import SimpleAgent
 
@@ -249,7 +248,7 @@ Every `Runner` exposes `run(task, stream=False)` and `.messages`. Pass `stream=T
 **Example agents** in `aimu.agents.examples` wire up an orchestrator with worker sub-agents as MCP tools — the LLM coordinates them autonomously:
 
 ``` python
-from aimu.models.ollama import OllamaClient
+from aimu.models import OllamaClient
 from aimu.agents.examples import ResearchReportAgent
 
 client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
@@ -268,8 +267,7 @@ See [07 - Agents](notebooks/07%20-%20Agents.ipynb), [08 - Agent Skills](notebook
 `MCPClient` wraps a FastMCP 2.0 server and integrates with any `ModelClient` via `model_client.mcp_client`:
 
 ``` python
-from aimu.models import ModelClient
-from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.models import ModelClient, OllamaModel
 from aimu.tools import MCPClient
 
 mcp_client = MCPClient({
@@ -294,8 +292,7 @@ See [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb).
 **Conversation history**: `ConversationManager` persists chat message sequences across sessions:
 
 ``` python
-from aimu.models import ModelClient
-from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.models import ModelClient, OllamaModel
 from aimu.history import ConversationManager
 
 manager = ConversationManager("conversations.json", use_last_conversation=True)
@@ -393,8 +390,7 @@ See [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) and [
 `DeepEvalModel` wraps any AIMU `ModelClient` as a DeepEval judge. Pass it to any DeepEval metric via the `model=` argument:
 
 ``` python
-from aimu.models.ollama import OllamaClient
-from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.models import OllamaClient, OllamaModel
 from aimu.evals import DeepEvalModel
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
@@ -417,8 +413,7 @@ print(metric.score, metric.reason)
 Any AIMU client — Ollama, HuggingFace, Anthropic, OpenAI, or any OpenAI-compatible server — can be used as the judge. Swap in a stronger cloud model for more reliable judgments on complex tasks:
 
 ``` python
-from aimu.models.anthropic import AnthropicClient
-from aimu.models.anthropic.anthropic_client import AnthropicModel
+from aimu.models import AnthropicClient, AnthropicModel
 
 judge = DeepEvalModel(AnthropicClient(AnthropicModel.CLAUDE_SONNET_4))
 ```
@@ -433,7 +428,7 @@ See [11 - Evaluations](notebooks/11%20-%20Evaluations.ipynb) for GEval, AnswerRe
 import pandas as pd
 from aimu.evals import Benchmark
 from aimu.prompts.tuners.scorers import LLMJudgeScorer
-from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.models import OllamaClient, OllamaModel
 from aimu.agents import AgenticModelClient, SimpleAgent
 
 df = pd.DataFrame({"content": ["Summarise the water cycle.", "Explain photosynthesis briefly."]})

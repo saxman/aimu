@@ -7,8 +7,7 @@ from .base import BaseModelClient, Model, StreamChunk
 # --- Optional provider imports ---
 
 try:
-    from .ollama import OllamaClient
-    from .ollama.ollama_client import OllamaModel
+    from .ollama import OllamaClient, OllamaModel
 
     _HAS_OLLAMA = True
 except ImportError:
@@ -17,8 +16,7 @@ except ImportError:
     OllamaModel = None  # type: ignore[assignment,misc]
 
 try:
-    from .hf import HuggingFaceClient
-    from .hf.hf_client import HuggingFaceModel
+    from .hf import HuggingFaceClient, HuggingFaceModel
 
     _HAS_HF = True
 except ImportError:
@@ -80,8 +78,7 @@ class ModelClient(BaseModelClient):
 
     Usage::
 
-        from aimu.models import ModelClient
-        from aimu.models.ollama.ollama_client import OllamaModel
+        from aimu.models import ModelClient, OllamaModel
 
         client = ModelClient(OllamaModel.QWEN_3_8B)
         client.chat("Hello")
