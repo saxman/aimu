@@ -206,7 +206,7 @@ The codebase uses an abstract base class pattern for model clients:
 
 - **[aimu/memory/mcp.py](aimu/memory/mcp.py)**: FastMCP server exposing `SemanticMemoryStore` as tools
   - `search_memories(search_request)`, `add_memories(memories)`, `delete_memory(memory)`, `list_memories()`
-  - Storage path via `MEMORY_STORE_PATH` env var; run: `python -m aimu.memory` or `python -m aimu.memory.mcp`
+  - Storage path via `MEMORY_STORE_PATH` env var; run: `python -m aimu.memory.mcp`
 
 - **[aimu/memory/document_mcp.py](aimu/memory/document_mcp.py)**: FastMCP server exposing `DocumentStore` as tools (matches Anthropic's Managed Agents Memory API naming)
   - `memory_list(path_prefix)`, `memory_search(query)`, `memory_read(path)`, `memory_write(path, content)`, `memory_edit(path, old_str, new_str)`, `memory_delete(path)`
@@ -483,8 +483,7 @@ aimu/
 │   ├── semantic_store.py # SemanticMemoryStore (ChromaDB vector search)
 │   ├── document_store.py # DocumentStore (path-based, Anthropic API-compatible)
 │   ├── mcp.py           # FastMCP server for SemanticMemoryStore (search_memories, add_memories, delete_memory, list_memories)
-│   ├── document_mcp.py  # FastMCP server for DocumentStore (memory_list/search/read/write/edit/delete)
-│   └── __main__.py      # Entrypoint for python -m aimu.memory
+│   └── document_mcp.py  # FastMCP server for DocumentStore (memory_list/search/read/write/edit/delete)
 ├── skills/              # Agent skill discovery and MCP server
 │   ├── skill.py         # Skill dataclass (name, description, path, load_body())
 │   ├── manager.py       # SkillManager (discovery, catalog_prompt, get_skill_body)
