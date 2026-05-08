@@ -4,20 +4,23 @@ from .model_client import ModelClient
 
 # Optional imports with graceful fallbacks
 try:
-    from .hf import HuggingFaceClient
+    from .hf import HuggingFaceClient, HuggingFaceModel, ToolCallFormat
 
     HAS_HF = True
 except ImportError:
     HAS_HF = False
     HuggingFaceClient = None
+    HuggingFaceModel = None
+    ToolCallFormat = None
 
 try:
-    from .ollama import OllamaClient
+    from .ollama import OllamaClient, OllamaModel
 
     HAS_OLLAMA = True
 except ImportError:
     HAS_OLLAMA = False
     OllamaClient = None
+    OllamaModel = None
 
 try:
     from .anthropic import AnthropicClient, AnthropicModel
@@ -35,11 +38,17 @@ try:
         OpenAIModel,
         GeminiClient,
         GeminiModel,
+        LMStudioOpenAIClient,
         LMStudioOpenAIModel,
+        OllamaOpenAIClient,
         OllamaOpenAIModel,
+        HFOpenAIClient,
         HFOpenAIModel,
+        VLLMOpenAIClient,
         VLLMOpenAIModel,
+        LlamaServerOpenAIClient,
         LlamaServerOpenAIModel,
+        SGLangOpenAIClient,
         SGLangOpenAIModel,
     )
 
@@ -51,27 +60,34 @@ except ImportError:
     OpenAIModel = None
     GeminiClient = None
     GeminiModel = None
+    LMStudioOpenAIClient = None
     LMStudioOpenAIModel = None
+    OllamaOpenAIClient = None
     OllamaOpenAIModel = None
+    HFOpenAIClient = None
     HFOpenAIModel = None
+    VLLMOpenAIClient = None
     VLLMOpenAIModel = None
+    LlamaServerOpenAIClient = None
     LlamaServerOpenAIModel = None
+    SGLangOpenAIClient = None
     SGLangOpenAIModel = None
 
 try:
-    from .llamacpp import LlamaCppClient
+    from .llamacpp import LlamaCppClient, LlamaCppModel
 
     HAS_LLAMACPP = True
 except ImportError:
     HAS_LLAMACPP = False
     LlamaCppClient = None
+    LlamaCppModel = None
 
 # Expose what's available
 __all__ = ["BaseModelClient", "ModelClient", "StreamingContentType", "StreamChunk", "StreamPhase"]
 if HAS_HF:
-    __all__.append("HuggingFaceClient")
+    __all__.extend(["HuggingFaceClient", "HuggingFaceModel", "ToolCallFormat"])
 if HAS_OLLAMA:
-    __all__.append("OllamaClient")
+    __all__.extend(["OllamaClient", "OllamaModel"])
 if HAS_ANTHROPIC:
     __all__.extend(["AnthropicClient", "AnthropicModel"])
 if HAS_OPENAI_COMPAT:
@@ -82,13 +98,19 @@ if HAS_OPENAI_COMPAT:
             "OpenAIModel",
             "GeminiClient",
             "GeminiModel",
+            "LMStudioOpenAIClient",
             "LMStudioOpenAIModel",
+            "OllamaOpenAIClient",
             "OllamaOpenAIModel",
+            "HFOpenAIClient",
             "HFOpenAIModel",
+            "VLLMOpenAIClient",
             "VLLMOpenAIModel",
+            "LlamaServerOpenAIClient",
             "LlamaServerOpenAIModel",
+            "SGLangOpenAIClient",
             "SGLangOpenAIModel",
         ]
     )
 if HAS_LLAMACPP:
-    __all__.append("LlamaCppClient")
+    __all__.extend(["LlamaCppClient", "LlamaCppModel"])

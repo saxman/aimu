@@ -152,10 +152,9 @@ pytest tests\test_models.py --client=ollama --model=GPT_OSS_20B
 All clients implement the `BaseModelClient` abstract interface. `ModelClient` is a factory that automatically selects the right client from a model enum, so you can swap providers without changing call sites:
 
 ``` python
-from aimu.models import ModelClient
-from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.models import ModelClient, OllamaModel
 
-client = ModelClient(OllamaModel.QWEN_3_8B)  # factory: picks OllamaClient automatically
+client = ModelClient(OllamaModel.QWEN_3_5_9B)  # factory: picks OllamaClient automatically
 
 response = client.generate("Summarise this text.", {"temperature": 0.7})  # stateless
 response = client.chat("What is the capital of France?")                  # multi-turn
@@ -165,9 +164,9 @@ print(client.messages)  # full message history
 You can also import the concrete client directly when you prefer explicit control:
 
 ``` python
-from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.models import OllamaClient, OllamaModel
 
-client = OllamaClient(OllamaModel.QWEN_3_8B)
+client = OllamaClient(OllamaModel.QWEN_3_5_9B)
 ```
 
 Cloud and local server clients follow the same pattern; only the model enum (and optional kwargs) differ:
@@ -205,11 +204,11 @@ See [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) for detailed ex
 `SimpleAgent` wraps a `ModelClient` and runs a tool-calling loop until the model stops invoking tools:
 
 ``` python
-from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.models import OllamaClient, OllamaModel
 from aimu.tools import MCPClient
 from aimu.agents import SimpleAgent
 
-client = OllamaClient(OllamaModel.QWEN_3_8B)
+client = OllamaClient(OllamaModel.QWEN_3_5_9B)
 client.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
 
 agent = SimpleAgent.from_config(
@@ -249,10 +248,10 @@ Every `Runner` exposes `run(task, stream=False)` and `.messages`. Pass `stream=T
 **Example agents** in `aimu.agents.examples` wire up an orchestrator with worker sub-agents as MCP tools — the LLM coordinates them autonomously:
 
 ``` python
-from aimu.models.ollama import OllamaClient
+from aimu.models import OllamaClient
 from aimu.agents.examples import ResearchReportAgent
 
-client = OllamaClient(OllamaClient.MODELS.QWEN_3_8B)
+client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
 agent = ResearchReportAgent(client)
 report = agent.run("What is retrieval-augmented generation?")
 
@@ -268,8 +267,7 @@ See [07 - Agents](notebooks/07%20-%20Agents.ipynb), [08 - Agent Skills](notebook
 `MCPClient` wraps a FastMCP 2.0 server and integrates with any `ModelClient` via `model_client.mcp_client`:
 
 ``` python
-from aimu.models import ModelClient
-from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.models import ModelClient, OllamaModel
 from aimu.tools import MCPClient
 
 mcp_client = MCPClient({
@@ -282,7 +280,7 @@ mcp_client = MCPClient({
 mcp_client.call_tool("mytool", {"input": "hello world!"})
 
 # Or attach to a model client; tools are passed to the model automatically
-model_client = ModelClient(OllamaModel.QWEN_3_8B)
+model_client = ModelClient(OllamaModel.QWEN_3_5_9B)
 model_client.mcp_client = mcp_client
 model_client.chat("use my tool please")
 ```
@@ -294,12 +292,11 @@ See [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb).
 **Conversation history**: `ConversationManager` persists chat message sequences across sessions:
 
 ``` python
-from aimu.models import ModelClient
-from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.models import ModelClient, OllamaModel
 from aimu.history import ConversationManager
 
 manager = ConversationManager("conversations.json", use_last_conversation=True)
-model_client = ModelClient(OllamaModel.QWEN_3_8B)
+model_client = ModelClient(OllamaModel.QWEN_3_5_9B)
 model_client.messages = manager.messages
 
 model_client.chat("What is the capital of France?")
@@ -338,10 +335,10 @@ See [05 - Conversations](notebooks/05%20-%20Conversations.ipynb) and [06 - Memor
 from aimu.prompts import PromptCatalog, Prompt
 
 with PromptCatalog("prompts.db") as catalog:
-    prompt = Prompt(name="summarizer", prompt="Summarize the following: {content}", model_id="llama3.1:8b")
+    prompt = Prompt(name="summarizer", prompt="Summarize the following: {content}", model_id="qwen3.5:9b")
     catalog.store_prompt(prompt)  # version and created_at assigned automatically
 
-    latest = catalog.retrieve_last("summarizer", "llama3.1:8b")
+    latest = catalog.retrieve_last("summarizer", "qwen3.5:9b")
     print(f"v{latest.version}: {latest.prompt}")
 ```
 
@@ -393,13 +390,12 @@ See [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) and [
 `DeepEvalModel` wraps any AIMU `ModelClient` as a DeepEval judge. Pass it to any DeepEval metric via the `model=` argument:
 
 ``` python
-from aimu.models.ollama import OllamaClient
-from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.models import OllamaClient, OllamaModel
 from aimu.evals import DeepEvalModel
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 
-judge = DeepEvalModel(OllamaClient(OllamaModel.QWEN_3_8B))
+judge = DeepEvalModel(OllamaClient(OllamaModel.QWEN_3_5_9B))
 
 metric = GEval(
     name="Correctness",
@@ -417,8 +413,7 @@ print(metric.score, metric.reason)
 Any AIMU client — Ollama, HuggingFace, Anthropic, OpenAI, or any OpenAI-compatible server — can be used as the judge. Swap in a stronger cloud model for more reliable judgments on complex tasks:
 
 ``` python
-from aimu.models.anthropic import AnthropicClient
-from aimu.models.anthropic.anthropic_client import AnthropicModel
+from aimu.models import AnthropicClient, AnthropicModel
 
 judge = DeepEvalModel(AnthropicClient(AnthropicModel.CLAUDE_SONNET_4))
 ```
@@ -433,20 +428,20 @@ See [11 - Evaluations](notebooks/11%20-%20Evaluations.ipynb) for GEval, AnswerRe
 import pandas as pd
 from aimu.evals import Benchmark
 from aimu.prompts.tuners.scorers import LLMJudgeScorer
-from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.models import OllamaClient, OllamaModel
 from aimu.agents import AgenticModelClient, SimpleAgent
 
 df = pd.DataFrame({"content": ["Summarise the water cycle.", "Explain photosynthesis briefly."]})
 prompt = "Answer in one sentence: {content}"
 
-judge = OllamaClient(OllamaModel.QWEN_3_8B)
+judge = OllamaClient(OllamaModel.QWEN_3_5_9B)
 scorer = LLMJudgeScorer(judge, criteria="Concise, accurate, plain English.")
 
 bench = Benchmark(prompt=prompt, data=df, scorer=scorer, pass_threshold=0.7)
 results = bench.run({
-    "qwen3-8b":           OllamaClient(OllamaModel.QWEN_3_8B),
-    "llama3.1-8b":        OllamaClient(OllamaModel.LLAMA_3_1_8B),
-    "qwen3-8b (agentic)": AgenticModelClient(SimpleAgent(OllamaClient(OllamaModel.QWEN_3_8B))),
+    "qwen3.5-9b":           OllamaClient(OllamaModel.QWEN_3_5_9B),
+    "gemma4-e4b":           OllamaClient(OllamaModel.GEMMA_4_E4B),
+    "qwen3.5-9b (agentic)": AgenticModelClient(SimpleAgent(OllamaClient(OllamaModel.QWEN_3_5_9B))),
 })
 
 print(results.metrics)            # rows = client names, cols = score / pass_rate

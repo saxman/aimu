@@ -13,8 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from aimu.agents import Agent, Chain, AgentChunk, AgenticModelClient, Runner, SimpleAgent, Workflow
-from aimu.models import BaseModelClient
-from aimu.models.base import StreamChunk, StreamingContentType
+from aimu.models import BaseModelClient, StreamChunk, StreamingContentType
 from helpers import MockModelClient, create_real_model_client, resolve_model_params
 
 _MOCK = "mock"

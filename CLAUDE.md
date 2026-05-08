@@ -57,7 +57,7 @@ pytest tests/test_models.py --client=llamacpp --model-path=/path/to/model.gguf
 
 Run tests for a specific model:
 ```bash
-pytest tests/test_models.py --client=ollama --model=LLAMA_3_1_8B
+pytest tests/test_models.py --client=ollama --model=GEMMA_4_E4B
 pytest tests/test_models.py --client=hf --model=GPT_OSS_20B
 ```
 
@@ -115,7 +115,7 @@ The codebase uses an abstract base class pattern for model clients:
   - Detects provider from the model enum type and instantiates the corresponding concrete client
   - Delegates all `BaseModelClient` methods and properties to the inner client
   - Provider-specific kwargs (e.g. `model_path`, `base_url`, `model_keep_alive_seconds`) are passed through to the concrete constructor
-  - Usage: `ModelClient(OllamaModel.QWEN_3_8B)`, `ModelClient(LlamaCppModel.QWEN_3_8B, model_path="/path/to/model.gguf")`
+  - Usage: `ModelClient(OllamaModel.QWEN_3_5_9B)`, `ModelClient(LlamaCppModel.QWEN_3_5_9B, model_path="/path/to/model.gguf")`
 
 - **Model Implementations**:
   - [aimu/models/ollama/ollama_client.py](aimu/models/ollama/ollama_client.py): `OllamaClient` for local Ollama models (native API)
@@ -206,7 +206,7 @@ The codebase uses an abstract base class pattern for model clients:
 
 - **[aimu/memory/mcp.py](aimu/memory/mcp.py)**: FastMCP server exposing `SemanticMemoryStore` as tools
   - `search_memories(search_request)`, `add_memories(memories)`, `delete_memory(memory)`, `list_memories()`
-  - Storage path via `MEMORY_STORE_PATH` env var; run: `python -m aimu.memory` or `python -m aimu.memory.mcp`
+  - Storage path via `MEMORY_STORE_PATH` env var; run: `python -m aimu.memory.mcp`
 
 - **[aimu/memory/document_mcp.py](aimu/memory/document_mcp.py)**: FastMCP server exposing `DocumentStore` as tools (matches Anthropic's Managed Agents Memory API naming)
   - `memory_list(path_prefix)`, `memory_search(query)`, `memory_read(path)`, `memory_write(path, content)`, `memory_edit(path, old_str, new_str)`, `memory_delete(path)`
@@ -483,8 +483,7 @@ aimu/
 │   ├── semantic_store.py # SemanticMemoryStore (ChromaDB vector search)
 │   ├── document_store.py # DocumentStore (path-based, Anthropic API-compatible)
 │   ├── mcp.py           # FastMCP server for SemanticMemoryStore (search_memories, add_memories, delete_memory, list_memories)
-│   ├── document_mcp.py  # FastMCP server for DocumentStore (memory_list/search/read/write/edit/delete)
-│   └── __main__.py      # Entrypoint for python -m aimu.memory
+│   └── document_mcp.py  # FastMCP server for DocumentStore (memory_list/search/read/write/edit/delete)
 ├── skills/              # Agent skill discovery and MCP server
 │   ├── skill.py         # Skill dataclass (name, description, path, load_body())
 │   ├── manager.py       # SkillManager (discovery, catalog_prompt, get_skill_body)

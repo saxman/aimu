@@ -1,3 +1,3 @@
-from .ollama_client import OllamaClient
+from .ollama_client import OllamaClient, OllamaModel
 
-__all__ = ["OllamaClient"]
+__all__ = ["OllamaClient", "OllamaModel"]
