@@ -25,6 +25,11 @@ MODEL_CLIENTS = [OllamaClient, HuggingFaceClient]
 
 SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 
+MCP_SERVERS = {
+    "mcpServers": {
+        "aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]},
+    }
+}
 
 def _set_slider_defaults(model):
     for key, default in SLIDER_DEFAULTS.items():
@@ -32,13 +37,16 @@ def _set_slider_defaults(model):
 
 
 def _wrap_agent(base_client, max_iterations):
+    """Wrap a base model client in a SimpleAgent so chat() drives a multi-round tool-calling loop."""
     agent = SimpleAgent(base_client, max_iterations=max_iterations)
     return AgenticModelClient(agent)
 
 
 def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
+    """Construct a fresh base client and (optionally) agentic wrapper, then sync session state to match."""
     base_client = model_cls(model, system_message=SYSTEM_MESSAGE)
     base_client.mcp_client = st.session_state.mcp_client
+    # Store the base client separately since the agent wrapper doesn't have all the same attributes (e.g. TOOL_MODELS) and we need to reference those in the sidebar selectors and checks.
     st.session_state.base_client = base_client
     st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
     st.session_state.model = model
@@ -48,18 +56,23 @@ def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
 
 
 def stream_chat_response(streamed_response):
+    """Render a streaming chat response, coalescing consecutive same-phase chunks into a single live-updating box."""
     current_type = None
     current_box = None
     current_text = ""
 
     for chunk in streamed_response:
         if chunk.phase == StreamPhase.TOOL_CALLING:
-            current_type = None  # force a fresh box on the next phase
+            # Tool calls render in their own expander, so reset current_type to
+            # force a fresh box for whatever phase streams next (otherwise the
+            # next thinking/generating chunk would append to a stale box).
+            current_type = None
             with st.expander("🔧 Tool call"):
                 st.markdown(f"**Tool call:** {chunk.content['name']}")
                 st.markdown(f"**Tool response:** {chunk.content['response']}")
             continue
 
+        # Phase transition (THINKING ↔ GENERATING): start a new accumulator and box.
         if chunk.phase != current_type:
             current_type = chunk.phase
             current_text = ""
@@ -67,6 +80,8 @@ def stream_chat_response(streamed_response):
 
         current_text += chunk.content
         if current_text:
+            # Defer box creation until we have non-empty text — avoids rendering
+            # an empty "Thinking" expander when a thinking phase yields nothing.
             if current_box is None:
                 current_box = (
                     st.expander("🤔 Thinking").empty()
@@ -74,13 +89,6 @@ def stream_chat_response(streamed_response):
                     else st.chat_message("assistant").empty()
                 )
             current_box.markdown(current_text)
-
-
-MCP_SERVERS = {
-    "mcpServers": {
-        "aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]},
-    }
-}
 
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
