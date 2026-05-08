@@ -119,6 +119,7 @@ class HuggingFaceModel(Model):
             "presence_penalty": 1.5,
             "repetition_penalty": 1.0,
         },
+        True
     )
     QWEN_3_5_9B = (
         "Qwen/Qwen3.5-9B",
@@ -133,7 +134,7 @@ class HuggingFaceModel(Model):
             "presence_penalty": 1.5,
             "repetition_penalty": 1.0,
         },
-        True,  # think_opener_in_prompt
+        True,
     )
     QWEN_3_8B = (
         "Qwen/Qwen3-8B",
@@ -151,9 +152,9 @@ class HuggingFaceModel(Model):
         ToolCallFormat.NA,
         {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
         False,
-        True,  # supports_vision
+        True,
     )
-    GEMMA_3_12B = ("google/gemma-3-12b-it", False, False, ToolCallFormat.NA, None, False, True)
+    GEMMA_3_12B = ("google/gemma-3-12b-it", False, False, ToolCallFormat.NA, None, False, True),
 
     # OpenAI
     GPT_OSS_20B = (
