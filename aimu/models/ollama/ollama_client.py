@@ -21,6 +21,7 @@ class OllamaModel(Model):
 
     # Alibaba
     QWEN_3_6_35B = ("qwen3.6:35b", True, True, None, True)
+    QWEN_3_6_27B = ("qwen3.6:27b", True, True, None, True)
     QWEN_3_5_9B = ("qwen3.5:9b", True, True, None, True)
     QWEN_3_32B = ("qwen3:32b", True, True)
     QWEN_3_8B = ("qwen3:8b", True, True)
