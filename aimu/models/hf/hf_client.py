@@ -4,6 +4,7 @@ from .._images import _extract_pil_images, _replace_image_url_with_image_placeho
 import torch
 from transformers import AutoTokenizer
 from transformers import AutoModelForCausalLM
+from transformers import AutoModelForImageTextToText
 from transformers import AutoProcessor
 from transformers.utils import logging as log
 from transformers import TextIteratorStreamer
@@ -119,11 +120,45 @@ class HuggingFaceModel(Model):
             "repetition_penalty": 1.0,
         },
     )
+    # Qwen 3.5/3.6 are natively multimodal (unified vision-language foundation).
+    # _VL variants share the same HF repo as the text-only entries above but load
+    # via AutoModelForImageTextToText with the vision encoder, so chat(images=...) works.
+    QWEN_3_6_27B_VL = (
+        "Qwen/Qwen3.6-27B-FP8",
+        True,
+        True,
+        True,
+        ToolCallFormat.XML,
+        {
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0.0,
+            "presence_penalty": 1.5,
+            "repetition_penalty": 1.0,
+        },
+    )
     QWEN_3_5_9B = (
         "Qwen/Qwen3.5-9B",
         True,
         True,
         False,
+        ToolCallFormat.XML,
+        {
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0.0,
+            "presence_penalty": 1.5,
+            "repetition_penalty": 1.0,
+        },
+        True,  # think_opener_in_prompt
+    )
+    QWEN_3_5_9B_VL = (
+        "Qwen/Qwen3.5-9B",
+        True,
+        True,
+        True,
         ToolCallFormat.XML,
         {
             "temperature": 1.0,
@@ -246,6 +281,12 @@ class HuggingFaceClient(BaseModelClient):
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
+        elif model.supports_vision and model.value.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6")):
+            # Qwen 3.5/3.6 are natively multimodal but require AutoModelForImageTextToText
+            # to load the vision encoder; AutoModelForCausalLM ignores the vision tower.
+            self._hf_processor = AutoProcessor.from_pretrained(model.value)
+            self._hf_tokenizer = self._hf_processor.tokenizer
+            self._hf_model = AutoModelForImageTextToText.from_pretrained(model.value, **model_kwargs)
         else:
             ## TODO ensure we're using attention appropriately for single (flash_attention_2) vs multi GPU setups
             self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value)
