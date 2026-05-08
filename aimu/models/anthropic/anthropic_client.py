@@ -19,7 +19,7 @@ _THINKING_MAX_TOKENS_FLOOR = _DEFAULT_THINKING_BUDGET + 1024
 
 class AnthropicModel(Model):
     def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
-        super().__init__(value, supports_tools, supports_thinking, supports_vision=supports_vision)
+        super().__init__(value, supports_tools, supports_thinking, supports_vision)
 
     CLAUDE_SONNET_4_6 = ("claude-sonnet-4-6", True, True, True)
     CLAUDE_OPUS_4_6 = ("claude-opus-4-6", True, True, True)

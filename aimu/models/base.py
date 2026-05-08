@@ -36,14 +36,14 @@ class Model(Enum):
         value: str,
         supports_tools: bool = False,
         supports_thinking: bool = False,
-        generation_kwargs: Optional[dict] = None,
         supports_vision: bool = False,
+        generation_kwargs: Optional[dict] = None,
     ):
         self._value_ = value
         self.supports_tools = supports_tools
         self.supports_thinking = supports_thinking
-        self.generation_kwargs = generation_kwargs or {}
         self.supports_vision = supports_vision
+        self.generation_kwargs = generation_kwargs or {}
 
 
 class classproperty:

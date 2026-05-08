@@ -14,22 +14,22 @@ class OllamaModel(Model):
         value,
         supports_tools=False,
         supports_thinking=False,
-        generation_kwargs=None,
         supports_vision=False,
+        generation_kwargs=None,
     ):
-        super().__init__(value, supports_tools, supports_thinking, generation_kwargs, supports_vision)
+        super().__init__(value, supports_tools, supports_thinking, supports_vision, generation_kwargs)
 
     # Alibaba
-    QWEN_3_6_35B = ("qwen3.6:35b", True, True, None, True)
-    QWEN_3_6_27B = ("qwen3.6:27b", True, True, None, True)
-    QWEN_3_5_9B = ("qwen3.5:9b", True, True, None, True)
+    QWEN_3_6_35B = ("qwen3.6:35b", True, True, True)
+    QWEN_3_6_27B = ("qwen3.6:27b", True, True, True)
+    QWEN_3_5_9B = ("qwen3.5:9b", True, True, True)
     QWEN_3_32B = ("qwen3:32b", True, True)
     QWEN_3_8B = ("qwen3:8b", True, True)
     # Google
-    GEMMA_4_E4B = ("gemma4:e4b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64}, True)
-    GEMMA_4_26B = ("gemma4:26b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64}, True)
-    GEMMA_4_31B = ("gemma4:31b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64}, True)
-    GEMMA_3_12B = ("gemma3:12b", False, False, None, True)
+    GEMMA_4_E4B = ("gemma4:e4b", True, True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
+    GEMMA_4_26B = ("gemma4:26b", True, True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
+    GEMMA_4_31B = ("gemma4:31b", True, True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
+    GEMMA_3_12B = ("gemma3:12b", False, False, True)
     # NVIDIA
     NEMOTRON_CASCADE_2_30B = ("nemotron-cascade-2:30b", True, True)
     NEMOTRON_3_NANO_30B = ("nemotron-3-nano:30b", True, True)

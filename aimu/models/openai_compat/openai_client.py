@@ -14,7 +14,7 @@ _O_SERIES_PREFIXES = ("o1", "o3", "o4")
 
 class OpenAIModel(Model):
     def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
-        super().__init__(value, supports_tools, supports_thinking, supports_vision=supports_vision)
+        super().__init__(value, supports_tools, supports_thinking, supports_vision)
 
     # Standard GPT models
     GPT_4O_MINI = ("gpt-4o-mini", True, False, True)

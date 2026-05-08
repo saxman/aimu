@@ -383,7 +383,7 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 ### Adding New Models
 
 When adding new models to a client:
-1. Add model enum member to the client's `Model` class (e.g., `OllamaModel`) with `(model_id, supports_tools, supports_thinking, ..., supports_vision)` tuple — exact tuple shape varies by provider; check that provider's `Model` `__init__` for parameter order
+1. Add model enum member to the client's `Model` class (e.g., `OllamaModel`) with `(model_id, supports_tools, supports_thinking, supports_vision, ...)` tuple — capability flags come first in the standard order; any provider-specific extras (e.g. `generation_kwargs`, `tool_call_format`) follow. Check that provider's `Model` `__init__` for the full parameter list
 2. `TOOL_MODELS`, `THINKING_MODELS`, and `VISION_MODELS` lists are derived automatically from the enum flags; no manual update needed
 3. For HuggingFace models, also specify the `ToolCallFormat` format (XML, JSON_OBJECT, JSON_ARRAY, BRACKETED)
 4. Test with `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`

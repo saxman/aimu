@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class LlamaCppModel(Model):
     def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
-        super().__init__(value, supports_tools, supports_thinking, supports_vision=supports_vision)
+        super().__init__(value, supports_tools, supports_thinking, supports_vision)
 
     LLAMA_3_1_8B = ("llama-3.1-8b", False)
     LLAMA_3_2_3B = ("llama-3.2-3b", False)
