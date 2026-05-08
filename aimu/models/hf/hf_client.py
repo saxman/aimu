@@ -1,4 +1,5 @@
 from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from .._images import _extract_pil_images, _replace_image_url_with_image_placeholder
 
 import torch
 from transformers import AutoTokenizer
@@ -86,11 +87,12 @@ class HuggingFaceModel(Model):
         value,
         supports_tools=False,
         supports_thinking=False,
+        supports_vision=False,
         tool_call_format=ToolCallFormat.XML,
         generate_kwargs=None,
         think_opener_in_prompt=False,
     ):
-        super().__init__(value, supports_tools, supports_thinking)
+        super().__init__(value, supports_tools, supports_thinking, supports_vision)
         self.tool_call_format = tool_call_format
         self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
         self.generate_kwargs.update(generate_kwargs or {})
@@ -106,6 +108,7 @@ class HuggingFaceModel(Model):
         "Qwen/Qwen3.6-27B-FP8",
         True,
         True,
+        False,
         ToolCallFormat.XML,
         {
             "temperature": 1.0,
@@ -120,6 +123,7 @@ class HuggingFaceModel(Model):
         "Qwen/Qwen3.5-9B",
         True,
         True,
+        False,
         ToolCallFormat.XML,
         {
             "temperature": 1.0,
@@ -135,6 +139,7 @@ class HuggingFaceModel(Model):
         "Qwen/Qwen3-8B",
         True,
         True,
+        False,
         ToolCallFormat.XML,
         {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
     )
@@ -144,16 +149,18 @@ class HuggingFaceModel(Model):
         "google/gemma-4-E4B-it",
         True,
         False,
+        True,
         ToolCallFormat.NA,
         {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
     )
-    GEMMA_3_12B = "google/gemma-3-12b-it"
+    GEMMA_3_12B = ("google/gemma-3-12b-it", False, False, True)
 
     # OpenAI
     GPT_OSS_20B = (
         "openai/gpt-oss-20b",
         True,
         True,
+        False,
         ToolCallFormat.XML,
         {"temperature": 1.0, "top_p": 1.0, "top_k": 0},
     )
@@ -163,6 +170,7 @@ class HuggingFaceModel(Model):
         "mistralai/Magistral-Small-2509",
         True,
         False,
+        False,
         ToolCallFormat.BRACKETED,
         {"top_p": 0.95, "temperature": 0.7},
     )
@@ -170,10 +178,11 @@ class HuggingFaceModel(Model):
         "mistralai/Mistral-Nemo-Instruct-2407",
         True,
         False,
+        False,
         ToolCallFormat.JSON_ARRAY,
         {"temperature": 0.3},
     )
-    MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, ToolCallFormat.JSON_ARRAY)
+    MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, False, ToolCallFormat.JSON_ARRAY)
 
     # Microsoft
     PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
@@ -184,21 +193,23 @@ class HuggingFaceModel(Model):
         "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
         False,
         True,
+        False,
         ToolCallFormat.XML,
         {"temperature": 0.6},
     )
 
     # HuggingFace
-    SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True, ToolCallFormat.XML, {"temperature": 0.6, "top_p": 0.95})
+    SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True, False, ToolCallFormat.XML, {"temperature": 0.6, "top_p": 0.95})
 
     # Meta
     LLAMA_3_2_3B = (
         "unsloth/Llama-3.2-3B-Instruct",
         True,
         False,
+        False,
         ToolCallFormat.JSON_OBJECT,
     )  # using unsloth's version since gated model
-    LLAMA_3_1_8B = ("meta-llama/Meta-Llama-3.1-8B-Instruct", True, False, ToolCallFormat.JSON_OBJECT)
+    LLAMA_3_1_8B = ("meta-llama/Meta-Llama-3.1-8B-Instruct", True, False, False, ToolCallFormat.JSON_OBJECT)
 
 
 class HuggingFaceClient(BaseModelClient):
@@ -231,7 +242,7 @@ class HuggingFaceClient(BaseModelClient):
             )
         elif model == self.MODELS.GPT_OSS_20B and torch.backends.mps.is_available():
             raise ValueError("GPT-OSS-20B is not supported on MPS devices.")
-        elif model.value.startswith("google/gemma-4"):
+        elif model.value.startswith(("google/gemma-3", "google/gemma-4")):
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
@@ -263,6 +274,10 @@ class HuggingFaceClient(BaseModelClient):
     def TOOL_MODELS(cls) -> list[Model]:
         return [m for m in cls.MODELS if m.supports_tools]
 
+    @classproperty
+    def VISION_MODELS(cls) -> list[Model]:
+        return [m for m in cls.MODELS if m.supports_vision]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         if not generate_kwargs:
             kwargs = self.model.generate_kwargs.copy()
@@ -287,14 +302,21 @@ class HuggingFaceClient(BaseModelClient):
         tools: Optional[list[dict]] = None,
     ) -> Any:
         if self._hf_processor is not None:
+            pil_images = _extract_pil_images(messages) if self.model.supports_vision else []
+            template_messages = (
+                _replace_image_url_with_image_placeholder(messages) if pil_images else messages
+            )
             text = self._hf_processor.apply_chat_template(
-                messages,
+                template_messages,
                 tools=tools if self.model.supports_tools else None,
                 tokenize=False,
                 add_generation_prompt=True,
                 enable_thinking=self.model.supports_thinking,
             )
-            return self._hf_processor(text=text, return_tensors="pt").to(self._hf_model.device)
+            processor_kwargs = {"text": text, "return_tensors": "pt"}
+            if pil_images:
+                processor_kwargs["images"] = pil_images
+            return self._hf_processor(**processor_kwargs).to(self._hf_model.device)
         if self.model == self.MODELS.MAGISTRAL_SMALL:
             # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
             text = self._hf_tokenizer.apply_chat_template(
@@ -481,8 +503,9 @@ class HuggingFaceClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
