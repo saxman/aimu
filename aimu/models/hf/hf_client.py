@@ -267,6 +267,11 @@ class HuggingFaceClient(BaseModelClient):
 
         self._hf_processor = None
         self._parsed_tool_calls = None
+        # Gemma 4 emits structured-token output (channels, tool calls) that requires
+        # processor.parse_response() to extract. Other processor-loaded models (Gemma 3,
+        # Qwen 3.5/3.6 VL) emit standard <think>...</think> + tool-call text and use the
+        # same parsing path as non-processor models.
+        self._uses_processor_parse_response = False
 
         if model == self.MODELS.MAGISTRAL_SMALL:
             self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
@@ -277,7 +282,12 @@ class HuggingFaceClient(BaseModelClient):
             )
         elif model == self.MODELS.GPT_OSS_20B and torch.backends.mps.is_available():
             raise ValueError("GPT-OSS-20B is not supported on MPS devices.")
-        elif model.value.startswith(("google/gemma-3", "google/gemma-4")):
+        elif model.value.startswith("google/gemma-4"):
+            self._hf_processor = AutoProcessor.from_pretrained(model.value)
+            self._hf_tokenizer = self._hf_processor.tokenizer
+            self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
+            self._uses_processor_parse_response = True
+        elif model.value.startswith("google/gemma-3"):
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
@@ -402,7 +412,7 @@ class HuggingFaceClient(BaseModelClient):
 
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
 
-        if self._hf_processor is not None:
+        if self._uses_processor_parse_response:
             raw = self._hf_processor.decode(output_ids, skip_special_tokens=False)
             logger.debug("[raw] processor response: %s", raw)
             parsed = self._hf_processor.parse_response(raw)
@@ -553,7 +563,7 @@ class HuggingFaceClient(BaseModelClient):
 
         response = self._generate_sync(self.messages, generate_kwargs, tools)
 
-        if self._hf_processor is not None:
+        if self._uses_processor_parse_response:
             tool_calls = self._parsed_tool_calls
         else:
             prefix = self.model.tool_call_format
@@ -579,7 +589,7 @@ class HuggingFaceClient(BaseModelClient):
         return response
 
     def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
-        if self._hf_processor is not None:
+        if self._uses_processor_parse_response:
             # Gemma 4 uses special tokens (<|channel>, <|tool_call>, ...) and
             # requires processor.parse_response for structured extraction.
             # Token-level streaming with ToolCallFormat doesn't apply here, so
