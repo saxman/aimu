@@ -82,17 +82,18 @@ The following Jupyter notebooks demonstrate key AIMU features:
 | Notebook | Description |
 |---|---|
 | [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) | Text generation, chat, streaming, and thinking models |
-| [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb) | MCP tool integration with model clients |
-| [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) | Versioned prompt storage |
-| [04 - Prompt Tuning](notebooks/04%20-%20Prompt%20Tuning.ipynb) | ClassificationPromptTuner, MultiClassPromptTuner, ExtractionPromptTuner, JudgedPromptTuner |
-| [05 - Conversations](notebooks/05%20-%20Conversations.ipynb) | Persistent chat conversation management |
-| [06 - Memory](notebooks/06%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
-| [07 - Agents](notebooks/07%20-%20Agents.ipynb) | SimpleAgent and AgenticModelClient |
-| [08 - Agent Skills](notebooks/08%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
-| [09 - Agent Workflows](notebooks/09%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
-| [10 - Agent Examples](notebooks/10%20-%20Agent%20Examples.ipynb) | `ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent` — orchestrator + worker tools pattern |
-| [11 - Evaluations](notebooks/11%20-%20Evaluations.ipynb) | DeepEval integration: GEval, AnswerRelevancy, Faithfulness, and batch evaluation |
-| [12 - Benchmarking](notebooks/12%20-%20Benchmarking.ipynb) | Compare model clients (and agentic workflows) on a shared task; export to CSV/JSON/PromptCatalog |
+| [02 - Vision](notebooks/02%20-%20Vision.ipynb) | Image input via the `images=` kwarg on `chat()`; OpenAI, Anthropic, Gemini, and Ollama |
+| [03 - MCP Tools](notebooks/03%20-%20MCP%20Tools.ipynb) | MCP tool integration with model clients |
+| [04 - Prompt Management](notebooks/04%20-%20Prompt%20Management.ipynb) | Versioned prompt storage |
+| [05 - Prompt Tuning](notebooks/05%20-%20Prompt%20Tuning.ipynb) | ClassificationPromptTuner, MultiClassPromptTuner, ExtractionPromptTuner, JudgedPromptTuner |
+| [06 - Conversations](notebooks/06%20-%20Conversations.ipynb) | Persistent chat conversation management |
+| [07 - Memory](notebooks/07%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
+| [08 - Agents](notebooks/08%20-%20Agents.ipynb) | SimpleAgent and AgenticModelClient |
+| [09 - Agent Skills](notebooks/09%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
+| [10 - Agent Workflows](notebooks/10%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
+| [11 - Agent Examples](notebooks/11%20-%20Agent%20Examples.ipynb) | `ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent` — orchestrator + worker tools pattern |
+| [12 - Evaluations](notebooks/12%20-%20Evaluations.ipynb) | DeepEval integration: GEval, AnswerRelevancy, Faithfulness, and batch evaluation |
+| [13 - Benchmarking](notebooks/13%20-%20Benchmarking.ipynb) | Compare model clients (and agentic workflows) on a shared task; export to CSV/JSON/PromptCatalog |
 
 ## Installation
 
@@ -199,6 +200,19 @@ Cloud and local server clients follow the same pattern; only the model enum (and
 
 See [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) for detailed examples.
 
+**Vision**: pass images alongside the user prompt via the `images=` kwarg on `chat()`. Each item may be a file path string, `pathlib.Path`, raw `bytes`, an `http(s)://` URL, or a `data:image/...;base64,...` URL. AIMU normalizes inputs to OpenAI content blocks internally and adapts them per-provider (Anthropic native `image` blocks, Ollama message-level `images=` field, HuggingFace `AutoProcessor`).
+
+``` python
+from aimu.models import ModelClient
+from aimu.models.openai_compat.openai_client import OpenAIModel
+
+client = ModelClient(OpenAIModel.GPT_4O_MINI)
+client.chat("What's in this image?", images=["./cat.jpg"])
+client.chat("Compare these.", images=["a.png", b"\\x89PNG..."])  # multiple images
+```
+
+Vision is gated by a `supports_vision` flag on each `Model` enum member (mirroring `supports_tools` and `supports_thinking`); the corresponding `VISION_MODELS` classproperty lists them. Passing `images=` to a non-vision model raises `ValueError` up front. Vision models include OpenAI GPT-4o / GPT-4.1 / o3 / o4-mini, Anthropic Claude 4.x, Google Gemini 1.5+ and 2.x, Ollama Gemma 3 and Gemma 4, and HuggingFace Gemma 3 / Gemma 4. See [02 - Vision](notebooks/02%20-%20Vision.ipynb).
+
 ### Agents & Workflows
 
 `SimpleAgent` wraps a `ModelClient` and runs a tool-calling loop until the model stops invoking tools:
@@ -260,7 +274,7 @@ for chunk in agent.run("Explain transformer attention", stream=True):
         print(chunk.content, end="", flush=True)
 ```
 
-See [07 - Agents](notebooks/07%20-%20Agents.ipynb), [08 - Agent Skills](notebooks/08%20-%20Agent%20Skills.ipynb), [09 - Agent Workflows](notebooks/09%20-%20Agent%20Workflows.ipynb), and [10 - Agent Examples](notebooks/10%20-%20Agent%20Examples.ipynb) for the example agents.
+See [08 - Agents](notebooks/08%20-%20Agents.ipynb), [09 - Agent Skills](notebooks/09%20-%20Agent%20Skills.ipynb), [10 - Agent Workflows](notebooks/10%20-%20Agent%20Workflows.ipynb), and [11 - Agent Examples](notebooks/11%20-%20Agent%20Examples.ipynb) for the example agents.
 
 ### MCP Tools
 
@@ -285,7 +299,7 @@ model_client.mcp_client = mcp_client
 model_client.chat("use my tool please")
 ```
 
-See [02 - MCP Tools](notebooks/02%20-%20MCP%20Tools.ipynb).
+See [03 - MCP Tools](notebooks/03%20-%20MCP%20Tools.ipynb).
 
 ### Persistence
 
@@ -325,7 +339,7 @@ store.edit("/preferences.md", "concise", "detailed")
 store.search_full_text("detailed")
 ```
 
-See [05 - Conversations](notebooks/05%20-%20Conversations.ipynb) and [06 - Memory](notebooks/06%20-%20Memory.ipynb).
+See [06 - Conversations](notebooks/06%20-%20Conversations.ipynb) and [07 - Memory](notebooks/07%20-%20Memory.ipynb).
 
 ### Prompt Management
 
@@ -383,7 +397,7 @@ tuner = JudgedPromptTuner(model_client=writer_client, scorer=DeepEvalScorer([gev
 
 Subclass `PromptTuner` and implement `apply_prompt`, `evaluate`, and `mutation_prompt` for custom task types.
 
-See [03 - Prompt Management](notebooks/03%20-%20Prompt%20Management.ipynb) and [04 - Prompt Tuning](notebooks/04%20-%20Prompt%20Tuning.ipynb).
+See [04 - Prompt Management](notebooks/04%20-%20Prompt%20Management.ipynb) and [05 - Prompt Tuning](notebooks/05%20-%20Prompt%20Tuning.ipynb).
 
 ### Evaluations
 
@@ -418,7 +432,7 @@ from aimu.models import AnthropicClient, AnthropicModel
 judge = DeepEvalModel(AnthropicClient(AnthropicModel.CLAUDE_SONNET_4))
 ```
 
-See [11 - Evaluations](notebooks/11%20-%20Evaluations.ipynb) for GEval, AnswerRelevancy, Faithfulness, and batch evaluation examples.
+See [12 - Evaluations](notebooks/12%20-%20Evaluations.ipynb) for GEval, AnswerRelevancy, Faithfulness, and batch evaluation examples.
 
 ### Benchmarking
 
@@ -452,7 +466,7 @@ results.to_catalog(catalog, prompt_name="summary-bench")  # persists per-client 
 
 Swap `LLMJudgeScorer` for `DeepEvalScorer([metric, ...])` to score with any DeepEval metric (`GEval`, `AnswerRelevancyMetric`, etc.).
 
-See [12 - Benchmarking](notebooks/12%20-%20Benchmarking.ipynb) for the end-to-end workflow including agentic comparisons and DeepEval-backed scoring.
+See [13 - Benchmarking](notebooks/13%20-%20Benchmarking.ipynb) for the end-to-end workflow including agentic comparisons and DeepEval-backed scoring.
 
 ## License
 

@@ -62,12 +62,16 @@ class SimpleAgent(Agent):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[AgentChunk]]:
-        """Run the agentic loop. Returns a string when stream=False, or an AgentChunk iterator when stream=True."""
+        """Run the agentic loop. Returns a string when stream=False, or an AgentChunk iterator when stream=True.
+
+        ``images`` are attached only to the initial task turn; continuation prompts are text-only.
+        """
         if stream:
-            return self._run_streamed(task, generate_kwargs)
+            return self._run_streamed(task, generate_kwargs, images=images)
         self._prepare_run()
-        response = self.model_client.chat(task, generate_kwargs=generate_kwargs)
+        response = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images)
 
         for _ in range(self.max_iterations - 1):
             if not self._last_turn_called_tools():
@@ -78,10 +82,15 @@ class SimpleAgent(Agent):
         self._last_messages = list(self.model_client.messages)
         return response
 
-    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
+    def _run_streamed(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        images: Optional[list] = None,
+    ) -> Iterator[AgentChunk]:
         self._prepare_run()
         iteration = 0
-        for chunk in self.model_client.chat(task, generate_kwargs=generate_kwargs, stream=True):
+        for chunk in self.model_client.chat(task, generate_kwargs=generate_kwargs, stream=True, images=images):
             yield AgentChunk(self.name, iteration, chunk.phase, chunk.content)
 
         iteration += 1

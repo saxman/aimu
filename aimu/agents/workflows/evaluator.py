@@ -59,11 +59,15 @@ class EvaluatorOptimizer(Workflow):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[AgentChunk]]:
-        """Run the generate-evaluate loop. stream=True yields the final output as a single GENERATING chunk."""
+        """Run the generate-evaluate loop. stream=True yields the final output as a single GENERATING chunk.
+
+        ``images`` are forwarded only to the initial generator turn; evaluator and revisions are text-only.
+        """
         if stream:
-            return self._run_streamed(task, generate_kwargs)
-        output = self.generator.run(task, generate_kwargs=generate_kwargs)
+            return self._run_streamed(task, generate_kwargs, images=images)
+        output = self.generator.run(task, generate_kwargs=generate_kwargs, images=images)
         for round_num in range(self.max_rounds - 1):
             eval_input = f"Task: {task}\n\nResponse:\n{output}"
             feedback = self.evaluator.run(eval_input, generate_kwargs=generate_kwargs)
@@ -75,6 +79,11 @@ class EvaluatorOptimizer(Workflow):
             output = self.generator.run(revision_prompt, generate_kwargs=generate_kwargs)
         return output
 
-    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
-        output = self.run(task, generate_kwargs=generate_kwargs)
+    def _run_streamed(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        images: Optional[list] = None,
+    ) -> Iterator[AgentChunk]:
+        output = self.run(task, generate_kwargs=generate_kwargs, images=images)
         yield AgentChunk(self.name, 0, StreamingContentType.GENERATING, output)

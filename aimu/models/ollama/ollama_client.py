@@ -1,4 +1,5 @@
 from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from .._images import _adapt_messages_for_ollama
 
 import ollama
 import logging
@@ -8,19 +9,26 @@ logger = logging.getLogger(__name__)
 
 
 class OllamaModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False, generation_kwargs=None):
-        super().__init__(value, supports_tools, supports_thinking, generation_kwargs)
+    def __init__(
+        self,
+        value,
+        supports_tools=False,
+        supports_thinking=False,
+        generation_kwargs=None,
+        supports_vision=False,
+    ):
+        super().__init__(value, supports_tools, supports_thinking, generation_kwargs, supports_vision)
 
     # Alibaba
-    QWEN_3_6_35B = ("qwen3.6:35b", True, True)
-    QWEN_3_5_9B = ("qwen3.5:9b", True, True)
+    QWEN_3_6_35B = ("qwen3.6:35b", True, True, None, True)
+    QWEN_3_5_9B = ("qwen3.5:9b", True, True, None, True)
     QWEN_3_32B = ("qwen3:32b", True, True)
     QWEN_3_8B = ("qwen3:8b", True, True)
     # Google
-    GEMMA_4_E4B = ("gemma4:e4b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
-    GEMMA_4_26B = ("gemma4:26b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
-    GEMMA_4_31B = ("gemma4:31b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
-    GEMMA_3_12B = "gemma3:12b"
+    GEMMA_4_E4B = ("gemma4:e4b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64}, True)
+    GEMMA_4_26B = ("gemma4:26b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64}, True)
+    GEMMA_4_31B = ("gemma4:31b", True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64}, True)
+    GEMMA_3_12B = ("gemma3:12b", False, False, None, True)
     # NVIDIA
     NEMOTRON_CASCADE_2_30B = ("nemotron-cascade-2:30b", True, True)
     NEMOTRON_3_NANO_30B = ("nemotron-3-nano:30b", True, True)
@@ -62,6 +70,10 @@ class OllamaClient(BaseModelClient):
     @classproperty
     def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_tools]
+
+    @classproperty
+    def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_vision]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
         if not generate_kwargs:
@@ -138,15 +150,16 @@ class OllamaClient(BaseModelClient):
         generate_kwargs: Optional[dict] = None,
         use_tools: bool = True,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
 
         response = ollama.chat(
             model=self.model.value,
-            messages=self.messages,
+            messages=_adapt_messages_for_ollama(self.messages),
             options=generate_kwargs,
             tools=tools,
             think=self.is_thinking_model,
@@ -172,7 +185,7 @@ class OllamaClient(BaseModelClient):
 
             response = ollama.chat(
                 model=self.model.value,
-                messages=self.messages,
+                messages=_adapt_messages_for_ollama(self.messages),
                 options=generate_kwargs,
                 tools=tools,
                 think=self.is_thinking_model,
@@ -191,7 +204,7 @@ class OllamaClient(BaseModelClient):
     def _chat_streamed(self, generate_kwargs: dict, tools: list) -> Iterator[StreamChunk]:
         response = ollama.chat(
             model=self.model.value,
-            messages=self.messages,
+            messages=_adapt_messages_for_ollama(self.messages),
             options=generate_kwargs,
             tools=tools,
             stream=True,
@@ -235,7 +248,7 @@ class OllamaClient(BaseModelClient):
 
             response = ollama.chat(
                 model=self.model.value,
-                messages=self.messages,
+                messages=_adapt_messages_for_ollama(self.messages),
                 options=generate_kwargs,
                 tools=tools,
                 stream=True,

@@ -97,18 +97,18 @@ The codebase uses an abstract base class pattern for model clients:
 
 - **[aimu/models/base.py](aimu/models/base.py)**: Defines `BaseModelClient` abstract base class with:
   - `generate(prompt, generate_kwargs, stream=False, include_thinking=True)`: Single-turn text generation; returns `str` or `Iterator[StreamChunk]`
-  - `chat(user_message, generate_kwargs, use_tools=True, stream=False)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`
-  - `_chat_setup()`: Prepares messages and tools before a chat call
+  - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`. `images=` (vision-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, http(s) URLs, or `data:image/...` URLs
+  - `_chat_setup()`: Prepares messages and tools before a chat call; normalizes `images=` into OpenAI-format `image_url` content blocks
   - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions)
-  - `is_thinking_model` / `is_tool_using_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools`
+  - `is_thinking_model` / `is_tool_using_model` / `is_vision_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools` / `model.supports_vision`
   - `chat(..., stream=True)` / `generate(..., stream=True)` yield `StreamChunk(phase, content)`; type is self-contained in each chunk
   - `system_message` property with setter that manages the system message in the messages list
-  - Message history stored in `self.messages` (OpenAI-style format)
+  - Message history stored in `self.messages` (OpenAI-style format; user messages with images are content-block lists)
   - Optional `mcp_client` attribute for MCP tool integration
 
 - **Supporting types in base.py**:
   - `StreamingContentType(str, Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE; string values (`"thinking"`, etc.)
-  - `Model(Enum)`: Base enum class; each value carries `supports_tools` and `supports_thinking` boolean attributes
+  - `Model(Enum)`: Base enum class; each value carries `supports_tools`, `supports_thinking`, and `supports_vision` boolean attributes
 
 - **[aimu/models/model_client.py](aimu/models/model_client.py)**: `ModelClient(BaseModelClient)` factory/wrapper class:
   - Single entry point: pass any provider model enum and receive a fully configured client
@@ -383,8 +383,8 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 ### Adding New Models
 
 When adding new models to a client:
-1. Add model enum member to the client's `Model` class (e.g., `OllamaModel`) with `(model_id, supports_tools, supports_thinking)` tuple
-2. `TOOL_MODELS` and `THINKING_MODELS` lists are derived automatically from the enum flags; no manual update needed for Ollama/HF clients
+1. Add model enum member to the client's `Model` class (e.g., `OllamaModel`) with `(model_id, supports_tools, supports_thinking, ..., supports_vision)` tuple — exact tuple shape varies by provider; check that provider's `Model` `__init__` for parameter order
+2. `TOOL_MODELS`, `THINKING_MODELS`, and `VISION_MODELS` lists are derived automatically from the enum flags; no manual update needed
 3. For HuggingFace models, also specify the `ToolCallFormat` format (XML, JSON_OBJECT, JSON_ARRAY, BRACKETED)
 4. Test with `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`
 
@@ -410,6 +410,21 @@ Models with `supports_thinking=True` support extended reasoning:
 - Pass `include_thinking=False` to `generate(..., stream=True)` to suppress thinking chunks
 - Thinking content may also be stored in the messages dict under a "thinking" key
 
+### Vision Input
+
+Models with `supports_vision=True` accept images alongside the user prompt:
+- Pass `images=[...]` to `chat()`. Each item may be a file path string, `pathlib.Path`, raw `bytes`, an `http(s)://` URL, or a `data:image/...;base64,...` URL
+- Internally normalized to OpenAI-format content blocks (`{"type": "image_url", "image_url": {"url": ...}}`) inside `self.messages`; helpers live in [aimu/models/_images.py](aimu/models/_images.py) (`_normalize_image`, `_build_user_content_blocks`, plus per-provider adapters)
+- `BaseModelClient._chat_setup()` raises `ValueError` if `images=` is passed for a non-vision model
+- Per-provider adaptation happens at request time without mutating `self.messages`:
+  - `OpenAICompatClient` (and subclasses): pass-through (the `openai` SDK speaks `image_url` blocks natively)
+  - `AnthropicClient`: `_openai_messages_to_anthropic` calls `_openai_blocks_to_anthropic` to rewrite `image_url` → `image` blocks (`base64` source for data URLs, `url` source for http(s))
+  - `OllamaClient` (native): `_adapt_messages_for_ollama` is called before each `ollama.chat()` invocation to extract `image_url` content blocks into Ollama's message-level `images=[<bare base64>]` field. Only inline base64 (`data:image/...`) is supported; http(s) URLs raise `ValueError`
+  - `HuggingFaceClient`: when the model has a processor (Gemma 3 / Gemma 4), `_apply_chat_template` decodes images via `_extract_pil_images` and passes them as `images=` to the processor; `image_url` blocks are rewritten to `{"type": "image"}` placeholders for the chat template
+  - `LlamaCppClient`: pass-through; vision requires loading an `mmproj` projector via the new `chat_handler=` constructor kwarg (e.g. `Llava15ChatHandler(clip_model_path=...)`)
+- Capability flag: each `Model.__init__` accepts `supports_vision: bool` (default `False`). `BaseModelClient.is_vision_model` and `VISION_MODELS` classproperty mirror the thinking/tools equivalents
+- `images=` is also threaded through `AgenticModelClient.chat()` → `SimpleAgent.run()` (only the initial task turn carries images; continuation prompts are text-only) and through workflow `Runner.run()` overrides (`Chain` forwards to step 0, `Router` forwards to the dispatched handler, `Parallel` forwards to every worker, `EvaluatorOptimizer` forwards only to the initial generator turn)
+
 ### OpenAICompatClient Notes
 
 - `OpenAICompatClient` uses the `openai` Python SDK with a configurable `base_url`; works with any server that speaks the OpenAI REST API
@@ -422,9 +437,10 @@ Models with `supports_thinking=True` support extended reasoning:
 ### LlamaCppClient Notes
 
 - `LlamaCppClient` loads a GGUF file in-process via `llama_cpp.Llama`; no external service or server required
-- Constructor requires `model_path` (path to GGUF file); `model` enum specifies capability flags (`supports_tools`, `supports_thinking`)
+- Constructor requires `model_path` (path to GGUF file); `model` enum specifies capability flags (`supports_tools`, `supports_thinking`, `supports_vision`)
 - `n_gpu_layers=-1` offloads all layers to GPU (default); `n_gpu_layers=0` forces CPU-only inference
 - `chat_format=None` (default) auto-detects from GGUF metadata; specify explicitly (e.g. `"chatml-function-calling"`) for older GGUFs that lack embedded templates
+- Optional `chat_handler=` constructor kwarg for vision: pass a `Llava15ChatHandler(clip_model_path=...)` (or similar) to enable image input via `mmproj` projector files. Without it, vision-capable model enums still pass image_url blocks through but the model will error
 - llama-cpp-python returns plain Python dicts, not OpenAI SDK objects; all response access uses dict indexing (`response["choices"][0]["message"]["content"]`)
 - Tool calling requires both `supports_tools=True` on the model enum AND a compatible `chat_format`; modern GGUFs auto-detect this
 - Thinking support works the same as `OpenAICompatClient`; `<think>...</think>` tags in content, parsed by shared utilities in `_thinking.py`
@@ -445,6 +461,7 @@ aimu/
 │   ├── base.py          # Abstract base class (BaseModelClient, StreamChunk, StreamPhase, Model)
 │   ├── model_client.py  # ModelClient factory/wrapper (dispatches by model enum type)
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
+│   ├── _images.py       # Shared vision utilities (_normalize_image, per-provider adapters)
 │   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
 │   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallFormat)
 │   ├── anthropic/       # Anthropic Claude client (AnthropicClient, AnthropicModel)
@@ -508,6 +525,7 @@ aimu/
 tests/                   # Pytest test suite
 ├── conftest.py          # Shared helpers: resolve_model_params, create_real_model_client
 ├── test_models.py       # Model client tests (generate, chat, streaming, tools, thinking)
+├── test_vision.py       # Vision tests (_normalize_image, per-provider adapters, agentic forwarding; real with --client)
 ├── test_history.py      # Conversation management tests
 ├── test_memory.py       # Semantic memory tests
 ├── test_tools.py        # MCP tools tests

@@ -65,22 +65,33 @@ class Chain(Workflow):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[ChainChunk]]:
-        """Run all agents sequentially. Returns a string (stream=False) or a ChainChunk iterator (stream=True)."""
+        """Run all agents sequentially. Returns a string (stream=False) or a ChainChunk iterator (stream=True).
+
+        ``images`` are forwarded only to the first step; subsequent steps consume the prior step's text output.
+        """
         if stream:
-            return self._run_streamed(task, generate_kwargs)
+            return self._run_streamed(task, generate_kwargs, images=images)
         result = task
         for step, agent in enumerate(self.agents):
             logger.debug("Chain step %d, agent '%s'.", step, agent.name)
-            result = agent.run(result, generate_kwargs=generate_kwargs)
+            step_images = images if step == 0 else None
+            result = agent.run(result, generate_kwargs=generate_kwargs, images=step_images)
         return result
 
-    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[ChainChunk]:
+    def _run_streamed(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        images: Optional[list] = None,
+    ) -> Iterator[ChainChunk]:
         result = task
         for step, agent in enumerate(self.agents):
             logger.debug("Chain step %d, agent '%s'.", step, agent.name)
+            step_images = images if step == 0 else None
             step_chunks: list[AgentChunk] = []
-            for chunk in agent.run(result, generate_kwargs=generate_kwargs, stream=True):
+            for chunk in agent.run(result, generate_kwargs=generate_kwargs, stream=True, images=step_images):
                 step_chunks.append(chunk)
                 yield ChainChunk(step, chunk.agent_name, chunk.iteration, chunk.phase, chunk.content)
             result = "".join(c.content for c in step_chunks if c.phase == StreamingContentType.GENERATING)

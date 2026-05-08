@@ -8,6 +8,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from ..base import BaseModelClient, Model, StreamingContentType, StreamChunk, classproperty
+from .._images import _openai_blocks_to_anthropic
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,12 @@ _THINKING_MAX_TOKENS_FLOOR = _DEFAULT_THINKING_BUDGET + 1024
 
 
 class AnthropicModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False):
-        super().__init__(value, supports_tools, supports_thinking)
+    def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
+        super().__init__(value, supports_tools, supports_thinking, supports_vision=supports_vision)
 
-    CLAUDE_SONNET_4_6 = ("claude-sonnet-4-6", True, True)
-    CLAUDE_OPUS_4_6 = ("claude-opus-4-6", True, True)
-    CLAUDE_HAIKU_4_5 = ("claude-haiku-4-5", True, False)
+    CLAUDE_SONNET_4_6 = ("claude-sonnet-4-6", True, True, True)
+    CLAUDE_OPUS_4_6 = ("claude-opus-4-6", True, True, True)
+    CLAUDE_HAIKU_4_5 = ("claude-haiku-4-5", True, False, True)
 
 
 class AnthropicClient(BaseModelClient):
@@ -62,6 +63,10 @@ class AnthropicClient(BaseModelClient):
     @classproperty
     def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_tools]
+
+    @classproperty
+    def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_vision]
 
     # ------------------------------------------------------------------ #
     # generate_kwargs helpers                                              #
@@ -129,7 +134,10 @@ class AnthropicClient(BaseModelClient):
                 i += 1
 
             elif role == "user":
-                ant_messages.append({"role": "user", "content": msg["content"]})
+                content = msg["content"]
+                if isinstance(content, list):
+                    content = _openai_blocks_to_anthropic(content)
+                ant_messages.append({"role": "user", "content": content})
                 i += 1
 
             elif role == "assistant":
@@ -265,8 +273,9 @@ class AnthropicClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:

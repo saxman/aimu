@@ -53,10 +53,17 @@ class Parallel(Workflow):
             result.update(self.aggregator.messages)
         return result
 
-    def _run_workers(self, task: str, generate_kwargs: Optional[dict[str, Any]]) -> list[str]:
+    def _run_workers(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        images: Optional[list] = None,
+    ) -> list[str]:
         """Run all workers concurrently and return their results in submission order."""
         with ThreadPoolExecutor(max_workers=self.max_workers or len(self.workers)) as ex:
-            futures = [ex.submit(w.run, task, generate_kwargs) for w in self.workers]
+            futures = [
+                ex.submit(w.run, task, generate_kwargs, False, images) for w in self.workers
+            ]
             return [f.result() for f in futures]
 
     def run(
@@ -64,18 +71,27 @@ class Parallel(Workflow):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[AgentChunk]]:
-        """Run workers concurrently then aggregate. Returns str or AgentChunk iterator."""
+        """Run workers concurrently then aggregate. Returns str or AgentChunk iterator.
+
+        ``images`` are forwarded to every worker; the aggregator runs on text only.
+        """
         if stream:
-            return self._run_streamed(task, generate_kwargs)
-        results = self._run_workers(task, generate_kwargs)
+            return self._run_streamed(task, generate_kwargs, images=images)
+        results = self._run_workers(task, generate_kwargs, images=images)
         combined = self.separator.join(results)
         if self.aggregator:
             return self.aggregator.run(combined, generate_kwargs=generate_kwargs)
         return combined
 
-    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
-        results = self._run_workers(task, generate_kwargs)
+    def _run_streamed(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        images: Optional[list] = None,
+    ) -> Iterator[AgentChunk]:
+        results = self._run_workers(task, generate_kwargs, images=images)
         combined = self.separator.join(results)
         if self.aggregator:
             yield from self.aggregator.run(combined, generate_kwargs=generate_kwargs, stream=True)

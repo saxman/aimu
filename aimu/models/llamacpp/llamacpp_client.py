@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 class LlamaCppModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False):
-        super().__init__(value, supports_tools, supports_thinking)
+    def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
+        super().__init__(value, supports_tools, supports_thinking, supports_vision=supports_vision)
 
     LLAMA_3_1_8B = ("llama-3.1-8b", False)
     LLAMA_3_2_3B = ("llama-3.2-3b", False)
@@ -36,6 +36,7 @@ class LlamaCppClient(BaseModelClient):
         n_ctx: int = 4096,
         n_gpu_layers: int = -1,
         chat_format: Optional[str] = None,
+        chat_handler: Optional[Any] = None,
         verbose: bool = False,
         system_message: Optional[str] = None,
         model_kwargs: Optional[dict] = None,
@@ -50,6 +51,7 @@ class LlamaCppClient(BaseModelClient):
             n_ctx=n_ctx,
             n_gpu_layers=n_gpu_layers,
             chat_format=chat_format,
+            chat_handler=chat_handler,
             verbose=verbose,
         )
 
@@ -60,6 +62,10 @@ class LlamaCppClient(BaseModelClient):
     @classproperty
     def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_tools]
+
+    @classproperty
+    def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_vision]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         if not generate_kwargs:
@@ -132,8 +138,9 @@ class LlamaCppClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)

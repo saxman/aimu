@@ -38,6 +38,10 @@ class OpenAICompatClient(BaseModelClient):
     def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_tools]
 
+    @classproperty
+    def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_vision]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         if not generate_kwargs:
             return self.default_generate_kwargs.copy()
@@ -110,8 +114,9 @@ class OpenAICompatClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)

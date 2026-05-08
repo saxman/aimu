@@ -37,11 +37,13 @@ class Model(Enum):
         supports_tools: bool = False,
         supports_thinking: bool = False,
         generation_kwargs: Optional[dict] = None,
+        supports_vision: bool = False,
     ):
         self._value_ = value
         self.supports_tools = supports_tools
         self.supports_thinking = supports_thinking
         self.generation_kwargs = generation_kwargs or {}
+        self.supports_vision = supports_vision
 
 
 class classproperty:
@@ -88,6 +90,10 @@ class BaseModelClient(ABC):
     def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
         raise NotImplementedError
 
+    @classproperty
+    def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
+        raise NotImplementedError
+
     @property
     def is_thinking_model(self) -> bool:
         return self.model.supports_thinking
@@ -95,6 +101,10 @@ class BaseModelClient(ABC):
     @property
     def is_tool_using_model(self) -> bool:
         return self.model.supports_tools
+
+    @property
+    def is_vision_model(self) -> bool:
+        return self.model.supports_vision
 
     @property
     def system_message(self):
@@ -129,6 +139,7 @@ class BaseModelClient(ABC):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         pass
 
@@ -137,7 +148,11 @@ class BaseModelClient(ABC):
         pass
 
     def _chat_setup(
-        self, user_message: str, generate_kwargs: Optional[dict[str, Any]] = None, use_tools: bool = True
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        use_tools: bool = True,
+        images: Optional[list] = None,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
@@ -145,8 +160,19 @@ class BaseModelClient(ABC):
         if len(self.messages) == 0 and self.system_message:
             self.messages.append({"role": "system", "content": self.system_message})
 
-        # Add the user message
-        self.messages.append({"role": "user", "content": user_message})
+        if images:
+            if not self.model.supports_vision:
+                raise ValueError(
+                    f"Model {self.model.name} does not support vision input. "
+                    "Use a model with supports_vision=True."
+                )
+            from ._images import _build_user_content_blocks
+
+            self.messages.append(
+                {"role": "user", "content": _build_user_content_blocks(user_message, images)}
+            )
+        else:
+            self.messages.append({"role": "user", "content": user_message})
 
         tools = []
         if self.model.supports_tools and use_tools and self.mcp_client:

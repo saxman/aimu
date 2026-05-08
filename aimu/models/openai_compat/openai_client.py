@@ -13,19 +13,19 @@ _O_SERIES_PREFIXES = ("o1", "o3", "o4")
 
 
 class OpenAIModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False):
-        super().__init__(value, supports_tools, supports_thinking)
+    def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
+        super().__init__(value, supports_tools, supports_thinking, supports_vision=supports_vision)
 
     # Standard GPT models
-    GPT_4O_MINI = ("gpt-4o-mini", True)
-    GPT_4O = ("gpt-4o", True)
-    GPT_4_1 = ("gpt-4.1", True)
-    GPT_4_1_MINI = ("gpt-4.1-mini", True)
-    GPT_4_1_NANO = ("gpt-4.1-nano", True)
+    GPT_4O_MINI = ("gpt-4o-mini", True, False, True)
+    GPT_4O = ("gpt-4o", True, False, True)
+    GPT_4_1 = ("gpt-4.1", True, False, True)
+    GPT_4_1_MINI = ("gpt-4.1-mini", True, False, True)
+    GPT_4_1_NANO = ("gpt-4.1-nano", True, False, True)
     # o-series reasoning models: reasoning tokens not accessible as text chunks,
     # so supports_thinking=False; pass reasoning_effort via generate_kwargs if needed
-    O4_MINI = ("o4-mini", True)
-    O3 = ("o3", True)
+    O4_MINI = ("o4-mini", True, False, True)
+    O3 = ("o3", True, False, True)
     O3_MINI = ("o3-mini", True)
 
 

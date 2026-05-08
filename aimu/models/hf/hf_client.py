@@ -1,4 +1,5 @@
 from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from .._images import _extract_pil_images, _replace_image_url_with_image_placeholder
 
 import torch
 from transformers import AutoTokenizer
@@ -91,10 +92,11 @@ class HuggingFaceModel(Model):
         tool_call_format=ToolCallFormat.XML,
         generation_kwargs=None,
         think_opener_in_prompt=False,
+        supports_vision=False,
     ):
         merged_kwargs = DEFAULT_GENERATE_KWARGS.copy()
         merged_kwargs.update(generation_kwargs or {})
-        super().__init__(value, supports_tools, supports_thinking, merged_kwargs)
+        super().__init__(value, supports_tools, supports_thinking, merged_kwargs, supports_vision)
         self.tool_call_format = tool_call_format
         # Qwen 3.5's chat template appends <think>\n to the generation prompt,
         # so the model generates starting inside the thinking block and only
@@ -148,8 +150,10 @@ class HuggingFaceModel(Model):
         False,
         ToolCallFormat.NA,
         {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
+        False,
+        True,  # supports_vision
     )
-    GEMMA_3_12B = "google/gemma-3-12b-it"
+    GEMMA_3_12B = ("google/gemma-3-12b-it", False, False, ToolCallFormat.NA, None, False, True)
 
     # OpenAI
     GPT_OSS_20B = (
@@ -265,6 +269,10 @@ class HuggingFaceClient(BaseModelClient):
     def TOOL_MODELS(cls) -> list[Model]:
         return [m for m in cls.MODELS if m.supports_tools]
 
+    @classproperty
+    def VISION_MODELS(cls) -> list[Model]:
+        return [m for m in cls.MODELS if m.supports_vision]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         if not generate_kwargs:
             kwargs = self.model.generation_kwargs.copy()
@@ -289,14 +297,21 @@ class HuggingFaceClient(BaseModelClient):
         tools: Optional[list[dict]] = None,
     ) -> Any:
         if self._hf_processor is not None:
+            pil_images = _extract_pil_images(messages)
+            template_messages = (
+                _replace_image_url_with_image_placeholder(messages) if pil_images else messages
+            )
             text = self._hf_processor.apply_chat_template(
-                messages,
+                template_messages,
                 tools=tools if self.model.supports_tools else None,
                 tokenize=False,
                 add_generation_prompt=True,
                 enable_thinking=self.model.supports_thinking,
             )
-            return self._hf_processor(text=text, return_tensors="pt").to(self._hf_model.device)
+            processor_kwargs = {"text": text, "return_tensors": "pt"}
+            if pil_images:
+                processor_kwargs["images"] = pil_images
+            return self._hf_processor(**processor_kwargs).to(self._hf_model.device)
         if self.model == self.MODELS.MAGISTRAL_SMALL:
             # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
             text = self._hf_tokenizer.apply_chat_template(
@@ -483,8 +498,9 @@ class HuggingFaceClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)

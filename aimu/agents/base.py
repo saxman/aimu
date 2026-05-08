@@ -32,13 +32,19 @@ class Runner(ABC):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[AgentChunk]]:
         """Run synchronously (stream=False) or streaming (stream=True)."""
         ...
 
-    def run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
+    def run_streamed(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        images: Optional[list] = None,
+    ) -> Iterator[AgentChunk]:
         """Compatibility alias for run(..., stream=True)."""
-        return self.run(task, generate_kwargs=generate_kwargs, stream=True)
+        return self.run(task, generate_kwargs=generate_kwargs, stream=True, images=images)
 
     @property
     @abstractmethod

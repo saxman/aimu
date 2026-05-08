@@ -11,16 +11,16 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 
 class GeminiModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False):
-        super().__init__(value, supports_tools, supports_thinking)
+    def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
+        super().__init__(value, supports_tools, supports_thinking, supports_vision=supports_vision)
 
-    GEMINI_2_0_FLASH = ("gemini-2.0-flash", True)
-    GEMINI_2_0_FLASH_LITE = ("gemini-2.0-flash-lite", True)
-    GEMINI_1_5_PRO = ("gemini-1.5-pro", True)
-    GEMINI_1_5_FLASH = ("gemini-1.5-flash", True)
+    GEMINI_2_0_FLASH = ("gemini-2.0-flash", True, False, True)
+    GEMINI_2_0_FLASH_LITE = ("gemini-2.0-flash-lite", True, False, True)
+    GEMINI_1_5_PRO = ("gemini-1.5-pro", True, False, True)
+    GEMINI_1_5_FLASH = ("gemini-1.5-flash", True, False, True)
     # Thinking models expose reasoning via <think>...</think> tags on this endpoint
-    GEMINI_2_5_PRO = ("gemini-2.5-pro", True, True)
-    GEMINI_2_5_FLASH = ("gemini-2.5-flash", True, True)
+    GEMINI_2_5_PRO = ("gemini-2.5-pro", True, True, True)
+    GEMINI_2_5_FLASH = ("gemini-2.5-flash", True, True, True)
 
 
 class GeminiClient(OpenAICompatClient):

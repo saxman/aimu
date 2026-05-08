@@ -57,18 +57,27 @@ class Router(Workflow):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[AgentChunk]]:
-        """Classify the task and dispatch to the matched handler. Returns str or AgentChunk iterator."""
+        """Classify the task and dispatch to the matched handler. Returns str or AgentChunk iterator.
+
+        ``images`` are forwarded to the dispatched handler (the routing agent classifies on text only).
+        """
         if stream:
-            return self._run_streamed(task, generate_kwargs)
+            return self._run_streamed(task, generate_kwargs, images=images)
         route = self._classify(task, generate_kwargs)
         handler = self.handlers.get(route, self.fallback)
         if handler is None:
             raise ValueError(f"No handler for route '{route}' and no fallback set.")
         logger.debug("Router '%s' dispatching to '%s'.", self.name, route)
-        return handler.run(task, generate_kwargs=generate_kwargs)
+        return handler.run(task, generate_kwargs=generate_kwargs, images=images)
 
-    def _run_streamed(self, task: str, generate_kwargs: Optional[dict[str, Any]] = None) -> Iterator[AgentChunk]:
+    def _run_streamed(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        images: Optional[list] = None,
+    ) -> Iterator[AgentChunk]:
         route_parts: list[str] = []
         for chunk in self.routing_agent.run(task, generate_kwargs=generate_kwargs, stream=True):
             yield chunk
@@ -79,7 +88,7 @@ class Router(Workflow):
         if handler is None:
             raise ValueError(f"No handler for route '{route}' and no fallback set.")
         logger.debug("Router '%s' dispatching to '%s'.", self.name, route)
-        yield from handler.run(task, generate_kwargs=generate_kwargs, stream=True)
+        yield from handler.run(task, generate_kwargs=generate_kwargs, stream=True, images=images)
 
     @property
     def messages(self) -> MessageHistory:

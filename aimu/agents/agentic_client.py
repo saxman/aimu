@@ -81,14 +81,20 @@ class AgenticModelClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         """Run the full SimpleAgent loop; returns only when the model stops calling tools."""
         if stream:
-            return self._stream_agent(user_message, generate_kwargs)
-        return self._agent.run(user_message, generate_kwargs=generate_kwargs)
+            return self._stream_agent(user_message, generate_kwargs, images=images)
+        return self._agent.run(user_message, generate_kwargs=generate_kwargs, images=images)
 
-    def _stream_agent(self, user_message: str, generate_kwargs: Optional[dict[str, Any]]) -> Iterator[StreamChunk]:
-        for chunk in self._agent.run(user_message, generate_kwargs=generate_kwargs, stream=True):
+    def _stream_agent(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        images: Optional[list] = None,
+    ) -> Iterator[StreamChunk]:
+        for chunk in self._agent.run(user_message, generate_kwargs=generate_kwargs, stream=True, images=images):
             yield StreamChunk(chunk.phase, chunk.content)
 
     # --- Pass-through for stateless generation ---
