@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Iterator, Optional, Union
-
 from fastmcp import FastMCP
 
-from aimu.agents.base import Agent, AgentChunk, MessageHistory
+from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.agents.simple_agent import SimpleAgent
 from aimu.models.model_client import ModelClient
-from aimu.tools.client import MCPClient
 
 
-class CodeReviewAgent(Agent):
+class CodeReviewAgent(OrchestratorAgent):
     """
     Orchestrator agent that coordinates three specialist reviewer sub-agents to
     produce a comprehensive code review.
@@ -82,9 +79,9 @@ class CodeReviewAgent(Agent):
             """Analyze code for readability and maintainability issues."""
             return readability_agent.run(code)
 
-        model_client.mcp_client = MCPClient(server=mcp)
-        self._orchestrator = SimpleAgent(
+        self._setup_orchestrator(
             model_client,
+            mcp,
             name="code-review-agent",
             system_message=(
                 "You are a senior code reviewer. Use the specialist review tools to analyze the "
@@ -93,15 +90,3 @@ class CodeReviewAgent(Agent):
                 "report with actionable fix recommendations, ordered by severity."
             ),
         )
-
-    def run(
-        self,
-        task: str,
-        generate_kwargs: Optional[dict[str, Any]] = None,
-        stream: bool = False,
-    ) -> Union[str, Iterator[AgentChunk]]:
-        return self._orchestrator.run(task, generate_kwargs, stream=stream)
-
-    @property
-    def messages(self) -> MessageHistory:
-        return self._orchestrator.messages

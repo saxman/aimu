@@ -105,6 +105,7 @@ The codebase uses an abstract base class pattern for model clients:
   - `system_message` property with setter that manages the system message in the messages list
   - Message history stored in `self.messages` (OpenAI-style format; user messages with images are content-block lists)
   - Optional `mcp_client` attribute for MCP tool integration
+  - `concurrent_tool_calls: bool = False` — when `True`, multiple tool calls returned in a single model response execute concurrently via `ThreadPoolExecutor`; results are always appended in original order
 
 - **Supporting types in base.py**:
   - `StreamingContentType(str, Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE; string values (`"thinking"`, etc.)
@@ -282,12 +283,17 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `run(stream=True)` yields a single GENERATING chunk with the final output (intermediate drafts not streamed)
   - `messages` property: merges `generator.messages` + `evaluator.messages`
 
-- **[aimu/agents/examples/](aimu/agents/examples/)**: Ready-to-use `Agent` subclasses demonstrating the orchestrator + worker tools pattern
-  - Each class accepts a `ModelClient`, builds a FastMCP server exposing worker `SimpleAgent` runs as tools, and wires the orchestrator's `mcp_client` automatically
-  - `ResearchReportAgent`: orchestrator + `research_overview`, `find_examples`, `find_counterpoints` worker tools
+- **[aimu/agents/orchestrator_agent.py](aimu/agents/orchestrator_agent.py)**: `OrchestratorAgent(Agent, ABC)` base class for orchestrator agents
+  - Subclasses create workers and register `@mcp.tool()` functions in `__init__`, then call `_setup_orchestrator(model_client, mcp, name, system_message, concurrent_tool_calls=False)` to wire everything together
+  - Provides `run(task, generate_kwargs, stream)` and `messages` — subclasses need not re-implement them
+  - Exported from `aimu.agents`
+
+- **[aimu/agents/examples/](aimu/agents/examples/)**: Ready-to-use `OrchestratorAgent` subclasses demonstrating the orchestrator + worker tools pattern
+  - Each class accepts a `ModelClient`, builds a FastMCP server exposing worker `SimpleAgent` runs as tools, and calls `_setup_orchestrator()` to wire the orchestrator
+  - `ResearchReportAgent`: orchestrator + `research_overview`, `find_examples`, `find_counterpoints` worker tools; accepts optional `tools: FastMCP` to give workers live tool access (e.g. web search) and automatically enables `concurrent_tool_calls` on the orchestrator
   - `CodeReviewAgent`: orchestrator + `review_security`, `review_performance`, `review_readability` worker tools
   - `ContentCreationAgent`: orchestrator + `research_topic`, `create_outline`, `write_section` worker tools
-  - All three inherit from `Agent(Runner)` and expose `run(task, stream=False)` and `messages`
+  - All three inherit from `OrchestratorAgent` and expose `run(task, stream=False)` and `messages`
 
 - All agents/workflows use the public `chat()` / `chat(..., stream=True)` API only; no changes to `ModelClient` subclasses
 - `messages` is composable: nested workflows (e.g. a `Router` dispatching to a `Chain`) merge recursively, so all sub-agent names appear at the top level
@@ -485,6 +491,7 @@ aimu/
 │   ├── simple_agent.py  # SimpleAgent (agentic loop over ModelClient.chat())
 │   ├── skill_agent.py   # SkillAgent (SimpleAgent + skill discovery/injection)
 │   ├── agentic_client.py # AgenticModelClient (ModelClient wrapper for SimpleAgent)
+│   ├── orchestrator_agent.py # OrchestratorAgent base class (orchestrator + worker tools pattern)
 │   ├── workflows/       # Code-controlled workflow patterns
 │   │   ├── chain.py     # Chain + ChainChunk (prompt chaining workflow)
 │   │   ├── router.py    # Router (routing workflow: classify + dispatch)

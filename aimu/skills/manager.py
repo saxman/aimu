@@ -11,16 +11,27 @@ from aimu.skills.skill import Skill
 logger = logging.getLogger(__name__)
 
 
+_DEFAULT_SKILL_DIRS = [
+    ".agents/skills",
+    ".claude/skills",
+    "~/.agents/skills",
+    "~/.claude/skills",
+]
+
+
 class SkillManager:
     """
     Discovers and manages Agent Skills from the filesystem.
 
-    Scans the explicitly-supplied directories for skill subdirectories (each
-    containing a SKILL.md file).  The first directory wins on name collision.
+    When no ``skill_dirs`` are provided, scans the standard search paths at
+    project and user scope: ``.agents/skills/``, ``.claude/skills/``,
+    ``~/.agents/skills/``, ``~/.claude/skills/``. Project-level paths win on
+    name collision. Pass explicit ``skill_dirs`` to override all defaults.
 
     Usage::
 
-        manager = SkillManager(skill_dirs=["/path/to/my/skills"])
+        manager = SkillManager()                              # auto-discover
+        manager = SkillManager(skill_dirs=["/path/to/my/skills"])  # explicit
         print(manager.catalog_prompt())   # XML catalog for system prompt
         body = manager.get_skill_body("pdf-processing")
     """
@@ -39,7 +50,9 @@ class SkillManager:
         return self._skills
 
     def _search_dirs(self) -> list[Path]:
-        return self._custom_dirs
+        if self._custom_dirs:
+            return self._custom_dirs
+        return [Path(d).expanduser().resolve() for d in _DEFAULT_SKILL_DIRS]
 
     def _discover(self) -> dict[str, Skill]:
         skills: dict[str, Skill] = {}

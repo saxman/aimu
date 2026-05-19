@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Iterator, Optional, Union
+from typing import Optional
 
 from fastmcp import FastMCP
 
-from aimu.agents.base import Agent, AgentChunk, MessageHistory
+from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.agents.simple_agent import SimpleAgent
 from aimu.models.model_client import ModelClient
 from aimu.tools.client import MCPClient
 
 
-class ResearchReportAgent(Agent):
+class ResearchReportAgent(OrchestratorAgent):
     """
     Orchestrator agent that coordinates three worker sub-agents to produce a
     structured research report.
@@ -25,7 +25,17 @@ class ResearchReportAgent(Agent):
     The model_client is used for the orchestrator; fresh client instances
     (same model, isolated message histories) are created for each worker.
 
-    Usage::
+    Parameters
+    ----------
+    model_client:
+        Used for both orchestrator and worker agents.
+    tools:
+        Optional FastMCP server whose tools are injected into each worker so
+        they can perform live lookups (e.g. web search). When provided, the
+        orchestrator also enables concurrent tool calls so all three workers
+        can be dispatched in a single round-trip when the model supports it.
+
+    Usage — text-only workers (no live search)::
 
         from aimu.models import ModelClient, OllamaModel
         from aimu.agents.examples import ResearchReportAgent
@@ -33,32 +43,39 @@ class ResearchReportAgent(Agent):
         client = ModelClient(OllamaModel.QWEN_3_8B)
         agent = ResearchReportAgent(client)
         report = agent.run("What is retrieval-augmented generation?")
+
+    Usage — workers with live web search::
+
+        from aimu.tools.mcp import mcp as search_server  # requires SEARXNG_BASE_URL
+
+        agent = ResearchReportAgent(client, tools=search_server)
+        report = agent.run("What is retrieval-augmented generation?")
     """
 
-    def __init__(self, model_client: ModelClient) -> None:
-        overview_agent = SimpleAgent(
-            ModelClient(model_client.model),
-            name="overview-worker",
-            system_message=(
-                "Provide a thorough 2-3 paragraph overview of the given topic. "
-                "Cover what it is, why it matters, and its key components or mechanisms."
-            ),
+    def __init__(self, model_client: ModelClient, tools: Optional[FastMCP] = None) -> None:
+        def _make_worker(name: str, system_message: str) -> SimpleAgent:
+            worker_client = ModelClient(model_client.model)
+            if tools is not None:
+                worker_client.mcp_client = MCPClient(server=tools)
+            return SimpleAgent(worker_client, name=name, system_message=system_message)
+
+        overview_agent = _make_worker(
+            "overview-worker",
+            "Provide a thorough 2-3 paragraph overview of the given topic. "
+            "Cover what it is, why it matters, and its key components or mechanisms."
+            + (" Use your search and browsing tools to find current, accurate information." if tools else ""),
         )
-        examples_agent = SimpleAgent(
-            ModelClient(model_client.model),
-            name="examples-worker",
-            system_message=(
-                "Provide 3-5 concrete, real-world examples or applications related to the given topic. "
-                "For each example, briefly explain its relevance and significance."
-            ),
+        examples_agent = _make_worker(
+            "examples-worker",
+            "Provide 3-5 concrete, real-world examples or applications related to the given topic. "
+            "For each example, briefly explain its relevance and significance."
+            + (" Use your search and browsing tools to find current, accurate information." if tools else ""),
         )
-        counterpoints_agent = SimpleAgent(
-            ModelClient(model_client.model),
-            name="counterpoints-worker",
-            system_message=(
-                "Identify 3-5 counterarguments, limitations, criticisms, or alternative perspectives "
-                "on the given topic. Be specific, balanced, and evidence-based."
-            ),
+        counterpoints_agent = _make_worker(
+            "counterpoints-worker",
+            "Identify 3-5 counterarguments, limitations, criticisms, or alternative perspectives "
+            "on the given topic. Be specific, balanced, and evidence-based."
+            + (" Use your search and browsing tools to find current, accurate information." if tools else ""),
         )
 
         mcp = FastMCP("Research Workers")
@@ -78,9 +95,9 @@ class ResearchReportAgent(Agent):
             """Identify counterarguments, limitations, and alternative perspectives on the topic."""
             return counterpoints_agent.run(topic)
 
-        model_client.mcp_client = MCPClient(server=mcp)
-        self._orchestrator = SimpleAgent(
+        self._setup_orchestrator(
             model_client,
+            mcp,
             name="research-report-agent",
             system_message=(
                 "You are a research report writer. Use the available tools to gather material: "
@@ -88,16 +105,5 @@ class ResearchReportAgent(Agent):
                 "and find_counterpoints for critical analysis. "
                 "Then synthesize all gathered material into a structured report with clearly labeled sections."
             ),
+            concurrent_tool_calls=tools is not None,
         )
-
-    def run(
-        self,
-        task: str,
-        generate_kwargs: Optional[dict[str, Any]] = None,
-        stream: bool = False,
-    ) -> Union[str, Iterator[AgentChunk]]:
-        return self._orchestrator.run(task, generate_kwargs, stream=stream)
-
-    @property
-    def messages(self) -> MessageHistory:
-        return self._orchestrator.messages

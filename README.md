@@ -44,8 +44,8 @@ AIMU is a Python library for building LLM-powered applications with a consistent
 
     -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard model client interface, making agentic and single-turn clients interchangeable.
     -   **Workflows**: Four code-controlled patterns: `Chain` (prompt chaining), `Router` (classify and dispatch), `Parallel` (concurrent workers with optional aggregation), and `EvaluatorOptimizer` (generate → evaluate → revise loop).
-    -   **Example Agents**: Ready-to-use orchestrator agents in `aimu.agents.examples` that demonstrate the orchestrator + worker tools pattern: `ResearchReportAgent`, `CodeReviewAgent`, and `ContentCreationAgent`. Each coordinates worker sub-agents via MCP tools, letting the LLM decide how to use them.
-    -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are discovered from project and user directories (`.agents/skills/`, `.claude/skills/`).
+    -   **Orchestrator Agents**: `OrchestratorAgent` (exported from `aimu.agents`) is a base class for building orchestrator agents that dispatch to worker sub-agents via MCP tools. Subclasses define workers and `@mcp.tool()` functions in `__init__`, then call `_setup_orchestrator()` to wire everything. `run()` and `messages` are inherited. Ready-to-use subclasses in `aimu.agents.examples`: `ResearchReportAgent`, `CodeReviewAgent`, and `ContentCreationAgent`. `ResearchReportAgent` also accepts an optional `tools=` FastMCP server to give workers live tool access (e.g. web search), automatically enabling concurrent worker dispatch.
+    -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are auto-discovered from `.agents/skills/`, `.claude/skills/`, `~/.agents/skills/`, and `~/.claude/skills/` (project-level wins on name collision); pass explicit `skill_dirs` to override.
 
 -   **MCP Tools**: MCP tool integration is built into the base model client as a first-class attribute, not a plugin. Attach an `MCPClient` to any model client and tools are passed to the model automatically. Provides a simpler interface for [FastMCP 2.0](https://gofastmcp.com).
 
@@ -237,7 +237,7 @@ result = agent.run("Find all log files modified today and summarise the errors."
 ``` python
 from aimu.agents import SkillAgent
 
-agent = SkillAgent(client, name="assistant")  # discovers skills from .agents/skills/ and .claude/skills/
+agent = SkillAgent(client, name="assistant")  # discovers skills from .agents/skills/, .claude/skills/, ~/.agents/skills/, ~/.claude/skills/
 result = agent.run("Use the pdf-processing skill to extract pages from report.pdf")
 ```
 
@@ -272,6 +272,46 @@ report = agent.run("What is retrieval-augmented generation?")
 for chunk in agent.run("Explain transformer attention", stream=True):
     if chunk.phase == StreamPhase.GENERATING:
         print(chunk.content, end="", flush=True)
+```
+
+Pass `tools=` to give workers live tool access (e.g. web search via `aimu.tools.mcp`). The orchestrator will automatically dispatch all workers concurrently when the model returns multiple tool calls in one response:
+
+``` python
+from aimu.tools.mcp import mcp as search_server  # requires SEARXNG_BASE_URL
+
+agent = ResearchReportAgent(client, tools=search_server)
+report = agent.run("What is retrieval-augmented generation?")
+```
+
+Subclass `OrchestratorAgent` directly to build your own orchestrator:
+
+``` python
+from aimu.agents import OrchestratorAgent
+from aimu.agents.simple_agent import SimpleAgent
+from aimu.models.model_client import ModelClient
+from fastmcp import FastMCP
+
+class SummaryAgent(OrchestratorAgent):
+    def __init__(self, model_client):
+        extractor = SimpleAgent(ModelClient(model_client.model), name="extractor",
+                                system_message="Extract the key facts from the text.")
+        writer = SimpleAgent(ModelClient(model_client.model), name="writer",
+                             system_message="Write a concise summary from the extracted facts.")
+        mcp = FastMCP("Summary Workers")
+
+        @mcp.tool()
+        def extract_facts(text: str) -> str:
+            """Extract key facts from a block of text."""
+            return extractor.run(text)
+
+        @mcp.tool()
+        def write_summary(facts: str) -> str:
+            """Write a summary from extracted facts."""
+            return writer.run(facts)
+
+        self._setup_orchestrator(model_client, mcp,
+            name="summary-agent",
+            system_message="Extract facts then write a summary.")
 ```
 
 See [08 - Agents](notebooks/08%20-%20Agents.ipynb), [09 - Agent Skills](notebooks/09%20-%20Agent%20Skills.ipynb), [10 - Agent Workflows](notebooks/10%20-%20Agent%20Workflows.ipynb), and [11 - Agent Examples](notebooks/11%20-%20Agent%20Examples.ipynb) for the example agents.

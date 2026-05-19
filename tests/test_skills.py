@@ -309,3 +309,37 @@ def test_agent_from_config_with_skill_dirs(tmp_path):
     agent = SkillAgent.from_config({"name": "cfg-agent", "skill_dirs": [str(tmp_path)]}, client)
 
     assert "cfg-skill" in agent.skill_manager.skills
+
+
+def test_skill_manager_default_paths_discover_skill(tmp_path, monkeypatch):
+    """SkillManager() with no skill_dirs scans the four default paths."""
+    from aimu.skills import manager as skills_module
+
+    project_skills = tmp_path / ".agents" / "skills"
+    project_skills.mkdir(parents=True)
+    make_skill_dir(project_skills, "auto-skill", "Found via default path.")
+
+    # Override the default dirs so the test doesn't touch real home/project paths
+    monkeypatch.setattr(skills_module, "_DEFAULT_SKILL_DIRS", [str(project_skills)])
+
+    mgr = SkillManager()  # no skill_dirs — should use defaults
+    assert "auto-skill" in mgr.skills
+
+
+def test_skill_manager_custom_dirs_override_defaults(tmp_path, monkeypatch):
+    """When skill_dirs is given, default paths are ignored."""
+    from aimu.skills import manager as skills_module
+
+    default_skills = tmp_path / "default_skills"
+    default_skills.mkdir()
+    make_skill_dir(default_skills, "default-skill", "Should not appear.")
+
+    custom_skills = tmp_path / "custom_skills"
+    custom_skills.mkdir()
+    make_skill_dir(custom_skills, "custom-skill", "From explicit dirs.")
+
+    monkeypatch.setattr(skills_module, "_DEFAULT_SKILL_DIRS", [str(default_skills)])
+
+    mgr = SkillManager(skill_dirs=[str(custom_skills)])
+    assert "custom-skill" in mgr.skills
+    assert "default-skill" not in mgr.skills

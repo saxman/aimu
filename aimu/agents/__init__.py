@@ -2,6 +2,7 @@ from .base import Runner, Agent, Workflow, AgentChunk, MessageHistory
 from .simple_agent import SimpleAgent
 from .skill_agent import SkillAgent
 from .agentic_client import AgenticModelClient
+from .orchestrator_agent import OrchestratorAgent
 from .workflows import Chain, ChainChunk, EvaluatorOptimizer, Parallel, Router
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "SimpleAgent",
     "SkillAgent",
     "AgenticModelClient",
+    "OrchestratorAgent",
     # Workflow patterns
     "Chain",
     "ChainChunk",

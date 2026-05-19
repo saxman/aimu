@@ -68,6 +68,7 @@ class MockModelClient(BaseModelClient):
         self.messages = []
         self.mcp_client = None
         self.last_thinking = ""
+        self.concurrent_tool_calls = False
         self._streaming_content_type = StreamingContentType.DONE
         self._responses = list(responses)
         self._call_count = 0

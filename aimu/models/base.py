@@ -76,6 +76,7 @@ class BaseModelClient(ABC):
         self.messages = []
         self.mcp_client = None
         self.last_thinking = ""
+        self.concurrent_tool_calls = False
 
     def __deepcopy__(self, memo):
         # BaseModelClient manages stateful conversation history and non-copyable backend resources.
@@ -181,46 +182,41 @@ class BaseModelClient(ABC):
         return generate_kwargs, tools
 
     def _handle_tool_calls(self, tool_calls: list[dict], tools: list) -> None:
-        message = {"role": "assistant", "tool_calls": []}
-        self.messages.append(message)
-
-        for tool_call in tool_calls:
+        # Normalize arguments and assign IDs upfront so concurrent execution
+        # can use pre-assigned IDs and still append results in original order.
+        prepared = []
+        for tc in tool_calls:
             # llama 3.1 uses 'parameters' instead of 'arguments'
-            if "arguments" not in tool_call and "parameters" in tool_call:
-                tool_call["arguments"] = tool_call.pop("parameters")
+            if "arguments" not in tc and "parameters" in tc:
+                tc["arguments"] = tc.pop("parameters")
+            tc_id = "".join(random.choices(string.ascii_letters + string.digits, k=9))
+            prepared.append((tc, tc_id))
 
-            id = "".join(random.choices(string.ascii_letters + string.digits, k=9))
+        self.messages.append({
+            "role": "assistant",
+            "tool_calls": [
+                {"type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}, "id": tc_id}
+                for tc, tc_id in prepared
+            ],
+        })
 
-            message["tool_calls"].append(
-                {
-                    "type": "function",
-                    "function": {"name": tool_call["name"], "arguments": tool_call["arguments"]},
-                    "id": id,
-                }
-            )
-
+        def _call_one(tc: dict, tc_id: str) -> dict:
             for tool in tools:
-                # If the tool is a call-able python function, call it directly. Otherwise, use the MCP client to call the tool.
-                if hasattr(tool, "__call__") and tool.__name__ == tool_call["name"]:
-                    tool_response = tool(**tool_call["arguments"])
+                # If the tool is a callable Python function, call it directly.
+                if hasattr(tool, "__call__") and tool.__name__ == tc["name"]:
+                    response = tool(**tc["arguments"])
+                    return {"role": "tool", "name": tc["name"], "content": str(response), "tool_call_id": tc_id}
 
-                    self.messages.append(
-                        {"role": "tool", "name": tool_call["name"], "content": str(tool_response), "tool_call_id": id}
-                    )
-
-                    break
-                elif tool["type"] == "function" and tool["function"]["name"] == tool_call["name"]:
+                # Otherwise use the MCP client.
+                if tool["type"] == "function" and tool["function"]["name"] == tc["name"]:
                     if self.mcp_client is None:
                         raise ValueError(
                             "MCP client not initialized. Please initialize and assign an MCP client before using MCP tools."
                         )
-
                     try:
-                        tool_response = self.mcp_client.call_tool(tool["function"]["name"], tool_call["arguments"])
-
+                        tool_response = self.mcp_client.call_tool(tool["function"]["name"], tc["arguments"])
                         # FastMCP call_tool returns a list of content objects directly
                         response_content = tool_response if isinstance(tool_response, list) else tool_response.content
-
                         content = ""
                         for part in response_content:
                             if part.type == "text":
@@ -228,11 +224,20 @@ class BaseModelClient(ABC):
                             else:
                                 logger.debug("Skipping unsupported tool response part type: %s", part.type)
                     except Exception as exc:
-                        content = f"Tool '{tool_call['name']}' raised an error: {exc}"
-                        logger.warning("Tool call '%s' failed: %s", tool_call["name"], exc)
+                        content = f"Tool '{tc['name']}' raised an error: {exc}"
+                        logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
+                    return {"role": "tool", "name": tool["function"]["name"], "content": content, "tool_call_id": tc_id}
 
-                    self.messages.append(
-                        {"role": "tool", "name": tool["function"]["name"], "content": content, "tool_call_id": id}
-                    )
+            return {"role": "tool", "name": tc["name"], "content": f"Tool '{tc['name']}' not found.", "tool_call_id": tc_id}
 
-                    break
+        if self.concurrent_tool_calls and len(prepared) > 1:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(_call_one, tc, tc_id) for tc, tc_id in prepared]
+                # Collect in original order (not arrival order) to keep history consistent.
+                results = [f.result() for f in futures]
+        else:
+            results = [_call_one(tc, tc_id) for tc, tc_id in prepared]
+
+        self.messages.extend(results)
