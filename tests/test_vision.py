@@ -14,7 +14,7 @@ from typing import Iterable
 import pytest
 
 from aimu.agents.agentic_client import AgenticModelClient
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents.agent import Agent
 from aimu.models import BaseModelClient
 from aimu.models._images import (
     _adapt_messages_for_ollama,
@@ -304,7 +304,7 @@ def test_decode_image_url_to_pil_data_url():
 
 def test_agentic_model_client_forwards_images():
     inner = _VisionMockClient(["it's a tiny pixel"])
-    agent = SimpleAgent(inner, name="vision-agent", max_iterations=2)
+    agent = Agent(inner, name="vision-agent", max_iterations=2)
     client = AgenticModelClient(agent)
 
     response = client.chat("what is this?", images=[_TINY_PNG_DATA_URL])
@@ -337,7 +337,7 @@ def test_simple_agent_only_attaches_images_to_first_turn():
         call_count["n"] += 1
         return call_count["n"] == 1  # True after first turn → triggers continuation
 
-    agent = SimpleAgent(inner, name="vision-agent", max_iterations=3)
+    agent = Agent(inner, name="vision-agent", max_iterations=3)
     agent._last_turn_called_tools = fake_last_turn  # type: ignore[method-assign]
 
     agent.run("describe", images=[_TINY_PNG_DATA_URL])

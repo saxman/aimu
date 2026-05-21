@@ -52,7 +52,7 @@ class Runner(ABC):
         """
         Return the message histories of all agents in this runner, keyed by agent name.
 
-        For a leaf agent (SimpleAgent / SkillAgent) this is ``{agent.name: model_client.messages}``.
+        For a leaf agent (Agent / SkillAgent) this is ``{agent.name: model_client.messages}``.
         For composite workflows the dicts from every constituent runner are merged, so the
         result spans the full sub-tree regardless of nesting depth.
 
@@ -63,7 +63,7 @@ class Runner(ABC):
         ...
 
 
-class Agent(Runner):
+class BaseAgent(Runner):
     """
     Marker ABC for autonomous agents that direct their own process.
 
@@ -72,7 +72,7 @@ class Agent(Runner):
     directs the process and tool selection rather than following a predetermined
     code path.
 
-    Concrete subclasses: SimpleAgent, SkillAgent.
+    Concrete subclasses: Agent, SkillAgent.
     """
 
 

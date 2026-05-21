@@ -6,7 +6,7 @@ All tests use MockModelClient from helpers (deterministic, no backend needed).
 
 import pytest
 
-from aimu.agents import AgentChunk, Router, Runner, SimpleAgent, Workflow
+from aimu.agents import Agent, AgentChunk, Router, Runner, Workflow
 from aimu.models import StreamingContentType
 from helpers import MockModelClient
 
@@ -23,10 +23,10 @@ def test_router_dispatches_to_correct_handler():
     writing_client = MockModelClient(["here is some writing"])
 
     router = Router(
-        routing_agent=SimpleAgent(routing_client, name="classifier"),
+        routing_agent=Agent(routing_client, name="classifier"),
         handlers={
-            "code": SimpleAgent(code_client, name="coder"),
-            "writing": SimpleAgent(writing_client, name="writer"),
+            "code": Agent(code_client, name="coder"),
+            "writing": Agent(writing_client, name="writer"),
         },
     )
     result = router.run("Write a Python function.")
@@ -42,8 +42,8 @@ def test_router_route_is_case_insensitive():
     handler_client = MockModelClient(["handled"])
 
     router = Router(
-        routing_agent=SimpleAgent(routing_client, name="classifier"),
-        handlers={"code": SimpleAgent(handler_client, name="coder")},
+        routing_agent=Agent(routing_client, name="classifier"),
+        handlers={"code": Agent(handler_client, name="coder")},
     )
     result = router.run("task")
     assert result == "handled"
@@ -55,9 +55,9 @@ def test_router_uses_fallback_on_unknown_route():
     fallback_client = MockModelClient(["fallback response"])
 
     router = Router(
-        routing_agent=SimpleAgent(routing_client, name="classifier"),
-        handlers={"code": SimpleAgent(MockModelClient(["should not be called"]), name="coder")},
-        fallback=SimpleAgent(fallback_client, name="fallback"),
+        routing_agent=Agent(routing_client, name="classifier"),
+        handlers={"code": Agent(MockModelClient(["should not be called"]), name="coder")},
+        fallback=Agent(fallback_client, name="fallback"),
     )
     result = router.run("task")
     assert result == "fallback response"
@@ -69,8 +69,8 @@ def test_router_raises_on_unknown_route_without_fallback():
     routing_client = MockModelClient(["unknown"])
 
     router = Router(
-        routing_agent=SimpleAgent(routing_client, name="classifier"),
-        handlers={"code": SimpleAgent(MockModelClient(["x"]), name="coder")},
+        routing_agent=Agent(routing_client, name="classifier"),
+        handlers={"code": Agent(MockModelClient(["x"]), name="coder")},
     )
     with pytest.raises(ValueError, match="No handler for route 'unknown'"):
         router.run("task")
@@ -82,8 +82,8 @@ def test_router_streamed_yields_agent_chunks():
     math_client = MockModelClient(["42"])
 
     router = Router(
-        routing_agent=SimpleAgent(routing_client, name="classifier"),
-        handlers={"math": SimpleAgent(math_client, name="mathematician")},
+        routing_agent=Agent(routing_client, name="classifier"),
+        handlers={"math": Agent(math_client, name="mathematician")},
     )
     chunks = list(router.run_streamed("What is 6 times 7?"))
 
@@ -100,25 +100,25 @@ def test_router_streamed_raises_on_unknown_route():
     routing_client = MockModelClient(["unknown"])
 
     router = Router(
-        routing_agent=SimpleAgent(routing_client, name="classifier"),
-        handlers={"code": SimpleAgent(MockModelClient(["x"]), name="coder")},
+        routing_agent=Agent(routing_client, name="classifier"),
+        handlers={"code": Agent(MockModelClient(["x"]), name="coder")},
     )
     with pytest.raises(ValueError, match="No handler for route 'unknown'"):
         list(router.run_streamed("task"))
 
 
 def test_router_is_workflow_subclass():
-    """Router must be a Workflow (not an Agent) and also a Runner."""
+    """Router must be a Workflow (not a BaseAgent) and also a Runner."""
     routing_client = MockModelClient(["code"])
     router = Router(
-        routing_agent=SimpleAgent(routing_client, name="classifier"),
-        handlers={"code": SimpleAgent(MockModelClient(["done"]), name="coder")},
+        routing_agent=Agent(routing_client, name="classifier"),
+        handlers={"code": Agent(MockModelClient(["done"]), name="coder")},
     )
-    from aimu.agents import Agent
+    from aimu.agents import BaseAgent
 
     assert isinstance(router, Workflow)
     assert isinstance(router, Runner)
-    assert not isinstance(router, Agent)
+    assert not isinstance(router, BaseAgent)
 
 
 def test_router_from_config():

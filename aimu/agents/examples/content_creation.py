@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 from aimu.agents.orchestrator_agent import OrchestratorAgent
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents.agent import Agent
 from aimu.models.model_client import ModelClient
 
 
@@ -32,7 +32,7 @@ class ContentCreationAgent(OrchestratorAgent):
     """
 
     def __init__(self, model_client: ModelClient) -> None:
-        research_agent = SimpleAgent(
+        research_agent = Agent(
             ModelClient(model_client.model),
             name="research-worker",
             system_message=(
@@ -41,7 +41,7 @@ class ContentCreationAgent(OrchestratorAgent):
                 "8-12 research points ready for use in writing."
             ),
         )
-        outline_agent = SimpleAgent(
+        outline_agent = Agent(
             ModelClient(model_client.model),
             name="outline-worker",
             system_message=(
@@ -50,7 +50,7 @@ class ContentCreationAgent(OrchestratorAgent):
                 "Structure it for the implied target audience and format."
             ),
         )
-        section_agent = SimpleAgent(
+        section_agent = Agent(
             ModelClient(model_client.model),
             name="section-writer",
             system_message=(

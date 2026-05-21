@@ -1,5 +1,5 @@
-from .base import Runner, Agent, Workflow, AgentChunk, MessageHistory
-from .simple_agent import SimpleAgent
+from .base import Runner, BaseAgent, Workflow, AgentChunk, MessageHistory
+from .agent import Agent
 from .skill_agent import SkillAgent
 from .agentic_client import AgenticModelClient
 from .orchestrator_agent import OrchestratorAgent
@@ -8,12 +8,12 @@ from .workflows import Chain, ChainChunk, EvaluatorOptimizer, Parallel, Router
 __all__ = [
     # Base hierarchy
     "Runner",
-    "Agent",
+    "BaseAgent",
     "Workflow",
     "AgentChunk",
     "MessageHistory",
     # Agents (autonomous)
-    "SimpleAgent",
+    "Agent",
     "SkillAgent",
     "AgenticModelClient",
     "OrchestratorAgent",

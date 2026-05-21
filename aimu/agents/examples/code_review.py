@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 from aimu.agents.orchestrator_agent import OrchestratorAgent
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents.agent import Agent
 from aimu.models.model_client import ModelClient
 
 
@@ -32,7 +32,7 @@ class CodeReviewAgent(OrchestratorAgent):
     """
 
     def __init__(self, model_client: ModelClient) -> None:
-        security_agent = SimpleAgent(
+        security_agent = Agent(
             ModelClient(model_client.model),
             name="security-reviewer",
             system_message=(
@@ -42,7 +42,7 @@ class CodeReviewAgent(OrchestratorAgent):
                 "(Critical/High/Medium/Low), and a specific recommended fix."
             ),
         )
-        performance_agent = SimpleAgent(
+        performance_agent = Agent(
             ModelClient(model_client.model),
             name="performance-reviewer",
             system_message=(
@@ -52,7 +52,7 @@ class CodeReviewAgent(OrchestratorAgent):
                 "improvement suggestion."
             ),
         )
-        readability_agent = SimpleAgent(
+        readability_agent = Agent(
             ModelClient(model_client.model),
             name="readability-reviewer",
             system_message=(

@@ -577,7 +577,7 @@ class HuggingFaceClient(BaseModelClient):
                 self.messages[msgs_before]["thinking"] = self.last_thinking
 
             # Omit tools so the model generates text rather than calling tools again;
-            # multi-round tool use is handled by SimpleAgent, not chat().
+            # multi-round tool use is handled by Agent, not chat().
             response = self._generate_sync(self.messages, generate_kwargs, None)
 
         logger.debug("[generating] chat response: %s", response)
@@ -637,7 +637,7 @@ class HuggingFaceClient(BaseModelClient):
 
                 streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
                 # Omit tools so the model generates text rather than calling tools again;
-                # multi-round tool use is handled by SimpleAgent, not chat().
+                # multi-round tool use is handled by Agent, not chat().
                 it = self._generate_streaming(self.messages, generate_kwargs, None, streamer)
         else:
             content += response_part

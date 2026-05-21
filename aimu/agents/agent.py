@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Callable, Iterator, Optional, Union
 
-from aimu.agents.base import Agent, AgentChunk, MessageHistory
+from aimu.agents.base import AgentChunk, BaseAgent, MessageHistory
 from aimu.models.base import BaseModelClient
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ DEFAULT_CONTINUATION_PROMPT = "Continue working on the task using available tool
 
 
 @dataclass
-class SimpleAgent(Agent):
+class Agent(BaseAgent):
     """
     Wraps a BaseModelClient with an agentic loop.
 
@@ -22,21 +22,33 @@ class SimpleAgent(Agent):
     The loop stops when the model produces a response without calling any tools,
     or when max_iterations is reached.
 
+    Tools may be supplied two ways (and combined):
+      - ``tools=[fn1, fn2]``: a list of Python functions decorated with ``@aimu.tools.tool``.
+      - ``model_client.mcp_client = MCPClient(...)``: a FastMCP-backed tool server.
+
     When ``system_message`` is set or ``reset_messages_on_run`` is True, the agent
     clears ``model_client.messages`` and re-applies ``system_message`` before every
     run. This enables clean state isolation when a client is shared across agents
-    (e.g. inside an Chain).
+    (e.g. inside a Chain).
 
     Usage::
 
-        client = OllamaClient(OllamaModel.QWEN_3_8B)
-        client.mcp_client = MCPClient(MCP_SERVERS)
-        agent = SimpleAgent(client, name="researcher", max_iterations=8)
-        result = agent.run("Summarise the files in /tmp.")
+        from aimu.models import ModelClient, OllamaModel
+        from aimu.agents import Agent
+        from aimu.tools import tool
+
+        @tool
+        def letter_counter(word: str, letter: str) -> int:
+            \"\"\"Count occurrences of a letter in a word.\"\"\"
+            return word.lower().count(letter.lower())
+
+        client = ModelClient(OllamaModel.QWEN_3_5_9B)
+        agent = Agent(client, tools=[letter_counter], max_iterations=5)
+        print(agent.run("How many r's in strawberry?"))
 
     From config::
 
-        agent = SimpleAgent.from_config(
+        agent = Agent.from_config(
             {"name": "helper", "system_message": "Use tools.", "max_iterations": 5},
             client,
         )
@@ -48,6 +60,7 @@ class SimpleAgent(Agent):
     continuation_prompt: str = field(default=DEFAULT_CONTINUATION_PROMPT)
     system_message: Optional[str] = field(default=None)
     reset_messages_on_run: bool = field(default=False)
+    tools: list[Callable] = field(default_factory=list)
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def _prepare_run(self) -> None:
@@ -56,6 +69,8 @@ class SimpleAgent(Agent):
             self.model_client.messages = []
         if self.system_message is not None:
             self.model_client.system_message = self.system_message
+        if self.tools:
+            self.model_client.tools = list(self.tools)
 
     def run(
         self,
@@ -121,9 +136,9 @@ class SimpleAgent(Agent):
         return False
 
     @classmethod
-    def from_config(cls, config: dict[str, Any], model_client: BaseModelClient) -> SimpleAgent:
+    def from_config(cls, config: dict[str, Any], model_client: BaseModelClient) -> Agent:
         """
-        Create a SimpleAgent from a plain dict config.
+        Create an Agent from a plain dict config.
 
         Recognised keys:
             name (str):              agent identifier

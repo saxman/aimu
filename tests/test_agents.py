@@ -1,5 +1,5 @@
 """
-Tests for aimu.agents: SimpleAgent, Chain, AgenticModelClient, and example agents.
+Tests for aimu.agents: Agent, Chain, AgenticModelClient, and example agents.
 
 Unit tests use MockModelClient from helpers (deterministic, no backend needed).
 The model_client fixture is available for integration tests:
@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastmcp import FastMCP
 
-from aimu.agents import Agent, Chain, AgentChunk, AgenticModelClient, OrchestratorAgent, SimpleAgent
+from aimu.agents import Agent, BaseAgent, Chain, AgentChunk, AgenticModelClient, OrchestratorAgent
 from aimu.agents.examples import ResearchReportAgent
 from aimu.models import BaseModelClient, StreamChunk, StreamingContentType
 from helpers import MockModelClient, create_real_model_client, resolve_model_params
@@ -38,14 +38,14 @@ def model_client(request) -> Iterable[BaseModelClient]:
 
 
 # ---------------------------------------------------------------------------
-# SimpleAgent tests
+# Agent tests
 # ---------------------------------------------------------------------------
 
 
 def test_agent_no_tools_calls_chat_once():
-    """If the model never uses tools, SimpleAgent.run() calls chat() exactly once."""
+    """If the model never uses tools, Agent.run() calls chat() exactly once."""
     client = MockModelClient(["final answer"])
-    agent = SimpleAgent(client, name="test")
+    agent = Agent(client, name="test")
     result = agent.run("do something")
 
     assert result == "final answer"
@@ -58,7 +58,7 @@ def test_agent_one_tool_round_then_done():
     is done. Responses consumed: tool(2 slots) + plain confirmation(1 slot) = 3.
     """
     client = MockModelClient(["tool", "after tool answer", "all done"])
-    agent = SimpleAgent(client, name="test")
+    agent = Agent(client, name="test")
     result = agent.run("do something with tools")
 
     assert result == "all done"
@@ -71,7 +71,7 @@ def test_agent_two_tool_rounds():
     Loop: chat(task)→tool → continuation→tool → continuation→plain → stop.
     """
     client = MockModelClient(["tool", "after first tool", "tool", "after second tool", "final answer"])
-    agent = SimpleAgent(client, name="test", max_iterations=10)
+    agent = Agent(client, name="test", max_iterations=10)
     result = agent.run("multi-round task")
 
     assert result == "final answer"
@@ -79,19 +79,19 @@ def test_agent_two_tool_rounds():
 
 
 def test_agent_max_iterations_stops_loop():
-    """SimpleAgent stops after max_iterations even if tools keep being called."""
+    """Agent stops after max_iterations even if tools keep being called."""
     # All responses are tool calls; would loop forever without a limit
     client = MockModelClient(["tool", "still going"] * 10)
-    agent = SimpleAgent(client, name="test", max_iterations=3)
+    agent = Agent(client, name="test", max_iterations=3)
     agent.run("never-ending task")
 
     assert client._call_count <= 6  # 3 iterations × 2 reads each at most
 
 
 def test_agent_uses_continuation_prompt():
-    """After a tool-calling turn, SimpleAgent sends the continuation_prompt."""
+    """After a tool-calling turn, Agent sends the continuation_prompt."""
     client = MockModelClient(["tool", "done", "confirmed"])
-    agent = SimpleAgent(client, name="test", continuation_prompt="KEEP GOING")
+    agent = Agent(client, name="test", continuation_prompt="KEEP GOING")
     agent.run("start")
 
     user_messages = [m["content"] for m in client.messages if m["role"] == "user"]
@@ -101,14 +101,14 @@ def test_agent_uses_continuation_prompt():
 
 def test_agent_from_config_sets_system_message():
     client = MockModelClient(["hello"])
-    SimpleAgent.from_config({"name": "cfg_agent", "system_message": "Be helpful.", "max_iterations": 5}, client)
+    Agent.from_config({"name": "cfg_agent", "system_message": "Be helpful.", "max_iterations": 5}, client)
 
     assert client.system_message == "Be helpful."
 
 
 def test_agent_from_config_defaults():
     client = MockModelClient(["hello"])
-    agent = SimpleAgent.from_config({}, client)
+    agent = Agent.from_config({}, client)
 
     assert agent.name == "agent"
     assert agent.max_iterations == 10
@@ -116,7 +116,7 @@ def test_agent_from_config_defaults():
 
 def test_agent_streamed_yields_agent_chunks():
     client = MockModelClient(["streamed answer"])
-    agent = SimpleAgent(client, name="streamer")
+    agent = Agent(client, name="streamer")
     chunks = list(agent.run_streamed("task"))
 
     assert all(isinstance(c, AgentChunk) for c in chunks)
@@ -128,7 +128,7 @@ def test_agent_streamed_yields_agent_chunks():
 
 def test_agent_streamed_iteration_increments_on_tool_use():
     client = MockModelClient(["tool", "done", "confirmed"])
-    agent = SimpleAgent(client, name="it_agent")
+    agent = Agent(client, name="it_agent")
     chunks = list(agent.run_streamed("task"))
 
     iterations = {c.iteration for c in chunks}
@@ -137,10 +137,10 @@ def test_agent_streamed_iteration_increments_on_tool_use():
 
 
 def test_simple_agent_is_agent_subclass():
-    """SimpleAgent must be a concrete subclass of the Agent ABC."""
+    """Agent must be a concrete subclass of the BaseAgent ABC."""
     client = MockModelClient(["hi"])
-    agent = SimpleAgent(client)
-    assert isinstance(agent, Agent)
+    agent = Agent(client)
+    assert isinstance(agent, BaseAgent)
 
 
 # ---------------------------------------------------------------------------
@@ -149,9 +149,9 @@ def test_simple_agent_is_agent_subclass():
 
 
 def test_agentic_client_chat_runs_agent_loop():
-    """chat() runs the full SimpleAgent loop, not a single turn."""
+    """chat() runs the full Agent loop, not a single turn."""
     client = MockModelClient(["tool", "after tool", "done"])
-    ac = AgenticModelClient(SimpleAgent(client, max_iterations=5))
+    ac = AgenticModelClient(Agent(client, max_iterations=5))
     result = ac.chat("do something with tools")
     assert result == "done"
     assert client._call_count == 3  # tool(2) + confirmation(1)
@@ -160,7 +160,7 @@ def test_agentic_client_chat_runs_agent_loop():
 def test_agentic_client_chat_no_tools_single_call():
     """chat() without tool use resolves in one model call."""
     client = MockModelClient(["plain answer"])
-    ac = AgenticModelClient(SimpleAgent(client))
+    ac = AgenticModelClient(Agent(client))
     assert ac.chat("hello") == "plain answer"
     assert client._call_count == 1
 
@@ -168,7 +168,7 @@ def test_agentic_client_chat_no_tools_single_call():
 def test_agentic_client_chat_streamed_yields_stream_chunks():
     """chat(..., stream=True) yields StreamChunk, not AgentChunk."""
     client = MockModelClient(["stream result"])
-    ac = AgenticModelClient(SimpleAgent(client))
+    ac = AgenticModelClient(Agent(client))
     chunks = list(ac.chat("task", stream=True))
     assert all(isinstance(c, StreamChunk) for c in chunks)
     assert not any(isinstance(c, AgentChunk) for c in chunks)
@@ -177,7 +177,7 @@ def test_agentic_client_chat_streamed_yields_stream_chunks():
 def test_agentic_client_messages_delegated():
     """messages property delegates to inner_client; both refer to the same list."""
     client = MockModelClient(["reply"])
-    ac = AgenticModelClient(SimpleAgent(client))
+    ac = AgenticModelClient(Agent(client))
     ac.chat("hi")
     assert ac.messages is client.messages
 
@@ -185,7 +185,7 @@ def test_agentic_client_messages_delegated():
 def test_agentic_client_mcp_client_delegated():
     """Setting mcp_client on AgenticModelClient propagates to inner_client."""
     client = MockModelClient(["hi"])
-    ac = AgenticModelClient(SimpleAgent(client))
+    ac = AgenticModelClient(Agent(client))
     mock_mcp = object()
     ac.mcp_client = mock_mcp
     assert client.mcp_client is mock_mcp
@@ -194,7 +194,7 @@ def test_agentic_client_mcp_client_delegated():
 def test_agentic_client_system_message_delegated():
     """system_message property delegates to inner_client."""
     client = MockModelClient(["hi"])
-    ac = AgenticModelClient(SimpleAgent(client))
+    ac = AgenticModelClient(Agent(client))
     ac.system_message = "Be helpful."
     assert client.system_message == "Be helpful."
 
@@ -202,7 +202,7 @@ def test_agentic_client_system_message_delegated():
 def test_agentic_client_generate_delegates_to_inner():
     """generate() bypasses the Agent loop and calls inner_client directly."""
     client = MockModelClient(["generated"])
-    ac = AgenticModelClient(SimpleAgent(client))
+    ac = AgenticModelClient(Agent(client))
     result = ac.generate("prompt")
     assert result == "generated"
     assert client._call_count == 1
@@ -211,8 +211,8 @@ def test_agentic_client_generate_delegates_to_inner():
 def test_agentic_client_rejects_workflow():
     """AgenticModelClient raises TypeError when given a Workflow (Chain)."""
     client = MockModelClient(["hi"])
-    chain = Chain(agents=[SimpleAgent(client)])
-    with pytest.raises(TypeError, match="AgenticModelClient only accepts SimpleAgent"):
+    chain = Chain(agents=[Agent(client)])
+    with pytest.raises(TypeError, match="AgenticModelClient only accepts Agent"):
         AgenticModelClient(chain)
 
 
@@ -353,7 +353,7 @@ def test_research_report_agent_with_tools_enables_concurrent():
 
 def test_research_report_agent_is_agent_subclass():
     agent, _ = _make_research_agent()
-    assert isinstance(agent, Agent)
+    assert isinstance(agent, BaseAgent)
 
 
 # ---------------------------------------------------------------------------
@@ -366,7 +366,7 @@ def _make_concrete_orchestrator(client: MockModelClient) -> OrchestratorAgent:
 
     class _TestOrchestrator(OrchestratorAgent):
         def __init__(self, model_client):
-            worker = SimpleAgent(model_client, name="worker", system_message="Work.")
+            worker = Agent(model_client, name="worker", system_message="Work.")
 
             mcp = FastMCP("Test Workers")
 
@@ -383,7 +383,7 @@ def _make_concrete_orchestrator(client: MockModelClient) -> OrchestratorAgent:
 def test_orchestrator_agent_is_agent_subclass():
     client = MockModelClient(["done"])
     agent = _make_concrete_orchestrator(client)
-    assert isinstance(agent, Agent)
+    assert isinstance(agent, BaseAgent)
     assert isinstance(agent, OrchestratorAgent)
 
 

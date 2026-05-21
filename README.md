@@ -42,7 +42,7 @@ AIMU is a Python library for building LLM-powered applications with a consistent
 
 -   **Agents & Workflows**: Per Anthropic's taxonomy, AIMU separates autonomous agents from code-controlled workflows. Agents expose the same interface as plain model clients, so they can be used as drop-in replacements anywhere a client is accepted, enabling recursive composition of agents within workflows and workflows within agents.
 
-    -   **Agents**: `SimpleAgent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps a `SimpleAgent` behind the standard model client interface, making agentic and single-turn clients interchangeable.
+    -   **Agents**: `Agent` runs an autonomous tool-calling loop until the model stops invoking tools. `SkillAgent` extends it with automatic skill injection. `AgenticModelClient` wraps an `Agent` behind the standard model client interface, making agentic and single-turn clients interchangeable.
     -   **Workflows**: Four code-controlled patterns: `Chain` (prompt chaining), `Router` (classify and dispatch), `Parallel` (concurrent workers with optional aggregation), and `EvaluatorOptimizer` (generate → evaluate → revise loop).
     -   **Orchestrator Agents**: `OrchestratorAgent` (exported from `aimu.agents`) is a base class for building orchestrator agents that dispatch to worker sub-agents via MCP tools. Subclasses define workers and `@mcp.tool()` functions in `__init__`, then call `_setup_orchestrator()` to wire everything. `run()` and `messages` are inherited. Ready-to-use subclasses in `aimu.agents.examples`: `ResearchReportAgent`, `CodeReviewAgent`, and `ContentCreationAgent`. `ResearchReportAgent` also accepts an optional `tools=` FastMCP server to give workers live tool access (e.g. web search), automatically enabling concurrent worker dispatch.
     -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are auto-discovered from `.agents/skills/`, `.claude/skills/`, `~/.agents/skills/`, and `~/.claude/skills/` (project-level wins on name collision); pass explicit `skill_dirs` to override.
@@ -57,7 +57,7 @@ AIMU is a Python library for building LLM-powered applications with a consistent
 -   **Evaluations & Benchmarking**:
 
     -   **DeepEval integration** (`aimu[deepeval]`): `DeepEvalModel` is a thin adapter that wraps any AIMU `ModelClient` to satisfy [DeepEval](https://deepeval.com/)'s `DeepEvalBaseLLM` interface. Pass it as the `model=` argument to any DeepEval metric — `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, and others — to use a local Ollama model, HuggingFace model, or any cloud provider as your evaluation judge. The same metrics also drop directly into `JudgedPromptTuner` via `DeepEvalScorer` to drive prompt optimization.
-    -   **Benchmarking**: `Benchmark` runs the same prompt and dataset across multiple `BaseModelClient` instances and aggregates per-row scores into a comparison DataFrame. Because rows are driven through `chat()` (with messages reset between rows), the harness works uniformly for plain `ModelClient` instances and `AgenticModelClient` wrapping a `SimpleAgent`. Scoring is delegated to any `Scorer` (`LLMJudgeScorer`, `DeepEvalScorer`, or custom). Results export to CSV / JSON and persist to `PromptCatalog` with auto-versioning.
+    -   **Benchmarking**: `Benchmark` runs the same prompt and dataset across multiple `BaseModelClient` instances and aggregates per-row scores into a comparison DataFrame. Because rows are driven through `chat()` (with messages reset between rows), the harness works uniformly for plain `ModelClient` instances and `AgenticModelClient` wrapping an `Agent`. Scoring is delegated to any `Scorer` (`LLMJudgeScorer`, `DeepEvalScorer`, or custom). Results export to CSV / JSON and persist to `PromptCatalog` with auto-versioning.
 
 -   **Persistence**: Three complementary stores for persisting conversation and knowledge:
 
@@ -88,7 +88,7 @@ The following Jupyter notebooks demonstrate key AIMU features:
 | [05 - Prompt Tuning](notebooks/05%20-%20Prompt%20Tuning.ipynb) | ClassificationPromptTuner, MultiClassPromptTuner, ExtractionPromptTuner, JudgedPromptTuner |
 | [06 - Conversations](notebooks/06%20-%20Conversations.ipynb) | Persistent chat conversation management |
 | [07 - Memory](notebooks/07%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
-| [08 - Agents](notebooks/08%20-%20Agents.ipynb) | SimpleAgent and AgenticModelClient |
+| [08 - Agents](notebooks/08%20-%20Agents.ipynb) | Agent and AgenticModelClient |
 | [09 - Agent Skills](notebooks/09%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection with SkillAgent |
 | [10 - Agent Workflows](notebooks/10%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, and EvaluatorOptimizer patterns |
 | [11 - Agent Examples](notebooks/11%20-%20Agent%20Examples.ipynb) | `ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent` — orchestrator + worker tools pattern |
@@ -215,24 +215,38 @@ Vision is gated by a `supports_vision` flag on each `Model` enum member (mirrori
 
 ### Agents & Workflows
 
-`SimpleAgent` wraps a `ModelClient` and runs a tool-calling loop until the model stops invoking tools:
+`Agent` wraps a `ModelClient` and runs a tool-calling loop until the model stops invoking tools. The simplest path is to decorate plain Python functions with `@tool` and hand them to the agent:
 
 ``` python
-from aimu.models import OllamaClient, OllamaModel
-from aimu.tools import MCPClient
-from aimu.agents import SimpleAgent
+from aimu.models import ModelClient, OllamaModel
+from aimu.agents import Agent
+from aimu.tools import tool
 
-client = OllamaClient(OllamaModel.QWEN_3_5_9B)
+@tool
+def letter_counter(word: str, letter: str) -> int:
+    """Count occurrences of a letter in a word."""
+    return word.lower().count(letter.lower())
+
+client = ModelClient(OllamaModel.QWEN_3_5_9B)
+agent = Agent(client, tools=[letter_counter])
+print(agent.run("How many r's in strawberry?"))
+```
+
+For tools that live in a separate process — or to share a tool catalog across many agents — attach a `FastMCP`-backed `MCPClient` instead. Python `@tool` functions and MCP tools can be combined on the same agent:
+
+``` python
+from aimu.tools import MCPClient
+
 client.mcp_client = MCPClient({"mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}}})
 
-agent = SimpleAgent.from_config(
+agent = Agent.from_config(
     {"name": "researcher", "system_message": "Use tools to answer.", "max_iterations": 8},
     client,
 )
 result = agent.run("Find all log files modified today and summarise the errors.")
 ```
 
-`SkillAgent` extends `SimpleAgent` with automatic discovery and injection of `SKILL.md` skill files:
+`SkillAgent` extends `Agent` with automatic discovery and injection of `SKILL.md` skill files:
 
 ``` python
 from aimu.agents import SkillAgent
@@ -286,17 +300,16 @@ report = agent.run("What is retrieval-augmented generation?")
 Subclass `OrchestratorAgent` directly to build your own orchestrator:
 
 ``` python
-from aimu.agents import OrchestratorAgent
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents import Agent, OrchestratorAgent
 from aimu.models.model_client import ModelClient
 from fastmcp import FastMCP
 
 class SummaryAgent(OrchestratorAgent):
     def __init__(self, model_client):
-        extractor = SimpleAgent(ModelClient(model_client.model), name="extractor",
-                                system_message="Extract the key facts from the text.")
-        writer = SimpleAgent(ModelClient(model_client.model), name="writer",
-                             system_message="Write a concise summary from the extracted facts.")
+        extractor = Agent(ModelClient(model_client.model), name="extractor",
+                          system_message="Extract the key facts from the text.")
+        writer = Agent(ModelClient(model_client.model), name="writer",
+                       system_message="Write a concise summary from the extracted facts.")
         mcp = FastMCP("Summary Workers")
 
         @mcp.tool()
@@ -476,14 +489,14 @@ See [12 - Evaluations](notebooks/12%20-%20Evaluations.ipynb) for GEval, AnswerRe
 
 ### Benchmarking
 
-`Benchmark` runs one prompt and dataset across multiple model clients and returns aggregate metrics for direct comparison. Rows are driven through `chat()` with `messages = []` reset between rows, so the harness handles plain `ModelClient` instances and `AgenticModelClient` wrapping a `SimpleAgent` uniformly:
+`Benchmark` runs one prompt and dataset across multiple model clients and returns aggregate metrics for direct comparison. Rows are driven through `chat()` with `messages = []` reset between rows, so the harness handles plain `ModelClient` instances and `AgenticModelClient` wrapping an `Agent` uniformly:
 
 ``` python
 import pandas as pd
 from aimu.evals import Benchmark
 from aimu.prompts.tuners.scorers import LLMJudgeScorer
 from aimu.models import OllamaClient, OllamaModel
-from aimu.agents import AgenticModelClient, SimpleAgent
+from aimu.agents import Agent, AgenticModelClient
 
 df = pd.DataFrame({"content": ["Summarise the water cycle.", "Explain photosynthesis briefly."]})
 prompt = "Answer in one sentence: {content}"
@@ -495,7 +508,7 @@ bench = Benchmark(prompt=prompt, data=df, scorer=scorer, pass_threshold=0.7)
 results = bench.run({
     "qwen3.5-9b":           OllamaClient(OllamaModel.QWEN_3_5_9B),
     "gemma4-e4b":           OllamaClient(OllamaModel.GEMMA_4_E4B),
-    "qwen3.5-9b (agentic)": AgenticModelClient(SimpleAgent(OllamaClient(OllamaModel.QWEN_3_5_9B))),
+    "qwen3.5-9b (agentic)": AgenticModelClient(Agent(OllamaClient(OllamaModel.QWEN_3_5_9B))),
 })
 
 print(results.metrics)            # rows = client names, cols = score / pass_rate

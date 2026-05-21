@@ -30,7 +30,7 @@ class Chain(Workflow):
     can itself run a multi-iteration agentic loop with tool access.
 
     The simplest way to build a Chain is ``from_config``: pass a list of config
-    dicts and a single BaseModelClient. Each step is a SimpleAgent with
+    dicts and a single BaseModelClient. Each step is a Agent with
     ``reset_messages_on_run=True``, so the client's messages are cleared and
     ``system_message`` applied before every step, giving each step a clean slate
     even though they share one client.
@@ -38,8 +38,8 @@ class Chain(Workflow):
     For direct construction (each agent owns its own client)::
 
         chain = Chain(agents=[
-            SimpleAgent(client_a, name="planner"),
-            SimpleAgent(client_b, name="executor"),
+            Agent(client_a, name="planner"),
+            Agent(client_b, name="executor"),
         ])
 
     Via from_config (shared client)::
@@ -112,7 +112,7 @@ class Chain(Workflow):
         """
         Build a Chain from a list of agent config dicts and a single BaseModelClient.
 
-        The client is shared across all steps. Each step's SimpleAgent has
+        The client is shared across all steps. Each step's Agent has
         ``reset_messages_on_run=True`` so it clears the client's messages and
         applies its own ``system_message`` before running, keeping steps isolated.
 
@@ -122,11 +122,11 @@ class Chain(Workflow):
             client.mcp_client = MCPClient(server=mcp)
             Chain.from_config(configs, client)
         """
-        from aimu.agents.simple_agent import SimpleAgent
+        from aimu.agents.agent import Agent
 
         agents = []
         for cfg in configs:
-            agent = SimpleAgent.from_config(cfg, client)
+            agent = Agent.from_config(cfg, client)
             agent.reset_messages_on_run = True
             agents.append(agent)
         return cls(agents=agents)

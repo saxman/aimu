@@ -75,6 +75,7 @@ class BaseModelClient(ABC):
         self.default_generate_kwargs = {}
         self.messages = []
         self.mcp_client = None
+        self.tools: list = []
         self.last_thinking = ""
         self.concurrent_tool_calls = False
 
@@ -176,8 +177,17 @@ class BaseModelClient(ABC):
             self.messages.append({"role": "user", "content": user_message})
 
         tools = []
-        if self.model.supports_tools and use_tools and self.mcp_client:
-            tools = self.mcp_client.get_tools()
+        if self.model.supports_tools and use_tools:
+            if self.mcp_client:
+                tools.extend(self.mcp_client.get_tools())
+            for fn in self.tools:
+                spec = getattr(fn, "__tool_spec__", None)
+                if spec is None:
+                    raise ValueError(
+                        f"Tool '{getattr(fn, '__name__', fn)}' is missing __tool_spec__. "
+                        "Decorate it with @aimu.tools.tool."
+                    )
+                tools.append(spec)
 
         return generate_kwargs, tools
 
@@ -200,14 +210,21 @@ class BaseModelClient(ABC):
             ],
         })
 
-        def _call_one(tc: dict, tc_id: str) -> dict:
-            for tool in tools:
-                # If the tool is a callable Python function, call it directly.
-                if hasattr(tool, "__call__") and tool.__name__ == tc["name"]:
-                    response = tool(**tc["arguments"])
-                    return {"role": "tool", "name": tc["name"], "content": str(response), "tool_call_id": tc_id}
+        python_tools_by_name = {fn.__name__: fn for fn in self.tools}
 
-                # Otherwise use the MCP client.
+        def _call_one(tc: dict, tc_id: str) -> dict:
+            # Python-function tools (registered via @tool) take precedence over MCP.
+            fn = python_tools_by_name.get(tc["name"])
+            if fn is not None:
+                try:
+                    response = fn(**tc["arguments"])
+                    content = str(response)
+                except Exception as exc:
+                    content = f"Tool '{tc['name']}' raised an error: {exc}"
+                    logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
+                return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
+
+            for tool in tools:
                 if tool["type"] == "function" and tool["function"]["name"] == tc["name"]:
                     if self.mcp_client is None:
                         raise ValueError(

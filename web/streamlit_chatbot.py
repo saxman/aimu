@@ -1,6 +1,6 @@
 from aimu import paths
 from aimu.agents.agentic_client import AgenticModelClient
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents.agent import Agent
 from aimu.models import HuggingFaceClient, OllamaClient, StreamPhase
 from aimu.tools.client import MCPClient
 from aimu.history import ConversationManager
@@ -37,8 +37,8 @@ def _set_slider_defaults(model):
 
 
 def _wrap_agent(base_client, max_iterations):
-    """Wrap a base model client in a SimpleAgent so chat() drives a multi-round tool-calling loop."""
-    agent = SimpleAgent(base_client, max_iterations=max_iterations)
+    """Wrap a base model client in an Agent so chat() drives a multi-round tool-calling loop."""
+    agent = Agent(base_client, max_iterations=max_iterations)
     return AgenticModelClient(agent)
 
 

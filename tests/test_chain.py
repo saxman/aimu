@@ -4,7 +4,7 @@ Tests for aimu.agents.Chain: the sequential chaining workflow pattern.
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
-from aimu.agents import Agent, Chain, ChainChunk, Runner, SimpleAgent, Workflow
+from aimu.agents import Agent, BaseAgent, Chain, ChainChunk, Runner, Workflow
 from aimu.models import StreamingContentType
 from helpers import MockModelClient
 
@@ -18,7 +18,7 @@ def test_chain_chains_output_to_next_input():
     """Output of step 0 becomes the task for step 1."""
     client_a = MockModelClient(["step A output"])
     client_b = MockModelClient(["step B output"])
-    chain = Chain(agents=[SimpleAgent(client_a, name="a"), SimpleAgent(client_b, name="b")])
+    chain = Chain(agents=[Agent(client_a, name="a"), Agent(client_b, name="b")])
     result = chain.run("initial task")
 
     assert result == "step B output"
@@ -28,14 +28,14 @@ def test_chain_chains_output_to_next_input():
 
 def test_chain_run_single_agent():
     client = MockModelClient(["only answer"])
-    chain = Chain(agents=[SimpleAgent(client, name="solo")])
+    chain = Chain(agents=[Agent(client, name="solo")])
     assert chain.run("task") == "only answer"
 
 
 def test_chain_streamed_yields_chain_chunks():
     client_a = MockModelClient(["part one"])
     client_b = MockModelClient(["part two"])
-    chain = Chain(agents=[SimpleAgent(client_a, name="a"), SimpleAgent(client_b, name="b")])
+    chain = Chain(agents=[Agent(client_a, name="a"), Agent(client_b, name="b")])
     chunks = list(chain.run_streamed("go"))
 
     assert all(isinstance(c, ChainChunk) for c in chunks)
@@ -46,7 +46,7 @@ def test_chain_streamed_yields_chain_chunks():
 def test_chain_streamed_step_tags():
     client_a = MockModelClient(["result a"])
     client_b = MockModelClient(["result b"])
-    chain = Chain(agents=[SimpleAgent(client_a, name="alpha"), SimpleAgent(client_b, name="beta")])
+    chain = Chain(agents=[Agent(client_a, name="alpha"), Agent(client_b, name="beta")])
     chunks = list(chain.run_streamed("start"))
 
     step0 = [c for c in chunks if c.step == 0]
@@ -91,9 +91,9 @@ def test_chain_from_config_sets_system_message_per_step():
 
 
 def test_chain_is_workflow_subclass():
-    """Chain must be a Workflow (not an Agent) and also a Runner."""
+    """Chain must be a Workflow (not a BaseAgent) and also a Runner."""
     client = MockModelClient(["hi"])
-    chain = Chain(agents=[SimpleAgent(client)])
+    chain = Chain(agents=[Agent(client)])
     assert isinstance(chain, Workflow)
     assert isinstance(chain, Runner)
-    assert not isinstance(chain, Agent)
+    assert not isinstance(chain, BaseAgent)

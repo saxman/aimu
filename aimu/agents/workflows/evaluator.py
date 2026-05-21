@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.base import Workflow, AgentChunk, MessageHistory
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents.agent import Agent
 from aimu.models.base import StreamingContentType
 
 logger = logging.getLogger(__name__)
@@ -28,9 +28,9 @@ class EvaluatorOptimizer(Workflow):
     Usage::
 
         eo = EvaluatorOptimizer(
-            generator=SimpleAgent(client, name="writer",
+            generator=Agent(client, name="writer",
                 system_message="Write a clear, accurate explanation of the concept."),
-            evaluator=SimpleAgent(client, name="critic",
+            evaluator=Agent(client, name="critic",
                 system_message=(
                     "Review the response for accuracy and clarity. "
                     "If it meets the bar, reply PASS. "
@@ -41,8 +41,8 @@ class EvaluatorOptimizer(Workflow):
         result = eo.run("Explain gradient descent.")
     """
 
-    generator: SimpleAgent
-    evaluator: SimpleAgent
+    generator: Agent
+    evaluator: Agent
     name: str = "evaluator_optimizer"
     max_rounds: int = 3
     pass_keyword: str = "PASS"

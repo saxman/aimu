@@ -5,7 +5,7 @@ from typing import Optional
 from fastmcp import FastMCP
 
 from aimu.agents.orchestrator_agent import OrchestratorAgent
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents.agent import Agent
 from aimu.models.model_client import ModelClient
 from aimu.tools.client import MCPClient
 
@@ -53,11 +53,11 @@ class ResearchReportAgent(OrchestratorAgent):
     """
 
     def __init__(self, model_client: ModelClient, tools: Optional[FastMCP] = None) -> None:
-        def _make_worker(name: str, system_message: str) -> SimpleAgent:
+        def _make_worker(name: str, system_message: str) -> Agent:
             worker_client = ModelClient(model_client.model)
             if tools is not None:
                 worker_client.mcp_client = MCPClient(server=tools)
-            return SimpleAgent(worker_client, name=name, system_message=system_message)
+            return Agent(worker_client, name=name, system_message=system_message)
 
         overview_agent = _make_worker(
             "overview-worker",

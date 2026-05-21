@@ -28,11 +28,11 @@ class Parallel(Workflow):
 
         parallel = Parallel(
             workers=[
-                SimpleAgent(client_a, name="perspective-a"),
-                SimpleAgent(client_b, name="perspective-b"),
-                SimpleAgent(client_c, name="perspective-c"),
+                Agent(client_a, name="perspective-a"),
+                Agent(client_b, name="perspective-b"),
+                Agent(client_c, name="perspective-c"),
             ],
-            aggregator=SimpleAgent(client, name="synthesizer",
+            aggregator=Agent(client, name="synthesizer",
                 system_message="Synthesize the following perspectives into one answer."),
         )
         result = parallel.run("What are the risks of this approach?")

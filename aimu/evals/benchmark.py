@@ -2,7 +2,7 @@
 aimu.evals.benchmark: Multi-model benchmark harness.
 
 Benchmark runs the same prompt and dataset across several BaseModelClient
-instances (including AgenticModelClient wrapping a SimpleAgent) and returns
+instances (including AgenticModelClient wrapping a Agent) and returns
 a DataFrame of aggregate metrics for direct comparison.
 
 Rows are driven through chat() with messages reset between rows so that an
@@ -24,7 +24,7 @@ Example::
     results = bench.run({
         "claude":  ModelClient(AnthropicModel.CLAUDE_OPUS_4_7),
         "gpt":     ModelClient(OpenAIModel.GPT_5),
-        "agent":   AgenticModelClient(SimpleAgent(ModelClient(OllamaModel.QWEN_3_8B))),
+        "agent":   AgenticModelClient(Agent(ModelClient(OllamaModel.QWEN_3_8B))),
     })
     results.to_csv("bench.csv")
     results.to_catalog(catalog, prompt_name="summary-bench")

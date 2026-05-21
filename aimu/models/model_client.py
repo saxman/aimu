@@ -148,6 +148,14 @@ class ModelClient(BaseModelClient):
         self._client.mcp_client = value
 
     @property
+    def tools(self) -> list:
+        return self._client.tools
+
+    @tools.setter
+    def tools(self, value: list) -> None:
+        self._client.tools = value
+
+    @property
     def system_message(self) -> Optional[str]:
         return self._client.system_message
 

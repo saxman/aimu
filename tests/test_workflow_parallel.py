@@ -4,7 +4,7 @@ Tests for aimu.agents.Parallel: the Parallelization workflow pattern.
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
-from aimu.agents import AgentChunk, Parallel, Runner, SimpleAgent, Workflow
+from aimu.agents import Agent, AgentChunk, Parallel, Runner, Workflow
 from aimu.models import StreamingContentType
 from helpers import MockModelClient
 
@@ -21,8 +21,8 @@ def test_parallel_all_workers_receive_same_task():
 
     parallel = Parallel(
         workers=[
-            SimpleAgent(client_a, name="worker-a"),
-            SimpleAgent(client_b, name="worker-b"),
+            Agent(client_a, name="worker-a"),
+            Agent(client_b, name="worker-b"),
         ]
     )
     parallel.run("What is the meaning of life?")
@@ -40,8 +40,8 @@ def test_parallel_no_aggregator_joins_results():
 
     parallel = Parallel(
         workers=[
-            SimpleAgent(client_a, name="worker-a"),
-            SimpleAgent(client_b, name="worker-b"),
+            Agent(client_a, name="worker-a"),
+            Agent(client_b, name="worker-b"),
         ],
         separator=" | ",
     )
@@ -57,10 +57,10 @@ def test_parallel_aggregator_receives_combined_results():
 
     parallel = Parallel(
         workers=[
-            SimpleAgent(client_a, name="worker-a"),
-            SimpleAgent(client_b, name="worker-b"),
+            Agent(client_a, name="worker-a"),
+            Agent(client_b, name="worker-b"),
         ],
-        aggregator=SimpleAgent(agg_client, name="synthesizer"),
+        aggregator=Agent(agg_client, name="synthesizer"),
         separator="\n---\n",
     )
     result = parallel.run("task")
@@ -74,7 +74,7 @@ def test_parallel_aggregator_receives_combined_results():
 def test_parallel_single_worker():
     """Works correctly with a single worker and no aggregator."""
     client = MockModelClient(["solo result"])
-    parallel = Parallel(workers=[SimpleAgent(client, name="solo")])
+    parallel = Parallel(workers=[Agent(client, name="solo")])
     assert parallel.run("task") == "solo result"
 
 
@@ -85,8 +85,8 @@ def test_parallel_streamed_no_aggregator_yields_combined():
 
     parallel = Parallel(
         workers=[
-            SimpleAgent(client_a, name="worker-a"),
-            SimpleAgent(client_b, name="worker-b"),
+            Agent(client_a, name="worker-a"),
+            Agent(client_b, name="worker-b"),
         ],
         separator=" | ",
     )
@@ -106,10 +106,10 @@ def test_parallel_streamed_with_aggregator_delegates_stream():
 
     parallel = Parallel(
         workers=[
-            SimpleAgent(client_a, name="worker-a"),
-            SimpleAgent(client_b, name="worker-b"),
+            Agent(client_a, name="worker-a"),
+            Agent(client_b, name="worker-b"),
         ],
-        aggregator=SimpleAgent(agg_client, name="synthesizer"),
+        aggregator=Agent(agg_client, name="synthesizer"),
     )
     chunks = list(parallel.run_streamed("task"))
 
@@ -118,12 +118,12 @@ def test_parallel_streamed_with_aggregator_delegates_stream():
 
 
 def test_parallel_is_workflow_subclass():
-    """Parallel must be a Workflow (not an Agent) and also a Runner."""
+    """Parallel must be a Workflow (not a BaseAgent) and also a Runner."""
     client = MockModelClient(["hi"])
-    parallel = Parallel(workers=[SimpleAgent(client, name="w")])
+    parallel = Parallel(workers=[Agent(client, name="w")])
 
-    from aimu.agents import Agent
+    from aimu.agents import BaseAgent
 
     assert isinstance(parallel, Workflow)
     assert isinstance(parallel, Runner)
-    assert not isinstance(parallel, Agent)
+    assert not isinstance(parallel, BaseAgent)

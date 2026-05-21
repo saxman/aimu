@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.base import Workflow, Runner, AgentChunk, MessageHistory
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents.agent import Agent
 from aimu.models.base import StreamingContentType, BaseModelClient
 
 logger = logging.getLogger(__name__)
@@ -21,19 +21,19 @@ class Router(Workflow):
     compared case-insensitively after stripping whitespace.
 
     Handlers may be any Runner subclass (agents or nested workflows), so a
-    Router can dispatch to another Router, a Parallel, or a SimpleAgent.
+    Router can dispatch to another Router, a Parallel, or a Agent.
 
     Usage::
 
         router = Router(
-            routing_agent=SimpleAgent(client, name="classifier",
+            routing_agent=Agent(client, name="classifier",
                 system_message="Classify the task as one of: code, writing, math. Reply with only the category name."),
             handlers={
-                "code":    SimpleAgent(code_client, name="coder"),
-                "writing": SimpleAgent(write_client, name="writer"),
-                "math":    SimpleAgent(math_client, name="mathematician"),
+                "code":    Agent(code_client, name="coder"),
+                "writing": Agent(write_client, name="writer"),
+                "math":    Agent(math_client, name="mathematician"),
             },
-            fallback=SimpleAgent(client, name="general"),
+            fallback=Agent(client, name="general"),
         )
         result = router.run("Write a poem about recursion.")
 
@@ -42,7 +42,7 @@ class Router(Workflow):
         router = Router.from_config(routing_config, handler_configs, client)
     """
 
-    routing_agent: SimpleAgent
+    routing_agent: Agent
     handlers: dict[str, Runner]
     name: str = "router"
     fallback: Optional[Runner] = None
@@ -112,14 +112,14 @@ class Router(Workflow):
         Build a Router from config dicts and a single BaseModelClient.
 
         Args:
-            routing_config: Config dict for the routing SimpleAgent (name, system_message, etc.)
-            handler_configs: Mapping of route name → SimpleAgent config dict
+            routing_config: Config dict for the routing Agent (name, system_message, etc.)
+            handler_configs: Mapping of route name → Agent config dict
             client: Shared BaseModelClient for all agents
-            fallback_config: Optional config dict for the fallback SimpleAgent
+            fallback_config: Optional config dict for the fallback Agent
         """
-        routing_agent = SimpleAgent.from_config(routing_config, client)
+        routing_agent = Agent.from_config(routing_config, client)
         handlers: dict[str, Runner] = {
-            route: SimpleAgent.from_config(cfg, client) for route, cfg in handler_configs.items()
+            route: Agent.from_config(cfg, client) for route, cfg in handler_configs.items()
         }
-        fallback: Optional[Runner] = SimpleAgent.from_config(fallback_config, client) if fallback_config else None
+        fallback: Optional[Runner] = Agent.from_config(fallback_config, client) if fallback_config else None
         return cls(routing_agent=routing_agent, handlers=handlers, fallback=fallback)

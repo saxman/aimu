@@ -2,32 +2,32 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Optional, Union
 
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents.agent import Agent
 from aimu.models.base import BaseModelClient, StreamChunk
 
 
 class AgenticModelClient(BaseModelClient):
     """
-    A ModelClient whose chat() runs the full SimpleAgent agentic loop, looping
+    A ModelClient whose chat() runs the full Agent agentic loop, looping
     until the model stops calling tools, rather than a single model turn.
 
     Drop-in replacement anywhere a ModelClient is accepted.
 
-    Only accepts SimpleAgent. For workflow patterns (Chain, Router, etc.), call run() / run_streamed() directly.
+    Only accepts Agent. For workflow patterns (Chain, Router, etc.), call run() / run_streamed() directly.
 
     Usage::
 
         inner = OllamaClient(OllamaModel.QWEN_3_8B)
         inner.mcp_client = MCPClient(MCP_SERVERS)
-        agent = SimpleAgent(inner, max_iterations=8)
+        agent = Agent(inner, max_iterations=8)
         client = AgenticModelClient(agent)
         client.chat("Research the top Python web frameworks.")  # loops until done
     """
 
-    def __init__(self, agent: SimpleAgent):
-        if not isinstance(agent, SimpleAgent):
+    def __init__(self, agent: Agent):
+        if not isinstance(agent, Agent):
             raise TypeError(
-                f"AgenticModelClient only accepts SimpleAgent, got {type(agent).__name__}. "
+                f"AgenticModelClient only accepts Agent, got {type(agent).__name__}. "
                 "To run a Workflow (Chain, Router, Parallel, etc.), call its run() or run_streamed() directly."
             )
         self._agent = agent
@@ -58,6 +58,14 @@ class AgenticModelClient(BaseModelClient):
         self._inner_client.mcp_client = value
 
     @property
+    def tools(self) -> list:
+        return self._inner_client.tools
+
+    @tools.setter
+    def tools(self, value: list) -> None:
+        self._inner_client.tools = value
+
+    @property
     def system_message(self) -> Optional[str]:
         return self._inner_client.system_message
 
@@ -83,7 +91,7 @@ class AgenticModelClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        """Run the full SimpleAgent loop; returns only when the model stops calling tools."""
+        """Run the full Agent loop; returns only when the model stops calling tools."""
         if stream:
             return self._stream_agent(user_message, generate_kwargs, images=images)
         return self._agent.run(user_message, generate_kwargs=generate_kwargs, images=images)

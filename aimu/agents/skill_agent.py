@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from aimu.agents.simple_agent import SimpleAgent, DEFAULT_CONTINUATION_PROMPT
+from aimu.agents.agent import Agent, DEFAULT_CONTINUATION_PROMPT
 from aimu.models.base import BaseModelClient
 from aimu.skills.manager import SkillManager
 
@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class SkillAgent(SimpleAgent):
+class SkillAgent(Agent):
     """
-    A SimpleAgent extended with skill discovery and injection.
+    An Agent extended with skill discovery and injection.
 
     On the first run (or after a message reset), SkillAgent appends the skill
     catalog to the system message and attaches a skills MCPClient so the model

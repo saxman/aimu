@@ -4,7 +4,7 @@ Tests for aimu.agents.EvaluatorOptimizer: the Evaluator-Optimizer workflow patte
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
-from aimu.agents import AgentChunk, EvaluatorOptimizer, Runner, SimpleAgent, Workflow
+from aimu.agents import Agent, AgentChunk, EvaluatorOptimizer, Runner, Workflow
 from aimu.models import StreamingContentType
 from helpers import MockModelClient
 
@@ -20,8 +20,8 @@ def test_evaluator_pass_on_first_evaluation():
     eval_client = MockModelClient(["PASS"])
 
     eo = EvaluatorOptimizer(
-        generator=SimpleAgent(gen_client, name="writer"),
-        evaluator=SimpleAgent(eval_client, name="critic"),
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
         max_rounds=3,
     )
     result = eo.run("Explain gravity.")
@@ -37,8 +37,8 @@ def test_evaluator_revises_once_then_passes():
     eval_client = MockModelClient(["REVISE: needs more detail", "PASS"])
 
     eo = EvaluatorOptimizer(
-        generator=SimpleAgent(gen_client, name="writer"),
-        evaluator=SimpleAgent(eval_client, name="critic"),
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
         max_rounds=5,
     )
     result = eo.run("Explain gravity.")
@@ -55,8 +55,8 @@ def test_evaluator_stops_at_max_rounds():
     eval_client = MockModelClient(["REVISE: bad", "REVISE: still bad"])
 
     eo = EvaluatorOptimizer(
-        generator=SimpleAgent(gen_client, name="writer"),
-        evaluator=SimpleAgent(eval_client, name="critic"),
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
         max_rounds=3,
     )
     result = eo.run("Explain gravity.")
@@ -73,8 +73,8 @@ def test_evaluator_custom_pass_keyword():
     eval_client = MockModelClient(["APPROVED"])
 
     eo = EvaluatorOptimizer(
-        generator=SimpleAgent(gen_client, name="writer"),
-        evaluator=SimpleAgent(eval_client, name="critic"),
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
         pass_keyword="APPROVED",
         max_rounds=5,
     )
@@ -89,8 +89,8 @@ def test_evaluator_streamed_yields_single_generating_chunk():
     eval_client = MockModelClient(["PASS"])
 
     eo = EvaluatorOptimizer(
-        generator=SimpleAgent(gen_client, name="writer"),
-        evaluator=SimpleAgent(eval_client, name="critic"),
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
         max_rounds=3,
     )
     chunks = list(eo.run_streamed("task"))
@@ -107,8 +107,8 @@ def test_evaluator_streamed_does_not_yield_intermediate_drafts():
     eval_client = MockModelClient(["REVISE", "PASS"])
 
     eo = EvaluatorOptimizer(
-        generator=SimpleAgent(gen_client, name="writer"),
-        evaluator=SimpleAgent(eval_client, name="critic"),
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
         max_rounds=5,
     )
     chunks = list(eo.run_streamed("task"))
@@ -119,16 +119,16 @@ def test_evaluator_streamed_does_not_yield_intermediate_drafts():
 
 
 def test_evaluator_is_workflow_subclass():
-    """EvaluatorOptimizer must be a Workflow (not an Agent) and also a Runner."""
+    """EvaluatorOptimizer must be a Workflow (not a BaseAgent) and also a Runner."""
     gen_client = MockModelClient(["output"])
     eval_client = MockModelClient(["PASS"])
 
     eo = EvaluatorOptimizer(
-        generator=SimpleAgent(gen_client, name="writer"),
-        evaluator=SimpleAgent(eval_client, name="critic"),
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
     )
-    from aimu.agents import Agent
+    from aimu.agents import BaseAgent
 
     assert isinstance(eo, Workflow)
     assert isinstance(eo, Runner)
-    assert not isinstance(eo, Agent)
+    assert not isinstance(eo, BaseAgent)

@@ -5,13 +5,13 @@ from typing import Any, Iterator, Optional, Union
 
 from fastmcp import FastMCP
 
-from aimu.agents.base import Agent, AgentChunk, MessageHistory
-from aimu.agents.simple_agent import SimpleAgent
+from aimu.agents.agent import Agent
+from aimu.agents.base import AgentChunk, BaseAgent, MessageHistory
 from aimu.models.model_client import ModelClient
 from aimu.tools.client import MCPClient
 
 
-class OrchestratorAgent(Agent, ABC):
+class OrchestratorAgent(BaseAgent, ABC):
     """
     Base class for orchestrator agents that dispatch to worker sub-agents via MCP tools.
 
@@ -23,8 +23,8 @@ class OrchestratorAgent(Agent, ABC):
 
         class MyAgent(OrchestratorAgent):
             def __init__(self, model_client: ModelClient) -> None:
-                worker = SimpleAgent(ModelClient(model_client.model),
-                                     name="worker", system_message="...")
+                worker = Agent(ModelClient(model_client.model),
+                               name="worker", system_message="...")
 
                 mcp = FastMCP("My Workers")
 
@@ -48,14 +48,14 @@ class OrchestratorAgent(Agent, ABC):
         system_message: str,
         concurrent_tool_calls: bool = False,
     ) -> None:
-        """Wire up the MCP server and create the orchestrator SimpleAgent.
+        """Wire up the MCP server and create the orchestrator Agent.
 
         Call this at the end of the subclass ``__init__`` after all tools are
         registered on ``mcp``.
         """
         model_client.mcp_client = MCPClient(server=mcp)
         model_client.concurrent_tool_calls = concurrent_tool_calls
-        self._orchestrator = SimpleAgent(model_client, name=name, system_message=system_message)
+        self._orchestrator = Agent(model_client, name=name, system_message=system_message)
 
     def run(
         self,
