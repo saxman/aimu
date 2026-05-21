@@ -5,6 +5,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import requests
+from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 mcp = FastMCP("AIMU Tools")
@@ -162,6 +163,7 @@ def get_webpage(url: str) -> str:
     return extractor.get_text()
 
 
+load_dotenv()
 SEARXNG_BASE_URL = os.environ.get("SEARXNG_BASE_URL", "http://localhost:8080")
 
 
@@ -173,7 +175,7 @@ def search(query: str, num_results: int = 5) -> str:
         query: The search query string.
         num_results: Number of results to return (default 5).
 
-    Set SEARXNG_BASE_URL env var to point to your SearXNG instance
+    Set SEARXNG_BASE_URL env var to point to your SearXNG instance (or a .env file)
     (default: http://localhost:8080).
     """
     try:
