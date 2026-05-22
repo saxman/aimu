@@ -2,7 +2,7 @@
 
 # AIMU - AI Model Utilities
 
-AIMU is a Python library for building LLM-powered applications with a consistent interface across local and cloud providers. It separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a simple model is accepted. MCP tool integration is structural (not a plugin), semantic and/or document memory can be dropped in, and prompt management and tuning make it easy to optimize prompts for concrete use cases.
+AIMU is a Python library for building LLM-powered applications with a consistent interface across local and cloud providers. It separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a simple model is accepted. Tool integration is structural (not a plugin), semantic and/or document memory can be dropped in, and prompt management and tuning make it easy to optimize prompts for concrete use cases.
 
 ## Table of Contents
 
@@ -335,8 +335,8 @@ See [08 - Agents](notebooks/08%20-%20Agents.ipynb), [09 - Agent Skills](notebook
 
 Two routes, combinable on the same client. The distinction is *where the tool's code runs* relative to your agent:
 
--   **In-process**: the tool is a Python function that runs in the same Python interpreter as the agent. Dispatch is a direct function call — no serialization, no transport, no separate process to start. Best when you own the tool's code, its dependencies are already in your agent's environment, and you want the lowest possible call overhead.
--   **Cross-process**: the tool runs in a separate process — a subprocess launched on demand, a long-running server, or a remote machine — and is reached over the [Model Context Protocol](https://modelcontextprotocol.io). Arguments and results cross the process boundary as JSON. Best when the tool is written in another language, ships as a standalone binary, is shared across many agents or users, has conflicting dependencies you want to isolate, or needs sandboxing away from your agent.
+-   **In-process**: the tool is a Python function that runs in the same Python interpreter as the agent. Dispatch is a direct function call: no serialization, no transport, no separate process to start. Best when you own the tool's code, its dependencies are already in your agent's environment, and you want the lowest possible call overhead.
+-   **Cross-process**: the tool runs in a separate process, a subprocess is launched on demand, a long-running server, or a remote machine, and is reached over the [Model Context Protocol](https://modelcontextprotocol.io). Arguments and results cross the process boundary as JSON. Best when the tool is written in another language, ships as a standalone binary, is shared across many agents or users, has conflicting dependencies you want to isolate, or needs sandboxing away from your agent.
 
 **`@tool` decorator** (in-process). The decorator inspects the function's signature and docstring to build an OpenAI-format spec. Hand a list of decorated functions to an `Agent` via `tools=`, or set `client.tools = [...]` directly:
 
