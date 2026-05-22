@@ -5,7 +5,6 @@ All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
 from aimu.agents import Agent, BaseAgent, Chain, ChainChunk, Runner, Workflow
-from aimu.models import StreamingContentType
 from helpers import MockModelClient
 
 

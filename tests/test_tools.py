@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from aimu import paths
 from aimu.tools.client import MCPClient
 from aimu.tools.mcp import mcp
 

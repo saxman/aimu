@@ -9,9 +9,8 @@ the same live list (the last agent's messages).  The snapshot taken at the end o
 Agent.run() / run_streamed() isolates each agent's history.
 """
 
-import pytest
 
-from aimu.agents import Agent, Chain, EvaluatorOptimizer, MessageHistory, Parallel, Router
+from aimu.agents import Agent, Chain, EvaluatorOptimizer, Parallel, Router
 from helpers import MockModelClient
 
 

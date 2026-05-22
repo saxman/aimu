@@ -60,7 +60,7 @@ def _register_script_tool(server: FastMCP, skill_name: str, script: Path) -> Non
                     timeout=30,
                 )
             except subprocess.TimeoutExpired:
-                return f"Script timed out after 30 seconds."
+                return "Script timed out after 30 seconds."
             if result.returncode != 0:
                 return f"Script exited with code {result.returncode}.\nstdout: {result.stdout}\nstderr: {result.stderr}"
             return result.stdout
