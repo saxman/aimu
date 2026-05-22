@@ -11,6 +11,7 @@ import os
 import re
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
 from dotenv import load_dotenv
@@ -209,6 +210,54 @@ def search(query: str, num_results: int = 5) -> str:
 
 
 @tool
+def wikipedia(query: str) -> str:
+    """Fetches a Wikipedia article summary for the given query.
+
+    Args:
+        query: Article title or search phrase (e.g. "Albert Einstein", "general relativity").
+    """
+    headers = {"User-Agent": "aimu-tools/1.0"}
+    try:
+        title = query.strip().replace(" ", "_")
+        response = requests.get(
+            f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(title, safe='')}",
+            headers=headers,
+            timeout=10,
+        )
+        if response.status_code == 404:
+            search = requests.get(
+                "https://en.wikipedia.org/w/api.php",
+                params={"action": "opensearch", "search": query, "limit": 1, "format": "json"},
+                headers=headers,
+                timeout=10,
+            )
+            search.raise_for_status()
+            results = search.json()
+            if not results[1]:
+                return f"No Wikipedia article found for: {query}"
+            best_title = results[1][0].replace(" ", "_")
+            response = requests.get(
+                f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(best_title, safe='')}",
+                headers=headers,
+                timeout=10,
+            )
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        return f"Error fetching Wikipedia: {e}"
+
+    if data.get("type") == "disambiguation":
+        return f"'{data.get('title', query)}' is a disambiguation page. Try a more specific query."
+
+    title = data.get("title", query)
+    extract = data.get("extract", "")
+    url = data.get("content_urls", {}).get("desktop", {}).get("page", "")
+    if not extract:
+        return f"No summary available for {title}."
+    return f"{title}\n\n{extract}\n\n{url}" if url else f"{title}\n\n{extract}"
+
+
+@tool
 def list_directory(path: str) -> str:
     """Lists files and subdirectories at the given path.
 
@@ -256,6 +305,7 @@ ALL_TOOLS = [
     calculate,
     get_webpage,
     search,
+    wikipedia,
     list_directory,
     read_file,
 ]
