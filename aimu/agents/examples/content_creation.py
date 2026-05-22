@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from fastmcp import FastMCP
-
-from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.agents.agent import Agent
+from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.models.model_client import ModelClient
+from aimu.tools import tool
 
 
 class ContentCreationAgent(OrchestratorAgent):
@@ -60,26 +59,23 @@ class ContentCreationAgent(OrchestratorAgent):
             ),
         )
 
-        mcp = FastMCP("Content Creation Workers")
-
-        @mcp.tool()
+        @tool
         def research_topic(brief: str) -> str:
             """Extract key facts, angles, and talking points for the given content brief."""
             return research_agent.run(brief)
 
-        @mcp.tool()
+        @tool
         def create_outline(facts: str) -> str:
             """Build a structured content outline from the provided research facts."""
             return outline_agent.run(facts)
 
-        @mcp.tool()
+        @tool
         def write_section(section_title_and_context: str) -> str:
             """Write a complete draft of one content section given its title and context notes."""
             return section_agent.run(section_title_and_context)
 
         self._setup_orchestrator(
             model_client,
-            mcp,
             name="content-creation-agent",
             system_message=(
                 "You are a content creator. Build content step by step using the available tools: "
@@ -87,4 +83,5 @@ class ContentCreationAgent(OrchestratorAgent):
                 "the piece, then write_section for each section in the outline. "
                 "Assemble and return the final content with all sections joined together."
             ),
+            tools=[research_topic, create_outline, write_section],
         )

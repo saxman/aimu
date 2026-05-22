@@ -12,7 +12,6 @@ from typing import Iterable
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastmcp import FastMCP
 
 from aimu.agents import Agent, BaseAgent, Chain, AgentChunk, AgenticModelClient, OrchestratorAgent
 from aimu.agents.examples import ResearchReportAgent
@@ -322,32 +321,32 @@ def test_handle_tool_calls_concurrent_results_in_original_order():
 # ---------------------------------------------------------------------------
 
 
-def _make_research_agent(tools=None):
+def _make_research_agent(worker_tools=None):
     """Build a ResearchReportAgent with a MockModelClient, patching ModelClient
     so worker construction doesn't try to dispatch a MagicMock model enum."""
     client = MockModelClient(["report"])
     with patch("aimu.agents.examples.research_report.ModelClient") as MockMC:
         MockMC.return_value = MockModelClient(["worker response"])
-        agent = ResearchReportAgent(client, tools=tools)
+        agent = ResearchReportAgent(client, worker_tools=worker_tools)
     return agent, client
 
 
-def test_research_report_agent_without_tools_no_concurrent():
-    """Without a tools server, the orchestrator's concurrent_tool_calls is False."""
+def test_research_report_agent_without_worker_tools_no_concurrent():
+    """Without worker_tools, the orchestrator's concurrent_tool_calls is False."""
     _, client = _make_research_agent()
     assert not client.concurrent_tool_calls
 
 
-def test_research_report_agent_with_tools_enables_concurrent():
-    """When a tools server is provided, the orchestrator enables concurrent tool calls."""
-    mcp = FastMCP("test-tools")
+def test_research_report_agent_with_worker_tools_enables_concurrent():
+    """When worker_tools are provided, the orchestrator enables concurrent tool calls."""
+    from aimu.tools import tool
 
-    @mcp.tool()
+    @tool
     def search(query: str) -> str:
         """Search the web."""
         return f"results for {query}"
 
-    _, client = _make_research_agent(tools=mcp)
+    _, client = _make_research_agent(worker_tools=[search])
     assert client.concurrent_tool_calls
 
 
@@ -363,19 +362,23 @@ def test_research_report_agent_is_agent_subclass():
 
 def _make_concrete_orchestrator(client: MockModelClient) -> OrchestratorAgent:
     """Build a minimal OrchestratorAgent subclass for testing the base class."""
+    from aimu.tools import tool
 
     class _TestOrchestrator(OrchestratorAgent):
         def __init__(self, model_client):
             worker = Agent(model_client, name="worker", system_message="Work.")
 
-            mcp = FastMCP("Test Workers")
-
-            @mcp.tool()
+            @tool
             def do_work(task: str) -> str:
                 """Do the work."""
                 return worker.run(task)
 
-            self._setup_orchestrator(model_client, mcp, name="test-orchestrator", system_message="Use do_work.")
+            self._setup_orchestrator(
+                model_client,
+                name="test-orchestrator",
+                system_message="Use do_work.",
+                tools=[do_work],
+            )
 
     return _TestOrchestrator(client)
 
@@ -405,11 +408,12 @@ def test_orchestrator_agent_messages_delegates():
     assert any(m["content"] == "hello" for m in history["test-orchestrator"])
 
 
-def test_orchestrator_agent_setup_wires_mcp_client():
-    """_setup_orchestrator sets mcp_client on the model_client."""
+def test_orchestrator_agent_setup_registers_tools():
+    """_setup_orchestrator sets tools on the model_client."""
     client = MockModelClient(["done"])
     _make_concrete_orchestrator(client)
-    assert client.mcp_client is not None
+    assert len(client.tools) == 1
+    assert client.tools[0].__name__ == "do_work"
 
 
 def test_orchestrator_agent_setup_concurrent_tool_calls_default_false():
@@ -421,18 +425,21 @@ def test_orchestrator_agent_setup_concurrent_tool_calls_default_false():
 
 def test_orchestrator_agent_setup_concurrent_tool_calls_can_be_enabled():
     """_setup_orchestrator respects concurrent_tool_calls=True."""
+    from aimu.tools import tool
 
     class _ConcurrentOrchestrator(OrchestratorAgent):
         def __init__(self, model_client):
-            mcp = FastMCP("Workers")
-
-            @mcp.tool()
+            @tool
             def work(task: str) -> str:
                 """Work."""
                 return "done"
 
             self._setup_orchestrator(
-                model_client, mcp, name="orch", system_message=".", concurrent_tool_calls=True
+                model_client,
+                name="orch",
+                system_message=".",
+                tools=[work],
+                concurrent_tool_calls=True,
             )
 
     client = MockModelClient(["done"])

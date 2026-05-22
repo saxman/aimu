@@ -14,7 +14,7 @@ AIMU is a Python library for building LLM-powered applications with a consistent
 -   [Usage](#usage)
     -   [Model Clients](#model-clients)
     -   [Agents & Workflows](#agents--workflows)
-    -   [MCP Tools](#mcp-tools)
+    -   [Tools](#tools)
     -   [Persistence](#persistence)
     -   [Prompt Management](#prompt-management)
     -   [Evaluations](#evaluations)
@@ -47,7 +47,7 @@ AIMU is a Python library for building LLM-powered applications with a consistent
     -   **Orchestrator Agents**: `OrchestratorAgent` (exported from `aimu.agents`) is a base class for building orchestrator agents that dispatch to worker sub-agents via MCP tools. Subclasses define workers and `@mcp.tool()` functions in `__init__`, then call `_setup_orchestrator()` to wire everything. `run()` and `messages` are inherited. Ready-to-use subclasses in `aimu.agents.examples`: `ResearchReportAgent`, `CodeReviewAgent`, and `ContentCreationAgent`. `ResearchReportAgent` also accepts an optional `tools=` FastMCP server to give workers live tool access (e.g. web search), automatically enabling concurrent worker dispatch.
     -   **Skills**: Filesystem-discovered `SKILL.md` files that inject instructions and tools into `SkillAgent` automatically. Skills are auto-discovered from `.agents/skills/`, `.claude/skills/`, `~/.agents/skills/`, and `~/.claude/skills/` (project-level wins on name collision); pass explicit `skill_dirs` to override.
 
--   **MCP Tools**: MCP tool integration is built into the base model client as a first-class attribute, not a plugin. Attach an `MCPClient` to any model client and tools are passed to the model automatically. Provides a simpler interface for [FastMCP 2.0](https://gofastmcp.com).
+-   **Tools**: Two routes for giving agents tools. Decorate plain Python functions with `@tool` to register them in-process — the decorator builds an OpenAI-format spec from the function's signature and docstring. For cross-process or shared tool catalogs, attach an `MCPClient` to any model client; AIMU provides a simpler synchronous interface for [FastMCP 2.0](https://gofastmcp.com). Both routes can be combined on the same client. `aimu.tools.builtin` ships a set of ready-made `@tool` functions (weather, web search, page fetch, file I/O, calculator, date/time) that are also registered on the bundled FastMCP server.
 
 -   **Prompt Management**: Versioned prompt storage and automatic prompt optimization:
 
@@ -83,7 +83,7 @@ The following Jupyter notebooks demonstrate key AIMU features:
 |---|---|
 | [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) | Text generation, chat, streaming, and thinking models |
 | [02 - Vision](notebooks/02%20-%20Vision.ipynb) | Image input via the `images=` kwarg on `chat()`; OpenAI, Anthropic, Gemini, and Ollama |
-| [03 - MCP Tools](notebooks/03%20-%20MCP%20Tools.ipynb) | MCP tool integration with model clients |
+| [03 - Tools](notebooks/03%20-%20Tools.ipynb) | `@tool` decorator, built-in tools, and MCPClient |
 | [04 - Prompt Management](notebooks/04%20-%20Prompt%20Management.ipynb) | Versioned prompt storage |
 | [05 - Prompt Tuning](notebooks/05%20-%20Prompt%20Tuning.ipynb) | ClassificationPromptTuner, MultiClassPromptTuner, ExtractionPromptTuner, JudgedPromptTuner |
 | [06 - Conversations](notebooks/06%20-%20Conversations.ipynb) | Persistent chat conversation management |
@@ -288,21 +288,21 @@ for chunk in agent.run("Explain transformer attention", stream=True):
         print(chunk.content, end="", flush=True)
 ```
 
-Pass `tools=` to give workers live tool access (e.g. web search via `aimu.tools.mcp`). The orchestrator will automatically dispatch all workers concurrently when the model returns multiple tool calls in one response:
+Pass `worker_tools=` to give workers live tool access (e.g. web search via `aimu.tools.builtin`). The orchestrator will automatically dispatch all workers concurrently when the model returns multiple tool calls in one response:
 
 ``` python
-from aimu.tools.mcp import mcp as search_server  # requires SEARXNG_BASE_URL
+from aimu.tools import builtin
 
-agent = ResearchReportAgent(client, tools=search_server)
+agent = ResearchReportAgent(client, worker_tools=[builtin.search, builtin.get_webpage])
 report = agent.run("What is retrieval-augmented generation?")
 ```
 
-Subclass `OrchestratorAgent` directly to build your own orchestrator:
+Subclass `OrchestratorAgent` directly to build your own orchestrator. Decorate worker-dispatch functions with `@tool` and pass them to `_setup_orchestrator(tools=...)`:
 
 ``` python
 from aimu.agents import Agent, OrchestratorAgent
 from aimu.models.model_client import ModelClient
-from fastmcp import FastMCP
+from aimu.tools import tool
 
 class SummaryAgent(OrchestratorAgent):
     def __init__(self, model_client):
@@ -310,31 +310,55 @@ class SummaryAgent(OrchestratorAgent):
                           system_message="Extract the key facts from the text.")
         writer = Agent(ModelClient(model_client.model), name="writer",
                        system_message="Write a concise summary from the extracted facts.")
-        mcp = FastMCP("Summary Workers")
 
-        @mcp.tool()
+        @tool
         def extract_facts(text: str) -> str:
             """Extract key facts from a block of text."""
             return extractor.run(text)
 
-        @mcp.tool()
+        @tool
         def write_summary(facts: str) -> str:
             """Write a summary from extracted facts."""
             return writer.run(facts)
 
-        self._setup_orchestrator(model_client, mcp,
+        self._setup_orchestrator(
+            model_client,
             name="summary-agent",
-            system_message="Extract facts then write a summary.")
+            system_message="Extract facts then write a summary.",
+            tools=[extract_facts, write_summary],
+        )
 ```
 
 See [08 - Agents](notebooks/08%20-%20Agents.ipynb), [09 - Agent Skills](notebooks/09%20-%20Agent%20Skills.ipynb), [10 - Agent Workflows](notebooks/10%20-%20Agent%20Workflows.ipynb), and [11 - Agent Examples](notebooks/11%20-%20Agent%20Examples.ipynb) for the example agents.
 
-### MCP Tools
+### Tools
 
-`MCPClient` wraps a FastMCP 2.0 server and integrates with any `ModelClient` via `model_client.mcp_client`:
+Two routes, combinable on the same client. The distinction is *where the tool's code runs* relative to your agent:
+
+-   **In-process**: the tool is a Python function that runs in the same Python interpreter as the agent. Dispatch is a direct function call — no serialization, no transport, no separate process to start. Best when you own the tool's code, its dependencies are already in your agent's environment, and you want the lowest possible call overhead.
+-   **Cross-process**: the tool runs in a separate process — a subprocess launched on demand, a long-running server, or a remote machine — and is reached over the [Model Context Protocol](https://modelcontextprotocol.io). Arguments and results cross the process boundary as JSON. Best when the tool is written in another language, ships as a standalone binary, is shared across many agents or users, has conflicting dependencies you want to isolate, or needs sandboxing away from your agent.
+
+**`@tool` decorator** (in-process). The decorator inspects the function's signature and docstring to build an OpenAI-format spec. Hand a list of decorated functions to an `Agent` via `tools=`, or set `client.tools = [...]` directly:
 
 ``` python
 from aimu.models import ModelClient, OllamaModel
+from aimu.agents import Agent
+from aimu.tools import tool
+
+@tool
+def letter_counter(word: str, letter: str) -> int:
+    """Count occurrences of a letter in a word."""
+    return word.lower().count(letter.lower())
+
+agent = Agent(ModelClient(OllamaModel.QWEN_3_5_9B), tools=[letter_counter])
+print(agent.run("How many r's in strawberry?"))
+```
+
+`aimu.tools.builtin` ships ready-made `@tool` functions: `echo`, `get_current_date_and_time`, `get_weather`, `calculate`, `get_webpage`, `search`, `list_directory`, `read_file` (and `builtin.ALL_TOOLS` for the full list).
+
+**`MCPClient`** (cross-process). Wrap a FastMCP 2.0 server and assign to `model_client.mcp_client`:
+
+``` python
 from aimu.tools import MCPClient
 
 mcp_client = MCPClient({
@@ -347,12 +371,12 @@ mcp_client = MCPClient({
 mcp_client.call_tool("mytool", {"input": "hello world!"})
 
 # Or attach to a model client; tools are passed to the model automatically
-model_client = ModelClient(OllamaModel.QWEN_3_5_9B)
 model_client.mcp_client = mcp_client
-model_client.chat("use my tool please")
 ```
 
-See [03 - MCP Tools](notebooks/03%20-%20MCP%20Tools.ipynb).
+The same built-in tool set is also registered on the FastMCP server in [aimu/tools/mcp.py](aimu/tools/mcp.py) (`python -m aimu.tools.mcp` to run it).
+
+See [03 - Tools](notebooks/03%20-%20Tools.ipynb).
 
 ### Persistence
 

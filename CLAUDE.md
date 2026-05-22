@@ -157,7 +157,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `list_tools()`: Returns available tool names
   - Integrates with ModelClient via `model_client.mcp_client` attribute
 
-- **[aimu/tools/mcp.py](aimu/tools/mcp.py)**: FastMCP server with built-in general-purpose tools:
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: built-in general-purpose tools, each decorated with `@tool` for direct in-process use. Import individual tools (`from aimu.tools import builtin; agent = Agent(client, tools=[builtin.calculate])`) or the full set as `builtin.ALL_TOOLS`:
   - `echo(echo_string)`: Returns input string
   - `get_current_date_and_time()`: Returns ISO format datetime
   - `get_weather(location)`: Current weather via Open-Meteo API (city name or coordinates)
@@ -166,7 +166,8 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `search(query, num_results)`: Web search via SearXNG (`SEARXNG_BASE_URL` env var)
   - `list_directory(path)`: Lists files and subdirectories
   - `read_file(path, max_lines)`: Reads local file contents
-  - Run standalone: `python -m aimu.tools.mcp`
+
+- **[aimu/tools/mcp.py](aimu/tools/mcp.py)**: thin FastMCP server that registers `builtin.ALL_TOOLS` for cross-process use. Run standalone: `python -m aimu.tools.mcp`. Single source of truth — the same callables back both routes.
 
 - **Tool Calling Flow**:
   1. If model supports tools, `_chat_setup` builds the request `tools` list by combining `mcp_client.get_tools()` (if set) with `__tool_spec__` from every callable in `self.tools`
@@ -289,13 +290,14 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `messages` property: merges `generator.messages` + `evaluator.messages`
 
 - **[aimu/agents/orchestrator_agent.py](aimu/agents/orchestrator_agent.py)**: `OrchestratorAgent(BaseAgent, ABC)` base class for orchestrator agents
-  - Subclasses create workers and register `@mcp.tool()` functions in `__init__`, then call `_setup_orchestrator(model_client, mcp, name, system_message, concurrent_tool_calls=False)` to wire everything together
+  - Subclasses define worker `Agent` instances and `@tool`-decorated dispatch functions in `__init__`, then call `_setup_orchestrator(model_client, *, name, system_message, tools=[...], concurrent_tool_calls=False)` to wire everything together
+  - `tools` is a list of `@aimu.tools.tool`-decorated callables; `_setup_orchestrator` assigns them to `model_client.tools` and constructs the inner orchestrator `Agent`
   - Provides `run(task, generate_kwargs, stream)` and `messages` — subclasses need not re-implement them
   - Exported from `aimu.agents`
 
 - **[aimu/agents/examples/](aimu/agents/examples/)**: Ready-to-use `OrchestratorAgent` subclasses demonstrating the orchestrator + worker tools pattern
-  - Each class accepts a `ModelClient`, builds a FastMCP server exposing worker `Agent` runs as tools, and calls `_setup_orchestrator()` to wire the orchestrator
-  - `ResearchReportAgent`: orchestrator + `research_overview`, `find_examples`, `find_counterpoints` worker tools; accepts optional `tools: FastMCP` to give workers live tool access (e.g. web search) and automatically enables `concurrent_tool_calls` on the orchestrator
+  - Each class accepts a `ModelClient`, defines `@tool`-decorated wrappers around worker `Agent.run()` calls, and passes them to `_setup_orchestrator(tools=[...])`
+  - `ResearchReportAgent`: orchestrator + `research_overview`, `find_examples`, `find_counterpoints` worker tools; accepts optional `worker_tools: list[Callable]` to give workers live tool access (e.g. `[builtin.search, builtin.get_webpage]`) and automatically enables `concurrent_tool_calls` on the orchestrator
   - `CodeReviewAgent`: orchestrator + `review_security`, `review_performance`, `review_readability` worker tools
   - `ContentCreationAgent`: orchestrator + `research_topic`, `create_outline`, `write_section` worker tools
   - All three inherit from `OrchestratorAgent` and expose `run(task, stream=False)` and `messages`
@@ -488,9 +490,11 @@ aimu/
 │   │   └── sglang_openai_client.py      # SGLangOpenAIClient + SGLangOpenAIModel
 │   └── llamacpp/        # llama-cpp-python client (requires llamacpp package)
 │       └── llamacpp_client.py        # LlamaCppClient + LlamaCppModel
-├── tools/               # MCP tools integration
+├── tools/               # Tool integration (in-process @tool + cross-process MCP)
+│   ├── decorator.py     # @tool decorator (attaches __tool_spec__ to plain functions)
+│   ├── builtin.py       # Built-in @tool functions (weather, search, calculate, ...)
 │   ├── client.py        # MCPClient wrapper
-│   └── mcp.py           # Example FastMCP server with built-in tools
+│   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
 ├── agents/              # Agents and workflow patterns
 │   ├── base.py          # Runner/Agent/Workflow ABCs + AgentChunk
 │   ├── agent.py         # Agent (agentic loop over ModelClient.chat())

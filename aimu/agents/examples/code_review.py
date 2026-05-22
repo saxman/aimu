@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from fastmcp import FastMCP
-
-from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.agents.agent import Agent
+from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.models.model_client import ModelClient
+from aimu.tools import tool
 
 
 class CodeReviewAgent(OrchestratorAgent):
@@ -62,26 +61,23 @@ class CodeReviewAgent(OrchestratorAgent):
             ),
         )
 
-        mcp = FastMCP("Code Review Workers")
-
-        @mcp.tool()
+        @tool
         def review_security(code: str) -> str:
             """Analyze code for security vulnerabilities and return findings with severity ratings."""
             return security_agent.run(code)
 
-        @mcp.tool()
+        @tool
         def review_performance(code: str) -> str:
             """Analyze code for performance bottlenecks and inefficiencies."""
             return performance_agent.run(code)
 
-        @mcp.tool()
+        @tool
         def review_readability(code: str) -> str:
             """Analyze code for readability and maintainability issues."""
             return readability_agent.run(code)
 
         self._setup_orchestrator(
             model_client,
-            mcp,
             name="code-review-agent",
             system_message=(
                 "You are a senior code reviewer. Use the specialist review tools to analyze the "
@@ -89,4 +85,5 @@ class CodeReviewAgent(OrchestratorAgent):
                 "and review_readability. Then synthesize all findings into a prioritized review "
                 "report with actionable fix recommendations, ordered by severity."
             ),
+            tools=[review_security, review_performance, review_readability],
         )

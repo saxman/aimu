@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable, Optional
 
-from fastmcp import FastMCP
-
-from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.agents.agent import Agent
+from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.models.model_client import ModelClient
-from aimu.tools.client import MCPClient
+from aimu.tools import tool
 
 
 class ResearchReportAgent(OrchestratorAgent):
@@ -29,11 +27,12 @@ class ResearchReportAgent(OrchestratorAgent):
     ----------
     model_client:
         Used for both orchestrator and worker agents.
-    tools:
-        Optional FastMCP server whose tools are injected into each worker so
-        they can perform live lookups (e.g. web search). When provided, the
-        orchestrator also enables concurrent tool calls so all three workers
-        can be dispatched in a single round-trip when the model supports it.
+    worker_tools:
+        Optional list of ``@tool``-decorated functions injected into each worker so
+        they can perform live lookups (e.g. ``aimu.tools.builtin.search`` and
+        ``get_webpage``). When provided, the orchestrator also enables concurrent
+        tool calls so all three workers can be dispatched in a single round-trip
+        when the model supports it.
 
     Usage — text-only workers (no live search)::
 
@@ -46,58 +45,59 @@ class ResearchReportAgent(OrchestratorAgent):
 
     Usage — workers with live web search::
 
-        from aimu.tools.mcp import mcp as search_server  # requires SEARXNG_BASE_URL
+        from aimu.tools import builtin
 
-        agent = ResearchReportAgent(client, tools=search_server)
+        agent = ResearchReportAgent(client, worker_tools=[builtin.search, builtin.get_webpage])
         report = agent.run("What is retrieval-augmented generation?")
     """
 
-    def __init__(self, model_client: ModelClient, tools: Optional[FastMCP] = None) -> None:
+    def __init__(self, model_client: ModelClient, worker_tools: Optional[list[Callable]] = None) -> None:
         def _make_worker(name: str, system_message: str) -> Agent:
             worker_client = ModelClient(model_client.model)
-            if tools is not None:
-                worker_client.mcp_client = MCPClient(server=tools)
+            if worker_tools is not None:
+                worker_client.tools = list(worker_tools)
             return Agent(worker_client, name=name, system_message=system_message)
+
+        live_tools_note = (
+            " Use your search and browsing tools to find current, accurate information." if worker_tools else ""
+        )
 
         overview_agent = _make_worker(
             "overview-worker",
             "Provide a thorough 2-3 paragraph overview of the given topic. "
             "Cover what it is, why it matters, and its key components or mechanisms."
-            + (" Use your search and browsing tools to find current, accurate information." if tools else ""),
+            + live_tools_note,
         )
         examples_agent = _make_worker(
             "examples-worker",
             "Provide 3-5 concrete, real-world examples or applications related to the given topic. "
             "For each example, briefly explain its relevance and significance."
-            + (" Use your search and browsing tools to find current, accurate information." if tools else ""),
+            + live_tools_note,
         )
         counterpoints_agent = _make_worker(
             "counterpoints-worker",
             "Identify 3-5 counterarguments, limitations, criticisms, or alternative perspectives "
             "on the given topic. Be specific, balanced, and evidence-based."
-            + (" Use your search and browsing tools to find current, accurate information." if tools else ""),
+            + live_tools_note,
         )
 
-        mcp = FastMCP("Research Workers")
-
-        @mcp.tool()
+        @tool
         def research_overview(topic: str) -> str:
             """Research and return a broad background overview of the topic."""
             return overview_agent.run(topic)
 
-        @mcp.tool()
+        @tool
         def find_examples(topic: str) -> str:
             """Find concrete real-world examples and applications related to the topic."""
             return examples_agent.run(topic)
 
-        @mcp.tool()
+        @tool
         def find_counterpoints(topic: str) -> str:
             """Identify counterarguments, limitations, and alternative perspectives on the topic."""
             return counterpoints_agent.run(topic)
 
         self._setup_orchestrator(
             model_client,
-            mcp,
             name="research-report-agent",
             system_message=(
                 "You are a research report writer. Use the available tools to gather material: "
@@ -105,5 +105,6 @@ class ResearchReportAgent(OrchestratorAgent):
                 "and find_counterpoints for critical analysis. "
                 "Then synthesize all gathered material into a structured report with clearly labeled sections."
             ),
-            concurrent_tool_calls=tools is not None,
+            tools=[research_overview, find_examples, find_counterpoints],
+            concurrent_tool_calls=worker_tools is not None,
         )

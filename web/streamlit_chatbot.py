@@ -2,7 +2,7 @@ from aimu import paths
 from aimu.agents.agentic_client import AgenticModelClient
 from aimu.agents.agent import Agent
 from aimu.models import HuggingFaceClient, OllamaClient, StreamPhase
-from aimu.tools.client import MCPClient
+from aimu.tools import builtin
 from aimu.history import ConversationManager
 
 import streamlit as st
@@ -25,11 +25,7 @@ MODEL_CLIENTS = [OllamaClient, HuggingFaceClient]
 
 SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 
-MCP_SERVERS = {
-    "mcpServers": {
-        "aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]},
-    }
-}
+BUILTIN_TOOLS = builtin.ALL_TOOLS
 
 def _set_slider_defaults(model):
     for key, default in SLIDER_DEFAULTS.items():
@@ -45,7 +41,7 @@ def _wrap_agent(base_client, max_iterations):
 def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
     """Construct a fresh base client and (optionally) agentic wrapper, then sync session state to match."""
     base_client = model_cls(model, system_message=SYSTEM_MESSAGE)
-    base_client.mcp_client = st.session_state.mcp_client
+    base_client.tools = BUILTIN_TOOLS
     # Store the base client separately since the agent wrapper doesn't have all the same attributes (e.g. TOOL_MODELS) and we need to reference those in the sidebar selectors and checks.
     st.session_state.base_client = base_client
     st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
@@ -92,7 +88,6 @@ def stream_chat_response(streamed_response):
 
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
-    st.session_state.mcp_client = MCPClient(MCP_SERVERS)
     _rebuild_client(MODEL_CLIENTS[0], MODEL_CLIENTS[0].TOOL_MODELS[0], False, 10)
 
     st.session_state.conversation_manager = ConversationManager(
