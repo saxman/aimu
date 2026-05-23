@@ -1,4 +1,4 @@
-from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
 from .._images import _adapt_messages_for_ollama
 
 import ollama
@@ -8,48 +8,41 @@ from typing import Iterator, Optional, Union
 logger = logging.getLogger(__name__)
 
 
-class OllamaModel(Model):
-    def __init__(
-        self,
-        value,
-        supports_tools=False,
-        supports_thinking=False,
-        supports_vision=False,
-        generation_kwargs=None,
-    ):
-        super().__init__(value, supports_tools, supports_thinking, supports_vision, generation_kwargs)
+_GEMMA_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
 
+
+class OllamaModel(Model):
     # Alibaba
-    QWEN_3_6_35B = ("qwen3.6:35b", True, True)
-    QWEN_3_6_27B = ("qwen3.6:27b", True, True)
-    QWEN_3_5_9B = ("qwen3.5:9b", True, True)
-    QWEN_3_32B = ("qwen3:32b", True, True)
-    QWEN_3_8B = ("qwen3:8b", True, True)
+    QWEN_3_6_35B = ModelSpec("qwen3.6:35b", tools=True, thinking=True)
+    QWEN_3_6_27B = ModelSpec("qwen3.6:27b", tools=True, thinking=True)
+    QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True)
+    QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True)
+    QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)
     # Google
-    GEMMA_4_E4B = ("gemma4:e4b", True, True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
-    GEMMA_4_26B = ("gemma4:26b", True, True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
-    GEMMA_4_31B = ("gemma4:31b", True, True, True, {"temperature": 1.0, "top_p": 0.95, "top_k": 64})
-    GEMMA_3_12B = ("gemma3:12b", False, False, True)
+    GEMMA_4_E4B = ModelSpec("gemma4:e4b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
+    GEMMA_4_26B = ModelSpec("gemma4:26b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
+    GEMMA_4_31B = ModelSpec("gemma4:31b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
+    GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True)
     # NVIDIA
-    NEMOTRON_CASCADE_2_30B = ("nemotron-cascade-2:30b", True, True)
-    NEMOTRON_3_NANO_30B = ("nemotron-3-nano:30b", True, True)
-    # Zhipu AI
-    GLM_4_7_FLASH_31B_Q4 = ("glm-4.7-flash:q4_K_M", False, True)  # doesn't use tools when expected
+    NEMOTRON_CASCADE_2_30B = ModelSpec("nemotron-cascade-2:30b", tools=True, thinking=True)
+    NEMOTRON_3_NANO_30B = ModelSpec("nemotron-3-nano:30b", tools=True, thinking=True)
+    # Zhipu AI — doesn't use tools when expected
+    GLM_4_7_FLASH_31B_Q4 = ModelSpec("glm-4.7-flash:q4_K_M", thinking=True)
     # OpenAI
-    GPT_OSS_20B = ("gpt-oss:20b", True, True)
+    GPT_OSS_20B = ModelSpec("gpt-oss:20b", tools=True, thinking=True)
     # Mistral
-    MAGISTRAL_SMALL_24B = ("magistral:24b", True, True)
-    MINISTRAL_3_14B = ("ministral-3:14b", True)
+    MAGISTRAL_SMALL_24B = ModelSpec("magistral:24b", tools=True, thinking=True)
+    MINISTRAL_3_14B = ModelSpec("ministral-3:14b", tools=True)
     # Microsoft
-    PHI_4_MINI_3_8B = "phi4-mini:3.8b"
-    PHI_4_14B = "phi4:14b"
+    PHI_4_MINI_3_8B = ModelSpec("phi4-mini:3.8b")
+    PHI_4_14B = ModelSpec("phi4:14b")
     # DeepSeek
-    DEEPSEEK_R1_8B = ("deepseek-r1:8b", False, True)
-    # HuggingFace
-    SMOLLM2_1_7B = ("smollm2:1.7b", False)  # tool call responses don't always look correct
-    # Meta
-    LLAMA_3_2_3B = ("llama3.2:3b", False)  # doesn't use tools when expected
-    LLAMA_3_1_8B = ("llama3.1:8b", False)  # doesn't use tools when expected
+    DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True)
+    # HuggingFace — tool call responses don't always look correct
+    SMOLLM2_1_7B = ModelSpec("smollm2:1.7b")
+    # Meta — don't reliably use tools when expected
+    LLAMA_3_2_3B = ModelSpec("llama3.2:3b")
+    LLAMA_3_1_8B = ModelSpec("llama3.1:8b")
 
 
 class OllamaClient(BaseModelClient):
@@ -85,7 +78,7 @@ class OllamaClient(BaseModelClient):
 
         return generate_kwargs
 
-    def generate(
+    def _generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict] = None,
@@ -145,7 +138,7 @@ class OllamaClient(BaseModelClient):
 
             yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
 
-    def chat(
+    def _chat(
         self,
         user_message: str,
         generate_kwargs: Optional[dict] = None,

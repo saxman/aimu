@@ -7,7 +7,7 @@ from typing import Any, Iterator, Optional, Union
 import anthropic
 from dotenv import load_dotenv
 
-from ..base import BaseModelClient, Model, StreamingContentType, StreamChunk, classproperty
+from ..base import BaseModelClient, Model, ModelSpec, StreamingContentType, StreamChunk, classproperty
 from .._images import _openai_blocks_to_anthropic
 
 logger = logging.getLogger(__name__)
@@ -18,12 +18,9 @@ _THINKING_MAX_TOKENS_FLOOR = _DEFAULT_THINKING_BUDGET + 1024
 
 
 class AnthropicModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
-        super().__init__(value, supports_tools, supports_thinking, supports_vision)
-
-    CLAUDE_SONNET_4_6 = ("claude-sonnet-4-6", True, True, True)
-    CLAUDE_OPUS_4_6 = ("claude-opus-4-6", True, True, True)
-    CLAUDE_HAIKU_4_5 = ("claude-haiku-4-5", True, False, True)
+    CLAUDE_SONNET_4_6 = ModelSpec("claude-sonnet-4-6", tools=True, thinking=True, vision=True)
+    CLAUDE_OPUS_4_6 = ModelSpec("claude-opus-4-6", tools=True, thinking=True, vision=True)
+    CLAUDE_HAIKU_4_5 = ModelSpec("claude-haiku-4-5", tools=True, vision=True)
 
 
 class AnthropicClient(BaseModelClient):
@@ -215,7 +212,7 @@ class AnthropicClient(BaseModelClient):
     # ModelClient abstract method implementations                          #
     # ------------------------------------------------------------------ #
 
-    def generate(
+    def _generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
@@ -267,7 +264,7 @@ class AnthropicClient(BaseModelClient):
                     elif delta.type == "text_delta":
                         yield StreamChunk(StreamingContentType.GENERATING, delta.text)
 
-    def chat(
+    def _chat(
         self,
         user_message: str,
         generate_kwargs: Optional[dict[str, Any]] = None,

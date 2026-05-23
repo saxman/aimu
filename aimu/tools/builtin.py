@@ -298,14 +298,10 @@ def read_file(path: str, max_lines: int = 200) -> str:
     return content
 
 
-ALL_TOOLS = [
-    echo,
-    get_current_date_and_time,
-    get_weather,
-    calculate,
-    get_webpage,
-    search,
-    wikipedia,
-    list_directory,
-    read_file,
-]
+# Curated subsets — pass one of these to ``tools=`` instead of importing every function.
+web = [get_weather, get_webpage, search, wikipedia]
+fs = [list_directory, read_file]
+compute = [calculate]
+misc = [echo, get_current_date_and_time]
+
+ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, search, wikipedia, *fs]

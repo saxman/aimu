@@ -64,6 +64,7 @@ class MockModelClient(BaseModelClient):
         self.model.supports_thinking = False
         self.model_kwargs = None
         self._system_message = None
+        self._system_message_locked = False
         self.default_generate_kwargs = {}
         self.messages = []
         self.mcp_client = None
@@ -77,7 +78,7 @@ class MockModelClient(BaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    def chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
         if images:
@@ -88,6 +89,8 @@ class MockModelClient(BaseModelClient):
             )
         else:
             self.messages.append({"role": "user", "content": user_message})
+        # First user message locks system_message (matches BaseModelClient._chat_setup).
+        self._system_message_locked = True
         response = self._responses[self._call_count]
         self._call_count += 1
 
@@ -109,19 +112,19 @@ class MockModelClient(BaseModelClient):
             return response
 
     def _chat_streamed(self, user_message, generate_kwargs=None, use_tools=True, images=None):
-        response = self.chat(user_message, generate_kwargs, use_tools, images=images)
+        response = self._chat(user_message, generate_kwargs, use_tools, images=images)
         self._streaming_content_type = StreamingContentType.GENERATING
         yield StreamChunk(StreamingContentType.GENERATING, response)
         self._streaming_content_type = StreamingContentType.DONE
 
-    def generate(self, prompt, generate_kwargs=None, stream=False, include_thinking=True):
+    def _generate(self, prompt, generate_kwargs=None, stream=False, include_thinking=True):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs)
-        return self.chat(prompt, generate_kwargs)
+        return self._chat(prompt, generate_kwargs)
 
     def _generate_streamed(self, prompt, generate_kwargs=None):
         self._streaming_content_type = StreamingContentType.GENERATING
-        yield StreamChunk(StreamingContentType.GENERATING, self.generate(prompt, generate_kwargs))
+        yield StreamChunk(StreamingContentType.GENERATING, self._generate(prompt, generate_kwargs))
         self._streaming_content_type = StreamingContentType.DONE
 
 

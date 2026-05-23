@@ -1,4 +1,4 @@
-from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
 from .._images import _extract_pil_images, _replace_image_url_with_image_placeholder
 
 import torch
@@ -78,173 +78,150 @@ class ToolCallFormat(Enum):
         return None
 
 
+_QWEN_KWARGS = {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 20,
+    "min_p": 0.0,
+    "presence_penalty": 1.5,
+    "repetition_penalty": 1.0,
+}
+
+
 class HuggingFaceModel(Model):
-    tool_call_format: Optional[ToolCallFormat]
-    generate_kwargs: dict[str, Any]
-    think_opener_in_prompt: bool
+    """HuggingFace Transformers model catalog.
+
+    Each member's value is a ``(ModelSpec, ToolCallFormat, think_opener_in_prompt)``
+    tuple. ``think_opener_in_prompt=True`` for models like Qwen 3.5 whose chat template
+    appends ``<think>\\n`` to the prompt — the model generates *inside* the thinking
+    block and only emits the closing ``</think>``.
+    """
 
     def __init__(
         self,
-        value,
-        supports_tools=False,
-        supports_thinking=False,
-        supports_vision=False,
-        tool_call_format=ToolCallFormat.XML,
-        generate_kwargs=None,
-        think_opener_in_prompt=False,
+        spec,
+        tool_call_format: ToolCallFormat = ToolCallFormat.NA,
+        think_opener_in_prompt: bool = False,
     ):
-        super().__init__(value, supports_tools, supports_thinking, supports_vision)
+        super().__init__(spec)
         self.tool_call_format = tool_call_format
+        # Per-provider generate_kwargs are merged on top of HF defaults.
         self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
-        self.generate_kwargs.update(generate_kwargs or {})
-        # Qwen 3.5's chat template appends <think>\n to the generation prompt,
-        # so the model generates starting inside the thinking block and only
-        # emits the closing </think>. Set True for such models so streaming
-        # thinking extraction can anchor on </think> instead of a leading
-        # <think> token that never appears in the stream.
+        if self.generation_kwargs:
+            self.generate_kwargs.update(self.generation_kwargs)
         self.think_opener_in_prompt = think_opener_in_prompt
 
     # Alibaba
     QWEN_3_6_27B = (
-        "Qwen/Qwen3.6-27B-FP8",
-        True,
-        True,
-        False,
+        ModelSpec("Qwen/Qwen3.6-27B-FP8", tools=True, thinking=True, generation_kwargs=_QWEN_KWARGS),
         ToolCallFormat.XML,
-        {
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "top_k": 20,
-            "min_p": 0.0,
-            "presence_penalty": 1.5,
-            "repetition_penalty": 1.0,
-        },
     )
     # Qwen 3.5/3.6 are natively multimodal (unified vision-language foundation).
     # _VL variants share the same HF repo as the text-only entries above but load
     # via AutoModelForImageTextToText with the vision encoder, so chat(images=...) works.
     QWEN_3_6_27B_VL = (
-        "Qwen/Qwen3.6-27B-FP8",
-        True,
-        True,
-        True,
+        ModelSpec("Qwen/Qwen3.6-27B-FP8", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
         ToolCallFormat.XML,
-        {
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "top_k": 20,
-            "min_p": 0.0,
-            "presence_penalty": 1.5,
-            "repetition_penalty": 1.0,
-        },
     )
     QWEN_3_5_9B = (
-        "Qwen/Qwen3.5-9B",
-        True,
-        True,
-        False,
+        ModelSpec("Qwen/Qwen3.5-9B", tools=True, thinking=True, generation_kwargs=_QWEN_KWARGS),
         ToolCallFormat.XML,
-        {
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "top_k": 20,
-            "min_p": 0.0,
-            "presence_penalty": 1.5,
-            "repetition_penalty": 1.0,
-        },
-        True,  # think_opener_in_prompt
+        True,
     )
     QWEN_3_5_9B_VL = (
-        "Qwen/Qwen3.5-9B",
-        True,
-        True,
-        True,
+        ModelSpec("Qwen/Qwen3.5-9B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
         ToolCallFormat.XML,
-        {
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "top_k": 20,
-            "min_p": 0.0,
-            "presence_penalty": 1.5,
-            "repetition_penalty": 1.0,
-        },
-        True,  # think_opener_in_prompt
+        True,
     )
     QWEN_3_8B = (
-        "Qwen/Qwen3-8B",
-        True,
-        True,
-        False,
+        ModelSpec(
+            "Qwen/Qwen3-8B",
+            tools=True,
+            thinking=True,
+            generation_kwargs={"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
+        ),
         ToolCallFormat.XML,
-        {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
     )
 
     # Google
     GEMMA_4_E4B = (
-        "google/gemma-4-E4B-it",
-        True,
-        False,
-        True,
+        ModelSpec(
+            "google/gemma-4-E4B-it",
+            tools=True,
+            vision=True,
+            generation_kwargs={"temperature": 1.0, "top_p": 0.95, "top_k": 64},
+        ),
         ToolCallFormat.NA,
-        {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
     )
-    GEMMA_3_12B = ("google/gemma-3-12b-it", False, False, True)
+    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", vision=True)
 
     # OpenAI
     GPT_OSS_20B = (
-        "openai/gpt-oss-20b",
-        True,
-        True,
-        False,
+        ModelSpec(
+            "openai/gpt-oss-20b",
+            tools=True,
+            thinking=True,
+            generation_kwargs={"temperature": 1.0, "top_p": 1.0, "top_k": 0},
+        ),
         ToolCallFormat.XML,
-        {"temperature": 1.0, "top_p": 1.0, "top_k": 0},
     )
 
     # Mistral
     MAGISTRAL_SMALL = (
-        "mistralai/Magistral-Small-2509",
-        True,
-        False,
-        False,
+        ModelSpec(
+            "mistralai/Magistral-Small-2509",
+            tools=True,
+            generation_kwargs={"top_p": 0.95, "temperature": 0.7},
+        ),
         ToolCallFormat.BRACKETED,
-        {"top_p": 0.95, "temperature": 0.7},
     )
     MISTRAL_NEMO_12B = (
-        "mistralai/Mistral-Nemo-Instruct-2407",
-        True,
-        False,
-        False,
+        ModelSpec(
+            "mistralai/Mistral-Nemo-Instruct-2407",
+            tools=True,
+            generation_kwargs={"temperature": 0.3},
+        ),
         ToolCallFormat.JSON_ARRAY,
-        {"temperature": 0.3},
     )
-    MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True, False, False, ToolCallFormat.JSON_ARRAY)
+    MISTRAL_7B = (
+        ModelSpec("mistralai/Mistral-7B-Instruct-v0.3", tools=True),
+        ToolCallFormat.JSON_ARRAY,
+    )
 
     # Microsoft
-    PHI_4_MINI_3_8B = "microsoft/Phi-4-mini-instruct"
-    PHI_4_14B = "microsoft/phi-4"
+    PHI_4_MINI_3_8B = ModelSpec("microsoft/Phi-4-mini-instruct")
+    PHI_4_14B = ModelSpec("microsoft/phi-4")
 
     # DeepSeek
     DEEPSEEK_R1_8B = (
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-        False,
-        True,
-        False,
+        ModelSpec(
+            "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+            thinking=True,
+            generation_kwargs={"temperature": 0.6},
+        ),
         ToolCallFormat.XML,
-        {"temperature": 0.6},
     )
 
     # HuggingFace
-    SMOLLM3_3B = ("HuggingFaceTB/SmolLM3-3B", True, True, False, ToolCallFormat.XML, {"temperature": 0.6, "top_p": 0.95})
+    SMOLLM3_3B = (
+        ModelSpec(
+            "HuggingFaceTB/SmolLM3-3B",
+            tools=True,
+            thinking=True,
+            generation_kwargs={"temperature": 0.6, "top_p": 0.95},
+        ),
+        ToolCallFormat.XML,
+    )
 
-    # Meta
+    # Meta — Llama 3.2 uses unsloth's repo because the official one is gated
     LLAMA_3_2_3B = (
-        "unsloth/Llama-3.2-3B-Instruct",
-        True,
-        False,
-        False,
+        ModelSpec("unsloth/Llama-3.2-3B-Instruct", tools=True),
         ToolCallFormat.JSON_OBJECT,
-    )  # using unsloth's version since gated model
-    LLAMA_3_1_8B = ("meta-llama/Meta-Llama-3.1-8B-Instruct", True, False, False, ToolCallFormat.JSON_OBJECT)
+    )
+    LLAMA_3_1_8B = (
+        ModelSpec("meta-llama/Meta-Llama-3.1-8B-Instruct", tools=True),
+        ToolCallFormat.JSON_OBJECT,
+    )
 
 
 class HuggingFaceClient(BaseModelClient):
@@ -514,7 +491,7 @@ class HuggingFaceClient(BaseModelClient):
 
         return itertools.chain([response_part], streamer)
 
-    def generate(
+    def _generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
@@ -548,7 +525,7 @@ class HuggingFaceClient(BaseModelClient):
             logger.debug("[generating] token: %r", token)
             yield StreamChunk(StreamingContentType.GENERATING, token)
 
-    def chat(
+    def _chat(
         self,
         user_message: str,
         generate_kwargs: Optional[dict[str, Any]] = None,

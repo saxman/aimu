@@ -1,5 +1,4 @@
 from aimu import paths
-from aimu.agents.agentic_client import AgenticModelClient
 from aimu.agents.agent import Agent
 from aimu.models import HuggingFaceClient, OllamaClient, StreamPhase
 from aimu.tools import builtin
@@ -35,7 +34,7 @@ def _set_slider_defaults(model):
 def _wrap_agent(base_client, max_iterations):
     """Wrap a base model client in an Agent so chat() drives a multi-round tool-calling loop."""
     agent = Agent(base_client, max_iterations=max_iterations)
-    return AgenticModelClient(agent)
+    return agent.as_model_client()
 
 
 def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
@@ -100,7 +99,7 @@ with st.sidebar:
     st.title("AIMU Chatbot")
     st.write("Example AI Assistant")
 
-    # Model/client selectors use base_client since AgenticModelClient doesn't have TOOL_MODELS.
+    # Model/client selectors use base_client since the agentic view doesn't expose TOOL_MODELS.
     model = st.selectbox("Model", options=st.session_state.base_client.TOOL_MODELS, format_func=lambda x: x.name)
     model_client = st.selectbox("Model Client", options=MODEL_CLIENTS, format_func=lambda x: x.__name__)
     agentic_mode = st.checkbox("Agentic mode", value=st.session_state.agentic_mode)
@@ -115,7 +114,7 @@ with st.sidebar:
 
     # These checks must run before the sliders are rendered so that _set_slider_defaults can update
     # session state keys that are bound to slider widgets without triggering a StreamlitAPIException.
-    # Use base_client for isinstance checks — model_client may be AgenticModelClient.
+    # Use base_client for isinstance checks — model_client may be an agentic view.
     if not isinstance(st.session_state.base_client, model_client):
         _rebuild_client(model_client, model_client.TOOL_MODELS[0], agentic_mode, max_iterations)
         st.rerun()

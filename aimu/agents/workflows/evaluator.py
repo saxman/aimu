@@ -4,38 +4,34 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
-from aimu.agents.base import Workflow, AgentChunk, MessageHistory
 from aimu.agents.agent import Agent
-from aimu.models.base import StreamingContentType
+from aimu.agents.base import MessageHistory, Workflow
+from aimu.models.base import StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class EvaluatorOptimizer(Workflow):
-    """
-    Workflow pattern: iteratively improve output using a generator-evaluator loop.
+    """Anthropic's **Evaluator-Optimizer** pattern: iteratively improve via critic feedback.
 
-    The generator produces an initial response to the task. The evaluator receives
-    the task and the generated output and must return either ``pass_keyword``
-    (accepted) or a revision request. On a revision request the generator receives
-    the evaluator's feedback and tries again. The loop stops when the evaluator
-    returns the pass keyword or ``max_rounds`` is reached.
+    The generator produces an initial response. The evaluator reviews it against the
+    original task and either returns ``pass_keyword`` (accepted) or revision feedback.
+    The loop stops when the evaluator accepts or ``max_rounds`` is reached.
 
-    Prompt the evaluator to respond with the exact ``pass_keyword`` string when
-    the output is acceptable, and with specific revision feedback otherwise.
+    Prompt the evaluator to respond with the exact ``pass_keyword`` for acceptance and
+    specific revision feedback otherwise.
 
     Usage::
 
         eo = EvaluatorOptimizer(
-            generator=Agent(client, name="writer",
-                system_message="Write a clear, accurate explanation of the concept."),
-            evaluator=Agent(client, name="critic",
-                system_message=(
-                    "Review the response for accuracy and clarity. "
-                    "If it meets the bar, reply PASS. "
-                    "Otherwise reply REVISE: <specific feedback>."
-                )),
+            generator=Agent(client, "Write a clear, accurate explanation.", name="writer"),
+            evaluator=Agent(
+                client,
+                "Review for accuracy and clarity. If acceptable, reply PASS. "
+                "Otherwise reply REVISE: <specific feedback>.",
+                name="critic",
+            ),
             max_rounds=4,
         )
         result = eo.run("Explain gradient descent.")
@@ -60,11 +56,8 @@ class EvaluatorOptimizer(Workflow):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
-    ) -> Union[str, Iterator[AgentChunk]]:
-        """Run the generate-evaluate loop. stream=True yields the final output as a single GENERATING chunk.
-
-        ``images`` are forwarded only to the initial generator turn; evaluator and revisions are text-only.
-        """
+    ) -> Union[str, Iterator[StreamChunk]]:
+        """Run the generate-evaluate loop. Streaming yields only the final output."""
         if stream:
             return self._run_streamed(task, generate_kwargs, images=images)
         output = self.generator.run(task, generate_kwargs=generate_kwargs, images=images)
@@ -84,6 +77,6 @@ class EvaluatorOptimizer(Workflow):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         images: Optional[list] = None,
-    ) -> Iterator[AgentChunk]:
+    ) -> Iterator[StreamChunk]:
         output = self.run(task, generate_kwargs=generate_kwargs, images=images)
-        yield AgentChunk(self.name, 0, StreamingContentType.GENERATING, output)
+        yield StreamChunk(StreamingContentType.GENERATING, output, agent=self.name, iteration=0)

@@ -1,22 +1,19 @@
-from ..base import Model
+from ..base import Model, ModelSpec
 from .openai_compat_client import OpenAICompatClient
 
 VLLM_BASE_URL = "http://localhost:8000/v1"
 
 
 class VLLMOpenAIModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False):
-        super().__init__(value, supports_tools, supports_thinking)
-
     # Model values are HuggingFace repo paths (as used by `vllm serve --model`).
-    LLAMA_3_1_8B = ("meta-llama/Llama-3.1-8B-Instruct", True)
-    LLAMA_3_2_3B = ("meta-llama/Llama-3.2-3B-Instruct", True)
-    MISTRAL_7B = ("mistralai/Mistral-7B-Instruct-v0.3", True)
-    PHI_4_MINI = ("microsoft/Phi-4-mini-instruct", True)
-    QWEN_3_4B = ("Qwen/Qwen3-4B", True, True)
-    QWEN_3_8B = ("Qwen/Qwen3-8B", True, True)
-    DEEPSEEK_R1_7B = ("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", False, True)
-    GEMMA_3_12B = ("google/gemma-3-12b-it", True)
+    LLAMA_3_1_8B = ModelSpec("meta-llama/Llama-3.1-8B-Instruct", tools=True)
+    LLAMA_3_2_3B = ModelSpec("meta-llama/Llama-3.2-3B-Instruct", tools=True)
+    MISTRAL_7B = ModelSpec("mistralai/Mistral-7B-Instruct-v0.3", tools=True)
+    PHI_4_MINI = ModelSpec("microsoft/Phi-4-mini-instruct", tools=True)
+    QWEN_3_4B = ModelSpec("Qwen/Qwen3-4B", tools=True, thinking=True)
+    QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
+    DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
+    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True)
 
 
 class VLLMOpenAIClient(OpenAICompatClient):

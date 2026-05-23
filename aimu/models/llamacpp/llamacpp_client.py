@@ -2,23 +2,20 @@ import json
 import logging
 from typing import Iterator, Optional, Any, Union
 
-from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
 from .._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
 
 
 class LlamaCppModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
-        super().__init__(value, supports_tools, supports_thinking, supports_vision)
-
-    LLAMA_3_1_8B = ("llama-3.1-8b", False)
-    LLAMA_3_2_3B = ("llama-3.2-3b", False)
-    MISTRAL_7B = ("mistral-7b", True)
-    QWEN_3_4B = ("qwen3-4b", True, True)
-    QWEN_3_8B = ("qwen3-8b", True, True)
-    DEEPSEEK_R1_7B = ("deepseek-r1-7b", False, True)
-    PHI_4_MINI = ("phi-4-mini", True)
+    LLAMA_3_1_8B = ModelSpec("llama-3.1-8b")
+    LLAMA_3_2_3B = ModelSpec("llama-3.2-3b")
+    MISTRAL_7B = ModelSpec("mistral-7b", tools=True)
+    QWEN_3_4B = ModelSpec("qwen3-4b", tools=True, thinking=True)
+    QWEN_3_8B = ModelSpec("qwen3-8b", tools=True, thinking=True)
+    DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-7b", thinking=True)
+    PHI_4_MINI = ModelSpec("phi-4-mini", tools=True)
 
 
 class LlamaCppClient(BaseModelClient):
@@ -94,7 +91,7 @@ class LlamaCppClient(BaseModelClient):
             else:
                 yield StreamChunk(StreamingContentType.GENERATING, text)
 
-    def generate(
+    def _generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
@@ -132,7 +129,7 @@ class LlamaCppClient(BaseModelClient):
         )
         yield from self._iter_stream(stream, include_thinking)
 
-    def chat(
+    def _chat(
         self,
         user_message: str,
         generate_kwargs: Optional[dict[str, Any]] = None,

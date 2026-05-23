@@ -74,7 +74,7 @@ class ContentCreationAgent(OrchestratorAgent):
             """Write a complete draft of one content section given its title and context notes."""
             return section_agent.run(section_title_and_context)
 
-        self._setup_orchestrator(
+        self._init_orchestrator(
             model_client,
             name="content-creation-agent",
             system_message=(

@@ -27,7 +27,12 @@ def build_skills_server(manager: SkillManager) -> FastMCP:
     @server.tool()
     def activate_skill(name: str) -> str:
         """Load the full instructions for a named agent skill."""
-        return _manager.get_skill_body(name)
+        from aimu.skills.manager import SkillNotFoundError
+
+        try:
+            return _manager.get_skill_body(name)
+        except SkillNotFoundError as exc:
+            return str(exc)
 
     for skill in manager.skills.values():
         _register_script_tools(server, skill.name, skill.base_dir / "scripts")

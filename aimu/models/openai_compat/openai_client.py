@@ -3,7 +3,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from ..base import Model
+from ..base import Model, ModelSpec
 from .openai_compat_client import OpenAICompatClient
 
 OPENAI_BASE_URL = "https://api.openai.com/v1"
@@ -13,20 +13,17 @@ _O_SERIES_PREFIXES = ("o1", "o3", "o4")
 
 
 class OpenAIModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False, supports_vision=False):
-        super().__init__(value, supports_tools, supports_thinking, supports_vision)
-
     # Standard GPT models
-    GPT_4O_MINI = ("gpt-4o-mini", True, False, True)
-    GPT_4O = ("gpt-4o", True, False, True)
-    GPT_4_1 = ("gpt-4.1", True, False, True)
-    GPT_4_1_MINI = ("gpt-4.1-mini", True, False, True)
-    GPT_4_1_NANO = ("gpt-4.1-nano", True, False, True)
+    GPT_4O_MINI = ModelSpec("gpt-4o-mini", tools=True, vision=True)
+    GPT_4O = ModelSpec("gpt-4o", tools=True, vision=True)
+    GPT_4_1 = ModelSpec("gpt-4.1", tools=True, vision=True)
+    GPT_4_1_MINI = ModelSpec("gpt-4.1-mini", tools=True, vision=True)
+    GPT_4_1_NANO = ModelSpec("gpt-4.1-nano", tools=True, vision=True)
     # o-series reasoning models: reasoning tokens not accessible as text chunks,
-    # so supports_thinking=False; pass reasoning_effort via generate_kwargs if needed
-    O4_MINI = ("o4-mini", True, False, True)
-    O3 = ("o3", True, False, True)
-    O3_MINI = ("o3-mini", True)
+    # so thinking=False; pass reasoning_effort via generate_kwargs if needed
+    O4_MINI = ModelSpec("o4-mini", tools=True, vision=True)
+    O3 = ModelSpec("o3", tools=True, vision=True)
+    O3_MINI = ModelSpec("o3-mini", tools=True)
 
 
 class OpenAIClient(OpenAICompatClient):

@@ -145,20 +145,32 @@ def test_skill_manager_skips_dir_without_skill_md(tmp_path):
     assert len(manager.skills) == 0
 
 
-def test_skill_manager_skips_missing_description(tmp_path):
+def test_skill_manager_raises_on_missing_description(tmp_path):
+    """Malformed SKILL.md is no longer silently skipped — SkillLoadError is raised."""
+    import pytest
+
+    from aimu.skills import SkillLoadError
+
     skill_dir = tmp_path / "bad-skill"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text("---\nname: bad-skill\n---\n\nNo description.", encoding="utf-8")
     manager = SkillManager(skill_dirs=[str(tmp_path)])
-    assert "bad-skill" not in manager.skills
+    with pytest.raises(SkillLoadError, match="description"):
+        _ = manager.skills
 
 
-def test_skill_manager_skips_no_frontmatter(tmp_path):
+def test_skill_manager_raises_on_no_frontmatter(tmp_path):
+    """SKILL.md without YAML frontmatter raises SkillLoadError."""
+    import pytest
+
+    from aimu.skills import SkillLoadError
+
     skill_dir = tmp_path / "raw-skill"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text("No frontmatter at all.", encoding="utf-8")
     manager = SkillManager(skill_dirs=[str(tmp_path)])
-    assert len(manager.skills) == 0
+    with pytest.raises(SkillLoadError, match="frontmatter"):
+        _ = manager.skills
 
 
 # ---------------------------------------------------------------------------
@@ -212,9 +224,14 @@ def test_skill_manager_get_skill_body_returns_body(tmp_path):
 
 
 def test_skill_manager_get_skill_body_unknown_name(tmp_path):
+    """get_skill_body raises SkillNotFoundError instead of returning a sentinel string."""
+    import pytest
+
+    from aimu.skills import SkillNotFoundError
+
     manager = SkillManager(skill_dirs=[str(tmp_path)])
-    result = manager.get_skill_body("nonexistent")
-    assert "not found" in result.lower()
+    with pytest.raises(SkillNotFoundError, match="not found"):
+        manager.get_skill_body("nonexistent")
 
 
 # ---------------------------------------------------------------------------

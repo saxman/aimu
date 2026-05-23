@@ -68,7 +68,7 @@ class OpenAICompatClient(BaseModelClient):
             else:
                 yield StreamChunk(StreamingContentType.GENERATING, delta.content)
 
-    def generate(
+    def _generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
@@ -108,7 +108,7 @@ class OpenAICompatClient(BaseModelClient):
         )
         yield from self._iter_stream(stream, include_thinking)
 
-    def chat(
+    def _chat(
         self,
         user_message: str,
         generate_kwargs: Optional[dict[str, Any]] = None,

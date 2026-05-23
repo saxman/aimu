@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Optional, Union
 
-from .base import BaseModelClient, Model, StreamChunk
+from .base import BaseModelClient, Model, ModelSpec, StreamChunk
 
 # --- Optional provider imports ---
 
@@ -71,25 +71,96 @@ except ImportError:
     LlamaCppModel = None  # type: ignore[assignment,misc]
 
 
-class ModelClient(BaseModelClient):
-    """
-    Factory wrapper that instantiates the appropriate concrete client based on the
-    model enum type passed in, then delegates all method calls to it.
+def _provider_registry() -> dict[str, tuple[Any, Any]]:
+    """Map ``"provider"`` strings to ``(ModelEnum, ClientClass)`` pairs.
 
-    Usage::
+    Only available providers (whose optional dependency is installed) appear in the table.
+    Used by :func:`resolve_model_string` to look up a model by string identifier.
+    """
+    registry: dict[str, tuple[Any, Any]] = {}
+    if _HAS_OLLAMA:
+        registry["ollama"] = (OllamaModel, OllamaClient)
+    if _HAS_HF:
+        registry["hf"] = (HuggingFaceModel, HuggingFaceClient)
+    if _HAS_ANTHROPIC:
+        registry["anthropic"] = (AnthropicModel, AnthropicClient)
+    if _HAS_OPENAI_COMPAT:
+        registry["openai"] = (OpenAIModel, OpenAIClient)
+        registry["gemini"] = (GeminiModel, GeminiClient)
+        registry["lmstudio"] = (LMStudioOpenAIModel, LMStudioOpenAIClient)
+        registry["ollama-openai"] = (OllamaOpenAIModel, OllamaOpenAIClient)
+        registry["hf-openai"] = (HFOpenAIModel, HFOpenAIClient)
+        registry["vllm"] = (VLLMOpenAIModel, VLLMOpenAIClient)
+        registry["llamaserver"] = (LlamaServerOpenAIModel, LlamaServerOpenAIClient)
+        registry["sglang"] = (SGLangOpenAIModel, SGLangOpenAIClient)
+    if _HAS_LLAMACPP:
+        registry["llamacpp"] = (LlamaCppModel, LlamaCppClient)
+    return registry
+
+
+def resolve_model_string(model_str: str) -> Model:
+    """Look up a provider model enum from a ``"provider:model_id"`` string.
+
+    Examples::
+
+        resolve_model_string("anthropic:claude-sonnet-4-6")
+        resolve_model_string("ollama:qwen3.5:9b")          # colons in the id are fine
+        resolve_model_string("openai:gpt-4o-mini")
+
+    Raises ``ValueError`` with the list of valid ids when the provider or id is unknown.
+    """
+    if ":" not in model_str:
+        raise ValueError(
+            f"Model string must be in 'provider:model_id' form, got: {model_str!r}. "
+            f"Available providers: {sorted(_provider_registry())}"
+        )
+    provider, _, model_id = model_str.partition(":")
+    registry = _provider_registry()
+    if provider not in registry:
+        raise ValueError(
+            f"Unknown provider {provider!r}. Available providers (with installed deps): "
+            f"{sorted(registry)}"
+        )
+    model_enum, _ = registry[provider]
+    for member in model_enum:
+        if member.value == model_id:
+            return member
+    available = sorted(m.value for m in model_enum)
+    raise ValueError(
+        f"Provider {provider!r} has no model id {model_id!r}. Available: {available}"
+    )
+
+
+class ModelClient(BaseModelClient):
+    """Public factory for provider-backed model clients.
+
+    Accepts either a provider's ``Model`` enum member or a ``"provider:model_id"`` string::
 
         from aimu.models import ModelClient, OllamaModel
 
+        # Enum form
         client = ModelClient(OllamaModel.QWEN_3_8B)
-        client.chat("Hello")
 
-        # Provider-specific kwargs are passed through:
-        client = ModelClient(LlamaCppModel.QWEN_3_8B, model_path="/path/to/model.gguf")
-        client = ModelClient(OllamaModel.LLAMA_3_1_8B, model_keep_alive_seconds=120)
-        client = ModelClient(LMStudioOpenAIModel.LLAMA_3_2_3B, base_url="http://myserver:1234/v1")
+        # String form (no enum import needed)
+        client = ModelClient("anthropic:claude-sonnet-4-6")
+        client = ModelClient("ollama:qwen3.5:9b")
+
+    Provider-specific kwargs are forwarded to the concrete client::
+
+        ModelClient(LlamaCppModel.QWEN_3_8B, model_path="/path/to/model.gguf")
+        ModelClient(OllamaModel.LLAMA_3_1_8B, model_keep_alive_seconds=120)
+        ModelClient(LMStudioOpenAIModel.LLAMA_3_2_3B, base_url="http://myserver:1234/v1")
     """
 
-    def __init__(self, model: Model, **kwargs: Any) -> None:
+    def __init__(self, model: Union[Model, ModelSpec, str], **kwargs: Any) -> None:
+        if isinstance(model, str):
+            model = resolve_model_string(model)
+        elif isinstance(model, ModelSpec):
+            raise TypeError(
+                "Pass a Model enum member (e.g. OllamaModel.QWEN_3_8B) or a "
+                "'provider:model_id' string. ModelSpec is the value type held by enum members."
+            )
+
         # Dispatch to concrete client by model enum type.
         # isinstance checks are guarded by _HAS_* flags (short-circuit and) so
         # that a None model class from a missing optional dep never reaches isinstance().
@@ -160,7 +231,7 @@ class ModelClient(BaseModelClient):
         return self._client.system_message
 
     @system_message.setter
-    def system_message(self, message: str) -> None:
+    def system_message(self, message: Optional[str]) -> None:
         self._client.system_message = message
 
     @property
@@ -171,18 +242,21 @@ class ModelClient(BaseModelClient):
     def last_thinking(self, value: str) -> None:
         self._client.last_thinking = value
 
-    # --- Implement abstract methods by delegation ---
+    def reset(self, system_message: Optional[str] = "__keep__") -> None:
+        self._client.reset(system_message)
 
-    def generate(
+    # --- Implement abstract _chat / _generate by delegating to inner client ---
+
+    def _generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         include_thinking: bool = True,
     ) -> Union[str, Iterator[StreamChunk]]:
-        return self._client.generate(prompt, generate_kwargs, stream=stream, include_thinking=include_thinking)
+        return self._client._generate(prompt, generate_kwargs, stream=stream, include_thinking=include_thinking)
 
-    def chat(
+    def _chat(
         self,
         user_message: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
@@ -190,7 +264,7 @@ class ModelClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        return self._client.chat(
+        return self._client._chat(
             user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images
         )
 

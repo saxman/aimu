@@ -76,7 +76,7 @@ class CodeReviewAgent(OrchestratorAgent):
             """Analyze code for readability and maintainability issues."""
             return readability_agent.run(code)
 
-        self._setup_orchestrator(
+        self._init_orchestrator(
             model_client,
             name="code-review-agent",
             system_message=(

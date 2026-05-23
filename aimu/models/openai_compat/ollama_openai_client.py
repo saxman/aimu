@@ -1,23 +1,20 @@
-from ..base import Model
+from ..base import Model, ModelSpec
 from .openai_compat_client import OpenAICompatClient
 
 OLLAMA_BASE_URL = "http://localhost:11434/v1"
 
 
 class OllamaOpenAIModel(Model):
-    def __init__(self, value, supports_tools=False, supports_thinking=False):
-        super().__init__(value, supports_tools, supports_thinking)
-
     # Model values are Ollama model tags (as used by `ollama pull`).
-    LLAMA_3_1_8B = ("llama3.1:8b", False)
-    LLAMA_3_2_3B = ("llama3.2:3b", False)
-    MISTRAL_7B = ("mistral:7b", True)
-    PHI_4_MINI = ("phi4-mini:3.8b", True)
-    QWEN_3_4B = ("qwen3:4b", True, True)
-    QWEN_3_8B = ("qwen3:8b", True, True)
-    QWEN_3_5_9B = ("qwen3.5:9b", True, True)
-    DEEPSEEK_R1_8B = ("deepseek-r1:8b", False, True)
-    GEMMA_3_12B = ("gemma3:12b", False)
+    LLAMA_3_1_8B = ModelSpec("llama3.1:8b")
+    LLAMA_3_2_3B = ModelSpec("llama3.2:3b")
+    MISTRAL_7B = ModelSpec("mistral:7b", tools=True)
+    PHI_4_MINI = ModelSpec("phi4-mini:3.8b", tools=True)
+    QWEN_3_4B = ModelSpec("qwen3:4b", tools=True, thinking=True)
+    QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)
+    QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True)
+    DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True)
+    GEMMA_3_12B = ModelSpec("gemma3:12b")
 
 
 class OllamaOpenAIClient(OpenAICompatClient):

@@ -2,63 +2,60 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator, NamedTuple, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
-from aimu.agents.base import Workflow, AgentChunk, MessageHistory
-from aimu.models.base import StreamingContentType, BaseModelClient
+from aimu.agents.base import MessageHistory, Workflow
+from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
 
 
-class ChainChunk(NamedTuple):
-    """An AgentChunk tagged with the sequential step index within the chain."""
-
-    step: int
-    agent_name: str
-    iteration: int
-    phase: StreamingContentType
-    content: str
+# Back-compat alias. ChainChunk used to be a separate NamedTuple with a `step` field;
+# that role is now played by StreamChunk.iteration.
+ChainChunk = StreamChunk
 
 
 @dataclass
 class Chain(Workflow):
-    """
-    Workflow pattern: chain agents sequentially (Anthropic's Prompt Chaining pattern).
+    """Anthropic's **Prompt Chaining** pattern: agents run sequentially, output → input.
 
-    The text output of step N becomes the task input for step N+1. Unlike a raw
-    prompt chain, AIMU's implementation chains full Agent objects, so each step
-    can itself run a multi-iteration agentic loop with tool access.
+    Each step's text output (concatenated GENERATING chunks) becomes the next step's
+    task input. Steps may be :class:`Agent` instances or nested workflows.
 
-    The simplest way to build a Chain is ``from_config``: pass a list of config
-    dicts and a single BaseModelClient. Each step is a Agent with
-    ``reset_messages_on_run=True``, so the client's messages are cleared and
-    ``system_message`` applied before every step, giving each step a clean slate
-    even though they share one client.
+    Quick start::
 
-    For direct construction (each agent owns its own client)::
+        chain = Chain.of(client, [
+            "Break the task into 3 concrete steps.",
+            "Execute each step and collect results.",
+            "Polish the result into a final report.",
+        ])
+        result = chain.run("Research top Python web frameworks.")
+
+    Direct construction (each step owns its own client/agent)::
 
         chain = Chain(agents=[
-            Agent(client_a, name="planner"),
-            Agent(client_b, name="executor"),
+            Agent(client_a, "Planner", name="planner"),
+            Agent(client_b, "Executor", name="executor"),
         ])
-
-    Via from_config (shared client)::
-
-        client = OllamaClient(OllamaModel.QWEN_3_8B)
-        client.mcp_client = MCPClient(server=mcp)
-
-        chain = Chain.from_config(
-            [
-                {"name": "planner",  "system_message": "Break the task into steps.", "max_iterations": 3},
-                {"name": "executor", "system_message": "Execute each step.",         "max_iterations": 10},
-            ],
-            client,
-        )
-        result = chain.run("Research the top Python web frameworks.")
     """
 
     agents: list
     name: str = "chain"
+
+    @classmethod
+    def of(cls, client: BaseModelClient, prompts: list[str], *, name: str = "chain") -> Chain:
+        """Build a Chain from a single client and a list of step system_messages.
+
+        Each step gets its own :class:`Agent` with ``reset_messages_on_run=True`` so it
+        clears the shared client's history and applies its own system_message.
+        """
+        from aimu.agents.agent import Agent
+
+        agents = [
+            Agent(client, system_message=prompt, name=f"step-{i}", reset_messages_on_run=True)
+            for i, prompt in enumerate(prompts)
+        ]
+        return cls(agents=agents, name=name)
 
     def run(
         self,
@@ -66,11 +63,8 @@ class Chain(Workflow):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
-    ) -> Union[str, Iterator[ChainChunk]]:
-        """Run all agents sequentially. Returns a string (stream=False) or a ChainChunk iterator (stream=True).
-
-        ``images`` are forwarded only to the first step; subsequent steps consume the prior step's text output.
-        """
+    ) -> Union[str, Iterator[StreamChunk]]:
+        """Run all agents sequentially. ``images`` are forwarded only to the first step."""
         if stream:
             return self._run_streamed(task, generate_kwargs, images=images)
         result = task
@@ -85,15 +79,16 @@ class Chain(Workflow):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         images: Optional[list] = None,
-    ) -> Iterator[ChainChunk]:
+    ) -> Iterator[StreamChunk]:
         result = task
         for step, agent in enumerate(self.agents):
             logger.debug("Chain step %d, agent '%s'.", step, agent.name)
             step_images = images if step == 0 else None
-            step_chunks: list[AgentChunk] = []
+            step_chunks: list[StreamChunk] = []
             for chunk in agent.run(result, generate_kwargs=generate_kwargs, stream=True, images=step_images):
                 step_chunks.append(chunk)
-                yield ChainChunk(step, chunk.agent_name, chunk.iteration, chunk.phase, chunk.content)
+                # Re-tag iteration with the chain step so downstream readers can group.
+                yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=step)
             result = "".join(c.content for c in step_chunks if c.phase == StreamingContentType.GENERATING)
 
     @property
@@ -104,23 +99,11 @@ class Chain(Workflow):
         return result
 
     @classmethod
-    def from_config(
-        cls,
-        configs: list[dict[str, Any]],
-        client: BaseModelClient,
-    ) -> Chain:
-        """
-        Build a Chain from a list of agent config dicts and a single BaseModelClient.
+    def from_config(cls, configs: list[dict[str, Any]], client: BaseModelClient) -> Chain:
+        """Build a Chain from a list of agent config dicts and a single client.
 
-        The client is shared across all steps. Each step's Agent has
-        ``reset_messages_on_run=True`` so it clears the client's messages and
-        applies its own ``system_message`` before running, keeping steps isolated.
-
-        Example::
-
-            client = OllamaClient(OllamaModel.QWEN_3_8B)
-            client.mcp_client = MCPClient(server=mcp)
-            Chain.from_config(configs, client)
+        Each step's Agent gets ``reset_messages_on_run=True`` so it clears the client's
+        messages and applies its own system_message before running.
         """
         from aimu.agents.agent import Agent
 

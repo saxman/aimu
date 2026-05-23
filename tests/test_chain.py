@@ -32,13 +32,14 @@ def test_chain_run_single_agent():
 
 
 def test_chain_streamed_yields_chain_chunks():
+    """ChainChunk is now an alias for StreamChunk; chain step lives in `iteration`."""
     client_a = MockModelClient(["part one"])
     client_b = MockModelClient(["part two"])
     chain = Chain(agents=[Agent(client_a, name="a"), Agent(client_b, name="b")])
     chunks = list(chain.run_streamed("go"))
 
     assert all(isinstance(c, ChainChunk) for c in chunks)
-    steps = {c.step for c in chunks}
+    steps = {c.iteration for c in chunks}
     assert steps == {0, 1}
 
 
@@ -48,10 +49,10 @@ def test_chain_streamed_step_tags():
     chain = Chain(agents=[Agent(client_a, name="alpha"), Agent(client_b, name="beta")])
     chunks = list(chain.run_streamed("start"))
 
-    step0 = [c for c in chunks if c.step == 0]
-    step1 = [c for c in chunks if c.step == 1]
-    assert all(c.agent_name == "alpha" for c in step0)
-    assert all(c.agent_name == "beta" for c in step1)
+    step0 = [c for c in chunks if c.iteration == 0]
+    step1 = [c for c in chunks if c.iteration == 1]
+    assert all(c.agent == "alpha" for c in step0)
+    assert all(c.agent == "beta" for c in step1)
 
 
 def test_chain_from_config():

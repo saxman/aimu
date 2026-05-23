@@ -4,42 +4,36 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
-from aimu.agents.base import Workflow, Runner, AgentChunk, MessageHistory
 from aimu.agents.agent import Agent
-from aimu.models.base import StreamingContentType, BaseModelClient
+from aimu.agents.base import MessageHistory, Runner, Workflow
+from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class Router(Workflow):
-    """
-    Workflow pattern: classify the input then dispatch to a specialist runner.
+    """Anthropic's **Routing** pattern: classify the task, dispatch to a specialist.
 
-    The routing_agent receives the task and must return a single route name as
-    its response. The Router dispatches to the matching handler. Route names are
-    compared case-insensitively after stripping whitespace.
+    The routing_agent receives the task and must respond with a single route name.
+    The Router dispatches to the matching handler (case-insensitive, whitespace-stripped).
+    Handlers may be any :class:`Runner` (agent or nested workflow).
 
-    Handlers may be any Runner subclass (agents or nested workflows), so a
-    Router can dispatch to another Router, a Parallel, or a Agent.
+    Quick start::
 
-    Usage::
-
-        router = Router(
-            routing_agent=Agent(client, name="classifier",
-                system_message="Classify the task as one of: code, writing, math. Reply with only the category name."),
+        router = Router.of(
+            client,
+            classifier_prompt=(
+                "Classify the task as one of: code, writing, math. "
+                "Reply with only the category name."
+            ),
             handlers={
-                "code":    Agent(code_client, name="coder"),
-                "writing": Agent(write_client, name="writer"),
-                "math":    Agent(math_client, name="mathematician"),
+                "code":    Agent(client, "You are a coder.", name="coder"),
+                "writing": Agent(client, "You are a writer.", name="writer"),
+                "math":    Agent(client, "You are a mathematician.", name="math"),
             },
-            fallback=Agent(client, name="general"),
+            fallback=Agent(client, "Be helpful.", name="general"),
         )
-        result = router.run("Write a poem about recursion.")
-
-    From config::
-
-        router = Router.from_config(routing_config, handler_configs, client)
     """
 
     routing_agent: Agent
@@ -47,8 +41,26 @@ class Router(Workflow):
     name: str = "router"
     fallback: Optional[Runner] = None
 
+    @classmethod
+    def of(
+        cls,
+        client: BaseModelClient,
+        classifier_prompt: str,
+        handlers: dict[str, Runner],
+        *,
+        fallback: Optional[Runner] = None,
+        name: str = "router",
+    ) -> Router:
+        """Build a Router using ``client`` as the classifier with the given prompt."""
+        routing_agent = Agent(
+            client,
+            system_message=classifier_prompt,
+            name="router-classifier",
+            reset_messages_on_run=True,
+        )
+        return cls(routing_agent=routing_agent, handlers=handlers, fallback=fallback, name=name)
+
     def _classify(self, task: str, generate_kwargs: Optional[dict[str, Any]]) -> str:
-        """Run the routing_agent and return the normalised route name."""
         route = self.routing_agent.run(task, generate_kwargs=generate_kwargs)
         return route.strip().lower()
 
@@ -58,10 +70,10 @@ class Router(Workflow):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
-    ) -> Union[str, Iterator[AgentChunk]]:
-        """Classify the task and dispatch to the matched handler. Returns str or AgentChunk iterator.
+    ) -> Union[str, Iterator[StreamChunk]]:
+        """Classify the task and dispatch to the matched handler.
 
-        ``images`` are forwarded to the dispatched handler (the routing agent classifies on text only).
+        ``images`` are forwarded to the handler; the routing agent classifies on text only.
         """
         if stream:
             return self._run_streamed(task, generate_kwargs, images=images)
@@ -77,7 +89,7 @@ class Router(Workflow):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         images: Optional[list] = None,
-    ) -> Iterator[AgentChunk]:
+    ) -> Iterator[StreamChunk]:
         route_parts: list[str] = []
         for chunk in self.routing_agent.run(task, generate_kwargs=generate_kwargs, stream=True):
             yield chunk
@@ -108,15 +120,7 @@ class Router(Workflow):
         client: BaseModelClient,
         fallback_config: Optional[dict[str, Any]] = None,
     ) -> Router:
-        """
-        Build a Router from config dicts and a single BaseModelClient.
-
-        Args:
-            routing_config: Config dict for the routing Agent (name, system_message, etc.)
-            handler_configs: Mapping of route name → Agent config dict
-            client: Shared BaseModelClient for all agents
-            fallback_config: Optional config dict for the fallback Agent
-        """
+        """Build a Router from config dicts and a single client."""
         routing_agent = Agent.from_config(routing_config, client)
         handlers: dict[str, Runner] = {
             route: Agent.from_config(cfg, client) for route, cfg in handler_configs.items()

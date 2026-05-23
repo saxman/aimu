@@ -13,7 +13,6 @@ from typing import Iterable
 
 import pytest
 
-from aimu.agents.agentic_client import AgenticModelClient
 from aimu.agents.agent import Agent
 from aimu.models import BaseModelClient
 from aimu.models._images import (
@@ -302,10 +301,10 @@ def test_decode_image_url_to_pil_data_url():
 # --------------------------------------------------------------------------- #
 
 
-def test_agentic_model_client_forwards_images():
+def test_agent_as_model_client_forwards_images():
     inner = _VisionMockClient(["it's a tiny pixel"])
     agent = Agent(inner, name="vision-agent", max_iterations=2)
-    client = AgenticModelClient(agent)
+    client = agent.as_model_client()
 
     response = client.chat("what is this?", images=[_TINY_PNG_DATA_URL])
     assert response == "it's a tiny pixel"

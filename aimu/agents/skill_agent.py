@@ -13,35 +13,24 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SkillAgent(Agent):
-    """
-    An Agent extended with skill discovery and injection.
+    """An :class:`Agent` extended with filesystem-discovered skill injection.
 
-    On the first run (or after a message reset), SkillAgent appends the skill
-    catalog to the system message and attaches a skills MCPClient so the model
-    can call ``activate_skill`` to load full skill instructions before proceeding.
+    On first run (or after a message reset) the SkillAgent appends the skill catalog
+    to its system message and attaches a skills MCPClient so the model can call
+    ``activate_skill`` to load full skill instructions before proceeding.
 
-    By default a ``SkillManager()`` is created, which scans the standard search
-    paths (``.agents/skills/``, ``.claude/skills/``, and their ``~/`` equivalents).
-    Pass an explicit ``SkillManager`` to use specific directories.
+    By default a fresh :class:`SkillManager` is created, scanning the standard search
+    paths (``.agents/skills/``, ``.claude/skills/``, ``~/.agents/skills/``,
+    ``~/.claude/skills/``). Pass an explicit ``SkillManager`` to override.
 
     Usage::
 
-        agent = SkillAgent(client, name="assistant")
+        agent = SkillAgent(client, "Use available skills as needed.")
         result = agent.run("Use the pdf-processing skill to extract pages.")
 
     With explicit skill dirs::
 
-        agent = SkillAgent(
-            client,
-            skill_manager=SkillManager(skill_dirs=["./skills"]),
-        )
-
-    From config::
-
-        agent = SkillAgent.from_config(
-            {"name": "helper", "skill_dirs": ["./skills"]},
-            client,
-        )
+        agent = SkillAgent(client, skill_manager=SkillManager(skill_dirs=["./skills"]))
     """
 
     skill_manager: SkillManager = field(default_factory=SkillManager, repr=False)
@@ -55,7 +44,6 @@ class SkillAgent(Agent):
         self._setup_skills()
 
     def _setup_skills(self) -> None:
-        """Inject the skill catalog into the system message and attach a skills MCPClient. Called once per run."""
         if self._skills_setup_done or not self.skill_manager.skills:
             return
         self._skills_setup_done = True
@@ -65,7 +53,14 @@ class SkillAgent(Agent):
             "\n\n" + catalog + "\n\nWhen a task matches a skill's description, call `activate_skill` "
             "with the skill name to load its full instructions before proceeding."
         )
-        self.model_client.system_message = (self.model_client.system_message or "") + instructions
+        # Skill injection happens before the first chat(), so system_message is still
+        # mutable via the public setter. (_prepare_run resets the lock when a
+        # system_message is configured on the agent.)
+        new_system = (self.model_client.system_message or "") + instructions
+        # Unlock before reassigning, in case the client was used previously.
+        if getattr(self.model_client, "_system_message_locked", False):
+            self.model_client.reset()
+        self.model_client.system_message = new_system
 
         if self._skills_mcp_client is None:
             from aimu.skills.mcp import build_skills_server
@@ -77,28 +72,20 @@ class SkillAgent(Agent):
 
     @classmethod
     def from_config(cls, config: dict[str, Any], model_client: BaseModelClient) -> SkillAgent:
-        """
-        Create a SkillAgent from a plain dict config.
+        """Create a SkillAgent from a plain dict config.
 
-        Recognised keys:
-            name (str):              agent identifier
-            system_message (str):    applied before each run
-            max_iterations (int):    max tool-call rounds (default 10)
-            continuation_prompt (str)
-            skill_dirs (list[str]):  explicit skill search paths; omit to auto-discover
+        Recognised keys: ``name``, ``system_message``, ``max_iterations``,
+        ``continuation_prompt``, ``skill_dirs`` (omit to auto-discover).
         """
         sm = config.get("system_message")
-        if sm is not None:
-            model_client.system_message = sm
-
         skill_dirs = config.get("skill_dirs")
         skill_manager = SkillManager(skill_dirs=skill_dirs) if skill_dirs else SkillManager()
 
         return cls(
             model_client=model_client,
-            name=config.get("name", "agent"),
+            system_message=sm,
+            name=config.get("name"),
             max_iterations=config.get("max_iterations", 10),
             continuation_prompt=config.get("continuation_prompt", DEFAULT_CONTINUATION_PROMPT),
-            system_message=sm,
             skill_manager=skill_manager,
         )

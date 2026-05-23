@@ -96,7 +96,7 @@ class ResearchReportAgent(OrchestratorAgent):
             """Identify counterarguments, limitations, and alternative perspectives on the topic."""
             return counterpoints_agent.run(topic)
 
-        self._setup_orchestrator(
+        self._init_orchestrator(
             model_client,
             name="research-report-agent",
             system_message=(

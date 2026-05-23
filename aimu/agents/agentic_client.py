@@ -6,35 +6,24 @@ from aimu.agents.agent import Agent
 from aimu.models.base import BaseModelClient, StreamChunk
 
 
-class AgenticModelClient(BaseModelClient):
-    """
-    A ModelClient whose chat() runs the full Agent agentic loop, looping
-    until the model stops calling tools, rather than a single model turn.
+class _AgenticView(BaseModelClient):
+    """Internal: a :class:`BaseModelClient` view backed by an :class:`Agent`.
 
-    Drop-in replacement anywhere a ModelClient is accepted.
-
-    Only accepts Agent. For workflow patterns (Chain, Router, etc.), call run() / run_streamed() directly.
-
-    Usage::
-
-        inner = OllamaClient(OllamaModel.QWEN_3_8B)
-        inner.mcp_client = MCPClient(MCP_SERVERS)
-        agent = Agent(inner, max_iterations=8)
-        client = AgenticModelClient(agent)
-        client.chat("Research the top Python web frameworks.")  # loops until done
+    Each ``chat()`` runs the full agent loop. Returned by ``Agent.as_model_client()``;
+    not part of the public API. Use ``Agent.run()`` directly unless you specifically
+    need to drop an agent into an API that expects a ``BaseModelClient``.
     """
 
     def __init__(self, agent: Agent):
         if not isinstance(agent, Agent):
             raise TypeError(
-                f"AgenticModelClient only accepts Agent, got {type(agent).__name__}. "
-                "To run a Workflow (Chain, Router, Parallel, etc.), call its run() or run_streamed() directly."
+                f"_AgenticView only accepts Agent, got {type(agent).__name__}. "
+                "For workflows (Chain, Router, ...) call their run() / run(stream=True) directly."
             )
         self._agent = agent
         self._inner_client = agent.model_client
         # Mirror base attributes from inner_client (model caps, generate kwargs).
-        # super().__init__() is intentionally not called; it would reset inner_client
-        # state (messages, mcp_client, etc.) to defaults.
+        # super().__init__() is intentionally not called; it would reset inner_client state.
         self.model = self._inner_client.model
         self.model_kwargs = self._inner_client.model_kwargs
         self.default_generate_kwargs = self._inner_client.default_generate_kwargs
@@ -70,7 +59,7 @@ class AgenticModelClient(BaseModelClient):
         return self._inner_client.system_message
 
     @system_message.setter
-    def system_message(self, message: str) -> None:
+    def system_message(self, message: Optional[str]) -> None:
         self._inner_client.system_message = message
 
     @property
@@ -81,9 +70,12 @@ class AgenticModelClient(BaseModelClient):
     def last_thinking(self, value: str) -> None:
         self._inner_client.last_thinking = value
 
+    def reset(self, system_message: Optional[str] = "__keep__") -> None:
+        self._inner_client.reset(system_message)
+
     # --- Agentic overrides ---
 
-    def chat(
+    def _chat(
         self,
         user_message: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
@@ -91,30 +83,19 @@ class AgenticModelClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        """Run the full Agent loop; returns only when the model stops calling tools."""
         if stream:
-            return self._stream_agent(user_message, generate_kwargs, images=images)
+            return self._agent.run(user_message, generate_kwargs=generate_kwargs, stream=True, images=images)
         return self._agent.run(user_message, generate_kwargs=generate_kwargs, images=images)
 
-    def _stream_agent(
-        self,
-        user_message: str,
-        generate_kwargs: Optional[dict[str, Any]],
-        images: Optional[list] = None,
-    ) -> Iterator[StreamChunk]:
-        for chunk in self._agent.run(user_message, generate_kwargs=generate_kwargs, stream=True, images=images):
-            yield StreamChunk(chunk.phase, chunk.content)
-
-    # --- Pass-through for stateless generation ---
-
-    def generate(
+    def _generate(
         self,
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         include_thinking: bool = True,
     ) -> Union[str, Iterator[StreamChunk]]:
-        return self._inner_client.generate(prompt, generate_kwargs, stream=stream, include_thinking=include_thinking)
+        # generate() bypasses the agent loop (no message history, no tools).
+        return self._inner_client._generate(prompt, generate_kwargs, stream=stream, include_thinking=include_thinking)
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         return self._inner_client._update_generate_kwargs(generate_kwargs)

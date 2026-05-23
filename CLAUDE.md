@@ -67,6 +67,7 @@ pytest tests/test_history.py
 pytest tests/test_tools.py
 pytest tests/test_prompt_catalog.py
 pytest tests/test_memory.py
+pytest tests/test_redesign.py    # behavioural tests for the v0.4 API redesign
 ```
 
 ### Linting
@@ -91,32 +92,47 @@ python web/gradio_chatbot.py
 
 ## Architecture
 
+### Top-Level API
+
+- **[aimu/__init__.py](aimu/__init__.py)** exposes the small public surface most users start from:
+  - `aimu.chat(user_message, *, model, system=None, generate_kwargs=None, stream=False, images=None, include=None)` — one-shot chat: builds a fresh client, sends one message, returns the response (or a `StreamChunk` iterator when `stream=True`).
+  - `aimu.client(model, *, system=None, **provider_kwargs)` — one-line constructor that returns a fully configured `ModelClient`. Use this for multi-turn chats.
+  - `aimu.resolve_model_string(s)` — parses a `"provider:model_id"` string and returns the matching `Model` enum member. Raises `ValueError` with the list of valid ids on miss.
+  - Re-exports: `BaseModelClient`, `Model`, `ModelClient`, `ModelSpec`, `StreamChunk`, `StreamPhase`, `StreamingContentType`, `Chunk` (alias of `StreamChunk`).
+
+Model-string format: `"provider:model_id"`. Provider keys (when their optional dep is installed): `ollama`, `hf`, `anthropic`, `openai`, `gemini`, `lmstudio`, `ollama-openai`, `hf-openai`, `vllm`, `llamaserver`, `sglang`, `llamacpp`. The id is matched against the provider's `Model` enum; colons inside the id (e.g. `qwen3.5:9b`) are preserved.
+
 ### Model Client Architecture
 
 The codebase uses an abstract base class pattern for model clients:
 
 - **[aimu/models/base.py](aimu/models/base.py)**: Defines `BaseModelClient` abstract base class with:
-  - `generate(prompt, generate_kwargs, stream=False, include_thinking=True)`: Single-turn text generation; returns `str` or `Iterator[StreamChunk]`
-  - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`. `images=` (vision-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, http(s) URLs, or `data:image/...` URLs
-  - `_chat_setup()`: Prepares messages and tools before a chat call; normalizes `images=` into OpenAI-format `image_url` content blocks
-  - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions)
-  - `is_thinking_model` / `is_tool_using_model` / `is_vision_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools` / `model.supports_vision`
-  - `chat(..., stream=True)` / `generate(..., stream=True)` yield `StreamChunk(phase, content)`; type is self-contained in each chunk
-  - `system_message` property with setter that manages the system message in the messages list
-  - Message history stored in `self.messages` (OpenAI-style format; user messages with images are content-block lists)
-  - Optional `mcp_client` attribute for MCP tool integration
-  - `concurrent_tool_calls: bool = False` — when `True`, multiple tool calls returned in a single model response execute concurrently via `ThreadPoolExecutor`; results are always appended in original order
+  - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None, include=None)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`. Concrete clients implement `_chat()`; the public `chat()` is provided by the base and applies the `include` stream filter.
+  - `generate(prompt, generate_kwargs, stream=False, include_thinking=True, include=None)`: Single-turn stateless generation. Concrete clients implement `_generate()`; the public `generate()` is provided by the base.
+  - `images=` (vision-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, http(s) URLs, or `data:image/...` URLs.
+  - `include=` (streaming only): optional iterable of `StreamingContentType` values (or their string equivalents `"thinking"`, `"tool_calling"`, `"generating"`, `"done"`) selecting which phases to yield. Defaults to all phases. Replaces the legacy `include_thinking=False` boolean (still accepted on `generate`).
+  - `reset(system_message="__keep__")`: clears the conversation history and unlocks `system_message`. Default keeps the existing system message; pass `None` to clear it or a new string to replace it.
+  - `_chat_setup()`: Prepares messages and tools before a chat call; normalizes `images=` into OpenAI-format `image_url` content blocks; locks `system_message` after the first user turn.
+  - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions).
+  - `is_thinking_model` / `is_tool_using_model` / `is_vision_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools` / `model.supports_vision`.
+  - `system_message` property: setter raises `RuntimeError` once the conversation has started (after the first `chat()`); call `client.reset()` to unlock.
+  - Message history stored in `self.messages` (OpenAI-style format; user messages with images are content-block lists).
+  - Optional `mcp_client` attribute for MCP tool integration.
+  - `concurrent_tool_calls: bool = False` — when `True`, multiple tool calls returned in a single model response execute concurrently via `ThreadPoolExecutor`; results are always appended in original order.
 
 - **Supporting types in base.py**:
-  - `StreamingContentType(str, Enum)`: THINKING, TOOL_CALLING, GENERATING, DONE; string values (`"thinking"`, etc.)
-  - `Model(Enum)`: Base enum class; each value carries `supports_tools`, `supports_thinking`, and `supports_vision` boolean attributes
+  - `StreamingContentType(str, Enum)`: `THINKING`, `TOOL_CALLING`, `GENERATING`, `DONE`; string values (`"thinking"`, etc.). `StreamPhase` is an alias.
+  - `StreamChunk(NamedTuple)`: `(phase, content, agent=None, iteration=0)`. The single chunk type used everywhere — `client.chat(stream=True)`, `Agent.run(stream=True)`, all workflow runs. `content` is `str` for `THINKING`/`GENERATING` and `dict {"name", "response"}` for `TOOL_CALLING`. Helpers `is_text()` and `is_tool_call()` dispatch on phase. Back-compat aliases: `Chunk`, `AgentChunk` (was a separate type), `ChainChunk` (was a separate type with a `step` field; that role is now played by `iteration`).
+  - `ModelSpec`: frozen dataclass with `id: str`, `tools: bool`, `thinking: bool`, `vision: bool`, `generation_kwargs: dict | None`. Equality and hash use `id` only, so it can hold a dict and still be used as an enum value. Each `Model` enum member's value is a `ModelSpec`.
+  - `Model(Enum)`: base enum. `Model.__init__` accepts either a `ModelSpec` directly or legacy positional args `(value, supports_tools, supports_thinking, supports_vision, generation_kwargs)` for back-compat. Each member exposes `.value` (the id string), `.spec` (the `ModelSpec`), `.supports_tools`, `.supports_thinking`, `.supports_vision`, `.generation_kwargs`.
 
 - **[aimu/models/model_client.py](aimu/models/model_client.py)**: `ModelClient(BaseModelClient)` factory/wrapper class:
-  - Single entry point: pass any provider model enum and receive a fully configured client
-  - Detects provider from the model enum type and instantiates the corresponding concrete client
-  - Delegates all `BaseModelClient` methods and properties to the inner client
-  - Provider-specific kwargs (e.g. `model_path`, `base_url`, `model_keep_alive_seconds`) are passed through to the concrete constructor
-  - Usage: `ModelClient(OllamaModel.QWEN_3_5_9B)`, `ModelClient(LlamaCppModel.QWEN_3_5_9B, model_path="/path/to/model.gguf")`
+  - Single public construction path. Accepts a `Model` enum member or a `"provider:model_id"` string.
+  - Detects provider from the model enum type and instantiates the corresponding concrete client.
+  - Delegates `_chat`/`_generate` to the inner client; the public `chat`/`generate` from the base apply the `include` filter.
+  - Provider-specific kwargs (e.g. `model_path`, `base_url`, `model_keep_alive_seconds`) are passed through to the concrete constructor.
+  - Usage: `ModelClient(OllamaModel.QWEN_3_8B)`, `ModelClient("anthropic:claude-sonnet-4-6")`, `ModelClient(LlamaCppModel.QWEN_3_8B, model_path="/path/to/model.gguf")`.
+  - Exports a helper `resolve_model_string(s)` that performs the string lookup independently.
 
 - **Model Implementations**:
   - [aimu/models/ollama/ollama_client.py](aimu/models/ollama/ollama_client.py): `OllamaClient` for local Ollama models (native API)
@@ -138,9 +154,10 @@ The codebase uses an abstract base class pattern for model clients:
     - GPU offloading via `n_gpu_layers=-1` (all layers); `n_gpu_layers=0` for CPU-only
     - Thinking model support via `<think>...</think>` tag parsing (same as OpenAI-compat clients)
 
-- **Model Definitions**: Each client defines a `Model` enum (e.g., `OllamaModel`) where each member encodes `(model_id, supports_tools, supports_thinking)`. Ollama and HuggingFace clients also expose:
-  - `TOOL_MODELS`: Derived list of models where `supports_tools=True`
-  - `THINKING_MODELS`: Derived list of models where `supports_thinking=True`
+- **Model Definitions**: Each client defines a `Model` enum (e.g., `OllamaModel`) where each member's value is a `ModelSpec(id, tools=..., thinking=..., vision=..., generation_kwargs=...)`. Provider-specific extras (e.g. HuggingFace `ToolCallFormat`, `think_opener_in_prompt`) become additional positional elements in the enum member tuple after the `ModelSpec`. Every concrete client exposes the derived classproperties:
+  - `TOOL_MODELS`: members where `supports_tools=True`
+  - `THINKING_MODELS`: members where `supports_thinking=True`
+  - `VISION_MODELS`: members where `supports_vision=True`
 
 - **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK. `model_client.py` performs the same guarded imports independently to avoid a circular import with `__init__.py`. The `aimu/evals/` package uses the same guarded-import pattern with `HAS_DEEPEVAL`.
 
@@ -148,22 +165,37 @@ The codebase uses an abstract base class pattern for model clients:
 
 AIMU supports two tool registration routes that can be combined on the same client:
 
-- **`@tool` decorator** ([aimu/tools/decorator.py](aimu/tools/decorator.py)): mark any plain Python function as a tool. The decorator inspects the signature and docstring and attaches an OpenAI-format tool spec at `func.__tool_spec__`. Hand decorated functions to an agent via `Agent(client, tools=[fn1, fn2])` (or set `client.tools = [fn1, fn2]` directly). Type-to-JSON mapping covers `str`/`int`/`float`/`bool`/`list`/`dict`; the first paragraph of the docstring becomes the tool description; required vs. optional args are derived from default values. Python tools dispatch in-process and take precedence over MCP tools of the same name.
+- **`@tool` decorator** ([aimu/tools/decorator.py](aimu/tools/decorator.py)): mark any plain Python function as a tool. The decorator inspects the signature and docstring at decoration time and attaches an OpenAI-format spec at `func.__tool_spec__`. Hand decorated functions to an agent via `Agent(client, tools=[fn1, fn2])` (or set `client.tools = [fn1, fn2]` directly). Type-to-JSON mapping covers `str`/`int`/`float`/`bool`/`list`/`dict` plus subscripted generics (`list[str]`, `dict[str, int]`) and `Optional[T]` / `T | None`. The first paragraph of the docstring becomes the tool description; required vs. optional args are derived from default values. Python tools dispatch in-process and take precedence over MCP tools of the same name.
+
+  **Validation (raises `ToolSignatureError`):**
+  - `*args` / `**kwargs` (variadic parameters) — declare each argument explicitly
+  - parameter with no type hint *and* no default value
+  - Missing return annotation is a warning, not an error.
 
 - **MCPClient** ([aimu/tools/client.py](aimu/tools/client.py)): wraps FastMCP 2.0 for cross-process tool servers.
   - Converts async FastMCP API to synchronous interface using an internal event loop
+  - Constructor requires *exactly one* of `config=`, `server=`, or `file=`. Wrong count or connection failure raises `MCPConnectionError` with the original exception chained.
+  - `ping()`: verifies the connection is alive (calls `list_tools()`); raises `MCPConnectionError` if dead.
   - `get_tools()`: Returns tools in OpenAI function calling format
-  - `call_tool()`: Synchronous tool execution
+  - `call_tool()`: Synchronous tool execution; wraps backend errors in `MCPConnectionError`
   - `list_tools()`: Returns available tool names
   - Integrates with ModelClient via `model_client.mcp_client` attribute
 
-- **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: built-in general-purpose tools, each decorated with `@tool` for direct in-process use. Import individual tools (`from aimu.tools import builtin; agent = Agent(client, tools=[builtin.calculate])`) or the full set as `builtin.ALL_TOOLS`:
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: built-in general-purpose tools, each decorated with `@tool` for direct in-process use. Pass an entire subgroup with `tools=builtin.web + [my_tool]`:
+  - **`builtin.web`** — `get_weather`, `get_webpage`, `search`, `wikipedia`
+  - **`builtin.fs`** — `list_directory`, `read_file`
+  - **`builtin.compute`** — `calculate`
+  - **`builtin.misc`** — `echo`, `get_current_date_and_time`
+  - **`builtin.ALL_TOOLS`** — flat list of every built-in (kept for back-compat)
+
+  Tool reference:
   - `echo(echo_string)`: Returns input string
   - `get_current_date_and_time()`: Returns ISO format datetime
   - `get_weather(location)`: Current weather via Open-Meteo API (city name or coordinates)
   - `calculate(expression)`: Safe arithmetic expression evaluator
   - `get_webpage(url)`: Fetches page and returns visible text with HTML stripped
   - `search(query, num_results)`: Web search via SearXNG (`SEARXNG_BASE_URL` env var)
+  - `wikipedia(query)`: Wikipedia article summary
   - `list_directory(path)`: Lists files and subdirectories
   - `read_file(path, max_lines)`: Reads local file contents
 
@@ -223,9 +255,11 @@ AIMU supports two tool registration routes that can be combined on the same clie
 - **[aimu/skills/](aimu/skills/)**: Filesystem-discovered skills that inject instructions and tools into agents
   - **[aimu/skills/manager.py](aimu/skills/manager.py)**: `SkillManager` discovers `SKILL.md` files from project and user dirs
     - Default search paths (project-level wins on collision): `.agents/skills/`, `.claude/skills/`, `~/.agents/skills/`, `~/.claude/skills/`
-    - `catalog_prompt()`: Returns XML-formatted skill listing for system prompt injection
-    - `get_skill_body(name)`: Returns full SKILL.md instructions body
-  - **[aimu/skills/skill.py](aimu/skills/skill.py)**: `Skill` dataclass with `name`, `description`, `path`; `load_body()` strips YAML frontmatter
+    - Logs discovered count and paths at `INFO` level on first access
+    - `catalog_prompt()`: Returns XML-formatted skill listing for system prompt injection. Each entry includes a `<tools>` block listing the names of script-derived tools (`{skill}__{script_stem}`) so the model can call them directly without first invoking `activate_skill`.
+    - `get_skill_body(name)`: Returns full SKILL.md instructions body; raises `SkillNotFoundError` (subclass of `KeyError`) if the name is unknown.
+    - Malformed `SKILL.md` files raise `SkillLoadError` (subclass of `ValueError`) on parse — no longer silently skipped.
+  - **[aimu/skills/skill.py](aimu/skills/skill.py)**: `AgentSkill` dataclass with `name`, `description`, `path`, `load_body()`, `script_tool_names()`. The legacy name `Skill` is kept as a back-compat alias.
   - **[aimu/skills/mcp.py](aimu/skills/mcp.py)**: `build_skills_server(manager)` creates a FastMCP server
     - Registers `activate_skill(name)` tool
     - Dynamically registers each `*.py` file in a skill's `scripts/` directory as a tool (`{skill_name}__{script_stem}()`)
@@ -233,54 +267,55 @@ AIMU supports two tool registration routes that can be combined on the same clie
 
 ### Agentic Workflows
 
-AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base with `run(stream=False)`; `run_streamed()` is a backward-compat alias for `run(stream=True)`. **Agents** direct their own tool use autonomously; **workflows** have code-controlled flow.
+AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base with `run(stream=False)`; `run_streamed()` is a backward-compat alias for `run(stream=True)`. **Agents** direct their own tool use autonomously; **workflows** have code-controlled flow. The module docstring at the top of `aimu/agents/base.py` carries a decision tree for picking the right class.
 
 - **[aimu/agents/base.py](aimu/agents/base.py)**: Root ABCs for the agent/workflow hierarchy
-  - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs, stream=False)` and `messages` property; concrete `run_streamed(task, generate_kwargs)` alias calls `run(stream=True)`; `AgentChunk(NamedTuple)`: `(agent_name, iteration, phase: StreamingContentType, content: Any)`
-  - `BaseAgent(Runner)`: marker ABC for autonomous agents (LLM directs tool use and stop condition); concrete: `Agent`, `SkillAgent`, and example agents
-  - `Workflow(Runner)`: marker ABC for predetermined workflow patterns (code controls routing/sequencing); concrete: `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`
-  - `MessageHistory`: type alias for `dict[str, list[dict]]`, the return type of `.messages` across the hierarchy; exported from `aimu.agents`
+  - `Runner(ABC)`: neutral base with abstract `run(task, generate_kwargs, stream=False, images=None)` and `messages` property; concrete `run_streamed(task, generate_kwargs)` alias calls `run(stream=True)`.
+  - `BaseAgent(Runner)`: marker ABC for autonomous agents (LLM directs tool use and stop condition); concrete: `Agent`, `SkillAgent`, `OrchestratorAgent`, and example agents.
+  - `Workflow(Runner)`: marker ABC for predetermined workflow patterns (code controls routing/sequencing); concrete: `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`.
+  - `MessageHistory`: type alias for `dict[str, list[dict]]`, the return type of `.messages` across the hierarchy; exported from `aimu.agents`.
+  - `AgentChunk`: back-compat alias for `StreamChunk` (was a separate `NamedTuple` in older versions).
 
 - **[aimu/agents/agent.py](aimu/agents/agent.py)**: `Agent(BaseAgent)` for autonomous, multi-round tool execution
-  - Wraps any `ModelClient`; runs `chat()` in a loop until no tools are called
-  - Stop condition: scans `model_client.messages` in reverse; if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again
-  - `tools: list[Callable]` field accepts Python functions decorated with `@aimu.tools.tool`; `_prepare_run()` copies them to `model_client.tools` before each run. Combine freely with `model_client.mcp_client` for cross-process tools
-  - `run(task, generate_kwargs, stream=False)`: returns final response string or `Iterator[AgentChunk]`; streaming logic in private `_run_streamed()`
-  - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` call; stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages
-  - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`)
+  - Constructor: `Agent(model_client, system_message=None, name=None, tools=None, max_iterations=10, continuation_prompt=..., reset_messages_on_run=False)`. `system_message` is the second positional argument. `name` is optional — auto-derived from `id(agent)` as `"agent-{hex}"` when unset.
+  - Wraps any `BaseModelClient`; runs `chat()` in a loop until no tools are called.
+  - Stop condition: scans `model_client.messages` in reverse; if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again.
+  - `tools: list[Callable]` field accepts Python functions decorated with `@aimu.tools.tool`; `_prepare_run()` copies them to `model_client.tools` before each run. Combine freely with `model_client.mcp_client` for cross-process tools.
+  - `run(task, generate_kwargs, stream=False, images=None)`: returns final response string or `Iterator[StreamChunk]`. Streamed chunks carry `agent` (the agent name) and `iteration` (loop index) fields.
+  - `as_model_client() -> BaseModelClient`: returns a `BaseModelClient` view (internal `_AgenticView`) whose `chat()` runs the full agent loop. Use this to drop an agent into an API that expects a model client; for direct use call `run()` instead.
+  - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` call; stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages.
+  - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`).
 
 - **[aimu/agents/skill_agent.py](aimu/agents/skill_agent.py)**: `SkillAgent(Agent)`: adds skill discovery and injection
   - Extends `Agent` with a `skill_manager: SkillManager` field (defaults to `SkillManager()` for auto-discovery)
-  - On first `run()` (or after a message reset), `_setup_skills()` appends the skill catalog to the system message and attaches a skills MCPClient; the model can then call `activate_skill` to load full skill instructions
+  - On first `run()` (or after a message reset), `_setup_skills()` appends the skill catalog to the system message and attaches a skills MCPClient; the model can call `activate_skill` for the full body, or call any script-derived `{skill}__{script}` tool directly (the catalog now lists those tool names inline).
   - `_prepare_run()` resets the `_skills_setup_done` flag when messages are cleared, so skills are re-injected on each fresh run
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`); omit `skill_dirs` to auto-discover
 
-- **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `AgenticModelClient(BaseModelClient)`: drop-in agentic wrapper
-  - Wraps an `Agent` (or `SkillAgent`, which inherits from it) and exposes the standard `BaseModelClient` interface; raises `TypeError` for any other type
-  - `chat(stream=False)` runs the full Agent loop (multi-turn until tools stop); `chat(stream=True)` adapts `AgentChunk` → `StreamChunk`
-  - `generate(stream=False)` passes through to the inner client unchanged (no loop)
-  - `messages`, `mcp_client`, `tools`, `system_message`, `last_thinking` delegate to `Agent.model_client`
-  - Constructor: `AgenticModelClient(agent: Agent)`
-  - Use anywhere a `ModelClient` is accepted to get agentic behaviour transparently; for workflows, call `run()` or `run(stream=True)` directly
+- **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `_AgenticView(BaseModelClient)` is the internal class returned by `Agent.as_model_client()`. It is *not* part of the public API; use the method instead of importing the class. The legacy public name `AgenticModelClient` has been removed — call sites should switch to `agent.as_model_client()`.
 
 - **[aimu/agents/workflows/chain.py](aimu/agents/workflows/chain.py)**: `Chain(Workflow)`: Anthropic's **Prompt Chaining** pattern
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
-  - `run(task, generate_kwargs, stream=False)`: returns final string or `Iterator[ChainChunk]`; `ChainChunk` extends `AgentChunk` with a `step` index
-  - `from_config(configs, client)`: builds from a list of dicts and a single `ModelClient`; the client is shared across steps; `messages` cleared and `system_message` set from each step's config before it runs
+  - `run(task, generate_kwargs, stream=False)`: returns final string or `Iterator[StreamChunk]`; streamed chunks carry the chain step in `iteration`.
+  - `Chain.of(client, prompts, *, name="chain")`: build a Chain from a single shared client and a list of step system_messages. Each step gets `reset_messages_on_run=True`.
+  - `from_config(configs, client)`: builds from a list of dicts and a single `ModelClient`; the client is shared across steps.
   - `agents: list[Runner]`: steps may be `Agent` or nested workflows
   - `messages` property: merges `agent.messages` for all steps into one `MessageHistory` dict
+  - `ChainChunk` is a back-compat alias for `StreamChunk`.
 
 - **[aimu/agents/workflows/router.py](aimu/agents/workflows/router.py)**: `Router(Workflow)`: Anthropic's **Routing** pattern
   - `routing_agent` classifies the task; output (stripped, lowercased) is matched against `handlers: dict[str, Runner]`
   - Falls back to `fallback: Runner` if set; raises `ValueError` otherwise
   - `run(stream=True)` yields routing chunks then the matched handler's chunks
+  - `Router.of(client, classifier_prompt, handlers, *, fallback=None, name="router")`: build a Router from a single client and a classifier system_message.
   - `from_config(routing_config, handler_configs, client, fallback_config)`: factory from dicts
-  - `messages` property: merges `routing_agent.messages` + all `handler.messages` + `fallback.messages` (if set); unvisited handlers have empty lists
+  - `messages` property: merges `routing_agent.messages` + all `handler.messages` + `fallback.messages` (if set)
 
 - **[aimu/agents/workflows/parallel.py](aimu/agents/workflows/parallel.py)**: `Parallel(Workflow)`: Anthropic's **Parallelization** pattern
   - Runs `workers: list[Runner]` concurrently via `ThreadPoolExecutor`; workers complete before streaming to avoid interleaved output
   - `aggregator: Runner` (optional) receives all worker outputs joined by `separator`; without an aggregator, the joined string is returned directly
   - `run(stream=True)` streams only the aggregator phase (or yields a single GENERATING chunk)
+  - `Parallel.of(client, worker_prompts, *, aggregator_prompt=None, separator=..., name="parallel")`: build a Parallel from a single client and a list of worker system_messages; pass `aggregator_prompt` to add an aggregator step.
   - `messages` property: merges all `worker.messages` + `aggregator.messages` (if set)
 
 - **[aimu/agents/workflows/evaluator.py](aimu/agents/workflows/evaluator.py)**: `EvaluatorOptimizer(Workflow)`: Anthropic's **Evaluator-Optimizer** pattern
@@ -290,13 +325,14 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
   - `messages` property: merges `generator.messages` + `evaluator.messages`
 
 - **[aimu/agents/orchestrator_agent.py](aimu/agents/orchestrator_agent.py)**: `OrchestratorAgent(BaseAgent, ABC)` base class for orchestrator agents
-  - Subclasses define worker `Agent` instances and `@tool`-decorated dispatch functions in `__init__`, then call `_setup_orchestrator(model_client, *, name, system_message, tools=[...], concurrent_tool_calls=False)` to wire everything together
-  - `tools` is a list of `@aimu.tools.tool`-decorated callables; `_setup_orchestrator` assigns them to `model_client.tools` and constructs the inner orchestrator `Agent`
-  - Provides `run(task, generate_kwargs, stream)` and `messages` — subclasses need not re-implement them
+  - Two construction paths:
+    1. **Subclass**: define worker `Agent` instances and `@tool`-decorated dispatch functions in `__init__`, then call `self._init_orchestrator(model_client, *, name, system_message, tools=[...], concurrent_tool_calls=False)` (renamed from the legacy `_setup_orchestrator`) to wire everything together.
+    2. **Factory**: `OrchestratorAgent.assemble(client, system_message, *, workers=[agent1, agent2, ...], name="orchestrator", concurrent_tool_calls=True)`. Each worker is auto-wrapped as a `@tool` named after the worker's `name`, with description taken from the worker's `system_message`. No subclass needed.
+  - Provides `run(task, generate_kwargs, stream, images)` and `messages` — subclasses need not re-implement them
   - Exported from `aimu.agents`
 
 - **[aimu/agents/examples/](aimu/agents/examples/)**: Ready-to-use `OrchestratorAgent` subclasses demonstrating the orchestrator + worker tools pattern
-  - Each class accepts a `ModelClient`, defines `@tool`-decorated wrappers around worker `Agent.run()` calls, and passes them to `_setup_orchestrator(tools=[...])`
+  - Each class accepts a `ModelClient`, defines `@tool`-decorated wrappers around worker `Agent.run()` calls, and passes them to `_init_orchestrator(tools=[...])`
   - `ResearchReportAgent`: orchestrator + `research_overview`, `find_examples`, `find_counterpoints` worker tools; accepts optional `worker_tools: list[Callable]` to give workers live tool access (e.g. `[builtin.search, builtin.get_webpage]`) and automatically enables `concurrent_tool_calls` on the orchestrator
   - `CodeReviewAgent`: orchestrator + `review_security`, `review_performance`, `review_readability` worker tools
   - `ContentCreationAgent`: orchestrator + `research_topic`, `create_outline`, `write_section` worker tools
@@ -319,8 +355,8 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
     - `score(row)` builds an `LLMTestCase(input=row[input_field], actual_output=row[output_field], expected_output=row.get("reference"))`, calls `metric.measure()` on every metric, returns `(mean(scores), "\n".join(reasons))`
   - **[aimu/evals/benchmark.py](aimu/evals/benchmark.py)**: `Benchmark` and `BenchmarkResults` for multi-model comparison
     - `Benchmark(prompt: str, data: pd.DataFrame, scorer: Scorer, pass_threshold: float = 0.7, generate_kwargs: dict | None = None)`: validates that `data` has a unique index and a `content` column up front; optional `reference` column is forwarded to scorers
-    - `run(clients: dict[str, BaseModelClient]) -> BenchmarkResults`: for each client, snapshots `client.messages`, then for every row sets `client.messages = []` and calls `client.chat(prompt.format(content=row.content), generate_kwargs)`, scoring each output via `scorer.score(row_with_output)`. Original messages are restored in a `try/finally` so a failure during one client doesn't leak state to the next
-    - **Critical**: drives rows through `chat()` (not `generate()`) because `AgenticModelClient.generate()` is a passthrough that skips the agent loop; only `chat()` engages the agent. Resetting `messages = []` is safe because `system_message` lives in `_system_message` on `BaseModelClient` and is re-injected on the next `chat()` call
+    - `run(clients: dict[str, BaseModelClient]) -> BenchmarkResults`: for each client, snapshots `client.messages`, then for every row calls `client.reset()` and `client.chat(prompt.format(content=row.content), generate_kwargs)`, scoring each output via `scorer.score(row_with_output)`. Original messages are restored in a `try/finally` so a failure during one client doesn't leak state to the next.
+    - **Critical**: drives rows through `chat()` (not `generate()`) because the `_AgenticView` returned by `Agent.as_model_client()` only engages the agent loop via `chat()`. `client.reset()` preserves `system_message` (it's stored separately on the client) and unlocks it for the next chat.
     - Aggregates per-client to `{score: mean(scores), pass_rate: mean(scores >= pass_threshold)}`
     - `BenchmarkResults`: dataclass holding `metrics: pd.DataFrame` (rows = client names, cols = metrics) and the `prompt` used; exposes `to_csv(path)`, `to_json(path)`, and `to_catalog(catalog: PromptCatalog, prompt_name: str)` which stores one `Prompt(name=prompt_name, model_id=client_name, prompt=self.prompt, metrics=row)` per client; catalog auto-versions on each store so re-runs append new versions
     - Out of scope (deferred): multi-prompt grids, classification/extraction harnesses, per-row retention, cross-client concurrency
@@ -384,21 +420,22 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 
 ### Key Design Patterns
 
-1. **Abstract Base Class**: All model clients inherit from `BaseModelClient` and implement abstract methods. `ModelClient` is a factory/wrapper that also extends `BaseModelClient` and delegates to a concrete provider client selected by model enum type.
-2. **Optional Dependencies**: Graceful degradation when model backends aren't installed
-3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format
-4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers
-5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat(..., stream=True)` and `generate(..., stream=True)` yield `StreamChunk(phase, content)` named tuples; `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. `StreamPhase` is an alias for `StreamingContentType` used in notebooks and user-facing code.
-6. **Model Capability Flags**: `supports_tools` and `supports_thinking` are encoded directly on each `Model` enum member
+1. **Single public construction path**: `ModelClient` is the factory. Provider clients are still importable but no longer the recommended public surface. The top-level `aimu.client()` and `aimu.chat()` wrap `ModelClient` for one-line use.
+2. **Optional Dependencies**: Graceful degradation when model backends aren't installed.
+3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format. There is no `Message` class — plain dicts only.
+4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers. Concrete clients implement `_chat`/`_generate`; the public `chat`/`generate` wrap them with the `include` filter.
+5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat(..., stream=True)` and `generate(..., stream=True)` yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, DONE); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. `StreamPhase` is an alias for `StreamingContentType`. Use `chunk.is_text()` / `chunk.is_tool_call()` to dispatch on phase without repeating the equality check.
+6. **Model Capability Flags**: `supports_tools`, `supports_thinking`, and `supports_vision` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access.
+7. **Loud Failures**: Malformed `@tool` signatures raise `ToolSignatureError`; malformed `SKILL.md` raises `SkillLoadError`; MCP connection failures raise `MCPConnectionError`; mutating `system_message` after the first chat raises `RuntimeError`.
 
 ## Important Implementation Notes
 
 ### Adding New Models
 
 When adding new models to a client:
-1. Add model enum member to the client's `Model` class (e.g., `OllamaModel`) with `(model_id, supports_tools, supports_thinking, supports_vision, ...)` tuple — capability flags come first in the standard order; any provider-specific extras (e.g. `generation_kwargs`, `tool_call_format`) follow. Check that provider's `Model` `__init__` for the full parameter list
-2. `TOOL_MODELS`, `THINKING_MODELS`, and `VISION_MODELS` lists are derived automatically from the enum flags; no manual update needed
-3. For HuggingFace models, also specify the `ToolCallFormat` format (XML, JSON_OBJECT, JSON_ARRAY, BRACKETED)
+1. Add an enum member to the client's `Model` class with a `ModelSpec(id, tools=..., thinking=..., vision=..., generation_kwargs=...)` value. Example: `QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)`.
+2. `TOOL_MODELS`, `THINKING_MODELS`, and `VISION_MODELS` lists are derived automatically from the capability flags; no manual update needed.
+3. For HuggingFace models, the enum value is a tuple `(ModelSpec(...), ToolCallFormat.XXX[, think_opener_in_prompt])` because HF carries provider-specific extras alongside the spec.
 4. Test with `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`
 
 ### Tool Calling Compatibility
@@ -410,17 +447,17 @@ When adding new models to a client:
 
 ### Message History Management
 
-- System message is automatically prepended to `messages` if set via the `system_message` property
-- Message history persists across `chat()` calls on the same client instance
-- Use `ConversationManager` to persist conversations across sessions
-- Clear history by setting `model_client.messages = []`
+- System message is automatically prepended to `messages` on the first `chat()` call if `system_message` is set.
+- `system_message` is **immutable after the first `chat()`** — the setter raises `RuntimeError`. Call `client.reset()` to clear messages and unlock the setter; `reset()` preserves the existing system_message by default. Pass `reset(system_message=None)` to clear it, or `reset(system_message="new")` to replace it.
+- Message history persists across `chat()` calls on the same client instance.
+- Use `ConversationManager` to persist conversations across sessions.
 
 ### Thinking Models
 
 Models with `supports_thinking=True` support extended reasoning:
 - Reasoning process stored in `self.last_thinking`
 - Streamed as `StreamChunk(phase=StreamPhase.THINKING, content=str)` chunks
-- Pass `include_thinking=False` to `generate(..., stream=True)` to suppress thinking chunks
+- Filter via `include=["generating", "tool_calling"]` (preferred) or the legacy `include_thinking=False` on `generate(...)`.
 - Thinking content may also be stored in the messages dict under a "thinking" key
 
 ### Vision Input
@@ -435,8 +472,8 @@ Models with `supports_vision=True` accept images alongside the user prompt:
   - `OllamaClient` (native): `_adapt_messages_for_ollama` is called before each `ollama.chat()` invocation to extract `image_url` content blocks into Ollama's message-level `images=[<bare base64>]` field. Only inline base64 (`data:image/...`) is supported; http(s) URLs raise `ValueError`
   - `HuggingFaceClient`: when the model has a processor (Gemma 3 / Gemma 4), `_apply_chat_template` decodes images via `_extract_pil_images` and passes them as `images=` to the processor; `image_url` blocks are rewritten to `{"type": "image"}` placeholders for the chat template
   - `LlamaCppClient`: pass-through; vision requires loading an `mmproj` projector via the new `chat_handler=` constructor kwarg (e.g. `Llava15ChatHandler(clip_model_path=...)`)
-- Capability flag: each `Model.__init__` accepts `supports_vision: bool` (default `False`). `BaseModelClient.is_vision_model` and `VISION_MODELS` classproperty mirror the thinking/tools equivalents
-- `images=` is also threaded through `AgenticModelClient.chat()` → `Agent.run()` (only the initial task turn carries images; continuation prompts are text-only) and through workflow `Runner.run()` overrides (`Chain` forwards to step 0, `Router` forwards to the dispatched handler, `Parallel` forwards to every worker, `EvaluatorOptimizer` forwards only to the initial generator turn)
+- Capability flag: each `ModelSpec` accepts `vision: bool` (default `False`). `BaseModelClient.is_vision_model` and `VISION_MODELS` classproperty mirror the thinking/tools equivalents
+- `images=` is also threaded through `Agent.run()` (only the initial task turn carries images; continuation prompts are text-only), through `Agent.as_model_client().chat()`, and through workflow `Runner.run()` overrides (`Chain` forwards to step 0, `Router` forwards to the dispatched handler, `Parallel` forwards to every worker, `EvaluatorOptimizer` forwards only to the initial generator turn)
 
 ### OpenAICompatClient Notes
 
@@ -470,9 +507,10 @@ Models with `supports_vision=True` accept images alongside the user prompt:
 
 ```
 aimu/
+├── __init__.py          # Top-level API (aimu.chat, aimu.client, resolve_model_string)
 ├── models/              # Model client implementations
-│   ├── base.py          # Abstract base class (BaseModelClient, StreamChunk, StreamPhase, Model)
-│   ├── model_client.py  # ModelClient factory/wrapper (dispatches by model enum type)
+│   ├── base.py          # Abstract base (BaseModelClient, StreamChunk, StreamPhase, Model, ModelSpec)
+│   ├── model_client.py  # ModelClient factory/wrapper + resolve_model_string
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── _images.py       # Shared vision utilities (_normalize_image, per-provider adapters)
 │   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
@@ -491,21 +529,21 @@ aimu/
 │   └── llamacpp/        # llama-cpp-python client (requires llamacpp package)
 │       └── llamacpp_client.py        # LlamaCppClient + LlamaCppModel
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
-│   ├── decorator.py     # @tool decorator (attaches __tool_spec__ to plain functions)
-│   ├── builtin.py       # Built-in @tool functions (weather, search, calculate, ...)
-│   ├── client.py        # MCPClient wrapper
+│   ├── decorator.py     # @tool decorator + ToolSignatureError
+│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc subgroups
+│   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping()
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
 ├── agents/              # Agents and workflow patterns
-│   ├── base.py          # Runner/Agent/Workflow ABCs + AgentChunk
-│   ├── agent.py         # Agent (agentic loop over ModelClient.chat())
+│   ├── base.py          # Runner/BaseAgent/Workflow ABCs + decision-tree docstring
+│   ├── agent.py         # Agent (agentic loop) + as_model_client()
 │   ├── skill_agent.py   # SkillAgent (Agent + skill discovery/injection)
-│   ├── agentic_client.py # AgenticModelClient (ModelClient wrapper for Agent)
-│   ├── orchestrator_agent.py # OrchestratorAgent base class (orchestrator + worker tools pattern)
+│   ├── agentic_client.py # Internal _AgenticView (not public; use Agent.as_model_client())
+│   ├── orchestrator_agent.py # OrchestratorAgent + _init_orchestrator() + assemble()
 │   ├── workflows/       # Code-controlled workflow patterns
-│   │   ├── chain.py     # Chain + ChainChunk (prompt chaining workflow)
-│   │   ├── router.py    # Router (routing workflow: classify + dispatch)
-│   │   ├── parallel.py  # Parallel (parallelization workflow: concurrent workers)
-│   │   └── evaluator.py # EvaluatorOptimizer (evaluator-optimizer workflow)
+│   │   ├── chain.py     # Chain + Chain.of() (prompt chaining)
+│   │   ├── router.py    # Router + Router.of() (routing)
+│   │   ├── parallel.py  # Parallel + Parallel.of() (parallelization)
+│   │   └── evaluator.py # EvaluatorOptimizer (generate-evaluate-revise)
 │   └── examples/        # Example Agent subclasses (orchestrator + worker tools)
 │       ├── research_report.py  # ResearchReportAgent
 │       ├── code_review.py      # CodeReviewAgent
@@ -515,48 +553,52 @@ aimu/
 │   ├── base.py          # MemoryStore abstract base class
 │   ├── semantic_store.py # SemanticMemoryStore (ChromaDB vector search)
 │   ├── document_store.py # DocumentStore (path-based, Anthropic API-compatible)
-│   ├── mcp.py           # FastMCP server for SemanticMemoryStore (search_memories, add_memories, delete_memory, list_memories)
-│   └── document_mcp.py  # FastMCP server for DocumentStore (memory_list/search/read/write/edit/delete)
+│   ├── mcp.py           # FastMCP server for SemanticMemoryStore
+│   └── document_mcp.py  # FastMCP server for DocumentStore
 ├── skills/              # Agent skill discovery and MCP server
-│   ├── skill.py         # Skill dataclass (name, description, path, load_body())
-│   ├── manager.py       # SkillManager (discovery, catalog_prompt, get_skill_body)
+│   ├── skill.py         # AgentSkill dataclass (alias: Skill); load_body, script_tool_names
+│   ├── manager.py       # SkillManager + SkillLoadError + SkillNotFoundError
 │   └── mcp.py           # build_skills_server(): FastMCP server from SkillManager
 ├── evals/               # Evaluation adapters and benchmark harness
-│   ├── __init__.py        # Exports Benchmark + BenchmarkResults; guarded DeepEval imports; HAS_DEEPEVAL flag
-│   ├── benchmark.py       # Benchmark + BenchmarkResults: multi-model harness over chat(), CSV/JSON/PromptCatalog export
-│   ├── deepeval.py        # DeepEvalModel(DeepEvalBaseLLM) adapter for any BaseModelClient
-│   └── deepeval_scorer.py # DeepEvalScorer(Scorer) wrapping list[BaseMetric] for JudgedPromptTuner / Benchmark
+│   ├── __init__.py        # Exports Benchmark + BenchmarkResults; guarded DeepEval imports
+│   ├── benchmark.py       # Benchmark + BenchmarkResults (uses client.reset() per row)
+│   ├── deepeval.py        # DeepEvalModel(DeepEvalBaseLLM) adapter
+│   └── deepeval_scorer.py # DeepEvalScorer(Scorer)
 ├── prompts/             # Prompt storage and management
 │   ├── catalog.py       # PromptCatalog (SQLAlchemy, versioned, (name, model_id) keyed)
-│   ├── tuner.py         # PromptTuner ABC (hill-climbing loop, generate/mutation kwargs)
-│   ├── mcp.py           # FastMCP server for prompt catalog (python -m aimu.prompts.mcp)
+│   ├── tuner.py         # PromptTuner ABC
+│   ├── mcp.py           # FastMCP server for prompt catalog
 │   └── tuners/
-│       ├── classification.py  # ClassificationPromptTuner (YES/NO, classify_data, evaluate_results)
-│       ├── multiclass.py      # MultiClassPromptTuner (N-way [ClassName], per-class F1)
-│       ├── extraction.py      # ExtractionPromptTuner (JSON field extraction, per-field accuracy)
-│       ├── judged.py          # JudgedPromptTuner (Scorer-driven, score() override)
-│       └── scorers.py         # Scorer ABC + LLMJudgeScorer (built-in 1-10 LLM rating)
+│       ├── classification.py  # ClassificationPromptTuner
+│       ├── multiclass.py      # MultiClassPromptTuner
+│       ├── extraction.py      # ExtractionPromptTuner
+│       ├── judged.py          # JudgedPromptTuner
+│       └── scorers.py         # Scorer ABC + LLMJudgeScorer
 └── paths.py             # Path configuration (root, tests, package, output, skills)
 
 tests/                   # Pytest test suite
 ├── conftest.py          # Shared helpers: resolve_model_params, create_real_model_client
 ├── test_models.py       # Model client tests (generate, chat, streaming, tools, thinking)
-├── test_vision.py       # Vision tests (_normalize_image, per-provider adapters, agentic forwarding; real with --client)
+├── test_vision.py       # Vision tests (_normalize_image, per-provider adapters, agentic forwarding)
 ├── test_history.py      # Conversation management tests
 ├── test_memory.py       # Semantic memory tests
 ├── test_tools.py        # MCP tools tests
-├── test_agents.py       # Agent and AgenticModelClient tests (mock by default, real with --client)
+├── test_agents.py       # Agent, as_model_client, OrchestratorAgent, assemble()
 ├── test_chain.py        # Chain workflow tests
 ├── test_router.py       # Router workflow tests
 ├── test_parallel.py     # Parallel workflow tests
 ├── test_evaluator.py    # EvaluatorOptimizer workflow tests
-├── test_skills.py       # Skill discovery and Agent skill integration tests
-├── test_prompt_*.py     # Prompt catalog and tuning tests (mock by default, real with --client)
-└── test_benchmark.py    # Benchmark harness tests (mock-based: validation, scoring, message reset, CSV/JSON/PromptCatalog export)
+├── test_skills.py       # Skill discovery + raises on malformed SKILL.md
+├── test_prompt_*.py     # Prompt catalog and tuning tests
+├── test_benchmark.py    # Benchmark harness tests (uses client.reset())
+└── test_redesign.py     # Behavioural tests for v0.4 API redesign
+                         # (top-level API, ModelSpec, StreamChunk unification,
+                         #  system_message lock, @tool validation, include= filter,
+                         #  builtin subgroups, workflow .of() factories, assemble())
 
 web/                     # Example chat UIs
-├── streamlit_chatbot.py # Full-featured Streamlit chat interface with streaming
-└── gradio_chatbot.py    # Full-featured Gradio chat interface with streaming
+├── streamlit_chatbot.py # Streamlit chat interface; uses agent.as_model_client()
+└── gradio_chatbot.py    # Gradio chat interface with streaming
 
 notebooks/               # Jupyter notebook demos
 ```
@@ -568,3 +610,4 @@ notebooks/               # Jupyter notebook demos
 - Tests can run against all clients or specific client/model combinations
 - Model clients are auto-pulled/downloaded on first use
 - MCP tools tested with mock FastMCP servers
+- `test_redesign.py` covers the v0.4 surface (top-level API, ModelSpec, immutability lock, `@tool` validation, workflow `.of()` factories, OrchestratorAgent.assemble) with mocks only; no backend required.

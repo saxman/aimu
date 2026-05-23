@@ -2,14 +2,13 @@
 aimu.evals.benchmark: Multi-model benchmark harness.
 
 Benchmark runs the same prompt and dataset across several BaseModelClient
-instances (including AgenticModelClient wrapping a Agent) and returns
+instances (including ``agent.as_model_client()`` views of an Agent) and returns
 a DataFrame of aggregate metrics for direct comparison.
 
-Rows are driven through chat() with messages reset between rows so that an
-AgenticModelClient invokes its agent loop. The system_message attribute
-survives the reset (it lives outside the messages list) and is re-injected
-on the next chat() call. Scoring is delegated to any Scorer implementation
-(LLMJudgeScorer, DeepEvalScorer, or custom).
+Rows are driven through chat() with the conversation reset between rows so an
+agentic view invokes its full agent loop. The system_message is preserved by
+``client.reset()`` and re-injected on the next chat() call. Scoring is delegated
+to any Scorer implementation (LLMJudgeScorer, DeepEvalScorer, or custom).
 
 Example::
 
@@ -24,7 +23,7 @@ Example::
     results = bench.run({
         "claude":  ModelClient(AnthropicModel.CLAUDE_OPUS_4_7),
         "gpt":     ModelClient(OpenAIModel.GPT_5),
-        "agent":   AgenticModelClient(Agent(ModelClient(OllamaModel.QWEN_3_8B))),
+        "agent":   Agent(ModelClient(OllamaModel.QWEN_3_8B)).as_model_client(),
     })
     results.to_csv("bench.csv")
     results.to_catalog(catalog, prompt_name="summary-bench")
@@ -126,9 +125,9 @@ class Benchmark:
         """
         Evaluate every client on the dataset and return aggregate metrics.
 
-        Each row is run as a fresh chat (``client.messages = []``) so an
-        :class:`aimu.agents.AgenticModelClient` engages its agent loop. The
-        client's original messages are restored after its run completes.
+        Each row is run as a fresh chat (``client.reset()``) so an agentic view
+        (from ``agent.as_model_client()``) engages its agent loop. The client's
+        original messages are restored after its run completes.
 
         Args:
             clients: Mapping of display name to client. The display name is
@@ -171,10 +170,9 @@ class Benchmark:
 
         for i in tqdm(range(len(df)), desc=f"benchmarking {name}"):
             row = df.iloc[i]
-            # Reset messages each row so AgenticModelClient runs a fresh agent
-            # loop. system_message is stored separately and re-injected on the
-            # next chat() call, so it survives this reset.
-            client.messages = []
+            # Reset each row so an agentic view runs a fresh agent loop.
+            # reset() preserves system_message and unlocks it for the next chat().
+            client.reset()
             user_message = self.prompt.format(content=row.content)
             output = client.chat(user_message, self.generate_kwargs)
             outputs.append(output)

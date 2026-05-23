@@ -5,8 +5,8 @@ from pathlib import Path
 
 
 @dataclass
-class Skill:
-    """Represents a single discovered Agent Skill."""
+class AgentSkill:
+    """A single discovered Agent Skill from the filesystem."""
 
     name: str
     description: str
@@ -19,11 +19,22 @@ class Skill:
     def base_dir(self) -> Path:
         return self.path.parent
 
+    def script_tool_names(self) -> list[str]:
+        """Return ``{skill}__{script_stem}`` tool names for every ``.py`` in ``scripts/``."""
+        scripts_dir = self.base_dir / "scripts"
+        if not scripts_dir.is_dir():
+            return []
+        return [f"{self.name}__{p.stem}" for p in sorted(scripts_dir.glob("*.py"))]
+
     def load_body(self) -> str:
-        """Read SKILL.md, strip YAML frontmatter, and return the markdown body."""
+        """Read SKILL.md, strip YAML frontmatter, return the markdown body."""
         content = self.path.read_text(encoding="utf-8")
         if content.startswith("---"):
             end = content.find("---", 3)
             if end != -1:
                 return content[end + 3 :].strip()
         return content.strip()
+
+
+# Back-compat alias. Prefer ``AgentSkill`` in new code.
+Skill = AgentSkill

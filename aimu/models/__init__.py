@@ -1,6 +1,14 @@
 # Always available
-from .base import BaseModelClient, StreamingContentType, StreamChunk, StreamPhase
-from .model_client import ModelClient
+from .base import (
+    BaseModelClient,
+    Chunk,
+    Model,
+    ModelSpec,
+    StreamChunk,
+    StreamPhase,
+    StreamingContentType,
+)
+from .model_client import ModelClient, resolve_model_string
 
 # Optional imports with graceful fallbacks
 try:
@@ -83,7 +91,17 @@ except ImportError:
     LlamaCppModel = None
 
 # Expose what's available
-__all__ = ["BaseModelClient", "ModelClient", "StreamingContentType", "StreamChunk", "StreamPhase"]
+__all__ = [
+    "BaseModelClient",
+    "Chunk",
+    "Model",
+    "ModelClient",
+    "ModelSpec",
+    "StreamChunk",
+    "StreamingContentType",
+    "StreamPhase",
+    "resolve_model_string",
+]
 if HAS_HF:
     __all__.extend(["HuggingFaceClient", "HuggingFaceModel", "ToolCallFormat"])
 if HAS_OLLAMA:

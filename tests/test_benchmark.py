@@ -52,6 +52,12 @@ class _StubChatClient:
     def generate(self, prompt, generate_kwargs=None, stream=False, include_thinking=True):
         raise AssertionError("Benchmark must drive rows through chat(), not generate()")
 
+    def reset(self, system_message="__keep__"):
+        """Mirror BaseModelClient.reset(): clears messages, preserves system_message."""
+        self.messages = []
+        if system_message != "__keep__":
+            self._system_message = system_message
+
     @property
     def system_message(self):
         return self._system_message
