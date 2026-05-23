@@ -2,20 +2,22 @@
 
 # AIMU - AI Model Utilities
 
-A lightweight Python library for building LLM-powered applications with one interface across local and cloud providers. AIMU separates autonomous agents from code-controlled workflows, treats agents as drop-in model clients, and stays small on purpose — plain Python, OpenAI message dicts as the only data model, no framework primitives.
+A lightweight Python library for building LLM-powered applications with one interface across local and cloud providers. AIMU separates autonomous agents from code-controlled workflows, treats agents as drop-in model clients, and is built from plain Python around a single transparent data model — message dicts you can `print()` and edit.
 
 📘 **[Read the docs](https://saxman.github.io/aimu/)** for tutorials, how-to guides, full API reference, and design explanations.
 
-## What makes AIMU different
+## Design principles
 
-AIMU is deliberately the (?) smallest library in its category. It refuses the framework primitives that bloat other model and agent framework in favour of plain Python and direct method calls. A few principles guiding the design of AIMU.
+AIMU is built on six principles, ordered from foundation to consequence:
 
-- **Plain Python over framework primitives.**
-- **Simple, unified data model using (OpenAI) message dicts.**
-- **Composable agent workflow patterns.**
-- **Agents are drop-in model clients for chat.**
+- **Plain Python.** Classes, functions, decorators, dataclasses, type hints. Every file readable top-to-bottom.
+- **Plain data.** Conversation state is a `list[dict]` you can `print()`, edit, JSON-serialise, and hand to any other library.
+- **Composability through uniform interfaces.** Every provider, agent, workflow, and memory store implements a shared base. `agent.as_model_client()` lets an agent slot in anywhere a `BaseModelClient` is accepted — including inside a workflow that itself accepts agents.
+- **Progressive disclosure.** `aimu.chat()` → `aimu.client()` → `Agent` → workflows → custom subclasses. Each layer optional; you reach deeper only when you need to.
+- **Direct paths for common tasks.** Ergonomic one-liners for the work users do most often: `aimu.chat()`, `Chain.of(...)`, `builtin.web`, `agent.as_model_client()`.
+- **Failures are apparent.** `ToolSignatureError`, `SkillLoadError`, `MCPConnectionError`, the `system_message` `RuntimeError` — errors raise where the cause is actionable, with messages that name the problem.
 
-The full "what we deliberately don't do" list lives in the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
+The reasoning behind each principle and the patterns they exclude lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
 
 ## Features
 

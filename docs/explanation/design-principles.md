@@ -1,53 +1,54 @@
 # Design principles
 
-AIMU has a clear identity, deliberately positioned against the heavier alternatives. This page is the line AIMU won't cross — the patterns rejected on purpose, and the reasons.
+AIMU is built on six principles. They are ordered from foundation to consequence — read top to bottom and the API falls out.
 
-## Six principles
+## 1. Plain Python
 
-These are guardrails. A change that violates one is rejected even if it would save keystrokes.
+The library is built from ordinary classes, functions, decorators, dataclasses, and type hints. Every file is readable top-to-bottom. There is no framework metalanguage to learn before you can build something. If a behaviour is hard to find by reading the source, that's a bug.
 
-1. **Plain Python over framework primitives.** No `Runnable` protocol, no `BaseTool` hierarchy, no `|` LCEL operator, no `Agent[Deps, Out]` generics, no dependency injection container. The library is built from ordinary classes and functions you can read top-to-bottom.
-2. **OpenAI message dicts as the only data model.** No `Message` / `ChatMessage` / `AIMessage` classes. No Pydantic for tool args — `@tool` inspects type hints and docstrings from the standard library.
-3. **Explicit over magic.** No prompt-template objects, no implicit chaining, no callback or observer systems, no declarative YAML workflow DSL. Composition happens by instantiation.
-4. **One way to do each thing.** Where dual paths existed (factory vs direct constructor, `AgentChunk` vs `StreamChunk`, public `AgenticModelClient` vs `as_model_client()`), one was kept and the other removed.
-5. **Synchronous first.** Async is deferred until a concrete need surfaces. Adding `async def chat()` everywhere doubles the surface area; users who need async wrap `client.chat()` in `asyncio.to_thread()` in one line.
-6. **Loud failures.** Silent fallbacks on malformed input become exceptions with actionable messages. Bad `@tool` signatures, malformed `SKILL.md` files, dead MCP connections, mutating `system_message` after the conversation starts — all raise with a clear message.
+*How this cashes out:* `@tool` is a decorator that calls `inspect.signature()`. The agent loop is a `for` loop in [agent.py](../reference/api/agents.md#aimu.agents.Agent) you can read in one screen. Workflows are concrete classes (`Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`), not graph nodes. Composition happens by passing objects to constructors, not by operator overloading.
 
-## What we explicitly don't do
+## 2. Plain data
 
-These are tempting patterns lifted from neighbouring libraries. Each is rejected with a reason.
+Conversation state is a `list[dict]` you can `print()`, edit by hand, JSON-serialise, or hand to any other library. The OpenAI message format is the lingua franca and the only persistent representation. Provider-specific formats (Anthropic's `tool_use` blocks, Ollama's message-level `images=` field, HuggingFace's PIL images) adapt at request time and never leak into `self.messages`.
 
-| Pattern | Found in | Rejected because |
-|---|---|---|
-| `Runnable` protocol / LCEL `\|` chaining | LangChain | Composition by class instantiation is clearer; the `\|` operator hides the argument flow. |
-| Graph / state-machine workflow DSL | LangGraph | Anthropic's four patterns (chain, route, parallel, evaluator-optimizer) cover the documented cases. Users can write Python for the rest. |
-| Pydantic models for tool args | PydanticAI | `@tool` on plain functions with type hints is half the cognitive load. JSON parsing for structured output stays manual where needed. |
-| `Agent[Deps, Output]` typed generics | PydanticAI | Real benefit is small; cognitive overhead in error messages and IDE hover is large. |
-| Prompt template objects (`PromptTemplate("Hi {name}")`) | LangChain | f-strings exist. |
-| Callback / event handler system | LangChain | The `include=[...]` stream filter covers 90%; the rest is YAGNI until proven otherwise. |
-| Dependency injection container | PydanticAI | Passing the model client into an `Agent` constructor is one line. |
-| Plugin registry for tools | LangChain Hub, Strands tools | `from aimu.tools import builtin; tools=builtin.web` is enough. |
-| Built-in retrievers / vector stores | LangChain, Strands | Out of scope. `SemanticMemoryStore` exists for episodic memory, not RAG infrastructure. |
-| Built-in tracing / observability | LangChain, OpenLLMetry | Out of scope; users wire their own logging. |
+*How this cashes out:* `client.messages` is always introspectable; you can save it to JSON and reload it. `ConversationManager` is a TinyDB wrapper over the same dicts. `MessageHistory` is a type alias for `dict[str, list[dict]]`, not a class. There is no `Message` / `AIMessage` / `ChatMessage` wrapper to translate to and from.
 
-The result: AIMU is the smallest of the four by import surface and by line count.
+## 3. Composability through uniform interfaces
 
-## How these principles cash out in the API
+Substitutability is the principle that makes the library scale up without scaling the surface area. Every provider implements `BaseModelClient`. Every agent and workflow implements `Runner`. Every memory backend implements `MemoryStore`. Every streaming source yields `StreamChunk`. You can swap any concrete implementation for any other at the same level without rewriting call sites.
 
-- `@tool` on plain Python functions — not `BaseTool` subclasses or Pydantic models.
-- Message history is a `list[dict]` you can `print()` and edit by hand.
-- `Agent(client, "system message", tools=[...])` — positional system message, two-line construction.
-- Workflows are concrete classes (`Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`), not nodes in a graph.
-- One streaming chunk type (`StreamChunk`) flows through everything; no separate event classes.
-- The `include=` parameter is a list filter, not a subscription/observer.
-- Tool dispatch order is documented and deterministic (Python `@tool` first, then MCP).
-- `system_message` immutability is enforced with `RuntimeError` rather than silently dropped writes.
+*How this cashes out:* `agent.as_model_client()` returns a `BaseModelClient` view, so an agent slots into anywhere a client is accepted — including inside a workflow that itself accepts agents as steps. `Benchmark` runs the same `chat()` across plain clients and agentic ones uniformly. A `Router`'s handlers can be agents, chains, or other routers. The `messages` property merges recursively across nested workflows.
+
+## 4. Progressive disclosure
+
+The first useful call is one line. Each layer beyond that exposes more capability without forcing you to engage it. Start with `aimu.chat()` for a one-shot. Reach for `aimu.client()` when you need a conversation. Reach for `Agent` when you need a tool-using loop. Reach for a workflow (`Chain` / `Router` / `Parallel` / `EvaluatorOptimizer`) when you need a fixed pipeline. Subclass `BaseModelClient` only when you're adding a provider.
+
+*How this cashes out:* You can be productive at any depth. A demo script never needs to know what `ModelSpec` is. A power user can still construct `LlamaCppClient(model, model_path=..., n_gpu_layers=-1, chat_format="chatml-function-calling")` directly. The top-level `aimu.chat()` is a thin wrapper over `ModelClient` is a thin wrapper over the concrete client — peeling each layer takes the reader one file deeper, no more.
+
+## 5. Direct paths for common tasks
+
+Common operations have one obvious, ergonomic entry point that takes minimal ceremony. One-shot chat is `aimu.chat("...", model="...")`. Building a tool-using agent is `Agent(client, "system msg", tools=[...])`. A three-step pipeline is `Chain.of(client, [...])`. Filtering a stream is `include=["generating"]`. Grouped helpers (`builtin.web`, `builtin.fs`, `builtin.compute`) let you grab an obvious set of tools without naming each one. The library does not offer parallel, equally-recommended ways to do the same job — if a second path exists, it's a power-user escape hatch, not a fork in the documentation.
+
+*How this cashes out:* The top-level `aimu.chat()` and `aimu.client()` short-circuit the full `ModelClient` constructor when you don't need to customise it. `Agent`'s constructor takes `system_message` positionally because every agent needs one. `Chain.of()`, `Router.of()`, `Parallel.of()` exist so the common case is one line; the full constructors are still available for the unusual case. `agent.as_model_client()` is a method instead of a class import because almost no one needs to subclass it.
+
+## 6. Failures are apparent
+
+Errors raise at the layer where the cause is actionable, with messages that name the problem. `@tool` signature problems raise at decoration time, not at the first model call. Malformed `SKILL.md` files raise on discovery, not silently skipped. Dead MCP connections raise on construction, not on the first tool call. Mutating a locked `system_message` raises at the assignment, with a message pointing at `client.reset()`. The library does not silently fall back, and it does not wrap an error in a way that hides the original cause.
+
+*How this cashes out:* `ToolSignatureError`, `SkillLoadError`, `SkillNotFoundError`, `MCPConnectionError`, and the `system_message` `RuntimeError` each name a specific failure mode. Each message tells the caller what to do next. Each chained exception preserves the original cause via `raise ... from exc`, so the traceback always points at the root.
+
+## What follows from these principles
+
+Each principle excludes certain patterns. **Plain Python** rules out operator-overloaded chaining, observer/callback systems, prompt-template classes, graph DSLs, and dependency-injection containers — these would all introduce framework metalanguage between the user and the code. **Plain data** rules out Pydantic message wrappers and typed `Agent[Deps, Output]` generics. **Composability through uniform interfaces** rules out parallel inheritance trees for the same concept. **Direct paths for common tasks** rules out tool plugin registries and configuration DSLs — if a path is the obvious one, there isn't a second equally-obvious one. None of these are missing because they were hard to add; they're absent because they would violate the principles above.
 
 ## What this means for contributing
 
-If you propose a feature, the first question is: does this fit AIMU, or does it belong in a wrapper above AIMU? Patterns that match the principles above are welcome; patterns that violate them are best built externally — the small public surface makes that easy.
+Before proposing a change, ask which principle it serves. A new feature that doesn't extend at least one of the six is probably wrapper material, not library material — the small public surface makes external wrappers easy to write.
+
+The harder question is which principle a proposed change *violates*. If you can't tell, the principles aren't doing their job — open a discussion.
 
 ## See also
 
 - [Architecture](architecture.md) — the shape that falls out of these principles.
-- The library's CLAUDE.md (in the repo root) — engineering notes for Claude Code, which also encode these principles.
+- [Agents vs workflows](agents-vs-workflows.md) — applying principle #3 (uniform interfaces) and #4 (progressive disclosure) to the agent/workflow split.

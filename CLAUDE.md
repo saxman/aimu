@@ -8,6 +8,19 @@ AIMU (AI Model Utilities) is a Python library for building LLM-powered applicati
 
 AIMU implements Anthropic's agent/workflow taxonomy: autonomous agents run open-ended tool-calling loops; code-controlled workflows implement four patterns (prompt chaining, routing, parallelization, evaluator-optimizer). Agents are composable because they expose the same interface as plain model clients, allowing them to be used as drop-in replacements anywhere a client is accepted. Example agents in `aimu.agents.examples` demonstrate the orchestrator-with-worker-tools pattern. A hill-climbing prompt tuner optimizes prompts against labelled data without ML machinery.
 
+## Design Principles
+
+These six principles drive every architectural decision in AIMU. When proposing changes, check the change against each one — if it violates a principle, it likely belongs in a wrapper above AIMU rather than in the library itself. Full rationale lives in [docs/explanation/design-principles.md](docs/explanation/design-principles.md).
+
+1. **Plain Python.** Classes, functions, decorators, dataclasses, type hints. Every file is readable top-to-bottom. No framework metalanguage; no `Runnable` protocol, no LCEL, no graph DSL, no dependency-injection container.
+2. **Plain data.** Conversation state is a `list[dict]` in OpenAI message format. No `Message` / `AIMessage` / `ChatMessage` classes. Provider-specific formats (Anthropic blocks, Ollama image fields, HF PIL images) adapt at request time and never leak into `self.messages`.
+3. **Composability through uniform interfaces.** `BaseModelClient` for every provider, `Runner` for every agent and workflow, `MemoryStore` for every memory backend, `StreamChunk` for every streaming source. `agent.as_model_client()` exists specifically so agents are substitutable with plain clients.
+4. **Progressive disclosure.** `aimu.chat()` → `aimu.client()` → `Agent` → workflows → custom `BaseModelClient` subclass. Each layer optional; the top wraps the next. New entry points should fit somewhere on this ladder, not parallel to it.
+5. **Direct paths for common tasks.** Common operations have one obvious, ergonomic entry point: `aimu.chat()`, `Chain.of(...)`, `Agent(client, "system msg", tools=[...])`, `include=["generating"]`, `builtin.web`. The library does not offer parallel, equally-recommended ways to do the same job — if a second path exists, it's a power-user escape hatch (e.g. `Agent.from_config()`), not a documented alternative.
+6. **Failures are apparent.** Errors raise at the layer where the cause is actionable, with messages that name the problem. `ToolSignatureError` at decoration time. `SkillLoadError` on discovery. `MCPConnectionError` on construction. `RuntimeError` for locked-`system_message` mutations. Silent fallbacks are bugs; chained exceptions preserve the original cause via `raise ... from exc`.
+
+When reviewing a proposed change, ask which principle it serves and which (if any) it violates. The small public surface is itself a feature — keep it small.
+
 ## Development Commands
 
 ### Installation
@@ -420,13 +433,13 @@ AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Ru
 
 ### Key Design Patterns
 
+These are *implementation* patterns — the *how*. The *why* lives in the "Design Principles" section above.
+
 1. **Single public construction path**: `ModelClient` is the factory. Provider clients are still importable but no longer the recommended public surface. The top-level `aimu.client()` and `aimu.chat()` wrap `ModelClient` for one-line use.
-2. **Optional Dependencies**: Graceful degradation when model backends aren't installed.
-3. **OpenAI-Compatible Format**: Message history uses `{"role": "...", "content": "..."}` format. There is no `Message` class — plain dicts only.
-4. **Tool Calling Abstraction**: Base class handles tool calls uniformly across providers. Concrete clients implement `_chat`/`_generate`; the public `chat`/`generate` wrap them with the `include` filter.
-5. **Streaming Support**: All clients support both streaming and non-streaming generation; `chat(..., stream=True)` and `generate(..., stream=True)` yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, DONE); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. `StreamPhase` is an alias for `StreamingContentType`. Use `chunk.is_text()` / `chunk.is_tool_call()` to dispatch on phase without repeating the equality check.
-6. **Model Capability Flags**: `supports_tools`, `supports_thinking`, and `supports_vision` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access.
-7. **Loud Failures**: Malformed `@tool` signatures raise `ToolSignatureError`; malformed `SKILL.md` raises `SkillLoadError`; MCP connection failures raise `MCPConnectionError`; mutating `system_message` after the first chat raises `RuntimeError`.
+2. **Optional Dependencies**: Graceful degradation when model backends aren't installed. `HAS_*` flags expose installation state; missing optional deps don't break the import of the package.
+3. **Tool Calling Abstraction**: The base class handles tool calls uniformly across providers. Concrete clients implement `_chat` / `_generate`; the public `chat` / `generate` wrap them with the `include` filter. Python `@tool` functions take precedence over MCP tools of the same name; both routes can be active on the same client.
+4. **Streaming chunk type**: All clients support streaming via `chat(..., stream=True)` and `generate(..., stream=True)`. They yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, DONE); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. `StreamPhase` is an alias for `StreamingContentType`. Use `chunk.is_text()` / `chunk.is_tool_call()` to dispatch on phase.
+5. **Model Capability Flags**: `supports_tools`, `supports_thinking`, and `supports_vision` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access. `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` classproperties are derived automatically.
 
 ## Important Implementation Notes
 
