@@ -1867,10 +1867,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#six-principles" class="md-nav__link">
+  <a href="#1-plain-python" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Six principles
+        1. Plain Python
       
     </span>
   </a>
@@ -1878,10 +1878,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-we-explicitly-dont-do" class="md-nav__link">
+  <a href="#2-plain-data" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What we explicitly don't do
+        2. Plain data
       
     </span>
   </a>
@@ -1889,10 +1889,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-these-principles-cash-out-in-the-api" class="md-nav__link">
+  <a href="#3-composability-through-uniform-interfaces" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How these principles cash out in the API
+        3. Composability through uniform interfaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-progressive-disclosure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Progressive disclosure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-direct-paths-for-common-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Direct paths for common tasks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-failures-are-apparent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Failures are apparent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-follows-from-these-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What follows from these principles
       
     </span>
   </a>
@@ -2130,10 +2174,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#six-principles" class="md-nav__link">
+  <a href="#1-plain-python" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Six principles
+        1. Plain Python
       
     </span>
   </a>
@@ -2141,10 +2185,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-we-explicitly-dont-do" class="md-nav__link">
+  <a href="#2-plain-data" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What we explicitly don't do
+        2. Plain data
       
     </span>
   </a>
@@ -2152,10 +2196,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-these-principles-cash-out-in-the-api" class="md-nav__link">
+  <a href="#3-composability-through-uniform-interfaces" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How these principles cash out in the API
+        3. Composability through uniform interfaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-progressive-disclosure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Progressive disclosure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-direct-paths-for-common-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Direct paths for common tasks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-failures-are-apparent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Failures are apparent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-follows-from-these-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What follows from these principles
       
     </span>
   </a>
@@ -2205,98 +2293,34 @@
 
 
 <h1 id="design-principles">Design principles<a class="headerlink" href="#design-principles" title="Permanent link">&para;</a></h1>
-<p>AIMU has a clear identity, deliberately positioned against the heavier alternatives. This page is the line AIMU won't cross — the patterns rejected on purpose, and the reasons.</p>
-<h2 id="six-principles">Six principles<a class="headerlink" href="#six-principles" title="Permanent link">&para;</a></h2>
-<p>These are guardrails. A change that violates one is rejected even if it would save keystrokes.</p>
-<ol>
-<li><strong>Plain Python over framework primitives.</strong> No <code>Runnable</code> protocol, no <code>BaseTool</code> hierarchy, no <code>|</code> LCEL operator, no <code>Agent[Deps, Out]</code> generics, no dependency injection container. The library is built from ordinary classes and functions you can read top-to-bottom.</li>
-<li><strong>OpenAI message dicts as the only data model.</strong> No <code>Message</code> / <code>ChatMessage</code> / <code>AIMessage</code> classes. No Pydantic for tool args — <code>@tool</code> inspects type hints and docstrings from the standard library.</li>
-<li><strong>Explicit over magic.</strong> No prompt-template objects, no implicit chaining, no callback or observer systems, no declarative YAML workflow DSL. Composition happens by instantiation.</li>
-<li><strong>One way to do each thing.</strong> Where dual paths existed (factory vs direct constructor, <code>AgentChunk</code> vs <code>StreamChunk</code>, public <code>AgenticModelClient</code> vs <code>as_model_client()</code>), one was kept and the other removed.</li>
-<li><strong>Synchronous first.</strong> Async is deferred until a concrete need surfaces. Adding <code>async def chat()</code> everywhere doubles the surface area; users who need async wrap <code>client.chat()</code> in <code>asyncio.to_thread()</code> in one line.</li>
-<li><strong>Loud failures.</strong> Silent fallbacks on malformed input become exceptions with actionable messages. Bad <code>@tool</code> signatures, malformed <code>SKILL.md</code> files, dead MCP connections, mutating <code>system_message</code> after the conversation starts — all raise with a clear message.</li>
-</ol>
-<h2 id="what-we-explicitly-dont-do">What we explicitly don't do<a class="headerlink" href="#what-we-explicitly-dont-do" title="Permanent link">&para;</a></h2>
-<p>These are tempting patterns lifted from neighbouring libraries. Each is rejected with a reason.</p>
-<table>
-<thead>
-<tr>
-<th>Pattern</th>
-<th>Found in</th>
-<th>Rejected because</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Runnable</code> protocol / LCEL <code>\|</code> chaining</td>
-<td>LangChain</td>
-<td>Composition by class instantiation is clearer; the <code>\|</code> operator hides the argument flow.</td>
-</tr>
-<tr>
-<td>Graph / state-machine workflow DSL</td>
-<td>LangGraph</td>
-<td>Anthropic's four patterns (chain, route, parallel, evaluator-optimizer) cover the documented cases. Users can write Python for the rest.</td>
-</tr>
-<tr>
-<td>Pydantic models for tool args</td>
-<td>PydanticAI</td>
-<td><code>@tool</code> on plain functions with type hints is half the cognitive load. JSON parsing for structured output stays manual where needed.</td>
-</tr>
-<tr>
-<td><code>Agent[Deps, Output]</code> typed generics</td>
-<td>PydanticAI</td>
-<td>Real benefit is small; cognitive overhead in error messages and IDE hover is large.</td>
-</tr>
-<tr>
-<td>Prompt template objects (<code>PromptTemplate("Hi {name}")</code>)</td>
-<td>LangChain</td>
-<td>f-strings exist.</td>
-</tr>
-<tr>
-<td>Callback / event handler system</td>
-<td>LangChain</td>
-<td>The <code>include=[...]</code> stream filter covers 90%; the rest is YAGNI until proven otherwise.</td>
-</tr>
-<tr>
-<td>Dependency injection container</td>
-<td>PydanticAI</td>
-<td>Passing the model client into an <code>Agent</code> constructor is one line.</td>
-</tr>
-<tr>
-<td>Plugin registry for tools</td>
-<td>LangChain Hub, Strands tools</td>
-<td><code>from aimu.tools import builtin; tools=builtin.web</code> is enough.</td>
-</tr>
-<tr>
-<td>Built-in retrievers / vector stores</td>
-<td>LangChain, Strands</td>
-<td>Out of scope. <code>SemanticMemoryStore</code> exists for episodic memory, not RAG infrastructure.</td>
-</tr>
-<tr>
-<td>Built-in tracing / observability</td>
-<td>LangChain, OpenLLMetry</td>
-<td>Out of scope; users wire their own logging.</td>
-</tr>
-</tbody>
-</table>
-<p>The result: AIMU is the smallest of the four by import surface and by line count.</p>
-<h2 id="how-these-principles-cash-out-in-the-api">How these principles cash out in the API<a class="headerlink" href="#how-these-principles-cash-out-in-the-api" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>@tool</code> on plain Python functions — not <code>BaseTool</code> subclasses or Pydantic models.</li>
-<li>Message history is a <code>list[dict]</code> you can <code>print()</code> and edit by hand.</li>
-<li><code>Agent(client, "system message", tools=[...])</code> — positional system message, two-line construction.</li>
-<li>Workflows are concrete classes (<code>Chain</code>, <code>Router</code>, <code>Parallel</code>, <code>EvaluatorOptimizer</code>), not nodes in a graph.</li>
-<li>One streaming chunk type (<code>StreamChunk</code>) flows through everything; no separate event classes.</li>
-<li>The <code>include=</code> parameter is a list filter, not a subscription/observer.</li>
-<li>Tool dispatch order is documented and deterministic (Python <code>@tool</code> first, then MCP).</li>
-<li><code>system_message</code> immutability is enforced with <code>RuntimeError</code> rather than silently dropped writes.</li>
-</ul>
+<p>AIMU is built on six principles. They are ordered from foundation to consequence — read top to bottom and the API falls out.</p>
+<h2 id="1-plain-python">1. Plain Python<a class="headerlink" href="#1-plain-python" title="Permanent link">&para;</a></h2>
+<p>The library is built from ordinary classes, functions, decorators, dataclasses, and type hints. Every file is readable top-to-bottom. There is no framework metalanguage to learn before you can build something. If a behaviour is hard to find by reading the source, that's a bug.</p>
+<p><em>How this cashes out:</em> <code>@tool</code> is a decorator that calls <code>inspect.signature()</code>. The agent loop is a <code>for</code> loop in <a href="../../reference/api/agents/#aimu.agents.Agent">agent.py</a> you can read in one screen. Workflows are concrete classes (<code>Chain</code>, <code>Router</code>, <code>Parallel</code>, <code>EvaluatorOptimizer</code>), not graph nodes. Composition happens by passing objects to constructors, not by operator overloading.</p>
+<h2 id="2-plain-data">2. Plain data<a class="headerlink" href="#2-plain-data" title="Permanent link">&para;</a></h2>
+<p>Conversation state is a <code>list[dict]</code> you can <code>print()</code>, edit by hand, JSON-serialise, or hand to any other library. The OpenAI message format is the lingua franca and the only persistent representation. Provider-specific formats (Anthropic's <code>tool_use</code> blocks, Ollama's message-level <code>images=</code> field, HuggingFace's PIL images) adapt at request time and never leak into <code>self.messages</code>.</p>
+<p><em>How this cashes out:</em> <code>client.messages</code> is always introspectable; you can save it to JSON and reload it. <code>ConversationManager</code> is a TinyDB wrapper over the same dicts. <code>MessageHistory</code> is a type alias for <code>dict[str, list[dict]]</code>, not a class. There is no <code>Message</code> / <code>AIMessage</code> / <code>ChatMessage</code> wrapper to translate to and from.</p>
+<h2 id="3-composability-through-uniform-interfaces">3. Composability through uniform interfaces<a class="headerlink" href="#3-composability-through-uniform-interfaces" title="Permanent link">&para;</a></h2>
+<p>Substitutability is the principle that makes the library scale up without scaling the surface area. Every provider implements <code>BaseModelClient</code>. Every agent and workflow implements <code>Runner</code>. Every memory backend implements <code>MemoryStore</code>. Every streaming source yields <code>StreamChunk</code>. You can swap any concrete implementation for any other at the same level without rewriting call sites.</p>
+<p><em>How this cashes out:</em> <code>agent.as_model_client()</code> returns a <code>BaseModelClient</code> view, so an agent slots into anywhere a client is accepted — including inside a workflow that itself accepts agents as steps. <code>Benchmark</code> runs the same <code>chat()</code> across plain clients and agentic ones uniformly. A <code>Router</code>'s handlers can be agents, chains, or other routers. The <code>messages</code> property merges recursively across nested workflows.</p>
+<h2 id="4-progressive-disclosure">4. Progressive disclosure<a class="headerlink" href="#4-progressive-disclosure" title="Permanent link">&para;</a></h2>
+<p>The first useful call is one line. Each layer beyond that exposes more capability without forcing you to engage it. Start with <code>aimu.chat()</code> for a one-shot. Reach for <code>aimu.client()</code> when you need a conversation. Reach for <code>Agent</code> when you need a tool-using loop. Reach for a workflow (<code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>EvaluatorOptimizer</code>) when you need a fixed pipeline. Subclass <code>BaseModelClient</code> only when you're adding a provider.</p>
+<p><em>How this cashes out:</em> You can be productive at any depth. A demo script never needs to know what <code>ModelSpec</code> is. A power user can still construct <code>LlamaCppClient(model, model_path=..., n_gpu_layers=-1, chat_format="chatml-function-calling")</code> directly. The top-level <code>aimu.chat()</code> is a thin wrapper over <code>ModelClient</code> is a thin wrapper over the concrete client — peeling each layer takes the reader one file deeper, no more.</p>
+<h2 id="5-direct-paths-for-common-tasks">5. Direct paths for common tasks<a class="headerlink" href="#5-direct-paths-for-common-tasks" title="Permanent link">&para;</a></h2>
+<p>Common operations have one obvious, ergonomic entry point that takes minimal ceremony. One-shot chat is <code>aimu.chat("...", model="...")</code>. Building a tool-using agent is <code>Agent(client, "system msg", tools=[...])</code>. A three-step pipeline is <code>Chain.of(client, [...])</code>. Filtering a stream is <code>include=["generating"]</code>. Grouped helpers (<code>builtin.web</code>, <code>builtin.fs</code>, <code>builtin.compute</code>) let you grab an obvious set of tools without naming each one. The library does not offer parallel, equally-recommended ways to do the same job — if a second path exists, it's a power-user escape hatch, not a fork in the documentation.</p>
+<p><em>How this cashes out:</em> The top-level <code>aimu.chat()</code> and <code>aimu.client()</code> short-circuit the full <code>ModelClient</code> constructor when you don't need to customise it. <code>Agent</code>'s constructor takes <code>system_message</code> positionally because every agent needs one. <code>Chain.of()</code>, <code>Router.of()</code>, <code>Parallel.of()</code> exist so the common case is one line; the full constructors are still available for the unusual case. <code>agent.as_model_client()</code> is a method instead of a class import because almost no one needs to subclass it.</p>
+<h2 id="6-failures-are-apparent">6. Failures are apparent<a class="headerlink" href="#6-failures-are-apparent" title="Permanent link">&para;</a></h2>
+<p>Errors raise at the layer where the cause is actionable, with messages that name the problem. <code>@tool</code> signature problems raise at decoration time, not at the first model call. Malformed <code>SKILL.md</code> files raise on discovery, not silently skipped. Dead MCP connections raise on construction, not on the first tool call. Mutating a locked <code>system_message</code> raises at the assignment, with a message pointing at <code>client.reset()</code>. The library does not silently fall back, and it does not wrap an error in a way that hides the original cause.</p>
+<p><em>How this cashes out:</em> <code>ToolSignatureError</code>, <code>SkillLoadError</code>, <code>SkillNotFoundError</code>, <code>MCPConnectionError</code>, and the <code>system_message</code> <code>RuntimeError</code> each name a specific failure mode. Each message tells the caller what to do next. Each chained exception preserves the original cause via <code>raise ... from exc</code>, so the traceback always points at the root.</p>
+<h2 id="what-follows-from-these-principles">What follows from these principles<a class="headerlink" href="#what-follows-from-these-principles" title="Permanent link">&para;</a></h2>
+<p>Each principle excludes certain patterns. <strong>Plain Python</strong> rules out operator-overloaded chaining, observer/callback systems, prompt-template classes, graph DSLs, and dependency-injection containers — these would all introduce framework metalanguage between the user and the code. <strong>Plain data</strong> rules out Pydantic message wrappers and typed <code>Agent[Deps, Output]</code> generics. <strong>Composability through uniform interfaces</strong> rules out parallel inheritance trees for the same concept. <strong>Direct paths for common tasks</strong> rules out tool plugin registries and configuration DSLs — if a path is the obvious one, there isn't a second equally-obvious one. None of these are missing because they were hard to add; they're absent because they would violate the principles above.</p>
 <h2 id="what-this-means-for-contributing">What this means for contributing<a class="headerlink" href="#what-this-means-for-contributing" title="Permanent link">&para;</a></h2>
-<p>If you propose a feature, the first question is: does this fit AIMU, or does it belong in a wrapper above AIMU? Patterns that match the principles above are welcome; patterns that violate them are best built externally — the small public surface makes that easy.</p>
+<p>Before proposing a change, ask which principle it serves. A new feature that doesn't extend at least one of the six is probably wrapper material, not library material — the small public surface makes external wrappers easy to write.</p>
+<p>The harder question is which principle a proposed change <em>violates</em>. If you can't tell, the principles aren't doing their job — open a discussion.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../architecture/">Architecture</a> — the shape that falls out of these principles.</li>
-<li>The library's CLAUDE.md (in the repo root) — engineering notes for Claude Code, which also encode these principles.</li>
+<li><a href="../agents-vs-workflows/">Agents vs workflows</a> — applying principle #3 (uniform interfaces) and #4 (progressive disclosure) to the agent/workflow split.</li>
 </ul>
 
 
