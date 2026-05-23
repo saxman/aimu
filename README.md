@@ -2,19 +2,33 @@
 
 # AIMU - AI Model Utilities
 
-A lightweight Python library for building LLM-powered applications with a consistent interface across local and cloud providers. AIMU separates autonomous agents from code-controlled workflows, treats agents as composable units that can be used anywhere a plain model client is accepted, and stays small on purpose — plain Python, OpenAI message dicts as the only data model, no framework primitives.
+A lightweight Python library for building LLM-powered applications with one interface across local and cloud providers. AIMU separates autonomous agents from code-controlled workflows, treats agents as drop-in model clients, and stays small on purpose — plain Python, OpenAI message dicts as the only data model, no framework primitives.
 
 📘 **[Read the docs](https://saxman.github.io/aimu/)** for tutorials, how-to guides, full API reference, and design explanations.
 
+## What makes AIMU different
+
+AIMU is deliberately the smallest library in its category. It refuses the framework primitives that bloat LangChain, LangGraph, PydanticAI, and Strands in favour of plain Python and direct method calls.
+
+- **Plain Python over framework primitives.** No `Runnable` protocol, no `BaseTool` hierarchy, no LCEL `|` operator, no `Agent[Deps, Out]` generics, no dependency injection container. `@tool` is one decorator on a plain function.
+- **OpenAI message dicts as the only data model.** No `Message` / `AIMessage` classes. Provider-specific formats adapt at request time and never persist; `client.messages` is always a plain `list[dict]` you can `print()` and edit.
+- **Workflow patterns by their established names.** `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` are direct implementations of the four code-controlled agentic patterns — not framework-invented constructs or proprietary graph DSLs.
+- **Agents are drop-in model clients.** `agent.as_model_client()` returns a `BaseModelClient` view, so an agent slots into any code that accepts a client — including inside a workflow that itself accepts agents.
+
+The full "what we deliberately don't do" list lives in the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
+
 ## Features
 
-- **Provider-agnostic model clients** — Ollama, HuggingFace, llama-cpp, Anthropic, OpenAI, Gemini, plus every OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve). One factory, swap with a string change.
-- **Agents and workflows** per Anthropic's *Building Effective Agents* taxonomy: `Agent` for autonomous tool-using loops; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` for code-controlled patterns; `OrchestratorAgent` for the dispatch-to-workers pattern.
-- **Tools** via the `@tool` decorator (in-process Python) or `MCPClient` (cross-process FastMCP). Both routes coexist on the same client.
-- **Skills** — filesystem-discovered `SKILL.md` files auto-injected into a `SkillAgent`.
-- **Memory** — semantic facts (ChromaDB), path-based documents (Anthropic Memory API), and conversation history (TinyDB).
-- **Prompt management** — versioned SQLite catalog plus a hill-climbing tuner with classification, multi-class, extraction, and judged variants.
-- **Evaluation** — DeepEval integration and a multi-model benchmark harness with CSV / JSON / catalog export.
+- **Uniform interface across every provider.** Thinking, tool calling, and vision input work identically whether you point AIMU at Ollama, HuggingFace, llama-cpp, the Claude API, OpenAI, Gemini, or any OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve). Swap with a string change: `"provider:model_id"`.
+- **Reasoning models, universally.** DeepSeek-R1, Qwen3, GPT-OSS, Magistral, Gemini 2.5, Claude 4.x — every thinking-capable model surfaces reasoning as `StreamPhase.THINKING` chunks via the same API.
+- **Typed streaming, one chunk type everywhere.** `StreamChunk(phase, content, agent, iteration)` flows through `client.chat()`, `Agent.run()`, and every workflow. Filter phases with `include=["generating"]`; no callbacks, no event subscriptions.
+- **Composable agents.** `Agent` runs the loop. `agent.as_model_client()` makes it interchangeable with any plain client. Workflows accept agents as steps. Agents can be orchestrators dispatching to other agents via tool calls.
+- **Four workflow patterns when you want the flow fixed.** `Chain.of(...)`, `Router.of(...)`, `Parallel.of(...)`, and `EvaluatorOptimizer(...)` — the documented code-controlled agentic patterns, implemented directly. Use `Agent` when you want the model to direct the flow; use these when you want the code to. Compose freely.
+- **Tools as plain Python.** `@tool` on any function — type hints + docstring become the spec. No Pydantic, no `BaseTool` subclass. Pair with `MCPClient` for cross-process FastMCP tools on the same agent.
+- **Skills compatible with Claude Code.** Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent`. Same format Claude Code uses; AIMU reads from `.agents/skills/`, `.claude/skills/`, and the `~/` variants.
+- **Three memory stores.** Semantic facts (ChromaDB), path-based documents (`DocumentStore` — drop-in compatible with the Claude memory tool API), and conversation history (TinyDB). All three implement the same `MemoryStore` abstract interface.
+- **Hill-climbing prompt tuner, no ML machinery.** Four concrete tuners (classification, multi-class, extraction, judged-generation) optimise prompts against labelled data using just a model client and a `Scorer`.
+- **Multi-model benchmarks.** `Benchmark` runs one prompt over multiple clients — plain or agentic, mixed providers, mixed local-and-cloud — and returns a comparison DataFrame. DeepEval metrics plug in as scorers.
 
 ## Install
 
@@ -22,7 +36,7 @@ A lightweight Python library for building LLM-powered applications with a consis
 pip install aimu[all]
 ```
 
-Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]`, `aimu[hf]`, `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list.
+Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]`, `aimu[hf]`, `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
 
 ## Quick start
 
@@ -36,8 +50,18 @@ text = aimu.chat("Hello", model="anthropic:claude-sonnet-4-6")
 client = aimu.client("ollama:qwen3.5:9b", system="You are concise.")
 client.chat("Hi there")
 client.chat("What did I just say?")     # history preserved
+```
 
-# Agent with a tool
+**Streaming with phase filtering.** Drop unwanted phases (thinking, tool calls) with `include=`:
+
+```python
+for chunk in client.chat("Tell me a story", stream=True, include=["generating"]):
+    print(chunk.content, end="", flush=True)
+```
+
+**An agent with a tool.** `@tool` works on any plain function:
+
+```python
 from aimu.agents import Agent
 from aimu.tools import tool
 
@@ -50,7 +74,27 @@ agent = Agent(aimu.client("ollama:qwen3.5:9b"), tools=[letter_counter])
 print(agent.run("How many r's in strawberry?"))
 ```
 
-That's the full mental model: `aimu.chat()` for one-shots, `aimu.client()` for conversations, `Agent` for tool-using loops, and `"provider:model_id"` strings to swap backends.
+**A code-controlled workflow.** `Chain.of()` builds a multi-step pipeline in one line — each step's output becomes the next step's input:
+
+```python
+from aimu.agents import Chain
+
+chain = Chain.of(client, [
+    "Break the task into clear steps.",
+    "Execute each step using available tools.",
+    "Polish the result into a single paragraph.",
+])
+result = chain.run("Research the top Python web frameworks.")
+```
+
+**Vision input.** Uniform across every vision-capable provider:
+
+```python
+client = aimu.client("openai:gpt-4o-mini")     # or anthropic, gemini, ollama, hf
+client.chat("What's in this image?", images=["./cat.jpg"])
+```
+
+That's the full mental model: `aimu.chat()` for one-shots, `aimu.client()` for conversations, `Agent` for tool-using loops, workflows for code-controlled patterns, and `"provider:model_id"` strings to swap backends. The [tutorials](https://saxman.github.io/aimu/tutorials/) take you from here to a working multi-agent system in 50 minutes.
 
 ## Documentation
 
