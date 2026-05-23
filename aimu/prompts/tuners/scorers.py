@@ -16,6 +16,10 @@ from __future__ import annotations
 import logging
 import re
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aimu.models.base import BaseModelClient
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +80,7 @@ class LLMJudgeScorer(Scorer):
 
     def __init__(
         self,
-        judge_client,
+        judge_client: "BaseModelClient",
         criteria: str,
         prompt_template: str | None = None,
         generate_kwargs: dict | None = None,

@@ -1,0 +1,133 @@
+site_name: AIMU
+site_description: AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.
+site_url: https://saxman.github.io/aimu/
+repo_url: https://github.com/saxman/aimu
+repo_name: saxman/aimu
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - content.code.annotate
+    - search.highlight
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            show_root_heading: true
+            show_root_toc_entry: false
+            show_source: false
+            docstring_style: google
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
+            filters: ["!^_"]
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/saxman/aimu
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/aimu/
+
+nav:
+  - Home: index.md
+  - Tutorials:
+      - tutorials/index.md
+      - Getting started: tutorials/01-getting-started.md
+      - First agent with tools: tutorials/02-first-agent-with-tools.md
+      - Workflows: tutorials/03-workflows.md
+      - Vision and streaming: tutorials/04-vision-and-streaming.md
+  - How-to:
+      - how-to/index.md
+      - Switch providers: how-to/switch-providers.md
+      - Add a custom tool: how-to/add-custom-tool.md
+      - Add a new model: how-to/add-new-model.md
+      - Use MCP tools: how-to/use-mcp-tools.md
+      - Use skills: how-to/use-skills.md
+      - Stream output: how-to/stream-output.md
+      - Handle vision input: how-to/handle-vision.md
+      - Persist conversations: how-to/persist-conversations.md
+      - Use semantic memory: how-to/use-semantic-memory.md
+      - Use document memory: how-to/use-document-memory.md
+      - Build an orchestrator: how-to/build-orchestrator.md
+      - Tune prompts: how-to/tune-prompts.md
+      - Benchmark models: how-to/benchmark-models.md
+      - Integrate DeepEval: how-to/integrate-deepeval.md
+  - Reference:
+      - reference/index.md
+      - API:
+          - aimu: reference/api/aimu.md
+          - aimu.models: reference/api/models.md
+          - aimu.agents: reference/api/agents.md
+          - aimu.tools: reference/api/tools.md
+          - aimu.skills: reference/api/skills.md
+          - aimu.memory: reference/api/memory.md
+          - aimu.prompts: reference/api/prompts.md
+          - aimu.evals: reference/api/evals.md
+          - aimu.history: reference/api/history.md
+      - Provider matrix: reference/provider-matrix.md
+      - Model matrix: reference/model-matrix.md
+      - Stream phases: reference/stream-phases.md
+      - Environment variables: reference/env-vars.md
+      - CLI: reference/cli.md
+  - Explanation:
+      - explanation/index.md
+      - Architecture: explanation/architecture.md
+      - Design principles: explanation/design-principles.md
+      - Agents vs workflows: explanation/agents-vs-workflows.md
+      - StreamChunk model: explanation/streamchunk-model.md
+      - System message lifecycle: explanation/system-message-lifecycle.md
+      - Tool integration: explanation/tool-integration.md
+  - Changelog: changelog.md
+  - Contributing: contributing.md

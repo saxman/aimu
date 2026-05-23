@@ -19,7 +19,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
 if TYPE_CHECKING:
+    from aimu.models.base import BaseModelClient
     from aimu.prompts.catalog import PromptCatalog
 
 logger = logging.getLogger(__name__)
@@ -34,7 +37,7 @@ _THINKING_GENERATE_KWARGS = {"max_new_tokens": 1024, "temperature": 0.6}
 
 
 class PromptTuner(ABC):
-    def __init__(self, model_client):
+    def __init__(self, model_client: "BaseModelClient"):
         self.model_client = model_client
         self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
         self.mutation_kwargs = DEFAULT_MUTATION_KWARGS.copy()
@@ -43,7 +46,7 @@ class PromptTuner(ABC):
             self.mutation_kwargs.update(_THINKING_GENERATE_KWARGS)
 
     @abstractmethod
-    def apply_prompt(self, prompt: str, data):
+    def apply_prompt(self, prompt: str, data: pd.DataFrame) -> pd.DataFrame:
         """
         Apply *prompt* to *data* and return the annotated dataset.
 
@@ -54,7 +57,7 @@ class PromptTuner(ABC):
         ...
 
     @abstractmethod
-    def evaluate(self, data) -> dict:
+    def evaluate(self, data: pd.DataFrame) -> dict:
         """
         Score the annotated dataset.
 
@@ -103,7 +106,7 @@ class PromptTuner(ABC):
 
     def tune(
         self,
-        training_data,
+        training_data: pd.DataFrame,
         initial_prompt: str,
         max_iterations: int = 20,
         max_examples: int = 5,

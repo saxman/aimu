@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 
+import pandas as pd
 from tqdm import tqdm
 
 from aimu.prompts.tuner import PromptTuner
@@ -41,12 +42,12 @@ class ClassificationPromptTuner(PromptTuner):
 
     # --- PromptTuner abstract method implementations ---
 
-    def apply_prompt(self, prompt: str, data):
+    def apply_prompt(self, prompt: str, data: pd.DataFrame) -> pd.DataFrame:
         data = self.classify_data(prompt, data)
         data["_correct"] = data["actual_class"] == data["predicted_class"]
         return data
 
-    def evaluate(self, data) -> dict:
+    def evaluate(self, data: pd.DataFrame) -> dict:
         return self.evaluate_results(data)
 
     def mutation_prompt(self, current_prompt: str, items: list) -> str:
@@ -70,7 +71,7 @@ class ClassificationPromptTuner(PromptTuner):
 
     # --- Public helpers (also usable standalone) ---
 
-    def classify_data(self, classification_prompt: str, data):
+    def classify_data(self, classification_prompt: str, data: pd.DataFrame) -> pd.DataFrame:
         """
         Run the prompt on every row of *data* and return it with a
         ``predicted_class`` boolean column added.
@@ -104,7 +105,7 @@ class ClassificationPromptTuner(PromptTuner):
         df["predicted_class"] = predicted_class
         return df
 
-    def evaluate_results(self, data) -> dict:
+    def evaluate_results(self, data: pd.DataFrame) -> dict:
         """
         Compute accuracy, precision, and recall from ``actual_class`` /
         ``predicted_class`` columns.

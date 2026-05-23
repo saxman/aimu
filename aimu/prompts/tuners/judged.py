@@ -42,11 +42,16 @@ Example with DeepEval metrics::
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
+import pandas as pd
 from tqdm import tqdm
 
 from aimu.prompts.tuner import DEFAULT_MUTATION_KWARGS, PromptTuner
 from aimu.prompts.tuners.scorers import Scorer
+
+if TYPE_CHECKING:
+    from aimu.models.base import BaseModelClient
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +75,7 @@ class JudgedPromptTuner(PromptTuner):
 
     def __init__(
         self,
-        model_client,
+        model_client: "BaseModelClient",
         scorer: Scorer,
         pass_threshold: float = 0.7,
     ):
@@ -92,13 +97,13 @@ class JudgedPromptTuner(PromptTuner):
 
     # --- PromptTuner abstract method implementations ---
 
-    def apply_prompt(self, prompt: str, data):
+    def apply_prompt(self, prompt: str, data: pd.DataFrame) -> pd.DataFrame:
         data = self.generate_responses(prompt, data)
         data = self.judge_responses(data)
         data["_correct"] = data["judge_score"] >= self.pass_threshold
         return data
 
-    def evaluate(self, data) -> dict:
+    def evaluate(self, data: pd.DataFrame) -> dict:
         return self.evaluate_results(data)
 
     def mutation_prompt(self, current_prompt: str, items: list) -> str:
@@ -124,7 +129,7 @@ class JudgedPromptTuner(PromptTuner):
 
     # --- Public helpers (also usable standalone) ---
 
-    def generate_responses(self, prompt: str, data):
+    def generate_responses(self, prompt: str, data: pd.DataFrame) -> pd.DataFrame:
         """
         Apply *prompt* to every row's ``content`` and store results in an ``output`` column.
 
@@ -148,7 +153,7 @@ class JudgedPromptTuner(PromptTuner):
         df["output"] = outputs
         return df
 
-    def judge_responses(self, data):
+    def judge_responses(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Run the configured :class:`Scorer` on every row and store results.
 
@@ -172,7 +177,7 @@ class JudgedPromptTuner(PromptTuner):
         df["judge_feedback"] = feedbacks
         return df
 
-    def evaluate_results(self, data) -> dict:
+    def evaluate_results(self, data: pd.DataFrame) -> dict:
         """
         Compute mean judge score and pass rate.
 

@@ -1,0 +1,103 @@
+# Contributing
+
+Thanks for considering a contribution.
+
+## Dev setup
+
+Clone and install with all extras:
+
+```bash
+git clone https://github.com/saxman/aimu
+cd aimu
+pip install -e '.[all,dev,notebooks,docs]'
+```
+
+Or with [uv](https://docs.astral.sh/uv/) (faster):
+
+```bash
+uv sync --all-extras
+```
+
+For gated HuggingFace models, log in once:
+
+```bash
+hf auth login
+```
+
+## Run the tests
+
+The default suite is mock-based and needs no backend:
+
+```bash
+pytest tests/ --ignore=tests/test_models.py
+```
+
+To run against a real backend:
+
+```bash
+pytest tests/test_models.py --client=ollama --model=QWEN_3_5_9B
+pytest tests/test_models.py --client=anthropic
+pytest tests/test_models.py --client=llamacpp --model-path=/path/to/model.gguf
+```
+
+See [CLAUDE.md](https://github.com/saxman/aimu/blob/main/CLAUDE.md) for the full list of `--client` options.
+
+## Linting
+
+Ruff is configured in `pyproject.toml` (line length 120):
+
+```bash
+ruff check .
+ruff format .
+```
+
+## Build the docs locally
+
+```bash
+pip install -e '.[docs]'
+mkdocs serve
+```
+
+The site rebuilds on file changes. Browse at `http://127.0.0.1:8000`.
+
+To check for broken links and missing pages:
+
+```bash
+mkdocs build --strict
+```
+
+## Coding conventions
+
+- **Plain Python over framework primitives.** No `Runnable` protocol, no `BaseTool`, no LCEL `|`, no Pydantic for tool args. See [design principles](explanation/design-principles.md) for the full list of what's deliberately out of scope.
+- **OpenAI message dicts as the only data model.** No `Message` class. Provider-specific formats are adapted at request time, never persisted.
+- **Loud failures.** Bad input raises with an actionable message. Silent skips and `try/except: pass` are reviewed carefully.
+- **Synchronous first.** Async APIs are deferred until a concrete need surfaces.
+
+## Adding a new provider
+
+Briefly: subclass `BaseModelClient`, implement `_chat`, `_generate`, and `_update_generate_kwargs`. Define a `Model` enum subclass listing supported models with `ModelSpec(...)` values. Add isinstance dispatch in `ModelClient.__init__` and a registry entry in `_provider_registry()` so model strings work. Add the provider's `Model` import to `aimu/models/__init__.py` guarded by a `HAS_*` flag for the optional dependency.
+
+See an existing provider (e.g. `AnthropicClient`) for the full pattern.
+
+## Adding a new model to an existing provider
+
+Add a member to the provider's `Model` enum with a `ModelSpec(id, tools=..., thinking=..., vision=...)` value. The `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` lists derive automatically. See [how-to: add a new model](how-to/add-new-model.md).
+
+## Pull requests
+
+- One concern per PR. Splitting a refactor across multiple PRs makes review tractable.
+- Include or update tests. The redesign test suite (`tests/test_redesign.py`) covers behavioural contracts and is a good template for new features.
+- Update docs when adding a public API. New `@tool`-decorated function? Add it to `builtin.<group>`. New workflow? Add a tutorial or how-to.
+- Run `ruff check .` and `pytest` before pushing.
+
+## Reporting bugs
+
+File an issue with:
+
+- A minimal reproducer (under 20 lines if possible).
+- The full traceback.
+- AIMU version, Python version, and which provider you were using.
+
+## Questions
+
+Open a GitHub discussion. For Claude Code agents working in this repo, [CLAUDE.md](https://github.com/saxman/aimu/blob/main/CLAUDE.md) is the canonical engineering reference.
