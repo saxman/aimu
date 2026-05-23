@@ -8,12 +8,12 @@ A lightweight Python library for building LLM-powered applications with one inte
 
 ## What makes AIMU different
 
-AIMU is deliberately the smallest library in its category. It refuses the framework primitives that bloat LangChain, LangGraph, PydanticAI, and Strands in favour of plain Python and direct method calls.
+AIMU is deliberately the (?) smallest library in its category. It refuses the framework primitives that bloat other model and agent framework in favour of plain Python and direct method calls. A few principles guiding the design of AIMU.
 
-- **Plain Python over framework primitives.** No `Runnable` protocol, no `BaseTool` hierarchy, no LCEL `|` operator, no `Agent[Deps, Out]` generics, no dependency injection container. `@tool` is one decorator on a plain function.
-- **OpenAI message dicts as the only data model.** No `Message` / `AIMessage` classes. Provider-specific formats adapt at request time and never persist; `client.messages` is always a plain `list[dict]` you can `print()` and edit.
-- **Workflow patterns by their established names.** `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` are direct implementations of the four code-controlled agentic patterns — not framework-invented constructs or proprietary graph DSLs.
-- **Agents are drop-in model clients.** `agent.as_model_client()` returns a `BaseModelClient` view, so an agent slots into any code that accepts a client — including inside a workflow that itself accepts agents.
+- **Plain Python over framework primitives.**
+- **Simple, unified data model using (OpenAI) message dicts.**
+- **Composable agent workflow patterns.**
+- **Agents are drop-in model clients for chat.**
 
 The full "what we deliberately don't do" list lives in the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
 
