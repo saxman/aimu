@@ -155,6 +155,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [11 - Prebuilt Agents](notebooks/11%20-%20Prebuilt%20Agents.ipynb) | Orchestrator + worker tools pattern |
 | [12 - Evaluations](notebooks/12%20-%20Evaluations.ipynb) | DeepEval integration |
 | [13 - Benchmarking](notebooks/13%20-%20Benchmarking.ipynb) | Multi-model comparison harness |
+| [14 - Async](notebooks/14%20-%20Async.ipynb) | `aimu.aio` surface end-to-end: chat, streaming, async tools, `asyncio.TaskGroup`-backed `Parallel`, async `MCPClient`, in-process provider wrapping |
 
 ## Design principles
 

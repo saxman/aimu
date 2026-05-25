@@ -65,4 +65,4 @@ That's the full mental model: a `chat()` function for one-shots, a `client()` fa
 
 ## Notebooks
 
-The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 13 runnable demos covering every subsystem end-to-end. The [README](https://github.com/saxman/aimu#examples) lists each one.
+The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 14 runnable demos covering every subsystem end-to-end, including a dedicated `14 - Async` notebook for the `aimu.aio` surface. The [README](https://github.com/saxman/aimu#examples) lists each one.
