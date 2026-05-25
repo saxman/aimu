@@ -16,7 +16,7 @@
         <link rel="prev" href="../use-document-memory/">
       
       
-        <link rel="next" href="../tune-prompts/">
+        <link rel="next" href="../plan-execute-evaluate/">
       
       
         
@@ -679,6 +679,8 @@
       
         
       
+        
+      
     
     
     
@@ -1116,10 +1118,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ship-ready-example-agents" class="md-nav__link">
+  <a href="#prebuilt-orchestrators" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Ship-ready example agents
+        Prebuilt orchestrators
       
     </span>
   </a>
@@ -1141,6 +1143,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plan-execute-evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan, execute, evaluate, replan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2163,10 +2193,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ship-ready-example-agents" class="md-nav__link">
+  <a href="#prebuilt-orchestrators" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Ship-ready example agents
+        Prebuilt orchestrators
       
     </span>
   </a>
@@ -2268,15 +2298,15 @@
 <p><code>_init_orchestrator()</code> does three things: assigns the tool functions to <code>model_client.tools</code>, sets <code>concurrent_tool_calls</code>, and constructs the inner orchestrator <code>Agent</code>. The base class provides <code>run()</code> and <code>messages</code> — the subclass needs nothing else.</p>
 <h2 id="concurrent-worker-dispatch">Concurrent worker dispatch<a class="headerlink" href="#concurrent-worker-dispatch" title="Permanent link">&para;</a></h2>
 <p>Pass <code>concurrent_tool_calls=True</code> so the orchestrator dispatches multiple tools in parallel when the model returns several tool calls in one turn. This is essential when workers do I/O (web search, API calls) and idle most of their time waiting.</p>
-<p>The example agents in <code>aimu.agents.examples</code> enable this automatically when <code>worker_tools=</code> is provided.</p>
-<h2 id="ship-ready-example-agents">Ship-ready example agents<a class="headerlink" href="#ship-ready-example-agents" title="Permanent link">&para;</a></h2>
-<p><code>aimu.agents.examples</code> includes three working orchestrators you can use or copy:</p>
+<p>The prebuilt agents in <code>aimu.agents.prebuilt</code> enable this automatically when <code>worker_tools=</code> is provided.</p>
+<h2 id="prebuilt-orchestrators">Prebuilt orchestrators<a class="headerlink" href="#prebuilt-orchestrators" title="Permanent link">&para;</a></h2>
+<p><code>aimu.agents.prebuilt</code> includes three working orchestrators you can use directly or copy as a starting point:</p>
 <ul>
 <li><code>ResearchReportAgent</code> — orchestrator + <code>research_overview</code>, <code>find_examples</code>, <code>find_counterpoints</code></li>
 <li><code>CodeReviewAgent</code> — orchestrator + <code>review_security</code>, <code>review_performance</code>, <code>review_readability</code></li>
 <li><code>ContentCreationAgent</code> — orchestrator + <code>research_topic</code>, <code>create_outline</code>, <code>write_section</code></li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents.examples</span><span class="w"> </span><span class="kn">import</span> <span class="n">ResearchReportAgent</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents.prebuilt</span><span class="w"> </span><span class="kn">import</span> <span class="n">ResearchReportAgent</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ResearchReportAgent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">worker_tools</span><span class="o">=</span><span class="n">builtin</span><span class="o">.</span><span class="n">web</span><span class="p">)</span>

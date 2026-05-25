@@ -677,6 +677,8 @@
       
         
       
+        
+      
     
     
     
@@ -1026,6 +1028,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/plan-execute-evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan, execute, evaluate, replan
   
 
     
@@ -2282,12 +2312,14 @@
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│  Each implements BaseModelClient (chat / generate / _chat /  │
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   _generate / _update_generate_kwargs)                       │
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├──────────────────────────────────────────────────────────────┤
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│  Runner (ABC)                                                │
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├─ BaseAgent     (autonomous: LLM directs flow)            │
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   │    └─ Agent / SkillAgent / OrchestratorAgent             │
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   └─ Workflow      (code-controlled: code directs flow)      │
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│        └─ Chain / Router / Parallel / EvaluatorOptimizer     │
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>└──────────────────────────────────────────────────────────────┘
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│  Runner (ABC)  — single interface for everything runnable    │
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├─ Agent / SkillAgent / OrchestratorAgent                  │
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   │     (autonomous: LLM directs flow)                       │
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   └─ Chain / Router / Parallel /                             │
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│      EvaluatorOptimizer / PlanExecuteEvaluator               │
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│         (code-controlled: code directs flow)                 │
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│  All concretes exported from aimu.agents.                    │
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>└──────────────────────────────────────────────────────────────┘
 </span></code></pre></div>
 <h2 id="the-base-contract-basemodelclient">The base contract: <code>BaseModelClient</code><a class="headerlink" href="#the-base-contract-basemodelclient" title="Permanent link">&para;</a></h2>
 <p>Every provider speaks the same shape. The contract:</p>
@@ -2337,14 +2369,14 @@
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="nd">@abstractmethod</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">messages</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]:</span> <span class="o">...</span>
 </span></code></pre></div>
-<p>Two marker ABCs split runners into autonomous and code-controlled:</p>
+<p>There's a single <code>Runner</code> ABC. The autonomous-vs-code-controlled split survives as a <em>categorisation of concrete classes</em>, not a type hierarchy:</p>
 <ul>
-<li><strong><code>BaseAgent</code></strong> — the LLM directs flow (e.g. <code>Agent</code> keeps looping until the model stops calling tools).</li>
-<li><strong><code>Workflow</code></strong> — code directs flow (e.g. <code>Chain</code> runs steps in a fixed order).</li>
+<li><strong>Autonomous</strong> — the LLM directs flow. <code>Agent</code> keeps looping until the model stops calling tools; <code>SkillAgent</code> and <code>OrchestratorAgent</code> extend that.</li>
+<li><strong>Code-controlled</strong> — code directs flow. <code>Chain</code> runs steps in a fixed order; <code>Router</code> classifies and dispatches; <code>Parallel</code> fans out; <code>EvaluatorOptimizer</code> iterates generate→critique; <code>PlanExecuteEvaluator</code> plans→executes→scores→replans.</li>
 </ul>
-<p>This is Anthropic's <em>Building Effective Agents</em> taxonomy made concrete. See <a href="../agents-vs-workflows/">Agents vs workflows</a> for the underlying argument.</p>
+<p>All concrete classes live in <code>aimu.agents</code>. This is the <em>Building Effective Agents</em> taxonomy made concrete. See <a href="../agents-vs-workflows/">Agents vs workflows</a> for the underlying argument.</p>
 <h2 id="streaming-one-chunk-type-everywhere">Streaming: one chunk type everywhere<a class="headerlink" href="#streaming-one-chunk-type-everywhere" title="Permanent link">&para;</a></h2>
-<p><code>StreamChunk(phase, content, agent=None, iteration=0)</code> is the single chunk type yielded by every streaming path — <code>client.chat()</code>, <code>Agent.run()</code>, every workflow <code>run()</code>. Earlier versions had separate <code>AgentChunk</code> and <code>ChainChunk</code> named tuples; those are now back-compat aliases.</p>
+<p><code>StreamChunk(phase, content, agent=None, iteration=0)</code> is the single chunk type yielded by every streaming path — <code>client.chat()</code>, <code>Agent.run()</code>, every workflow <code>run()</code>. Earlier versions had separate <code>AgentChunk</code> and <code>ChainChunk</code> named tuples; both were collapsed into <code>StreamChunk</code>.</p>
 <p>The <code>agent</code> and <code>iteration</code> fields are populated by agents/workflows and default to <code>None</code> / <code>0</code> for plain chats. See <a href="../streamchunk-model/">StreamChunk model</a> for the design argument.</p>
 <h2 id="tool-integration-tool-and-mcpclient">Tool integration: <code>@tool</code> and <code>MCPClient</code><a class="headerlink" href="#tool-integration-tool-and-mcpclient" title="Permanent link">&para;</a></h2>
 <p>Two routes, both end up in the same place — a list of OpenAI-format tool specs that the base client sends to the model:</p>
@@ -2372,7 +2404,7 @@
 </tr>
 <tr>
 <td><code>aimu.agents</code></td>
-<td><code>Runner</code> / <code>BaseAgent</code> / <code>Workflow</code> ABCs; <code>Agent</code>, <code>SkillAgent</code>, <code>OrchestratorAgent</code>; <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>EvaluatorOptimizer</code></td>
+<td><code>Runner</code> ABC; <code>Agent</code>, <code>SkillAgent</code>, <code>OrchestratorAgent</code>; <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>EvaluatorOptimizer</code> / <code>PlanExecuteEvaluator</code></td>
 </tr>
 <tr>
 <td><code>aimu.tools</code></td>

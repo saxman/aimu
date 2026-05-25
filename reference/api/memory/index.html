@@ -677,6 +677,8 @@
       
         
       
+        
+      
     
     
     
@@ -1026,6 +1028,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/plan-execute-evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan, execute, evaluate, replan
   
 
     
@@ -1608,50 +1638,6 @@
     <span class="md-ellipsis">
       
         list_all
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#aimu.memory.SemanticMemoryStore.store_fact" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        store_fact
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#aimu.memory.SemanticMemoryStore.retrieve_facts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        retrieve_facts
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#aimu.memory.SemanticMemoryStore.delete_fact" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        delete_fact
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#aimu.memory.SemanticMemoryStore.list_facts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        list_facts
       
     </span>
   </a>
@@ -2478,50 +2464,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#aimu.memory.SemanticMemoryStore.store_fact" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        store_fact
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#aimu.memory.SemanticMemoryStore.retrieve_facts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        retrieve_facts
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#aimu.memory.SemanticMemoryStore.delete_fact" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        delete_fact
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#aimu.memory.SemanticMemoryStore.list_facts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        list_facts
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -3147,86 +3089,6 @@ or "family life" match relevant facts without exact-string matching.</p>
     <div class="doc doc-contents ">
 
         <p>Return all stored fact strings.</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="aimu.memory.SemanticMemoryStore.store_fact" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">store_fact</span>
-
-
-<a href="#aimu.memory.SemanticMemoryStore.store_fact" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">store_fact</span><span class="p">(</span><span class="n">fact</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Alias for :meth:<code>store</code> (backward compatibility).</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="aimu.memory.SemanticMemoryStore.retrieve_facts" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">retrieve_facts</span>
-
-
-<a href="#aimu.memory.SemanticMemoryStore.retrieve_facts" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">retrieve_facts</span><span class="p">(</span><span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">max_distance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Alias for :meth:<code>search</code> (backward compatibility).</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="aimu.memory.SemanticMemoryStore.delete_fact" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">delete_fact</span>
-
-
-<a href="#aimu.memory.SemanticMemoryStore.delete_fact" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">delete_fact</span><span class="p">(</span><span class="n">fact</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Alias for :meth:<code>delete</code> (backward compatibility).</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="aimu.memory.SemanticMemoryStore.list_facts" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">list_facts</span>
-
-
-<a href="#aimu.memory.SemanticMemoryStore.list_facts" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_facts</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Alias for :meth:<code>list_all</code> (backward compatibility).</p>
 
 
     </div>

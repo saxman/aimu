@@ -675,6 +675,8 @@
       
         
       
+        
+      
     
     
     
@@ -1024,6 +1026,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/plan-execute-evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan, execute, evaluate, replan
   
 
     
@@ -2359,7 +2389,7 @@
 <h2 id="pull-requests">Pull requests<a class="headerlink" href="#pull-requests" title="Permanent link">&para;</a></h2>
 <ul>
 <li>One concern per PR. Splitting a refactor across multiple PRs makes review tractable.</li>
-<li>Include or update tests. The redesign test suite (<code>tests/test_redesign.py</code>) covers behavioural contracts and is a good template for new features.</li>
+<li>Include or update tests. Each module has a dedicated test file (<code>tests/test_models_api.py</code>, <code>tests/test_tool_decorator.py</code>, <code>tests/test_chain.py</code>, etc.) — add new behavioural tests next to the existing ones for the surface you're touching.</li>
 <li>Update docs when adding a public API. New <code>@tool</code>-decorated function? Add it to <code>builtin.&lt;group&gt;</code>. New workflow? Add a tutorial or how-to.</li>
 <li>Run <code>ruff check .</code> and <code>pytest</code> before pushing.</li>
 </ul>

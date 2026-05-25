@@ -677,6 +677,8 @@
       
         
       
+        
+      
     
     
     
@@ -1026,6 +1028,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/plan-execute-evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan, execute, evaluate, replan
   
 
     
@@ -2288,7 +2318,7 @@
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">)</span>
 </span></code></pre></div>
-<p>This is why <code>Chain.of(client, [prompt1, prompt2])</code> works even though all three steps share one client: each step's <code>Agent</code> resets at the start of its turn and applies its own <code>system_message</code>. After the reset the lock is back to mutable until the next chat.</p>
+<p>This is why <code>Chain.from_client(client, [prompt1, prompt2])</code> works even though all three steps share one client: each step's <code>Agent</code> resets at the start of its turn and applies its own <code>system_message</code>. After the reset the lock is back to mutable until the next chat.</p>
 <p>Same story for <code>Benchmark</code>: it calls <code>client.reset()</code> between rows so each row starts with a clean conversation but the same role.</p>
 <h2 id="implementation">Implementation<a class="headerlink" href="#implementation" title="Permanent link">&para;</a></h2>
 <p>The lock is a private boolean:</p>

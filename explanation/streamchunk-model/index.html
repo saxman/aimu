@@ -677,6 +677,8 @@
       
         
       
+        
+      
     
     
     
@@ -1026,6 +1028,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/plan-execute-evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan, execute, evaluate, replan
   
 
     
@@ -2272,8 +2302,7 @@
 <li><code>AgenticModelClient</code> had to convert <code>AgentChunk → StreamChunk</code> mid-stream, dropping the agent name and iteration.</li>
 <li>Users had to remember which class came out of which call site.</li>
 </ul>
-<p>The fix was to make the optional context fields (<code>agent</code>, <code>iteration</code>) part of the single type, defaulting to <code>None</code> and <code>0</code> for plain chats. The result: one type to learn, no conversion code, full context preserved through every layer.</p>
-<p><code>AgentChunk</code> and <code>ChainChunk</code> are back-compat aliases for <code>StreamChunk</code> and will keep working.</p>
+<p>The fix was to make the optional context fields (<code>agent</code>, <code>iteration</code>) part of the single type, defaulting to <code>None</code> and <code>0</code> for plain chats. The result: one type to learn, no conversion code, full context preserved through every layer. The historical <code>AgentChunk</code> and <code>ChainChunk</code> names were removed; <code>StreamChunk</code> is the only name.</p>
 <h2 id="why-content-is-a-union-not-three-classes">Why <code>content</code> is a union, not three classes<a class="headerlink" href="#why-content-is-a-union-not-three-classes" title="Permanent link">&para;</a></h2>
 <p><code>content</code> is <code>str</code> for <code>THINKING</code> / <code>GENERATING</code> and <code>dict {"name", "response"}</code> for <code>TOOL_CALLING</code>. A typed approach would model these as a discriminated union of three NamedTuples or Pydantic classes.</p>
 <p>We chose the union because:</p>

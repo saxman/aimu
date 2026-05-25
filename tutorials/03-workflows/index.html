@@ -817,6 +817,8 @@
       
         
       
+        
+      
     
     
     
@@ -1166,6 +1168,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/plan-execute-evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan, execute, evaluate, replan
   
 
     
@@ -2271,7 +2301,7 @@
 
 
 <h1 id="workflows">Workflows<a class="headerlink" href="#workflows" title="Permanent link">&para;</a></h1>
-<p>In ~15 minutes you'll build the three load-bearing code-controlled patterns: <strong>Chain</strong>, <strong>Router</strong>, and <strong>Parallel</strong>. Each has a one-line <code>.of(client, ...)</code> factory.</p>
+<p>In ~15 minutes you'll build the three load-bearing code-controlled patterns: <strong>Chain</strong>, <strong>Router</strong>, and <strong>Parallel</strong>. Each has a one-line <code>.from_client(client, ...)</code> factory.</p>
 <p>If you've done <a href="../02-first-agent-with-tools/">First agent with tools</a>, you've already used the <em>autonomous</em> path — the LLM decides what tools to call. Workflows are the opposite: the LLM is invoked at points <em>you</em> control. You pick which is right for a given problem.</p>
 <h2 id="when-to-pick-a-workflow-over-an-agent">When to pick a workflow over an agent<a class="headerlink" href="#when-to-pick-a-workflow-over-an-agent" title="Permanent link">&para;</a></h2>
 <table>
@@ -2304,7 +2334,7 @@
 </tr>
 </tbody>
 </table>
-<p>This taxonomy is from Anthropic's <em><a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a></em>. See <a href="../../explanation/agents-vs-workflows/">explanation: agents vs workflows</a> for the underlying argument.</p>
+<p>This taxonomy is from <em><a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a></em>. See <a href="../../explanation/agents-vs-workflows/">explanation: agents vs workflows</a> for the underlying argument.</p>
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -2314,7 +2344,7 @@
 <p>A <code>Chain</code> runs agents in order; each step's text output becomes the next step's input.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Chain</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">Chain</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">Chain</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">&quot;Break the user&#39;s task into 3 concrete steps. Output a numbered list.&quot;</span><span class="p">,</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="s2">&quot;Execute each step. Output a result for each.&quot;</span><span class="p">,</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="s2">&quot;Polish the result into a single paragraph for a non-technical audience.&quot;</span><span class="p">,</span>
@@ -2323,12 +2353,12 @@
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Research the top 3 Python web frameworks.&quot;</span><span class="p">)</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>Chain.of(client, [prompt1, prompt2, ...])</code> builds three <code>Agent</code> instances sharing the same client, each with <code>reset_messages_on_run=True</code> so steps don't see each other's history.</p>
+<p><code>Chain.from_client(client, [prompt1, prompt2, ...])</code> builds three <code>Agent</code> instances sharing the same client, each with <code>reset_messages_on_run=True</code> so steps don't see each other's history.</p>
 <h2 id="2-router-classify-and-dispatch">2. Router — classify and dispatch<a class="headerlink" href="#2-router-classify-and-dispatch" title="Permanent link">&para;</a></h2>
 <p>A <code>Router</code> runs a classifier first, then dispatches to the matching handler.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Router</span><span class="p">,</span> <span class="n">Agent</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">router</span> <span class="o">=</span> <span class="n">Router</span><span class="o">.</span><span class="n">of</span><span class="p">(</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">router</span> <span class="o">=</span> <span class="n">Router</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">client</span><span class="p">,</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">classifier_prompt</span><span class="o">=</span><span class="s2">&quot;Classify as code, writing, or math. Reply with only the category name.&quot;</span><span class="p">,</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">handlers</span><span class="o">=</span><span class="p">{</span>
@@ -2347,7 +2377,7 @@
 <p>A <code>Parallel</code> runs workers concurrently via <code>ThreadPoolExecutor</code> and (optionally) feeds the joined output to an aggregator.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parallel</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">parallel</span> <span class="o">=</span> <span class="n">Parallel</span><span class="o">.</span><span class="n">of</span><span class="p">(</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">parallel</span> <span class="o">=</span> <span class="n">Parallel</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">client</span><span class="p">,</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">worker_prompts</span><span class="o">=</span><span class="p">[</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="s2">&quot;Analyse this code for security issues.&quot;</span><span class="p">,</span>
@@ -2364,7 +2394,7 @@
 </span></code></pre></div>
 <p>Without <code>aggregator_prompt=</code>, worker outputs are joined by <code>separator</code> (default <code>\n\n---\n\n</code>) and returned directly.</p>
 <h2 id="4-evaluatoroptimizer-iterate-with-critique">4. EvaluatorOptimizer — iterate with critique<a class="headerlink" href="#4-evaluatoroptimizer-iterate-with-critique" title="Permanent link">&para;</a></h2>
-<p>The fourth pattern is generate → critique → revise. There's no <code>.of()</code> factory — build it directly:</p>
+<p>The fourth pattern is generate → critique → revise. There's no <code>.from_client()</code> factory — build it directly:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluatorOptimizer</span><span class="p">,</span> <span class="n">Agent</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">eo</span> <span class="o">=</span> <span class="n">EvaluatorOptimizer</span><span class="p">(</span>
@@ -2390,12 +2420,12 @@
 <h2 id="composing-patterns">Composing patterns<a class="headerlink" href="#composing-patterns" title="Permanent link">&para;</a></h2>
 <p>Every workflow accepts any <code>Runner</code> as a sub-component. Compose freely:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Route between a parallel (for opinions) and a chain (for factual research)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">composed</span> <span class="o">=</span> <span class="n">Router</span><span class="o">.</span><span class="n">of</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">composed</span> <span class="o">=</span> <span class="n">Router</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">client</span><span class="p">,</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">classifier_prompt</span><span class="o">=</span><span class="s2">&quot;Classify as opinion or factual. Reply only the category.&quot;</span><span class="p">,</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">handlers</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="s2">&quot;opinion&quot;</span><span class="p">:</span>  <span class="n">Parallel</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">worker_prompts</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span> <span class="n">aggregator_prompt</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">),</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="s2">&quot;factual&quot;</span><span class="p">:</span>  <span class="n">Chain</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span><span class="o">...</span><span class="p">]),</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="s2">&quot;opinion&quot;</span><span class="p">:</span>  <span class="n">Parallel</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">worker_prompts</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span> <span class="n">aggregator_prompt</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">),</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="s2">&quot;factual&quot;</span><span class="p">:</span>  <span class="n">Chain</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span><span class="o">...</span><span class="p">]),</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="p">},</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
 </span></code></pre></div>
@@ -2406,7 +2436,7 @@
 <li><strong><a href="../04-vision-and-streaming/">Vision and streaming</a></strong> — last tutorial.</li>
 <li><strong><a href="../../how-to/build-orchestrator/">How-to: build an orchestrator</a></strong> — when you want an LLM to dispatch to other agents <em>autonomously</em> via tools (a different pattern from <code>Router</code>, which dispatches in code).</li>
 <li><strong><a href="../../explanation/agents-vs-workflows/">Explanation: agents vs workflows</a></strong> — the design argument.</li>
-<li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/10%20-%20Agent%20Workflows.ipynb">10 - Agent Workflows</a> — interactive versions of every example here.</li>
+<li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/10%20-%20Workflows.ipynb">10 - Workflows</a> — interactive versions of every example here.</li>
 </ul>
 
 
