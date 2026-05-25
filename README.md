@@ -8,7 +8,37 @@ Common tasks are one-liners: `aimu.chat("hi", model="...")`, `Agent(client, tool
 
 📘 **[Read the docs](https://saxman.github.io/aimu/)** for tutorials, how-to guides, full API reference, and design explanations.
 
-## Quick start
+## Key features
+
+### Models
+
+- One client interface for Ollama, HuggingFace, llama-cpp, the Claude API, OpenAI, Gemini, and any OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve). Swap with a string change: `"provider:model_id"`.
+- Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamingContentType.THINKING` chunks via the same API.
+- Typed streaming: `StreamChunk(phase, content, agent, iteration)` flows through `client.chat()`, `Agent.run()`, and every workflow. Filter with `include=["generating"]`.
+
+### Agents and workflows
+
+- `Agent` runs an autonomous tool-using loop until the model stops calling tools.
+- Four code-controlled workflow patterns: `Chain.from_client(...)`, `Router.from_client(...)`, `Parallel.from_client(...)`, `EvaluatorOptimizer(...)`. Compose freely. Workflows accept agents as steps; agents accept workflows as tools via `as_model_client()`.
+- `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients are interchangeable.
+
+### Tools
+
+- `@tool` on any plain Python function. Type hints + docstring become the spec.
+- `MCPClient` for cross-process FastMCP tools. Combine with `@tool` on the same agent.
+- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`.
+- Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
+
+### Memory and persistence
+
+- `SemanticMemoryStore` (ChromaDB vector search), `DocumentStore` (path-keyed, drop-in compatible with the Claude memory tool API), `ConversationManager` (TinyDB chat history). All implement the same `MemoryStore` interface.
+
+### Prompts and evaluation
+
+- Hill-climbing `PromptTuner` for automatic prompt optimisation against labelled data. Four concrete tuners: classification, multi-class, extraction, judged-generation.
+- `Benchmark` runs one prompt across multiple clients (plain or agentic, mixed providers) and returns a comparison DataFrame. DeepEval metrics plug in as `Scorer`s.
+
+## Examples
 
 ```python
 import aimu
@@ -63,36 +93,6 @@ result = chain.run("Research the top Python web frameworks.")
 client = aimu.client("openai:gpt-4o-mini")     # or anthropic, gemini, ollama, hf
 client.chat("What's in this image?", images=["./cat.jpg"])
 ```
-
-## What's in the box
-
-### Models
-
-- One client interface for Ollama, HuggingFace, llama-cpp, the Claude API, OpenAI, Gemini, and any OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve). Swap with a string change: `"provider:model_id"`.
-- Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamingContentType.THINKING` chunks via the same API.
-- Typed streaming: `StreamChunk(phase, content, agent, iteration)` flows through `client.chat()`, `Agent.run()`, and every workflow. Filter with `include=["generating"]`.
-
-### Agents and workflows
-
-- `Agent` runs an autonomous tool-using loop until the model stops calling tools.
-- Four code-controlled workflow patterns: `Chain.from_client(...)`, `Router.from_client(...)`, `Parallel.from_client(...)`, `EvaluatorOptimizer(...)`. Compose freely. Workflows accept agents as steps; agents accept workflows as tools via `as_model_client()`.
-- `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients are interchangeable.
-
-### Tools
-
-- `@tool` on any plain Python function. Type hints + docstring become the spec.
-- `MCPClient` for cross-process FastMCP tools. Combine with `@tool` on the same agent.
-- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`.
-- Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
-
-### Memory and persistence
-
-- `SemanticMemoryStore` (ChromaDB vector search), `DocumentStore` (path-keyed, drop-in compatible with the Claude memory tool API), `ConversationManager` (TinyDB chat history). All implement the same `MemoryStore` interface.
-
-### Prompts and evaluation
-
-- Hill-climbing `PromptTuner` for automatic prompt optimisation against labelled data. Four concrete tuners: classification, multi-class, extraction, judged-generation.
-- `Benchmark` runs one prompt across multiple clients (plain or agentic, mixed providers) and returns a comparison DataFrame. DeepEval metrics plug in as `Scorer`s.
 
 ## Install
 
