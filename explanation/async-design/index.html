@@ -10,25 +10,31 @@
       
       
       
+        <link rel="canonical" href="https://saxman.github.io/aimu/explanation/async-design/">
       
+      
+        <link rel="prev" href="../tool-integration/">
+      
+      
+        <link rel="next" href="../../changelog/">
       
       
         
       
       
-      <link rel="icon" href="/aimu/assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>AIMU</title>
+        <title>Async design - AIMU</title>
       
     
     
-      <link rel="stylesheet" href="/aimu/assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="/aimu/assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="/aimu/assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("/aimu/",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -73,6 +79,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#async-design" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -85,7 +96,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/aimu/." title="AIMU" class="md-header__button md-logo" aria-label="AIMU" data-md-component="logo">
+    <a href="../.." title="AIMU" class="md-header__button md-logo" aria-label="AIMU" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -105,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              Async design
             
           </span>
         </div>
@@ -212,7 +223,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="/aimu/." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -233,7 +244,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/aimu/tutorials/" class="md-tabs__link">
+        <a href="../../tutorials/" class="md-tabs__link">
           
   
   
@@ -255,7 +266,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/aimu/how-to/" class="md-tabs__link">
+        <a href="../../how-to/" class="md-tabs__link">
           
   
   
@@ -277,7 +288,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/aimu/reference/" class="md-tabs__link">
+        <a href="../../reference/" class="md-tabs__link">
           
   
   
@@ -295,11 +306,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="/aimu/explanation/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -319,7 +332,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="/aimu/changelog/" class="md-tabs__link">
+      <a href="../../changelog/" class="md-tabs__link">
         
   
   
@@ -338,7 +351,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="/aimu/contributing/" class="md-tabs__link">
+      <a href="../../contributing/" class="md-tabs__link">
         
   
   
@@ -379,7 +392,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/aimu/." title="AIMU" class="md-nav__button md-logo" aria-label="AIMU" data-md-component="logo">
+    <a href="../.." title="AIMU" class="md-nav__button md-logo" aria-label="AIMU" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -409,7 +422,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -467,7 +480,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="/aimu/tutorials/" class="md-nav__link ">
+            <a href="../../tutorials/" class="md-nav__link ">
               
   
   
@@ -511,7 +524,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/tutorials/01-getting-started/" class="md-nav__link">
+      <a href="../../tutorials/01-getting-started/" class="md-nav__link">
         
   
   
@@ -539,7 +552,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/tutorials/02-first-agent-with-tools/" class="md-nav__link">
+      <a href="../../tutorials/02-first-agent-with-tools/" class="md-nav__link">
         
   
   
@@ -567,7 +580,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/tutorials/03-workflows/" class="md-nav__link">
+      <a href="../../tutorials/03-workflows/" class="md-nav__link">
         
   
   
@@ -595,7 +608,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/tutorials/04-vision-and-streaming/" class="md-nav__link">
+      <a href="../../tutorials/04-vision-and-streaming/" class="md-nav__link">
         
   
   
@@ -685,7 +698,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="/aimu/how-to/" class="md-nav__link ">
+            <a href="../../how-to/" class="md-nav__link ">
               
   
   
@@ -729,7 +742,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/switch-providers/" class="md-nav__link">
+      <a href="../../how-to/switch-providers/" class="md-nav__link">
         
   
   
@@ -757,7 +770,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/add-custom-tool/" class="md-nav__link">
+      <a href="../../how-to/add-custom-tool/" class="md-nav__link">
         
   
   
@@ -785,7 +798,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/add-new-model/" class="md-nav__link">
+      <a href="../../how-to/add-new-model/" class="md-nav__link">
         
   
   
@@ -813,7 +826,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/use-mcp-tools/" class="md-nav__link">
+      <a href="../../how-to/use-mcp-tools/" class="md-nav__link">
         
   
   
@@ -841,7 +854,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/use-skills/" class="md-nav__link">
+      <a href="../../how-to/use-skills/" class="md-nav__link">
         
   
   
@@ -869,7 +882,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/stream-output/" class="md-nav__link">
+      <a href="../../how-to/stream-output/" class="md-nav__link">
         
   
   
@@ -897,7 +910,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/use-async/" class="md-nav__link">
+      <a href="../../how-to/use-async/" class="md-nav__link">
         
   
   
@@ -925,7 +938,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/handle-vision/" class="md-nav__link">
+      <a href="../../how-to/handle-vision/" class="md-nav__link">
         
   
   
@@ -953,7 +966,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/persist-conversations/" class="md-nav__link">
+      <a href="../../how-to/persist-conversations/" class="md-nav__link">
         
   
   
@@ -981,7 +994,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/use-semantic-memory/" class="md-nav__link">
+      <a href="../../how-to/use-semantic-memory/" class="md-nav__link">
         
   
   
@@ -1009,7 +1022,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/use-document-memory/" class="md-nav__link">
+      <a href="../../how-to/use-document-memory/" class="md-nav__link">
         
   
   
@@ -1037,7 +1050,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/build-orchestrator/" class="md-nav__link">
+      <a href="../../how-to/build-orchestrator/" class="md-nav__link">
         
   
   
@@ -1065,7 +1078,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/plan-execute-evaluate/" class="md-nav__link">
+      <a href="../../how-to/plan-execute-evaluate/" class="md-nav__link">
         
   
   
@@ -1093,7 +1106,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/tune-prompts/" class="md-nav__link">
+      <a href="../../how-to/tune-prompts/" class="md-nav__link">
         
   
   
@@ -1121,7 +1134,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/benchmark-models/" class="md-nav__link">
+      <a href="../../how-to/benchmark-models/" class="md-nav__link">
         
   
   
@@ -1149,7 +1162,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/how-to/integrate-deepeval/" class="md-nav__link">
+      <a href="../../how-to/integrate-deepeval/" class="md-nav__link">
         
   
   
@@ -1219,7 +1232,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="/aimu/reference/" class="md-nav__link ">
+            <a href="../../reference/" class="md-nav__link ">
               
   
   
@@ -1337,7 +1350,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/aimu/" class="md-nav__link">
+      <a href="../../reference/api/aimu/" class="md-nav__link">
         
   
   
@@ -1365,7 +1378,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/aio/" class="md-nav__link">
+      <a href="../../reference/api/aio/" class="md-nav__link">
         
   
   
@@ -1393,7 +1406,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/models/" class="md-nav__link">
+      <a href="../../reference/api/models/" class="md-nav__link">
         
   
   
@@ -1421,7 +1434,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/agents/" class="md-nav__link">
+      <a href="../../reference/api/agents/" class="md-nav__link">
         
   
   
@@ -1449,7 +1462,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/tools/" class="md-nav__link">
+      <a href="../../reference/api/tools/" class="md-nav__link">
         
   
   
@@ -1477,7 +1490,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/skills/" class="md-nav__link">
+      <a href="../../reference/api/skills/" class="md-nav__link">
         
   
   
@@ -1505,7 +1518,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/memory/" class="md-nav__link">
+      <a href="../../reference/api/memory/" class="md-nav__link">
         
   
   
@@ -1533,7 +1546,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/prompts/" class="md-nav__link">
+      <a href="../../reference/api/prompts/" class="md-nav__link">
         
   
   
@@ -1561,7 +1574,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/evals/" class="md-nav__link">
+      <a href="../../reference/api/evals/" class="md-nav__link">
         
   
   
@@ -1589,7 +1602,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/api/history/" class="md-nav__link">
+      <a href="../../reference/api/history/" class="md-nav__link">
         
   
   
@@ -1625,7 +1638,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/provider-matrix/" class="md-nav__link">
+      <a href="../../reference/provider-matrix/" class="md-nav__link">
         
   
   
@@ -1653,7 +1666,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/model-matrix/" class="md-nav__link">
+      <a href="../../reference/model-matrix/" class="md-nav__link">
         
   
   
@@ -1681,7 +1694,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/stream-phases/" class="md-nav__link">
+      <a href="../../reference/stream-phases/" class="md-nav__link">
         
   
   
@@ -1709,7 +1722,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/env-vars/" class="md-nav__link">
+      <a href="../../reference/env-vars/" class="md-nav__link">
         
   
   
@@ -1737,7 +1750,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/reference/cli/" class="md-nav__link">
+      <a href="../../reference/cli/" class="md-nav__link">
         
   
   
@@ -1769,6 +1782,8 @@
       
   
   
+    
+  
   
   
     
@@ -1796,20 +1811,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="/aimu/explanation/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1827,13 +1845,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1853,7 +1871,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/explanation/architecture/" class="md-nav__link">
+      <a href="../architecture/" class="md-nav__link">
         
   
   
@@ -1881,7 +1899,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/explanation/design-principles/" class="md-nav__link">
+      <a href="../design-principles/" class="md-nav__link">
         
   
   
@@ -1909,7 +1927,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/explanation/agents-vs-workflows/" class="md-nav__link">
+      <a href="../agents-vs-workflows/" class="md-nav__link">
         
   
   
@@ -1937,7 +1955,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/explanation/streamchunk-model/" class="md-nav__link">
+      <a href="../streamchunk-model/" class="md-nav__link">
         
   
   
@@ -1965,7 +1983,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/explanation/system-message-lifecycle/" class="md-nav__link">
+      <a href="../system-message-lifecycle/" class="md-nav__link">
         
   
   
@@ -1993,7 +2011,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/explanation/tool-integration/" class="md-nav__link">
+      <a href="../tool-integration/" class="md-nav__link">
         
   
   
@@ -2018,10 +2036,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/aimu/explanation/async-design/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async design
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2037,6 +2082,125 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#decision-1-aimuaio-submodule-twin-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 1: aimu.aio submodule (twin classes)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-2-full-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 2: Full parity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-3-python-311-with-asynciotaskgroup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 3: Python 3.11+ with asyncio.TaskGroup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-4-mcp-sync-mcpclient-stays-first-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 4: MCP — sync MCPClient stays first-class
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-5-streaming-type-asymmetry-accept-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 5: Streaming type asymmetry — accept it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-6-async-tool-detection-at-decoration-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 6: Async tool detection at decoration time
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-7-in-process-providers-wrap-an-existing-sync-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 7: In-process providers wrap an existing sync client
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-follows-from-these-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What follows from these decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2056,7 +2220,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/changelog/" class="md-nav__link">
+      <a href="../../changelog/" class="md-nav__link">
         
   
   
@@ -2083,7 +2247,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/aimu/contributing/" class="md-nav__link">
+      <a href="../../contributing/" class="md-nav__link">
         
   
   
@@ -2120,6 +2284,115 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#decision-1-aimuaio-submodule-twin-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 1: aimu.aio submodule (twin classes)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-2-full-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 2: Full parity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-3-python-311-with-asynciotaskgroup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 3: Python 3.11+ with asyncio.TaskGroup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-4-mcp-sync-mcpclient-stays-first-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 4: MCP — sync MCPClient stays first-class
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-5-streaming-type-asymmetry-accept-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 5: Streaming type asymmetry — accept it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-6-async-tool-detection-at-decoration-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 6: Async tool detection at decoration time
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-7-in-process-providers-wrap-an-existing-sync-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 7: In-process providers wrap an existing sync client
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-follows-from-these-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What follows from these decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2132,8 +2405,106 @@
               
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
 
+
+  
+  
+
+
+<h1 id="async-design">Async design<a class="headerlink" href="#async-design" title="Permanent link">&para;</a></h1>
+<p>AIMU has two surfaces: the sync ladder (<code>aimu.chat()</code> → <code>aimu.client()</code> → <code>Agent</code> → workflows) and a one-import-away async mirror under <code>aimu.aio</code>. The sync surface is the default. Async is strictly opt-in.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Sync (default)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">reply</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Async — same names, different namespace</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">my_async_tool</span><span class="p">])</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Hello&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>This page records <em>why</em> the async surface looks like it does. Each decision was weighed against the <a href="../design-principles/">six design principles</a>; each names the alternatives that were considered and rejected.</p>
+<h2 id="decision-1-aimuaio-submodule-twin-classes">Decision 1: <code>aimu.aio</code> submodule (twin classes)<a class="headerlink" href="#decision-1-aimuaio-submodule-twin-classes" title="Permanent link">&para;</a></h2>
+<p>The async surface mirrors the public sync surface inside <code>aimu.aio</code> using the same class names. Switching paradigms is one import line + <code>await</code> keywords.</p>
+<p><strong>Why:</strong> preserves <a href="../design-principles/#4-progressive-disclosure">progressive disclosure</a> — the sync ladder is unchanged and new users never see async. Mirrors stdlib (<code>urllib.request</code> / <code>urllib.parse</code>, <code>concurrent.futures</code>).</p>
+<p><strong>Rejected alternatives:</strong></p>
+<ul>
+<li><em>Method suffix</em> (<code>chat_async</code>, <code>run_async</code> on the existing classes). Python convention puts async-ness in the call site (<code>await</code>), not the method name — <code>asyncio</code>, <code>httpx</code>, <code>redis-py</code>, <code>aiohttp</code> all avoid <code>_async</code> suffix. The claimed "share one client across sync/async" benefit evaporates because <code>client.messages</code> isn't concurrency-safe.</li>
+<li><em>Async-only library, sync via <code>asyncio.run</code>.</em> Halves the codebase but adds <code>asyncio.run(...)</code> ceremony to every sync call site. Hurts casual sync users (notebooks, Streamlit) more than it helps maintainers.</li>
+<li><em>Smart context-detection</em> (same <code>client.chat()</code> routes by detecting a running loop). Return type becomes ambiguous (<code>str</code> vs coroutine); forgotten <code>await</code> silently returns a coroutine — violates <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>.</li>
+<li><em>Async-first with hidden sync facade.</em> Sync users would carry an invisible event-loop thread and see asyncio frames in tracebacks — violates <a href="../design-principles/#1-plain-python">plain Python</a>.</li>
+</ul>
+<h2 id="decision-2-full-parity">Decision 2: Full parity<a class="headerlink" href="#decision-2-full-parity" title="Permanent link">&para;</a></h2>
+<p>Every sync class has an async twin in <code>aimu.aio</code>: <code>Agent</code>, <code>SkillAgent</code>, <code>Chain</code>, <code>Router</code>, <code>Parallel</code>, <code>EvaluatorOptimizer</code>, <code>PlanExecuteEvaluator</code>, <code>OrchestratorAgent</code>, <code>MCPClient</code>.</p>
+<p><strong>Why:</strong> preserves <a href="../design-principles/#3-composability-through-uniform-interfaces">composability through uniform interfaces</a> inside each world. Without full parity you can't drop an async <code>Agent</code> into an async <code>Chain</code>, and the substitutability principle breaks.</p>
+<p><strong>Rejected alternatives:</strong> "model client + <code>Parallel</code> only" (~800 LOC) and "model client only" (~400 LOC) both fail principle 3 — users would have to write their own structured concurrency over <code>agent.run()</code> calls, which is exactly what the library is supposed to factor out.</p>
+<h2 id="decision-3-python-311-with-asynciotaskgroup">Decision 3: Python 3.11+ with <code>asyncio.TaskGroup</code><a class="headerlink" href="#decision-3-python-311-with-asynciotaskgroup" title="Permanent link">&para;</a></h2>
+<p>The Python floor is <code>&gt;=3.11</code>. <code>asyncio.TaskGroup</code>, <code>asyncio.timeout()</code>, and native <code>ExceptionGroup</code> are used inside <code>aimu.aio</code>. No <code>anyio</code> in new code. (The existing sync <code>MCPClient</code> still uses <code>anyio.start_blocking_portal()</code> — that's unchanged.)</p>
+<p><strong>Why:</strong> structured concurrency in plain stdlib. <code>TaskGroup</code> cancels in-flight siblings cleanly when one task fails and surfaces all errors as an <code>ExceptionGroup</code>. Python 3.10 EOL is October 2026; 3.11 has been stable since October 2022.</p>
+<p><strong>Behaviour change to note:</strong> async <code>Parallel</code> and async <code>concurrent_tool_calls=True</code> cancel sibling work on first failure. The sync <code>ThreadPoolExecutor</code> versions let all workers run to completion. The async semantics are arguably better for debugging — surface all failures at once, don't waste cycles after an unrecoverable error — but they <em>are</em> different from the sync semantics.</p>
+<p><strong>Rejected alternatives:</strong></p>
+<ul>
+<li><em>Stay on 3.10, use <code>asyncio.gather</code>.</em> Loses structured concurrency; only the first exception surfaces. Worse semantics than even the sync <code>ThreadPoolExecutor</code> version.</li>
+<li><em>Stay on 3.10, use <code>anyio.create_task_group()</code>.</em> Works on 3.10 and gets trio compatibility for free, but contributors must learn anyio idioms. With 3.11's stdlib <code>TaskGroup</code> available, anyio doesn't pull its weight in new code.</li>
+</ul>
+<h2 id="decision-4-mcp-sync-mcpclient-stays-first-class">Decision 4: MCP — sync <code>MCPClient</code> stays first-class<a class="headerlink" href="#decision-4-mcp-sync-mcpclient-stays-first-class" title="Permanent link">&para;</a></h2>
+<p>Both surfaces expose an <code>MCPClient</code> class with the same construction signature (<code>config=</code> / <code>server=</code> / <code>file=</code>) and the same method names. Sync <code>aimu.tools.MCPClient</code> keeps the <code>anyio.start_blocking_portal()</code> machinery and emits <strong>no deprecation warning</strong>. Async <code>aimu.aio.MCPClient</code> is a thin parallel (~30 LOC) using FastMCP's <code>Client</code> directly. A single <code>aimu.tools.mcp_format.mcp_tools_to_openai</code> helper is shared.</p>
+<p><strong>Why:</strong> the sync wrapper exists precisely so sync users can use MCP tools <em>without</em> learning asyncio. That's <a href="../design-principles/#4-progressive-disclosure">progressive disclosure</a> working correctly — deprecating it would make the simple case harder. Symmetric class shape on both surfaces respects <a href="../design-principles/#3-composability-through-uniform-interfaces">uniform interfaces</a>.</p>
+<p><strong>Rejected alternatives:</strong></p>
+<ul>
+<li><em>Deprecate the sync wrapper.</em> The whole point is letting sync callers use MCP without <code>await</code>.</li>
+<li><em>No async wrapper at all — expose <code>fastmcp.Client</code> directly.</em> Asymmetric surface (sync users learn AIMU's <code>MCPClient</code>; async users learn FastMCP's).</li>
+</ul>
+<h2 id="decision-5-streaming-type-asymmetry-accept-it">Decision 5: Streaming type asymmetry — accept it<a class="headerlink" href="#decision-5-streaming-type-asymmetry-accept-it" title="Permanent link">&para;</a></h2>
+<p><code>aimu.chat(stream=True)</code> returns <code>Iterator[StreamChunk]</code>. <code>aio.chat(stream=True)</code> returns <code>AsyncIterator[StreamChunk]</code>. They are not unified.</p>
+<p><strong>Why:</strong> unifying them would need either <code>nest_asyncio</code> magic (violates <a href="../design-principles/#1-plain-python">plain Python</a>) or context-detection magic (violates <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>). The namespace boundary makes which one you get unambiguous: if you imported from <code>aimu.aio</code>, you <code>async for</code>; otherwise you <code>for</code>.</p>
+<h2 id="decision-6-async-tool-detection-at-decoration-time">Decision 6: Async tool detection at decoration time<a class="headerlink" href="#decision-6-async-tool-detection-at-decoration-time" title="Permanent link">&para;</a></h2>
+<p><code>@tool</code> records <code>func.__tool_is_async__ = inspect.iscoroutinefunction(func)</code> when the function is decorated. Sync <code>_handle_tool_calls()</code> raises <code>ValueError</code> if it encounters an async tool, with a message pointing the user at <code>aimu.aio</code>. Async <code>_handle_tool_calls()</code> accepts both — it <code>await</code>s async tools and routes sync ones through <code>asyncio.to_thread</code> to keep the event loop free.</p>
+<p><strong>Why:</strong> same <code>@tool</code> function is usable on either surface as long as the surface and the tool's color match. Failures are visible at the dispatch site, not silent paradigm-crossing. Aligns with <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>.</p>
+<p><strong>Rejected alternative:</strong> sync dispatch auto-running async tools via <code>asyncio.run</code>. Silent paradigm crossing makes errors harder to localize — if a user mixes sync and async tools, that's a structural choice the library should not paper over.</p>
+<h2 id="decision-7-in-process-providers-wrap-an-existing-sync-client">Decision 7: In-process providers wrap an existing sync client<a class="headerlink" href="#decision-7-in-process-providers-wrap-an-existing-sync-client" title="Permanent link">&para;</a></h2>
+<p><code>AsyncHuggingFaceClient</code> and <code>AsyncLlamaCppClient</code> do not load model weights independently. They take an existing sync client in their constructor and route through <code>asyncio.to_thread</code>. Calling <code>aio.client(HuggingFaceModel.X)</code> directly raises a <code>ValueError</code> pointing the user at the correct pattern:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">sync_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">HuggingFaceModel</span><span class="o">.</span><span class="n">LLAMA_70B</span><span class="p">)</span>   <span class="c1"># loads weights once</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">sync_client</span><span class="p">)</span>                   <span class="c1"># wraps; shares weights</span>
+</span></code></pre></div>
+<p>State (<code>messages</code>, <code>system_message</code>, <code>tools</code>, <code>mcp_client</code>) is shared with the wrapped sync client. There is conceptually one client; the async wrapper just adds an awaitable interface.</p>
+<p><strong>Why:</strong> HF transformer models routinely weigh 10–100 GB. LlamaCpp GGUF files are similar. Twin construction would double the memory footprint and likely OOM the host. Even if memory were free, the GIL and the underlying CUDA stream serialize execution — there's no coroutine concurrency to gain from two "client" instances. Making the resource share explicit follows <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>: if you construct two clients, the second one tells you why that won't work.</p>
+<p><strong>Caveat to know:</strong> for in-process providers, "async" only buys event-loop integration (your async handler doesn't block on inference) — <em>not</em> coroutine-level concurrency. If you need batch throughput from one HF model, use <code>model.generate(input_ids=batched)</code> directly, not concurrent <code>await</code> calls.</p>
+<p><strong>Rejected alternatives:</strong></p>
+<ul>
+<li><em>Module-level weight cache keyed by <code>(model_id, kwargs)</code>.</em> Dedups transparently but hides global state; lifecycle becomes unclear (when does a cached tensor get freed?). Explicit wrapping makes the resource share obvious.</li>
+<li><em>Twin classes that each load weights.</em> The OOM footgun is real and easy to hit accidentally.</li>
+<li><em>Skip async support for in-process providers.</em> Forces an asymmetric mental model. Wrapping is cheap (~20 LOC per provider) and keeps the surface uniform.</li>
+</ul>
+<h2 id="what-follows-from-these-decisions">What follows from these decisions<a class="headerlink" href="#what-follows-from-these-decisions" title="Permanent link">&para;</a></h2>
+<p>The async surface is a strict mirror of the sync one — same names, same shapes, same <code>Runner</code> decision tree, same <code>StreamChunk</code> type. The two surfaces differ in three concrete places:</p>
+<ul>
+<li><strong>Construction site.</strong> <code>from aimu import aio</code> (or <code>aio.client(...)</code>) instead of top-level imports.</li>
+<li><strong>Call site.</strong> <code>await ...</code> and <code>async for ...</code>.</li>
+<li><strong>Concurrency primitive.</strong> <code>asyncio.TaskGroup</code> instead of <code>ThreadPoolExecutor</code> for <code>Parallel</code> and <code>concurrent_tool_calls=True</code>. This is the <em>only</em> place async delivers behaviourally different semantics — and it's strictly better for debugging.</li>
+</ul>
+<p>For in-process providers (HuggingFace, LlamaCpp), one further difference: you must build a sync client first and wrap it.</p>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../architecture/">Architecture</a> — the shared shape that both surfaces follow.</li>
+<li><a href="../design-principles/">Design principles</a> — the six principles each decision above was weighed against.</li>
+<li><a href="../streamchunk-model/">StreamChunk model</a> — the chunk type yielded by both <code>Iterator[StreamChunk]</code> (sync) and <code>AsyncIterator[StreamChunk]</code> (async).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -2203,10 +2574,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "/aimu/", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "/aimu/assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="/aimu/assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

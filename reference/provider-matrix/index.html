@@ -679,6 +679,8 @@
       
         
       
+        
+      
     
     
     
@@ -888,6 +890,34 @@
     
   
     Stream output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use async (aio)
   
 
     
@@ -1271,6 +1301,8 @@
       
         
       
+        
+      
     
     
     
@@ -1334,6 +1366,34 @@
     
   
     aimu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/aio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.aio
   
 
     
@@ -1831,6 +1891,8 @@
       
         
       
+        
+      
     
     
     
@@ -2053,6 +2115,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/async-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2204,6 +2294,7 @@
 <th>API key</th>
 <th>Default endpoint</th>
 <th>Provider-specific kwargs</th>
+<th>Async kind</th>
 </tr>
 </thead>
 <tbody>
@@ -2214,6 +2305,7 @@
 <td>—</td>
 <td>local</td>
 <td><code>model_keep_alive_seconds=60</code></td>
+<td>native (<code>ollama.AsyncClient</code>)</td>
 </tr>
 <tr>
 <td><code>hf</code></td>
@@ -2222,6 +2314,7 @@
 <td>— (HF login for gated models)</td>
 <td>local</td>
 <td><code>model_kwargs={...}</code> (passed to <code>from_pretrained</code>)</td>
+<td>wrapped sync via <code>asyncio.to_thread</code></td>
 </tr>
 <tr>
 <td><code>anthropic</code></td>
@@ -2230,6 +2323,7 @@
 <td><code>ANTHROPIC_API_KEY</code></td>
 <td>api.anthropic.com</td>
 <td><code>model_kwargs={...}</code></td>
+<td>native (<code>AsyncAnthropic</code>)</td>
 </tr>
 <tr>
 <td><code>openai</code></td>
@@ -2238,6 +2332,7 @@
 <td><code>OPENAI_API_KEY</code></td>
 <td>api.openai.com</td>
 <td><code>model_kwargs={...}</code></td>
+<td>native (<code>AsyncOpenAI</code>)</td>
 </tr>
 <tr>
 <td><code>gemini</code></td>
@@ -2246,6 +2341,7 @@
 <td><code>GOOGLE_API_KEY</code></td>
 <td>generativelanguage.googleapis.com</td>
 <td><code>model_kwargs={...}</code></td>
+<td>native (<code>AsyncOpenAI</code>)</td>
 </tr>
 <tr>
 <td><code>lmstudio</code></td>
@@ -2254,6 +2350,7 @@
 <td>—</td>
 <td>localhost:1234</td>
 <td><code>base_url=</code></td>
+<td>native (<code>AsyncOpenAI</code>)</td>
 </tr>
 <tr>
 <td><code>ollama-openai</code></td>
@@ -2262,6 +2359,7 @@
 <td>—</td>
 <td>localhost:11434</td>
 <td><code>base_url=</code></td>
+<td>native (<code>AsyncOpenAI</code>)</td>
 </tr>
 <tr>
 <td><code>hf-openai</code></td>
@@ -2270,6 +2368,7 @@
 <td>—</td>
 <td>localhost:8000</td>
 <td><code>base_url=</code></td>
+<td>native (<code>AsyncOpenAI</code>)</td>
 </tr>
 <tr>
 <td><code>vllm</code></td>
@@ -2278,6 +2377,7 @@
 <td>—</td>
 <td>localhost:8000</td>
 <td><code>base_url=</code></td>
+<td>native (<code>AsyncOpenAI</code>)</td>
 </tr>
 <tr>
 <td><code>llamaserver</code></td>
@@ -2286,6 +2386,7 @@
 <td>—</td>
 <td>localhost:8080</td>
 <td><code>base_url=</code></td>
+<td>native (<code>AsyncOpenAI</code>)</td>
 </tr>
 <tr>
 <td><code>sglang</code></td>
@@ -2294,6 +2395,7 @@
 <td>—</td>
 <td>localhost:30000</td>
 <td><code>base_url=</code></td>
+<td>native (<code>AsyncOpenAI</code>)</td>
 </tr>
 <tr>
 <td><code>llamacpp</code></td>
@@ -2302,9 +2404,11 @@
 <td>—</td>
 <td>in-process</td>
 <td><code>model_path=</code> (required), <code>n_ctx</code>, <code>n_gpu_layers</code>, <code>chat_format</code>, <code>chat_handler</code>, <code>verbose</code></td>
+<td>wrapped sync via <code>asyncio.to_thread</code></td>
 </tr>
 </tbody>
 </table>
+<p>The <strong>async kind</strong> column says how <code>aimu.aio</code> reaches each provider. <em>Native</em> providers use the SDK's own async client; the async surface delivers real coroutine concurrency. <em>Wrapped sync</em> providers (HF, LlamaCpp) load model weights in-process — the async surface buys you event-loop integration (your handler doesn't block) but <strong>not</strong> coroutine-level concurrency (the GIL and CUDA stream serialize execution). For these providers, async clients are built by wrapping an existing sync client; see <a href="../../how-to/use-async/#in-process-providers-huggingface-llamacpp">how-to: use async</a>.</p>
 <h2 id="passing-provider-kwargs">Passing provider kwargs<a class="headerlink" href="#passing-provider-kwargs" title="Permanent link">&para;</a></h2>
 <p>Provider-specific kwargs are forwarded through <code>ModelClient</code> and <code>aimu.client()</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>

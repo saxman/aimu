@@ -679,6 +679,8 @@
       
         
       
+        
+      
     
     
     
@@ -888,6 +890,34 @@
     
   
     Stream output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use async (aio)
   
 
     
@@ -1266,6 +1296,8 @@
       
         
       
+        
+      
     
     
     
@@ -1326,6 +1358,34 @@
     
   
     aimu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/aio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.aio
   
 
     
@@ -1745,6 +1805,8 @@
       
         
       
+        
+      
     
     
     
@@ -1906,6 +1968,17 @@
     <span class="md-ellipsis">
       
         Agents and workflows: Runner
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-surfaces-one-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two surfaces, one shape
       
     </span>
   </a>
@@ -2105,6 +2178,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../async-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2230,6 +2331,17 @@
     <span class="md-ellipsis">
       
         Agents and workflows: Runner
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-surfaces-one-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two surfaces, one shape
       
     </span>
   </a>
@@ -2375,6 +2487,12 @@
 <li><strong>Code-controlled</strong> — code directs flow. <code>Chain</code> runs steps in a fixed order; <code>Router</code> classifies and dispatches; <code>Parallel</code> fans out; <code>EvaluatorOptimizer</code> iterates generate→critique; <code>PlanExecuteEvaluator</code> plans→executes→scores→replans.</li>
 </ul>
 <p>All concrete classes live in <code>aimu.agents</code>. This is the <em>Building Effective Agents</em> taxonomy made concrete. See <a href="../agents-vs-workflows/">Agents vs workflows</a> for the underlying argument.</p>
+<h2 id="two-surfaces-one-shape">Two surfaces, one shape<a class="headerlink" href="#two-surfaces-one-shape" title="Permanent link">&para;</a></h2>
+<p>Everything above describes the <strong>sync</strong> surface — <code>aimu.client()</code>, <code>aimu.agents.Agent</code>, etc. AIMU also ships an opt-in <strong>async</strong> surface under <code>aimu.aio</code> that mirrors this shape one-for-one. Same class names, same <code>Runner</code> decision tree, same <code>StreamChunk</code> type, same <code>_ChatStateMixin</code> for state mechanics. The only differences are at the call site (<code>await</code>), the streaming type (<code>AsyncIterator[StreamChunk]</code>), and the concurrency primitive used by <code>Parallel</code> and <code>concurrent_tool_calls</code> (<code>asyncio.TaskGroup</code> instead of <code>ThreadPoolExecutor</code>).</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aimu.{chat, client, Agent, Chain, …}        # sync — default
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>aimu.aio.{chat, client, Agent, Chain, …}    # async — opt-in
+</span></code></pre></div>
+<p>The sync ladder is unchanged for users who don't need async. See <a href="../async-design/">async design</a> for the design decisions.</p>
 <h2 id="streaming-one-chunk-type-everywhere">Streaming: one chunk type everywhere<a class="headerlink" href="#streaming-one-chunk-type-everywhere" title="Permanent link">&para;</a></h2>
 <p><code>StreamChunk(phase, content, agent=None, iteration=0)</code> is the single chunk type yielded by every streaming path — <code>client.chat()</code>, <code>Agent.run()</code>, every workflow <code>run()</code>. Earlier versions had separate <code>AgentChunk</code> and <code>ChainChunk</code> named tuples; both were collapsed into <code>StreamChunk</code>.</p>
 <p>The <code>agent</code> and <code>iteration</code> fields are populated by agents/workflows and default to <code>None</code> / <code>0</code> for plain chats. See <a href="../streamchunk-model/">StreamChunk model</a> for the design argument.</p>
@@ -2397,6 +2515,10 @@
 <tr>
 <td><code>aimu</code></td>
 <td>Top-level <code>chat()</code>, <code>client()</code>, <code>resolve_model_string()</code>, re-exports</td>
+</tr>
+<tr>
+<td><code>aimu.aio</code></td>
+<td>Async mirror of the public sync surface — same class names, <code>async def</code> everywhere</td>
 </tr>
 <tr>
 <td><code>aimu.models</code></td>

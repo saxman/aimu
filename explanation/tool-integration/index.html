@@ -16,7 +16,7 @@
         <link rel="prev" href="../system-message-lifecycle/">
       
       
-        <link rel="next" href="../../changelog/">
+        <link rel="next" href="../async-design/">
       
       
         
@@ -679,6 +679,8 @@
       
         
       
+        
+      
     
     
     
@@ -888,6 +890,34 @@
     
   
     Stream output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use async (aio)
   
 
     
@@ -1266,6 +1296,8 @@
       
         
       
+        
+      
     
     
     
@@ -1326,6 +1358,34 @@
     
   
     aimu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/aio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.aio
   
 
     
@@ -1745,6 +1805,8 @@
       
         
       
+        
+      
     
     
     
@@ -2103,6 +2165,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#async-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2117,6 +2190,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../async-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2304,6 +2405,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#async-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2429,7 +2541,28 @@
 <li><strong>Bad <code>@tool</code> signature</strong> — <code>ToolSignatureError</code> raised at decoration time. Variadic params (<code>*args</code> / <code>**kwargs</code>) and required params without type hints are the two cases.</li>
 <li><strong>MCP connection error</strong> — <code>MCPConnectionError</code> raised at <code>MCPClient</code> construction or on <code>call_tool()</code> failure. <code>MCPClient.ping()</code> lets you verify a connection upfront.</li>
 <li><strong>Tool not found at dispatch</strong> — appended as a <code>tool</code> role message with the text <code>"Tool 'X' not found."</code>. The model sees this and can adjust.</li>
+<li><strong>Async tool on the sync surface</strong> — the sync <code>_handle_tool_calls</code> raises <code>ValueError</code> if a tool's <code>__tool_is_async__</code> flag is set. The message points the caller at <code>aimu.aio</code>.</li>
 </ul>
+<h2 id="async-tools">Async tools<a class="headerlink" href="#async-tools" title="Permanent link">&para;</a></h2>
+<p><code>@tool</code> records <code>func.__tool_is_async__ = inspect.iscoroutinefunction(func)</code> at decoration time. The same decorated function is usable on either surface:</p>
+<ul>
+<li>On the <strong>sync</strong> surface, async tools raise at dispatch (loud, immediate).</li>
+<li>On the <strong>async</strong> surface, async tools are awaited directly, and sync (CPU-bound) tools are routed through <code>asyncio.to_thread</code> so the event loop stays free.</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nd">@tool</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fetch a URL.&quot;&quot;&quot;</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="o">...</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nd">@tool</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Trim and lowercase.&quot;&quot;&quot;</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="o">...</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1"># Both work on aio.Agent — async awaited, sync runs in a worker thread</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">fetch</span><span class="p">,</span> <span class="n">normalize</span><span class="p">])</span>
+</span></code></pre></div>
+<p><code>concurrent_tool_calls=True</code> on the async surface uses <code>asyncio.TaskGroup</code> (structured concurrency, sibling cancellation on first failure) instead of <code>ThreadPoolExecutor</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../how-to/add-custom-tool/">How-to: add a custom tool</a> — <code>@tool</code> signature rules and patterns.</li>

@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://saxman.github.io/aimu/reference/api/models/">
       
       
-        <link rel="prev" href="../aimu/">
+        <link rel="prev" href="../aio/">
       
       
         <link rel="next" href="../agents/">
@@ -679,6 +679,8 @@
       
         
       
+        
+      
     
     
     
@@ -888,6 +890,34 @@
     
   
     Stream output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/use-async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use async (aio)
   
 
     
@@ -1273,6 +1303,8 @@
       
         
       
+        
+      
     
     
     
@@ -1336,6 +1368,34 @@
     
   
     aimu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../aio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.aio
   
 
     
@@ -1448,17 +1508,6 @@
   
     <nav class="md-nav" aria-label="BaseModelClient">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#aimu.models.BaseModelClient.reset" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        reset
-      
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#aimu.models.BaseModelClient.generate" class="md-nav__link">
@@ -2109,6 +2158,8 @@
       
         
       
+        
+      
     
     
     
@@ -2331,6 +2382,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/async-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2451,17 +2530,6 @@
   
     <nav class="md-nav" aria-label="BaseModelClient">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#aimu.models.BaseModelClient.reset" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        reset
-      
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#aimu.models.BaseModelClient.generate" class="md-nav__link">
@@ -2830,7 +2898,7 @@ ModelClient(LMStudioOpenAIModel.LLAMA_3_2_3B, base_url=&quot;http://myserver:123
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="abc.ABC">ABC</span></code></p>
+              Bases: <code><span title="aimu.models._chat_state._ChatStateMixin">_ChatStateMixin</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
 
 
 
@@ -2859,28 +2927,6 @@ once for every provider.</p>
 
 
 
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="aimu.models.BaseModelClient.reset" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">reset</span>
-
-
-<a href="#aimu.models.BaseModelClient.reset" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">reset</span><span class="p">(</span><span class="n">system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;__keep__&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Clear the conversation history and unlock <code>system_message</code>.</p>
-<p>By default the existing <code>system_message</code> is preserved. Pass <code>None</code> to clear it,
-or a string to replace it.</p>
-
-
-    </div>
-
-</div>
 
 <div class="doc doc-object doc-function">
 

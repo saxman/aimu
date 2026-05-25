@@ -779,6 +779,8 @@
       
         
       
+        
+      
     
     
     
@@ -988,6 +990,34 @@
     
   
     Stream output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="how-to/use-async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use async (aio)
   
 
     
@@ -1366,6 +1396,8 @@
       
         
       
+        
+      
     
     
     
@@ -1426,6 +1458,34 @@
     
   
     aimu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/api/aio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.aio
   
 
     
@@ -1843,6 +1903,8 @@
       
         
       
+        
+      
     
     
     
@@ -2052,6 +2114,34 @@
     
   
     Tool integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="explanation/async-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async design
   
 
     
@@ -2277,6 +2367,7 @@
 <li><strong>Memory</strong> — semantic facts (ChromaDB), path-based documents (Anthropic Memory API), and conversation history (TinyDB).</li>
 <li><strong>Prompt management</strong> — versioned SQLite catalog plus a hill-climbing tuner with classification, multi-class, extraction, and judged variants.</li>
 <li><strong>Evaluation</strong> — DeepEval integration and a multi-model benchmark harness with CSV / JSON / catalog export.</li>
+<li><strong>Optional async surface</strong> — <code>aimu.aio</code> mirrors the whole sync API (same class names, one-import-away). <code>Parallel</code> and <code>concurrent_tool_calls</code> use <code>asyncio.TaskGroup</code> for structured concurrency. See <a href="explanation/async-design/">async design</a>.</li>
 </ul>
 <h2 id="notebooks">Notebooks<a class="headerlink" href="#notebooks" title="Permanent link">&para;</a></h2>
 <p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 13 runnable demos covering every subsystem end-to-end. The <a href="https://github.com/saxman/aimu#examples">README</a> lists each one.</p>
