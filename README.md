@@ -2,7 +2,7 @@
 
 # AIMU - AI Model Utilities
 
-AIMU is a Python library for LLM-powered applications. It gives you a single interface across providers, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, and benchmarking — all in plain Python that is apparent and easy to use.
+AIMU is a Python library for LLM-powered applications. It gives you a single interface across providers, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, and benchmarking, all in plain Python that is apparent and easy to use.
 
 Common tasks are one-liners: `aimu.chat("hi", model="...")`, `Agent(client, tools=[fn])`, `Chain.from_client(client, [step1, step2])`. Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
 
@@ -44,7 +44,7 @@ agent = Agent(aimu.client("ollama:qwen3.5:9b"), tools=[letter_counter])
 print(agent.run("How many r's in strawberry?"))
 ```
 
-**A code-controlled workflow.** `Chain.from_client()` builds a multi-step pipeline in one line — each step's output becomes the next step's input:
+**A code-controlled workflow.** `Chain.from_client()` builds a multi-step pipeline in one line. Each step's output becomes the next step's input:
 
 ```python
 from aimu.agents import Chain
@@ -75,12 +75,12 @@ client.chat("What's in this image?", images=["./cat.jpg"])
 ### Agents and workflows
 
 - `Agent` runs an autonomous tool-using loop until the model stops calling tools.
-- Four code-controlled workflow patterns: `Chain.from_client(...)`, `Router.from_client(...)`, `Parallel.from_client(...)`, `EvaluatorOptimizer(...)`. Compose freely — workflows accept agents as steps; agents accept workflows as tools via `as_model_client()`.
+- Four code-controlled workflow patterns: `Chain.from_client(...)`, `Router.from_client(...)`, `Parallel.from_client(...)`, `EvaluatorOptimizer(...)`. Compose freely. Workflows accept agents as steps; agents accept workflows as tools via `as_model_client()`.
 - `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients are interchangeable.
 
 ### Tools
 
-- `@tool` on any plain Python function — type hints + docstring become the spec.
+- `@tool` on any plain Python function. Type hints + docstring become the spec.
 - `MCPClient` for cross-process FastMCP tools. Combine with `@tool` on the same agent.
 - Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`.
 - Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
@@ -91,7 +91,7 @@ client.chat("What's in this image?", images=["./cat.jpg"])
 
 ### Prompts and evaluation
 
-- Hill-climbing `PromptTuner` for automatic prompt optimisation against labelled data — four concrete tuners: classification, multi-class, extraction, judged-generation.
+- Hill-climbing `PromptTuner` for automatic prompt optimisation against labelled data. Four concrete tuners: classification, multi-class, extraction, judged-generation.
 - `Benchmark` runs one prompt across multiple clients (plain or agentic, mixed providers) and returns a comparison DataFrame. DeepEval metrics plug in as `Scorer`s.
 
 ## Install
@@ -106,7 +106,7 @@ Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_
 
 | | |
 |---|---|
-| 📘 [Tutorials](https://saxman.github.io/aimu/tutorials/) | Hand-held walkthroughs — install to first agent in 15 min |
+| 📘 [Tutorials](https://saxman.github.io/aimu/tutorials/) | Hand-held walkthroughs. Install to first agent in 15 mins |
 | 🛠️ [How-to guides](https://saxman.github.io/aimu/how-to/) | Task-oriented recipes (switch providers, write a tool, stream output, benchmark models, ...) |
 | 📚 [Reference](https://saxman.github.io/aimu/reference/) | Auto-generated API docs, capability matrices, environment variables, CLI |
 | 💡 [Explanation](https://saxman.github.io/aimu/explanation/) | The *why*: architecture, design principles, agents vs workflows |
