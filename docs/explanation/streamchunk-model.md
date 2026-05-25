@@ -34,9 +34,7 @@ Earlier versions had three named tuples: `StreamChunk` for model clients, `Agent
 - `AgenticModelClient` had to convert `AgentChunk → StreamChunk` mid-stream, dropping the agent name and iteration.
 - Users had to remember which class came out of which call site.
 
-The fix was to make the optional context fields (`agent`, `iteration`) part of the single type, defaulting to `None` and `0` for plain chats. The result: one type to learn, no conversion code, full context preserved through every layer.
-
-`AgentChunk` and `ChainChunk` are back-compat aliases for `StreamChunk` and will keep working.
+The fix was to make the optional context fields (`agent`, `iteration`) part of the single type, defaulting to `None` and `0` for plain chats. The result: one type to learn, no conversion code, full context preserved through every layer. The historical `AgentChunk` and `ChainChunk` names were removed; `StreamChunk` is the only name.
 
 ## Why `content` is a union, not three classes
 

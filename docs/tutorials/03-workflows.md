@@ -29,7 +29,7 @@ client = aimu.client("ollama:qwen3.5:9b")
 A `Chain` runs agents in order; each step's text output becomes the next step's input.
 
 ```python
-from aimu.workflows import Chain
+from aimu.agents import Chain
 
 chain = Chain.from_client(client, [
     "Break the user's task into 3 concrete steps. Output a numbered list.",
@@ -48,8 +48,7 @@ print(result)
 A `Router` runs a classifier first, then dispatches to the matching handler.
 
 ```python
-from aimu.agents import Agent
-from aimu.workflows import Router
+from aimu.agents import Router, Agent
 
 router = Router.from_client(
     client,
@@ -74,7 +73,7 @@ Handlers can be any `Runner` — agents *or* nested workflows. A router can disp
 A `Parallel` runs workers concurrently via `ThreadPoolExecutor` and (optionally) feeds the joined output to an aggregator.
 
 ```python
-from aimu.workflows import Parallel
+from aimu.agents import Parallel
 
 parallel = Parallel.from_client(
     client,
@@ -99,8 +98,7 @@ Without `aggregator_prompt=`, worker outputs are joined by `separator` (default 
 The fourth pattern is generate → critique → revise. There's no `.from_client()` factory — build it directly:
 
 ```python
-from aimu.agents import Agent
-from aimu.workflows import EvaluatorOptimizer
+from aimu.agents import EvaluatorOptimizer, Agent
 
 eo = EvaluatorOptimizer(
     generator=Agent(
@@ -149,4 +147,4 @@ You've now seen all four workflow patterns plus the autonomous `Agent`. Pick the
 - **[Vision and streaming](04-vision-and-streaming.md)** — last tutorial.
 - **[How-to: build an orchestrator](../how-to/build-orchestrator.md)** — when you want an LLM to dispatch to other agents *autonomously* via tools (a different pattern from `Router`, which dispatches in code).
 - **[Explanation: agents vs workflows](../explanation/agents-vs-workflows.md)** — the design argument.
-- Notebook [10 - Agent Workflows](https://github.com/saxman/aimu/blob/main/notebooks/10%20-%20Agent%20Workflows.ipynb) — interactive versions of every example here.
+- Notebook [10 - Workflows](https://github.com/saxman/aimu/blob/main/notebooks/10%20-%20Workflows.ipynb) — interactive versions of every example here.

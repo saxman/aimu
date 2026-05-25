@@ -2,7 +2,7 @@
 
 AIMU follows the taxonomy from *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. The split — autonomous agents vs code-controlled workflows — is the most important conceptual divide in the library, and worth understanding before you build anything non-trivial.
 
-In code, every runnable unit implements the single `Runner` ABC. The agent-vs-workflow split is a *conceptual category* over concrete classes, not a type hierarchy: `Agent` / `SkillAgent` / `OrchestratorAgent` (in `aimu.agents`) are agent-shaped; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` (in `aimu.workflows`) are workflow-shaped. The package layout signals which is which; the type system doesn't enforce it.
+In code, every runnable unit implements the single `Runner` ABC and is exported from `aimu.agents`. The agent-vs-workflow split is a *conceptual category* over concrete classes, not a type hierarchy: `Agent` / `SkillAgent` / `OrchestratorAgent` are agent-shaped; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` are workflow-shaped. The distinction lives in the docs.
 
 ## The distinction
 
@@ -42,7 +42,7 @@ For most production systems, workflows do more of the work than people expect. A
 
 ## In AIMU
 
-Both branches share the `Runner` interface (`run()`, `messages`, `run_streamed()`), so they compose freely:
+Both branches share the `Runner` interface (`run()`, `messages`), so they compose freely:
 
 ```python
 # Workflow dispatching to an autonomous agent

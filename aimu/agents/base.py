@@ -27,10 +27,6 @@ from typing import Any, Iterator, Optional, Union
 
 from aimu.models.base import StreamChunk
 
-# Backwards-compatible alias. New code should use StreamChunk directly.
-AgentChunk = StreamChunk
-
-
 # Type alias used by the messages property across the runner hierarchy.
 MessageHistory = dict[str, list[dict]]
 
@@ -38,8 +34,7 @@ MessageHistory = dict[str, list[dict]]
 class Runner(ABC):
     """Abstract base for every concrete agent and workflow in AIMU.
 
-    Concrete subclasses implement :meth:`run` and :attr:`messages`. The
-    ``run_streamed()`` alias is kept for back-compat.
+    Concrete subclasses implement :meth:`run` and :attr:`messages`.
     """
 
     @abstractmethod
@@ -52,15 +47,6 @@ class Runner(ABC):
     ) -> Union[str, Iterator[StreamChunk]]:
         """Run synchronously (stream=False) or streaming (stream=True)."""
         ...
-
-    def run_streamed(
-        self,
-        task: str,
-        generate_kwargs: Optional[dict[str, Any]] = None,
-        images: Optional[list] = None,
-    ) -> Iterator[StreamChunk]:
-        """Compatibility alias for ``run(..., stream=True)``."""
-        return self.run(task, generate_kwargs=generate_kwargs, stream=True, images=images)
 
     @property
     @abstractmethod

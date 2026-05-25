@@ -47,7 +47,7 @@ class OpenAICompatClient(BaseModelClient):
             return self.default_generate_kwargs.copy()
         return {**self.default_generate_kwargs, **generate_kwargs}
 
-    def _iter_stream(self, stream, include_thinking: bool = True) -> Iterator[StreamChunk]:
+    def _iter_stream(self, stream) -> Iterator[StreamChunk]:
         """Iterate a completion stream, yielding StreamChunks and updating self.last_thinking."""
         self.last_thinking = ""
         parser = _ThinkingParser() if self.is_thinking_model else None
@@ -61,8 +61,7 @@ class OpenAICompatClient(BaseModelClient):
                 for phase, text in parser.feed(delta.content):
                     if phase == StreamingContentType.THINKING:
                         self.last_thinking += text
-                        if include_thinking:
-                            yield StreamChunk(StreamingContentType.THINKING, text)
+                        yield StreamChunk(StreamingContentType.THINKING, text)
                     else:
                         yield StreamChunk(StreamingContentType.GENERATING, text)
             else:
@@ -73,12 +72,11 @@ class OpenAICompatClient(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
-        include_thinking: bool = True,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, include_thinking)
+            return self._generate_streamed(prompt, generate_kwargs)
 
         response = self._client.chat.completions.create(
             model=self.model.value,
@@ -98,7 +96,6 @@ class OpenAICompatClient(BaseModelClient):
         self,
         prompt: str,
         generate_kwargs: dict[str, Any],
-        include_thinking: bool,
     ) -> Iterator[StreamChunk]:
         stream = self._client.chat.completions.create(
             model=self.model.value,
@@ -106,7 +103,7 @@ class OpenAICompatClient(BaseModelClient):
             stream=True,
             **generate_kwargs,
         )
-        yield from self._iter_stream(stream, include_thinking)
+        yield from self._iter_stream(stream)
 
     def _chat(
         self,

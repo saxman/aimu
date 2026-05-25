@@ -13,13 +13,13 @@ The whole library fits in your head. There are three load-bearing abstractions a
 │  Each implements BaseModelClient (chat / generate / _chat /  │
 │   _generate / _update_generate_kwargs)                       │
 ├──────────────────────────────────────────────────────────────┤
-│  Runner (ABC)                                                │
+│  Runner (ABC)  — single interface for everything runnable    │
 │   ├─ Agent / SkillAgent / OrchestratorAgent                  │
-│   │     (autonomous: LLM directs flow — in aimu.agents)      │
+│   │     (autonomous: LLM directs flow)                       │
 │   └─ Chain / Router / Parallel /                             │
 │      EvaluatorOptimizer / PlanExecuteEvaluator               │
-│         (code-controlled: code directs flow                  │
-│          — in aimu.workflows)                                │
+│         (code-controlled: code directs flow)                 │
+│  All concretes exported from aimu.agents.                    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -93,14 +93,14 @@ class Runner(ABC):
 
 There's a single `Runner` ABC. The autonomous-vs-code-controlled split survives as a *categorisation of concrete classes*, not a type hierarchy:
 
-- **Autonomous** (`aimu.agents`) — the LLM directs flow. `Agent` keeps looping until the model stops calling tools; `SkillAgent` and `OrchestratorAgent` extend that.
-- **Code-controlled** (`aimu.workflows`) — code directs flow. `Chain` runs steps in a fixed order; `Router` classifies and dispatches; `Parallel` fans out; `EvaluatorOptimizer` iterates generate→critique; `PlanExecuteEvaluator` plans→executes→scores→replans.
+- **Autonomous** — the LLM directs flow. `Agent` keeps looping until the model stops calling tools; `SkillAgent` and `OrchestratorAgent` extend that.
+- **Code-controlled** — code directs flow. `Chain` runs steps in a fixed order; `Router` classifies and dispatches; `Parallel` fans out; `EvaluatorOptimizer` iterates generate→critique; `PlanExecuteEvaluator` plans→executes→scores→replans.
 
-This is the *Building Effective Agents* taxonomy made concrete. See [Agents vs workflows](agents-vs-workflows.md) for the underlying argument.
+All concrete classes live in `aimu.agents`. This is the *Building Effective Agents* taxonomy made concrete. See [Agents vs workflows](agents-vs-workflows.md) for the underlying argument.
 
 ## Streaming: one chunk type everywhere
 
-`StreamChunk(phase, content, agent=None, iteration=0)` is the single chunk type yielded by every streaming path — `client.chat()`, `Agent.run()`, every workflow `run()`. Earlier versions had separate `AgentChunk` and `ChainChunk` named tuples; those are now back-compat aliases.
+`StreamChunk(phase, content, agent=None, iteration=0)` is the single chunk type yielded by every streaming path — `client.chat()`, `Agent.run()`, every workflow `run()`. Earlier versions had separate `AgentChunk` and `ChainChunk` named tuples; both were collapsed into `StreamChunk`.
 
 The `agent` and `iteration` fields are populated by agents/workflows and default to `None` / `0` for plain chats. See [StreamChunk model](streamchunk-model.md) for the design argument.
 
@@ -119,8 +119,7 @@ Both can be active on the same client. Python tools take precedence on name coll
 |---|---|
 | `aimu` | Top-level `chat()`, `client()`, `resolve_model_string()`, re-exports |
 | `aimu.models` | `ModelClient`, `BaseModelClient`, `ModelSpec`, `StreamChunk`, provider clients |
-| `aimu.agents` | `Runner` ABC; `Agent`, `SkillAgent`, `OrchestratorAgent` |
-| `aimu.workflows` | `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` (re-exports `Runner`) |
+| `aimu.agents` | `Runner` ABC; `Agent`, `SkillAgent`, `OrchestratorAgent`; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` |
 | `aimu.tools` | `@tool` decorator, `MCPClient`, `builtin.*` tool groups |
 | `aimu.skills` | `AgentSkill`, `SkillManager`, MCP server builder |
 | `aimu.memory` | `SemanticMemoryStore`, `DocumentStore`, shared `MemoryStore` ABC |

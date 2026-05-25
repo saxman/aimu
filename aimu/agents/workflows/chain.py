@@ -10,11 +10,6 @@ from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 logger = logging.getLogger(__name__)
 
 
-# Back-compat alias. ChainChunk used to be a separate NamedTuple with a `step` field;
-# that role is now played by StreamChunk.iteration.
-ChainChunk = StreamChunk
-
-
 @dataclass
 class Chain(Runner):
     """**Prompt Chaining** pattern: agents run sequentially, output → input.

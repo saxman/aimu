@@ -494,14 +494,13 @@ class HuggingFaceClient(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
-        include_thinking: bool = True,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         messages = [{"role": "user", "content": prompt}]
 
         if stream:
-            return self._generate_streamed(messages, generate_kwargs, include_thinking)
+            return self._generate_streamed(messages, generate_kwargs)
 
         return self._generate_sync(messages, generate_kwargs)
 
@@ -509,14 +508,12 @@ class HuggingFaceClient(BaseModelClient):
         self,
         messages: list,
         generate_kwargs: dict[str, Any],
-        include_thinking: bool,
     ) -> Iterator[StreamChunk]:
         streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
         it = self._generate_streaming(messages, generate_kwargs, None, streamer)
 
-        if include_thinking:
-            for token in self._pending_thinking_tokens:
-                yield StreamChunk(StreamingContentType.THINKING, token)
+        for token in self._pending_thinking_tokens:
+            yield StreamChunk(StreamingContentType.THINKING, token)
         self._pending_thinking_tokens = []
 
         for token in it:

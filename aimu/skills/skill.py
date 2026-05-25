@@ -34,7 +34,3 @@ class AgentSkill:
             if end != -1:
                 return content[end + 3 :].strip()
         return content.strip()
-
-
-# Back-compat alias. Prefer ``AgentSkill`` in new code.
-Skill = AgentSkill

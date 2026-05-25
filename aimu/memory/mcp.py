@@ -39,7 +39,7 @@ def search_memories(search_request: str) -> str:
     Returns:
         Information about the user that's relevant to the conversation.
     """
-    facts = _store.retrieve_facts(search_request)
+    facts = _store.search(search_request)
     return "\n".join(facts)
 
 
@@ -52,7 +52,7 @@ def add_memories(memories: list[str]) -> None:
         memories: A list of memories, as strings, to save about the user.
     """
     for fact in memories:
-        _store.store_fact(fact)
+        _store.store(fact)
 
 
 @mcp.tool()
@@ -66,7 +66,7 @@ def delete_memory(memory: str) -> str:
     Returns:
         Confirmation message.
     """
-    _store.delete_fact(memory)
+    _store.delete(memory)
     return f"Deleted: {memory}"
 
 
@@ -78,7 +78,7 @@ def list_memories() -> list[str]:
     Returns:
         List of all stored memory strings.
     """
-    return _store.list_facts()
+    return _store.list_all()
 
 
 if __name__ == "__main__":

@@ -1,11 +1,9 @@
 # Always available
 from .base import (
     BaseModelClient,
-    Chunk,
     Model,
     ModelSpec,
     StreamChunk,
-    StreamPhase,
     StreamingContentType,
 )
 from .model_client import ModelClient, resolve_model_string
@@ -93,13 +91,11 @@ except ImportError:
 # Expose what's available
 __all__ = [
     "BaseModelClient",
-    "Chunk",
     "Model",
     "ModelClient",
     "ModelSpec",
     "StreamChunk",
     "StreamingContentType",
-    "StreamPhase",
     "resolve_model_string",
 ]
 if HAS_HF:

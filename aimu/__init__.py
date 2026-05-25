@@ -20,12 +20,10 @@ from typing import Any, Iterable, Iterator, Optional, Union
 
 from .models import (
     BaseModelClient,
-    Chunk,
     Model,
     ModelClient,
     ModelSpec,
     StreamChunk,
-    StreamPhase,
     StreamingContentType,
     resolve_model_string,
 )
@@ -81,12 +79,10 @@ def chat(
 
 __all__ = [
     "BaseModelClient",
-    "Chunk",
     "Model",
     "ModelClient",
     "ModelSpec",
     "StreamChunk",
-    "StreamPhase",
     "StreamingContentType",
     "chat",
     "client",

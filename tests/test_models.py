@@ -220,8 +220,8 @@ def test_generate_streamed_thinking(model_client):
     assert "Paris" in content
 
 
-def test_generate_streamed_include_thinking_false(model_client):
-    """Test that thinking chunks are excluded when include_thinking=False."""
+def test_generate_streamed_exclude_thinking(model_client):
+    """Test that thinking chunks are excluded when include= omits THINKING."""
 
     if not model_client.model.supports_thinking:
         pytest.skip("Model does not support thinking")
@@ -230,14 +230,19 @@ def test_generate_streamed_include_thinking_false(model_client):
 
     content = ""
     thinking = ""
-    for chunk in model_client.generate("What is the capital of France?", stream=True, include_thinking=False):
+    stream = model_client.generate(
+        "What is the capital of France?",
+        stream=True,
+        include=["generating", "tool_calling", "done"],
+    )
+    for chunk in stream:
         if chunk.phase == StreamingContentType.THINKING:
             thinking += chunk.content
         elif chunk.phase == StreamingContentType.GENERATING:
             content += chunk.content
 
-    assert not thinking, "thinking chunks should not be yielded when include_thinking=False"
-    assert model_client.last_thinking, "last_thinking should still be populated even when include_thinking=False"
+    assert not thinking, "thinking chunks should not be yielded when THINKING excluded"
+    assert model_client.last_thinking, "last_thinking should still be populated even when THINKING filtered"
     assert "Paris" in content
 
 

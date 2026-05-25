@@ -23,7 +23,7 @@ class ContentCreationAgent(OrchestratorAgent):
     Usage::
 
         from aimu.models import ModelClient, OllamaModel
-        from aimu.agents.examples import ContentCreationAgent
+        from aimu.agents.prebuilt import ContentCreationAgent
 
         client = ModelClient(OllamaModel.QWEN_3_8B)
         agent = ContentCreationAgent(client)

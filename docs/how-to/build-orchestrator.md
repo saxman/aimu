@@ -76,18 +76,18 @@ class CodeReviewAgent(OrchestratorAgent):
 
 Pass `concurrent_tool_calls=True` so the orchestrator dispatches multiple tools in parallel when the model returns several tool calls in one turn. This is essential when workers do I/O (web search, API calls) and idle most of their time waiting.
 
-The example agents in `aimu.agents.examples` enable this automatically when `worker_tools=` is provided.
+The prebuilt agents in `aimu.agents.prebuilt` enable this automatically when `worker_tools=` is provided.
 
-## Ship-ready example agents
+## Prebuilt orchestrators
 
-`aimu.agents.examples` includes three working orchestrators you can use or copy:
+`aimu.agents.prebuilt` includes three working orchestrators you can use directly or copy as a starting point:
 
 - `ResearchReportAgent` — orchestrator + `research_overview`, `find_examples`, `find_counterpoints`
 - `CodeReviewAgent` — orchestrator + `review_security`, `review_performance`, `review_readability`
 - `ContentCreationAgent` — orchestrator + `research_topic`, `create_outline`, `write_section`
 
 ```python
-from aimu.agents.examples import ResearchReportAgent
+from aimu.agents.prebuilt import ResearchReportAgent
 from aimu.tools import builtin
 
 agent = ResearchReportAgent(client, worker_tools=builtin.web)

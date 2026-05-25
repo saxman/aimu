@@ -115,7 +115,7 @@ class MockModelClient(BaseModelClient):
         yield StreamChunk(StreamingContentType.GENERATING, response)
         self._streaming_content_type = StreamingContentType.DONE
 
-    def _generate(self, prompt, generate_kwargs=None, stream=False, include_thinking=True):
+    def _generate(self, prompt, generate_kwargs=None, stream=False):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs)
         return self._chat(prompt, generate_kwargs)

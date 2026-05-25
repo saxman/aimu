@@ -6,7 +6,7 @@ shared-client scenario that surfaced in the notebook, where a single ModelClient
 reused across all agents in a Router and each agent's _prepare_run() wipes the client's
 messages before it runs.  Without snapshotting, every key in router.messages would alias
 the same live list (the last agent's messages).  The snapshot taken at the end of
-Agent.run() / run_streamed() isolates each agent's history.
+Agent.run() (including stream=True) isolates each agent's history.
 """
 
 from aimu.agents import Agent, Chain, EvaluatorOptimizer, Parallel, Router
@@ -75,10 +75,10 @@ def test_simple_agent_messages_updated_after_second_run():
 
 
 def test_simple_agent_messages_streamed():
-    """Snapshot is also taken after run_streamed() is fully consumed."""
+    """Snapshot is also taken after run(stream=True) is fully consumed."""
     client = MockModelClient(["streamed response"])
     agent = Agent(client, name="streamer")
-    list(agent.run_streamed("task"))  # consume the generator
+    list(agent.run("task", stream=True))  # consume the generator
     msgs = agent.messages["streamer"]
     assert any(m["role"] == "assistant" for m in msgs)
 

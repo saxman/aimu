@@ -12,7 +12,7 @@ This is the right pattern when:
 
 ```python
 import aimu
-from aimu.workflows import PlanExecuteEvaluator
+from aimu.agents import PlanExecuteEvaluator
 from aimu.tools import builtin
 
 wf = PlanExecuteEvaluator.from_client(
@@ -51,8 +51,7 @@ The workflow parses both. The criteria the planner produces is what the scorer u
 The `.from_client()` factory uses `LLMJudgeScorer` by default. To plug in a different `Scorer` (DeepEval, a custom callable, etc.), construct `PlanExecuteEvaluator` directly:
 
 ```python
-from aimu.agents import Agent, SkillAgent
-from aimu.workflows import PlanExecuteEvaluator
+from aimu.agents import PlanExecuteEvaluator, Agent, SkillAgent
 from aimu.evals import DeepEvalModel, DeepEvalScorer
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCaseParams

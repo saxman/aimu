@@ -6,13 +6,13 @@ MODEL_CLIENTS = [OllamaClient, HuggingFaceClient, AisuiteClient]
 
 
 def respond(message, history, client):
-    from aimu.models import StreamPhase
+    from aimu.models import StreamingContentType
 
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": ""})
 
     for chunk in client.chat(message, stream=True):
-        if chunk.phase == StreamPhase.GENERATING:
+        if chunk.phase == StreamingContentType.GENERATING:
             history[-1]["content"] += chunk.content
             yield history, ""
 

@@ -6,10 +6,6 @@ Agents and code-controlled workflows.
 
 ::: aimu.agents.Runner
 
-::: aimu.agents.BaseAgent
-
-::: aimu.agents.Workflow
-
 ::: aimu.agents.MessageHistory
 
 ## Agents
@@ -31,9 +27,3 @@ Agents and code-controlled workflows.
 ::: aimu.agents.EvaluatorOptimizer
 
 ::: aimu.agents.PlanExecuteEvaluator
-
-## Back-compat aliases
-
-::: aimu.agents.AgentChunk
-
-::: aimu.agents.ChainChunk

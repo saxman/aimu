@@ -16,10 +16,6 @@ class StreamingContentType(str, Enum):
     DONE = "done"
 
 
-# Alias used in notebooks and user-facing code
-StreamPhase = StreamingContentType
-
-
 class StreamChunk(NamedTuple):
     """A single chunk yielded by ``client.chat(stream=True)``, ``Agent.run(stream=True)``,
     or any workflow ``run(stream=True)``.
@@ -47,15 +43,6 @@ class StreamChunk(NamedTuple):
     def is_tool_call(self) -> bool:
         """True if this chunk carries a tool-call result."""
         return self.phase == StreamingContentType.TOOL_CALLING
-
-
-# Unified chunk name. ``Chunk`` and ``StreamChunk`` are the same type.
-Chunk = StreamChunk
-
-
-# Back-compat: ``AgentChunk`` was a separate NamedTuple in earlier versions. It is now
-# an alias of ``StreamChunk`` with the same field order. New code should use ``StreamChunk``.
-AgentChunk = StreamChunk
 
 
 @dataclass
@@ -91,30 +78,10 @@ class Model(Enum):
     Each member's value is a ``ModelSpec``; capability flags are mirrored as plain
     attributes (``supports_tools``, ``supports_thinking``, ``supports_vision``,
     ``generation_kwargs``) for direct read access. ``.value`` returns the provider id
-    string, preserving back-compat with code that called e.g. ``ollama.pull(model.value)``.
+    string so code can call e.g. ``ollama.pull(model.value)``.
     """
 
-    def __init__(
-        self,
-        spec_or_value,
-        supports_tools: bool = False,
-        supports_thinking: bool = False,
-        supports_vision: bool = False,
-        generation_kwargs: Optional[dict] = None,
-    ):
-        if isinstance(spec_or_value, ModelSpec):
-            spec = spec_or_value
-        else:
-            # Legacy positional form, kept so subclasses defined before the ModelSpec
-            # migration still work.
-            spec = ModelSpec(
-                id=spec_or_value,
-                tools=supports_tools,
-                thinking=supports_thinking,
-                vision=supports_vision,
-                generation_kwargs=generation_kwargs,
-            )
-
+    def __init__(self, spec: ModelSpec):
         self._value_ = spec.id
         self.spec = spec
         self.supports_tools = spec.tools
@@ -233,7 +200,6 @@ class BaseModelClient(ABC):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
-        include_thinking: bool = True,
     ) -> Union[str, Iterator[StreamChunk]]:
         """Provider-specific generate implementation. Use :meth:`generate`."""
         pass
@@ -255,16 +221,10 @@ class BaseModelClient(ABC):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
-        include_thinking: bool = True,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        """Single-turn generation.
-
-        ``include_thinking=False`` is kept as a back-compat alias for
-        ``include=["generating", "tool_calling", "done"]``. See :meth:`chat` for the
-        ``include`` filter semantics.
-        """
-        result = self._generate(prompt, generate_kwargs, stream=stream, include_thinking=include_thinking)
+        """Single-turn generation. See :meth:`chat` for the ``include`` filter semantics."""
+        result = self._generate(prompt, generate_kwargs, stream=stream)
         if stream and include is not None:
             return self._filter_chunks(result, self._resolve_include(include))
         return result
@@ -306,24 +266,10 @@ class BaseModelClient(ABC):
 
     @staticmethod
     def _resolve_include(
-        include: Optional[Iterable[Union[str, StreamingContentType]]],
-        include_thinking: bool = True,
+        include: Iterable[Union[str, StreamingContentType]],
     ) -> set[StreamingContentType]:
-        """Normalise an ``include=`` argument to a set of :class:`StreamingContentType`.
-
-        Falls back to the legacy ``include_thinking`` flag when ``include`` is None.
-        """
-        if include is not None:
-            return {StreamingContentType(p) if not isinstance(p, StreamingContentType) else p for p in include}
-        all_phases = {
-            StreamingContentType.THINKING,
-            StreamingContentType.TOOL_CALLING,
-            StreamingContentType.GENERATING,
-            StreamingContentType.DONE,
-        }
-        if not include_thinking:
-            all_phases.discard(StreamingContentType.THINKING)
-        return all_phases
+        """Normalise an ``include=`` argument to a set of :class:`StreamingContentType`."""
+        return {StreamingContentType(p) if not isinstance(p, StreamingContentType) else p for p in include}
 
     @staticmethod
     def _filter_chunks(

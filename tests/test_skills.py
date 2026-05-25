@@ -1,5 +1,5 @@
 """
-Tests for aimu.skills: Skill, SkillManager, and Agent skill integration.
+Tests for aimu.skills: AgentSkill, SkillManager, and Agent skill integration.
 
 All filesystem tests use tmp_path so no real ~/.agents/skills paths are touched.
 Unit tests use MagicMock inline. The model_client fixture is available for
@@ -16,7 +16,7 @@ import pytest
 
 from aimu.models import BaseModelClient, StreamChunk, StreamingContentType
 from aimu.skills.manager import SkillManager
-from aimu.skills.skill import Skill
+from aimu.skills.skill import AgentSkill
 from helpers import create_real_model_client, resolve_model_params
 
 _MOCK = "mock"
@@ -48,7 +48,7 @@ class _MockBaseModelClient(BaseModelClient):
         response = self.chat(user_message)
         yield StreamChunk(StreamingContentType.GENERATING, response)
 
-    def generate(self, prompt, generate_kwargs=None, stream=False, include_thinking=True):
+    def generate(self, prompt, generate_kwargs=None, stream=False, include=None):
         if stream:
             return self._generate_streamed()
         return "Generated response."
@@ -93,13 +93,13 @@ def make_skill_dir(parent: Path, name: str, description: str, body: str = "## In
 
 
 # ---------------------------------------------------------------------------
-# Skill.load_body
+# AgentSkill.load_body
 # ---------------------------------------------------------------------------
 
 
 def test_skill_load_body_strips_frontmatter(tmp_path):
     skill_md = make_skill_dir(tmp_path, "my-skill", "Does things.", body="## Steps\n1. Do it.")
-    skill = Skill(name="my-skill", description="Does things.", path=skill_md)
+    skill = AgentSkill(name="my-skill", description="Does things.", path=skill_md)
     body = skill.load_body()
     assert "## Steps" in body
     assert "---" not in body
@@ -111,13 +111,13 @@ def test_skill_load_body_no_frontmatter(tmp_path):
     skill_dir.mkdir()
     skill_md = skill_dir / "SKILL.md"
     skill_md.write_text("Just instructions, no frontmatter.", encoding="utf-8")
-    skill = Skill(name="bare-skill", description="x", path=skill_md)
+    skill = AgentSkill(name="bare-skill", description="x", path=skill_md)
     assert skill.load_body() == "Just instructions, no frontmatter."
 
 
 def test_skill_base_dir(tmp_path):
     skill_md = make_skill_dir(tmp_path, "s", "x")
-    skill = Skill(name="s", description="x", path=skill_md)
+    skill = AgentSkill(name="s", description="x", path=skill_md)
     assert skill.base_dir == skill_md.parent
 
 

@@ -4,8 +4,8 @@ Tests for aimu.agents.EvaluatorOptimizer: the Evaluator-Optimizer workflow patte
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
-from aimu.agents import Agent, AgentChunk, EvaluatorOptimizer, Runner
-from aimu.models import StreamingContentType
+from aimu.agents import Agent, EvaluatorOptimizer, Runner
+from aimu.models import StreamChunk, StreamingContentType
 from helpers import MockModelClient
 
 
@@ -84,7 +84,7 @@ def test_evaluator_custom_pass_keyword():
 
 
 def test_evaluator_streamed_yields_single_generating_chunk():
-    """run_streamed() yields exactly one GENERATING AgentChunk with the final output."""
+    """run(stream=True) yields exactly one GENERATING StreamChunk with the final output."""
     gen_client = MockModelClient(["good answer"])
     eval_client = MockModelClient(["PASS"])
 
@@ -93,10 +93,10 @@ def test_evaluator_streamed_yields_single_generating_chunk():
         evaluator=Agent(eval_client, name="critic"),
         max_rounds=3,
     )
-    chunks = list(eo.run_streamed("task"))
+    chunks = list(eo.run("task", stream=True))
 
     assert len(chunks) == 1
-    assert isinstance(chunks[0], AgentChunk)
+    assert isinstance(chunks[0], StreamChunk)
     assert chunks[0].phase == StreamingContentType.GENERATING
     assert chunks[0].content == "good answer"
 
@@ -111,7 +111,7 @@ def test_evaluator_streamed_does_not_yield_intermediate_drafts():
         evaluator=Agent(eval_client, name="critic"),
         max_rounds=5,
     )
-    chunks = list(eo.run_streamed("task"))
+    chunks = list(eo.run("task", stream=True))
 
     generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING]
     assert len(generating) == 1

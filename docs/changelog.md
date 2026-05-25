@@ -25,8 +25,9 @@ Breaking changes across four areas, plus the new documentation site.
 - **Breaking** `AgenticModelClient` removed from the public API. Use `agent.as_model_client()` instead.
 - **Breaking** `OrchestratorAgent._setup_orchestrator` renamed to `_init_orchestrator`.
 - **New** `OrchestratorAgent.assemble(client, system_message, workers=[...])` factory builds an orchestrator without subclassing.
-- **New** Workflow factories: `Chain.of(client, prompts)`, `Router.of(client, classifier_prompt, handlers)`, `Parallel.of(client, worker_prompts, aggregator_prompt=)`.
-- **Breaking** `AgentChunk` and `ChainChunk` collapsed into `StreamChunk` (back-compat aliases kept). `chunk.agent_name → chunk.agent`; `chunk.step → chunk.iteration`.
+- **New** Workflow factories: `Chain.from_client(client, prompts)`, `Router.from_client(client, classifier_prompt, handlers)`, `Parallel.from_client(client, worker_prompts, aggregator_prompt=)`, `PlanExecuteEvaluator.from_client(client, ...)`.
+- **Breaking** `BaseAgent` and `Workflow` ABCs removed. All concrete agents and workflows inherit directly from `Runner`. The agent-vs-workflow split survives as a conceptual category in the docs.
+- **Breaking** `AgentChunk` and `ChainChunk` collapsed into `StreamChunk` — no back-compat aliases. `chunk.agent_name → chunk.agent`; `chunk.step → chunk.iteration`.
 
 ### Tools
 
@@ -40,7 +41,7 @@ Breaking changes across four areas, plus the new documentation site.
 - **Breaking** `SkillManager` raises `SkillLoadError` on malformed `SKILL.md` (instead of silently skipping).
 - **Breaking** `SkillManager.get_skill_body()` raises `SkillNotFoundError` on unknown skill name (instead of returning a sentinel string).
 - **New** Skill catalogue prompt includes script-derived tool names inline.
-- **New** `Skill` renamed to `AgentSkill` (back-compat alias kept).
+- **Breaking** `Skill` renamed to `AgentSkill` (no back-compat alias).
 - **New** Skills logged at `INFO` on discovery.
 
 ### Documentation

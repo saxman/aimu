@@ -2,8 +2,10 @@
 Tests for the @tool decorator and Python-function tool dispatch through Agent.
 """
 
+import pytest
+
 from aimu.agents import Agent
-from aimu.tools import tool
+from aimu.tools import ToolSignatureError, tool
 from helpers import MockModelClient
 
 
@@ -64,6 +66,82 @@ def test_tool_decorator_function_still_callable():
         return n * 2
 
     assert double(5) == 10
+
+
+# ---------------------------------------------------------------------------
+# Decorator: signature validation
+# ---------------------------------------------------------------------------
+
+
+def test_tool_rejects_varargs():
+    with pytest.raises(ToolSignatureError, match="variadic"):
+
+        @tool
+        def f(*args):
+            """Bad."""
+            return args
+
+
+def test_tool_rejects_kwargs():
+    with pytest.raises(ToolSignatureError, match="variadic"):
+
+        @tool
+        def f(**kwargs):
+            """Bad."""
+            return kwargs
+
+
+def test_tool_rejects_param_without_hint_or_default():
+    with pytest.raises(ToolSignatureError, match="no type hint"):
+
+        @tool
+        def f(x):
+            """Bad."""
+            return x
+
+
+def test_tool_accepts_param_with_default_no_hint():
+    @tool
+    def f(x=1):
+        """OK."""
+        return x
+
+    spec = f.__tool_spec__
+    assert spec["function"]["parameters"]["properties"]["x"]["type"] == "string"
+    assert "x" not in spec["function"]["parameters"]["required"]
+
+
+def test_tool_supports_optional():
+    from typing import Optional
+
+    @tool
+    def f(name: Optional[str] = None) -> str:
+        """OK."""
+        return name or ""
+
+    spec = f.__tool_spec__
+    assert spec["function"]["parameters"]["properties"]["name"]["type"] == "string"
+
+
+def test_tool_supports_pipe_none():
+    @tool
+    def f(value: int | None = None) -> str:
+        """OK."""
+        return str(value)
+
+    spec = f.__tool_spec__
+    assert spec["function"]["parameters"]["properties"]["value"]["type"] == "integer"
+
+
+def test_tool_maps_list_and_dict_generics():
+    @tool
+    def f(items: list[str], meta: dict[str, int]) -> str:
+        """OK."""
+        return ""
+
+    props = f.__tool_spec__["function"]["parameters"]["properties"]
+    assert props["items"]["type"] == "array"
+    assert props["meta"]["type"] == "object"
 
 
 # ---------------------------------------------------------------------------

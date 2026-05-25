@@ -1,6 +1,6 @@
 from aimu import paths
 from aimu.agents.agent import Agent
-from aimu.models import HuggingFaceClient, OllamaClient, StreamPhase
+from aimu.models import HuggingFaceClient, OllamaClient, StreamingContentType
 from aimu.tools import builtin
 from aimu.history import ConversationManager
 
@@ -58,7 +58,7 @@ def stream_chat_response(streamed_response):
     current_text = ""
 
     for chunk in streamed_response:
-        if chunk.phase == StreamPhase.TOOL_CALLING:
+        if chunk.phase == StreamingContentType.TOOL_CALLING:
             # Tool calls render in their own expander, so reset current_type to
             # force a fresh box for whatever phase streams next (otherwise the
             # next thinking/generating chunk would append to a stale box).
@@ -81,7 +81,7 @@ def stream_chat_response(streamed_response):
             if current_box is None:
                 current_box = (
                     st.expander("🤔 Thinking").empty()
-                    if chunk.phase == StreamPhase.THINKING
+                    if chunk.phase == StreamingContentType.THINKING
                     else st.chat_message("assistant").empty()
                 )
             current_box.markdown(current_text)

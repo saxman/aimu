@@ -4,7 +4,8 @@ Tests for aimu.agents.Chain: the sequential chaining workflow pattern.
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
-from aimu.agents import Agent, Chain, ChainChunk, Runner
+from aimu.agents import Agent, Chain, Runner
+from aimu.models import StreamChunk
 from helpers import MockModelClient
 
 
@@ -31,14 +32,14 @@ def test_chain_run_single_agent():
     assert chain.run("task") == "only answer"
 
 
-def test_chain_streamed_yields_chain_chunks():
-    """ChainChunk is now an alias for StreamChunk; chain step lives in `iteration`."""
+def test_chain_streamed_yields_stream_chunks():
+    """Chain.run(stream=True) yields StreamChunk objects; chain step lives in `iteration`."""
     client_a = MockModelClient(["part one"])
     client_b = MockModelClient(["part two"])
     chain = Chain(agents=[Agent(client_a, name="a"), Agent(client_b, name="b")])
-    chunks = list(chain.run_streamed("go"))
+    chunks = list(chain.run("go", stream=True))
 
-    assert all(isinstance(c, ChainChunk) for c in chunks)
+    assert all(isinstance(c, StreamChunk) for c in chunks)
     steps = {c.iteration for c in chunks}
     assert steps == {0, 1}
 
@@ -47,7 +48,7 @@ def test_chain_streamed_step_tags():
     client_a = MockModelClient(["result a"])
     client_b = MockModelClient(["result b"])
     chain = Chain(agents=[Agent(client_a, name="alpha"), Agent(client_b, name="beta")])
-    chunks = list(chain.run_streamed("start"))
+    chunks = list(chain.run("start", stream=True))
 
     step0 = [c for c in chunks if c.iteration == 0]
     step1 = [c for c in chunks if c.iteration == 1]
@@ -95,3 +96,12 @@ def test_chain_is_runner_subclass():
     client = MockModelClient(["hi"])
     chain = Chain(agents=[Agent(client)])
     assert isinstance(chain, Runner)
+
+
+def test_chain_from_client_builds_runnable_chain():
+    """Chain.from_client(client, prompts) builds and runs end-to-end."""
+    client = MockModelClient(["first", "second"])
+    chain = Chain.from_client(client, ["Step 1 prompt.", "Step 2 prompt."])
+    assert len(chain.agents) == 2
+    result = chain.run("task")
+    assert result == "second"

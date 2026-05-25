@@ -251,7 +251,7 @@ def test_stream_yields_single_generating_chunk_with_final_output():
         scorer_results=[(0.9, "pass")],
         criteria="answer the question",
     )
-    chunks = list(wf.run_streamed("what?"))
+    chunks = list(wf.run("what?", stream=True))
     assert len(chunks) == 1
     assert chunks[0].phase == StreamingContentType.GENERATING
     assert chunks[0].content == "the answer"

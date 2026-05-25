@@ -4,8 +4,8 @@ Tests for aimu.agents.Parallel: the Parallelization workflow pattern.
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
-from aimu.agents import Agent, AgentChunk, Parallel, Runner
-from aimu.models import StreamingContentType
+from aimu.agents import Agent, Parallel, Runner
+from aimu.models import StreamChunk, StreamingContentType
 from helpers import MockModelClient
 
 
@@ -79,7 +79,7 @@ def test_parallel_single_worker():
 
 
 def test_parallel_streamed_no_aggregator_yields_combined():
-    """run_streamed() without aggregator yields a single GENERATING chunk."""
+    """run(stream=True) without aggregator yields a single GENERATING chunk."""
     client_a = MockModelClient(["A"])
     client_b = MockModelClient(["B"])
 
@@ -90,16 +90,16 @@ def test_parallel_streamed_no_aggregator_yields_combined():
         ],
         separator=" | ",
     )
-    chunks = list(parallel.run_streamed("task"))
+    chunks = list(parallel.run("task", stream=True))
 
     assert len(chunks) == 1
-    assert isinstance(chunks[0], AgentChunk)
+    assert isinstance(chunks[0], StreamChunk)
     assert chunks[0].phase == StreamingContentType.GENERATING
     assert chunks[0].content == "A | B"
 
 
 def test_parallel_streamed_with_aggregator_delegates_stream():
-    """run_streamed() with aggregator yields the aggregator's chunks."""
+    """run(stream=True) with aggregator yields the aggregator's chunks."""
     client_a = MockModelClient(["A"])
     client_b = MockModelClient(["B"])
     agg_client = MockModelClient(["synthesized"])
@@ -111,7 +111,7 @@ def test_parallel_streamed_with_aggregator_delegates_stream():
         ],
         aggregator=Agent(agg_client, name="synthesizer"),
     )
-    chunks = list(parallel.run_streamed("task"))
+    chunks = list(parallel.run("task", stream=True))
 
     generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING]
     assert any(c.content == "synthesized" for c in generating)
@@ -122,3 +122,27 @@ def test_parallel_is_runner_subclass():
     client = MockModelClient(["hi"])
     parallel = Parallel(workers=[Agent(client, name="w")])
     assert isinstance(parallel, Runner)
+
+
+def test_parallel_from_client_builds_workers_with_prompts():
+    """Parallel.from_client(client, worker_prompts) wires each prompt to its own worker."""
+    client = MockModelClient(["a-out", "b-out"])
+    parallel = Parallel.from_client(client, worker_prompts=["Prompt A.", "Prompt B."])
+    assert len(parallel.workers) == 2
+    assert parallel.aggregator is None
+    result = parallel.run("topic")
+    assert "a-out" in result
+    assert "b-out" in result
+
+
+def test_parallel_from_client_with_aggregator_prompt():
+    """Aggregator prompt builds an aggregator agent that consumes worker outputs."""
+    client = MockModelClient(["a-out", "b-out", "synthesized"])
+    parallel = Parallel.from_client(
+        client,
+        worker_prompts=["A.", "B."],
+        aggregator_prompt="Synthesize.",
+    )
+    assert parallel.aggregator is not None
+    result = parallel.run("topic")
+    assert result == "synthesized"

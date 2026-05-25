@@ -119,23 +119,3 @@ class SemanticMemoryStore(MemoryStore):
         """Return all stored fact strings."""
         result = self._collection.get()
         return result["documents"] or []
-
-    # ------------------------------------------------------------------
-    # Backward-compatible aliases
-    # ------------------------------------------------------------------
-
-    def store_fact(self, fact: str) -> None:
-        """Alias for :meth:`store` (backward compatibility)."""
-        self.store(fact)
-
-    def retrieve_facts(self, topic: str, n_results: int = 10, max_distance: float | None = None) -> list[str]:
-        """Alias for :meth:`search` (backward compatibility)."""
-        return self.search(topic, n_results, max_distance)
-
-    def delete_fact(self, fact: str) -> None:
-        """Alias for :meth:`delete` (backward compatibility)."""
-        self.delete(fact)
-
-    def list_facts(self) -> list[str]:
-        """Alias for :meth:`list_all` (backward compatibility)."""
-        return self.list_all()

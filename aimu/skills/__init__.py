@@ -1,10 +1,9 @@
 from aimu.skills.manager import SkillLoadError, SkillManager, SkillNotFoundError
 from aimu.skills.mcp import build_skills_server
-from aimu.skills.skill import AgentSkill, Skill
+from aimu.skills.skill import AgentSkill
 
 __all__ = [
     "AgentSkill",
-    "Skill",
     "SkillLoadError",
     "SkillManager",
     "SkillNotFoundError",

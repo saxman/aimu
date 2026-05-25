@@ -69,7 +69,7 @@ class LlamaCppClient(BaseModelClient):
             return self.default_generate_kwargs.copy()
         return {**self.default_generate_kwargs, **generate_kwargs}
 
-    def _iter_stream(self, stream, include_thinking: bool = True) -> Iterator[StreamChunk]:
+    def _iter_stream(self, stream) -> Iterator[StreamChunk]:
         """Iterate a completion stream, yielding StreamChunks and updating self.last_thinking."""
         self.last_thinking = ""
         parser = _ThinkingParser() if self.is_thinking_model else None
@@ -84,8 +84,7 @@ class LlamaCppClient(BaseModelClient):
                 for phase, part in parser.feed(text):
                     if phase == StreamingContentType.THINKING:
                         self.last_thinking += part
-                        if include_thinking:
-                            yield StreamChunk(StreamingContentType.THINKING, part)
+                        yield StreamChunk(StreamingContentType.THINKING, part)
                     else:
                         yield StreamChunk(StreamingContentType.GENERATING, part)
             else:
@@ -96,12 +95,11 @@ class LlamaCppClient(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
-        include_thinking: bool = True,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, include_thinking)
+            return self._generate_streamed(prompt, generate_kwargs)
 
         response = self._llm.create_chat_completion(
             messages=[{"role": "user", "content": prompt}],
@@ -120,14 +118,13 @@ class LlamaCppClient(BaseModelClient):
         self,
         prompt: str,
         generate_kwargs: dict[str, Any],
-        include_thinking: bool,
     ) -> Iterator[StreamChunk]:
         stream = self._llm.create_chat_completion(
             messages=[{"role": "user", "content": prompt}],
             stream=True,
             **generate_kwargs,
         )
-        yield from self._iter_stream(stream, include_thinking)
+        yield from self._iter_stream(stream)
 
     def _chat(
         self,

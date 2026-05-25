@@ -39,8 +39,6 @@ for chunk in client.chat("hi", stream=True, include=["thinking", "generating"]):
 
 Accepts `StreamingContentType` members or their string equivalents. Defaults to all phases.
 
-The legacy `include_thinking=False` flag on `generate()` is kept as an alias for backward compatibility.
-
 ## Distinguish phases
 
 ```python

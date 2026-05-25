@@ -37,7 +37,7 @@ class ResearchReportAgent(OrchestratorAgent):
     Usage — text-only workers (no live search)::
 
         from aimu.models import ModelClient, OllamaModel
-        from aimu.agents.examples import ResearchReportAgent
+        from aimu.agents.prebuilt import ResearchReportAgent
 
         client = ModelClient(OllamaModel.QWEN_3_8B)
         agent = ResearchReportAgent(client)

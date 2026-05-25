@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aimu.agents import Agent, Chain, OrchestratorAgent, Runner
-from aimu.agents.examples import ResearchReportAgent
+from aimu.agents.prebuilt import ResearchReportAgent
 from aimu.models import BaseModelClient, StreamChunk, StreamingContentType
 from helpers import MockModelClient, create_real_model_client, resolve_model_params
 
@@ -119,7 +119,7 @@ def test_agent_auto_derives_name_when_unset():
 def test_agent_streamed_yields_stream_chunks_tagged_with_agent_name():
     client = MockModelClient(["streamed answer"])
     agent = Agent(client, name="streamer")
-    chunks = list(agent.run_streamed("task"))
+    chunks = list(agent.run("task", stream=True))
 
     assert all(isinstance(c, StreamChunk) for c in chunks)
     assert all(c.agent == "streamer" for c in chunks)
@@ -131,7 +131,7 @@ def test_agent_streamed_yields_stream_chunks_tagged_with_agent_name():
 def test_agent_streamed_iteration_increments_on_tool_use():
     client = MockModelClient(["tool", "done", "confirmed"])
     agent = Agent(client, name="it_agent")
-    chunks = list(agent.run_streamed("task"))
+    chunks = list(agent.run("task", stream=True))
 
     iterations = {c.iteration for c in chunks}
     assert 0 in iterations
@@ -310,7 +310,7 @@ def test_handle_tool_calls_concurrent_results_in_original_order():
 
 def _make_research_agent(worker_tools=None):
     client = MockModelClient(["report"])
-    with patch("aimu.agents.examples.research_report.ModelClient") as MockMC:
+    with patch("aimu.agents.prebuilt.research_report.ModelClient") as MockMC:
         MockMC.return_value = MockModelClient(["worker response"])
         agent = ResearchReportAgent(client, worker_tools=worker_tools)
     return agent, client

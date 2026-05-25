@@ -47,7 +47,7 @@ print(agent.run("How many r's in strawberry?"))
 **A code-controlled workflow.** `Chain.from_client()` builds a multi-step pipeline in one line — each step's output becomes the next step's input:
 
 ```python
-from aimu.workflows import Chain
+from aimu.agents import Chain
 
 chain = Chain.from_client(client, [
     "Break the task into clear steps.",
@@ -69,7 +69,7 @@ client.chat("What's in this image?", images=["./cat.jpg"])
 ### Models
 
 - One client interface for Ollama, HuggingFace, llama-cpp, the Claude API, OpenAI, Gemini, and any OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve). Swap with a string change: `"provider:model_id"`.
-- Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamPhase.THINKING` chunks via the same API.
+- Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamingContentType.THINKING` chunks via the same API.
 - Typed streaming: `StreamChunk(phase, content, agent, iteration)` flows through `client.chat()`, `Agent.run()`, and every workflow. Filter with `include=["generating"]`.
 
 ### Agents and workflows
@@ -126,8 +126,8 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [07 - Memory](notebooks/07%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
 | [08 - Agents](notebooks/08%20-%20Agents.ipynb) | `Agent` and `agent.as_model_client()` |
 | [09 - Agent Skills](notebooks/09%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection |
-| [10 - Agent Workflows](notebooks/10%20-%20Agent%20Workflows.ipynb) | Chain, Router, Parallel, EvaluatorOptimizer |
-| [11 - Agent Examples](notebooks/11%20-%20Agent%20Examples.ipynb) | Orchestrator + worker tools pattern |
+| [10 - Workflows](notebooks/10%20-%20Workflows.ipynb) | Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator |
+| [11 - Prebuilt Agents](notebooks/11%20-%20Prebuilt%20Agents.ipynb) | Orchestrator + worker tools pattern |
 | [12 - Evaluations](notebooks/12%20-%20Evaluations.ipynb) | DeepEval integration |
 | [13 - Benchmarking](notebooks/13%20-%20Benchmarking.ipynb) | Multi-model comparison harness |
 

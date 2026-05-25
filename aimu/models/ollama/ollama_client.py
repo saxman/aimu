@@ -83,12 +83,11 @@ class OllamaClient(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict] = None,
         stream: bool = False,
-        include_thinking: bool = True,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, include_thinking)
+            return self._generate_streamed(prompt, generate_kwargs)
 
         response = ollama.generate(
             model=self.model.value,
@@ -113,7 +112,6 @@ class OllamaClient(BaseModelClient):
         self,
         prompt: str,
         generate_kwargs: dict,
-        include_thinking: bool,
     ) -> Iterator[StreamChunk]:
         response = ollama.generate(
             model=self.model.value,
@@ -131,10 +129,7 @@ class OllamaClient(BaseModelClient):
 
             if response_part.thinking:
                 self.last_thinking += response_part.thinking
-                if include_thinking:
-                    yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
-                else:
-                    continue
+                yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
 
             yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
 

@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+from aimu.tools import builtin
 from aimu.tools.client import MCPClient
 from aimu.tools.mcp import mcp
 
@@ -315,6 +316,25 @@ def test_read_file_on_directory():
     with tempfile.TemporaryDirectory() as tmp:
         response = client.call_tool("read_file", {"path": tmp})
     assert "Not a file" in _response_text(response)
+
+
+# ---------------------------------------------------------------------------
+# builtin subgroups
+# ---------------------------------------------------------------------------
+
+
+def test_builtin_web_group_contains_expected_tools():
+    names = {t.__name__ for t in builtin.web}
+    assert names == {"get_weather", "get_webpage", "search", "wikipedia"}
+
+
+def test_builtin_fs_group_contains_expected_tools():
+    names = {t.__name__ for t in builtin.fs}
+    assert names == {"list_directory", "read_file"}
+
+
+def test_builtin_all_tools_still_exposed():
+    assert builtin.calculate in builtin.ALL_TOOLS
 
 
 def test_multiple_tool_calls_client_reused():

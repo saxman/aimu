@@ -49,7 +49,7 @@ class _StubChatClient:
         )
         return self._responder(user_message)
 
-    def generate(self, prompt, generate_kwargs=None, stream=False, include_thinking=True):
+    def generate(self, prompt, generate_kwargs=None, stream=False, include=None):
         raise AssertionError("Benchmark must drive rows through chat(), not generate()")
 
     def reset(self, system_message="__keep__"):

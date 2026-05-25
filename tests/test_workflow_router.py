@@ -6,8 +6,8 @@ All tests use MockModelClient from helpers (deterministic, no backend needed).
 
 import pytest
 
-from aimu.agents import Agent, AgentChunk, Router, Runner
-from aimu.models import StreamingContentType
+from aimu.agents import Agent, Router, Runner
+from aimu.models import StreamChunk, StreamingContentType
 from helpers import MockModelClient
 
 
@@ -77,7 +77,7 @@ def test_router_raises_on_unknown_route_without_fallback():
 
 
 def test_router_streamed_yields_agent_chunks():
-    """run_streamed() yields AgentChunk from classifier then from handler."""
+    """run(stream=True) yields StreamChunk from classifier then from handler."""
     routing_client = MockModelClient(["math"])
     math_client = MockModelClient(["42"])
 
@@ -85,9 +85,9 @@ def test_router_streamed_yields_agent_chunks():
         routing_agent=Agent(routing_client, name="classifier"),
         handlers={"math": Agent(math_client, name="mathematician")},
     )
-    chunks = list(router.run_streamed("What is 6 times 7?"))
+    chunks = list(router.run("What is 6 times 7?", stream=True))
 
-    assert all(isinstance(c, AgentChunk) for c in chunks)
+    assert all(isinstance(c, StreamChunk) for c in chunks)
     generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING]
     # First GENERATING chunk is the route name; last is the handler's answer
     contents = [c.content for c in generating]
@@ -96,7 +96,7 @@ def test_router_streamed_yields_agent_chunks():
 
 
 def test_router_streamed_raises_on_unknown_route():
-    """run_streamed() raises ValueError when route is unknown and no fallback set."""
+    """run(stream=True) raises ValueError when route is unknown and no fallback set."""
     routing_client = MockModelClient(["unknown"])
 
     router = Router(
@@ -104,7 +104,7 @@ def test_router_streamed_raises_on_unknown_route():
         handlers={"code": Agent(MockModelClient(["x"]), name="coder")},
     )
     with pytest.raises(ValueError, match="No handler for route 'unknown'"):
-        list(router.run_streamed("task"))
+        list(router.run("task", stream=True))
 
 
 def test_router_is_runner_subclass():
@@ -131,3 +131,14 @@ def test_router_from_config():
     assert router.handlers["writing"].name == "writer"
     result = router.run("Write a poem.")
     assert result == "a poem"
+
+
+def test_router_from_client_dispatches_to_handler():
+    """Router.from_client(client, classifier_prompt, handlers) builds and dispatches."""
+    classifier = MockModelClient(["code"])
+    coder = MockModelClient(["wrote code"])
+    handler = Agent(coder, name="coder")
+
+    router = Router.from_client(classifier, "Reply with 'code'.", handlers={"code": handler})
+    result = router.run("task")
+    assert result == "wrote code"

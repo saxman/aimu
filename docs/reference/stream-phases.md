@@ -1,6 +1,6 @@
 # Stream phases
 
-`StreamingContentType` (alias `StreamPhase`) is a string enum with four values, attached to every `StreamChunk` via `chunk.phase`.
+`StreamingContentType` is a string enum with four values, attached to every `StreamChunk` via `chunk.phase`.
 
 | Phase | Value | Emitted when | `chunk.content` type |
 |---|---|---|---|

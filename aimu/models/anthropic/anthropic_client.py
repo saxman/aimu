@@ -217,13 +217,12 @@ class AnthropicClient(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
-        include_thinking: bool = True,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, include_thinking)
+            return self._generate_streamed(prompt, generate_kwargs)
 
         response = self._client.messages.create(
             model=self.model.value,
@@ -245,7 +244,6 @@ class AnthropicClient(BaseModelClient):
         self,
         prompt: str,
         generate_kwargs: dict[str, Any],
-        include_thinking: bool,
     ) -> Iterator[StreamChunk]:
         self.last_thinking = ""
 
@@ -259,8 +257,7 @@ class AnthropicClient(BaseModelClient):
                     delta = event.delta
                     if delta.type == "thinking_delta":
                         self.last_thinking += delta.thinking
-                        if include_thinking:
-                            yield StreamChunk(StreamingContentType.THINKING, delta.thinking)
+                        yield StreamChunk(StreamingContentType.THINKING, delta.thinking)
                     elif delta.type == "text_delta":
                         yield StreamChunk(StreamingContentType.GENERATING, delta.text)
 

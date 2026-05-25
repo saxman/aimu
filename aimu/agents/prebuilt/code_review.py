@@ -23,7 +23,7 @@ class CodeReviewAgent(OrchestratorAgent):
     Usage::
 
         from aimu.models import ModelClient, OllamaModel
-        from aimu.agents.examples import CodeReviewAgent
+        from aimu.agents.prebuilt import CodeReviewAgent
 
         client = ModelClient(OllamaModel.QWEN_3_8B)
         agent = CodeReviewAgent(client)
