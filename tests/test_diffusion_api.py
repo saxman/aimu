@@ -26,7 +26,14 @@ def _make_stub_image(width: int = 8, height: int = 8, color: str = "red") -> Ima
 
 
 def _install_diffusers_stub():
-    """Install a fake ``diffusers`` module so ``aimu.models.diffusion`` imports cleanly."""
+    """Install a fake ``diffusers`` module so the diffusion tests don't need real weights.
+
+    Also rebinds the ``diffusers`` name inside any already-loaded
+    ``aimu.models.diffusion.diffusion_client`` module — when the real
+    ``diffusers`` is installed and gets imported first (e.g. by an earlier
+    test importing ``aimu``), the stub in ``sys.modules`` doesn't reach the
+    module's local binding.
+    """
     import types
 
     if "diffusers" in sys.modules and isinstance(sys.modules["diffusers"], types.ModuleType) and getattr(
@@ -62,6 +69,11 @@ def _install_diffusers_stub():
     stub.StableDiffusion3Pipeline = _FakePipeline
     stub.FluxPipeline = _FakePipeline
     sys.modules["diffusers"] = stub
+
+    # Rebind the name inside the diffusion client module if it's already been imported.
+    dc_mod = sys.modules.get("aimu.models.diffusion.diffusion_client")
+    if dc_mod is not None:
+        dc_mod.diffusers = stub
 
 
 _install_diffusers_stub()

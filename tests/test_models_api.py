@@ -85,10 +85,24 @@ def test_streamchunk_has_agent_and_iteration_defaults():
 def test_streamchunk_is_text_helpers():
     text = StreamChunk(StreamingContentType.GENERATING, "hi")
     thinking = StreamChunk(StreamingContentType.THINKING, "hmm")
-    tool_call = StreamChunk(StreamingContentType.TOOL_CALLING, {"name": "x", "response": "y"})
+    tool_call = StreamChunk(
+        StreamingContentType.TOOL_CALLING,
+        {"name": "x", "arguments": {"k": "v"}, "response": "y"},
+    )
     assert text.is_text() and not text.is_tool_call()
     assert thinking.is_text()
     assert tool_call.is_tool_call() and not tool_call.is_text()
+
+
+def test_streamchunk_tool_calling_content_keys():
+    """TOOL_CALLING chunks carry the model's argument dict alongside name and response."""
+    chunk = StreamChunk(
+        StreamingContentType.TOOL_CALLING,
+        {"name": "calculate", "arguments": {"expression": "2+2"}, "response": "4"},
+    )
+    assert chunk.content["name"] == "calculate"
+    assert chunk.content["arguments"] == {"expression": "2+2"}
+    assert chunk.content["response"] == "4"
 
 
 # ---------------------------------------------------------------------------

@@ -1,12 +1,14 @@
-from aimu import paths
-from aimu.agents.agent import Agent
-from aimu.models import HuggingFaceClient, OllamaClient, StreamingContentType
-from aimu.tools import builtin
-from aimu.history import ConversationManager
+import json  # used for the Messages debug popover
+from pathlib import Path
 
 import streamlit as st
 import torch
-import json  # used for the Messages debug popover
+
+from aimu import paths
+from aimu.agents.agent import Agent
+from aimu.history import ConversationManager
+from aimu.models import HuggingFaceClient, OllamaClient, OllamaModel, StreamingContentType
+from aimu.tools import builtin
 
 # Avoid torch RuntimeError when using Hugging Face Transformers
 torch.classes.__path__ = []
@@ -22,9 +24,41 @@ Introduce what model that you are and share what tools you have access to.
 
 MODEL_CLIENTS = [OllamaClient, HuggingFaceClient]
 
+DEFAULT_MODEL_CLIENT = OllamaClient
+DEFAULT_MODEL = OllamaModel.QWEN_3_5_9B
+
 SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 
 BUILTIN_TOOLS = builtin.ALL_TOOLS
+
+# Generated images land here (matches the library's default for `format="path"`).
+IMAGE_DIR = paths.output / "images"
+IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+
+
+def _maybe_render_image(path_str, key_suffix):
+    """Display an image with a download button when ``path_str`` is a valid image file path."""
+    try:
+        p = Path(str(path_str).strip())
+    except (TypeError, ValueError):
+        return
+    if not p.exists() or not p.is_file() or p.suffix.lower() not in _IMAGE_EXTENSIONS:
+        return
+    st.image(str(p))
+    try:
+        data = p.read_bytes()
+    except OSError:
+        return
+    mime = "image/jpeg" if p.suffix.lower() in {".jpg", ".jpeg"} else f"image/{p.suffix.lstrip('.').lower()}"
+    st.download_button(
+        label=f"Download {p.name}",
+        data=data,
+        file_name=p.name,
+        mime=mime,
+        key=f"dl_{key_suffix}_{p.name}",
+    )
 
 
 def _set_slider_defaults(model):
@@ -57,7 +91,7 @@ def stream_chat_response(streamed_response):
     current_box = None
     current_text = ""
 
-    for chunk in streamed_response:
+    for chunk_idx, chunk in enumerate(streamed_response):
         if chunk.phase == StreamingContentType.TOOL_CALLING:
             # Tool calls render in their own expander, so reset current_type to
             # force a fresh box for whatever phase streams next (otherwise the
@@ -65,7 +99,14 @@ def stream_chat_response(streamed_response):
             current_type = None
             with st.expander("🔧 Tool call"):
                 st.markdown(f"**Tool call:** {chunk.content['name']}")
+                args = chunk.content.get("arguments") or {}
+                if args:
+                    st.markdown("**Arguments:**")
+                    st.json(args, expanded=False)
                 st.markdown(f"**Tool response:** {chunk.content['response']}")
+            if chunk.content["name"] == "generate_image":
+                with st.expander("🖼️ Image", expanded=True):
+                    _maybe_render_image(chunk.content["response"], key_suffix=f"stream_{chunk_idx}")
             continue
 
         # Phase transition (THINKING ↔ GENERATING): start a new accumulator and box.
@@ -89,7 +130,7 @@ def stream_chat_response(streamed_response):
 
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
-    _rebuild_client(MODEL_CLIENTS[0], MODEL_CLIENTS[0].TOOL_MODELS[0], False, 10)
+    _rebuild_client(DEFAULT_MODEL_CLIENT, DEFAULT_MODEL, False, 10)
 
     st.session_state.conversation_manager = ConversationManager(
         db_path=str(paths.output / "chat_history.json"),
@@ -166,15 +207,24 @@ if len(st.session_state.model_client.messages) == 0:
 else:
     # Skip the initial system and user messages used for the introduction
     msg_iter = iter(st.session_state.model_client.messages[2:])
-    for message in msg_iter:
+    for hist_idx, message in enumerate(msg_iter):
         if "thinking" in message:
             with st.expander("🤔 Thinking"):
                 st.markdown(message["thinking"])
         if "tool_calls" in message:
-            for tool_call, resp in zip(message["tool_calls"], [next(msg_iter) for _ in message["tool_calls"]]):
+            for call_idx, (tool_call, resp) in enumerate(
+                zip(message["tool_calls"], [next(msg_iter) for _ in message["tool_calls"]])
+            ):
                 with st.expander("🔧 Tool call"):
                     st.markdown(f"**Tool call:** {tool_call['function']['name']}")
+                    args = tool_call["function"].get("arguments") or {}
+                    if args:
+                        st.markdown("**Arguments:**")
+                        st.json(args, expanded=False)
                     st.markdown(f"**Tool response:** {resp['content']}")
+                if tool_call["function"]["name"] == "generate_image":
+                    with st.expander("🖼️ Image"):
+                        _maybe_render_image(resp["content"], key_suffix=f"hist_{hist_idx}_{call_idx}")
         elif message["role"] != "tool" and message.get("content"):
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])

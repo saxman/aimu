@@ -59,7 +59,7 @@ StreamChunk(phase, content, agent=None, iteration=0)
 | Field | Type | Meaning |
 |---|---|---|
 | `phase` | `StreamingContentType` | `THINKING` / `TOOL_CALLING` / `GENERATING` / `DONE` |
-| `content` | `str` or `dict` | `str` for text phases; `{"name", "response"}` for tool calls |
+| `content` | `str` or `dict` | `str` for text phases; `{"name", "arguments", "response"}` for tool calls |
 | `agent` | `str \| None` | Agent name when emitted by an agent or workflow; `None` for plain `chat()` |
 | `iteration` | `int` | Agent loop index or chain step; `0` for plain chat |
 

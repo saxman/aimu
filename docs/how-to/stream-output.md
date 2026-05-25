@@ -17,7 +17,7 @@ for chunk in aimu.chat("Tell me a story", model="ollama:qwen3.5:9b", stream=True
 | Field | Type | Meaning |
 |---|---|---|
 | `phase` | `StreamingContentType` | `THINKING`, `TOOL_CALLING`, `GENERATING`, or `DONE` |
-| `content` | `str` or `dict` | `str` for text phases; `{"name", "response"}` for tool calls |
+| `content` | `str` or `dict` | `str` for text phases; `{"name", "arguments", "response"}` for tool calls (`arguments` is the dict the model passed to the tool) |
 | `agent` | `str \| None` | Agent name when emitted by an `Agent` or workflow; `None` for plain `client.chat()` |
 | `iteration` | `int` | Loop index inside the agent (or chain step); `0` for plain chats |
 
@@ -52,8 +52,9 @@ for chunk in client.chat("Plan a trip and call weather tool", stream=True):
             print(chunk.content, end="")
         case Phase.TOOL_CALLING:
             name = chunk.content["name"]
+            args = chunk.content["arguments"]
             result = chunk.content["response"]
-            print(f"\n[tool: {name}] → {result}\n")
+            print(f"\n[tool: {name}({args!r})] → {result}\n")
 ```
 
 ## Streaming from agents and workflows

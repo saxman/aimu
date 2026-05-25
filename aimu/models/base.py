@@ -22,7 +22,8 @@ class StreamChunk(NamedTuple):
 
     Fields:
         phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING, DONE)
-        content:   ``str`` for THINKING/GENERATING; ``dict {"name", "response"}`` for TOOL_CALLING
+        content:   ``str`` for THINKING/GENERATING; ``dict {"name", "arguments", "response"}``
+                   for TOOL_CALLING (arguments is the dict the model passed to the tool).
         agent:     name of the agent that produced this chunk, or ``None`` for a plain
                    ``client.chat()`` call. Set automatically by ``Agent`` and workflow runners.
         iteration: zero-based iteration index inside the agent loop, or ``0`` for plain chat.

@@ -117,7 +117,8 @@ Same iterator API as `client.chat(stream=True)`, but each `StreamChunk` carries 
 for chunk in agent.run("count r's in strawberry and 2+2", stream=True):
     if chunk.is_tool_call():
         name = chunk.content["name"]
-        print(f"\n[tool: {name}]")
+        args = chunk.content["arguments"]
+        print(f"\n[tool: {name}({args!r})]")
     elif chunk.is_text():
         print(chunk.content, end="")
 ```

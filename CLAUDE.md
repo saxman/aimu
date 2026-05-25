@@ -246,7 +246,7 @@ The codebase uses an abstract base class pattern for model clients:
 
 - **Supporting types in base.py**:
   - `StreamingContentType(str, Enum)`: `THINKING`, `TOOL_CALLING`, `GENERATING`, `DONE`; string values (`"thinking"`, etc.).
-  - `StreamChunk(NamedTuple)`: `(phase, content, agent=None, iteration=0)`. The single chunk type used everywhere — `client.chat(stream=True)`, `Agent.run(stream=True)`, all workflow runs. `content` is `str` for `THINKING`/`GENERATING` and `dict {"name", "response"}` for `TOOL_CALLING`. Helpers `is_text()` and `is_tool_call()` dispatch on phase.
+  - `StreamChunk(NamedTuple)`: `(phase, content, agent=None, iteration=0)`. The single chunk type used everywhere — `client.chat(stream=True)`, `Agent.run(stream=True)`, all workflow runs. `content` is `str` for `THINKING`/`GENERATING` and `dict {"name", "arguments", "response"}` for `TOOL_CALLING` (where `arguments` is the dict the model passed to the tool). Helpers `is_text()` and `is_tool_call()` dispatch on phase.
   - `ModelSpec`: frozen dataclass with `id: str`, `tools: bool`, `thinking: bool`, `vision: bool`, `generation_kwargs: dict | None`. Equality and hash use `id` only, so it can hold a dict and still be used as an enum value. Each `Model` enum member's value is a `ModelSpec`.
   - `Model(Enum)`: base enum. Each member's value is a `ModelSpec`. Members expose `.value` (the id string), `.spec` (the `ModelSpec`), `.supports_tools`, `.supports_thinking`, `.supports_vision`, `.generation_kwargs`.
 

@@ -404,7 +404,11 @@ class AnthropicClient(BaseModelClient):
         for i, tc in enumerate(self.messages[msgs_before]["tool_calls"]):
             yield StreamChunk(
                 StreamingContentType.TOOL_CALLING,
-                {"name": tc["function"]["name"], "response": self.messages[msgs_before + 1 + i]["content"]},
+                {
+                    "name": tc["function"]["name"],
+                    "arguments": tc["function"]["arguments"],
+                    "response": self.messages[msgs_before + 1 + i]["content"],
+                },
             )
 
         # Second streaming call with tool results

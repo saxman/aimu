@@ -191,7 +191,11 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
                 yield StreamChunk(
                     StreamingContentType.TOOL_CALLING,
-                    {"name": tc["function"]["name"], "response": tr["content"]},
+                    {
+                        "name": tc["function"]["name"],
+                        "arguments": tc["function"]["arguments"],
+                        "response": tr["content"],
+                    },
                 )
 
             response = await self._client.chat(

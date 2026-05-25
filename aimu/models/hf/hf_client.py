@@ -604,7 +604,11 @@ class HuggingFaceClient(BaseModelClient):
                     )
                     yield StreamChunk(
                         StreamingContentType.TOOL_CALLING,
-                        {"name": tc["function"]["name"], "response": tr["content"]},
+                        {
+                            "name": tc["function"]["name"],
+                            "arguments": tc["function"]["arguments"],
+                            "response": tr["content"],
+                        },
                     )
 
                 streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
@@ -659,7 +663,11 @@ class HuggingFaceClient(BaseModelClient):
                 )
                 yield StreamChunk(
                     StreamingContentType.TOOL_CALLING,
-                    {"name": tc["function"]["name"], "response": tr["content"]},
+                    {
+                        "name": tc["function"]["name"],
+                        "arguments": tc["function"]["arguments"],
+                        "response": tr["content"],
+                    },
                 )
 
             response = self._generate_sync(self.messages, generate_kwargs, tools)

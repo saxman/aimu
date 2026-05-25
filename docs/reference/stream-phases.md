@@ -5,7 +5,7 @@
 | Phase | Value | Emitted when | `chunk.content` type |
 |---|---|---|---|
 | `THINKING` | `"thinking"` | Reasoning model emits internal-monologue tokens | `str` (token) |
-| `TOOL_CALLING` | `"tool_calling"` | A tool call has just been dispatched and its result is available | `dict {"name": str, "response": str}` |
+| `TOOL_CALLING` | `"tool_calling"` | A tool call has just been dispatched and its result is available | `dict {"name": str, "arguments": dict, "response": str}` |
 | `GENERATING` | `"generating"` | The final response stream | `str` (token) |
 | `DONE` | `"done"` | Terminal marker (rarely yielded; reserved) | `str` (usually empty) |
 

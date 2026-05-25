@@ -38,7 +38,7 @@ The fix was to make the optional context fields (`agent`, `iteration`) part of t
 
 ## Why `content` is a union, not three classes
 
-`content` is `str` for `THINKING` / `GENERATING` and `dict {"name", "response"}` for `TOOL_CALLING`. A typed approach would model these as a discriminated union of three NamedTuples or Pydantic classes.
+`content` is `str` for `THINKING` / `GENERATING` and `dict {"name", "arguments", "response"}` for `TOOL_CALLING` (where `arguments` is the parameter dict the model passed to the tool). A typed approach would model these as a discriminated union of three NamedTuples or Pydantic classes.
 
 We chose the union because:
 
@@ -63,7 +63,7 @@ The `include=[...]` parameter on `chat()` and `generate()` is the only filtering
 | Phase | When | `content` |
 |---|---|---|
 | `THINKING` | Reasoning model emits internal-monologue tokens | `str` (token) |
-| `TOOL_CALLING` | A tool call has just been dispatched and its result is back | `dict {"name": str, "response": str}` |
+| `TOOL_CALLING` | A tool call has just been dispatched and its result is back | `dict {"name": str, "arguments": dict, "response": str}` |
 | `GENERATING` | The final response stream | `str` (token) |
 | `DONE` | Terminal marker (rarely yielded by providers; reserved) | `str` (usually empty) |
 
