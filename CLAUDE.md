@@ -8,6 +8,8 @@ AIMU (AI Model Utilities) is a Python library for building LLM-powered applicati
 
 AIMU implements Anthropic's agent/workflow taxonomy: autonomous agents run open-ended tool-calling loops; code-controlled workflows implement four patterns (prompt chaining, routing, parallelization, evaluator-optimizer). Agents are composable because they expose the same interface as plain model clients, allowing them to be used as drop-in replacements anywhere a client is accepted. Prebuilt agents in `aimu.agents.prebuilt` demonstrate the orchestrator-with-worker-tools pattern. A hill-climbing prompt tuner optimizes prompts against labelled data without ML machinery.
 
+AIMU also ships an optional **async surface** under `aimu.aio` that mirrors the entire public sync API one-for-one (same class names, different namespace). Sync is the default; async is strictly opt-in. The async surface uses modern `asyncio.TaskGroup` for structured concurrency in `Parallel` and `concurrent_tool_calls`. See [docs/explanation/async-design.md](docs/explanation/async-design.md) for the seven design decisions behind this split.
+
 ## Design Principles
 
 These six principles drive every architectural decision in AIMU. When proposing changes, check the change against each one — if it violates a principle, it likely belongs in a wrapper above AIMU rather than in the library itself. Full rationale lives in [docs/explanation/design-principles.md](docs/explanation/design-principles.md).
@@ -22,6 +24,10 @@ These six principles drive every architectural decision in AIMU. When proposing 
 When reviewing a proposed change, ask which principle it serves and which (if any) it violates. The small public surface is itself a feature — keep it small.
 
 ## Development Commands
+
+### Python version
+
+AIMU requires **Python 3.11+**. The async surface (`aimu.aio`) uses `asyncio.TaskGroup`, `asyncio.timeout`, and native `ExceptionGroup`, all of which require 3.11. Ruff target is `py311`; tests use `pytest-asyncio` in `asyncio_mode = "auto"` with session-scoped event loops.
 
 ### Installation
 
@@ -83,6 +89,16 @@ pytest tests/test_memory.py
 pytest tests/test_models_api.py  # mock-only unit tests of the model surface
 ```
 
+Run async surface tests:
+```bash
+# Mock-only async tests (no backend required)
+pytest tests/test_aio_models_api.py tests/test_aio_workflow_parallel.py tests/test_aio_agents.py tests/test_aio_tools.py
+
+# Live async tests against Ollama (parallels tests/test_models.py)
+pytest tests/test_aio_models.py --client=ollama --model=QWEN_3_8B
+pytest tests/test_aio_models.py --client=anthropic --model=CLAUDE_SONNET_4_6
+```
+
 ### Linting
 
 The project uses Ruff for linting and formatting (configured in pyproject.toml with line length 120):
@@ -112,8 +128,89 @@ python web/gradio_chatbot.py
   - `aimu.client(model, *, system=None, **provider_kwargs)` — one-line constructor that returns a fully configured `ModelClient`. Use this for multi-turn chats.
   - `aimu.resolve_model_string(s)` — parses a `"provider:model_id"` string and returns the matching `Model` enum member. Raises `ValueError` with the list of valid ids on miss.
   - Re-exports: `BaseModelClient`, `Model`, `ModelClient`, `ModelSpec`, `StreamChunk`, `StreamingContentType`.
+  - `aimu.aio` — async submodule. Imported by default (one-line `from . import aio`) so users can `from aimu import aio` without a separate install. See "Async Surface" below.
 
 Model-string format: `"provider:model_id"`. Provider keys (when their optional dep is installed): `ollama`, `hf`, `anthropic`, `openai`, `gemini`, `lmstudio`, `ollama-openai`, `hf-openai`, `vllm`, `llamaserver`, `sglang`, `llamacpp`. The id is matched against the provider's `Model` enum; colons inside the id (e.g. `qwen3.5:9b`) are preserved.
+
+### Async Surface (`aimu.aio`)
+
+The sync API has an opt-in async twin under `aimu.aio` with the same class names. Users switch paradigms with one import line + `await` keywords. The sync ladder is unchanged.
+
+```python
+# Sync (default)
+import aimu
+reply = aimu.chat("Hi", model="anthropic:claude-sonnet-4-6")
+
+# Async (opt-in)
+from aimu import aio
+async def main():
+    client = aio.client("anthropic:claude-sonnet-4-6")
+    agent = aio.Agent(client, tools=[my_async_tool])
+    reply = await agent.run("Hello")
+```
+
+**Layout** (mirrors `aimu.{models,agents,tools}` one-for-one):
+
+- **[aimu/aio/__init__.py](aimu/aio/__init__.py)** — exports `chat`, `client`, `AsyncModelClient`, `Agent`, `SkillAgent`, `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`, `PlanExecuteEvaluator`, `OrchestratorAgent`, `MCPClient`, `AsyncRunner`.
+- **[aimu/aio/_base.py](aimu/aio/_base.py)** — `AsyncBaseModelClient` (ABC). Concrete `async def chat()`/`generate()` apply the `include` filter; abstract `_chat()`/`_generate()` are coroutines. `_handle_tool_calls()` uses `asyncio.TaskGroup` when `concurrent_tool_calls=True`.
+- **[aimu/aio/_model_client.py](aimu/aio/_model_client.py)** — `AsyncModelClient` factory + top-level `client()`/`chat()`. Refuses direct construction with `HuggingFaceModel`/`LlamaCppModel` (see "In-process providers" below).
+- **[aimu/aio/_mcp_client.py](aimu/aio/_mcp_client.py)** — async `MCPClient` (~30 LOC). Uses FastMCP's native async `Client` directly (no anyio portal). Construct via the `connect()` classmethod factory: `mcp = await MCPClient.connect(server=...)`.
+- **[aimu/aio/providers/](aimu/aio/providers/)** — async provider clients:
+  - `anthropic.py` — `AsyncAnthropicClient` using `anthropic.AsyncAnthropic`. Reuses sync class's pure format adapters via composition.
+  - `openai_compat.py` — `AsyncOpenAICompatClient` using `openai.AsyncOpenAI`, plus `Async*Client` subclasses for OpenAI, Gemini, LM Studio, Ollama-OpenAI, HF-OpenAI, vLLM, llama-server, SGLang.
+  - `ollama.py` — `AsyncOllamaClient` using `ollama.AsyncClient`.
+  - `hf.py` — `AsyncHuggingFaceClient` wraps a sync `HuggingFaceClient`; see "In-process providers".
+  - `llamacpp.py` — `AsyncLlamaCppClient` wraps a sync `LlamaCppClient`; see "In-process providers".
+- **[aimu/aio/agent.py](aimu/aio/agent.py)** — `AsyncRunner` ABC + async `Agent`. Same loop semantics as sync; streaming returns `AsyncIterator[StreamChunk]`.
+- **[aimu/aio/skill_agent.py](aimu/aio/skill_agent.py)** — async `SkillAgent`. `_setup_skills_async()` constructs an `aio.MCPClient` for skill discovery.
+- **[aimu/aio/agentic_client.py](aimu/aio/agentic_client.py)** — internal `_AsyncAgenticView` for `Agent.as_model_client()`.
+- **[aimu/aio/orchestrator_agent.py](aimu/aio/orchestrator_agent.py)** — async `OrchestratorAgent` + `assemble()`. Worker dispatch wrappers are `async def`; tool dispatch awaits them under `asyncio.TaskGroup` when `concurrent_tool_calls=True`.
+- **[aimu/aio/workflows/](aimu/aio/workflows/)** — async workflow patterns:
+  - `chain.py` — async `Chain`, sequential `await` loop.
+  - `router.py` — async `Router`.
+  - `parallel.py` — async `Parallel`. **The headline change**: `asyncio.TaskGroup` replaces `ThreadPoolExecutor`. Structured concurrency: sibling cancellation on first failure, `ExceptionGroup` aggregation.
+  - `evaluator.py` — async `EvaluatorOptimizer`.
+  - `plan_execute_evaluator.py` — async `PlanExecuteEvaluator`.
+
+**Shared infrastructure** (used by both sync and async surfaces, no duplication):
+
+- **[aimu/models/_chat_state.py](aimu/models/_chat_state.py)** — `_ChatStateMixin` provides `system_message` lifecycle (setter + lock), `reset()`, `_append_user_turn()`, `_collect_python_tool_specs()`, and the capability properties (`is_thinking_model`, etc.). Both `BaseModelClient` and `AsyncBaseModelClient` inherit it. No state mechanics are duplicated.
+- **[aimu/models/_streaming.py](aimu/models/_streaming.py)** — `resolve_include()`, `filter_chunks()` (sync), `afilter_chunks()` (async).
+- **[aimu/tools/mcp_format.py](aimu/tools/mcp_format.py)** — `mcp_tools_to_openai(tool_specs)` shared by sync `MCPClient.get_tools()` and async `aio.MCPClient.get_tools()`.
+- Provider format adapters (`_openai_messages_to_anthropic`, `_openai_tools_to_anthropic`, `_adapt_messages_for_ollama`, `_split_thinking`, `_ThinkingParser`, `_build_user_content_blocks`) are pure data transforms — reused by async providers via composition, no duplication.
+
+**`@tool` decorator and async tools**:
+
+- `@tool` records `func.__tool_is_async__ = inspect.iscoroutinefunction(func)` at decoration time.
+- Sync `BaseModelClient._handle_tool_calls()` raises `ValueError` if it encounters an async tool, with a message pointing the caller at `aimu.aio`.
+- Async `AsyncBaseModelClient._handle_tool_calls()` awaits async tools directly; sync (CPU-bound) tools are routed through `asyncio.to_thread` so the event loop stays free.
+- `concurrent_tool_calls=True` on the async surface uses `asyncio.TaskGroup` instead of `ThreadPoolExecutor`.
+
+**Streaming type asymmetry**:
+
+- `client.chat(stream=True)` (sync) returns `Iterator[StreamChunk]` — consume with `for`.
+- `await client.chat(stream=True)` (async) returns `AsyncIterator[StreamChunk]` — consume with `async for`.
+- The `StreamChunk` named tuple itself is identical on both surfaces. They cannot be unified without a hidden event loop (rejected — see async-design.md).
+
+**In-process providers — wrap an existing sync client (Decision 7)**:
+
+`AsyncHuggingFaceClient` and `AsyncLlamaCppClient` do *not* load model weights independently. They take an existing sync client in their constructor and route through `asyncio.to_thread`. Constructing directly with a model enum raises a clear error:
+
+```python
+sync_client = aimu.client(HuggingFaceModel.LLAMA_70B)   # loads weights once
+async_client = aio.client(sync_client)                  # wraps; shares state
+# aio.client(HuggingFaceModel.LLAMA_70B)  # ValueError pointing at the pattern above
+```
+
+State (`messages`, `system_message`, `tools`, `mcp_client`) is shared with the wrapped sync client — there is conceptually one client; the async version just exposes an awaitable interface. For in-process providers, "async" buys event-loop integration (handler doesn't block on inference) but *not* coroutine-level concurrency (the GIL and CUDA stream serialize execution).
+
+**MCP integration**:
+
+- The sync `aimu.tools.MCPClient` (anyio portal wrapper) is **kept first-class** — no deprecation. It exists so sync users can use MCP tools without writing async code.
+- The async `aimu.aio.MCPClient` is a thin parallel using FastMCP's `Client` directly. Same construction signature (`config=`/`server=`/`file=`); use `await MCPClient.connect(...)` to construct + connect.
+- Both `MCPClient.get_tools()` implementations delegate to `aimu.tools.mcp_format.mcp_tools_to_openai()`.
+
+**Design decisions reference**: [docs/explanation/async-design.md](docs/explanation/async-design.md) records the seven decisions (API shape, scope, runtime, MCP, streaming asymmetry, `@tool` detection, in-process wrapping) with rationale and rejected alternatives. Mirror future async-related architectural decisions there.
 
 ### Model Client Architecture
 
@@ -184,6 +281,8 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `*args` / `**kwargs` (variadic parameters) — declare each argument explicitly
   - parameter with no type hint *and* no default value
   - Missing return annotation is a warning, not an error.
+
+  **Async detection**: the decorator also sets `func.__tool_is_async__ = inspect.iscoroutinefunction(func)`. The sync `_handle_tool_calls()` rejects async tools with a `ValueError` pointing at `aimu.aio`. The async `_handle_tool_calls()` awaits async tools directly and routes sync (CPU-bound) tools through `asyncio.to_thread`.
 
 - **MCPClient** ([aimu/tools/client.py](aimu/tools/client.py)): wraps FastMCP 2.0 for cross-process tool servers.
   - Converts async FastMCP API to synchronous interface using an internal event loop
@@ -523,10 +622,33 @@ Models with `supports_vision=True` accept images alongside the user prompt:
 
 ```
 aimu/
-├── __init__.py          # Top-level API (aimu.chat, aimu.client, resolve_model_string)
+├── __init__.py          # Top-level API (aimu.chat, aimu.client, resolve_model_string) + `from . import aio`
+├── aio/                 # Async surface — mirrors public sync API one-for-one (opt-in)
+│   ├── __init__.py      # Exports chat, client, AsyncModelClient, Agent, SkillAgent, Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator, OrchestratorAgent, MCPClient
+│   ├── _base.py         # AsyncBaseModelClient (uses asyncio.TaskGroup for concurrent_tool_calls)
+│   ├── _model_client.py # AsyncModelClient factory + top-level client()/chat()
+│   ├── _mcp_client.py   # async MCPClient (FastMCP Client direct; no anyio portal)
+│   ├── agent.py         # AsyncRunner ABC + async Agent
+│   ├── skill_agent.py   # async SkillAgent
+│   ├── agentic_client.py # internal _AsyncAgenticView for Agent.as_model_client()
+│   ├── orchestrator_agent.py # async OrchestratorAgent + assemble()
+│   ├── providers/       # Async provider clients
+│   │   ├── anthropic.py      # AsyncAnthropicClient (anthropic.AsyncAnthropic)
+│   │   ├── openai_compat.py  # AsyncOpenAICompatClient + service-specific subclasses
+│   │   ├── ollama.py         # AsyncOllamaClient (ollama.AsyncClient)
+│   │   ├── hf.py             # AsyncHuggingFaceClient (wraps sync HuggingFaceClient — Decision 7)
+│   │   └── llamacpp.py       # AsyncLlamaCppClient (wraps sync LlamaCppClient — Decision 7)
+│   └── workflows/       # Async workflow patterns (asyncio.TaskGroup for Parallel)
+│       ├── chain.py
+│       ├── router.py
+│       ├── parallel.py        # asyncio.TaskGroup; structured concurrency
+│       ├── evaluator.py
+│       └── plan_execute_evaluator.py
 ├── models/              # Model client implementations
 │   ├── base.py          # Abstract base (BaseModelClient, StreamChunk, StreamingContentType, Model, ModelSpec)
 │   ├── model_client.py  # ModelClient factory/wrapper + resolve_model_string
+│   ├── _chat_state.py   # _ChatStateMixin — system_message/reset/append shared by sync and async base classes
+│   ├── _streaming.py    # resolve_include, filter_chunks, afilter_chunks — shared stream helpers
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── _images.py       # Shared vision utilities (_normalize_image, per-provider adapters)
 │   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
@@ -545,9 +667,10 @@ aimu/
 │   └── llamacpp/        # llama-cpp-python client (requires llamacpp package)
 │       └── llamacpp_client.py        # LlamaCppClient + LlamaCppModel
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
-│   ├── decorator.py     # @tool decorator + ToolSignatureError
+│   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
 │   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc subgroups
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping()
+│   ├── mcp_format.py    # mcp_tools_to_openai() — shared by sync and async MCPClient.get_tools()
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
 ├── agents/              # Agents and workflow patterns (single Runner ABC)
 │   ├── base.py          # Runner ABC + MessageHistory + decision-tree docstring
@@ -609,9 +732,15 @@ tests/                   # Pytest test suite
 ├── test_skills.py       # Skill discovery + raises on malformed SKILL.md
 ├── test_prompt_*.py     # Prompt catalog and tuning tests
 ├── test_benchmark.py    # Benchmark harness tests (uses client.reset())
-└── test_models_api.py   # Mock-only unit tests of the model surface
-                         # (resolve_model_string, ModelSpec, StreamChunk helpers,
-                         #  system_message lifecycle, include= stream filter)
+├── test_models_api.py   # Mock-only unit tests of the model surface
+│                        # (resolve_model_string, ModelSpec, StreamChunk helpers,
+│                        #  system_message lifecycle, include= stream filter)
+├── helpers_aio.py       # MockAsyncModelClient + live-backend dispatch for async tests
+├── test_aio_models_api.py        # Mock-only async surface tests
+├── test_aio_workflow_parallel.py # Verifies asyncio.TaskGroup overlap + sibling cancellation
+├── test_aio_agents.py            # Async Agent, async @tool, concurrent_tool_calls under async
+├── test_aio_tools.py             # aio.MCPClient lifecycle + mcp_tools_to_openai
+└── test_aio_models.py            # Live-backend async tests (mirrors test_models.py)
 
 web/                     # Example chat UIs
 ├── streamlit_chatbot.py # Streamlit chat interface; uses agent.as_model_client()
@@ -628,3 +757,5 @@ notebooks/               # Jupyter notebook demos
 - Model clients are auto-pulled/downloaded on first use
 - MCP tools tested with mock FastMCP servers
 - `test_models_api.py` covers the public model surface (top-level `resolve_model_string`, `ModelSpec`, `StreamChunk` helpers, `system_message` lifecycle, `include=` stream filter) with mocks only; no backend required. Workflow factory and orchestrator coverage lives in each workflow's dedicated test file.
+- **Async tests** (`test_aio_*.py`) use `pytest-asyncio` in `asyncio_mode = "auto"`. Session-scoped event loop (`asyncio_default_fixture_loop_scope = "session"`, `asyncio_default_test_loop_scope = "session"`) so a single live `httpx.AsyncClient` survives across multiple tests parametrized on the same fixture. Async mocks live in `tests/helpers_aio.py` (`MockAsyncModelClient`, `resolve_async_model_params`, `create_real_async_model_client`).
+- The `test_aio_workflow_parallel.py` correctness pair (`test_parallel_overlaps_workers` + `test_parallel_cancels_siblings_on_failure`) validates the `asyncio.TaskGroup` win — overlap < 0.9s for two 0.5s workers, and sibling cancellation + `ExceptionGroup` on first failure.

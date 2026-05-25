@@ -38,6 +38,13 @@ Common tasks are one-liners: `aimu.chat("hi", model="...")`, `Agent(client, tool
 - Hill-climbing `PromptTuner` for automatic prompt optimisation against labelled data. Four concrete tuners: classification, multi-class, extraction, judged-generation.
 - `Benchmark` runs one prompt across multiple clients (plain or agentic, mixed providers) and returns a comparison DataFrame. DeepEval metrics plug in as `Scorer`s.
 
+### Async (optional)
+
+- `aimu.aio` mirrors the entire public surface — same class names, one import switches paradigms. The sync ladder is unchanged; async is strictly opt-in.
+- `aio.Parallel` and `concurrent_tool_calls=True` use `asyncio.TaskGroup` for structured concurrency: sibling cancellation on first failure, `ExceptionGroup` aggregation.
+- Same `@tool`-decorated functions work on both surfaces. `async def` tools are auto-detected and awaited; sync (CPU-bound) tools are routed through `asyncio.to_thread` so the event loop stays free.
+- Native async providers: Anthropic, OpenAI, Gemini, Ollama, every OpenAI-compatible endpoint. In-process providers (HuggingFace, LlamaCpp) wrap an existing sync client so model weights load only once.
+
 ## Examples
 
 ```python
@@ -92,6 +99,24 @@ result = chain.run("Research the top Python web frameworks.")
 ```python
 client = aimu.client("openai:gpt-4o-mini")     # or anthropic, gemini, ollama, hf
 client.chat("What's in this image?", images=["./cat.jpg"])
+```
+
+**Async (opt-in).** Same names, one import away:
+
+```python
+import asyncio
+from aimu import aio
+
+async def main():
+    client = aio.client("anthropic:claude-sonnet-4-6")
+    agent = aio.Agent(client, tools=[my_async_tool])
+    reply = await agent.run("Hello")
+
+    # asyncio.TaskGroup-backed Parallel — true coroutine concurrency
+    parallel = aio.Parallel.from_client(client, worker_prompts=[...], aggregator_prompt="...")
+    result = await parallel.run("topic")
+
+asyncio.run(main())
 ```
 
 ## Install
