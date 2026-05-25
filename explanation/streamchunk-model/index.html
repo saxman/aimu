@@ -2394,7 +2394,7 @@
 </ul>
 <p>The fix was to make the optional context fields (<code>agent</code>, <code>iteration</code>) part of the single type, defaulting to <code>None</code> and <code>0</code> for plain chats. The result: one type to learn, no conversion code, full context preserved through every layer. The historical <code>AgentChunk</code> and <code>ChainChunk</code> names were removed; <code>StreamChunk</code> is the only name.</p>
 <h2 id="why-content-is-a-union-not-three-classes">Why <code>content</code> is a union, not three classes<a class="headerlink" href="#why-content-is-a-union-not-three-classes" title="Permanent link">&para;</a></h2>
-<p><code>content</code> is <code>str</code> for <code>THINKING</code> / <code>GENERATING</code> and <code>dict {"name", "response"}</code> for <code>TOOL_CALLING</code>. A typed approach would model these as a discriminated union of three NamedTuples or Pydantic classes.</p>
+<p><code>content</code> is <code>str</code> for <code>THINKING</code> / <code>GENERATING</code> and <code>dict {"name", "arguments", "response"}</code> for <code>TOOL_CALLING</code> (where <code>arguments</code> is the parameter dict the model passed to the tool). A typed approach would model these as a discriminated union of three NamedTuples or Pydantic classes.</p>
 <p>We chose the union because:</p>
 <ul>
 <li>It matches what users want to write. <code>if chunk.is_text(): print(chunk.content)</code> is one line.</li>
@@ -2428,7 +2428,7 @@
 <tr>
 <td><code>TOOL_CALLING</code></td>
 <td>A tool call has just been dispatched and its result is back</td>
-<td><code>dict {"name": str, "response": str}</code></td>
+<td><code>dict {"name": str, "arguments": dict, "response": str}</code></td>
 </tr>
 <tr>
 <td><code>GENERATING</code></td>

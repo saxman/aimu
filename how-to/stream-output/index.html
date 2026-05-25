@@ -2395,7 +2395,7 @@
 <tr>
 <td><code>content</code></td>
 <td><code>str</code> or <code>dict</code></td>
-<td><code>str</code> for text phases; <code>{"name", "response"}</code> for tool calls</td>
+<td><code>str</code> for text phases; <code>{"name", "arguments", "response"}</code> for tool calls (<code>arguments</code> is the dict the model passed to the tool)</td>
 </tr>
 <tr>
 <td><code>agent</code></td>
@@ -2432,8 +2432,9 @@
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>            <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="k">case</span> <span class="n">Phase</span><span class="o">.</span><span class="n">TOOL_CALLING</span><span class="p">:</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>            <span class="n">name</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>            <span class="n">result</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">]</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[tool: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">] → </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>            <span class="n">args</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s2">&quot;arguments&quot;</span><span class="p">]</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>            <span class="n">result</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">]</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[tool: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">args</span><span class="si">!r}</span><span class="s2">)] → </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="streaming-from-agents-and-workflows">Streaming from agents and workflows<a class="headerlink" href="#streaming-from-agents-and-workflows" title="Permanent link">&para;</a></h2>
 <p><code>Agent.run(stream=True)</code> and every workflow <code>run(stream=True)</code> yield the same <code>StreamChunk</code> type. Agent context shows up in <code>chunk.agent</code> and <code>chunk.iteration</code>:</p>

@@ -3228,7 +3228,8 @@ or any workflow <code>run(stream=True)</code>.</p>
 <details class="fields" open>
   <summary>Fields</summary>
   <p>phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING, DONE)
-content:   <code>str</code> for THINKING/GENERATING; <code>dict {"name", "response"}</code> for TOOL_CALLING
+content:   <code>str</code> for THINKING/GENERATING; <code>dict {"name", "arguments", "response"}</code>
+           for TOOL_CALLING (arguments is the dict the model passed to the tool).
 agent:     name of the agent that produced this chunk, or <code>None</code> for a plain
            <code>client.chat()</code> call. Set automatically by <code>Agent</code> and workflow runners.
 iteration: zero-based iteration index inside the agent loop, or <code>0</code> for plain chat.</p>
