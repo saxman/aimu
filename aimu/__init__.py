@@ -3,8 +3,9 @@ aimu - AI Model Utilities
 
 Lightweight Python library for building LLM-powered apps. Provider-agnostic model
 clients (Ollama, HuggingFace, Anthropic, OpenAI, Gemini, llama-cpp, any OpenAI-compatible
-server), in-process tools via the ``@tool`` decorator, and code-controlled workflows
-(Chain, Router, Parallel, EvaluatorOptimizer) plus autonomous Agents.
+server), text-to-image diffusion clients (HuggingFace ``diffusers``), in-process tools
+via the ``@tool`` decorator, and code-controlled workflows (Chain, Router, Parallel,
+EvaluatorOptimizer) plus autonomous Agents.
 
 Quick start::
 
@@ -14,13 +15,19 @@ Quick start::
 
     client = aimu.client("ollama:qwen3.5:9b", system="You are concise.")
     client.chat("Hi there")
+
+    image = aimu.generate_image("a watercolor of a fox", model="hf:runwayml/stable-diffusion-v1-5")
 """
 
 from typing import Any, Iterable, Iterator, Optional, Union
 
 from . import aio
 from .models import (
+    HAS_DIFFUSION,
     BaseModelClient,
+    DiffusionClient,
+    DiffusionModel,
+    DiffusionSpec,
     Model,
     ModelClient,
     ModelSpec,
@@ -78,8 +85,56 @@ def chat(
     )
 
 
+def image_client(model: Union[str, "DiffusionModel", "DiffusionSpec"], **kwargs: Any) -> "DiffusionClient":
+    """Construct a :class:`DiffusionClient` for text-to-image generation.
+
+    ``model`` may be a :class:`DiffusionModel` enum member (e.g.
+    ``DiffusionModel.SDXL_BASE``), a :class:`DiffusionSpec`, or a
+    ``"hf:<repo_id>"`` string. Extra ``**kwargs`` are forwarded as
+    ``model_kwargs`` to the diffusers pipeline loader.
+
+    Example::
+
+        client = aimu.image_client(aimu.DiffusionModel.SD_1_5)
+        image = client.generate("a watercolor of a fox in a snowy forest")
+    """
+    if not HAS_DIFFUSION:
+        raise ImportError(
+            "Diffusion support requires the [diffusion] extra: "
+            "pip install -e '.[diffusion]'"
+        )
+    return DiffusionClient(model, model_kwargs=kwargs or None)
+
+
+def generate_image(
+    prompt: str,
+    *,
+    model: Union[str, "DiffusionModel", "DiffusionSpec"],
+    format: str = "pil",
+    **kwargs: Any,
+) -> Any:
+    """One-shot image generation — builds a fresh :class:`DiffusionClient` and returns one image.
+
+    For multiple generations, construct a :class:`DiffusionClient` with :func:`image_client`
+    and reuse it so weights are loaded only once.
+
+    Example::
+
+        path = aimu.generate_image(
+            "a watercolor of a fox",
+            model="hf:runwayml/stable-diffusion-v1-5",
+            format="path",
+        )
+    """
+    c = image_client(model)
+    return c.generate(prompt, format=format, **kwargs)
+
+
 __all__ = [
     "BaseModelClient",
+    "DiffusionClient",
+    "DiffusionModel",
+    "DiffusionSpec",
     "Model",
     "ModelClient",
     "ModelSpec",
@@ -88,5 +143,7 @@ __all__ = [
     "aio",
     "chat",
     "client",
+    "generate_image",
+    "image_client",
     "resolve_model_string",
 ]

@@ -1,6 +1,7 @@
 # Always available
 from .base import (
     BaseModelClient,
+    DiffusionSpec,
     Model,
     ModelSpec,
     StreamChunk,
@@ -88,9 +89,19 @@ except ImportError:
     LlamaCppClient = None
     LlamaCppModel = None
 
+try:
+    from .diffusion import DiffusionClient, DiffusionModel
+
+    HAS_DIFFUSION = True
+except ImportError:
+    HAS_DIFFUSION = False
+    DiffusionClient = None
+    DiffusionModel = None
+
 # Expose what's available
 __all__ = [
     "BaseModelClient",
+    "DiffusionSpec",
     "Model",
     "ModelClient",
     "ModelSpec",
@@ -128,3 +139,5 @@ if HAS_OPENAI_COMPAT:
     )
 if HAS_LLAMACPP:
     __all__.extend(["LlamaCppClient", "LlamaCppModel"])
+if HAS_DIFFUSION:
+    __all__.extend(["DiffusionClient", "DiffusionModel"])

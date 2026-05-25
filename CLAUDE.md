@@ -61,6 +61,7 @@ pip install -e '.[hf]'             # Hugging Face only
 pip install -e '.[anthropic]'      # Anthropic Claude models
 pip install -e '.[openai_compat]'  # OpenAI-compatible servers + cloud (OpenAI, Gemini, LM Studio, vLLM, etc.)
 pip install -e '.[llamacpp]'       # Local GGUF models via llama-cpp-python (no external service)
+pip install -e '.[diffusion]'      # Text-to-image diffusion (HuggingFace diffusers)
 pip install -e '.[deepeval]'      # DeepEval evaluation metrics
 ```
 
@@ -646,6 +647,50 @@ Models with `supports_vision=True` accept images alongside the user prompt:
 - Thinking support works the same as `OpenAICompatClient`; `<think>...</think>` tags in content, parsed by shared utilities in `_thinking.py`
 - Test with `pytest tests/test_models.py --client=llamacpp --model-path=/path/to/model.gguf`
 
+### Diffusion / Image Generation
+
+AIMU supports text-to-image generation via HuggingFace `diffusers` as a **parallel surface** to the text chat client. `DiffusionClient` deliberately does *not* inherit `BaseModelClient` — text and image are different modalities with disjoint interfaces (`chat()` / `messages` / `StreamChunk` are meaningless for stateless text-to-image), so forcing them into one class would expand the public surface and violate "plain data". The two surfaces live side-by-side: `aimu.client()` for text, `aimu.image_client()` for image.
+
+- **[aimu/models/base.py](aimu/models/base.py)**: `DiffusionSpec` dataclass sits next to `ModelSpec`. Fields: `id`, `pipeline_class` (string, resolved lazily via `getattr(diffusers, name)`), `default_steps`, `default_guidance`, `default_width`, `default_height`, `default_negative_prompt`, `pipeline_kwargs`. Hashed and equal by `id` only — same convention as `ModelSpec`.
+
+- **[aimu/models/_image_output.py](aimu/models/_image_output.py)**: `encode_image(image, format, *, prompt="", output_dir=None)` is the shared format-conversion helper. Sibling to `_images.py` (which decodes images for vision *input*); this one encodes images for diffusion *output*.
+  - `format="pil"` → return PIL Image unchanged.
+  - `format="bytes"` → PNG-encoded bytes.
+  - `format="data_url"` → `data:image/png;base64,...`.
+  - `format="path"` → save to `output_dir or paths.output/"images"`, filename `{YYYYMMDD-HHMMSS}-{sha1(prompt+ts)[:8]}.png`; mkdir parents on demand.
+  - Unknown format raises `ValueError`.
+
+- **[aimu/models/diffusion/diffusion_client.py](aimu/models/diffusion/diffusion_client.py)**: `DiffusionClient` + `DiffusionModel` enum.
+  - `DiffusionModel` catalog: `SD_1_5`, `SDXL_BASE`, `SD_3_5_MEDIUM`, `FLUX_DEV`, `FLUX_SCHNELL`. Each member's value is a `DiffusionSpec`.
+  - `DiffusionClient(model, model_kwargs=None)` accepts a `DiffusionModel` member, a `DiffusionSpec`, or a `"hf:<repo_id>"` string (for ad-hoc HF models not in the enum; defaults to `DiffusionPipeline` auto-detect loader).
+  - Lazy pipeline load on first `generate()` call: `pipeline_cls = getattr(diffusers, spec.pipeline_class); self._pipe = pipeline_cls.from_pretrained(spec.id, **kwargs)`. Auto-moves to CUDA or MPS if available.
+  - `generate(prompt, *, negative_prompt=None, width=None, height=None, num_inference_steps=None, guidance_scale=None, seed=None, num_images=1, format="pil", output_dir=None)`. Unset params fall back to `spec.default_*`. Seed plumbed through `torch.Generator`. Returns a single image (or list when `num_images > 1`) in the chosen format.
+  - `import diffusers` is a hard module-load import so `HAS_DIFFUSION` accurately reflects "the optional dep is installed" (matches the HF convention).
+
+- **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points parallel to `client()` / `chat()`:
+  - `aimu.image_client(model, **kwargs) -> DiffusionClient` — one-line constructor.
+  - `aimu.generate_image(prompt, *, model, format="pil", **kwargs)` — one-shot.
+  - Both raise `ImportError` with a helpful install hint when `HAS_DIFFUSION` is False.
+
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — chat integration via a built-in `@tool`:
+  - `generate_image(prompt: str) -> str` returns a saved file path (matches existing tools' string-return convention).
+  - Backed by a lazy module-level singleton `_image_client` constructed on first call. Default model is `hf:stabilityai/stable-diffusion-xl-base-1.0`; override via the `AIMU_DIFFUSION_MODEL` env var.
+  - `make_image_tool(client)` factory binds a fresh tool to a caller-supplied `DiffusionClient` — escape hatch when multiple agents in one process need different models.
+  - New subgroup `image = [generate_image]` next to `web`, `fs`, `compute`, `misc`. Appended to `ALL_TOOLS`.
+
+- **Skill integration (deeper, optional)** — for `SkillAgent` users, drop a `SKILL.md` under `.agents/skills/image-generation/` listing `generate_image` and adding prompt-engineering guidance (composition, style descriptors, negative-prompt hints). Skills are filesystem-discovered, not shipped with the library; see `notebooks/15 - Image Generation.ipynb` for a copyable example.
+
+- **Async twin** — full mirror under `aimu.aio`:
+  - **[aimu/aio/providers/diffusion.py](aimu/aio/providers/diffusion.py)**: `AsyncDiffusionClient` wraps a sync `DiffusionClient` (no second weight load). Properties (`model`, `spec`, `pipeline`, `model_kwargs`) delegate to `self._sync`. `generate()` is `async` and routes through `asyncio.to_thread`. Does *not* inherit `AsyncBaseModelClient` — diffusion has no chat lifecycle to inherit.
+  - **[aimu/aio/diffusion.py](aimu/aio/diffusion.py)**: `aio.image_client(sync_client)` factory + `aio.generate_image(prompt, *, model, ...)` one-shot. The factory refuses direct enum / string / `DiffusionSpec` construction with a helpful error pointing at the wrap pattern — same shape as the HF/LlamaCpp refusal in `aimu/aio/_model_client.py:140-143`.
+  - **[aimu/aio/tools/builtin.py](aimu/aio/tools/builtin.py)**: async `@tool async def generate_image(prompt: str) -> str` using its own lazy `AsyncDiffusionClient` singleton; `make_async_image_tool(client)` accepts either a sync `DiffusionClient` or an existing `AsyncDiffusionClient`. Re-exports the rest of `aimu.tools.builtin` so async agents get a complete namespace.
+
+- **Tests**:
+  - `tests/test_diffusion_api.py` (mock-only, no diffusers required): stubs `diffusers` in `sys.modules` with a fake `DiffusionPipeline` that returns PIL images. Covers `DiffusionSpec` equality-by-id, format matrix, seed plumbing, output_dir override, invalid format raises, unknown model string raises, lazy load (no diffusers import at `DiffusionClient.__init__`).
+  - `tests/test_diffusion_tools.py` (mock-only): patches the singleton; asserts `generate_image.__tool_spec__` shape, `make_image_tool` returns a fresh tool bound to its client, env var honoured.
+  - `tests/test_aio_diffusion_api.py` (mock-only): refusal of direct enum/string construction, `AsyncDiffusionClient` shares state with wrapped sync client, async tool detected via `__tool_is_async__`.
+  - `tests/test_diffusion.py` (live, opt-in): `pytest tests/test_diffusion.py --diffusion-model=SD_1_5`. Skipped if `HAS_DIFFUSION` is False or the flag is omitted. Runs at small resolution (256×256) with low step count for CI tractability.
+
 ### Cloud Provider Client Notes
 
 - **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/openai_compat/openai_client.py](aimu/models/openai_compat/openai_client.py).
@@ -672,7 +717,11 @@ aimu/
 │   │   ├── openai_compat.py  # AsyncOpenAICompatClient + service-specific subclasses
 │   │   ├── ollama.py         # AsyncOllamaClient (ollama.AsyncClient)
 │   │   ├── hf.py             # AsyncHuggingFaceClient (wraps sync HuggingFaceClient — Decision 7)
-│   │   └── llamacpp.py       # AsyncLlamaCppClient (wraps sync LlamaCppClient — Decision 7)
+│   │   ├── llamacpp.py       # AsyncLlamaCppClient (wraps sync LlamaCppClient — Decision 7)
+│   │   └── diffusion.py      # AsyncDiffusionClient (wraps sync DiffusionClient)
+│   ├── diffusion.py     # aio.image_client() / aio.generate_image() factories + refusal
+│   ├── tools/           # Async tools (mirrors aimu.tools)
+│   │   └── builtin.py        # Async generate_image + re-exports of sync built-ins
 │   └── workflows/       # Async workflow patterns (asyncio.TaskGroup for Parallel)
 │       ├── chain.py
 │       ├── router.py
@@ -699,11 +748,13 @@ aimu/
 │   │   ├── gemini_client.py             # GeminiClient + GeminiModel (Google Gemini)
 │   │   ├── llamaserver_openai_client.py # LlamaServerOpenAIClient + LlamaServerOpenAIModel
 │   │   └── sglang_openai_client.py      # SGLangOpenAIClient + SGLangOpenAIModel
-│   └── llamacpp/        # llama-cpp-python client (requires llamacpp package)
-│       └── llamacpp_client.py        # LlamaCppClient + LlamaCppModel
+│   ├── llamacpp/        # llama-cpp-python client (requires llamacpp package)
+│   │   └── llamacpp_client.py        # LlamaCppClient + LlamaCppModel
+│   └── diffusion/       # HuggingFace diffusers text-to-image (requires diffusion package)
+│       └── diffusion_client.py       # DiffusionClient + DiffusionModel
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
 │   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
-│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc subgroups
+│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image subgroups (incl. lazy generate_image)
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping()
 │   ├── mcp_format.py    # mcp_tools_to_openai() — shared by sync and async MCPClient.get_tools()
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS

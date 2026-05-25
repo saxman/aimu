@@ -42,6 +42,7 @@ use ``asyncio.TaskGroup`` — if one worker raises, siblings are cancelled and a
 from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
 from .agent import Agent, AsyncRunner
+from .diffusion import generate_image, image_client
 from .skill_agent import SkillAgent
 from .orchestrator_agent import OrchestratorAgent
 from .workflows.chain import Chain
@@ -50,8 +51,14 @@ from .workflows.parallel import Parallel
 from .workflows.evaluator import EvaluatorOptimizer
 from .workflows.plan_execute_evaluator import PlanExecuteEvaluator
 
+try:
+    from .providers.diffusion import AsyncDiffusionClient
+except ImportError:
+    AsyncDiffusionClient = None  # type: ignore[assignment,misc]
+
 __all__ = [
     "Agent",
+    "AsyncDiffusionClient",
     "AsyncModelClient",
     "AsyncRunner",
     "Chain",
@@ -64,4 +71,6 @@ __all__ = [
     "SkillAgent",
     "chat",
     "client",
+    "generate_image",
+    "image_client",
 ]

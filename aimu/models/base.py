@@ -72,6 +72,41 @@ class ModelSpec:
         return NotImplemented
 
 
+@dataclass
+class DiffusionSpec:
+    """Descriptor for a single text-to-image diffusion model.
+
+    Sibling to :class:`ModelSpec`; deliberately disjoint because diffusion models have
+    no concept of tools / thinking / vision-input and instead carry image-generation
+    defaults (steps, guidance, dimensions) plus the loader's pipeline class name.
+
+    ``pipeline_class`` names a class in the ``diffusers`` namespace (e.g.
+    ``"StableDiffusionXLPipeline"``, ``"FluxPipeline"``); the diffusion client
+    resolves it lazily via ``getattr(diffusers, pipeline_class)`` so importing this
+    module does not pull in ``diffusers`` itself.
+
+    Equality and hash are by ``id`` only, matching :class:`ModelSpec`, so the spec
+    can be used directly as an enum value even when ``pipeline_kwargs`` is a dict.
+    """
+
+    id: str
+    pipeline_class: str = "DiffusionPipeline"
+    default_steps: int = 30
+    default_guidance: float = 7.5
+    default_width: int = 1024
+    default_height: int = 1024
+    default_negative_prompt: Optional[str] = None
+    pipeline_kwargs: Optional[dict] = field(default=None)
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, DiffusionSpec):
+            return self.id == other.id
+        return NotImplemented
+
+
 class Model(Enum):
     """Base enum for provider model catalogs.
 

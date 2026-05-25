@@ -298,10 +298,74 @@ def read_file(path: str, max_lines: int = 200) -> str:
     return content
 
 
+# ---- Image generation (diffusion) --------------------------------------------
+#
+# Diffusion deps (``diffusers``, ``torch``, ``Pillow``) are heavy. The client is
+# constructed lazily on first ``generate_image()`` call so that importing
+# ``aimu.tools.builtin`` does not pull torch into ``sys.modules``.
+
+_AIMU_DIFFUSION_DEFAULT = "hf:stabilityai/stable-diffusion-xl-base-1.0"
+_image_client = None
+
+
+def _get_image_client():
+    """Return the lazy singleton :class:`DiffusionClient` for the built-in tool.
+
+    Reads ``AIMU_DIFFUSION_MODEL`` from the environment (default: SDXL base).
+    """
+    global _image_client
+    if _image_client is None:
+        from aimu import image_client as _image_client_factory
+
+        model_str = os.environ.get("AIMU_DIFFUSION_MODEL", _AIMU_DIFFUSION_DEFAULT)
+        _image_client = _image_client_factory(model_str)
+    return _image_client
+
+
+@tool
+def generate_image(prompt: str) -> str:
+    """Generate an image from a text prompt and return the saved file path.
+
+    Uses a HuggingFace diffusion pipeline. The default model is controlled by the
+    ``AIMU_DIFFUSION_MODEL`` env var (default: SDXL base). Override per-agent by
+    constructing your own tool with :func:`make_image_tool`.
+
+    Args:
+        prompt: A description of the desired image.
+    """
+    return _get_image_client().generate(prompt, format="path")
+
+
+def make_image_tool(client):
+    """Build a ``generate_image`` tool bound to a specific :class:`DiffusionClient`.
+
+    Use this when an agent needs a model other than the default singleton, or when
+    several agents in one process should not share a pipeline.
+
+    Example::
+
+        client = aimu.image_client(aimu.DiffusionModel.FLUX_SCHNELL)
+        my_tool = make_image_tool(client)
+        agent = Agent(text_client, tools=[my_tool])
+    """
+
+    @tool
+    def generate_image(prompt: str) -> str:
+        """Generate an image from a text prompt and return the saved file path.
+
+        Args:
+            prompt: A description of the desired image.
+        """
+        return client.generate(prompt, format="path")
+
+    return generate_image
+
+
 # Curated subsets — pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_webpage, search, wikipedia]
 fs = [list_directory, read_file]
 compute = [calculate]
 misc = [echo, get_current_date_and_time]
+image = [generate_image]
 
-ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, search, wikipedia, *fs]
+ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, search, wikipedia, *fs, *image]

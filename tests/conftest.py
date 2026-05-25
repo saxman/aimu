@@ -31,3 +31,14 @@ def pytest_addoption(parser):
         default=None,
         help="Path to a local GGUF model file (required for --client=llamacpp)",
     )
+
+    parser.addoption(
+        "--diffusion-model",
+        action="store",
+        default=None,
+        help=(
+            "DiffusionModel enum member name (e.g. SD_1_5, SDXL_BASE) to load weights "
+            "and run live image-generation tests in tests/test_diffusion.py. "
+            "Omit to skip live diffusion tests."
+        ),
+    )

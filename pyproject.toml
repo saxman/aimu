@@ -52,6 +52,14 @@ openai_compat = [
 llamacpp = [
     "llama-cpp-python",
 ]
+diffusion = [
+    "diffusers>=0.30",
+    "accelerate",
+    "safetensors",
+    "Pillow",
+    "torch",
+    "transformers",
+]
 deepeval = [
     "deepeval",
 ]
@@ -60,7 +68,7 @@ docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.27",
 ]
-all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,deepeval]"]
+all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,diffusion,deepeval]"]
 
 [build-system]
 requires = ["setuptools"]
