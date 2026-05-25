@@ -74,6 +74,22 @@ for chunk in agent.run("count r's in strawberry", stream=True):
 
 For chains, `chunk.iteration` is the chain step (0 for step 0, 1 for step 1, …).
 
+## Streaming from the async surface
+
+Every async surface call that returns a stream produces an `AsyncIterator[StreamChunk]` instead of an `Iterator[StreamChunk]`. The chunk type is identical — only the consumption protocol differs. Use `async for`:
+
+```python
+from aimu import aio
+
+async def main():
+    client = aio.client("ollama:qwen3.5:9b")
+    async for chunk in await client.chat("Tell me a story", stream=True):
+        if chunk.is_text():
+            print(chunk.content, end="", flush=True)
+```
+
+`include=` works identically. The same applies to `await aio.Agent.run(stream=True)` and every async workflow's `run(stream=True)`. See [how-to: use async](use-async.md) for the full async surface walkthrough.
+
 ## See also
 
 - [Explanation: StreamChunk model](../explanation/streamchunk-model.md) — one chunk type for all contexts

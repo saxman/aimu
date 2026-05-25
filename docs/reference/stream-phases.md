@@ -31,6 +31,10 @@ These avoid sprinkling phase comparisons through your code.
 
 `*` = "one or more chunks".
 
+## Async surface
+
+`aimu.aio` yields the same `StreamChunk` type — `phase`, `content`, `agent`, `iteration` are unchanged. The consumption protocol differs: `Iterator[StreamChunk]` on the sync surface vs `AsyncIterator[StreamChunk]` on the async surface. Phase semantics and filtering are identical on both. See [how-to: use async](../how-to/use-async.md).
+
 ## Filtering
 
 Pass `include=[...]` to `chat()` or `generate()` to drop phases:

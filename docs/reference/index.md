@@ -7,6 +7,7 @@ Information-oriented documentation: exhaustive, dry, accurate. Read it like a di
 Auto-generated from docstrings. One page per package:
 
 - [`aimu`](api/aimu.md) — top-level `chat()`, `client()`, model-string parser
+- [`aimu.aio`](api/aio.md) — async mirror of the public surface (`AsyncModelClient`, async `Agent`/`Chain`/`Parallel`/…, `aio.MCPClient`)
 - [`aimu.models`](api/models.md) — `ModelClient`, `BaseModelClient`, `ModelSpec`, `StreamChunk`, provider clients
 - [`aimu.agents`](api/agents.md) — `Agent`, `SkillAgent`, `OrchestratorAgent`, `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`
 - [`aimu.tools`](api/tools.md) — `@tool` decorator, `MCPClient`, `builtin` tool groups

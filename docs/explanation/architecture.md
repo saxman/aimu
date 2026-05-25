@@ -98,6 +98,17 @@ There's a single `Runner` ABC. The autonomous-vs-code-controlled split survives 
 
 All concrete classes live in `aimu.agents`. This is the *Building Effective Agents* taxonomy made concrete. See [Agents vs workflows](agents-vs-workflows.md) for the underlying argument.
 
+## Two surfaces, one shape
+
+Everything above describes the **sync** surface — `aimu.client()`, `aimu.agents.Agent`, etc. AIMU also ships an opt-in **async** surface under `aimu.aio` that mirrors this shape one-for-one. Same class names, same `Runner` decision tree, same `StreamChunk` type, same `_ChatStateMixin` for state mechanics. The only differences are at the call site (`await`), the streaming type (`AsyncIterator[StreamChunk]`), and the concurrency primitive used by `Parallel` and `concurrent_tool_calls` (`asyncio.TaskGroup` instead of `ThreadPoolExecutor`).
+
+```
+aimu.{chat, client, Agent, Chain, …}        # sync — default
+aimu.aio.{chat, client, Agent, Chain, …}    # async — opt-in
+```
+
+The sync ladder is unchanged for users who don't need async. See [async design](async-design.md) for the design decisions.
+
 ## Streaming: one chunk type everywhere
 
 `StreamChunk(phase, content, agent=None, iteration=0)` is the single chunk type yielded by every streaming path — `client.chat()`, `Agent.run()`, every workflow `run()`. Earlier versions had separate `AgentChunk` and `ChainChunk` named tuples; both were collapsed into `StreamChunk`.
@@ -118,6 +129,7 @@ Both can be active on the same client. Python tools take precedence on name coll
 | Package | Role |
 |---|---|
 | `aimu` | Top-level `chat()`, `client()`, `resolve_model_string()`, re-exports |
+| `aimu.aio` | Async mirror of the public sync surface — same class names, `async def` everywhere |
 | `aimu.models` | `ModelClient`, `BaseModelClient`, `ModelSpec`, `StreamChunk`, provider clients |
 | `aimu.agents` | `Runner` ABC; `Agent`, `SkillAgent`, `OrchestratorAgent`; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` |
 | `aimu.tools` | `@tool` decorator, `MCPClient`, `builtin.*` tool groups |

@@ -96,6 +96,31 @@ If you can't decide, start with `@tool`. Switching to `MCPClient` later is a one
 - **Bad `@tool` signature** — `ToolSignatureError` raised at decoration time. Variadic params (`*args` / `**kwargs`) and required params without type hints are the two cases.
 - **MCP connection error** — `MCPConnectionError` raised at `MCPClient` construction or on `call_tool()` failure. `MCPClient.ping()` lets you verify a connection upfront.
 - **Tool not found at dispatch** — appended as a `tool` role message with the text `"Tool 'X' not found."`. The model sees this and can adjust.
+- **Async tool on the sync surface** — the sync `_handle_tool_calls` raises `ValueError` if a tool's `__tool_is_async__` flag is set. The message points the caller at `aimu.aio`.
+
+## Async tools
+
+`@tool` records `func.__tool_is_async__ = inspect.iscoroutinefunction(func)` at decoration time. The same decorated function is usable on either surface:
+
+- On the **sync** surface, async tools raise at dispatch (loud, immediate).
+- On the **async** surface, async tools are awaited directly, and sync (CPU-bound) tools are routed through `asyncio.to_thread` so the event loop stays free.
+
+```python
+@tool
+async def fetch(url: str) -> str:
+    """Fetch a URL."""
+    ...
+
+@tool
+def normalize(text: str) -> str:
+    """Trim and lowercase."""
+    ...
+
+# Both work on aio.Agent — async awaited, sync runs in a worker thread
+agent = aio.Agent(client, tools=[fetch, normalize])
+```
+
+`concurrent_tool_calls=True` on the async surface uses `asyncio.TaskGroup` (structured concurrency, sibling cancellation on first failure) instead of `ThreadPoolExecutor`.
 
 ## See also
 

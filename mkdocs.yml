@@ -96,6 +96,7 @@ nav:
       - Use MCP tools: how-to/use-mcp-tools.md
       - Use skills: how-to/use-skills.md
       - Stream output: how-to/stream-output.md
+      - Use async (aio): how-to/use-async.md
       - Handle vision input: how-to/handle-vision.md
       - Persist conversations: how-to/persist-conversations.md
       - Use semantic memory: how-to/use-semantic-memory.md
@@ -109,6 +110,7 @@ nav:
       - reference/index.md
       - API:
           - aimu: reference/api/aimu.md
+          - aimu.aio: reference/api/aio.md
           - aimu.models: reference/api/models.md
           - aimu.agents: reference/api/agents.md
           - aimu.tools: reference/api/tools.md

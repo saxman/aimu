@@ -2,20 +2,22 @@
 
 Every supported provider, with the extra needed to install it, the env var (if any) it reads, the default endpoint, and any provider-specific constructor kwargs.
 
-| Provider key (in model string) | Client class | Extra | API key | Default endpoint | Provider-specific kwargs |
-|---|---|---|---|---|---|
-| `ollama` | `OllamaClient` | `aimu[ollama]` | — | local | `model_keep_alive_seconds=60` |
-| `hf` | `HuggingFaceClient` | `aimu[hf]` | — (HF login for gated models) | local | `model_kwargs={...}` (passed to `from_pretrained`) |
-| `anthropic` | `AnthropicClient` | `aimu[anthropic]` | `ANTHROPIC_API_KEY` | api.anthropic.com | `model_kwargs={...}` |
-| `openai` | `OpenAIClient` | `aimu[openai_compat]` | `OPENAI_API_KEY` | api.openai.com | `model_kwargs={...}` |
-| `gemini` | `GeminiClient` | `aimu[openai_compat]` | `GOOGLE_API_KEY` | generativelanguage.googleapis.com | `model_kwargs={...}` |
-| `lmstudio` | `LMStudioOpenAIClient` | `aimu[openai_compat]` | — | localhost:1234 | `base_url=` |
-| `ollama-openai` | `OllamaOpenAIClient` | `aimu[openai_compat]` | — | localhost:11434 | `base_url=` |
-| `hf-openai` | `HFOpenAIClient` | `aimu[openai_compat]` | — | localhost:8000 | `base_url=` |
-| `vllm` | `VLLMOpenAIClient` | `aimu[openai_compat]` | — | localhost:8000 | `base_url=` |
-| `llamaserver` | `LlamaServerOpenAIClient` | `aimu[openai_compat]` | — | localhost:8080 | `base_url=` |
-| `sglang` | `SGLangOpenAIClient` | `aimu[openai_compat]` | — | localhost:30000 | `base_url=` |
-| `llamacpp` | `LlamaCppClient` | `aimu[llamacpp]` | — | in-process | `model_path=` (required), `n_ctx`, `n_gpu_layers`, `chat_format`, `chat_handler`, `verbose` |
+| Provider key (in model string) | Client class | Extra | API key | Default endpoint | Provider-specific kwargs | Async kind |
+|---|---|---|---|---|---|---|
+| `ollama` | `OllamaClient` | `aimu[ollama]` | — | local | `model_keep_alive_seconds=60` | native (`ollama.AsyncClient`) |
+| `hf` | `HuggingFaceClient` | `aimu[hf]` | — (HF login for gated models) | local | `model_kwargs={...}` (passed to `from_pretrained`) | wrapped sync via `asyncio.to_thread` |
+| `anthropic` | `AnthropicClient` | `aimu[anthropic]` | `ANTHROPIC_API_KEY` | api.anthropic.com | `model_kwargs={...}` | native (`AsyncAnthropic`) |
+| `openai` | `OpenAIClient` | `aimu[openai_compat]` | `OPENAI_API_KEY` | api.openai.com | `model_kwargs={...}` | native (`AsyncOpenAI`) |
+| `gemini` | `GeminiClient` | `aimu[openai_compat]` | `GOOGLE_API_KEY` | generativelanguage.googleapis.com | `model_kwargs={...}` | native (`AsyncOpenAI`) |
+| `lmstudio` | `LMStudioOpenAIClient` | `aimu[openai_compat]` | — | localhost:1234 | `base_url=` | native (`AsyncOpenAI`) |
+| `ollama-openai` | `OllamaOpenAIClient` | `aimu[openai_compat]` | — | localhost:11434 | `base_url=` | native (`AsyncOpenAI`) |
+| `hf-openai` | `HFOpenAIClient` | `aimu[openai_compat]` | — | localhost:8000 | `base_url=` | native (`AsyncOpenAI`) |
+| `vllm` | `VLLMOpenAIClient` | `aimu[openai_compat]` | — | localhost:8000 | `base_url=` | native (`AsyncOpenAI`) |
+| `llamaserver` | `LlamaServerOpenAIClient` | `aimu[openai_compat]` | — | localhost:8080 | `base_url=` | native (`AsyncOpenAI`) |
+| `sglang` | `SGLangOpenAIClient` | `aimu[openai_compat]` | — | localhost:30000 | `base_url=` | native (`AsyncOpenAI`) |
+| `llamacpp` | `LlamaCppClient` | `aimu[llamacpp]` | — | in-process | `model_path=` (required), `n_ctx`, `n_gpu_layers`, `chat_format`, `chat_handler`, `verbose` | wrapped sync via `asyncio.to_thread` |
+
+The **async kind** column says how `aimu.aio` reaches each provider. *Native* providers use the SDK's own async client; the async surface delivers real coroutine concurrency. *Wrapped sync* providers (HF, LlamaCpp) load model weights in-process — the async surface buys you event-loop integration (your handler doesn't block) but **not** coroutine-level concurrency (the GIL and CUDA stream serialize execution). For these providers, async clients are built by wrapping an existing sync client; see [how-to: use async](../how-to/use-async.md#in-process-providers-huggingface-llamacpp).
 
 ## Passing provider kwargs
 
