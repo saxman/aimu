@@ -6,7 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AIMU (AI Model Utilities) is a Python library for building LLM-powered applications. It provides a unified model client interface across local backends (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) and cloud providers (OpenAI, Anthropic, Google Gemini). MCP tool integration and typed streaming output (thinking, tool calling, generation phases) are built into the base model client, not layered on top.
 
-AIMU implements Anthropic's agent/workflow taxonomy: autonomous agents run open-ended tool-calling loops; code-controlled workflows implement four patterns (prompt chaining, routing, parallelization, evaluator-optimizer). Agents are composable because they expose the same interface as plain model clients, allowing them to be used as drop-in replacements anywhere a client is accepted. Prebuilt agents in `aimu.agents.prebuilt` demonstrate the orchestrator-with-worker-tools pattern. A hill-climbing prompt tuner optimizes prompts against labelled data without ML machinery.
+AIMU implements the taxonomy from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. Concretely, that means **one** `Runner` ABC (no type-level split between agents and workflows) and the following concrete classes, all exported from `aimu.agents` and composable via the shared interface:
+
+- **Autonomous** (the LLM directs flow):
+  - `Agent` — the augmented-LLM tool-calling loop.
+  - `SkillAgent` — `Agent` + filesystem-discovered skill injection.
+  - `OrchestratorAgent` — Anthropic's "orchestrator-workers" pattern, expressed as an autonomous orchestrator whose tools are other agents. Prebuilt examples in `aimu.agents.prebuilt` (`ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent`).
+- **Code-controlled workflows** (Python directs flow):
+  - `Chain` — prompt chaining (step N's output → step N+1's input).
+  - `Router` — routing (classifier dispatches to a specialist handler).
+  - `Parallel` — parallelization (workers run concurrently, optional aggregator).
+  - `EvaluatorOptimizer` — generate → critique → revise loop.
+  - `PlanExecuteEvaluator` — AIMU's extension beyond Anthropic's original five: plan → execute with tools → score → replan on failure.
+
+The agent-vs-workflow distinction is documentation-only — both inherit directly from `Runner`, so they compose freely (a `Router` can dispatch to an `Agent`; a `Chain` step can be an `OrchestratorAgent`). `agent.as_model_client()` adds one more composition path: any agent wraps as a `BaseModelClient`, so it slots anywhere a plain client is accepted (e.g. into a `Benchmark` or a `Chain` that consumes clients). A hill-climbing prompt tuner optimizes prompts against labelled data without ML machinery.
 
 AIMU also ships an optional **async surface** under `aimu.aio` that mirrors the entire public sync API one-for-one (same class names, different namespace). Sync is the default; async is strictly opt-in. The async surface uses modern `asyncio.TaskGroup` for structured concurrency in `Parallel` and `concurrent_tool_calls`. See [docs/explanation/async-design.md](docs/explanation/async-design.md) for the seven design decisions behind this split.
 
@@ -378,7 +391,29 @@ AIMU supports two tool registration routes that can be combined on the same clie
 
 ### Agentic Workflows
 
-AIMU follows Anthropic's agent/workflow taxonomy. All runnable units share a `Runner` base with `run(task, stream=False)`. **Agents** direct their own tool use autonomously; **workflows** have code-controlled flow. The module docstring at the top of `aimu/agents/base.py` carries a decision tree for picking the right class.
+AIMU follows the taxonomy from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. All runnable units share **one** `Runner` ABC with `run(task, stream=False)` and a `messages` property — there is no type-level split between agents and workflows. The agent-vs-workflow distinction is a *categorisation of concrete classes*, not a type hierarchy; it lives in the module docstring at the top of [aimu/agents/base.py](aimu/agents/base.py), which carries a decision tree for picking the right class.
+
+The mapping from Anthropic's patterns to AIMU's concrete classes:
+
+| Anthropic pattern | AIMU class | Category | Module |
+|---|---|---|---|
+| Augmented LLM (base building block) | `BaseModelClient` / `ModelClient` | — | `aimu.models` |
+| Autonomous agent (open-ended tool loop) | `Agent` | autonomous | `aimu.agents.agent` |
+| Autonomous agent + skill discovery | `SkillAgent` | autonomous | `aimu.agents.skill_agent` |
+| Orchestrator-workers | `OrchestratorAgent` (+ `assemble()` factory) | autonomous (workers as tools) | `aimu.agents.orchestrator_agent` |
+| Prompt chaining | `Chain` (+ `Chain.from_client()`) | code-controlled | `aimu.agents.workflows.chain` |
+| Routing | `Router` (+ `Router.from_client()`) | code-controlled | `aimu.agents.workflows.router` |
+| Parallelization | `Parallel` (+ `Parallel.from_client()`) | code-controlled | `aimu.agents.workflows.parallel` |
+| Evaluator-optimizer | `EvaluatorOptimizer` | code-controlled | `aimu.agents.workflows.evaluator` |
+| *AIMU extension*: plan → execute → score → replan | `PlanExecuteEvaluator` (+ `from_client()`) | code-controlled | `aimu.agents.workflows.plan_execute_evaluator` |
+
+**Notes on the mapping**:
+- Anthropic places "orchestrator-workers" under *workflows*. AIMU implements it as an autonomous `OrchestratorAgent` because the dispatch decision (which worker to call, with what task) lives inside the orchestrator LLM's tool-calling loop — i.e., the LLM directs the flow within the orchestrator. The workers are wrapped as `@tool`-decorated callables (`OrchestratorAgent.assemble()` does this automatically) so the orchestrator's `concurrent_tool_calls=True` overlaps worker execution. Each worker still runs its own agentic loop.
+- `PlanExecuteEvaluator` is not in Anthropic's original five patterns — it composes the planner (a `SkillAgent`), executor (an `Agent`), and a `Scorer` into a plan → execute → judge → replan loop, useful for tasks with measurable success criteria.
+- All concrete classes are re-exported from `aimu.agents` (`from aimu.agents import Agent, Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator, OrchestratorAgent, SkillAgent`).
+- The async mirror under `aimu.aio` re-implements the same set of classes (same names, `async def run()`) with `asyncio.TaskGroup` replacing `ThreadPoolExecutor` in `Parallel` and `concurrent_tool_calls`.
+
+See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflows.md) for the *why* — when each one is the right tool, and how the split shapes API choices.
 
 - **[aimu/agents/base.py](aimu/agents/base.py)**: Single `Runner` ABC for the agent/workflow hierarchy
   - `Runner(ABC)`: abstract `run(task, generate_kwargs, stream=False, images=None)` and `messages` property. Every concrete agent and workflow inherits directly from `Runner` — the agent-vs-workflow distinction is documentation only.
