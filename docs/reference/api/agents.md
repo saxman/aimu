@@ -30,6 +30,8 @@ Agents and code-controlled workflows.
 
 ::: aimu.agents.EvaluatorOptimizer
 
+::: aimu.agents.PlanExecuteEvaluator
+
 ## Back-compat aliases
 
 ::: aimu.agents.AgentChunk

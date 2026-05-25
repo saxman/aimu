@@ -26,6 +26,7 @@ SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 
 BUILTIN_TOOLS = builtin.ALL_TOOLS
 
+
 def _set_slider_defaults(model):
     for key, default in SLIDER_DEFAULTS.items():
         st.session_state[f"slider_{key}"] = model.generation_kwargs.get(key, default)
@@ -84,6 +85,7 @@ def stream_chat_response(streamed_response):
                     else st.chat_message("assistant").empty()
                 )
             current_box.markdown(current_text)
+
 
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:

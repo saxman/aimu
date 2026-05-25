@@ -2,7 +2,7 @@ from .agent import Agent
 from .base import AgentChunk, BaseAgent, MessageHistory, Runner, Workflow
 from .orchestrator_agent import OrchestratorAgent
 from .skill_agent import SkillAgent
-from .workflows import Chain, ChainChunk, EvaluatorOptimizer, Parallel, Router
+from .workflows import Chain, ChainChunk, EvaluatorOptimizer, Parallel, PlanExecuteEvaluator, Router
 
 __all__ = [
     # Base hierarchy
@@ -20,5 +20,6 @@ __all__ = [
     "ChainChunk",
     "EvaluatorOptimizer",
     "Parallel",
+    "PlanExecuteEvaluator",
     "Router",
 ]

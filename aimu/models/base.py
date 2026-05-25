@@ -351,14 +351,11 @@ class BaseModelClient(ABC):
         if images:
             if not self.model.supports_vision:
                 raise ValueError(
-                    f"Model {self.model.name} does not support vision input. "
-                    "Use a model with supports_vision=True."
+                    f"Model {self.model.name} does not support vision input. Use a model with supports_vision=True."
                 )
             from ._images import _build_user_content_blocks
 
-            self.messages.append(
-                {"role": "user", "content": _build_user_content_blocks(user_message, images)}
-            )
+            self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
         else:
             self.messages.append({"role": "user", "content": user_message})
 
@@ -391,13 +388,15 @@ class BaseModelClient(ABC):
             tc_id = "".join(random.choices(string.ascii_letters + string.digits, k=9))
             prepared.append((tc, tc_id))
 
-        self.messages.append({
-            "role": "assistant",
-            "tool_calls": [
-                {"type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}, "id": tc_id}
-                for tc, tc_id in prepared
-            ],
-        })
+        self.messages.append(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {"type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}, "id": tc_id}
+                    for tc, tc_id in prepared
+                ],
+            }
+        )
 
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
 
@@ -434,7 +433,12 @@ class BaseModelClient(ABC):
                         logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
                     return {"role": "tool", "name": tool["function"]["name"], "content": content, "tool_call_id": tc_id}
 
-            return {"role": "tool", "name": tc["name"], "content": f"Tool '{tc['name']}' not found.", "tool_call_id": tc_id}
+            return {
+                "role": "tool",
+                "name": tc["name"],
+                "content": f"Tool '{tc['name']}' not found.",
+                "tool_call_id": tc_id,
+            }
 
         if self.concurrent_tool_calls and len(prepared) > 1:
             from concurrent.futures import ThreadPoolExecutor

@@ -19,6 +19,7 @@ Both have a place. Picking the wrong one is the most common source of frustratio
 | Classify input, dispatch to a specialist | **`Router`** (workflow) |
 | Run independent perspectives in parallel | **`Parallel`** (workflow) |
 | Iterate generate → critique → revise | **`EvaluatorOptimizer`** (workflow) |
+| Plan → execute with tools → score → replan if it failed | **`PlanExecuteEvaluator`** (workflow) |
 | Coordinate sub-agents via tool calls | **`OrchestratorAgent`** (agent dispatching to other agents) |
 
 Rules of thumb:

@@ -65,20 +65,17 @@ class ResearchReportAgent(OrchestratorAgent):
         overview_agent = _make_worker(
             "overview-worker",
             "Provide a thorough 2-3 paragraph overview of the given topic. "
-            "Cover what it is, why it matters, and its key components or mechanisms."
-            + live_tools_note,
+            "Cover what it is, why it matters, and its key components or mechanisms." + live_tools_note,
         )
         examples_agent = _make_worker(
             "examples-worker",
             "Provide 3-5 concrete, real-world examples or applications related to the given topic. "
-            "For each example, briefly explain its relevance and significance."
-            + live_tools_note,
+            "For each example, briefly explain its relevance and significance." + live_tools_note,
         )
         counterpoints_agent = _make_worker(
             "counterpoints-worker",
             "Identify 3-5 counterarguments, limitations, criticisms, or alternative perspectives "
-            "on the given topic. Be specific, balanced, and evidence-based."
-            + live_tools_note,
+            "on the given topic. Be specific, balanced, and evidence-based." + live_tools_note,
         )
 
         @tool

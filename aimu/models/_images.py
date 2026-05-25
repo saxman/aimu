@@ -124,8 +124,7 @@ def _ollama_split_message(message: dict) -> dict:
             url = block["image_url"]["url"]
             if not url.startswith("data:"):
                 raise ValueError(
-                    "Ollama only accepts inline base64 images; pass a file path or bytes "
-                    "rather than an http(s) URL."
+                    "Ollama only accepts inline base64 images; pass a file path or bytes rather than an http(s) URL."
                 )
             _, data = _parse_data_url(url)
             images.append(data)

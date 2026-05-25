@@ -29,8 +29,7 @@ class MCPClient:
         sources = [s is not None for s in (config, server, file)]
         if sum(sources) != 1:
             raise MCPConnectionError(
-                "MCPClient requires exactly one of: config=, server=, or file=. "
-                f"Got {sum(sources)} source(s)."
+                f"MCPClient requires exactly one of: config=, server=, or file=. Got {sum(sources)} source(s)."
             )
         self._transport = config if config is not None else (server if server is not None else file)
 

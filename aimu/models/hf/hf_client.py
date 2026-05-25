@@ -331,9 +331,7 @@ class HuggingFaceClient(BaseModelClient):
     ) -> Any:
         if self._hf_processor is not None:
             pil_images = _extract_pil_images(messages) if self.model.supports_vision else []
-            template_messages = (
-                _replace_image_url_with_image_placeholder(messages) if pil_images else messages
-            )
+            template_messages = _replace_image_url_with_image_placeholder(messages) if pil_images else messages
             text = self._hf_processor.apply_chat_template(
                 template_messages,
                 tools=tools if self.model.supports_tools else None,

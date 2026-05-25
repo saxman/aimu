@@ -20,6 +20,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 
 - [Use skills](use-skills.md) — `SkillAgent` and the `SKILL.md` format
 - [Build an orchestrator](build-orchestrator.md) — `OrchestratorAgent.assemble` or subclass
+- [Plan, execute, evaluate, replan](plan-execute-evaluate.md) — `PlanExecuteEvaluator` for tasks with measurable success criteria
 
 ## Memory and persistence
 

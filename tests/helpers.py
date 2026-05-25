@@ -84,9 +84,7 @@ class MockModelClient(BaseModelClient):
         if images:
             from aimu.models._images import _build_user_content_blocks
 
-            self.messages.append(
-                {"role": "user", "content": _build_user_content_blocks(user_message, images)}
-            )
+            self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
         else:
             self.messages.append({"role": "user", "content": user_message})
         # First user message locks system_message (matches BaseModelClient._chat_setup).

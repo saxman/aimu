@@ -84,9 +84,7 @@ class Parallel(Workflow):
         images: Optional[list] = None,
     ) -> list[str]:
         with ThreadPoolExecutor(max_workers=self.max_workers or len(self.workers)) as ex:
-            futures = [
-                ex.submit(w.run, task, generate_kwargs, False, images) for w in self.workers
-            ]
+            futures = [ex.submit(w.run, task, generate_kwargs, False, images) for w in self.workers]
             return [f.result() for f in futures]
 
     def run(

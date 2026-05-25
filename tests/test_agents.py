@@ -96,9 +96,7 @@ def test_agent_positional_system_message():
 
 def test_agent_from_config_sets_system_message():
     client = MockModelClient(["hello"])
-    agent = Agent.from_config(
-        {"name": "cfg_agent", "system_message": "Be helpful.", "max_iterations": 5}, client
-    )
+    agent = Agent.from_config({"name": "cfg_agent", "system_message": "Be helpful.", "max_iterations": 5}, client)
     assert agent.system_message == "Be helpful."
 
 

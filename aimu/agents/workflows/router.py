@@ -122,8 +122,6 @@ class Router(Workflow):
     ) -> Router:
         """Build a Router from config dicts and a single client."""
         routing_agent = Agent.from_config(routing_config, client)
-        handlers: dict[str, Runner] = {
-            route: Agent.from_config(cfg, client) for route, cfg in handler_configs.items()
-        }
+        handlers: dict[str, Runner] = {route: Agent.from_config(cfg, client) for route, cfg in handler_configs.items()}
         fallback: Optional[Runner] = Agent.from_config(fallback_config, client) if fallback_config else None
         return cls(routing_agent=routing_agent, handlers=handlers, fallback=fallback)

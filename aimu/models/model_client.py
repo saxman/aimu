@@ -118,17 +118,14 @@ def resolve_model_string(model_str: str) -> Model:
     registry = _provider_registry()
     if provider not in registry:
         raise ValueError(
-            f"Unknown provider {provider!r}. Available providers (with installed deps): "
-            f"{sorted(registry)}"
+            f"Unknown provider {provider!r}. Available providers (with installed deps): {sorted(registry)}"
         )
     model_enum, _ = registry[provider]
     for member in model_enum:
         if member.value == model_id:
             return member
     available = sorted(m.value for m in model_enum)
-    raise ValueError(
-        f"Provider {provider!r} has no model id {model_id!r}. Available: {available}"
-    )
+    raise ValueError(f"Provider {provider!r} has no model id {model_id!r}. Available: {available}")
 
 
 class ModelClient(BaseModelClient):
@@ -264,9 +261,7 @@ class ModelClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        return self._client._chat(
-            user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images
-        )
+        return self._client._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images)
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         return self._client._update_generate_kwargs(generate_kwargs)
