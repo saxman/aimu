@@ -61,6 +61,7 @@ That's the full mental model: a `chat()` function for one-shots, a `client()` fa
 - **Memory** — semantic facts (ChromaDB), path-based documents (Anthropic Memory API), and conversation history (TinyDB).
 - **Prompt management** — versioned SQLite catalog plus a hill-climbing tuner with classification, multi-class, extraction, and judged variants.
 - **Evaluation** — DeepEval integration and a multi-model benchmark harness with CSV / JSON / catalog export.
+- **Optional async surface** — `aimu.aio` mirrors the whole sync API (same class names, one-import-away). `Parallel` and `concurrent_tool_calls` use `asyncio.TaskGroup` for structured concurrency. See [async design](explanation/async-design.md).
 
 ## Notebooks
 

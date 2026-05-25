@@ -130,5 +130,6 @@ nav:
       - StreamChunk model: explanation/streamchunk-model.md
       - System message lifecycle: explanation/system-message-lifecycle.md
       - Tool integration: explanation/tool-integration.md
+      - Async design: explanation/async-design.md
   - Changelog: changelog.md
   - Contributing: contributing.md
