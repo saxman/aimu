@@ -14,10 +14,12 @@ The whole library fits in your head. There are three load-bearing abstractions a
 │   _generate / _update_generate_kwargs)                       │
 ├──────────────────────────────────────────────────────────────┤
 │  Runner (ABC)                                                │
-│   ├─ BaseAgent     (autonomous: LLM directs flow)            │
-│   │    └─ Agent / SkillAgent / OrchestratorAgent             │
-│   └─ Workflow      (code-controlled: code directs flow)      │
-│        └─ Chain / Router / Parallel / EvaluatorOptimizer     │
+│   ├─ Agent / SkillAgent / OrchestratorAgent                  │
+│   │     (autonomous: LLM directs flow — in aimu.agents)      │
+│   └─ Chain / Router / Parallel /                             │
+│      EvaluatorOptimizer / PlanExecuteEvaluator               │
+│         (code-controlled: code directs flow                  │
+│          — in aimu.workflows)                                │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -89,12 +91,12 @@ class Runner(ABC):
     def messages(self) -> dict[str, list[dict]]: ...
 ```
 
-Two marker ABCs split runners into autonomous and code-controlled:
+There's a single `Runner` ABC. The autonomous-vs-code-controlled split survives as a *categorisation of concrete classes*, not a type hierarchy:
 
-- **`BaseAgent`** — the LLM directs flow (e.g. `Agent` keeps looping until the model stops calling tools).
-- **`Workflow`** — code directs flow (e.g. `Chain` runs steps in a fixed order).
+- **Autonomous** (`aimu.agents`) — the LLM directs flow. `Agent` keeps looping until the model stops calling tools; `SkillAgent` and `OrchestratorAgent` extend that.
+- **Code-controlled** (`aimu.workflows`) — code directs flow. `Chain` runs steps in a fixed order; `Router` classifies and dispatches; `Parallel` fans out; `EvaluatorOptimizer` iterates generate→critique; `PlanExecuteEvaluator` plans→executes→scores→replans.
 
-This is Anthropic's *Building Effective Agents* taxonomy made concrete. See [Agents vs workflows](agents-vs-workflows.md) for the underlying argument.
+This is the *Building Effective Agents* taxonomy made concrete. See [Agents vs workflows](agents-vs-workflows.md) for the underlying argument.
 
 ## Streaming: one chunk type everywhere
 
@@ -117,7 +119,8 @@ Both can be active on the same client. Python tools take precedence on name coll
 |---|---|
 | `aimu` | Top-level `chat()`, `client()`, `resolve_model_string()`, re-exports |
 | `aimu.models` | `ModelClient`, `BaseModelClient`, `ModelSpec`, `StreamChunk`, provider clients |
-| `aimu.agents` | `Runner` / `BaseAgent` / `Workflow` ABCs; `Agent`, `SkillAgent`, `OrchestratorAgent`; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` |
+| `aimu.agents` | `Runner` ABC; `Agent`, `SkillAgent`, `OrchestratorAgent` |
+| `aimu.workflows` | `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` (re-exports `Runner`) |
 | `aimu.tools` | `@tool` decorator, `MCPClient`, `builtin.*` tool groups |
 | `aimu.skills` | `AgentSkill`, `SkillManager`, MCP server builder |
 | `aimu.memory` | `SemanticMemoryStore`, `DocumentStore`, shared `MemoryStore` ABC |

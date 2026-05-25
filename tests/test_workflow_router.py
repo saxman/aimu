@@ -6,7 +6,7 @@ All tests use MockModelClient from helpers (deterministic, no backend needed).
 
 import pytest
 
-from aimu.agents import Agent, AgentChunk, Router, Runner, Workflow
+from aimu.agents import Agent, AgentChunk, Router, Runner
 from aimu.models import StreamingContentType
 from helpers import MockModelClient
 
@@ -107,18 +107,15 @@ def test_router_streamed_raises_on_unknown_route():
         list(router.run_streamed("task"))
 
 
-def test_router_is_workflow_subclass():
-    """Router must be a Workflow (not a BaseAgent) and also a Runner."""
+def test_router_is_runner_subclass():
+    """Router implements the single Runner interface."""
     routing_client = MockModelClient(["code"])
     router = Router(
         routing_agent=Agent(routing_client, name="classifier"),
         handlers={"code": Agent(MockModelClient(["done"]), name="coder")},
     )
-    from aimu.agents import BaseAgent
 
-    assert isinstance(router, Workflow)
     assert isinstance(router, Runner)
-    assert not isinstance(router, BaseAgent)
 
 
 def test_router_from_config():

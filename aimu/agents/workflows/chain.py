@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
-from aimu.agents.base import MessageHistory, Workflow
+from aimu.agents.base import MessageHistory, Runner
 from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
@@ -16,15 +16,15 @@ ChainChunk = StreamChunk
 
 
 @dataclass
-class Chain(Workflow):
-    """Anthropic's **Prompt Chaining** pattern: agents run sequentially, output → input.
+class Chain(Runner):
+    """**Prompt Chaining** pattern: agents run sequentially, output → input.
 
     Each step's text output (concatenated GENERATING chunks) becomes the next step's
     task input. Steps may be :class:`Agent` instances or nested workflows.
 
     Quick start::
 
-        chain = Chain.of(client, [
+        chain = Chain.from_client(client, [
             "Break the task into 3 concrete steps.",
             "Execute each step and collect results.",
             "Polish the result into a final report.",
@@ -43,7 +43,7 @@ class Chain(Workflow):
     name: str = "chain"
 
     @classmethod
-    def of(cls, client: BaseModelClient, prompts: list[str], *, name: str = "chain") -> Chain:
+    def from_client(cls, client: BaseModelClient, prompts: list[str], *, name: str = "chain") -> Chain:
         """Build a Chain from a single client and a list of step system_messages.
 
         Each step gets its own :class:`Agent` with ``reset_messages_on_run=True`` so it

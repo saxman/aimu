@@ -1,6 +1,6 @@
 # Workflows
 
-In ~15 minutes you'll build the three load-bearing code-controlled patterns: **Chain**, **Router**, and **Parallel**. Each has a one-line `.of(client, ...)` factory.
+In ~15 minutes you'll build the three load-bearing code-controlled patterns: **Chain**, **Router**, and **Parallel**. Each has a one-line `.from_client(client, ...)` factory.
 
 If you've done [First agent with tools](02-first-agent-with-tools.md), you've already used the *autonomous* path — the LLM decides what tools to call. Workflows are the opposite: the LLM is invoked at points *you* control. You pick which is right for a given problem.
 
@@ -14,7 +14,7 @@ If you've done [First agent with tools](02-first-agent-with-tools.md), you've al
 | Run several independent perspectives in parallel | **`Parallel`** |
 | Iterate generate → critique → revise until acceptable | **`EvaluatorOptimizer`** |
 
-This taxonomy is from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. See [explanation: agents vs workflows](../explanation/agents-vs-workflows.md) for the underlying argument.
+This taxonomy is from *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. See [explanation: agents vs workflows](../explanation/agents-vs-workflows.md) for the underlying argument.
 
 ## Setup
 
@@ -29,9 +29,9 @@ client = aimu.client("ollama:qwen3.5:9b")
 A `Chain` runs agents in order; each step's text output becomes the next step's input.
 
 ```python
-from aimu.agents import Chain
+from aimu.workflows import Chain
 
-chain = Chain.of(client, [
+chain = Chain.from_client(client, [
     "Break the user's task into 3 concrete steps. Output a numbered list.",
     "Execute each step. Output a result for each.",
     "Polish the result into a single paragraph for a non-technical audience.",
@@ -41,16 +41,17 @@ result = chain.run("Research the top 3 Python web frameworks.")
 print(result)
 ```
 
-`Chain.of(client, [prompt1, prompt2, ...])` builds three `Agent` instances sharing the same client, each with `reset_messages_on_run=True` so steps don't see each other's history.
+`Chain.from_client(client, [prompt1, prompt2, ...])` builds three `Agent` instances sharing the same client, each with `reset_messages_on_run=True` so steps don't see each other's history.
 
 ## 2. Router — classify and dispatch
 
 A `Router` runs a classifier first, then dispatches to the matching handler.
 
 ```python
-from aimu.agents import Router, Agent
+from aimu.agents import Agent
+from aimu.workflows import Router
 
-router = Router.of(
+router = Router.from_client(
     client,
     classifier_prompt="Classify as code, writing, or math. Reply with only the category name.",
     handlers={
@@ -73,9 +74,9 @@ Handlers can be any `Runner` — agents *or* nested workflows. A router can disp
 A `Parallel` runs workers concurrently via `ThreadPoolExecutor` and (optionally) feeds the joined output to an aggregator.
 
 ```python
-from aimu.agents import Parallel
+from aimu.workflows import Parallel
 
-parallel = Parallel.of(
+parallel = Parallel.from_client(
     client,
     worker_prompts=[
         "Analyse this code for security issues.",
@@ -95,10 +96,11 @@ Without `aggregator_prompt=`, worker outputs are joined by `separator` (default 
 
 ## 4. EvaluatorOptimizer — iterate with critique
 
-The fourth pattern is generate → critique → revise. There's no `.of()` factory — build it directly:
+The fourth pattern is generate → critique → revise. There's no `.from_client()` factory — build it directly:
 
 ```python
-from aimu.agents import EvaluatorOptimizer, Agent
+from aimu.agents import Agent
+from aimu.workflows import EvaluatorOptimizer
 
 eo = EvaluatorOptimizer(
     generator=Agent(
@@ -128,12 +130,12 @@ Every workflow accepts any `Runner` as a sub-component. Compose freely:
 
 ```python
 # Route between a parallel (for opinions) and a chain (for factual research)
-composed = Router.of(
+composed = Router.from_client(
     client,
     classifier_prompt="Classify as opinion or factual. Reply only the category.",
     handlers={
-        "opinion":  Parallel.of(client, worker_prompts=[...], aggregator_prompt="..."),
-        "factual":  Chain.of(client, [...]),
+        "opinion":  Parallel.from_client(client, worker_prompts=[...], aggregator_prompt="..."),
+        "factual":  Chain.from_client(client, [...]),
     },
 )
 ```

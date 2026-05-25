@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator, Optional, Union
 
-from aimu.agents.base import BaseAgent, MessageHistory
+from aimu.agents.base import MessageHistory, Runner
 from aimu.models.base import BaseModelClient, StreamChunk
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ DEFAULT_CONTINUATION_PROMPT = (
 
 
 @dataclass
-class Agent(BaseAgent):
+class Agent(Runner):
     """A model client wrapped in an agentic loop.
 
     Calls ``model_client.chat()`` repeatedly until the model produces a turn without

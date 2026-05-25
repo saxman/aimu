@@ -56,7 +56,7 @@ def _prepare_run(self) -> None:
         self.model_client.tools = list(self.tools)
 ```
 
-This is why `Chain.of(client, [prompt1, prompt2])` works even though all three steps share one client: each step's `Agent` resets at the start of its turn and applies its own `system_message`. After the reset the lock is back to mutable until the next chat.
+This is why `Chain.from_client(client, [prompt1, prompt2])` works even though all three steps share one client: each step's `Agent` resets at the start of its turn and applies its own `system_message`. After the reset the lock is back to mutable until the next chat.
 
 Same story for `Benchmark`: it calls `client.reset()` between rows so each row starts with a clean conversation but the same role.
 

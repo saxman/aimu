@@ -5,15 +5,15 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.agent import Agent
-from aimu.agents.base import MessageHistory, Workflow
+from aimu.agents.base import MessageHistory, Runner
 from aimu.models.base import StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class EvaluatorOptimizer(Workflow):
-    """Anthropic's **Evaluator-Optimizer** pattern: iteratively improve via critic feedback.
+class EvaluatorOptimizer(Runner):
+    """**Evaluator-Optimizer** pattern: iteratively improve via critic feedback.
 
     The generator produces an initial response. The evaluator reviews it against the
     original task and either returns ``pass_keyword`` (accepted) or revision feedback.

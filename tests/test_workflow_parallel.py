@@ -4,7 +4,7 @@ Tests for aimu.agents.Parallel: the Parallelization workflow pattern.
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
-from aimu.agents import Agent, AgentChunk, Parallel, Runner, Workflow
+from aimu.agents import Agent, AgentChunk, Parallel, Runner
 from aimu.models import StreamingContentType
 from helpers import MockModelClient
 
@@ -117,13 +117,8 @@ def test_parallel_streamed_with_aggregator_delegates_stream():
     assert any(c.content == "synthesized" for c in generating)
 
 
-def test_parallel_is_workflow_subclass():
-    """Parallel must be a Workflow (not a BaseAgent) and also a Runner."""
+def test_parallel_is_runner_subclass():
+    """Parallel implements the single Runner interface."""
     client = MockModelClient(["hi"])
     parallel = Parallel(workers=[Agent(client, name="w")])
-
-    from aimu.agents import BaseAgent
-
-    assert isinstance(parallel, Workflow)
     assert isinstance(parallel, Runner)
-    assert not isinstance(parallel, BaseAgent)

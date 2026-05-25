@@ -5,15 +5,15 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.agent import Agent
-from aimu.agents.base import MessageHistory, Runner, Workflow
+from aimu.agents.base import MessageHistory, Runner
 from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Router(Workflow):
-    """Anthropic's **Routing** pattern: classify the task, dispatch to a specialist.
+class Router(Runner):
+    """**Routing** pattern: classify the task, dispatch to a specialist.
 
     The routing_agent receives the task and must respond with a single route name.
     The Router dispatches to the matching handler (case-insensitive, whitespace-stripped).
@@ -21,7 +21,7 @@ class Router(Workflow):
 
     Quick start::
 
-        router = Router.of(
+        router = Router.from_client(
             client,
             classifier_prompt=(
                 "Classify the task as one of: code, writing, math. "
@@ -42,7 +42,7 @@ class Router(Workflow):
     fallback: Optional[Runner] = None
 
     @classmethod
-    def of(
+    def from_client(
         cls,
         client: BaseModelClient,
         classifier_prompt: str,

@@ -1,6 +1,8 @@
 # Agents vs workflows
 
-AIMU follows the taxonomy from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. The split — autonomous agents vs code-controlled workflows — is the most important conceptual divide in the library, and worth understanding before you build anything non-trivial.
+AIMU follows the taxonomy from *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. The split — autonomous agents vs code-controlled workflows — is the most important conceptual divide in the library, and worth understanding before you build anything non-trivial.
+
+In code, every runnable unit implements the single `Runner` ABC. The agent-vs-workflow split is a *conceptual category* over concrete classes, not a type hierarchy: `Agent` / `SkillAgent` / `OrchestratorAgent` (in `aimu.agents`) are agent-shaped; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` (in `aimu.workflows`) are workflow-shaped. The package layout signals which is which; the type system doesn't enforce it.
 
 ## The distinction
 
@@ -44,12 +46,12 @@ Both branches share the `Runner` interface (`run()`, `messages`, `run_streamed()
 
 ```python
 # Workflow dispatching to an autonomous agent
-router = Router.of(
+router = Router.from_client(
     client,
     classifier_prompt="...",
     handlers={
         "research": Agent(client, "Research thoroughly.", tools=builtin.web),  # autonomous
-        "math":     Chain.of(client, ["...", "..."]),                          # workflow
+        "math":     Chain.from_client(client, ["...", "..."]),                 # workflow
     },
 )
 ```
@@ -66,6 +68,6 @@ Use `OrchestratorAgent.assemble(client, system_message, workers=[...])` for the 
 
 ## Further reading
 
-- Anthropic's [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) — the original taxonomy.
-- [Architecture](architecture.md) — how `Runner` / `BaseAgent` / `Workflow` are arranged in the codebase.
+- [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) — the original taxonomy.
+- [Architecture](architecture.md) — how the `Runner` hierarchy is arranged in the codebase.
 - [How-to: build an orchestrator](../how-to/build-orchestrator.md) — practical patterns.

@@ -1,17 +1,23 @@
-"""Agent / workflow base classes.
+"""The `Runner` hierarchy.
 
 Decision tree for picking the right class:
 
 * **Single ``chat()`` call, no loop** → :class:`aimu.models.ModelClient`
 * **Tool-using loop until model stops** → :class:`Agent`
 * **Skills auto-discovered from disk** → :class:`SkillAgent`
+* **Orchestrator dispatching to worker agents via tool calls** → :class:`OrchestratorAgent`
 * **Fixed sequence / classifier / parallel / generate-critique** →
   :class:`Chain` / :class:`Router` / :class:`Parallel` / :class:`EvaluatorOptimizer`
+* **Plan → execute with tools → score → replan on fail** → :class:`PlanExecuteEvaluator`
 * **Drop an agent into an API that wants a ``ModelClient``** → ``agent.as_model_client()``
 
-The hierarchy is two marker ABCs (``BaseAgent`` for autonomous agents, ``Workflow``
-for code-controlled patterns) under a common ``Runner`` interface. Both ``run()``
-synchronously or with ``stream=True`` for streaming.
+All concrete classes implement the single :class:`Runner` interface
+(``run()`` + ``messages``). The "autonomous vs code-controlled" split is a
+conceptual categorisation of those concrete classes — autonomous agents
+(``Agent``, ``SkillAgent``, ``OrchestratorAgent``) let the LLM direct the
+flow; workflow patterns (``Chain``, ``Router``, ``Parallel``,
+``EvaluatorOptimizer``, ``PlanExecuteEvaluator``) keep the flow fixed in
+code. The distinction lives in the docs, not in the type hierarchy.
 """
 
 from __future__ import annotations
@@ -30,10 +36,10 @@ MessageHistory = dict[str, list[dict]]
 
 
 class Runner(ABC):
-    """Abstract base for all executable units, agents and workflows alike.
+    """Abstract base for every concrete agent and workflow in AIMU.
 
-    Concrete subclasses implement :meth:`run`. The legacy ``run_streamed()`` alias is
-    kept for back-compat.
+    Concrete subclasses implement :meth:`run` and :attr:`messages`. The
+    ``run_streamed()`` alias is kept for back-compat.
     """
 
     @abstractmethod
@@ -59,7 +65,7 @@ class Runner(ABC):
     @property
     @abstractmethod
     def messages(self) -> MessageHistory:
-        """Message histories of all agents in this runner, keyed by agent name.
+        """Message histories of all sub-runners, keyed by runner name.
 
         For a leaf agent: ``{agent.name: model_client.messages}``. For composite
         workflows: dicts from every constituent runner merged into one, so the result
@@ -70,22 +76,3 @@ class Runner(ABC):
         returned dict points at the last step's messages.
         """
         ...
-
-
-class BaseAgent(Runner):
-    """Marker ABC for autonomous agents — the LLM directs tool use and stop condition.
-
-    Per Anthropic's "Building Effective Agents" taxonomy: the model autonomously
-    directs the process and tool selection rather than following a predetermined
-    code path. Concrete subclasses: :class:`Agent`, :class:`SkillAgent`,
-    :class:`OrchestratorAgent`.
-    """
-
-
-class Workflow(Runner):
-    """Marker ABC for code-controlled patterns — routing, sequencing, aggregation.
-
-    Per Anthropic's "Building Effective Agents" taxonomy: LLMs and tools operate
-    through predetermined steps. Concrete subclasses: :class:`Chain`,
-    :class:`Router`, :class:`Parallel`, :class:`EvaluatorOptimizer`.
-    """

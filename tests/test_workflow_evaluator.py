@@ -4,7 +4,7 @@ Tests for aimu.agents.EvaluatorOptimizer: the Evaluator-Optimizer workflow patte
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
-from aimu.agents import Agent, AgentChunk, EvaluatorOptimizer, Runner, Workflow
+from aimu.agents import Agent, AgentChunk, EvaluatorOptimizer, Runner
 from aimu.models import StreamingContentType
 from helpers import MockModelClient
 
@@ -118,8 +118,8 @@ def test_evaluator_streamed_does_not_yield_intermediate_drafts():
     assert generating[0].content == "final"
 
 
-def test_evaluator_is_workflow_subclass():
-    """EvaluatorOptimizer must be a Workflow (not a BaseAgent) and also a Runner."""
+def test_evaluator_is_runner_subclass():
+    """EvaluatorOptimizer implements the single Runner interface."""
     gen_client = MockModelClient(["output"])
     eval_client = MockModelClient(["PASS"])
 
@@ -127,8 +127,5 @@ def test_evaluator_is_workflow_subclass():
         generator=Agent(gen_client, name="writer"),
         evaluator=Agent(eval_client, name="critic"),
     )
-    from aimu.agents import BaseAgent
 
-    assert isinstance(eo, Workflow)
     assert isinstance(eo, Runner)
-    assert not isinstance(eo, BaseAgent)

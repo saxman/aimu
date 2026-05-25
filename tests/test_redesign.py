@@ -6,7 +6,7 @@
 * ``system_message`` is immutable after the first chat; ``reset()`` unlocks it.
 * ``@tool`` validates signatures; supports ``Optional[T]`` / ``T | None``.
 * ``include=`` stream filter selects phases.
-* Workflow ``.of()`` factories build runnable workflows.
+* Workflow ``.from_client()`` factories build runnable workflows.
 * ``OrchestratorAgent.assemble()`` works without subclassing.
 """
 
@@ -289,29 +289,29 @@ def test_builtin_all_tools_still_exposed():
 
 
 # ---------------------------------------------------------------------------
-# Workflow .of() factories
+# Workflow .from_client() factories
 # ---------------------------------------------------------------------------
 
 
-def test_chain_of_builds_runnable_chain():
+def test_chain_from_client_builds_runnable_chain():
     client = MockModelClient(["first", "second"])
-    chain = Chain.of(client, ["Step 1 prompt.", "Step 2 prompt."])
+    chain = Chain.from_client(client, ["Step 1 prompt.", "Step 2 prompt."])
     assert len(chain.agents) == 2
     result = chain.run("task")
     assert result == "second"
 
 
-def test_router_of_dispatches_to_handler():
+def test_router_from_client_dispatches_to_handler():
     classifier = MockModelClient(["code"])
     coder = MockModelClient(["wrote code"])
     handler = Agent(coder, name="coder")
 
-    router = Router.of(classifier, "Reply with 'code'.", handlers={"code": handler})
+    router = Router.from_client(classifier, "Reply with 'code'.", handlers={"code": handler})
     result = router.run("task")
     assert result == "wrote code"
 
 
-def test_parallel_of_without_aggregator_joins_workers():
+def test_parallel_from_client_without_aggregator_joins_workers():
     worker_a = MockModelClient(["A output"])
     worker_b = MockModelClient(["B output"])
 

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.agents.agent import Agent
-from aimu.agents.base import MessageHistory, Workflow
+from aimu.agents.base import MessageHistory, Runner
 from aimu.agents.skill_agent import SkillAgent
 from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 from aimu.prompts.tuners.scorers import LLMJudgeScorer, Scorer
@@ -71,7 +71,7 @@ def _truncate(text: str, limit: int = 500) -> str:
 
 
 @dataclass
-class PlanExecuteEvaluator(Workflow):
+class PlanExecuteEvaluator(Runner):
     """Plan → execute → evaluate → replan-on-fail loop.
 
     A planner agent produces a plan for the task; an executor agent runs the
@@ -91,7 +91,7 @@ class PlanExecuteEvaluator(Workflow):
 
     Usage::
 
-        wf = PlanExecuteEvaluator.of(
+        wf = PlanExecuteEvaluator.from_client(
             client=aimu.client("anthropic:claude-sonnet-4-6"),
             judge_client=aimu.client("openai:gpt-4o"),
             executor_tools=builtin.web + builtin.fs,
@@ -239,7 +239,7 @@ class PlanExecuteEvaluator(Workflow):
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def of(
+    def from_client(
         cls,
         client: BaseModelClient,
         *,

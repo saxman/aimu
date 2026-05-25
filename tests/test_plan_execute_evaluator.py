@@ -7,14 +7,7 @@ logic itself.
 
 from __future__ import annotations
 
-from aimu.agents import (
-    Agent,
-    BaseAgent,
-    PlanExecuteEvaluator,
-    Runner,
-    SkillAgent,
-    Workflow,
-)
+from aimu.agents import Agent, PlanExecuteEvaluator, Runner, SkillAgent
 from aimu.agents.workflows.plan_execute_evaluator import _parse_planner_output
 from aimu.models import StreamingContentType
 from aimu.prompts.tuners.scorers import Scorer
@@ -83,15 +76,13 @@ def _make_workflow(
 # ---------------------------------------------------------------------------
 
 
-def test_is_workflow_subclass_not_baseagent():
+def test_is_runner_subclass():
     wf, _, _, _ = _make_workflow(
         planner_responses=["plan"],
         executor_responses=["out"],
         scorer_results=[(0.9, "pass")],
     )
-    assert isinstance(wf, Workflow)
     assert isinstance(wf, Runner)
-    assert not isinstance(wf, BaseAgent)
 
 
 def test_messages_merges_planner_and_executor():
@@ -288,12 +279,12 @@ def test_last_attempts_records_every_round():
 
 
 # ---------------------------------------------------------------------------
-# .of() factory
+# .from_client() factory
 # ---------------------------------------------------------------------------
 
 
-def test_of_factory_builds_runnable_workflow():
-    """`PlanExecuteEvaluator.of(client)` builds a workflow with defaults that runs end-to-end."""
+def test_from_client_factory_builds_runnable_workflow():
+    """`PlanExecuteEvaluator.from_client(client)` builds a workflow with defaults that runs end-to-end."""
     from aimu.prompts.tuners.scorers import LLMJudgeScorer
 
     # Single client used for planner, executor, AND (default) judge.
@@ -301,7 +292,7 @@ def test_of_factory_builds_runnable_workflow():
     # which the LLMJudgeScorer parses to 0.8 → pass).
     client = MockModelClient(["plan it", "did it", "8"])
 
-    wf = PlanExecuteEvaluator.of(client, criteria="answer the task")
+    wf = PlanExecuteEvaluator.from_client(client, criteria="answer the task")
     assert isinstance(wf, PlanExecuteEvaluator)
     assert isinstance(wf.scorer, LLMJudgeScorer)
     assert isinstance(wf.planner, SkillAgent)
@@ -311,7 +302,7 @@ def test_of_factory_builds_runnable_workflow():
     assert result == "did it"
 
 
-def test_of_factory_propagates_executor_tools():
+def test_from_client_factory_propagates_executor_tools():
     """`executor_tools=` arg lands on the executor agent."""
     from aimu.tools import tool
 
@@ -321,15 +312,15 @@ def test_of_factory_propagates_executor_tools():
         return x
 
     client = MockModelClient(["plan", "out", "9"])
-    wf = PlanExecuteEvaluator.of(client, executor_tools=[my_tool], criteria="X")
+    wf = PlanExecuteEvaluator.from_client(client, executor_tools=[my_tool], criteria="X")
     assert wf.executor.tools == [my_tool]
 
 
-def test_of_factory_uses_separate_judge_client_when_provided():
+def test_from_client_factory_uses_separate_judge_client_when_provided():
     """`judge_client=` builds the LLMJudgeScorer over the judge client, not the main one."""
     main = MockModelClient(["plan", "out"])
     judge = MockModelClient(["9"])
-    wf = PlanExecuteEvaluator.of(main, judge_client=judge, criteria="X")
+    wf = PlanExecuteEvaluator.from_client(main, judge_client=judge, criteria="X")
     # The scorer's underlying client should be the judge, not main.
     assert wf.scorer.judge_client is judge
 

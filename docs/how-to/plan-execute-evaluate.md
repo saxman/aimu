@@ -1,6 +1,6 @@
 # Plan, execute, evaluate, replan
 
-`PlanExecuteEvaluator` is a `Workflow` that runs a **plan → execute → evaluate → replan-on-fail** loop. A planner produces a plan; an executor runs it with tools; a scorer judges the output. If the score is below `pass_threshold`, the planner is invoked again with the prior round's feedback to produce a *new* plan. The loop bounds at `max_rounds` and returns the highest-scoring attempt.
+`PlanExecuteEvaluator` is a code-controlled workflow that runs a **plan → execute → evaluate → replan-on-fail** loop. A planner produces a plan; an executor runs it with tools; a scorer judges the output. If the score is below `pass_threshold`, the planner is invoked again with the prior round's feedback to produce a *new* plan. The loop bounds at `max_rounds` and returns the highest-scoring attempt.
 
 This is the right pattern when:
 
@@ -12,10 +12,10 @@ This is the right pattern when:
 
 ```python
 import aimu
-from aimu.agents import PlanExecuteEvaluator
+from aimu.workflows import PlanExecuteEvaluator
 from aimu.tools import builtin
 
-wf = PlanExecuteEvaluator.of(
+wf = PlanExecuteEvaluator.from_client(
     client=aimu.client("anthropic:claude-sonnet-4-6"),
     judge_client=aimu.client("openai:gpt-4o"),               # stronger judge
     executor_tools=builtin.web + builtin.fs,
@@ -32,7 +32,7 @@ The factory builds a `SkillAgent` planner, an `Agent` executor with your tools, 
 
 ## Two criteria modes
 
-**User-supplied criteria** (recommended) — pass `criteria="..."` to `PlanExecuteEvaluator.of()` and the criteria string is included in the planner's prompt every round and used as the scorer's `reference` field on every row.
+**User-supplied criteria** (recommended) — pass `criteria="..."` to `PlanExecuteEvaluator.from_client()` and the criteria string is included in the planner's prompt every round and used as the scorer's `reference` field on every row.
 
 **Planner-invented criteria** — pass `criteria=None`. The planner is asked to return its response in two sections:
 
@@ -48,10 +48,11 @@ The workflow parses both. The criteria the planner produces is what the scorer u
 
 ## Custom scorer
 
-The `.of()` factory uses `LLMJudgeScorer` by default. To plug in a different `Scorer` (DeepEval, a custom callable, etc.), construct `PlanExecuteEvaluator` directly:
+The `.from_client()` factory uses `LLMJudgeScorer` by default. To plug in a different `Scorer` (DeepEval, a custom callable, etc.), construct `PlanExecuteEvaluator` directly:
 
 ```python
-from aimu.agents import PlanExecuteEvaluator, Agent, SkillAgent
+from aimu.agents import Agent, SkillAgent
+from aimu.workflows import PlanExecuteEvaluator
 from aimu.evals import DeepEvalModel, DeepEvalScorer
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCaseParams
@@ -81,7 +82,7 @@ Skills are auto-discovered from `.agents/skills/`, `.claude/skills/`, and the `~
 ```python
 from aimu.skills import SkillManager
 
-wf = PlanExecuteEvaluator.of(
+wf = PlanExecuteEvaluator.from_client(
     client,
     skill_manager=SkillManager(skill_dirs=["./my-planning-skills"]),
     criteria="...",

@@ -120,9 +120,9 @@ For chains, `chunk.iteration` is the chain step. For agent loops, it's the loop 
 - `EvaluatorOptimizer.run(task, images=[...])` — forwarded only to the initial generator turn
 
 ```python
-from aimu.agents import Chain
+from aimu.workflows import Chain
 
-chain = Chain.of(client, [
+chain = Chain.from_client(client, [
     "Describe what you see in detail.",
     "Summarise the description in one sentence.",
 ])

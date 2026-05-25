@@ -4,7 +4,7 @@
 
 AIMU is a Python library for LLM-powered applications. It gives you a single interface across providers, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, and benchmarking — all in plain Python that is apparent and easy to use.
 
-Common tasks are one-liners: `aimu.chat("hi", model="...")`, `Agent(client, tools=[fn])`, `Chain.of(client, [step1, step2])`. Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
+Common tasks are one-liners: `aimu.chat("hi", model="...")`, `Agent(client, tools=[fn])`, `Chain.from_client(client, [step1, step2])`. Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
 
 📘 **[Read the docs](https://saxman.github.io/aimu/)** for tutorials, how-to guides, full API reference, and design explanations.
 
@@ -44,12 +44,12 @@ agent = Agent(aimu.client("ollama:qwen3.5:9b"), tools=[letter_counter])
 print(agent.run("How many r's in strawberry?"))
 ```
 
-**A code-controlled workflow.** `Chain.of()` builds a multi-step pipeline in one line — each step's output becomes the next step's input:
+**A code-controlled workflow.** `Chain.from_client()` builds a multi-step pipeline in one line — each step's output becomes the next step's input:
 
 ```python
-from aimu.agents import Chain
+from aimu.workflows import Chain
 
-chain = Chain.of(client, [
+chain = Chain.from_client(client, [
     "Break the task into clear steps.",
     "Execute each step using available tools.",
     "Polish the result into a single paragraph.",
@@ -75,7 +75,7 @@ client.chat("What's in this image?", images=["./cat.jpg"])
 ### Agents and workflows
 
 - `Agent` runs an autonomous tool-using loop until the model stops calling tools.
-- Four code-controlled workflow patterns: `Chain.of(...)`, `Router.of(...)`, `Parallel.of(...)`, `EvaluatorOptimizer(...)`. Compose freely — workflows accept agents as steps; agents accept workflows as tools via `as_model_client()`.
+- Four code-controlled workflow patterns: `Chain.from_client(...)`, `Router.from_client(...)`, `Parallel.from_client(...)`, `EvaluatorOptimizer(...)`. Compose freely — workflows accept agents as steps; agents accept workflows as tools via `as_model_client()`.
 - `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients are interchangeable.
 
 ### Tools

@@ -4,11 +4,11 @@ from abc import ABC
 from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.agents.agent import Agent
-from aimu.agents.base import BaseAgent, MessageHistory
+from aimu.agents.base import MessageHistory, Runner
 from aimu.models.base import BaseModelClient, StreamChunk
 
 
-class OrchestratorAgent(BaseAgent, ABC):
+class OrchestratorAgent(Runner, ABC):
     """Base class for the orchestrator + worker-tools pattern.
 
     Subclasses define worker :class:`Agent` instances and ``@tool``-decorated dispatch

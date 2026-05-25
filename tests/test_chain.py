@@ -4,7 +4,7 @@ Tests for aimu.agents.Chain: the sequential chaining workflow pattern.
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
-from aimu.agents import Agent, BaseAgent, Chain, ChainChunk, Runner, Workflow
+from aimu.agents import Agent, Chain, ChainChunk, Runner
 from helpers import MockModelClient
 
 
@@ -90,10 +90,8 @@ def test_chain_from_config_sets_system_message_per_step():
     assert client.system_message == "You are B."
 
 
-def test_chain_is_workflow_subclass():
-    """Chain must be a Workflow (not a BaseAgent) and also a Runner."""
+def test_chain_is_runner_subclass():
+    """Chain implements the single Runner interface."""
     client = MockModelClient(["hi"])
     chain = Chain(agents=[Agent(client)])
-    assert isinstance(chain, Workflow)
     assert isinstance(chain, Runner)
-    assert not isinstance(chain, BaseAgent)

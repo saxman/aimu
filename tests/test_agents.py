@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aimu.agents import Agent, BaseAgent, Chain, OrchestratorAgent
+from aimu.agents import Agent, Chain, OrchestratorAgent, Runner
 from aimu.agents.examples import ResearchReportAgent
 from aimu.models import BaseModelClient, StreamChunk, StreamingContentType
 from helpers import MockModelClient, create_real_model_client, resolve_model_params
@@ -138,10 +138,10 @@ def test_agent_streamed_iteration_increments_on_tool_use():
     assert 1 in iterations
 
 
-def test_simple_agent_is_agent_subclass():
+def test_simple_agent_is_runner_subclass():
     client = MockModelClient(["hi"])
     agent = Agent(client)
-    assert isinstance(agent, BaseAgent)
+    assert isinstance(agent, Runner)
 
 
 # ---------------------------------------------------------------------------
@@ -333,9 +333,9 @@ def test_research_report_agent_with_worker_tools_enables_concurrent():
     assert client.concurrent_tool_calls
 
 
-def test_research_report_agent_is_agent_subclass():
+def test_research_report_agent_is_runner_subclass():
     agent, _ = _make_research_agent()
-    assert isinstance(agent, BaseAgent)
+    assert isinstance(agent, Runner)
 
 
 # ---------------------------------------------------------------------------
@@ -365,10 +365,10 @@ def _make_concrete_orchestrator(client: MockModelClient) -> OrchestratorAgent:
     return _TestOrchestrator(client)
 
 
-def test_orchestrator_agent_is_agent_subclass():
+def test_orchestrator_agent_is_runner_subclass():
     client = MockModelClient(["done"])
     agent = _make_concrete_orchestrator(client)
-    assert isinstance(agent, BaseAgent)
+    assert isinstance(agent, Runner)
     assert isinstance(agent, OrchestratorAgent)
 
 

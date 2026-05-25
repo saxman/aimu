@@ -5,15 +5,15 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
-from aimu.agents.base import MessageHistory, Runner, Workflow
+from aimu.agents.base import MessageHistory, Runner
 from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Parallel(Workflow):
-    """Anthropic's **Parallelization** pattern: run workers concurrently, aggregate.
+class Parallel(Runner):
+    """**Parallelization** pattern: run workers concurrently, aggregate.
 
     Each worker receives the same task. An optional aggregator receives all worker
     outputs joined by ``separator`` and produces the final result. Without an
@@ -24,7 +24,7 @@ class Parallel(Workflow):
 
     Quick start::
 
-        parallel = Parallel.of(
+        parallel = Parallel.from_client(
             client,
             worker_prompts=[
                 "Analyze this from a security perspective.",
@@ -42,7 +42,7 @@ class Parallel(Workflow):
     max_workers: Optional[int] = None  # None = one thread per worker
 
     @classmethod
-    def of(
+    def from_client(
         cls,
         client: BaseModelClient,
         worker_prompts: list[str],
