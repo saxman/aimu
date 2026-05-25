@@ -90,10 +90,6 @@ class MCPClient:
         return self._portal.call(self._client.list_tools)
 
     def get_tools(self) -> list[dict]:
-        return [
-            {
-                "type": "function",
-                "function": {"name": t.name, "description": t.description, "parameters": t.inputSchema},
-            }
-            for t in self.list_tools()
-        ]
+        from .mcp_format import mcp_tools_to_openai
+
+        return mcp_tools_to_openai(self.list_tools())

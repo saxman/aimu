@@ -100,7 +100,14 @@ class classproperty:
         return self.func(cls)
 
 
-class BaseModelClient(ABC):
+# Pure helpers; imported here so the existing public surface continues to work and
+# the async surface can reuse the same logic.
+from ._chat_state import _ChatStateMixin  # noqa: E402
+from ._streaming import filter_chunks as _filter_chunks_fn  # noqa: E402
+from ._streaming import resolve_include as _resolve_include_fn  # noqa: E402
+
+
+class BaseModelClient(_ChatStateMixin, ABC):
     """Abstract base for all provider clients.
 
     Subclasses implement :meth:`generate`, :meth:`chat`, and :meth:`_update_generate_kwargs`.
@@ -132,11 +139,6 @@ class BaseModelClient(ABC):
         self.last_thinking = ""
         self.concurrent_tool_calls = False
 
-    def __deepcopy__(self, memo):
-        # BaseModelClient manages stateful conversation history and non-copyable backend resources.
-        memo[id(self)] = self
-        return self
-
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
         raise NotImplementedError
@@ -148,51 +150,6 @@ class BaseModelClient(ABC):
     @classproperty
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         raise NotImplementedError
-
-    @property
-    def is_thinking_model(self) -> bool:
-        return self.model.supports_thinking
-
-    @property
-    def is_tool_using_model(self) -> bool:
-        return self.model.supports_tools
-
-    @property
-    def is_vision_model(self) -> bool:
-        return self.model.supports_vision
-
-    @property
-    def system_message(self):
-        return self._system_message
-
-    @system_message.setter
-    def system_message(self, message: Optional[str]):
-        if self._system_message_locked:
-            raise RuntimeError(
-                "system_message is immutable after the conversation starts. "
-                "Call client.reset() to clear messages, then assign a new system_message."
-            )
-        self._system_message = message
-        if self.messages:
-            if self.messages[0]["role"] == "system":
-                if message is None:
-                    self.messages.pop(0)
-                else:
-                    self.messages[0]["content"] = message
-            elif message is not None:
-                self.messages.insert(0, {"role": "system", "content": message})
-
-    def reset(self, system_message: Optional[str] = "__keep__") -> None:
-        """Clear the conversation history and unlock ``system_message``.
-
-        By default the existing ``system_message`` is preserved. Pass ``None`` to clear it,
-        or a string to replace it.
-        """
-        self.messages = []
-        self._system_message_locked = False
-        if system_message != "__keep__":
-            self._system_message = system_message
-        self.last_thinking = ""
 
     @abstractmethod
     def _generate(
@@ -269,7 +226,7 @@ class BaseModelClient(ABC):
         include: Iterable[Union[str, StreamingContentType]],
     ) -> set[StreamingContentType]:
         """Normalise an ``include=`` argument to a set of :class:`StreamingContentType`."""
-        return {StreamingContentType(p) if not isinstance(p, StreamingContentType) else p for p in include}
+        return _resolve_include_fn(include)
 
     @staticmethod
     def _filter_chunks(
@@ -277,9 +234,7 @@ class BaseModelClient(ABC):
         include: set[StreamingContentType],
     ) -> Iterator[StreamChunk]:
         """Drop chunks whose phase isn't in the include set."""
-        for chunk in chunks:
-            if chunk.phase in include:
-                yield chunk
+        return _filter_chunks_fn(chunks, include)
 
     def _chat_setup(
         self,
@@ -290,36 +245,13 @@ class BaseModelClient(ABC):
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        # Add the system message if we're processing the first user message and system_message is set
-        if len(self.messages) == 0 and self.system_message:
-            self.messages.append({"role": "system", "content": self.system_message})
+        self._append_user_turn(user_message, images)
 
-        if images:
-            if not self.model.supports_vision:
-                raise ValueError(
-                    f"Model {self.model.name} does not support vision input. Use a model with supports_vision=True."
-                )
-            from ._images import _build_user_content_blocks
-
-            self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
-        else:
-            self.messages.append({"role": "user", "content": user_message})
-
-        # First user message of the conversation locks system_message against further mutation.
-        self._system_message_locked = True
-
-        tools = []
+        tools: list[dict] = []
         if self.model.supports_tools and use_tools:
             if self.mcp_client:
                 tools.extend(self.mcp_client.get_tools())
-            for fn in self.tools:
-                spec = getattr(fn, "__tool_spec__", None)
-                if spec is None:
-                    raise ValueError(
-                        f"Tool '{getattr(fn, '__name__', fn)}' is missing __tool_spec__. "
-                        "Decorate it with @aimu.tools.tool."
-                    )
-                tools.append(spec)
+            tools.extend(self._collect_python_tool_specs())
 
         return generate_kwargs, tools
 
@@ -350,6 +282,12 @@ class BaseModelClient(ABC):
             # Python-function tools (registered via @tool) take precedence over MCP.
             fn = python_tools_by_name.get(tc["name"])
             if fn is not None:
+                if getattr(fn, "__tool_is_async__", False):
+                    raise ValueError(
+                        f"Tool '{tc['name']}' is an async function (`async def`). The sync "
+                        "BaseModelClient cannot dispatch async tools. Use the aimu.aio surface, "
+                        "or convert the tool to a regular `def`."
+                    )
                 try:
                     response = fn(**tc["arguments"])
                     content = str(response)

@@ -18,6 +18,7 @@ Quick start::
 
 from typing import Any, Iterable, Iterator, Optional, Union
 
+from . import aio
 from .models import (
     BaseModelClient,
     Model,
@@ -84,6 +85,7 @@ __all__ = [
     "ModelSpec",
     "StreamChunk",
     "StreamingContentType",
+    "aio",
     "chat",
     "client",
     "resolve_model_string",

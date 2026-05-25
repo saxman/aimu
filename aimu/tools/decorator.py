@@ -38,6 +38,7 @@ def tool(func: Callable) -> Callable:
         agent = Agent(client, tools=[letter_counter])
     """
     func.__tool_spec__ = _build_spec(func)
+    func.__tool_is_async__ = inspect.iscoroutinefunction(func)
     return func
 
 
