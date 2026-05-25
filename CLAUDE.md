@@ -601,10 +601,11 @@ tests/                   # Pytest test suite
 ├── test_memory.py       # Semantic memory tests
 ├── test_tools.py        # MCP tools tests
 ├── test_agents.py       # Agent, as_model_client, OrchestratorAgent, assemble()
-├── test_chain.py        # Chain workflow tests
-├── test_router.py       # Router workflow tests
-├── test_parallel.py     # Parallel workflow tests
-├── test_evaluator.py    # EvaluatorOptimizer workflow tests
+├── test_workflow_chain.py                   # Chain
+├── test_workflow_router.py                  # Router
+├── test_workflow_parallel.py                # Parallel
+├── test_workflow_evaluator_optimizer.py     # EvaluatorOptimizer
+├── test_workflow_plan_execute_evaluator.py  # PlanExecuteEvaluator
 ├── test_skills.py       # Skill discovery + raises on malformed SKILL.md
 ├── test_prompt_*.py     # Prompt catalog and tuning tests
 ├── test_benchmark.py    # Benchmark harness tests (uses client.reset())
