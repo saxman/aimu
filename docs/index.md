@@ -1,8 +1,8 @@
 # AIMU
 
-**AI Model Utilities** — a lightweight Python library for building LLM-powered applications with a consistent interface across local and cloud providers.
+**AI Model Utilities** — a lightweight Python library for building AI-powered applications with a consistent, provider-agnostic interface across text, images, and audio.
 
-AIMU separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a plain model client is accepted. Tool integration is structural (not a plugin), semantic and document memory can be dropped in, and a prompt-tuning loop optimises prompts against labelled data without ML machinery.
+Language models are the primary building block, with the same interface extending to image generation and audio processing. AIMU separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a plain model client is accepted. Tool integration is structural (not a plugin), semantic and document memory can be dropped in, and a prompt-tuning loop optimises prompts against labelled data without ML machinery.
 
 ---
 

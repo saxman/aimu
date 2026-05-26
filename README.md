@@ -2,9 +2,9 @@
 
 # AIMU - AI Model Utilities
 
-AIMU is a Python library for LLM-powered applications. It gives you a single interface across providers, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, and benchmarking, all in plain Python that is apparent and easy to use.
+AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, and audio; autonomous agents and code-controlled workflows; and small composable utilities for tools, memory, prompt tuning, and benchmarking -- all in plain Python that is apparent and easy to use.
 
-Common tasks are one-liners: `aimu.chat("hi", model="...")`, `Agent(client, tools=[fn])`, `Chain.from_client(client, [step1, step2])`. Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
+Whether you need vision input, autonomous tool use, or image generation, the call is one line: `aimu.chat("What's in this photo?", model="...", images=["photo.jpg"])`, `agent.run("Search the web and summarize today's AI news")`, `aimu.generate_image("a watercolor fox in a snowy forest", model="...")`. Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
 
 📘 **[Read the docs](https://saxman.github.io/aimu/)** for tutorials, how-to guides, full API reference, and design explanations.
 
@@ -87,7 +87,7 @@ agent = Agent(aimu.client("ollama:qwen3.5:9b"), tools=[letter_counter])
 print(agent.run("How many r's in strawberry?"))
 ```
 
-**A code-controlled workflow.** `Chain.from_client()` builds a multi-step pipeline in one line. Each step's output becomes the next step's input:
+**A code-controlled workflow.** AIMU supports several workflow patterns -- chaining, routing, parallelization, and evaluation loops. `Chain` sequences a series of LLM calls where each step's output feeds the next, each guided by its own instruction. `Chain.from_client()` builds one from a shared client and a list of per-step instructions:
 
 ```python
 from aimu.agents import Chain
