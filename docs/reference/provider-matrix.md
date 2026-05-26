@@ -2,6 +2,8 @@
 
 Every supported provider, with the extra needed to install it, the env var (if any) it reads, the default endpoint, and any provider-specific constructor kwargs.
 
+## Text providers (`aimu.client()` / `aimu.chat()`)
+
 | Provider key (in model string) | Client class | Extra | API key | Default endpoint | Provider-specific kwargs | Async kind |
 |---|---|---|---|---|---|---|
 | `ollama` | `OllamaClient` | `aimu[ollama]` | — | local | `model_keep_alive_seconds=60` | native (`ollama.AsyncClient`) |
@@ -16,6 +18,15 @@ Every supported provider, with the extra needed to install it, the env var (if a
 | `llamaserver` | `LlamaServerOpenAIClient` | `aimu[openai_compat]` | — | localhost:8080 | `base_url=` | native (`AsyncOpenAI`) |
 | `sglang` | `SGLangOpenAIClient` | `aimu[openai_compat]` | — | localhost:30000 | `base_url=` | native (`AsyncOpenAI`) |
 | `llamacpp` | `LlamaCppClient` | `aimu[llamacpp]` | — | in-process | `model_path=` (required), `n_ctx`, `n_gpu_layers`, `chat_format`, `chat_handler`, `verbose` | wrapped sync via `asyncio.to_thread` |
+
+## Image providers (`aimu.image_client()` / `aimu.generate_image()`)
+
+| Provider key (in model string) | Client class | Extra | API key | Default endpoint | Provider-specific kwargs | Async kind |
+|---|---|---|---|---|---|---|
+| `hf` | `HuggingFaceImageClient` | `aimu[hf]` | — (HF login for gated models) | local | `model_kwargs={...}` (passed to `pipeline.from_pretrained`) | wrapped sync via `asyncio.to_thread` |
+| `gemini` | `GeminiImageClient` | `aimu[google]` | `GOOGLE_API_KEY` | generativelanguage.googleapis.com | `model_kwargs={"api_key": "..."}` | wrapped sync via `asyncio.to_thread` |
+
+Image clients share the `provider:model_id` string format with text — the namespaces don't collide because they're consumed by separate factories (`ImageClient` vs `ModelClient`). Per-call generation kwargs differ by provider: HF takes `negative_prompt`, `width`, `height`, `num_inference_steps`, `guidance_scale`, `seed`; Gemini takes `aspect_ratio`, `image_size`. All image clients accept `num_images=`, `format=` (`"pil"` / `"path"` / `"bytes"` / `"data_url"`), and `output_dir=` from the shared `BaseImageClient.generate()`.
 
 The **async kind** column says how `aimu.aio` reaches each provider. *Native* providers use the SDK's own async client; the async surface delivers real coroutine concurrency. *Wrapped sync* providers (HF, LlamaCpp) load model weights in-process — the async surface buys you event-loop integration (your handler doesn't block) but **not** coroutine-level concurrency (the GIL and CUDA stream serialize execution). For these providers, async clients are built by wrapping an existing sync client; see [how-to: use async](../how-to/use-async.md#in-process-providers-huggingface-llamacpp).
 
@@ -45,6 +56,8 @@ aimu.client("lmstudio:qwen3.5-9b", base_url="http://myserver:1234/v1")
 - **`LlamaCppClient`** loads GGUF files in-process. Vision needs an `mmproj` projector via the `chat_handler=` kwarg (e.g. `Llava15ChatHandler(clip_model_path=...)`).
 - **`HuggingFaceClient`** uses `AutoProcessor` for vision when available (Gemma 3/4, Qwen 3.5/3.6 VL). The model's `tool_call_format` enum value (`XML` / `JSON_OBJECT` / `JSON_ARRAY` / `BRACKETED`) tells the client how to parse tool calls.
 - **OpenAI-compatible local servers** (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve) all subclass `OpenAICompatClient` and differ only in default `base_url` and the format of their model id strings.
+- **`HuggingFaceImageClient`** loads the `diffusers` pipeline lazily on the first `generate()` call. The spec's `pipeline_class` field names a class in the `diffusers` namespace (e.g. `"StableDiffusionXLPipeline"`, `"FluxPipeline"`); auto-moves to CUDA or MPS if available.
+- **`GeminiImageClient`** uses Google's native `google-genai` SDK (not the OpenAI-compat endpoint). Calls `client.models.generate_content` with `response_modalities=[Modality.IMAGE]`; Nano Banana returns one image per call so `num_images > 1` issues N requests. Aliases like `"gemini:nano-banana"` resolve to `gemini-2.5-flash-image`.
 
 ## See also
 

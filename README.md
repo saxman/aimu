@@ -16,6 +16,12 @@ Common tasks are one-liners: `aimu.chat("hi", model="...")`, `Agent(client, tool
 - Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamingContentType.THINKING` chunks via the same API.
 - Typed streaming: `StreamChunk(phase, content, agent, iteration)` flows through `client.chat()`, `Agent.run()`, and every workflow. Filter with `include=["generating"]`.
 
+### Image generation
+
+- Parallel `aimu.image_client()` / `aimu.generate_image()` surface for text-to-image, mirroring the text client shape. `BaseImageClient` + `ImageClient` factory mirror `BaseModelClient` + `ModelClient` for the new modality.
+- Two providers: HuggingFace `diffusers` locally (`HuggingFaceImageClient` — SD 1.5 / SDXL / SD 3.5 / FLUX dev & schnell) and Google Nano Banana via the cloud API (`GeminiImageClient` — `gemini-2.5-flash-image`).
+- Drop image generation into any chat agent via the built-in `generate_image` tool — the LLM decides when to call it. Default provider via `AIMU_IMAGE_MODEL`.
+
 ### Agents and workflows
 
 - `Agent` runs an autonomous tool-using loop until the model stops calling tools.
@@ -101,6 +107,34 @@ client = aimu.client("openai:gpt-4o-mini")     # or anthropic, gemini, ollama, h
 client.chat("What's in this image?", images=["./cat.jpg"])
 ```
 
+**Image generation.** Same `provider:model_id` shape, parallel factory:
+
+```python
+# One-shot, local HuggingFace diffusers
+path = aimu.generate_image(
+    "a watercolor of a fox in a snowy forest",
+    model="hf:runwayml/stable-diffusion-v1-5",
+    format="path",
+)
+
+# Same one-shot, Google Nano Banana (cloud)
+img = aimu.generate_image("a watercolor of a fox", model="gemini:nano-banana")
+
+# Reuse loaded weights across calls
+client = aimu.image_client(aimu.HuggingFaceImageModel.SDXL_BASE)
+img = client.generate("a cyberpunk city skyline at dusk")
+```
+
+A chat agent can also call image generation as a tool:
+
+```python
+from aimu.agents import Agent
+from aimu.tools import builtin
+
+agent = Agent(aimu.client("anthropic:claude-sonnet-4-6"), tools=[builtin.generate_image])
+agent.run("Make me an illustration of a fox curled up in a snowy forest.")
+```
+
 **Async (opt-in).** Same names, one import away:
 
 ```python
@@ -125,7 +159,7 @@ asyncio.run(main())
 pip install aimu[all]
 ```
 
-Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]`, `aimu[hf]`, `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
+Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]`, `aimu[hf]` (text + HuggingFace `diffusers` image generation), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
 
 ## Documentation
 
@@ -156,6 +190,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [12 - Evaluations](notebooks/12%20-%20Evaluations.ipynb) | DeepEval integration |
 | [13 - Benchmarking](notebooks/13%20-%20Benchmarking.ipynb) | Multi-model comparison harness |
 | [14 - Async](notebooks/14%20-%20Async.ipynb) | `aimu.aio` surface end-to-end: chat, streaming, async tools, `asyncio.TaskGroup`-backed `Parallel`, async `MCPClient`, in-process provider wrapping |
+| [15 - Image Generation](notebooks/15%20-%20Image%20Generation.ipynb) | `aimu.image_client()` / `aimu.generate_image()` with HuggingFace `diffusers` and Google Nano Banana, plus the built-in `generate_image` agent tool |
 
 ## Design principles
 

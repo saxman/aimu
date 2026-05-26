@@ -11,6 +11,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 - [Stream output](stream-output.md) — `stream=True`, phase filtering, helpers
 - [Use async (`aio`)](use-async.md) — embed AIMU in async apps; `asyncio.TaskGroup`-backed `Parallel`
 - [Handle vision input](handle-vision.md) — pass images via `images=`
+- [Generate images](generate-images.md) — `aimu.image_client()` / `generate_image()` with HuggingFace `diffusers` + Google Nano Banana
 
 ## Tools
 

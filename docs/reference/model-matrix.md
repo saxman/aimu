@@ -110,7 +110,33 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 
 `LMStudioOpenAIModel`, `OllamaOpenAIModel`, `HFOpenAIModel`, `VLLMOpenAIModel`, `LlamaServerOpenAIModel`, and `SGLangOpenAIModel` all enumerate the same set of common open models (Llama 3.x, Mistral 7B, Phi-4 Mini, Qwen 3.x, DeepSeek R1, Gemma 3). The model id format differs per server (LM Studio uses loaded model keys, Ollama uses `name:tag`, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames). See the enum source for each.
 
+## Image generation
+
+Image clients use a different spec class than text (`HuggingFaceImageSpec` / `GeminiImageSpec`) — the capability flags don't apply, so the matrix shows model-specific defaults instead.
+
+### HuggingFace diffusers (`HuggingFaceImageModel`)
+
+| Enum member | Repo id | Pipeline class | Default steps | Default size |
+|---|---|---|:---:|:---:|
+| `SD_1_5` | `runwayml/stable-diffusion-v1-5` | `StableDiffusionPipeline` | 25 | 512×512 |
+| `SDXL_BASE` | `stabilityai/stable-diffusion-xl-base-1.0` | `StableDiffusionXLPipeline` | 30 | 1024×1024 |
+| `SD_3_5_MEDIUM` | `stabilityai/stable-diffusion-3.5-medium` | `StableDiffusion3Pipeline` | 28 | 1024×1024 |
+| `FLUX_DEV` | `black-forest-labs/FLUX.1-dev` | `FluxPipeline` | 28 | 1024×1024 |
+| `FLUX_SCHNELL` | `black-forest-labs/FLUX.1-schnell` | `FluxPipeline` | 4 | 1024×1024 |
+
+Spec defaults are starting points — pass `num_inference_steps=`, `guidance_scale=`, `width=`, `height=`, `seed=` to override per call. Power users can bypass the enum with a `"hf:<repo_id>"` string for any HuggingFace diffusers model (defaults to `DiffusionPipeline` auto-detect loader).
+
+### Google Gemini (`GeminiImageModel`)
+
+| Enum member | Model id | Notes |
+|---|---|---|
+| `NANO_BANANA` | `gemini-2.5-flash-image` | GA channel. Aspect ratio via `aspect_ratio=` (e.g. `"1:1"`, `"16:9"`). |
+| `NANO_BANANA_PREVIEW` | `gemini-2.5-flash-image-preview` | Preview channel; kept for users who pinned it. |
+
+Short-name aliases like `"gemini:nano-banana"` resolve to the full model id at construction. Nano Banana's `generate_content` API returns one image per call; `num_images > 1` issues N requests.
+
 ## See also
 
 - [Provider matrix](provider-matrix.md) — provider × extra × API key
 - [How-to: add a new model](../how-to/add-new-model.md) — extending these enums
+- [How-to: generate images](../how-to/generate-images.md) — using the image surface

@@ -1,17 +1,23 @@
 # Architecture
 
-The whole library fits in your head. There are three load-bearing abstractions and a handful of supporting types — nothing more.
+The whole library fits in your head. There are three load-bearing abstractions for text plus a parallel image-generation surface — nothing more.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Top-level: aimu.chat() / aimu.client() / resolve_model_string│
+│             aimu.image_client() / aimu.generate_image()      │
 ├──────────────────────────────────────────────────────────────┤
-│  ModelClient (factory)                                       │
+│  Text:  ModelClient (factory)                                │
 │   ├─ OllamaClient / AnthropicClient / HuggingFaceClient      │
 │   ├─ OpenAICompatClient (+ OpenAI, Gemini, LM Studio, ...)   │
 │   └─ LlamaCppClient                                          │
 │  Each implements BaseModelClient (chat / generate / _chat /  │
 │   _generate / _update_generate_kwargs)                       │
+├──────────────────────────────────────────────────────────────┤
+│  Image: ImageClient (factory)                                │
+│   ├─ HuggingFaceImageClient  (HF diffusers, local)           │
+│   └─ GeminiImageClient       (Nano Banana, cloud)            │
+│  Each implements BaseImageClient (generate / _generate)      │
 ├──────────────────────────────────────────────────────────────┤
 │  Runner (ABC)  — single interface for everything runnable    │
 │   ├─ Agent / SkillAgent / OrchestratorAgent                  │
@@ -98,6 +104,26 @@ There's a single `Runner` ABC. The autonomous-vs-code-controlled split survives 
 
 All concrete classes live in `aimu.agents`. This is the *Building Effective Agents* taxonomy made concrete. See [Agents vs workflows](agents-vs-workflows.md) for the underlying argument.
 
+## Image generation: a parallel surface, not a forced fit
+
+Image generation lives next to the text client, not inside it. The shape mirrors text one-for-one:
+
+| Text | Image |
+|---|---|
+| `BaseModelClient` (ABC) | `BaseImageClient` (ABC) |
+| `Model` (Enum base) | `ImageModel` (Enum base) |
+| `ModelSpec` (dataclass) | `ImageSpec` (dataclass) + `HuggingFaceImageSpec` / `GeminiImageSpec` subclasses |
+| `ModelClient` (factory) | `ImageClient` (factory) |
+| `aimu.client()` / `aimu.chat()` | `aimu.image_client()` / `aimu.generate_image()` |
+
+`BaseImageClient` does *not* subclass `BaseModelClient` — text and image have disjoint contracts. `chat()`, `messages`, `system_message`, `tools`, and `StreamChunk` phases are meaningless for stateless text-to-image. Forcing the modalities into one class would expand the public surface and bleed irrelevant fields into image users' code.
+
+What the two surfaces share is *shape*, not implementation: the same factory-plus-concretes pattern, the same `provider:id` string format, the same per-provider extras (`[hf]` covers both HF text and HF image; `[google]` is image-only since text-side Gemini uses the OpenAI-compat endpoint), and the same dispatch story (enum / spec / string → concrete client via the factory).
+
+Tool integration is what unites them in practice: the built-in `generate_image` tool wraps an `ImageClient` and lets any text chat agent call image generation when the user asks. The agent loop doesn't know or care that the tool ultimately hits a cloud API or local GPU.
+
+See [How-to: generate images](../how-to/generate-images.md) for the runnable patterns.
+
 ## Two surfaces, one shape
 
 Everything above describes the **sync** surface — `aimu.client()`, `aimu.agents.Agent`, etc. AIMU also ships an opt-in **async** surface under `aimu.aio` that mirrors this shape one-for-one. Same class names, same `Runner` decision tree, same `StreamChunk` type, same `_ChatStateMixin` for state mechanics. The only differences are at the call site (`await`), the streaming type (`AsyncIterator[StreamChunk]`), and the concurrency primitive used by `Parallel` and `concurrent_tool_calls` (`asyncio.TaskGroup` instead of `ThreadPoolExecutor`).
@@ -128,9 +154,9 @@ Both can be active on the same client. Python tools take precedence on name coll
 
 | Package | Role |
 |---|---|
-| `aimu` | Top-level `chat()`, `client()`, `resolve_model_string()`, re-exports |
+| `aimu` | Top-level `chat()`, `client()`, `image_client()`, `generate_image()`, re-exports |
 | `aimu.aio` | Async mirror of the public sync surface — same class names, `async def` everywhere |
-| `aimu.models` | `ModelClient`, `BaseModelClient`, `ModelSpec`, `StreamChunk`, provider clients |
+| `aimu.models` | Text: `ModelClient`, `BaseModelClient`, `ModelSpec`, `StreamChunk`, provider clients. Image: `ImageClient`, `BaseImageClient`, `ImageSpec`, `HuggingFaceImageClient`, `GeminiImageClient` |
 | `aimu.agents` | `Runner` ABC; `Agent`, `SkillAgent`, `OrchestratorAgent`; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` |
 | `aimu.tools` | `@tool` decorator, `MCPClient`, `builtin.*` tool groups |
 | `aimu.skills` | `AgentSkill`, `SkillManager`, MCP server builder |
