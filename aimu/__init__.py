@@ -1,5 +1,5 @@
 """
-aimu - AI Model Utilities
+aimu - AI Modeling Utilities
 
 Lightweight Python library for building LLM-powered apps. Provider-agnostic model
 clients (Ollama, HuggingFace, Anthropic, OpenAI, Gemini, llama-cpp, any OpenAI-compatible

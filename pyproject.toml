@@ -1,7 +1,7 @@
 [project]
 name = "aimu"
 version = "0.4.0"
-description = "A Python package containing tools for working with various language models and AI services."
+description = "AI Modeling Utilities: A Python package containing support for working with numerous AI models and services."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {file = "LICENSE"}
