@@ -1811,6 +1811,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#image-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image generation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Image generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#huggingface-diffusers-huggingfaceimagemodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HuggingFace diffusers (HuggingFaceImageModel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#google-gemini-geminiimagemodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google Gemini (GeminiImageModel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2359,6 +2398,45 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#image-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image generation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Image generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#huggingface-diffusers-huggingfaceimagemodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HuggingFace diffusers (HuggingFaceImageModel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#google-gemini-geminiimagemodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google Gemini (GeminiImageModel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2921,10 +2999,86 @@
 <p>llama-cpp model ids are hints; the actual model is loaded from <code>model_path=</code> regardless. Capability flags are honoured by the client.</p>
 <h2 id="openai-compatible-local-servers">OpenAI-compatible local servers<a class="headerlink" href="#openai-compatible-local-servers" title="Permanent link">&para;</a></h2>
 <p><code>LMStudioOpenAIModel</code>, <code>OllamaOpenAIModel</code>, <code>HFOpenAIModel</code>, <code>VLLMOpenAIModel</code>, <code>LlamaServerOpenAIModel</code>, and <code>SGLangOpenAIModel</code> all enumerate the same set of common open models (Llama 3.x, Mistral 7B, Phi-4 Mini, Qwen 3.x, DeepSeek R1, Gemma 3). The model id format differs per server (LM Studio uses loaded model keys, Ollama uses <code>name:tag</code>, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames). See the enum source for each.</p>
+<h2 id="image-generation">Image generation<a class="headerlink" href="#image-generation" title="Permanent link">&para;</a></h2>
+<p>Image clients use a different spec class than text (<code>HuggingFaceImageSpec</code> / <code>GeminiImageSpec</code>) — the capability flags don't apply, so the matrix shows model-specific defaults instead.</p>
+<h3 id="huggingface-diffusers-huggingfaceimagemodel">HuggingFace diffusers (<code>HuggingFaceImageModel</code>)<a class="headerlink" href="#huggingface-diffusers-huggingfaceimagemodel" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Enum member</th>
+<th>Repo id</th>
+<th>Pipeline class</th>
+<th style="text-align: center;">Default steps</th>
+<th style="text-align: center;">Default size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SD_1_5</code></td>
+<td><code>runwayml/stable-diffusion-v1-5</code></td>
+<td><code>StableDiffusionPipeline</code></td>
+<td style="text-align: center;">25</td>
+<td style="text-align: center;">512×512</td>
+</tr>
+<tr>
+<td><code>SDXL_BASE</code></td>
+<td><code>stabilityai/stable-diffusion-xl-base-1.0</code></td>
+<td><code>StableDiffusionXLPipeline</code></td>
+<td style="text-align: center;">30</td>
+<td style="text-align: center;">1024×1024</td>
+</tr>
+<tr>
+<td><code>SD_3_5_MEDIUM</code></td>
+<td><code>stabilityai/stable-diffusion-3.5-medium</code></td>
+<td><code>StableDiffusion3Pipeline</code></td>
+<td style="text-align: center;">28</td>
+<td style="text-align: center;">1024×1024</td>
+</tr>
+<tr>
+<td><code>FLUX_DEV</code></td>
+<td><code>black-forest-labs/FLUX.1-dev</code></td>
+<td><code>FluxPipeline</code></td>
+<td style="text-align: center;">28</td>
+<td style="text-align: center;">1024×1024</td>
+</tr>
+<tr>
+<td><code>FLUX_SCHNELL</code></td>
+<td><code>black-forest-labs/FLUX.1-schnell</code></td>
+<td><code>FluxPipeline</code></td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">1024×1024</td>
+</tr>
+</tbody>
+</table>
+<p>Spec defaults are starting points — pass <code>num_inference_steps=</code>, <code>guidance_scale=</code>, <code>width=</code>, <code>height=</code>, <code>seed=</code> to override per call. Power users can bypass the enum with a <code>"hf:&lt;repo_id&gt;"</code> string for any HuggingFace diffusers model (defaults to <code>DiffusionPipeline</code> auto-detect loader).</p>
+<h3 id="google-gemini-geminiimagemodel">Google Gemini (<code>GeminiImageModel</code>)<a class="headerlink" href="#google-gemini-geminiimagemodel" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Enum member</th>
+<th>Model id</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NANO_BANANA</code></td>
+<td><code>gemini-2.5-flash-image</code></td>
+<td>GA channel. Aspect ratio via <code>aspect_ratio=</code> (e.g. <code>"1:1"</code>, <code>"16:9"</code>).</td>
+</tr>
+<tr>
+<td><code>NANO_BANANA_PREVIEW</code></td>
+<td><code>gemini-2.5-flash-image-preview</code></td>
+<td>Preview channel; kept for users who pinned it.</td>
+</tr>
+</tbody>
+</table>
+<p>Short-name aliases like <code>"gemini:nano-banana"</code> resolve to the full model id at construction. Nano Banana's <code>generate_content</code> API returns one image per call; <code>num_images &gt; 1</code> issues N requests.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../provider-matrix/">Provider matrix</a> — provider × extra × API key</li>
 <li><a href="../../how-to/add-new-model/">How-to: add a new model</a> — extending these enums</li>
+<li><a href="../../how-to/generate-images/">How-to: generate images</a> — using the image surface</li>
 </ul>
 
 

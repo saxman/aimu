@@ -1975,6 +1975,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#image-generation-a-parallel-surface-not-a-forced-fit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image generation: a parallel surface, not a forced fit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#two-surfaces-one-shape" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2338,6 +2349,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#image-generation-a-parallel-surface-not-a-forced-fit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image generation: a parallel surface, not a forced fit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#two-surfaces-one-shape" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2413,25 +2435,31 @@
 
 
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
-<p>The whole library fits in your head. There are three load-bearing abstractions and a handful of supporting types — nothing more.</p>
+<p>The whole library fits in your head. There are three load-bearing abstractions for text plus a parallel image-generation surface — nothing more.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌──────────────────────────────────────────────────────────────┐
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  Top-level: aimu.chat() / aimu.client() / resolve_model_string│
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├──────────────────────────────────────────────────────────────┤
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│  ModelClient (factory)                                       │
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   ├─ OllamaClient / AnthropicClient / HuggingFaceClient      │
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├─ OpenAICompatClient (+ OpenAI, Gemini, LM Studio, ...)   │
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   └─ LlamaCppClient                                          │
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│  Each implements BaseModelClient (chat / generate / _chat /  │
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   _generate / _update_generate_kwargs)                       │
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├──────────────────────────────────────────────────────────────┤
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│  Runner (ABC)  — single interface for everything runnable    │
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├─ Agent / SkillAgent / OrchestratorAgent                  │
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   │     (autonomous: LLM directs flow)                       │
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   └─ Chain / Router / Parallel /                             │
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│      EvaluatorOptimizer / PlanExecuteEvaluator               │
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│         (code-controlled: code directs flow)                 │
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│  All concretes exported from aimu.agents.                    │
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>└──────────────────────────────────────────────────────────────┘
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│             aimu.image_client() / aimu.generate_image()      │
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├──────────────────────────────────────────────────────────────┤
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│  Text:  ModelClient (factory)                                │
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├─ OllamaClient / AnthropicClient / HuggingFaceClient      │
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   ├─ OpenAICompatClient (+ OpenAI, Gemini, LM Studio, ...)   │
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   └─ LlamaCppClient                                          │
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│  Each implements BaseModelClient (chat / generate / _chat /  │
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   _generate / _update_generate_kwargs)                       │
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├──────────────────────────────────────────────────────────────┤
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│  Image: ImageClient (factory)                                │
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   ├─ HuggingFaceImageClient  (HF diffusers, local)           │
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   └─ GeminiImageClient       (Nano Banana, cloud)            │
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│  Each implements BaseImageClient (generate / _generate)      │
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├──────────────────────────────────────────────────────────────┤
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│  Runner (ABC)  — single interface for everything runnable    │
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├─ Agent / SkillAgent / OrchestratorAgent                  │
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   │     (autonomous: LLM directs flow)                       │
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   └─ Chain / Router / Parallel /                             │
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│      EvaluatorOptimizer / PlanExecuteEvaluator               │
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│         (code-controlled: code directs flow)                 │
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│  All concretes exported from aimu.agents.                    │
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>└──────────────────────────────────────────────────────────────┘
 </span></code></pre></div>
 <h2 id="the-base-contract-basemodelclient">The base contract: <code>BaseModelClient</code><a class="headerlink" href="#the-base-contract-basemodelclient" title="Permanent link">&para;</a></h2>
 <p>Every provider speaks the same shape. The contract:</p>
@@ -2487,6 +2515,42 @@
 <li><strong>Code-controlled</strong> — code directs flow. <code>Chain</code> runs steps in a fixed order; <code>Router</code> classifies and dispatches; <code>Parallel</code> fans out; <code>EvaluatorOptimizer</code> iterates generate→critique; <code>PlanExecuteEvaluator</code> plans→executes→scores→replans.</li>
 </ul>
 <p>All concrete classes live in <code>aimu.agents</code>. This is the <em>Building Effective Agents</em> taxonomy made concrete. See <a href="../agents-vs-workflows/">Agents vs workflows</a> for the underlying argument.</p>
+<h2 id="image-generation-a-parallel-surface-not-a-forced-fit">Image generation: a parallel surface, not a forced fit<a class="headerlink" href="#image-generation-a-parallel-surface-not-a-forced-fit" title="Permanent link">&para;</a></h2>
+<p>Image generation lives next to the text client, not inside it. The shape mirrors text one-for-one:</p>
+<table>
+<thead>
+<tr>
+<th>Text</th>
+<th>Image</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BaseModelClient</code> (ABC)</td>
+<td><code>BaseImageClient</code> (ABC)</td>
+</tr>
+<tr>
+<td><code>Model</code> (Enum base)</td>
+<td><code>ImageModel</code> (Enum base)</td>
+</tr>
+<tr>
+<td><code>ModelSpec</code> (dataclass)</td>
+<td><code>ImageSpec</code> (dataclass) + <code>HuggingFaceImageSpec</code> / <code>GeminiImageSpec</code> subclasses</td>
+</tr>
+<tr>
+<td><code>ModelClient</code> (factory)</td>
+<td><code>ImageClient</code> (factory)</td>
+</tr>
+<tr>
+<td><code>aimu.client()</code> / <code>aimu.chat()</code></td>
+<td><code>aimu.image_client()</code> / <code>aimu.generate_image()</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>BaseImageClient</code> does <em>not</em> subclass <code>BaseModelClient</code> — text and image have disjoint contracts. <code>chat()</code>, <code>messages</code>, <code>system_message</code>, <code>tools</code>, and <code>StreamChunk</code> phases are meaningless for stateless text-to-image. Forcing the modalities into one class would expand the public surface and bleed irrelevant fields into image users' code.</p>
+<p>What the two surfaces share is <em>shape</em>, not implementation: the same factory-plus-concretes pattern, the same <code>provider:id</code> string format, the same per-provider extras (<code>[hf]</code> covers both HF text and HF image; <code>[google]</code> is image-only since text-side Gemini uses the OpenAI-compat endpoint), and the same dispatch story (enum / spec / string → concrete client via the factory).</p>
+<p>Tool integration is what unites them in practice: the built-in <code>generate_image</code> tool wraps an <code>ImageClient</code> and lets any text chat agent call image generation when the user asks. The agent loop doesn't know or care that the tool ultimately hits a cloud API or local GPU.</p>
+<p>See <a href="../../how-to/generate-images/">How-to: generate images</a> for the runnable patterns.</p>
 <h2 id="two-surfaces-one-shape">Two surfaces, one shape<a class="headerlink" href="#two-surfaces-one-shape" title="Permanent link">&para;</a></h2>
 <p>Everything above describes the <strong>sync</strong> surface — <code>aimu.client()</code>, <code>aimu.agents.Agent</code>, etc. AIMU also ships an opt-in <strong>async</strong> surface under <code>aimu.aio</code> that mirrors this shape one-for-one. Same class names, same <code>Runner</code> decision tree, same <code>StreamChunk</code> type, same <code>_ChatStateMixin</code> for state mechanics. The only differences are at the call site (<code>await</code>), the streaming type (<code>AsyncIterator[StreamChunk]</code>), and the concurrency primitive used by <code>Parallel</code> and <code>concurrent_tool_calls</code> (<code>asyncio.TaskGroup</code> instead of <code>ThreadPoolExecutor</code>).</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aimu.{chat, client, Agent, Chain, …}        # sync — default
@@ -2514,7 +2578,7 @@
 <tbody>
 <tr>
 <td><code>aimu</code></td>
-<td>Top-level <code>chat()</code>, <code>client()</code>, <code>resolve_model_string()</code>, re-exports</td>
+<td>Top-level <code>chat()</code>, <code>client()</code>, <code>image_client()</code>, <code>generate_image()</code>, re-exports</td>
 </tr>
 <tr>
 <td><code>aimu.aio</code></td>
@@ -2522,7 +2586,7 @@
 </tr>
 <tr>
 <td><code>aimu.models</code></td>
-<td><code>ModelClient</code>, <code>BaseModelClient</code>, <code>ModelSpec</code>, <code>StreamChunk</code>, provider clients</td>
+<td>Text: <code>ModelClient</code>, <code>BaseModelClient</code>, <code>ModelSpec</code>, <code>StreamChunk</code>, provider clients. Image: <code>ImageClient</code>, <code>BaseImageClient</code>, <code>ImageSpec</code>, <code>HuggingFaceImageClient</code>, <code>GeminiImageClient</code></td>
 </tr>
 <tr>
 <td><code>aimu.agents</code></td>

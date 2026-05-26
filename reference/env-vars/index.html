@@ -2351,12 +2351,12 @@
 </tr>
 <tr>
 <td><code>GOOGLE_API_KEY</code></td>
-<td><code>GeminiClient</code></td>
+<td><code>GeminiClient</code> (text) and <code>GeminiImageClient</code> (Nano Banana)</td>
 <td>Yes (for <code>gemini:*</code> models)</td>
 </tr>
 </tbody>
 </table>
-<p>If missing, the client constructs successfully but the first request raises an authentication error from the underlying SDK.</p>
+<p>If missing, the text clients construct successfully but the first request raises an authentication error from the underlying SDK. <code>GeminiImageClient</code> raises <code>RuntimeError</code> at construction time with an actionable message instead.</p>
 <h2 id="tool-endpoints">Tool endpoints<a class="headerlink" href="#tool-endpoints" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2372,8 +2372,14 @@
 <td><code>aimu.tools.builtin.search</code></td>
 <td><code>http://localhost:8080</code></td>
 </tr>
+<tr>
+<td><code>AIMU_IMAGE_MODEL</code></td>
+<td><code>aimu.tools.builtin.generate_image</code> (lazy singleton)</td>
+<td><code>hf:stabilityai/stable-diffusion-xl-base-1.0</code></td>
+</tr>
 </tbody>
 </table>
+<p>The built-in <code>generate_image</code> tool constructs its image client lazily on first call, picking the provider and model from <code>AIMU_IMAGE_MODEL</code>. Accepts any string supported by <code>aimu.image_client()</code> — <code>"hf:&lt;repo&gt;"</code> or <code>"gemini:&lt;id_or_alias&gt;"</code>. Override per-agent by building your own tool with <code>make_image_tool(client)</code> instead of using the singleton.</p>
 <h2 id="mcp-server-storage-paths">MCP server storage paths<a class="headerlink" href="#mcp-server-storage-paths" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2411,10 +2417,13 @@
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Local search (SearXNG)</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="na">SEARXNG_BASE_URL</span><span class="o">=</span><span class="s">http://localhost:8080</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># MCP server storage</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="na">MEMORY_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/memory</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="na">DOCUMENT_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/docs</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="na">PROMPT_CATALOG_PATH</span><span class="o">=</span><span class="s">./.aimu/prompts.db</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Image generation default (used by the built-in generate_image tool)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="na">AIMU_IMAGE_MODEL</span><span class="o">=</span><span class="s">gemini:nano-banana</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># MCP server storage</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="na">MEMORY_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/memory</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="na">DOCUMENT_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/docs</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="na">PROMPT_CATALOG_PATH</span><span class="o">=</span><span class="s">./.aimu/prompts.db</span>
 </span></code></pre></div>
 <p>Place it in your project root. Don't commit it — add <code>.env</code> to <code>.gitignore</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

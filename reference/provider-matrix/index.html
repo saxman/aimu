@@ -1706,6 +1706,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#text-providers-aimuclient-aimuchat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Text providers (aimu.client() / aimu.chat())
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#image-providers-aimuimage_client-aimugenerate_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image providers (aimu.image_client() / aimu.generate_image())
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#passing-provider-kwargs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2231,6 +2253,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#text-providers-aimuclient-aimuchat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Text providers (aimu.client() / aimu.chat())
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#image-providers-aimuimage_client-aimugenerate_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image providers (aimu.image_client() / aimu.generate_image())
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#passing-provider-kwargs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2285,6 +2329,7 @@
 
 <h1 id="provider-matrix">Provider matrix<a class="headerlink" href="#provider-matrix" title="Permanent link">&para;</a></h1>
 <p>Every supported provider, with the extra needed to install it, the env var (if any) it reads, the default endpoint, and any provider-specific constructor kwargs.</p>
+<h2 id="text-providers-aimuclient-aimuchat">Text providers (<code>aimu.client()</code> / <code>aimu.chat()</code>)<a class="headerlink" href="#text-providers-aimuclient-aimuchat" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -2408,6 +2453,41 @@
 </tr>
 </tbody>
 </table>
+<h2 id="image-providers-aimuimage_client-aimugenerate_image">Image providers (<code>aimu.image_client()</code> / <code>aimu.generate_image()</code>)<a class="headerlink" href="#image-providers-aimuimage_client-aimugenerate_image" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Provider key (in model string)</th>
+<th>Client class</th>
+<th>Extra</th>
+<th>API key</th>
+<th>Default endpoint</th>
+<th>Provider-specific kwargs</th>
+<th>Async kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hf</code></td>
+<td><code>HuggingFaceImageClient</code></td>
+<td><code>aimu[hf]</code></td>
+<td>— (HF login for gated models)</td>
+<td>local</td>
+<td><code>model_kwargs={...}</code> (passed to <code>pipeline.from_pretrained</code>)</td>
+<td>wrapped sync via <code>asyncio.to_thread</code></td>
+</tr>
+<tr>
+<td><code>gemini</code></td>
+<td><code>GeminiImageClient</code></td>
+<td><code>aimu[google]</code></td>
+<td><code>GOOGLE_API_KEY</code></td>
+<td>generativelanguage.googleapis.com</td>
+<td><code>model_kwargs={"api_key": "..."}</code></td>
+<td>wrapped sync via <code>asyncio.to_thread</code></td>
+</tr>
+</tbody>
+</table>
+<p>Image clients share the <code>provider:model_id</code> string format with text — the namespaces don't collide because they're consumed by separate factories (<code>ImageClient</code> vs <code>ModelClient</code>). Per-call generation kwargs differ by provider: HF takes <code>negative_prompt</code>, <code>width</code>, <code>height</code>, <code>num_inference_steps</code>, <code>guidance_scale</code>, <code>seed</code>; Gemini takes <code>aspect_ratio</code>, <code>image_size</code>. All image clients accept <code>num_images=</code>, <code>format=</code> (<code>"pil"</code> / <code>"path"</code> / <code>"bytes"</code> / <code>"data_url"</code>), and <code>output_dir=</code> from the shared <code>BaseImageClient.generate()</code>.</p>
 <p>The <strong>async kind</strong> column says how <code>aimu.aio</code> reaches each provider. <em>Native</em> providers use the SDK's own async client; the async surface delivers real coroutine concurrency. <em>Wrapped sync</em> providers (HF, LlamaCpp) load model weights in-process — the async surface buys you event-loop integration (your handler doesn't block) but <strong>not</strong> coroutine-level concurrency (the GIL and CUDA stream serialize execution). For these providers, async clients are built by wrapping an existing sync client; see <a href="../../how-to/use-async/#in-process-providers-huggingface-llamacpp">how-to: use async</a>.</p>
 <h2 id="passing-provider-kwargs">Passing provider kwargs<a class="headerlink" href="#passing-provider-kwargs" title="Permanent link">&para;</a></h2>
 <p>Provider-specific kwargs are forwarded through <code>ModelClient</code> and <code>aimu.client()</code>:</p>
@@ -2431,6 +2511,8 @@
 <li><strong><code>LlamaCppClient</code></strong> loads GGUF files in-process. Vision needs an <code>mmproj</code> projector via the <code>chat_handler=</code> kwarg (e.g. <code>Llava15ChatHandler(clip_model_path=...)</code>).</li>
 <li><strong><code>HuggingFaceClient</code></strong> uses <code>AutoProcessor</code> for vision when available (Gemma 3/4, Qwen 3.5/3.6 VL). The model's <code>tool_call_format</code> enum value (<code>XML</code> / <code>JSON_OBJECT</code> / <code>JSON_ARRAY</code> / <code>BRACKETED</code>) tells the client how to parse tool calls.</li>
 <li><strong>OpenAI-compatible local servers</strong> (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve) all subclass <code>OpenAICompatClient</code> and differ only in default <code>base_url</code> and the format of their model id strings.</li>
+<li><strong><code>HuggingFaceImageClient</code></strong> loads the <code>diffusers</code> pipeline lazily on the first <code>generate()</code> call. The spec's <code>pipeline_class</code> field names a class in the <code>diffusers</code> namespace (e.g. <code>"StableDiffusionXLPipeline"</code>, <code>"FluxPipeline"</code>); auto-moves to CUDA or MPS if available.</li>
+<li><strong><code>GeminiImageClient</code></strong> uses Google's native <code>google-genai</code> SDK (not the OpenAI-compat endpoint). Calls <code>client.models.generate_content</code> with <code>response_modalities=[Modality.IMAGE]</code>; Nano Banana returns one image per call so <code>num_images &gt; 1</code> issues N requests. Aliases like <code>"gemini:nano-banana"</code> resolve to <code>gemini-2.5-flash-image</code>.</li>
 </ul>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
