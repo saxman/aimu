@@ -7,7 +7,7 @@ the per-agent factory escape hatch. No diffusers install required.
 from __future__ import annotations
 
 # Install the diffusers stub before importing aimu.tools.builtin's image bits.
-from test_diffusion_api import _install_diffusers_stub  # noqa: F401 — side effect
+from test_images_api import _install_diffusers_stub  # noqa: F401 — side effect
 
 _install_diffusers_stub()
 
@@ -15,17 +15,17 @@ import importlib  # noqa: E402
 
 import aimu.models  # noqa: E402
 
-if not aimu.models.HAS_DIFFUSION:
-    aimu.models.diffusion = importlib.import_module("aimu.models.diffusion")
-    aimu.models.HAS_DIFFUSION = True
-    aimu.models.DiffusionClient = aimu.models.diffusion.DiffusionClient
-    aimu.models.DiffusionModel = aimu.models.diffusion.DiffusionModel
+if not aimu.models.HAS_HF_IMAGE:
+    aimu.models.hf_image = importlib.import_module("aimu.models.hf_image")
+    aimu.models.HAS_HF_IMAGE = True
+    aimu.models.HuggingFaceImageClient = aimu.models.hf_image.HuggingFaceImageClient
+    aimu.models.HuggingFaceImageModel = aimu.models.hf_image.HuggingFaceImageModel
 
 import aimu  # noqa: E402
 
-aimu.HAS_DIFFUSION = True
-aimu.DiffusionClient = aimu.models.DiffusionClient
-aimu.DiffusionModel = aimu.models.DiffusionModel
+aimu.HAS_HF_IMAGE = True
+aimu.HuggingFaceImageClient = aimu.models.HuggingFaceImageClient
+aimu.HuggingFaceImageModel = aimu.models.HuggingFaceImageModel
 
 from aimu.tools import builtin  # noqa: E402
 
@@ -60,17 +60,17 @@ def test_generate_image_in_image_subgroup():
 
 
 def test_lazy_singleton_constructed_once(monkeypatch):
-    """_get_image_client should cache a single DiffusionClient and reuse it."""
+    """_get_image_client should cache a single image client and reuse it."""
     monkeypatch.setattr(builtin, "_image_client", None)
-    monkeypatch.setenv("AIMU_DIFFUSION_MODEL", "hf:test/repo")
+    monkeypatch.setenv("AIMU_IMAGE_MODEL", "hf:test/repo")
 
     constructed: list[str] = []
 
     def fake_image_client(model_str):
         constructed.append(model_str)
-        from aimu.models.diffusion import DiffusionClient
+        from aimu.models.hf_image import HuggingFaceImageClient
 
-        return DiffusionClient(model_str)
+        return HuggingFaceImageClient(model_str)
 
     monkeypatch.setattr("aimu.image_client", fake_image_client)
 
@@ -81,9 +81,9 @@ def test_lazy_singleton_constructed_once(monkeypatch):
 
 
 def test_singleton_honours_env_var(monkeypatch, tmp_path):
-    """AIMU_DIFFUSION_MODEL env var should pick the singleton's model."""
+    """AIMU_IMAGE_MODEL env var should pick the singleton's model."""
     monkeypatch.setattr(builtin, "_image_client", None)
-    monkeypatch.setenv("AIMU_DIFFUSION_MODEL", "hf:my/custom-repo")
+    monkeypatch.setenv("AIMU_IMAGE_MODEL", "hf:my/custom-repo")
 
     c = builtin._get_image_client()
     assert c.spec.id == "my/custom-repo"
@@ -91,11 +91,15 @@ def test_singleton_honours_env_var(monkeypatch, tmp_path):
 
 def test_tool_calls_singleton_and_returns_path(monkeypatch, tmp_path):
     """Calling generate_image() exercises the lazy path end-to-end."""
-    from aimu.models.diffusion import DiffusionClient, DiffusionModel
+    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 
-    monkeypatch.setattr(builtin, "_image_client", DiffusionClient(DiffusionModel.SD_1_5))
+    monkeypatch.setattr(builtin, "_image_client", HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5))
     # Reroute saves into tmp_path so we don't litter the repo's output dir.
-    monkeypatch.setattr(builtin._get_image_client(), "generate", lambda prompt, format: f"{tmp_path}/fake.png" if format == "path" else None)
+    monkeypatch.setattr(
+        builtin._get_image_client(),
+        "generate",
+        lambda prompt, format: f"{tmp_path}/fake.png" if format == "path" else None,
+    )
 
     result = builtin.generate_image("a cat")
     assert result.endswith("fake.png")
@@ -107,9 +111,9 @@ def test_tool_calls_singleton_and_returns_path(monkeypatch, tmp_path):
 
 
 def test_make_image_tool_returns_new_tool_bound_to_supplied_client():
-    from aimu.models.diffusion import DiffusionClient, DiffusionModel
+    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 
-    client = DiffusionClient(DiffusionModel.FLUX_SCHNELL)
+    client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_SCHNELL)
     bound_tool = builtin.make_image_tool(client)
 
     assert bound_tool is not builtin.generate_image
@@ -118,16 +122,20 @@ def test_make_image_tool_returns_new_tool_bound_to_supplied_client():
 
 
 def test_make_image_tool_uses_its_client_not_singleton(monkeypatch, tmp_path):
-    from aimu.models.diffusion import DiffusionClient, DiffusionModel
+    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 
     # Singleton should remain untouched; the bound tool should call its own client.
     sentinel = "singleton-should-not-be-touched"
     monkeypatch.setattr(builtin, "_image_client", sentinel)
 
-    custom = DiffusionClient(DiffusionModel.FLUX_SCHNELL)
+    custom = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_SCHNELL)
     bound_tool = builtin.make_image_tool(custom)
 
-    monkeypatch.setattr(custom, "generate", lambda prompt, format: f"{tmp_path}/custom.png" if format == "path" else None)
+    monkeypatch.setattr(
+        custom,
+        "generate",
+        lambda prompt, format: f"{tmp_path}/custom.png" if format == "path" else None,
+    )
 
     result = bound_tool("a fox")
     assert result.endswith("custom.png")

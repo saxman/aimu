@@ -3,8 +3,8 @@ aimu - AI Model Utilities
 
 Lightweight Python library for building LLM-powered apps. Provider-agnostic model
 clients (Ollama, HuggingFace, Anthropic, OpenAI, Gemini, llama-cpp, any OpenAI-compatible
-server), text-to-image diffusion clients (HuggingFace ``diffusers``), in-process tools
-via the ``@tool`` decorator, and code-controlled workflows (Chain, Router, Parallel,
+server), text-to-image clients (HuggingFace ``diffusers`` + Google Nano Banana), in-process
+tools via the ``@tool`` decorator, and code-controlled workflows (Chain, Router, Parallel,
 EvaluatorOptimizer) plus autonomous Agents.
 
 Quick start::
@@ -17,22 +17,32 @@ Quick start::
     client.chat("Hi there")
 
     image = aimu.generate_image("a watercolor of a fox", model="hf:runwayml/stable-diffusion-v1-5")
+    image = aimu.generate_image("a watercolor of a fox", model="gemini:nano-banana")
 """
 
 from typing import Any, Iterable, Iterator, Optional, Union
 
 from . import aio
 from .models import (
-    HAS_DIFFUSION,
+    HAS_GEMINI_IMAGE,
+    HAS_HF_IMAGE,
+    BaseImageClient,
     BaseModelClient,
-    DiffusionClient,
-    DiffusionModel,
-    DiffusionSpec,
+    GeminiImageClient,
+    GeminiImageModel,
+    GeminiImageSpec,
+    HuggingFaceImageClient,
+    HuggingFaceImageModel,
+    HuggingFaceImageSpec,
+    ImageClient,
+    ImageModel,
+    ImageSpec,
     Model,
     ModelClient,
     ModelSpec,
     StreamChunk,
     StreamingContentType,
+    resolve_image_model_string,
     resolve_model_string,
 )
 
@@ -85,45 +95,49 @@ def chat(
     )
 
 
-def image_client(model: Union[str, "DiffusionModel", "DiffusionSpec"], **kwargs: Any) -> "DiffusionClient":
-    """Construct a :class:`DiffusionClient` for text-to-image generation.
+def image_client(model: Union[str, ImageModel, ImageSpec], **kwargs: Any) -> ImageClient:
+    """Construct an :class:`ImageClient` for text-to-image generation.
 
-    ``model`` may be a :class:`DiffusionModel` enum member (e.g.
-    ``DiffusionModel.SDXL_BASE``), a :class:`DiffusionSpec`, or a
-    ``"hf:<repo_id>"`` string. Extra ``**kwargs`` are forwarded as
-    ``model_kwargs`` to the diffusers pipeline loader.
+    ``model`` may be a :class:`HuggingFaceImageModel` / :class:`GeminiImageModel` member,
+    an :class:`ImageSpec` subclass, or a ``"provider:model_id"`` string
+    (``"hf:..."`` for HuggingFace ``diffusers``; ``"gemini:..."`` for Google Nano Banana).
+    Extra ``**kwargs`` are forwarded as ``model_kwargs`` to the underlying provider client
+    (e.g. ``api_key=`` for Gemini, ``variant="fp16"`` for diffusers pipelines).
 
     Example::
 
-        client = aimu.image_client(aimu.DiffusionModel.SD_1_5)
-        image = client.generate("a watercolor of a fox in a snowy forest")
+        client = aimu.image_client(aimu.HuggingFaceImageModel.SD_1_5)
+        client = aimu.image_client("gemini:nano-banana")
     """
-    if not HAS_DIFFUSION:
-        raise ImportError(
-            "Diffusion support requires the [diffusion] extra: "
-            "pip install -e '.[diffusion]'"
-        )
-    return DiffusionClient(model, model_kwargs=kwargs or None)
+    return ImageClient(model, model_kwargs=kwargs or None)
 
 
 def generate_image(
     prompt: str,
     *,
-    model: Union[str, "DiffusionModel", "DiffusionSpec"],
+    model: Union[str, ImageModel, ImageSpec],
     format: str = "pil",
     **kwargs: Any,
 ) -> Any:
-    """One-shot image generation — builds a fresh :class:`DiffusionClient` and returns one image.
+    """One-shot image generation — builds a fresh image client and returns one image.
 
-    For multiple generations, construct a :class:`DiffusionClient` with :func:`image_client`
-    and reuse it so weights are loaded only once.
+    For multiple generations, construct a client with :func:`image_client` and reuse it
+    so weights / API clients aren't rebuilt per call.
 
     Example::
 
+        # Local diffusers
         path = aimu.generate_image(
             "a watercolor of a fox",
             model="hf:runwayml/stable-diffusion-v1-5",
             format="path",
+        )
+
+        # Google Nano Banana
+        img = aimu.generate_image(
+            "a watercolor of a fox",
+            model="gemini:nano-banana",
+            aspect_ratio="1:1",
         )
     """
     c = image_client(model)
@@ -131,10 +145,19 @@ def generate_image(
 
 
 __all__ = [
+    "BaseImageClient",
     "BaseModelClient",
-    "DiffusionClient",
-    "DiffusionModel",
-    "DiffusionSpec",
+    "HAS_GEMINI_IMAGE",
+    "HAS_HF_IMAGE",
+    "GeminiImageClient",
+    "GeminiImageModel",
+    "GeminiImageSpec",
+    "HuggingFaceImageClient",
+    "HuggingFaceImageModel",
+    "HuggingFaceImageSpec",
+    "ImageClient",
+    "ImageModel",
+    "ImageSpec",
     "Model",
     "ModelClient",
     "ModelSpec",
@@ -145,5 +168,6 @@ __all__ = [
     "client",
     "generate_image",
     "image_client",
+    "resolve_image_model_string",
     "resolve_model_string",
 ]

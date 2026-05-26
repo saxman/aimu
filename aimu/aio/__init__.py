@@ -42,7 +42,7 @@ use ``asyncio.TaskGroup`` — if one worker raises, siblings are cancelled and a
 from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
 from .agent import Agent, AsyncRunner
-from .diffusion import generate_image, image_client
+from .image import AsyncImageClient, generate_image, image_client
 from .skill_agent import SkillAgent
 from .orchestrator_agent import OrchestratorAgent
 from .workflows.chain import Chain
@@ -52,13 +52,20 @@ from .workflows.evaluator import EvaluatorOptimizer
 from .workflows.plan_execute_evaluator import PlanExecuteEvaluator
 
 try:
-    from .providers.diffusion import AsyncDiffusionClient
+    from .providers.hf_image import AsyncHuggingFaceImageClient
 except ImportError:
-    AsyncDiffusionClient = None  # type: ignore[assignment,misc]
+    AsyncHuggingFaceImageClient = None  # type: ignore[assignment,misc]
+
+try:
+    from .providers.gemini_image import AsyncGeminiImageClient
+except ImportError:
+    AsyncGeminiImageClient = None  # type: ignore[assignment,misc]
 
 __all__ = [
     "Agent",
-    "AsyncDiffusionClient",
+    "AsyncGeminiImageClient",
+    "AsyncHuggingFaceImageClient",
+    "AsyncImageClient",
     "AsyncModelClient",
     "AsyncRunner",
     "Chain",

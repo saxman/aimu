@@ -13,10 +13,13 @@ import pytest
 
 from aimu.models import (
     HAS_ANTHROPIC,
+    HAS_GEMINI_IMAGE,
+    HAS_HF_IMAGE,
     HAS_LLAMACPP,
     HAS_OPENAI_COMPAT,
     HuggingFaceClient,
     LlamaCppClient,
+    BaseImageClient,
     BaseModelClient,
     OllamaClient,
     StreamChunk,
@@ -43,6 +46,12 @@ else:
     OllamaOpenAIClient = None
     HFOpenAIClient = None
     VLLMOpenAIClient = None
+
+if HAS_HF_IMAGE:
+    from aimu.models import HuggingFaceImageClient
+
+if HAS_GEMINI_IMAGE:
+    from aimu.models import GeminiImageClient
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +273,82 @@ def create_real_model_client(request) -> Iterator[BaseModelClient]:
         client = LlamaCppClient(model, model_path=model_path, system_message="You are a helpful assistant.")
     else:
         raise ValueError(f"Unknown model: {model}")
+
+    yield client
+    del client
+
+
+# ---------------------------------------------------------------------------
+# Image-client parametrization helpers (parallel to the text helpers above)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_image_client_cls(client_type: str):
+    """Return the image client class for a given --image-client value (not 'all')."""
+    if client_type == "hf":
+        if not HAS_HF_IMAGE:
+            pytest.skip("[hf] extra not installed (pip install -e '.[hf]')")
+        return HuggingFaceImageClient
+    if client_type == "gemini":
+        if not HAS_GEMINI_IMAGE:
+            pytest.skip("[google] extra not installed (pip install -e '.[google]')")
+        return GeminiImageClient
+    raise ValueError(
+        f"Unknown --image-client value: {client_type!r}. Expected 'hf', 'gemini', or 'all'."
+    )
+
+
+def resolve_image_model_params(config) -> list:
+    """Build the list of params for parametrizing the ``image_client`` fixture.
+
+    Reads ``--image-client`` (``hf`` / ``gemini`` / ``all`` / default omitted)
+    and ``--image-model`` (specific enum member name or ``all``). When the
+    client flag is unset, no live tests run (returns []), matching the
+    opt-in convention used by other live tests in this repo.
+    """
+    client_type = config.getoption("--image-client", None)
+    model = config.getoption("--image-model", "all")
+
+    if client_type is None:
+        return []
+
+    client_type = client_type.lower()
+
+    if client_type == "all":
+        params: list = []
+        if HAS_HF_IMAGE:
+            params += list(HuggingFaceImageClient.MODELS)
+        if HAS_GEMINI_IMAGE:
+            params += list(GeminiImageClient.MODELS)
+        if model != "all":
+            params = [p for p in params if p.name == model]
+        return params
+
+    client_cls = _resolve_image_client_cls(client_type)
+    if model == "all":
+        return list(client_cls.MODELS)
+    try:
+        return [client_cls.MODELS[model]]
+    except KeyError:
+        available = ", ".join(m.name for m in client_cls.MODELS)
+        pytest.fail(f"Unknown {client_cls.__name__}.MODELS member: {model!r}. Available: {available}")
+
+
+def create_real_image_client(request) -> Iterator[BaseImageClient]:
+    """Construct a real image client from ``request.param`` (a model enum value).
+
+    Mirrors :func:`create_real_model_client` for the image modality. The fixture
+    consumer iterates on the parametrized model enum members; this helper
+    routes each to the right concrete class.
+    """
+    model = request.param
+
+    if HAS_HF_IMAGE and model in HuggingFaceImageClient.MODELS:
+        client = HuggingFaceImageClient(model)
+    elif HAS_GEMINI_IMAGE and model in GeminiImageClient.MODELS:
+        client = GeminiImageClient(model)
+    else:
+        raise ValueError(f"Unknown image model: {model}")
 
     yield client
     del client

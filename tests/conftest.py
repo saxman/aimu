@@ -33,12 +33,21 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
-        "--diffusion-model",
+        "--image-client",
         action="store",
         default=None,
         help=(
-            "DiffusionModel enum member name (e.g. SD_1_5, SDXL_BASE) to load weights "
-            "and run live image-generation tests in tests/test_diffusion.py. "
-            "Omit to skip live diffusion tests."
+            "Image client to test live: 'hf', 'gemini', or 'all'. Required to enable "
+            "live tests in tests/test_images.py — omit to skip them."
+        ),
+    )
+
+    parser.addoption(
+        "--image-model",
+        action="store",
+        default="all",
+        help=(
+            "Image model enum member name (e.g. SD_1_5, NANO_BANANA). Defaults to 'all' "
+            "within the selected --image-client."
         ),
     )

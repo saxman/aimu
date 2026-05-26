@@ -26,19 +26,24 @@ from aimu.tools.builtin import (  # noqa: F401 — re-exports
 )
 from aimu.tools.decorator import tool
 
-_AIMU_DIFFUSION_DEFAULT = "hf:stabilityai/stable-diffusion-xl-base-1.0"
+_AIMU_IMAGE_DEFAULT = "hf:stabilityai/stable-diffusion-xl-base-1.0"
 _async_image_client = None
 
 
 def _get_async_image_client():
-    """Lazy singleton :class:`AsyncDiffusionClient` for the async built-in tool."""
+    """Lazy singleton :class:`AsyncImageClient` for the async built-in tool.
+
+    Reads ``AIMU_IMAGE_MODEL`` from the environment (default: SDXL base). Accepts
+    any model string supported by :func:`aimu.aio.image_client` —
+    ``"hf:..."`` / ``"gemini:..."``.
+    """
     global _async_image_client
     if _async_image_client is None:
         import aimu
-        from aimu.aio.providers.diffusion import AsyncDiffusionClient
+        from aimu.aio import image_client as _aio_image_client
 
-        model_str = os.environ.get("AIMU_DIFFUSION_MODEL", _AIMU_DIFFUSION_DEFAULT)
-        _async_image_client = AsyncDiffusionClient(aimu.image_client(model_str))
+        model_str = os.environ.get("AIMU_IMAGE_MODEL", _AIMU_IMAGE_DEFAULT)
+        _async_image_client = _aio_image_client(aimu.image_client(model_str))
     return _async_image_client
 
 
@@ -46,8 +51,8 @@ def _get_async_image_client():
 async def generate_image(prompt: str) -> str:
     """Generate an image from a text prompt and return the saved file path.
 
-    Uses a HuggingFace diffusion pipeline. The default model is controlled by the
-    ``AIMU_DIFFUSION_MODEL`` env var (default: SDXL base). Override per-agent by
+    Uses an :class:`aimu.aio.AsyncImageClient`. The default model is controlled by
+    the ``AIMU_IMAGE_MODEL`` env var (default: SDXL base). Override per-agent by
     constructing your own tool with :func:`make_async_image_tool`.
 
     Args:
@@ -58,16 +63,22 @@ async def generate_image(prompt: str) -> str:
 
 
 def make_async_image_tool(client):
-    """Build an async ``generate_image`` tool bound to a specific :class:`AsyncDiffusionClient`.
+    """Build an async ``generate_image`` tool bound to a specific async image client.
 
-    Pass either a sync :class:`DiffusionClient` or an existing
-    :class:`AsyncDiffusionClient`; sync clients are wrapped automatically.
+    Pass either a sync :class:`aimu.BaseImageClient` (e.g. :class:`HuggingFaceImageClient`,
+    :class:`GeminiImageClient`) or an existing :class:`aimu.aio.AsyncImageClient`;
+    sync clients are wrapped automatically.
     """
-    from aimu.aio.providers.diffusion import AsyncDiffusionClient
-    from aimu.models.diffusion import DiffusionClient as SyncDiffusionClient
+    from aimu.aio import image_client as _aio_image_client
+    from aimu.aio.image import AsyncImageClient
+    from aimu.models.base import BaseImageClient
 
-    if isinstance(client, SyncDiffusionClient):
-        client = AsyncDiffusionClient(client)
+    if isinstance(client, BaseImageClient):
+        client = _aio_image_client(client)
+    elif not isinstance(client, AsyncImageClient):
+        # Permit the per-provider async classes (AsyncHuggingFaceImageClient,
+        # AsyncGeminiImageClient) directly — they already expose `.generate()`.
+        pass
 
     @tool
     async def generate_image(prompt: str) -> str:

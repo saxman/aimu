@@ -304,20 +304,22 @@ def read_file(path: str, max_lines: int = 200) -> str:
 # constructed lazily on first ``generate_image()`` call so that importing
 # ``aimu.tools.builtin`` does not pull torch into ``sys.modules``.
 
-_AIMU_DIFFUSION_DEFAULT = "hf:stabilityai/stable-diffusion-xl-base-1.0"
+_AIMU_IMAGE_DEFAULT = "hf:stabilityai/stable-diffusion-xl-base-1.0"
 _image_client = None
 
 
 def _get_image_client():
-    """Return the lazy singleton :class:`DiffusionClient` for the built-in tool.
+    """Return the lazy singleton :class:`ImageClient` for the built-in tool.
 
-    Reads ``AIMU_DIFFUSION_MODEL`` from the environment (default: SDXL base).
+    Reads ``AIMU_IMAGE_MODEL`` from the environment (default: SDXL base). Accepts
+    any model string supported by :func:`aimu.image_client` — ``"hf:..."`` for
+    HuggingFace diffusers, ``"gemini:..."`` for Google Nano Banana.
     """
     global _image_client
     if _image_client is None:
         from aimu import image_client as _image_client_factory
 
-        model_str = os.environ.get("AIMU_DIFFUSION_MODEL", _AIMU_DIFFUSION_DEFAULT)
+        model_str = os.environ.get("AIMU_IMAGE_MODEL", _AIMU_IMAGE_DEFAULT)
         _image_client = _image_client_factory(model_str)
     return _image_client
 
@@ -326,9 +328,10 @@ def _get_image_client():
 def generate_image(prompt: str) -> str:
     """Generate an image from a text prompt and return the saved file path.
 
-    Uses a HuggingFace diffusion pipeline. The default model is controlled by the
-    ``AIMU_DIFFUSION_MODEL`` env var (default: SDXL base). Override per-agent by
-    constructing your own tool with :func:`make_image_tool`.
+    Uses an :class:`aimu.ImageClient`. The default model is controlled by the
+    ``AIMU_IMAGE_MODEL`` env var (default: SDXL base; pass any HF diffusers repo
+    via ``"hf:..."`` or ``"gemini:nano-banana"`` for Google Nano Banana).
+    Override per-agent by constructing your own tool with :func:`make_image_tool`.
 
     Args:
         prompt: A description of the desired image.
@@ -337,14 +340,17 @@ def generate_image(prompt: str) -> str:
 
 
 def make_image_tool(client):
-    """Build a ``generate_image`` tool bound to a specific :class:`DiffusionClient`.
+    """Build a ``generate_image`` tool bound to a specific image client.
 
-    Use this when an agent needs a model other than the default singleton, or when
-    several agents in one process should not share a pipeline.
+    ``client`` may be an :class:`aimu.ImageClient` or any concrete
+    :class:`aimu.BaseImageClient` (e.g. :class:`HuggingFaceImageClient`,
+    :class:`GeminiImageClient`). Use this when an agent needs a different model
+    from the default singleton, or when several agents in one process should not
+    share a single pipeline.
 
     Example::
 
-        client = aimu.image_client(aimu.DiffusionModel.FLUX_SCHNELL)
+        client = aimu.image_client(aimu.HuggingFaceImageModel.FLUX_SCHNELL)
         my_tool = make_image_tool(client)
         agent = Agent(text_client, tools=[my_tool])
     """

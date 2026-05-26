@@ -1,4 +1,4 @@
-"""Async wrapper around a sync :class:`DiffusionClient`.
+"""Async wrapper around a sync :class:`HuggingFaceImageClient`.
 
 In-process providers (HF transformers, llama-cpp, diffusers) load model weights
 into memory; constructing two clients for the same model would double-load. The
@@ -8,7 +8,7 @@ client and pass it to the async wrapper, which delegates work via
 
 Usage::
 
-    sync_client = aimu.image_client(DiffusionModel.SDXL_BASE)
+    sync_client = aimu.image_client(HuggingFaceImageModel.SDXL_BASE)
     async_client = aimu.aio.image_client(sync_client)
     image = await async_client.generate("a fox in a snowy forest")
 """
@@ -19,20 +19,20 @@ import asyncio
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from aimu.models.diffusion import DiffusionClient
+from aimu.models.hf_image import HuggingFaceImageClient
 
 
-class AsyncDiffusionClient:
-    """Async facade over a sync :class:`DiffusionClient`.
+class AsyncHuggingFaceImageClient:
+    """Async facade over a sync :class:`HuggingFaceImageClient`.
 
-    Does *not* inherit ``AsyncBaseModelClient`` — diffusion has no message history
-    or tool-calling lifecycle, so the text-shaped base class doesn't apply.
+    Does *not* inherit ``AsyncBaseModelClient`` — image generation has no message
+    history or tool-calling lifecycle, so the text-shaped base class doesn't apply.
     """
 
-    def __init__(self, sync_client: DiffusionClient):
-        if not isinstance(sync_client, DiffusionClient):
+    def __init__(self, sync_client: HuggingFaceImageClient):
+        if not isinstance(sync_client, HuggingFaceImageClient):
             raise TypeError(
-                f"AsyncDiffusionClient requires an existing sync DiffusionClient. "
+                f"AsyncHuggingFaceImageClient requires an existing sync HuggingFaceImageClient. "
                 f"Got {type(sync_client).__name__}."
             )
         self._sync = sync_client
@@ -68,7 +68,7 @@ class AsyncDiffusionClient:
         format: str = "pil",
         output_dir: Optional[Path] = None,
     ) -> Union[Any, list[Any], str, list[str], bytes, list[bytes]]:
-        """Async equivalent of :meth:`DiffusionClient.generate`.
+        """Async equivalent of :meth:`HuggingFaceImageClient.generate`.
 
         Routes the heavy pipeline call through :func:`asyncio.to_thread` so the
         event loop stays free during the (GIL/CUDA-serialised) inference.
@@ -88,4 +88,4 @@ class AsyncDiffusionClient:
         )
 
     def __repr__(self) -> str:
-        return f"AsyncDiffusionClient({self._sync!r})"
+        return f"AsyncHuggingFaceImageClient({self._sync!r})"

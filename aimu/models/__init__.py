@@ -1,12 +1,17 @@
 # Always available
 from .base import (
+    BaseImageClient,
     BaseModelClient,
-    DiffusionSpec,
+    GeminiImageSpec,
+    HuggingFaceImageSpec,
+    ImageModel,
+    ImageSpec,
     Model,
     ModelSpec,
     StreamChunk,
     StreamingContentType,
 )
+from .image_client import ImageClient, resolve_image_model_string
 from .model_client import ModelClient, resolve_model_string
 
 # Optional imports with graceful fallbacks
@@ -90,23 +95,38 @@ except ImportError:
     LlamaCppModel = None
 
 try:
-    from .diffusion import DiffusionClient, DiffusionModel
+    from .hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 
-    HAS_DIFFUSION = True
+    HAS_HF_IMAGE = True
 except ImportError:
-    HAS_DIFFUSION = False
-    DiffusionClient = None
-    DiffusionModel = None
+    HAS_HF_IMAGE = False
+    HuggingFaceImageClient = None
+    HuggingFaceImageModel = None
+
+try:
+    from .gemini_image import GeminiImageClient, GeminiImageModel
+
+    HAS_GEMINI_IMAGE = True
+except ImportError:
+    HAS_GEMINI_IMAGE = False
+    GeminiImageClient = None
+    GeminiImageModel = None
 
 # Expose what's available
 __all__ = [
+    "BaseImageClient",
     "BaseModelClient",
-    "DiffusionSpec",
+    "GeminiImageSpec",
+    "HuggingFaceImageSpec",
+    "ImageClient",
+    "ImageModel",
+    "ImageSpec",
     "Model",
     "ModelClient",
     "ModelSpec",
     "StreamChunk",
     "StreamingContentType",
+    "resolve_image_model_string",
     "resolve_model_string",
 ]
 if HAS_HF:
@@ -139,5 +159,7 @@ if HAS_OPENAI_COMPAT:
     )
 if HAS_LLAMACPP:
     __all__.extend(["LlamaCppClient", "LlamaCppModel"])
-if HAS_DIFFUSION:
-    __all__.extend(["DiffusionClient", "DiffusionModel"])
+if HAS_HF_IMAGE:
+    __all__.extend(["HuggingFaceImageClient", "HuggingFaceImageModel"])
+if HAS_GEMINI_IMAGE:
+    __all__.extend(["GeminiImageClient", "GeminiImageModel"])

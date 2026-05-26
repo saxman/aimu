@@ -74,23 +74,41 @@ class ModelSpec:
 
 
 @dataclass
-class DiffusionSpec:
-    """Descriptor for a single text-to-image diffusion model.
+class ImageSpec:
+    """Base descriptor for a single image-generation model.
 
-    Sibling to :class:`ModelSpec`; deliberately disjoint because diffusion models have
-    no concept of tools / thinking / vision-input and instead carry image-generation
-    defaults (steps, guidance, dimensions) plus the loader's pipeline class name.
+    Sibling to :class:`ModelSpec`; deliberately disjoint because image models have
+    no concept of tools / thinking / vision-input. Provider-specific subclasses
+    (:class:`HuggingFaceImageSpec`, :class:`GeminiImageSpec`) add their own defaults.
 
-    ``pipeline_class`` names a class in the ``diffusers`` namespace (e.g.
-    ``"StableDiffusionXLPipeline"``, ``"FluxPipeline"``); the diffusion client
-    resolves it lazily via ``getattr(diffusers, pipeline_class)`` so importing this
-    module does not pull in ``diffusers`` itself.
-
-    Equality and hash are by ``id`` only, matching :class:`ModelSpec`, so the spec
-    can be used directly as an enum value even when ``pipeline_kwargs`` is a dict.
+    Equality and hash are by ``id`` only — matching :class:`ModelSpec` — so the spec
+    can be used directly as an enum value even when carrying dict fields.
     """
 
     id: str
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, ImageSpec):
+            return self.id == other.id
+        return NotImplemented
+
+
+@dataclass(eq=False)
+class HuggingFaceImageSpec(ImageSpec):
+    """Descriptor for a single HuggingFace ``diffusers``-backed image model.
+
+    Carries image-generation defaults (steps, guidance, dimensions) plus the
+    loader's pipeline class name. ``pipeline_class`` names a class in the
+    ``diffusers`` namespace (e.g. ``"StableDiffusionXLPipeline"``, ``"FluxPipeline"``);
+    the client resolves it lazily via ``getattr(diffusers, pipeline_class)``.
+
+    ``eq=False`` inherits :class:`ImageSpec`'s id-only equality + hash; the
+    dataclass-default per-field ``__eq__`` would otherwise shadow it.
+    """
+
     pipeline_class: str = "DiffusionPipeline"
     default_steps: int = 30
     default_guidance: float = 7.5
@@ -99,13 +117,35 @@ class DiffusionSpec:
     default_negative_prompt: Optional[str] = None
     pipeline_kwargs: Optional[dict] = field(default=None)
 
-    def __hash__(self) -> int:
-        return hash(self.id)
 
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, DiffusionSpec):
-            return self.id == other.id
-        return NotImplemented
+@dataclass(eq=False)
+class GeminiImageSpec(ImageSpec):
+    """Descriptor for a single Google Gemini image-generation model (e.g. Nano Banana).
+
+    Cloud-API models don't have a pipeline class or denoising steps. Carries the
+    API-side ``id`` (e.g. ``"gemini-2.5-flash-image"``) plus optional defaults the
+    underlying SDK uses to build :class:`google.genai.types.ImageConfig`.
+
+    ``eq=False`` inherits :class:`ImageSpec`'s id-only equality + hash; the
+    dataclass-default per-field ``__eq__`` would otherwise shadow it.
+    """
+
+    default_aspect_ratio: Optional[str] = None  # e.g. "1:1", "16:9"
+    default_image_size: Optional[str] = None  # e.g. "1024x1024" (SDK-dependent)
+    image_config_kwargs: Optional[dict] = field(default=None)
+
+
+class ImageModel(Enum):
+    """Base enum for image-generation provider model catalogs.
+
+    Parallel to :class:`Model`. Each member's value is an :class:`ImageSpec`
+    (or subclass); the constructor sets ``_value_`` from ``spec.id`` and stores
+    the spec on the member.
+    """
+
+    def __init__(self, spec: ImageSpec):
+        self._value_ = spec.id
+        self.spec = spec
 
 
 class Model(Enum):
@@ -371,3 +411,61 @@ class BaseModelClient(_ChatStateMixin, ABC):
             results = [_call_one(tc, tc_id) for tc, tc_id in prepared]
 
         self.messages.extend(results)
+
+
+class BaseImageClient(ABC):
+    """Abstract base for image-generation provider clients.
+
+    Parallel to :class:`BaseModelClient` for image modality. Subclasses implement
+    :meth:`_generate` returning a list of PIL Images; the public :meth:`generate`
+    wraps that with the shared format-conversion helper
+    (:func:`aimu.models._image_output.encode_image`) so every image client offers
+    the same ``format="pil"|"path"|"bytes"|"data_url"`` surface.
+    """
+
+    MODELS = ImageModel
+
+    model: Any
+    spec: ImageSpec
+    model_kwargs: Optional[dict]
+
+    @abstractmethod
+    def __init__(self, model: Any, model_kwargs: Optional[dict] = None):
+        self.model = model
+        self.model_kwargs = model_kwargs
+
+    @abstractmethod
+    def _generate(self, prompt: str, *, num_images: int = 1, **kwargs: Any) -> list:
+        """Provider-specific generation. Returns a list of PIL ``Image.Image`` objects.
+
+        Provider-specific keyword args (e.g. ``aspect_ratio`` for Gemini,
+        ``num_inference_steps`` for diffusers) are accepted via ``**kwargs`` and
+        validated/applied by each subclass.
+        """
+
+    def generate(
+        self,
+        prompt: str,
+        *,
+        num_images: int = 1,
+        format: str = "pil",
+        output_dir: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Generate one or more images from a text prompt.
+
+        Subclasses define the provider-specific ``**kwargs``. The base only handles
+        ``num_images`` validation, format conversion via
+        :func:`aimu.models._image_output.encode_image`, and the
+        single-image-vs-list return convention.
+        """
+        if num_images < 1:
+            raise ValueError(f"num_images must be >= 1, got {num_images}")
+        from ._image_output import encode_image  # local import keeps base.py light
+
+        images = self._generate(prompt, num_images=num_images, **kwargs)
+        encoded = [encode_image(img, format=format, prompt=prompt, output_dir=output_dir) for img in images]
+        return encoded[0] if num_images == 1 else encoded
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(model={self.spec.id!r})"

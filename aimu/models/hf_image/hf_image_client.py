@@ -1,37 +1,33 @@
 """HuggingFace ``diffusers``-backed text-to-image client.
 
-``DiffusionClient`` deliberately does *not* inherit ``BaseModelClient``: text and
-image are different modalities with disjoint interfaces. ``chat()`` / ``messages``
-/ ``StreamChunk`` make no sense for stateless text-to-image generation, and the
-"plain data" principle is better served by a focused class than by a forced fit.
+``HuggingFaceImageClient`` inherits :class:`BaseImageClient` — the public
+:meth:`generate` (format conversion, num_images plumbing) lives on the base;
+this subclass just implements :meth:`_generate` to call the loaded diffusers
+pipeline and return PIL Images.
 
 Usage::
 
-    from aimu.models.diffusion import DiffusionClient, DiffusionModel
+    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 
-    client = DiffusionClient(DiffusionModel.SDXL_BASE)
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SDXL_BASE)
     image = client.generate("a watercolor of a fox in a snowy forest")
     image.save("fox.png")
 
-    # Or save directly:
+    # Or save directly via the base's format selector:
     path = client.generate("a watercolor of a fox", format="path")
 """
 
 from __future__ import annotations
 
 import logging
-from enum import Enum
-from pathlib import Path
 from typing import Any, Optional, Union
 
-# Hard import so `HAS_DIFFUSION` in aimu/models/__init__.py accurately reflects
-# whether the user can actually generate images. Heavy: pulls torch. Matches the
-# convention used by HuggingFaceClient (which imports torch + transformers at
-# module load). Pipeline weights are still loaded lazily inside ``_load_pipeline``.
+# Hard import so ``HAS_HF_IMAGE`` in aimu/models/__init__.py accurately reflects
+# whether the optional dep is installed. Heavy: pulls torch via diffusers' lazy
+# loader. Pipeline weights are still loaded lazily inside ``_load_pipeline``.
 import diffusers  # noqa: F401  # used dynamically via getattr in _load_pipeline
 
-from .._image_output import encode_image
-from ..base import DiffusionSpec
+from ..base import BaseImageClient, HuggingFaceImageSpec, ImageModel
 
 logger = logging.getLogger(__name__)
 
@@ -41,20 +37,16 @@ DEFAULT_MODEL_KWARGS: dict[str, Any] = {
 }
 
 
-class DiffusionModel(Enum):
-    """Catalog of supported text-to-image diffusion models.
+class HuggingFaceImageModel(ImageModel):
+    """Catalog of supported HuggingFace ``diffusers`` text-to-image models.
 
-    Each member's value is a :class:`DiffusionSpec`. ``.value`` returns the
-    HuggingFace repo id; ``.spec`` returns the full spec for inspection.
-    Power users can bypass the enum by passing ``"hf:<repo_id>"`` directly to
-    :class:`DiffusionClient` for ad-hoc models.
+    Each member's value is a :class:`HuggingFaceImageSpec`. ``.value`` returns
+    the HuggingFace repo id; ``.spec`` returns the full spec. Power users can
+    bypass the enum by passing a ``"hf:<repo_id>"`` string directly to
+    :class:`HuggingFaceImageClient`.
     """
 
-    def __init__(self, spec: DiffusionSpec):
-        self._value_ = spec.id
-        self.spec = spec
-
-    SD_1_5 = DiffusionSpec(
+    SD_1_5 = HuggingFaceImageSpec(
         "runwayml/stable-diffusion-v1-5",
         pipeline_class="StableDiffusionPipeline",
         default_steps=25,
@@ -62,7 +54,7 @@ class DiffusionModel(Enum):
         default_width=512,
         default_height=512,
     )
-    SDXL_BASE = DiffusionSpec(
+    SDXL_BASE = HuggingFaceImageSpec(
         "stabilityai/stable-diffusion-xl-base-1.0",
         pipeline_class="StableDiffusionXLPipeline",
         default_steps=30,
@@ -71,7 +63,7 @@ class DiffusionModel(Enum):
         default_height=1024,
         pipeline_kwargs={"variant": "fp16", "use_safetensors": True},
     )
-    SD_3_5_MEDIUM = DiffusionSpec(
+    SD_3_5_MEDIUM = HuggingFaceImageSpec(
         "stabilityai/stable-diffusion-3.5-medium",
         pipeline_class="StableDiffusion3Pipeline",
         default_steps=28,
@@ -79,7 +71,7 @@ class DiffusionModel(Enum):
         default_width=1024,
         default_height=1024,
     )
-    FLUX_DEV = DiffusionSpec(
+    FLUX_DEV = HuggingFaceImageSpec(
         "black-forest-labs/FLUX.1-dev",
         pipeline_class="FluxPipeline",
         default_steps=28,
@@ -87,7 +79,7 @@ class DiffusionModel(Enum):
         default_width=1024,
         default_height=1024,
     )
-    FLUX_SCHNELL = DiffusionSpec(
+    FLUX_SCHNELL = HuggingFaceImageSpec(
         "black-forest-labs/FLUX.1-schnell",
         pipeline_class="FluxPipeline",
         default_steps=4,
@@ -97,58 +89,53 @@ class DiffusionModel(Enum):
     )
 
 
-def _parse_model_string(s: str) -> DiffusionSpec:
-    """Parse a ``"hf:<repo_id>"`` string into an ad-hoc :class:`DiffusionSpec`.
-
-    Used to support arbitrary HuggingFace diffusion models not in the
-    :class:`DiffusionModel` enum. The auto-detect ``DiffusionPipeline`` loader
-    is used; pass an explicit ``DiffusionSpec`` (or a `DiffusionModel` enum
-    member) for non-standard pipelines.
-    """
+def _parse_model_string(s: str) -> HuggingFaceImageSpec:
+    """Parse a ``"hf:<repo_id>"`` string into an ad-hoc :class:`HuggingFaceImageSpec`."""
     if ":" not in s:
         raise ValueError(
-            f"Diffusion model string must be in 'provider:repo_id' form (e.g. "
+            f"HuggingFace image model string must be in 'provider:repo_id' form (e.g. "
             f"'hf:runwayml/stable-diffusion-v1-5'). Got: {s!r}"
         )
     provider, repo_id = s.split(":", 1)
     if provider != "hf":
         raise ValueError(
-            f"Only 'hf:' provider is supported for diffusion in v1. Got provider: {provider!r}"
+            f"Only 'hf:' provider is supported for HuggingFaceImageClient. Got provider: {provider!r}"
         )
     if not repo_id:
         raise ValueError(f"Empty model id after 'hf:': {s!r}")
-    return DiffusionSpec(repo_id)
+    return HuggingFaceImageSpec(repo_id)
 
 
-class DiffusionClient:
+class HuggingFaceImageClient(BaseImageClient):
     """Text-to-image client backed by HuggingFace ``diffusers``.
 
-    Loads pipeline weights lazily on the first :meth:`generate` call. Pass
-    a :class:`DiffusionModel` enum member, a :class:`DiffusionSpec`, or a
-    ``"hf:<repo_id>"`` string. ``model_kwargs`` is forwarded to
+    Loads pipeline weights lazily on the first :meth:`_generate` call. Pass a
+    :class:`HuggingFaceImageModel` enum member, a :class:`HuggingFaceImageSpec`,
+    or a ``"hf:<repo_id>"`` string. ``model_kwargs`` is forwarded to
     ``pipeline_cls.from_pretrained()`` (overrides on top of
     :data:`DEFAULT_MODEL_KWARGS` and ``spec.pipeline_kwargs``).
     """
 
+    MODELS = HuggingFaceImageModel
+
     def __init__(
         self,
-        model: Union[DiffusionModel, DiffusionSpec, str],
+        model: Union[HuggingFaceImageModel, HuggingFaceImageSpec, str],
         model_kwargs: Optional[dict] = None,
     ):
         if isinstance(model, str):
             spec = _parse_model_string(model)
-        elif isinstance(model, DiffusionModel):
+        elif isinstance(model, HuggingFaceImageModel):
             spec = model.spec
-        elif isinstance(model, DiffusionSpec):
+        elif isinstance(model, HuggingFaceImageSpec):
             spec = model
         else:
             raise TypeError(
-                f"DiffusionClient expects a DiffusionModel member, DiffusionSpec, or "
-                f"'hf:<repo_id>' string. Got: {type(model).__name__}"
+                f"HuggingFaceImageClient expects a HuggingFaceImageModel member, "
+                f"HuggingFaceImageSpec, or 'hf:<repo_id>' string. Got: {type(model).__name__}"
             )
-        self.model = model
+        super().__init__(model=model, model_kwargs=model_kwargs)
         self.spec = spec
-        self.model_kwargs = model_kwargs
         self._pipe: Any = None  # lazy
 
     def _load_pipeline(self) -> Any:
@@ -189,38 +176,24 @@ class DiffusionClient:
             self._pipe = self._load_pipeline()
         return self._pipe
 
-    def generate(
+    def _generate(
         self,
         prompt: str,
         *,
+        num_images: int = 1,
         negative_prompt: Optional[str] = None,
         width: Optional[int] = None,
         height: Optional[int] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         seed: Optional[int] = None,
-        num_images: int = 1,
-        format: str = "pil",
-        output_dir: Optional[Path] = None,
-    ) -> Union[Any, list[Any], str, list[str], bytes, list[bytes]]:
-        """Generate one or more images from a text prompt.
+        **_ignored: Any,
+    ) -> list:
+        """Provider-specific generation. Returns a list of PIL Images.
 
-        Args:
-            prompt: Text describing the desired image.
-            negative_prompt: Things to avoid (provider-dependent; ignored by FLUX).
-                Defaults to the spec's ``default_negative_prompt``.
-            width, height: Image dimensions. Default to the spec's defaults.
-            num_inference_steps: Sampler step count; spec default if omitted.
-            guidance_scale: Classifier-free guidance scale; spec default if omitted.
-            seed: Optional RNG seed for reproducibility.
-            num_images: How many images to generate in one call.
-            format: One of ``"pil"`` / ``"path"`` / ``"bytes"`` / ``"data_url"``.
-                See :func:`aimu.models._image_output.encode_image`.
-            output_dir: Override the save directory when ``format="path"``.
-
-        Returns:
-            A single image (``num_images=1``) or a list of images (``num_images>1``),
-            in the encoding selected by ``format``.
+        Public callers should use :meth:`generate` (inherited from
+        :class:`BaseImageClient`), which adds format conversion via
+        :func:`encode_image`.
         """
         spec = self.spec
         call_kwargs: dict[str, Any] = {
@@ -245,10 +218,8 @@ class DiffusionClient:
 
         result = self.pipeline(**call_kwargs)
         images = result.images if hasattr(result, "images") else result
-
-        encoded = [encode_image(img, format=format, prompt=prompt, output_dir=output_dir) for img in images]
-        return encoded[0] if num_images == 1 else encoded
+        return list(images)
 
     def __repr__(self) -> str:
         loaded = "loaded" if self._pipe is not None else "unloaded"
-        return f"DiffusionClient(model={self.spec.id!r}, {loaded})"
+        return f"HuggingFaceImageClient(model={self.spec.id!r}, {loaded})"

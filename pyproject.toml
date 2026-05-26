@@ -15,7 +15,8 @@ dependencies = [
     "gradio",
     "watchdog",
     "tinydb",
-    "requests"
+    "requests",
+    "python-dotenv"
 ]
 
 [project.optional-dependencies]
@@ -37,28 +38,27 @@ hf = [
     "mistral-common", # required for Mistral-Small-3.2 model
     "kernels", # required for GPT-OSS
     "bitsandbytes", # for models that require quantization before loading (e.g. Magistral)
+    # Image generation via HuggingFace diffusers (HuggingFaceImageClient)
+    "diffusers>=0.30",
+    "safetensors",
+    "Pillow",
 ]
 ollama = [
     "ollama",
 ]
 anthropic = [
     "anthropic>=0.50.0",
-    "python-dotenv",
 ]
 openai_compat = [
     "openai>=1.0.0",
-    "python-dotenv",
 ]
 llamacpp = [
     "llama-cpp-python",
 ]
-diffusion = [
-    "diffusers>=0.30",
-    "accelerate",
-    "safetensors",
+google = [
+    # Google Gemini image generation (Nano Banana — GeminiImageClient)
+    "google-genai>=1.0",
     "Pillow",
-    "torch",
-    "transformers",
 ]
 deepeval = [
     "deepeval",
@@ -68,7 +68,7 @@ docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.27",
 ]
-all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,diffusion,deepeval]"]
+all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,google,deepeval]"]
 
 [build-system]
 requires = ["setuptools"]
