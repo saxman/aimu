@@ -10,7 +10,7 @@ Common tasks are one-liners: `aimu.chat("hi", model="...")`, `Agent(client, tool
 
 ## Key features
 
-### Models
+### Language models
 
 - One client interface for Ollama, HuggingFace, llama-cpp, the Claude API, OpenAI, Gemini, and any OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve). Swap with a string change: `"provider:model_id"`.
 - Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamingContentType.THINKING` chunks via the same API.
