@@ -1,9 +1,9 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aimu-horizontal-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/aimu-horizontal-light.svg">
-  <img alt="AIMU" src="docs/assets/aimu-horizontal-light.svg" width="480">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aimu-horizontal-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/aimu-horizontal-light.png">
+  <img alt="AIMU" src="docs/assets/aimu-horizontal-light.png" width="480">
 </picture>
 
 **Simple, composable AI for Python, local or in the cloud.**
