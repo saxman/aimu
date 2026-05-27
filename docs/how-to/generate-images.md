@@ -48,7 +48,7 @@ Pass `stream=True` to get an iterator of `IMAGE_GENERATING` chunks, one per deno
 ```python
 import aimu
 
-client = aimu.image_client(aimu.HuggingFaceImageModel.SD_1_5)
+client = aimu.image_client("hf:runwayml/stable-diffusion-v1-5")
 
 for chunk in client.generate("a fox", stream=True, num_inference_steps=25):
     c = chunk.content
@@ -100,12 +100,22 @@ To opt into intermediate previews from the agent path, build a bound tool with `
 A fresh client per call reloads weights for HuggingFace; for Nano Banana it just rebuilds the API client. For repeated generation, build once and reuse:
 
 ```python
-from aimu import image_client, HuggingFaceImageModel
+from aimu import image_client
 
-client = image_client(HuggingFaceImageModel.SDXL_BASE)
+client = image_client("hf:stabilityai/stable-diffusion-xl-base-1.0")
 for prompt in ["a fox", "a deer", "an owl"]:
     img = client.generate(prompt, width=1024, height=1024)
     img.save(f"{prompt}.png")
+```
+
+You can also pass an enum member for IDE autocomplete when browsing available models:
+
+```python
+from aimu import image_client
+from aimu.models import HuggingFaceImageModel, GeminiImageModel
+
+client = image_client(HuggingFaceImageModel.SDXL_BASE)
+client = image_client(GeminiImageModel.NANO_BANANA)
 ```
 
 Per-provider knobs differ:
@@ -148,10 +158,10 @@ The tool uses a lazy module-level singleton — first call constructs an image c
 When you want a different model from the global singleton (or several agents in one process shouldn't share a pipeline), bind a tool to a specific client:
 
 ```python
-from aimu import image_client, HuggingFaceImageModel
+from aimu import image_client
 from aimu.tools.builtin import make_image_tool
 
-fast = image_client(HuggingFaceImageModel.FLUX_SCHNELL)  # 4-step model
+fast = image_client("hf:black-forest-labs/FLUX.1-schnell")  # 4-step model
 fast_tool = make_image_tool(fast)
 
 agent = Agent(text_client, tools=[fast_tool])
@@ -169,9 +179,9 @@ The async surface mirrors the sync surface one-for-one. Because image providers 
 
 ```python
 import asyncio
-from aimu import aio, image_client, HuggingFaceImageModel
+from aimu import aio, image_client
 
-sync = image_client(HuggingFaceImageModel.SD_1_5)
+sync = image_client("hf:runwayml/stable-diffusion-v1-5")
 async_client = aio.image_client(sync)
 
 async def make_two():
