@@ -2,7 +2,7 @@
 
 # AIMU - AI Modeling Utilities
 
-AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, and audio; autonomous agents and code-controlled workflows; and small composable utilities for tools, memory, prompt tuning, and benchmarking -- all in plain Python that is apparent and easy to use.
+AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, and audio; autonomous agents and code-controlled workflows; and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of these features in plain Python that is apparent and easy to use.
 
 Whether you need vision input, autonomous tool use, or image generation, the call is one line: `aimu.chat("What's in this photo?", model="...", images=["photo.jpg"])`, `agent.run("Search the web and summarize today's AI news")`, `aimu.generate_image("a watercolor fox in a snowy forest", model="...")`. Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
 
