@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="AIMU">
+  <title>AIMU</title>
+  <!-- apex -->
+  <rect x="46" y="14" width="28" height="28" rx="6" fill="#4f46e5"/>
+  <!-- middle row (gap in center forms the counter of an "A") -->
+  <rect x="26" y="46" width="28" height="28" rx="6" fill="#6366f1"/>
+  <rect x="66" y="46" width="28" height="28" rx="6" fill="#6366f1"/>
+  <!-- base row -->
+  <rect x="6"  y="78" width="28" height="28" rx="6" fill="#0ea5a4"/>
+  <rect x="46" y="78" width="28" height="28" rx="6" fill="#14b8a6"/>
+  <rect x="86" y="78" width="28" height="28" rx="6" fill="#0ea5a4"/>
+</svg>

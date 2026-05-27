@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="AIMU">
+  <title>AIMU</title>
+  <!-- Inherits whatever color is set via CSS `color`; defaults to black. -->
+  <g fill="currentColor">
+    <rect x="46" y="14" width="28" height="28" rx="6"/>
+    <rect x="26" y="46" width="28" height="28" rx="6"/>
+    <rect x="66" y="46" width="28" height="28" rx="6"/>
+    <rect x="6"  y="78" width="28" height="28" rx="6"/>
+    <rect x="46" y="78" width="28" height="28" rx="6"/>
+    <rect x="86" y="78" width="28" height="28" rx="6"/>
+  </g>
+</svg>
