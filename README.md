@@ -82,7 +82,7 @@ for chunk in client.chat("Tell me a story", stream=True, include=["generating"])
     print(chunk.content, end="", flush=True)
 ```
 
-**An agent with a tool.** `@tool` works on any plain function:
+**Tools for models and agents.** `@tool` works on any plain function:
 
 ```python
 from aimu.agents import Agent
