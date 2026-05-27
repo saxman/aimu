@@ -147,8 +147,7 @@ class GeminiImageClient(BaseImageClient):
 
         feedback = getattr(response, "prompt_feedback", None)
         raise RuntimeError(
-            "Gemini API returned no image data — the model may have refused the prompt. "
-            f"prompt_feedback={feedback!r}"
+            f"Gemini API returned no image data — the model may have refused the prompt. prompt_feedback={feedback!r}"
         )
 
     def _generate(

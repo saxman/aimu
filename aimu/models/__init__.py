@@ -177,11 +177,18 @@ def available_text_clients() -> list[type[BaseModelClient]]:
     if HAS_ANTHROPIC:
         clients.append(AnthropicClient)
     if HAS_OPENAI_COMPAT:
-        clients.extend([
-            OpenAIClient, GeminiClient, LMStudioOpenAIClient,
-            OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient,
-            LlamaServerOpenAIClient, SGLangOpenAIClient,
-        ])
+        clients.extend(
+            [
+                OpenAIClient,
+                GeminiClient,
+                LMStudioOpenAIClient,
+                OllamaOpenAIClient,
+                HFOpenAIClient,
+                VLLMOpenAIClient,
+                LlamaServerOpenAIClient,
+                SGLangOpenAIClient,
+            ]
+        )
     if HAS_LLAMACPP:
         clients.append(LlamaCppClient)
     return clients

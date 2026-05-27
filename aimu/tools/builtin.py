@@ -384,9 +384,7 @@ def make_image_tool(client, *, preview_every: Optional[int] = None):
             prompt: A description of the desired image.
         """
         final_result = None
-        for chunk in client.generate(
-            prompt, format="path", stream=True, preview_every=preview_every
-        ):
+        for chunk in client.generate(prompt, format="path", stream=True, preview_every=preview_every):
             yield chunk
             content = chunk.content
             if isinstance(content, dict) and content.get("final"):

@@ -244,9 +244,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
 
         self.messages.extend(results)
 
-    async def _handle_tool_calls_streamed(
-        self, tool_calls: list[dict], tools: list
-    ) -> AsyncIterator[StreamChunk]:
+    async def _handle_tool_calls_streamed(self, tool_calls: list[dict], tools: list) -> AsyncIterator[StreamChunk]:
         """Async streaming tool dispatch — used by streaming ``_chat`` paths.
 
         Mirrors :meth:`BaseModelClient._handle_tool_calls_streamed` on the sync
@@ -273,8 +271,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
 
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
         has_streaming_tool = any(
-            getattr(python_tools_by_name.get(tc["name"]), "__tool_is_streaming__", False)
-            for tc, _ in prepared
+            getattr(python_tools_by_name.get(tc["name"]), "__tool_is_streaming__", False) for tc, _ in prepared
         )
 
         if self.concurrent_tool_calls and len(prepared) > 1 and not has_streaming_tool:

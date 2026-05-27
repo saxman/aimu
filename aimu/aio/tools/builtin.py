@@ -107,9 +107,7 @@ def make_async_image_tool(client, *, preview_every: Optional[int] = None):
         Args:
             prompt: A description of the desired image.
         """
-        async for chunk in await client.generate(
-            prompt, format="path", stream=True, preview_every=preview_every
-        ):
+        async for chunk in await client.generate(prompt, format="path", stream=True, preview_every=preview_every):
             yield chunk
 
     return generate_image

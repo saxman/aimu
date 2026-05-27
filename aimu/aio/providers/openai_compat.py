@@ -168,9 +168,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         self.messages.append({"role": "assistant", "content": content})
         return content
 
-    async def _chat_streamed(
-        self, generate_kwargs: dict[str, Any], tools: list
-    ) -> AsyncIterator[StreamChunk]:
+    async def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> AsyncIterator[StreamChunk]:
         stream = await self._client.chat.completions.create(
             model=self.model.value,
             messages=self.messages,

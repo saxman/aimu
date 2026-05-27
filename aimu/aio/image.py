@@ -123,8 +123,7 @@ def image_client(model: Any) -> AsyncImageClient:
     """
     if not _HAS_HF_IMAGE and not _HAS_GEMINI_IMAGE:
         raise ImportError(
-            "Image support requires the [hf] or [google] extra: "
-            "pip install -e '.[hf]' or pip install -e '.[google]'"
+            "Image support requires the [hf] or [google] extra: pip install -e '.[hf]' or pip install -e '.[google]'"
         )
     return AsyncImageClient(model)
 
@@ -144,8 +143,7 @@ async def generate_image(
     """
     if not _HAS_HF_IMAGE and not _HAS_GEMINI_IMAGE:
         raise ImportError(
-            "Image support requires the [hf] or [google] extra: "
-            "pip install -e '.[hf]' or pip install -e '.[google]'"
+            "Image support requires the [hf] or [google] extra: pip install -e '.[hf]' or pip install -e '.[google]'"
         )
 
     sync_client: Optional[Any] = None
@@ -156,15 +154,11 @@ async def generate_image(
     elif isinstance(model, str):
         if model.startswith("gemini:"):
             if not _HAS_GEMINI_IMAGE:
-                raise ImportError(
-                    "Gemini image support requires the [google] extra: pip install -e '.[google]'"
-                )
+                raise ImportError("Gemini image support requires the [google] extra: pip install -e '.[google]'")
             sync_client = GeminiImageClient(model)
         elif model.startswith("hf:"):
             if not _HAS_HF_IMAGE:
-                raise ImportError(
-                    "HuggingFace image support requires the [hf] extra: pip install -e '.[hf]'"
-                )
+                raise ImportError("HuggingFace image support requires the [hf] extra: pip install -e '.[hf]'")
             sync_client = HuggingFaceImageClient(model)
         else:
             raise ValueError(f"Unrecognised image model string: {model!r}")

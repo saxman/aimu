@@ -446,9 +446,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
 
         self.messages.extend(results)
 
-    def _handle_tool_calls_streamed(
-        self, tool_calls: list[dict], tools: list
-    ) -> Iterator[StreamChunk]:
+    def _handle_tool_calls_streamed(self, tool_calls: list[dict], tools: list) -> Iterator[StreamChunk]:
         """Streaming tool dispatch — generator version used by streaming ``_chat``.
 
         For each tool call, yields zero-or-more in-flight :class:`StreamChunk` objects
@@ -472,8 +470,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
 
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
         has_streaming_tool = any(
-            getattr(python_tools_by_name.get(tc["name"]), "__tool_is_streaming__", False)
-            for tc, _ in prepared
+            getattr(python_tools_by_name.get(tc["name"]), "__tool_is_streaming__", False) for tc, _ in prepared
         )
 
         if self.concurrent_tool_calls and len(prepared) > 1 and not has_streaming_tool:
@@ -499,8 +496,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
             if fn is not None and getattr(fn, "__tool_is_streaming__", False):
                 if getattr(fn, "__tool_is_async__", False):
                     raise ValueError(
-                        f"Tool '{tc['name']}' is an async streaming tool. Use the aimu.aio "
-                        "surface to dispatch it."
+                        f"Tool '{tc['name']}' is an async streaming tool. Use the aimu.aio surface to dispatch it."
                     )
                 try:
                     gen = fn(**tc["arguments"])

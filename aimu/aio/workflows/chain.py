@@ -27,9 +27,7 @@ class Chain(AsyncRunner):
     name: str = "chain"
 
     @classmethod
-    def from_client(
-        cls, client: AsyncBaseModelClient, prompts: list[str], *, name: str = "chain"
-    ) -> Chain:
+    def from_client(cls, client: AsyncBaseModelClient, prompts: list[str], *, name: str = "chain") -> Chain:
         """Build a Chain from a single client and a list of step system_messages."""
         from ..agent import Agent
 
@@ -66,9 +64,7 @@ class Chain(AsyncRunner):
             logger.debug("Chain step %d, agent '%s'.", step, agent.name)
             step_images = images if step == 0 else None
             step_chunks: list[StreamChunk] = []
-            step_stream = await agent.run(
-                result, generate_kwargs=generate_kwargs, stream=True, images=step_images
-            )
+            step_stream = await agent.run(result, generate_kwargs=generate_kwargs, stream=True, images=step_images)
             async for chunk in step_stream:
                 step_chunks.append(chunk)
                 yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=step)

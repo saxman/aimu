@@ -51,8 +51,10 @@ def _install_diffusers_stub():
     """
     import types
 
-    if "diffusers" in sys.modules and isinstance(sys.modules["diffusers"], types.ModuleType) and getattr(
-        sys.modules["diffusers"], "_aimu_stub", False
+    if (
+        "diffusers" in sys.modules
+        and isinstance(sys.modules["diffusers"], types.ModuleType)
+        and getattr(sys.modules["diffusers"], "_aimu_stub", False)
     ):
         return
 
@@ -538,9 +540,7 @@ def test_gemini_no_inline_image_raises_runtime_error(monkeypatch):
         prompt_feedback="blocked: safety filter",
     )
 
-    monkeypatch.setattr(
-        _gic_mod.genai, "Client", lambda **kw: _FakeGenaiClient(response, api_key=kw.get("api_key"))
-    )
+    monkeypatch.setattr(_gic_mod.genai, "Client", lambda **kw: _FakeGenaiClient(response, api_key=kw.get("api_key")))
     c = GeminiImageClient(GeminiImageModel.NANO_BANANA)
     with pytest.raises(RuntimeError, match="no image data"):
         c.generate("a cat")
@@ -627,9 +627,7 @@ def test_hf_stream_emits_one_chunk_per_step_then_final():
 def test_hf_stream_preview_every_decodes_at_matching_steps():
     """preview_every=2 should populate `image` at steps 2, 4 (and the final)."""
     client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
-    chunks = list(
-        client.generate("a cat", stream=True, num_inference_steps=4, preview_every=2)
-    )
+    chunks = list(client.generate("a cat", stream=True, num_inference_steps=4, preview_every=2))
     # 4 progress + 1 final = 5 chunks.
     assert len(chunks) == 5
     # Step 1: no preview; step 2: preview; step 3: no; step 4: preview; final: yes.

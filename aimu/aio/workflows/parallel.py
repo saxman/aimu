@@ -79,9 +79,7 @@ class Parallel(AsyncRunner):
         images: Optional[list] = None,
     ) -> list[str]:
         async with asyncio.TaskGroup() as tg:
-            tasks = [
-                tg.create_task(w.run(task, generate_kwargs, False, images)) for w in self.workers
-            ]
+            tasks = [tg.create_task(w.run(task, generate_kwargs, False, images)) for w in self.workers]
         return [t.result() for t in tasks]
 
     async def run(
@@ -108,9 +106,7 @@ class Parallel(AsyncRunner):
         results = await self._run_workers(task, generate_kwargs, images=images)
         combined = self.separator.join(results)
         if self.aggregator:
-            agg_stream = await self.aggregator.run(
-                combined, generate_kwargs=generate_kwargs, stream=True
-            )
+            agg_stream = await self.aggregator.run(combined, generate_kwargs=generate_kwargs, stream=True)
             async for chunk in agg_stream:
                 yield chunk
         else:

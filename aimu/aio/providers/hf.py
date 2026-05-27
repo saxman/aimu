@@ -32,8 +32,7 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
     def __init__(self, sync_client: HuggingFaceClient):
         if not isinstance(sync_client, HuggingFaceClient):
             raise TypeError(
-                f"AsyncHuggingFaceClient requires an existing sync HuggingFaceClient. "
-                f"Got {type(sync_client).__name__}."
+                f"AsyncHuggingFaceClient requires an existing sync HuggingFaceClient. Got {type(sync_client).__name__}."
             )
         self._sync = sync_client
         # super().__init__ would clobber the sync client's state; mirror attributes instead.
@@ -133,9 +132,7 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
             return self._stream_via_thread(
                 self._sync._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images)
             )
-        return await asyncio.to_thread(
-            self._sync._chat, user_message, generate_kwargs, use_tools, False, images
-        )
+        return await asyncio.to_thread(self._sync._chat, user_message, generate_kwargs, use_tools, False, images)
 
     async def _stream_via_thread(self, sync_iterator) -> AsyncIterator[StreamChunk]:
         """Yield from a sync iterator by hopping each ``next()`` to a worker thread.

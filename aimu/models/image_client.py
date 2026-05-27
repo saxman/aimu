@@ -114,9 +114,7 @@ class ImageClient:
         # are accepted without requiring the model to be in our enum catalogs.
         if isinstance(model, str):
             if ":" not in model:
-                raise ValueError(
-                    f"Image model string must be in 'provider:model_id' form, got: {model!r}"
-                )
+                raise ValueError(f"Image model string must be in 'provider:model_id' form, got: {model!r}")
             provider, _, _model_id = model.partition(":")
             if provider == "hf":
                 if not _HAS_HF_IMAGE:
@@ -134,9 +132,7 @@ class ImageClient:
                     )
                 self._client = GeminiImageClient(model, model_kwargs=model_kwargs)
                 return
-            raise ValueError(
-                f"Unknown image provider {provider!r}. Available: {sorted(_provider_registry())}"
-            )
+            raise ValueError(f"Unknown image provider {provider!r}. Available: {sorted(_provider_registry())}")
 
         if isinstance(model, ImageSpec) and not isinstance(model, ImageModel):
             raise TypeError(

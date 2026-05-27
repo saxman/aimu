@@ -23,8 +23,7 @@ class AsyncLlamaCppClient(AsyncBaseModelClient):
     def __init__(self, sync_client: LlamaCppClient):
         if not isinstance(sync_client, LlamaCppClient):
             raise TypeError(
-                f"AsyncLlamaCppClient requires an existing sync LlamaCppClient. "
-                f"Got {type(sync_client).__name__}."
+                f"AsyncLlamaCppClient requires an existing sync LlamaCppClient. Got {type(sync_client).__name__}."
             )
         self._sync = sync_client
         self.model = sync_client.model
@@ -119,9 +118,7 @@ class AsyncLlamaCppClient(AsyncBaseModelClient):
             return self._stream_via_thread(
                 self._sync._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images)
             )
-        return await asyncio.to_thread(
-            self._sync._chat, user_message, generate_kwargs, use_tools, False, images
-        )
+        return await asyncio.to_thread(self._sync._chat, user_message, generate_kwargs, use_tools, False, images)
 
     async def _stream_via_thread(self, sync_iterator) -> AsyncIterator[StreamChunk]:
         sentinel = object()

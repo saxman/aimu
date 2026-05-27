@@ -19,9 +19,7 @@ class _AsyncAgenticView(AsyncBaseModelClient):
 
     def __init__(self, agent: Agent):
         if not isinstance(agent, Agent):
-            raise TypeError(
-                f"_AsyncAgenticView only accepts aio.Agent, got {type(agent).__name__}."
-            )
+            raise TypeError(f"_AsyncAgenticView only accepts aio.Agent, got {type(agent).__name__}.")
         self._agent = agent
         self._inner_client = agent.model_client
         self.model = self._inner_client.model
@@ -80,9 +78,7 @@ class _AsyncAgenticView(AsyncBaseModelClient):
         images: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         if stream:
-            return await self._agent.run(
-                user_message, generate_kwargs=generate_kwargs, stream=True, images=images
-            )
+            return await self._agent.run(user_message, generate_kwargs=generate_kwargs, stream=True, images=images)
         return await self._agent.run(user_message, generate_kwargs=generate_kwargs, images=images)
 
     async def _generate(

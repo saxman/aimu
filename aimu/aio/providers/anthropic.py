@@ -195,9 +195,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         self.messages.append(assistant_msg)
         return text_content
 
-    async def _chat_streamed(
-        self, generate_kwargs: dict[str, Any], tools: list
-    ) -> AsyncIterator[StreamChunk]:
+    async def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> AsyncIterator[StreamChunk]:
         system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
 

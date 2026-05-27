@@ -293,9 +293,7 @@ def _resolve_image_client_cls(client_type: str):
         if not HAS_GEMINI_IMAGE:
             pytest.skip("[google] extra not installed (pip install -e '.[google]')")
         return GeminiImageClient
-    raise ValueError(
-        f"Unknown --image-client value: {client_type!r}. Expected 'hf', 'gemini', or 'all'."
-    )
+    raise ValueError(f"Unknown --image-client value: {client_type!r}. Expected 'hf', 'gemini', or 'all'.")
 
 
 def resolve_image_model_params(config) -> list:

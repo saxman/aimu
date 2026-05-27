@@ -57,9 +57,7 @@ class MCPClient:
             instance._client = Client(instance._transport)
             await instance._client.__aenter__()
         except Exception as exc:
-            raise MCPConnectionError(
-                f"failed to connect MCP transport {instance._transport!r}: {exc}"
-            ) from exc
+            raise MCPConnectionError(f"failed to connect MCP transport {instance._transport!r}: {exc}") from exc
         return instance
 
     def __deepcopy__(self, memo):

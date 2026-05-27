@@ -100,7 +100,9 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         self.messages.append({"role": "assistant", "content": response})
         return response
 
-    async def _chat_streamed(self, user_message, generate_kwargs=None, use_tools=True, images=None) -> AsyncIterator[StreamChunk]:
+    async def _chat_streamed(
+        self, user_message, generate_kwargs=None, use_tools=True, images=None
+    ) -> AsyncIterator[StreamChunk]:
         response = await self._chat(user_message, generate_kwargs, use_tools, images=images)
         yield StreamChunk(StreamingContentType.GENERATING, response)
 
@@ -201,9 +203,7 @@ def create_real_async_model_client(request):
         import ollama
 
         ollama.pull(model.value)
-        client = AsyncOllamaClient(
-            model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2
-        )
+        client = AsyncOllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
         # Force model.supports_vision attr access through enum so downstream tests
         # using `model_client.model.supports_*` work uniformly.
         assert isinstance(model, OllamaModel)
@@ -246,9 +246,7 @@ def create_real_async_model_client(request):
         model_path = request.config.getoption("--model-path")
         if not model_path:
             pytest.skip("--model-path is required for llamacpp client tests")
-        sync_client = LlamaCppClient(
-            model, model_path=model_path, system_message="You are a helpful assistant."
-        )
+        sync_client = LlamaCppClient(model, model_path=model_path, system_message="You are a helpful assistant.")
         client = AsyncLlamaCppClient(sync_client)
     else:
         raise ValueError(f"Unknown model: {model}")

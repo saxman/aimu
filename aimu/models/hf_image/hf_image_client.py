@@ -98,9 +98,7 @@ def _parse_model_string(s: str) -> HuggingFaceImageSpec:
         )
     provider, repo_id = s.split(":", 1)
     if provider != "hf":
-        raise ValueError(
-            f"Only 'hf:' provider is supported for HuggingFaceImageClient. Got provider: {provider!r}"
-        )
+        raise ValueError(f"Only 'hf:' provider is supported for HuggingFaceImageClient. Got provider: {provider!r}")
     if not repo_id:
         raise ValueError(f"Empty model id after 'hf:': {s!r}")
     return HuggingFaceImageSpec(repo_id)

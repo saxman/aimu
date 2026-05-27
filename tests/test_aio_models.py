@@ -65,9 +65,7 @@ async def test_generate_streamed(async_model_client):
 
 
 async def test_generate_with_parameters(async_model_client):
-    response = await async_model_client.generate(
-        "What is the capital of France?", generate_kwargs={"max_tokens": 1000}
-    )
+    response = await async_model_client.generate("What is the capital of France?", generate_kwargs={"max_tokens": 1000})
     assert isinstance(response, str)
     assert "Paris" in response
 

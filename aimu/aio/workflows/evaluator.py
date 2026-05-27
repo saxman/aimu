@@ -48,9 +48,7 @@ class EvaluatorOptimizer(AsyncRunner):
                 logger.debug("EvaluatorOptimizer '%s' accepted on round %d.", self.name, round_num + 1)
                 break
             logger.debug("EvaluatorOptimizer '%s' revising on round %d.", self.name, round_num + 1)
-            revision_prompt = (
-                f"Revise your response based on this feedback:\n{feedback}\n\nOriginal task: {task}"
-            )
+            revision_prompt = f"Revise your response based on this feedback:\n{feedback}\n\nOriginal task: {task}"
             output = await self.generator.run(revision_prompt, generate_kwargs=generate_kwargs)
         return output
 

@@ -125,8 +125,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
 
         if response["message"].tool_calls:
             tool_calls = [
-                {"name": tc.function.name, "arguments": tc.function.arguments}
-                for tc in response["message"].tool_calls
+                {"name": tc.function.name, "arguments": tc.function.arguments} for tc in response["message"].tool_calls
             ]
             await self._handle_tool_calls(tool_calls, tools)
 
@@ -147,9 +146,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             self.messages[-1]["thinking"] = response["message"].thinking
         return response["message"].content
 
-    async def _chat_streamed(
-        self, generate_kwargs: dict, tools: list
-    ) -> AsyncIterator[StreamChunk]:
+    async def _chat_streamed(self, generate_kwargs: dict, tools: list) -> AsyncIterator[StreamChunk]:
         response = await self._client.chat(
             model=self.model.value,
             messages=_adapt_messages_for_ollama(self.messages),

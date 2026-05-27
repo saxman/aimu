@@ -118,9 +118,7 @@ class Agent(AsyncRunner):
     ) -> AsyncIterator[StreamChunk]:
         self._prepare_run()
         iteration = 0
-        first_stream = await self.model_client.chat(
-            task, generate_kwargs=generate_kwargs, stream=True, images=images
-        )
+        first_stream = await self.model_client.chat(task, generate_kwargs=generate_kwargs, stream=True, images=images)
         async for chunk in first_stream:
             yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
 

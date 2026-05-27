@@ -22,8 +22,7 @@ class AsyncGeminiImageClient:
     def __init__(self, sync_client: GeminiImageClient):
         if not isinstance(sync_client, GeminiImageClient):
             raise TypeError(
-                f"AsyncGeminiImageClient requires an existing sync GeminiImageClient. "
-                f"Got {type(sync_client).__name__}."
+                f"AsyncGeminiImageClient requires an existing sync GeminiImageClient. Got {type(sync_client).__name__}."
             )
         self._sync = sync_client
 

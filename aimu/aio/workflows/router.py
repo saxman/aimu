@@ -105,7 +105,5 @@ class Router(AsyncRunner):
         handlers: dict[str, AsyncRunner] = {
             route: Agent.from_config(cfg, client) for route, cfg in handler_configs.items()
         }
-        fallback: Optional[AsyncRunner] = (
-            Agent.from_config(fallback_config, client) if fallback_config else None
-        )
+        fallback: Optional[AsyncRunner] = Agent.from_config(fallback_config, client) if fallback_config else None
         return cls(routing_agent=routing_agent, handlers=handlers, fallback=fallback)

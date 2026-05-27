@@ -84,8 +84,7 @@ class _ChatStateMixin:
         if images:
             if not self.model.supports_vision:
                 raise ValueError(
-                    f"Model {self.model.name} does not support vision input. "
-                    "Use a model with supports_vision=True."
+                    f"Model {self.model.name} does not support vision input. Use a model with supports_vision=True."
                 )
             from ._images import _build_user_content_blocks
 
@@ -106,8 +105,7 @@ class _ChatStateMixin:
             spec = getattr(fn, "__tool_spec__", None)
             if spec is None:
                 raise ValueError(
-                    f"Tool '{getattr(fn, '__name__', fn)}' is missing __tool_spec__. "
-                    "Decorate it with @aimu.tools.tool."
+                    f"Tool '{getattr(fn, '__name__', fn)}' is missing __tool_spec__. Decorate it with @aimu.tools.tool."
                 )
             specs.append(spec)
         return specs
