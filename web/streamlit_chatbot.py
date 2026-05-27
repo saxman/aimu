@@ -46,15 +46,15 @@ SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 PREVIEW_MAX = 25
 
 
-def _construct_image_client(client_cls: type[BaseImageClient], model) -> tuple[Optional[BaseImageClient], Optional[str]]:
+def _construct_image_client(
+    client_cls: type[BaseImageClient], model
+) -> tuple[Optional[BaseImageClient], Optional[str]]:
     """Try to construct a fresh image client. Returns (client, error_msg)."""
     try:
         return client_cls(model), None
     except (RuntimeError, ImportError) as exc:
         # Most common: GOOGLE_API_KEY missing for GeminiImageClient.
         return None, str(exc)
-
-
 
 
 def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
@@ -73,6 +73,7 @@ def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
         st.session_state.base_client.tools = builtin.make_tools(
             st.session_state.base_client, client, st.session_state.get("preview_every")
         )
+
 
 # Generated images land here (matches the library's default for `format="path"`).
 IMAGE_DIR = paths.output / "images"
@@ -242,7 +243,13 @@ with st.sidebar:
     st.write("Example AI Assistant")
 
     # Model/client selectors use base_client since the agentic view doesn't expose TOOL_MODELS.
-    model = st.selectbox("Model", options=st.session_state.base_client.TOOL_MODELS, format_func=lambda x: x.name)
+    _tool_models = st.session_state.base_client.TOOL_MODELS
+    model = st.selectbox(
+        "Model",
+        options=_tool_models,
+        index=_tool_models.index(st.session_state.model) if st.session_state.model in _tool_models else 0,
+        format_func=lambda x: x.name,
+    )
     model_client = st.selectbox("Model Client", options=MODEL_CLIENTS, format_func=lambda x: x.__name__)
     agentic_mode = st.checkbox(
         "Agentic mode",
