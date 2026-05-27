@@ -2469,7 +2469,6 @@
 <li><strong>Plain Python over framework primitives.</strong> No <code>Runnable</code> protocol, no <code>BaseTool</code>, no LCEL <code>|</code>, no Pydantic for tool args. See <a href="../explanation/design-principles/">design principles</a> for the full list of what's deliberately out of scope.</li>
 <li><strong>OpenAI message dicts as the only data model.</strong> No <code>Message</code> class. Provider-specific formats are adapted at request time, never persisted.</li>
 <li><strong>Loud failures.</strong> Bad input raises with an actionable message. Silent skips and <code>try/except: pass</code> are reviewed carefully.</li>
-<li><strong>Synchronous first.</strong> Async APIs are deferred until a concrete need surfaces.</li>
 </ul>
 <h2 id="adding-a-new-provider">Adding a new provider<a class="headerlink" href="#adding-a-new-provider" title="Permanent link">&para;</a></h2>
 <p>Briefly: subclass <code>BaseModelClient</code>, implement <code>_chat</code>, <code>_generate</code>, and <code>_update_generate_kwargs</code>. Define a <code>Model</code> enum subclass listing supported models with <code>ModelSpec(...)</code> values. Add isinstance dispatch in <code>ModelClient.__init__</code> and a registry entry in <code>_provider_registry()</code> so model strings work. Add the provider's <code>Model</code> import to <code>aimu/models/__init__.py</code> guarded by a <code>HAS_*</code> flag for the optional dependency.</p>
