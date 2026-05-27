@@ -24,6 +24,14 @@ client = aimu.client("ollama:qwen3.5:9b")
 
 Any tool-capable model works. To check: `client.is_tool_using_model`.
 
+If you want a one-liner, `aimu.agent()` creates the client for you:
+
+```python
+agent = aimu.agent("ollama:qwen3.5:9b", system="You are a helpful assistant.", tools=[...])
+```
+
+The rest of this tutorial uses the explicit two-step form to make the client visible.
+
 ## 2. Use built-in tools
 
 `aimu.tools.builtin` ships a set of ready-made tools. They're grouped by domain so you don't have to remember individual names:

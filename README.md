@@ -85,7 +85,6 @@ for chunk in client.chat("Tell me a story", stream=True, include=["generating"])
 **Tools for models and agents.** `@tool` works on any plain function:
 
 ```python
-from aimu.agents import Agent
 from aimu.tools import tool
 
 @tool
@@ -93,7 +92,7 @@ def letter_counter(word: str, letter: str) -> int:
     """Count occurrences of a letter in a word."""
     return word.lower().count(letter.lower())
 
-agent = Agent(aimu.client("ollama:qwen3.5:9b"), tools=[letter_counter])
+agent = aimu.agent("ollama:qwen3.5:9b", tools=[letter_counter])
 print(agent.run("How many r's in strawberry?"))
 ```
 

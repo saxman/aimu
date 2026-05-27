@@ -16,11 +16,17 @@ Quick start::
     client = aimu.client("ollama:qwen3.5:9b", system="You are concise.")
     client.chat("Hi there")
 
+    agent = aimu.agent("anthropic:claude-sonnet-4-6", tools=[my_tool])
+    print(agent.run("How many r's in strawberry?"))
+
     image = aimu.generate_image("a watercolor of a fox", model="hf:runwayml/stable-diffusion-v1-5")
     image = aimu.generate_image("a watercolor of a fox", model="gemini:nano-banana")
 """
 
-from typing import Any, Iterable, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
+
+if TYPE_CHECKING:
+    from .agents import Agent
 
 from . import aio
 from .models import (
@@ -95,6 +101,39 @@ def chat(
     )
 
 
+def agent(
+    model: Union[str, Model],
+    *,
+    system: Optional[str] = None,
+    tools: Optional[list] = None,
+    **kwargs: Any,
+) -> "Agent":
+    """Construct an :class:`~aimu.agents.Agent` from a model string or enum member.
+
+    Shortcut for the common case of ``Agent(aimu.client(model), ...)``. For full
+    control (``mcp_client``, ``max_iterations``, ``name``, etc.) construct
+    :class:`~aimu.agents.Agent` directly.
+
+    ``**kwargs`` are forwarded to :class:`~aimu.agents.Agent` (e.g.
+    ``max_iterations=5``, ``name="my-agent"``).
+
+    Example::
+
+        from aimu.tools import tool
+
+        @tool
+        def letter_counter(word: str, letter: str) -> int:
+            \"\"\"Count occurrences of a letter in a word.\"\"\"
+            return word.lower().count(letter.lower())
+
+        agent = aimu.agent("ollama:qwen3.5:9b", tools=[letter_counter])
+        print(agent.run("How many r's in strawberry?"))
+    """
+    from .agents import Agent
+
+    return Agent(client(model), system, tools=tools or [], **kwargs)
+
+
 def image_client(model: Union[str, ImageModel, ImageSpec], **kwargs: Any) -> ImageClient:
     """Construct an :class:`ImageClient` for text-to-image generation.
 
@@ -145,6 +184,7 @@ def generate_image(
 
 
 __all__ = [
+    "Agent",
     "BaseImageClient",
     "BaseModelClient",
     "HAS_GEMINI_IMAGE",
@@ -163,6 +203,7 @@ __all__ = [
     "ModelSpec",
     "StreamChunk",
     "StreamingContentType",
+    "agent",
     "aio",
     "chat",
     "client",
