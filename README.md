@@ -6,7 +6,7 @@
   <img alt="AIMU" src="docs/assets/aimu-horizontal-light.svg" width="480">
 </picture>
 
-**Simple, composable AI for Python — local or cloud.**
+**Simple, composable AI for Python, local or in the cloud.**
 
 [![PyPI](https://img.shields.io/pypi/v/aimu)](https://pypi.org/project/aimu/) ![GitHub License](https://img.shields.io/github/license/saxman/genscai) ![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsaxman%2Faimu%2Frefs%2Fheads%2Fmain%2Fpyproject.toml) [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
@@ -97,7 +97,7 @@ agent = Agent(aimu.client("ollama:qwen3.5:9b"), tools=[letter_counter])
 print(agent.run("How many r's in strawberry?"))
 ```
 
-**A code-controlled workflow.** AIMU supports several workflow patterns -- chaining, routing, parallelization, and evaluation loops. `Chain` sequences a series of LLM calls where each step's output feeds the next, each guided by its own instruction. `Chain.from_client()` builds one from a shared client and a list of per-step instructions:
+**Code-controlled workflows.** AIMU supports several workflow patterns: chaining, routing, parallelization, and evaluation loops. `Chain.from_client()`, for example, executes a series of LLM calls using a shared client and a list of per-step instructions:
 
 ```python
 from aimu.agents import Chain
