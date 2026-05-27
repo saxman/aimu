@@ -901,6 +901,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming-tools-generators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming tools (generators)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2338,6 +2349,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming-tools-generators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming tools (generators)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2503,10 +2525,34 @@
 </tbody>
 </table>
 <p>See the <a href="../../reference/api/tools/"><code>aimu.tools</code> API reference</a> for the full list with descriptions.</p>
+<h2 id="streaming-tools-generators">Streaming tools (generators)<a class="headerlink" href="#streaming-tools-generators" title="Permanent link">&para;</a></h2>
+<p>For long-running tools, make the function a generator and yield <code>StreamChunk</code> objects during execution. The agent's <code>Agent.run(stream=True)</code> forwards each yielded chunk through its own stream so callers see progress live — no side channels, no callbacks.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">StreamChunk</span><span class="p">,</span> <span class="n">StreamingContentType</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nd">@tool</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">long_search</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Search the web with live progress updates.&quot;&quot;&quot;</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="k">yield</span> <span class="n">StreamChunk</span><span class="p">(</span><span class="n">StreamingContentType</span><span class="o">.</span><span class="n">GENERATING</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Searching </span><span class="si">{</span><span class="n">query</span><span class="si">!r}</span><span class="s2">...&quot;</span><span class="p">)</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">results</span> <span class="o">=</span> <span class="n">_hit_search_api</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>         <span class="c1"># imaginary slow call</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="k">yield</span> <span class="n">StreamChunk</span><span class="p">(</span><span class="n">StreamingContentType</span><span class="o">.</span><span class="n">GENERATING</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span><span class="si">}</span><span class="s2"> results, fetching pages...&quot;</span><span class="p">)</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">pages</span> <span class="o">=</span> <span class="p">[</span><span class="n">_fetch</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">url</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">title</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pages</span><span class="p">)</span>  <span class="c1"># this is the canonical tool response</span>
+</span></code></pre></div>
+<p>Three rules cover the contract:</p>
+<ol>
+<li><strong>The decorator detects it automatically.</strong> <code>@tool</code> sets <code>func.__tool_is_streaming__ = True</code> when the function is a generator (<code>inspect.isgeneratorfunction</code>) or async generator (<code>inspect.isasyncgenfunction</code>). No opt-in flag.</li>
+<li><strong>Yield any phase that fits.</strong> <code>GENERATING</code> for text progress, <code>IMAGE_GENERATING</code> for image-gen progress, future custom phases as needed. The agent forwards each chunk untouched (it only adds the <code>agent</code> and <code>iteration</code> metadata fields).</li>
+<li><strong>The result comes from one of three places</strong> — in priority order: the generator's <code>return</code> value (sync only — <code>StopIteration.value</code>); the last yielded chunk's <code>content["result"]</code> if it's a dict with that key (matches the <code>IMAGE_GENERATING</code> final-chunk convention); or <code>str(last_chunk.content)</code>.</li>
+</ol>
+<p>Async streaming tools are async generators (<code>async def + yield</code>); the async agent's <code>_handle_tool_calls_streamed</code> drains them with <code>async for</code>. Sync generator tools also work in the async surface — each <code>next()</code> is routed through <code>asyncio.to_thread</code> so the event loop stays free between yields.</p>
+<p>Streaming tools require <code>stream=True</code> on the calling <code>chat()</code> / <code>agent.run()</code>. The non-streaming dispatch path raises <code>ValueError</code> with a clear message pointing at <code>stream=True</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../explanation/tool-integration/">Explanation: tool integration</a> — dispatch order, precedence, when to pick in-process vs MCP</li>
+<li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a> — phases, content shapes, why one chunk type</li>
 <li><a href="../use-mcp-tools/">Use MCP tools</a> — cross-process tool servers</li>
+<li><a href="../generate-images/">Generate images</a> — the built-in <code>generate_image</code> streaming tool</li>
 </ul>
 
 

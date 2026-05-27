@@ -2328,7 +2328,7 @@
 
 
 <h1 id="stream-phases">Stream phases<a class="headerlink" href="#stream-phases" title="Permanent link">&para;</a></h1>
-<p><code>StreamingContentType</code> is a string enum with four values, attached to every <code>StreamChunk</code> via <code>chunk.phase</code>.</p>
+<p><code>StreamingContentType</code> is a string enum with five values, attached to every <code>StreamChunk</code> via <code>chunk.phase</code>.</p>
 <table>
 <thead>
 <tr>
@@ -2358,6 +2358,12 @@
 <td><code>str</code> (token)</td>
 </tr>
 <tr>
+<td><code>IMAGE_GENERATING</code></td>
+<td><code>"image_generating"</code></td>
+<td>Per-step image-generation progress (HF callback / Gemini start-done)</td>
+<td><code>dict {"step": int, "total_steps": int, "image": PIL.Image \| None, "final": bool, "result": str \| bytes \| None}</code></td>
+</tr>
+<tr>
 <td><code>DONE</code></td>
 <td><code>"done"</code></td>
 <td>Terminal marker (rarely yielded; reserved)</td>
@@ -2367,8 +2373,9 @@
 </table>
 <p>The enum inherits from <code>str</code>, so members compare equal to their string values: <code>chunk.phase == "thinking"</code> is fine.</p>
 <h2 id="helpers-on-streamchunk">Helpers on <code>StreamChunk</code><a class="headerlink" href="#helpers-on-streamchunk" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">()</span>        <span class="c1"># True for THINKING and GENERATING</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>   <span class="c1"># True for TOOL_CALLING</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">()</span>             <span class="c1"># True for THINKING and GENERATING</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>        <span class="c1"># True for TOOL_CALLING</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_image_progress</span><span class="p">()</span>   <span class="c1"># True for IMAGE_GENERATING</span>
 </span></code></pre></div>
 <p>These avoid sprinkling phase comparisons through your code.</p>
 <h2 id="typical-sequences">Typical sequences<a class="headerlink" href="#typical-sequences" title="Permanent link">&para;</a></h2>

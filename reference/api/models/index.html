@@ -1603,6 +1603,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_image_progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_image_progress
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2625,6 +2636,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_image_progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_image_progress
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3222,19 +3244,30 @@ string so code can call e.g. <code>ollama.pull(model.value)</code>.</p>
 
 
         <p>A single chunk yielded by <code>client.chat(stream=True)</code>, <code>Agent.run(stream=True)</code>,
-or any workflow <code>run(stream=True)</code>.</p>
+<code>image_client.generate(stream=True)</code>, or any streaming tool / workflow.</p>
 
 
 <details class="fields" open>
   <summary>Fields</summary>
-  <p>phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING, DONE)
-content:   <code>str</code> for THINKING/GENERATING; <code>dict {"name", "arguments", "response"}</code>
-           for TOOL_CALLING (arguments is the dict the model passed to the tool).
+  <p>phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING,
+           IMAGE_GENERATING, DONE)
+content:   shape depends on phase:
+           - <code>str</code> for THINKING / GENERATING (token).
+           - <code>dict {"name", "arguments", "response"}</code> for TOOL_CALLING
+             (<code>arguments</code> is the dict the model passed to the tool).
+           - <code>dict {"step", "total_steps", "image", "final", "result"}</code> for
+             IMAGE_GENERATING — <code>step</code> is 1-indexed, <code>image</code> is an optional
+             <code>PIL.Image</code> (None unless <code>preview_every</code> opted in this step),
+             <code>final=True</code> marks the terminal chunk for one image, and <code>result</code>
+             carries the encoded output (path / bytes / data-url per <code>format=</code>)
+             on the final chunk.
+           - <code>str</code> for DONE (usually empty).
 agent:     name of the agent that produced this chunk, or <code>None</code> for a plain
-           <code>client.chat()</code> call. Set automatically by <code>Agent</code> and workflow runners.
+           <code>client.chat()</code> / <code>client.generate()</code> call. Set automatically by
+           <code>Agent</code> and workflow runners.
 iteration: zero-based iteration index inside the agent loop, or <code>0</code> for plain chat.</p>
-</details>        <p>Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> to dispatch on phase without
-repeating the equality check in user code.</p>
+</details>        <p>Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> / <code>chunk.is_image_progress()</code> to
+dispatch on phase without repeating the equality check in user code.</p>
 
 
 
@@ -3291,6 +3324,26 @@ repeating the equality check in user code.</p>
     <div class="doc doc-contents ">
 
         <p>True if this chunk carries a tool-call result.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.models.StreamChunk.is_image_progress" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">is_image_progress</span>
+
+
+<a href="#aimu.models.StreamChunk.is_image_progress" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_image_progress</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>True if this chunk carries image-generation progress (IMAGE_GENERATING).</p>
 
 
     </div>
