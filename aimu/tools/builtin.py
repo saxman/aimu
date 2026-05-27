@@ -467,6 +467,24 @@ def make_describe_image_tool(
     return describe_image
 
 
+def make_tools(base_client, image_client=None, preview_every=None):
+    """Assemble the standard tool list for a chat client.
+
+    Starts from ALL_TOOLS, then applies two optional enhancements:
+    - If *image_client* is provided, replaces the default ``generate_image``
+      singleton with one bound to that client (honoring *preview_every*).
+    - If *base_client* supports vision, appends a ``describe_image`` tool
+      bound to the same client so the model can inspect generated images.
+    """
+    tools = list(ALL_TOOLS)
+    if image_client is not None:
+        bound = make_image_tool(image_client, preview_every=preview_every)
+        tools = [t for t in tools if t is not generate_image] + [bound]
+    if getattr(base_client.model, "supports_vision", False):
+        tools.append(make_describe_image_tool(base_client))
+    return tools
+
+
 # Curated subsets — pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_webpage, search, wikipedia]
 fs = [list_directory, read_file]

@@ -74,3 +74,7 @@ That's the full mental model: a `chat()` function for one-shots, a `client()` fa
 ## Notebooks
 
 The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 15 runnable demos covering every subsystem end-to-end, including a dedicated `14 - Async` notebook for the `aimu.aio` surface and `15 - Image Generation` for text-to-image. The [README](https://github.com/saxman/aimu#examples) lists each one.
+
+## Web apps
+
+The [`web/`](https://github.com/saxman/aimu/tree/main/web) directory ships two Streamlit chat applications. `streamlit_chatbot_basic.py` (~70 lines) is a minimal showcase — provider/model selector, streaming chat, built-in tools — illustrating how little code a working AIMU chatbot takes. `streamlit_chatbot.py` is a full-featured version that adds image generation, agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included.

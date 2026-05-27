@@ -11,7 +11,16 @@ from __future__ import annotations
 
 import pytest
 
-from aimu.models import ModelSpec, StreamChunk, StreamingContentType, resolve_model_string
+from aimu.models import (
+    BaseImageClient,
+    BaseModelClient,
+    ModelSpec,
+    StreamChunk,
+    StreamingContentType,
+    available_image_clients,
+    available_text_clients,
+    resolve_model_string,
+)
 from helpers import MockModelClient
 
 
@@ -291,3 +300,43 @@ def test_chat_stream_include_thinking_only():
     client = _MultiPhaseClient(["x"])
     chunks = list(client.chat("hi", stream=True, include=["thinking"]))
     assert all(c.phase == StreamingContentType.THINKING for c in chunks)
+
+
+# ---------------------------------------------------------------------------
+# available_text_clients / available_image_clients
+# ---------------------------------------------------------------------------
+
+
+def test_available_text_clients_returns_list():
+    clients = available_text_clients()
+    assert isinstance(clients, list)
+
+
+def test_available_text_clients_are_base_model_client_subclasses():
+    for cls in available_text_clients():
+        assert issubclass(cls, BaseModelClient), f"{cls} is not a BaseModelClient subclass"
+
+
+def test_available_text_clients_have_tool_models():
+    for cls in available_text_clients():
+        assert hasattr(cls, "TOOL_MODELS"), f"{cls} missing TOOL_MODELS"
+
+
+def test_available_text_clients_no_duplicates():
+    clients = available_text_clients()
+    assert len(clients) == len(set(clients))
+
+
+def test_available_image_clients_returns_list():
+    clients = available_image_clients()
+    assert isinstance(clients, list)
+
+
+def test_available_image_clients_are_base_image_client_subclasses():
+    for cls in available_image_clients():
+        assert issubclass(cls, BaseImageClient), f"{cls} is not a BaseImageClient subclass"
+
+
+def test_available_image_clients_no_duplicates():
+    clients = available_image_clients()
+    assert len(clients) == len(set(clients))

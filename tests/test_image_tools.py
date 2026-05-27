@@ -293,3 +293,54 @@ def test_describe_image_factory_default_instruction_override():
     tool_fn = builtin.make_describe_image_tool(client, default_instruction="Identify objects.")
     out = tool_fn("/tmp/x.png")
     assert "Identify objects." in out
+
+
+# ---------------------------------------------------------------------------
+# make_tools — standard tool-list assembly
+# ---------------------------------------------------------------------------
+
+
+def test_make_tools_no_image_client_no_vision():
+    """With no image client and no vision, make_tools returns a copy of ALL_TOOLS."""
+    client = _fake_vision_chat_client(supports_vision=False)
+    tools = builtin.make_tools(client)
+    assert tools == list(builtin.ALL_TOOLS)
+    assert tools is not builtin.ALL_TOOLS
+
+
+def test_make_tools_with_image_client_replaces_generate_image():
+    """When an image client is supplied, the default generate_image singleton is replaced."""
+    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+
+    client = _fake_vision_chat_client(supports_vision=False)
+    image_client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_SCHNELL)
+    tools = builtin.make_tools(client, image_client=image_client)
+
+    assert len(tools) == len(builtin.ALL_TOOLS)
+    assert builtin.generate_image not in tools
+    names = [t.__tool_spec__["function"]["name"] for t in tools]
+    assert "generate_image" in names
+
+
+def test_make_tools_with_vision_client_appends_describe_image():
+    """When the base client supports vision, describe_image is appended."""
+    client = _fake_vision_chat_client(supports_vision=True)
+    tools = builtin.make_tools(client)
+
+    assert len(tools) == len(builtin.ALL_TOOLS) + 1
+    assert tools[-1].__tool_spec__["function"]["name"] == "describe_image"
+
+
+def test_make_tools_with_both_applies_both_transformations():
+    """Image client + vision client: generate_image replaced AND describe_image appended."""
+    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+
+    client = _fake_vision_chat_client(supports_vision=True)
+    image_client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_SCHNELL)
+    tools = builtin.make_tools(client, image_client=image_client)
+
+    assert len(tools) == len(builtin.ALL_TOOLS) + 1
+    assert builtin.generate_image not in tools
+    names = [t.__tool_spec__["function"]["name"] for t in tools]
+    assert "generate_image" in names
+    assert "describe_image" in names

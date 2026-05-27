@@ -126,6 +126,8 @@ __all__ = [
     "ModelSpec",
     "StreamChunk",
     "StreamingContentType",
+    "available_image_clients",
+    "available_text_clients",
     "resolve_image_model_string",
     "resolve_model_string",
 ]
@@ -163,3 +165,33 @@ if HAS_HF_IMAGE:
     __all__.extend(["HuggingFaceImageClient", "HuggingFaceImageModel"])
 if HAS_GEMINI_IMAGE:
     __all__.extend(["GeminiImageClient", "GeminiImageModel"])
+
+
+def available_text_clients() -> list[type[BaseModelClient]]:
+    """Return client classes for all installed text providers, in display order."""
+    clients: list[type[BaseModelClient]] = []
+    if HAS_OLLAMA:
+        clients.append(OllamaClient)
+    if HAS_HF:
+        clients.append(HuggingFaceClient)
+    if HAS_ANTHROPIC:
+        clients.append(AnthropicClient)
+    if HAS_OPENAI_COMPAT:
+        clients.extend([
+            OpenAIClient, GeminiClient, LMStudioOpenAIClient,
+            OllamaOpenAIClient, HFOpenAIClient, VLLMOpenAIClient,
+            LlamaServerOpenAIClient, SGLangOpenAIClient,
+        ])
+    if HAS_LLAMACPP:
+        clients.append(LlamaCppClient)
+    return clients
+
+
+def available_image_clients() -> list[type[BaseImageClient]]:
+    """Return client classes for all installed image providers, in display order."""
+    clients: list[type[BaseImageClient]] = []
+    if HAS_HF_IMAGE:
+        clients.append(HuggingFaceImageClient)
+    if HAS_GEMINI_IMAGE:
+        clients.append(GeminiImageClient)
+    return clients

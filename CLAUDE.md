@@ -130,14 +130,15 @@ ruff format .
 
 ### Running the Chat UI
 
-Launch the Streamlit chat application:
-```bash
-streamlit run web/streamlit_chatbot.py
-```
+The `web/` directory ships two Streamlit apps and a Gradio app:
 
-Launch the Gradio chat application:
+- **`streamlit_chatbot_basic.py`** — ~70-line showcase. Model/provider selector, streaming chat with `include=["generating"]`, built-in tools running silently. Start here to see how little code a working AIMU chatbot needs.
+- **`streamlit_chatbot.py`** — Full-featured version. Adds image generation, agentic mode, thinking display, tool-call expanders, generation parameter sliders, and conversation persistence. Intended as an extensible foundation.
+
 ```bash
-python web/gradio_chatbot.py
+streamlit run web/streamlit_chatbot_basic.py   # showcase
+streamlit run web/streamlit_chatbot.py         # full-featured
+python web/gradio_chatbot.py                   # Gradio variant
 ```
 
 ## Architecture
@@ -875,9 +876,10 @@ tests/                   # Pytest test suite
 ├── test_aio_tools.py             # aio.MCPClient lifecycle + mcp_tools_to_openai
 └── test_aio_models.py            # Live-backend async tests (mirrors test_models.py)
 
-web/                     # Example chat UIs
-├── streamlit_chatbot.py # Streamlit chat interface; uses agent.as_model_client()
-└── gradio_chatbot.py    # Gradio chat interface with streaming
+web/                           # Example chat UIs
+├── streamlit_chatbot_basic.py # ~70-line showcase; model selector, streaming chat, silent tools
+├── streamlit_chatbot.py       # Full-featured; image gen, agentic mode, thinking, sliders
+└── gradio_chatbot.py          # Gradio chat interface with streaming
 
 notebooks/               # Jupyter notebook demos
 ```

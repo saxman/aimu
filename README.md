@@ -42,7 +42,7 @@ Whether you need vision input, autonomous tool use, or image generation, the cal
 
 - `@tool` on any plain Python function. Type hints + docstring become the spec.
 - `MCPClient` for cross-process FastMCP tools. Combine with `@tool` on the same agent.
-- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`.
+- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`. `builtin.make_tools(client, image_client=None)` assembles the full tool list with auto image/vision wiring.
 - Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
 
 ### Memory and persistence
@@ -197,6 +197,21 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [13 - Benchmarking](notebooks/13%20-%20Benchmarking.ipynb) | Multi-model comparison harness |
 | [14 - Async](notebooks/14%20-%20Async.ipynb) | `aimu.aio` surface end-to-end: chat, streaming, async tools, `asyncio.TaskGroup`-backed `Parallel`, async `MCPClient`, in-process provider wrapping |
 | [15 - Image Generation](notebooks/15%20-%20Image%20Generation.ipynb) | `aimu.image_client()` / `aimu.generate_image()` with HuggingFace `diffusers` and Google Nano Banana, plus the built-in `generate_image` agent tool |
+
+## Web apps
+
+The [`web/`](web/) directory ships two Streamlit chat applications that demonstrate AIMU in action:
+
+| App | Description |
+|---|---|
+| [streamlit_chatbot_basic.py](web/streamlit_chatbot_basic.py) | ~70-line showcase — provider/model selector, streaming chat, built-in tools. Start here. |
+| [streamlit_chatbot.py](web/streamlit_chatbot.py) | Full-featured — image generation, agentic mode, thinking display, generation sliders. Extensible foundation. |
+
+```bash
+streamlit run web/streamlit_chatbot_basic.py   # showcase
+streamlit run web/streamlit_chatbot.py         # full-featured
+python web/gradio_chatbot.py                   # Gradio variant
+```
 
 ## Design principles
 

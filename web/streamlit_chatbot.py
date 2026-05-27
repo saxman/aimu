@@ -9,20 +9,15 @@ from aimu import paths
 from aimu.agents.agent import Agent
 from aimu.history import ConversationManager
 from aimu.models import (
-    HAS_GEMINI_IMAGE,
-    HAS_HF_IMAGE,
     BaseImageClient,
-    HuggingFaceClient,
+    HAS_OLLAMA,
     OllamaClient,
     OllamaModel,
     StreamingContentType,
+    available_image_clients,
+    available_text_clients,
 )
 from aimu.tools import builtin
-
-if HAS_HF_IMAGE:
-    from aimu.models import HuggingFaceImageClient
-if HAS_GEMINI_IMAGE:
-    from aimu.models import GeminiImageClient
 
 # Avoid torch RuntimeError when using Hugging Face Transformers
 torch.classes.__path__ = []
@@ -36,19 +31,13 @@ INITIAL_USER_MESSAGE = """
 Introduce what model that you are and share what tools you have access to.
 """
 
-MODEL_CLIENTS = [OllamaClient, HuggingFaceClient]
+MODEL_CLIENTS = available_text_clients()
+IMAGE_CLIENT_CLASSES = available_image_clients()
 
-DEFAULT_MODEL_CLIENT = OllamaClient
-DEFAULT_MODEL = OllamaModel.QWEN_3_5_9B
+_DEFAULT_CLIENT = OllamaClient if HAS_OLLAMA else MODEL_CLIENTS[0]
+_DEFAULT_MODEL = OllamaModel.QWEN_3_5_9B if HAS_OLLAMA else MODEL_CLIENTS[0].TOOL_MODELS[0]
 
 SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
-
-# Image-generation provider classes, in display order. Filtered by installed extras.
-IMAGE_CLIENT_CLASSES: list[type[BaseImageClient]] = []
-if HAS_HF_IMAGE:
-    IMAGE_CLIENT_CLASSES.append(HuggingFaceImageClient)
-if HAS_GEMINI_IMAGE:
-    IMAGE_CLIENT_CLASSES.append(GeminiImageClient)
 
 # Preview slider bounds. Slider value of 0 maps to "off" (preview_every=None);
 # 1..PREVIEW_MAX maps to that integer step frequency. Max chosen to be larger
@@ -66,31 +55,6 @@ def _construct_image_client(client_cls: type[BaseImageClient], model) -> tuple[O
         return None, str(exc)
 
 
-def _build_tools(
-    base_client,
-    image_client: Optional[BaseImageClient],
-    preview_every: Optional[int],
-):
-    """Build the agent's tool list.
-
-    Two image-related swaps relative to ``builtin.ALL_TOOLS``:
-
-    - When ``image_client`` is provided, the default ``generate_image`` is replaced
-      with one bound to that client (with ``preview_every`` previews).
-    - When ``base_client.model`` supports vision, a ``describe_image`` tool is
-      appended — bound to the same chat client (history-isolated) — so the LLM
-      can look at images it generates (or that the user references) and describe
-      them. Non-vision chat models simply don't get the tool.
-    """
-    tools = list(builtin.ALL_TOOLS)
-    if image_client is not None:
-        bound_img = builtin.make_image_tool(image_client, preview_every=preview_every)
-        tools = [t for t in tools if t is not builtin.generate_image] + [bound_img]
-
-    if getattr(base_client.model, "supports_vision", False):
-        tools.append(builtin.make_describe_image_tool(base_client))
-
-    return tools
 
 
 def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
@@ -106,7 +70,7 @@ def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
     st.session_state.image_client = client
     st.session_state.image_client_error = err
     if "base_client" in st.session_state:
-        st.session_state.base_client.tools = _build_tools(
+        st.session_state.base_client.tools = builtin.make_tools(
             st.session_state.base_client, client, st.session_state.get("preview_every")
         )
 
@@ -154,7 +118,7 @@ def _wrap_agent(base_client, max_iterations):
 def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
     """Construct a fresh base client and (optionally) agentic wrapper, then sync session state to match."""
     base_client = model_cls(model, system_message=SYSTEM_MESSAGE)
-    base_client.tools = _build_tools(
+    base_client.tools = builtin.make_tools(
         base_client, st.session_state.get("image_client"), st.session_state.get("preview_every")
     )
     # Store the base client separately since the agent wrapper doesn't have all the same attributes (e.g. TOOL_MODELS) and we need to reference those in the sidebar selectors and checks.
@@ -265,7 +229,7 @@ if "model_client" not in st.session_state:
         st.session_state.image_model = default_image_model
         st.session_state.image_client = client
         st.session_state.image_client_error = err
-    _rebuild_client(DEFAULT_MODEL_CLIENT, DEFAULT_MODEL, False, 10)
+    _rebuild_client(_DEFAULT_CLIENT, _DEFAULT_MODEL, True, 10)
 
     st.session_state.conversation_manager = ConversationManager(
         db_path=str(paths.output / "chat_history.json"),
@@ -280,7 +244,11 @@ with st.sidebar:
     # Model/client selectors use base_client since the agentic view doesn't expose TOOL_MODELS.
     model = st.selectbox("Model", options=st.session_state.base_client.TOOL_MODELS, format_func=lambda x: x.name)
     model_client = st.selectbox("Model Client", options=MODEL_CLIENTS, format_func=lambda x: x.__name__)
-    agentic_mode = st.checkbox("Agentic mode", value=st.session_state.agentic_mode)
+    agentic_mode = st.checkbox(
+        "Agentic mode",
+        value=st.session_state.agentic_mode,
+        help="When enabled, the model runs in a multi-round tool-calling loop: it can call tools, observe results, and keep going until it has a final answer. When disabled, each message is a single inference pass.",
+    )
     max_iterations = st.number_input(
         "Max iterations",
         min_value=1,
@@ -350,7 +318,7 @@ with st.sidebar:
 
         # Preview slider — 0 means off. Disabled when the active client is Gemini
         # (cloud API has no intermediate latents to decode).
-        is_gemini = HAS_GEMINI_IMAGE and isinstance(st.session_state.image_client, GeminiImageClient)
+        is_gemini = type(st.session_state.image_client).__name__ == "GeminiImageClient"
         current_preview = st.session_state.get("preview_every") or 0
         preview_raw = st.slider(
             "Preview every N denoising steps",
@@ -369,7 +337,7 @@ with st.sidebar:
         if selected_preview != st.session_state.get("preview_every"):
             st.session_state.preview_every = selected_preview
             # Rebuild the bound generate_image tool with the new preview frequency.
-            st.session_state.base_client.tools = _build_tools(
+            st.session_state.base_client.tools = builtin.make_tools(
                 st.session_state.base_client,
                 st.session_state.image_client,
                 selected_preview,
