@@ -11,6 +11,7 @@ import os
 import re
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Optional
 from urllib.parse import quote
 
 import requests
@@ -325,46 +326,145 @@ def _get_image_client():
 
 
 @tool
-def generate_image(prompt: str) -> str:
+def generate_image(prompt: str):
     """Generate an image from a text prompt and return the saved file path.
+
+    This is a **streaming tool** — a generator that yields
+    :attr:`~aimu.models.StreamingContentType.IMAGE_GENERATING` chunks during
+    denoising, then returns the saved file path. When called via the agent's
+    streaming path (``agent.run(stream=True)``), each step chunk flows through
+    the agent's own stream and into the chat UI live.
 
     Uses an :class:`aimu.ImageClient`. The default model is controlled by the
     ``AIMU_IMAGE_MODEL`` env var (default: SDXL base; pass any HF diffusers repo
     via ``"hf:..."`` or ``"gemini:nano-banana"`` for Google Nano Banana).
-    Override per-agent by constructing your own tool with :func:`make_image_tool`.
+    Override per-agent by constructing your own tool with :func:`make_image_tool`
+    — it supports a ``preview_every=N`` kwarg for intermediate denoised-image
+    previews.
 
     Args:
         prompt: A description of the desired image.
     """
-    return _get_image_client().generate(prompt, format="path")
+    final_result = None
+    for chunk in _get_image_client().generate(prompt, format="path", stream=True):
+        yield chunk
+        content = chunk.content
+        if isinstance(content, dict) and content.get("final"):
+            final_result = content.get("result")
+    return final_result
 
 
-def make_image_tool(client):
+def make_image_tool(client, *, preview_every: Optional[int] = None):
     """Build a ``generate_image`` tool bound to a specific image client.
 
     ``client`` may be an :class:`aimu.ImageClient` or any concrete
     :class:`aimu.BaseImageClient` (e.g. :class:`HuggingFaceImageClient`,
     :class:`GeminiImageClient`). Use this when an agent needs a different model
-    from the default singleton, or when several agents in one process should not
-    share a single pipeline.
+    from the default singleton, when several agents in one process shouldn't
+    share a pipeline, or to opt into intermediate-image previews via
+    ``preview_every=N`` (decode latents every N denoising steps).
+
+    The returned tool is a **streaming tool** (generator) — its progress chunks
+    flow through ``agent.run(stream=True)`` for live UI updates.
 
     Example::
 
-        client = aimu.image_client(aimu.HuggingFaceImageModel.FLUX_SCHNELL)
-        my_tool = make_image_tool(client)
+        client = aimu.image_client(aimu.HuggingFaceImageModel.SDXL_BASE)
+        my_tool = make_image_tool(client, preview_every=5)
         agent = Agent(text_client, tools=[my_tool])
     """
 
     @tool
-    def generate_image(prompt: str) -> str:
+    def generate_image(prompt: str):
         """Generate an image from a text prompt and return the saved file path.
+
+        Streams per-step progress chunks during generation.
 
         Args:
             prompt: A description of the desired image.
         """
-        return client.generate(prompt, format="path")
+        final_result = None
+        for chunk in client.generate(
+            prompt, format="path", stream=True, preview_every=preview_every
+        ):
+            yield chunk
+            content = chunk.content
+            if isinstance(content, dict) and content.get("final"):
+                final_result = content.get("result")
+        return final_result
 
     return generate_image
+
+
+def make_describe_image_tool(
+    client,
+    *,
+    default_instruction: str = "Describe this image in detail.",
+):
+    """Build a ``describe_image`` tool bound to a vision-capable chat client.
+
+    The bound tool sends an image (file path / bytes / URL) plus an instruction to
+    ``client.chat(..., images=[...])`` and returns the text response. Useful right
+    after :func:`generate_image` — the agent can look at what it generated and
+    tell the user what's in it.
+
+    **Why a factory, not a singleton.** Unlike ``generate_image`` (which is a
+    fixed-purpose tool with an env-var default model), ``describe_image`` is most
+    useful when bound to the *same* model the agent is already using — same
+    knowledge, same provider, no extra API key or model load. The agent's host
+    code (e.g. the Streamlit chatbot, or your own ``Agent`` setup) creates this
+    tool at agent-construction time, after picking a vision-capable chat client.
+
+    **History isolation.** The tool snapshots ``client.messages`` before the
+    vision call and restores it afterwards, so the agent's conversation log
+    isn't polluted with one-off image bytes or vision-Q&A turns. ``use_tools=False``
+    is passed to the inner ``chat()`` call to prevent the LLM from re-calling
+    tools mid-vision.
+
+    Args:
+        client: A vision-capable :class:`aimu.BaseModelClient`. ``ValueError`` if
+            ``client.model.supports_vision`` is False.
+        default_instruction: Instruction passed to the vision model when the
+            caller doesn't supply one. The agent can override per-call.
+
+    Example::
+
+        from aimu.tools.builtin import make_describe_image_tool
+
+        text_client = aimu.client("anthropic:claude-sonnet-4-6")  # vision-capable
+        describe_image = make_describe_image_tool(text_client)
+        agent = Agent(text_client, tools=[builtin.generate_image, describe_image])
+    """
+    if not getattr(client.model, "supports_vision", False):
+        raise ValueError(
+            f"Client's model {client.model.value!r} does not support vision input. "
+            "Pass a vision-capable client (e.g. anthropic:claude-sonnet-4-6, "
+            "openai:gpt-4o-mini, gemini:gemini-2.5-flash, ollama:gemma4:e4b)."
+        )
+
+    @tool
+    def describe_image(image_path: str, instruction: str = default_instruction) -> str:
+        """Look at an image and return a text description.
+
+        Use this when you (or the user) need to know what's in an image —
+        right after ``generate_image``, or when the user references one by path.
+
+        Args:
+            image_path: Path to the image file (e.g. the return value of
+                ``generate_image``), an http(s) URL, or a data URL.
+            instruction: What to ask the vision model. Defaults to a generic
+                "describe this image" request; pass a more specific question
+                (e.g. ``"What text appears in this image?"``) for targeted reads.
+        """
+        # Snapshot the conversation state so the vision call doesn't pollute history.
+        saved_messages = list(client.messages)
+        try:
+            client.messages = []
+            return client.chat(instruction, images=[image_path], use_tools=False)
+        finally:
+            client.messages = saved_messages
+
+    return describe_image
 
 
 # Curated subsets — pass one of these to ``tools=`` instead of importing every function.

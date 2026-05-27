@@ -28,6 +28,16 @@ def tool(func: Callable) -> Callable:
     Supported parameter types: ``str``, ``int``, ``float``, ``bool``, ``list``, ``dict``,
     plus ``Optional[T]`` and ``T | None`` (which unwrap to the inner type).
 
+    A tool may be plain (``def fn() -> T``), async (``async def fn() -> T``), a generator
+    (``def fn(): yield ...; return T``), or an async generator (``async def fn(): yield ...``).
+    Generator and async-generator tools stream :class:`~aimu.models.StreamChunk` objects
+    during execution — the agent forwards each yielded chunk through its own stream and
+    treats the final yielded ``TOOL_CALLING`` chunk's ``content["response"]`` as the
+    canonical tool result. The decorator sets discriminator attributes:
+
+    - ``func.__tool_is_async__`` — True for ``async def`` *or* ``async def`` + ``yield``.
+    - ``func.__tool_is_streaming__`` — True for generator functions (sync or async).
+
     Usage::
 
         @tool
@@ -38,7 +48,8 @@ def tool(func: Callable) -> Callable:
         agent = Agent(client, tools=[letter_counter])
     """
     func.__tool_spec__ = _build_spec(func)
-    func.__tool_is_async__ = inspect.iscoroutinefunction(func)
+    func.__tool_is_async__ = inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)
+    func.__tool_is_streaming__ = inspect.isgeneratorfunction(func) or inspect.isasyncgenfunction(func)
     return func
 
 

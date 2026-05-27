@@ -591,25 +591,10 @@ class HuggingFaceClient(BaseModelClient):
             tool_calls = prefix.parse(response)
             if tool_calls:
                 logger.debug("[tool_call] parsed: %s", tool_calls)
-                self._handle_tool_calls(tool_calls, tools)
+                yield from self._handle_tool_calls_streamed(tool_calls, tools)
 
                 if self.last_thinking is not None:
                     self.messages[msgs_before]["thinking"] = self.last_thinking
-
-                for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
-                    logger.debug(
-                        "[tool_call] response: name=%s, response=%s",
-                        tc["function"]["name"],
-                        tr["content"],
-                    )
-                    yield StreamChunk(
-                        StreamingContentType.TOOL_CALLING,
-                        {
-                            "name": tc["function"]["name"],
-                            "arguments": tc["function"]["arguments"],
-                            "response": tr["content"],
-                        },
-                    )
 
                 streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
                 # Omit tools so the model generates text rather than calling tools again;
@@ -650,25 +635,10 @@ class HuggingFaceClient(BaseModelClient):
         if self._parsed_tool_calls:
             logger.debug("[tool_call] parsed: %s", self._parsed_tool_calls)
             msgs_before = len(self.messages)
-            self._handle_tool_calls(self._parsed_tool_calls, tools)
+            yield from self._handle_tool_calls_streamed(self._parsed_tool_calls, tools)
 
             if self.last_thinking is not None:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
-
-            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
-                logger.debug(
-                    "[tool_call] response: name=%s, response=%s",
-                    tc["function"]["name"],
-                    tr["content"],
-                )
-                yield StreamChunk(
-                    StreamingContentType.TOOL_CALLING,
-                    {
-                        "name": tc["function"]["name"],
-                        "arguments": tc["function"]["arguments"],
-                        "response": tr["content"],
-                    },
-                )
 
             response = self._generate_sync(self.messages, generate_kwargs, tools)
 

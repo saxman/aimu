@@ -41,6 +41,60 @@ img = aimu.generate_image(
 
 `format=` selects how the image is returned: `"pil"` (default, `PIL.Image`), `"path"` (saves PNG, returns path string), `"bytes"` (raw PNG), or `"data_url"` (base64-encoded for inline embedding).
 
+## Streaming progress
+
+Pass `stream=True` to get an iterator of `IMAGE_GENERATING` chunks, one per denoising step (HF) or one start/done pair per image (Gemini, which has no per-step API):
+
+```python
+import aimu
+
+client = aimu.image_client(aimu.HuggingFaceImageModel.SD_1_5)
+
+for chunk in client.generate("a fox", stream=True, num_inference_steps=25):
+    c = chunk.content
+    if c["final"]:
+        print(f"\nDone — saved to {c['result']}" if c.get("result") else "\nDone")
+    else:
+        print(f"Step {c['step']}/{c['total_steps']}", end="\r")
+```
+
+### Intermediate-image previews — `preview_every=N`
+
+Decoding latents to a PIL image at every step adds ~50–200 ms per call on GPU, so previews are opt-in. Pass `preview_every=N` to decode every Nth step (and always the final):
+
+```python
+for chunk in client.generate(
+    "a fox", stream=True, num_inference_steps=25, preview_every=5
+):
+    c = chunk.content
+    if c["image"] is not None:
+        c["image"].save(f"preview_step_{c['step']}.png")
+```
+
+Gemini Nano Banana ignores `preview_every` — its cloud API has no intermediate latents.
+
+### Streaming the built-in tool through an agent
+
+The built-in `generate_image` tool is itself a generator. When dispatched through `agent.run(stream=True)`, its progress chunks flow through the agent's own stream — no side channel:
+
+```python
+from aimu.agents import Agent
+from aimu.tools import builtin
+
+agent = Agent(text_client, tools=[builtin.generate_image])
+
+for chunk in agent.run("draw me a fox", stream=True):
+    if chunk.is_image_progress():
+        c = chunk.content
+        print(f"  {c['step']}/{c['total_steps']}")
+    elif chunk.is_tool_call():
+        print(f"  Done: {chunk.content['response']}")
+    elif chunk.is_text():
+        print(chunk.content, end="")
+```
+
+To opt into intermediate previews from the agent path, build a bound tool with `make_image_tool(client, preview_every=N)` and pass that to the agent instead of `builtin.generate_image`.
+
 ## Direct client — reuse weights / API client
 
 A fresh client per call reloads weights for HuggingFace; for Nano Banana it just rebuilds the API client. For repeated generation, build once and reuse:

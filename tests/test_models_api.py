@@ -105,6 +105,112 @@ def test_streamchunk_tool_calling_content_keys():
     assert chunk.content["response"] == "4"
 
 
+def test_streamchunk_image_progress_phase():
+    """IMAGE_GENERATING phase + is_image_progress() helper."""
+    chunk = StreamChunk(
+        StreamingContentType.IMAGE_GENERATING,
+        {"step": 5, "total_steps": 10, "image": None, "final": False, "result": None},
+    )
+    assert chunk.is_image_progress()
+    assert not chunk.is_text()
+    assert not chunk.is_tool_call()
+
+
+# ---------------------------------------------------------------------------
+# Streaming tool dispatch (generator tools through _handle_tool_calls_streamed)
+# ---------------------------------------------------------------------------
+
+
+def test_streaming_tool_yields_forward_through_dispatch():
+    """A generator @tool's chunks should pass through _handle_tool_calls_streamed,
+    and the generator's return value becomes the canonical tool response."""
+    from aimu.tools.decorator import tool
+
+    @tool
+    def slow_tool(x: str):
+        """Streaming tool that yields progress + returns a result."""
+        yield StreamChunk(StreamingContentType.GENERATING, "working...")
+        yield StreamChunk(StreamingContentType.GENERATING, "almost done...")
+        return f"processed:{x}"
+
+    client = MockModelClient(["dummy"])
+    client.tools = [slow_tool]
+    tc = [{"name": "slow_tool", "arguments": {"x": "input"}}]
+
+    chunks = list(client._handle_tool_calls_streamed(tc, tools=[]))
+
+    # Two progress chunks + one final TOOL_CALLING chunk.
+    progress = [c for c in chunks if c.phase == StreamingContentType.GENERATING]
+    tool_calls = [c for c in chunks if c.phase == StreamingContentType.TOOL_CALLING]
+    assert len(progress) == 2
+    assert progress[0].content == "working..."
+    assert progress[1].content == "almost done..."
+    assert len(tool_calls) == 1
+    assert tool_calls[0].content["name"] == "slow_tool"
+    assert tool_calls[0].content["response"] == "processed:input"
+
+
+def test_streaming_tool_result_falls_back_to_last_chunk_result_key():
+    """When the tool doesn't `return` a value, fall back to last chunk's content['result']."""
+    from aimu.tools.decorator import tool
+
+    @tool
+    def streamer(prompt: str):
+        """Tool with no return value — last chunk carries the result."""
+        yield StreamChunk(
+            StreamingContentType.IMAGE_GENERATING,
+            {"step": 1, "total_steps": 1, "image": None, "final": True, "result": "/tmp/x.png"},
+        )
+        # No return → return value is None → fall back to content["result"]
+
+    client = MockModelClient(["dummy"])
+    client.tools = [streamer]
+    tc = [{"name": "streamer", "arguments": {"prompt": "hi"}}]
+
+    chunks = list(client._handle_tool_calls_streamed(tc, tools=[]))
+    tool_calls = [c for c in chunks if c.phase == StreamingContentType.TOOL_CALLING]
+    assert len(tool_calls) == 1
+    assert tool_calls[0].content["response"] == "/tmp/x.png"
+
+
+def test_plain_tool_still_works_via_streamed_dispatch():
+    """Non-generator @tool functions go through unchanged."""
+    from aimu.tools.decorator import tool
+
+    @tool
+    def echo(x: str) -> str:
+        """Echo the input."""
+        return x.upper()
+
+    client = MockModelClient(["dummy"])
+    client.tools = [echo]
+    tc = [{"name": "echo", "arguments": {"x": "hi"}}]
+
+    chunks = list(client._handle_tool_calls_streamed(tc, tools=[]))
+    assert len(chunks) == 1  # only TOOL_CALLING, no progress chunks
+    assert chunks[0].phase == StreamingContentType.TOOL_CALLING
+    assert chunks[0].content["response"] == "HI"
+
+
+def test_streaming_tool_rejected_by_non_streaming_dispatch():
+    """The non-streaming _handle_tool_calls path should refuse generator tools clearly."""
+    from aimu.tools.decorator import tool
+
+    @tool
+    def slow_tool(x: str):
+        """Generator tool."""
+        yield StreamChunk(StreamingContentType.GENERATING, "hi")
+
+    client = MockModelClient(["dummy"])
+    client.tools = [slow_tool]
+    tc = [{"name": "slow_tool", "arguments": {"x": "input"}}]
+
+    # _handle_tool_calls dispatches per-tool via _call_plain_tool which raises
+    # ValueError with a clear actionable message ("Failures are apparent" principle).
+    with pytest.raises(ValueError, match=r"streaming.*stream=True"):
+        client._handle_tool_calls(tc, tools=[])
+
+
 # ---------------------------------------------------------------------------
 # system_message immutability + reset()
 # ---------------------------------------------------------------------------

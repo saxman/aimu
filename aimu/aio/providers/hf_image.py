@@ -67,12 +67,34 @@ class AsyncHuggingFaceImageClient:
         num_images: int = 1,
         format: str = "pil",
         output_dir: Optional[Path] = None,
+        stream: bool = False,
+        preview_every: Optional[int] = None,
     ) -> Union[Any, list[Any], str, list[str], bytes, list[bytes]]:
         """Async equivalent of :meth:`HuggingFaceImageClient.generate`.
 
         Routes the heavy pipeline call through :func:`asyncio.to_thread` so the
-        event loop stays free during the (GIL/CUDA-serialised) inference.
+        event loop stays free during the (GIL/CUDA-serialised) inference. When
+        ``stream=True``, returns an async iterator that pulls each
+        ``IMAGE_GENERATING`` chunk from the underlying sync generator via
+        ``to_thread`` between yields (so the event loop stays free between
+        denoising steps too).
         """
+        if stream:
+            sync_iter = self._sync.generate(
+                prompt,
+                negative_prompt=negative_prompt,
+                width=width,
+                height=height,
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                seed=seed,
+                num_images=num_images,
+                format=format,
+                output_dir=output_dir,
+                stream=True,
+                preview_every=preview_every,
+            )
+            return _stream_via_thread(sync_iter)
         return await asyncio.to_thread(
             self._sync.generate,
             prompt,
@@ -89,3 +111,20 @@ class AsyncHuggingFaceImageClient:
 
     def __repr__(self) -> str:
         return f"AsyncHuggingFaceImageClient({self._sync!r})"
+
+
+async def _stream_via_thread(sync_iter):
+    """Yield from a sync iterator by hopping each ``next()`` to a worker thread.
+
+    The diffusers callback fires on the run thread; the public sync generator
+    drains a ``queue.Queue``. Each ``next()`` here is a brief wait on that queue,
+    which we offload to ``asyncio.to_thread`` so the event loop stays free
+    between denoising steps.
+    """
+    sentinel = object()
+    loop_iter = iter(sync_iter)
+    while True:
+        chunk = await asyncio.to_thread(next, loop_iter, sentinel)
+        if chunk is sentinel:
+            break
+        yield chunk

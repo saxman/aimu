@@ -437,3 +437,87 @@ def test_orchestrator_agent_assemble_factory():
     assert tool_names == {"alpha", "beta"}
     result = orch.run("task")
     assert result == "done"
+
+
+# ---------------------------------------------------------------------------
+# Agent forwards streaming-tool chunks through run(stream=True)
+# ---------------------------------------------------------------------------
+
+
+def test_agent_forwards_image_generating_chunks_from_streaming_tool():
+    """When the underlying client emits IMAGE_GENERATING chunks (from a streaming tool),
+    Agent.run(stream=True) should re-emit them with `agent` + `iteration` metadata."""
+
+    class _ImageStreamingClient(MockModelClient):
+        """Yields IMAGE_GENERATING progress + TOOL_CALLING on the first call,
+        then a plain GENERATING chunk on the agent's continuation call."""
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._calls = 0
+
+        def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+            if not stream:
+                return super()._chat(user_message, generate_kwargs, use_tools, stream, images)
+
+            def _gen():
+                self.messages.append({"role": "user", "content": user_message})
+                self._system_message_locked = True
+                self._calls += 1
+                if self._calls == 1:
+                    # First call: emit image-gen progress + tool call.
+                    for step in range(1, 4):
+                        yield StreamChunk(
+                            StreamingContentType.IMAGE_GENERATING,
+                            {
+                                "step": step,
+                                "total_steps": 3,
+                                "image": None,
+                                "final": (step == 3),
+                                "result": "/tmp/img.png" if step == 3 else None,
+                            },
+                        )
+                    self.messages.append(
+                        {
+                            "role": "assistant",
+                            "tool_calls": [
+                                {"type": "function", "function": {"name": "generate_image", "arguments": {}}, "id": "x"}
+                            ],
+                        }
+                    )
+                    self.messages.append(
+                        {"role": "tool", "name": "generate_image", "content": "/tmp/img.png", "tool_call_id": "x"}
+                    )
+                    yield StreamChunk(
+                        StreamingContentType.TOOL_CALLING,
+                        {"name": "generate_image", "arguments": {}, "response": "/tmp/img.png"},
+                    )
+                else:
+                    # Continuation call: just emit a final GENERATING chunk + assistant message.
+                    self.messages.append({"role": "assistant", "content": "Done!"})
+                    yield StreamChunk(StreamingContentType.GENERATING, "Done!")
+
+            return _gen()
+
+    client = _ImageStreamingClient(["Done!"])
+    agent = Agent(client, name="streamer")
+    chunks = list(agent.run("make me an image", stream=True))
+
+    image_chunks = [c for c in chunks if c.is_image_progress()]
+    assert len(image_chunks) == 3
+    # Agent metadata is set on every forwarded chunk.
+    assert all(c.agent == "streamer" for c in chunks)
+    # Image progress + tool call come from iteration 0; "Done!" comes from iteration 1.
+    assert all(c.iteration == 0 for c in image_chunks)
+    # Final image chunk carries the result.
+    assert image_chunks[-1].content["final"] is True
+    assert image_chunks[-1].content["result"] == "/tmp/img.png"
+    # TOOL_CALLING chunk also forwarded.
+    tool_chunks = [c for c in chunks if c.is_tool_call()]
+    assert len(tool_chunks) == 1
+    assert tool_chunks[0].content["name"] == "generate_image"
+    # Final GENERATING chunk from the continuation call.
+    text_chunks = [c for c in chunks if c.phase == StreamingContentType.GENERATING]
+    assert len(text_chunks) == 1
+    assert text_chunks[0].content == "Done!"
+    assert text_chunks[0].iteration == 1

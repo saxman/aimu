@@ -1,5 +1,6 @@
 import json  # used for the Messages debug popover
 from pathlib import Path
+from typing import Optional
 
 import streamlit as st
 import torch
@@ -7,8 +8,21 @@ import torch
 from aimu import paths
 from aimu.agents.agent import Agent
 from aimu.history import ConversationManager
-from aimu.models import HuggingFaceClient, OllamaClient, OllamaModel, StreamingContentType
+from aimu.models import (
+    HAS_GEMINI_IMAGE,
+    HAS_HF_IMAGE,
+    BaseImageClient,
+    HuggingFaceClient,
+    OllamaClient,
+    OllamaModel,
+    StreamingContentType,
+)
 from aimu.tools import builtin
+
+if HAS_HF_IMAGE:
+    from aimu.models import HuggingFaceImageClient
+if HAS_GEMINI_IMAGE:
+    from aimu.models import GeminiImageClient
 
 # Avoid torch RuntimeError when using Hugging Face Transformers
 torch.classes.__path__ = []
@@ -29,7 +43,72 @@ DEFAULT_MODEL = OllamaModel.QWEN_3_5_9B
 
 SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 
-BUILTIN_TOOLS = builtin.ALL_TOOLS
+# Image-generation provider classes, in display order. Filtered by installed extras.
+IMAGE_CLIENT_CLASSES: list[type[BaseImageClient]] = []
+if HAS_HF_IMAGE:
+    IMAGE_CLIENT_CLASSES.append(HuggingFaceImageClient)
+if HAS_GEMINI_IMAGE:
+    IMAGE_CLIENT_CLASSES.append(GeminiImageClient)
+
+# Preview slider bounds. Slider value of 0 maps to "off" (preview_every=None);
+# 1..PREVIEW_MAX maps to that integer step frequency. Max chosen to be larger
+# than the default step count of every shipped HF model — values that exceed
+# total_steps simply never fire mid-way (only the final chunk carries a preview).
+PREVIEW_MAX = 25
+
+
+def _construct_image_client(client_cls: type[BaseImageClient], model) -> tuple[Optional[BaseImageClient], Optional[str]]:
+    """Try to construct a fresh image client. Returns (client, error_msg)."""
+    try:
+        return client_cls(model), None
+    except (RuntimeError, ImportError) as exc:
+        # Most common: GOOGLE_API_KEY missing for GeminiImageClient.
+        return None, str(exc)
+
+
+def _build_tools(
+    base_client,
+    image_client: Optional[BaseImageClient],
+    preview_every: Optional[int],
+):
+    """Build the agent's tool list.
+
+    Two image-related swaps relative to ``builtin.ALL_TOOLS``:
+
+    - When ``image_client`` is provided, the default ``generate_image`` is replaced
+      with one bound to that client (with ``preview_every`` previews).
+    - When ``base_client.model`` supports vision, a ``describe_image`` tool is
+      appended — bound to the same chat client (history-isolated) — so the LLM
+      can look at images it generates (or that the user references) and describe
+      them. Non-vision chat models simply don't get the tool.
+    """
+    tools = list(builtin.ALL_TOOLS)
+    if image_client is not None:
+        bound_img = builtin.make_image_tool(image_client, preview_every=preview_every)
+        tools = [t for t in tools if t is not builtin.generate_image] + [bound_img]
+
+    if getattr(base_client.model, "supports_vision", False):
+        tools.append(builtin.make_describe_image_tool(base_client))
+
+    return tools
+
+
+def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
+    """Construct a fresh image client + update the agent's tools.
+
+    Stores the client (or None + error message) in session_state. Refreshes the
+    base client's tool list so the bound ``generate_image`` picks up the new
+    image client and the current ``preview_every`` setting.
+    """
+    client, err = _construct_image_client(client_cls, model)
+    st.session_state.image_client_class = client_cls
+    st.session_state.image_model = model
+    st.session_state.image_client = client
+    st.session_state.image_client_error = err
+    if "base_client" in st.session_state:
+        st.session_state.base_client.tools = _build_tools(
+            st.session_state.base_client, client, st.session_state.get("preview_every")
+        )
 
 # Generated images land here (matches the library's default for `format="path"`).
 IMAGE_DIR = paths.output / "images"
@@ -75,7 +154,9 @@ def _wrap_agent(base_client, max_iterations):
 def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
     """Construct a fresh base client and (optionally) agentic wrapper, then sync session state to match."""
     base_client = model_cls(model, system_message=SYSTEM_MESSAGE)
-    base_client.tools = BUILTIN_TOOLS
+    base_client.tools = _build_tools(
+        base_client, st.session_state.get("image_client"), st.session_state.get("preview_every")
+    )
     # Store the base client separately since the agent wrapper doesn't have all the same attributes (e.g. TOOL_MODELS) and we need to reference those in the sidebar selectors and checks.
     st.session_state.base_client = base_client
     st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
@@ -91,7 +172,46 @@ def stream_chat_response(streamed_response):
     current_box = None
     current_text = ""
 
+    # IMAGE_GENERATING progress widgets (one per image-gen tool call).
+    progress_bar = None
+    progress_text = None
+    preview_placeholder = None
+
     for chunk_idx, chunk in enumerate(streamed_response):
+        if chunk.phase == StreamingContentType.IMAGE_GENERATING:
+            # Reset text-coalescing state — next text chunk should start fresh.
+            current_type = None
+            content = chunk.content
+            step = content.get("step", 0)
+            total = content.get("total_steps", 1) or 1
+            is_final = content.get("final", False)
+            preview = content.get("image")
+
+            # Lazily create progress widgets on the first IMAGE_GENERATING chunk.
+            if progress_bar is None:
+                with st.expander("🖼️ Generating image", expanded=True):
+                    progress_bar = st.empty()
+                    progress_text = st.empty()
+                    preview_placeholder = st.empty()
+
+            fraction = max(0.0, min(1.0, step / total))
+            label = f"Step {step}/{total}" if total > 1 else ("Generating…" if not is_final else "Done")
+            progress_bar.progress(fraction, text=label)
+            progress_text.markdown(f"**{label}**")
+            if preview is not None:
+                preview_placeholder.image(preview, caption=f"Preview at step {step}/{total}")
+
+            if is_final:
+                # Clear the live progress widgets; the agent's TOOL_CALLING chunk
+                # (next) will render the canonical Image expander + download button.
+                progress_bar.empty()
+                progress_text.empty()
+                preview_placeholder.empty()
+                progress_bar = None
+                progress_text = None
+                preview_placeholder = None
+            continue
+
         if chunk.phase == StreamingContentType.TOOL_CALLING:
             # Tool calls render in their own expander, so reset current_type to
             # force a fresh box for whatever phase streams next (otherwise the
@@ -130,6 +250,21 @@ def stream_chat_response(streamed_response):
 
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
+    st.session_state.preview_every = None  # default: no intermediate previews (fastest)
+    # Initialise image-client state up-front so _rebuild_client's _build_tools call sees it.
+    st.session_state.image_client = None
+    st.session_state.image_client_class = None
+    st.session_state.image_model = None
+    st.session_state.image_client_error = None
+    if IMAGE_CLIENT_CLASSES:
+        default_image_cls = IMAGE_CLIENT_CLASSES[0]
+        default_image_model = next(iter(default_image_cls.MODELS))
+        # Construct without going through _rebuild_image_client — base_client doesn't exist yet.
+        client, err = _construct_image_client(default_image_cls, default_image_model)
+        st.session_state.image_client_class = default_image_cls
+        st.session_state.image_model = default_image_model
+        st.session_state.image_client = client
+        st.session_state.image_client_error = err
     _rebuild_client(DEFAULT_MODEL_CLIENT, DEFAULT_MODEL, False, 10)
 
     st.session_state.conversation_manager = ConversationManager(
@@ -180,6 +315,66 @@ with st.sidebar:
     repeat_penalty = st.sidebar.slider(
         "repeat_penalty", min_value=0.9, max_value=1.5, step=0.1, key="slider_repeat_penalty"
     )
+
+    # Image generation — client/model selectors + preview-step slider.
+    if IMAGE_CLIENT_CLASSES:
+        st.markdown("---")
+        st.markdown("**Image generation**")
+
+        current_cls = st.session_state.image_client_class or IMAGE_CLIENT_CLASSES[0]
+        sel_image_cls = st.selectbox(
+            "Image client",
+            options=IMAGE_CLIENT_CLASSES,
+            index=IMAGE_CLIENT_CLASSES.index(current_cls) if current_cls in IMAGE_CLIENT_CLASSES else 0,
+            format_func=lambda c: c.__name__,
+        )
+
+        image_model_options = list(sel_image_cls.MODELS)
+        # If the user just switched clients, fall back to the first model of the new client.
+        current_model = st.session_state.image_model if sel_image_cls is current_cls else image_model_options[0]
+        sel_image_model = st.selectbox(
+            "Image model",
+            options=image_model_options,
+            index=image_model_options.index(current_model) if current_model in image_model_options else 0,
+            format_func=lambda m: m.name,
+        )
+
+        # Rebuild the image client whenever the selection changes.
+        if sel_image_cls is not st.session_state.image_client_class or sel_image_model != st.session_state.image_model:
+            _rebuild_image_client(sel_image_cls, sel_image_model)
+            st.rerun()
+
+        # Surface construction errors (e.g. missing GOOGLE_API_KEY for Gemini).
+        if st.session_state.image_client_error:
+            st.error(f"Image client unavailable: {st.session_state.image_client_error}")
+
+        # Preview slider — 0 means off. Disabled when the active client is Gemini
+        # (cloud API has no intermediate latents to decode).
+        is_gemini = HAS_GEMINI_IMAGE and isinstance(st.session_state.image_client, GeminiImageClient)
+        current_preview = st.session_state.get("preview_every") or 0
+        preview_raw = st.slider(
+            "Preview every N denoising steps",
+            min_value=0,
+            max_value=PREVIEW_MAX,
+            value=current_preview,
+            step=1,
+            disabled=is_gemini,
+            help=(
+                "0 = off (fastest). When >0, intermediate denoised images are decoded via "
+                "the pipeline's VAE every N steps and shown live. Each decode adds ~50–200 ms "
+                "on GPU. Disabled for Gemini Nano Banana — the cloud API has no intermediate steps."
+            ),
+        )
+        selected_preview = None if preview_raw == 0 else preview_raw
+        if selected_preview != st.session_state.get("preview_every"):
+            st.session_state.preview_every = selected_preview
+            # Rebuild the bound generate_image tool with the new preview frequency.
+            st.session_state.base_client.tools = _build_tools(
+                st.session_state.base_client,
+                st.session_state.image_client,
+                selected_preview,
+            )
+            st.rerun()
 
     if st.button("Reset chat"):
         # Create a new conversation that will be used as the "last" conversation when the app is reloaded.

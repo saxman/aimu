@@ -2,12 +2,14 @@
 
 Re-exports every sync tool from the sync module (the async client dispatches them
 through :func:`asyncio.to_thread`) and provides an async-native ``generate_image``
-that awaits the lazy :class:`AsyncDiffusionClient` singleton.
+streaming tool that yields :class:`~aimu.models.StreamChunk` progress chunks during
+generation.
 """
 
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 from aimu.tools.builtin import (  # noqa: F401 — re-exports
     calculate,
@@ -48,26 +50,42 @@ def _get_async_image_client():
 
 
 @tool
-async def generate_image(prompt: str) -> str:
+async def generate_image(prompt: str):
     """Generate an image from a text prompt and return the saved file path.
 
-    Uses an :class:`aimu.aio.AsyncImageClient`. The default model is controlled by
-    the ``AIMU_IMAGE_MODEL`` env var (default: SDXL base). Override per-agent by
-    constructing your own tool with :func:`make_async_image_tool`.
+    **Streaming async tool** — async generator yielding
+    :attr:`~aimu.models.StreamingContentType.IMAGE_GENERATING` chunks during
+    denoising. When dispatched by ``aio.Agent.run(stream=True)``, chunks flow
+    through the agent's own stream and into the UI live.
+
+    Uses an :class:`aimu.aio.AsyncImageClient`. Default model is controlled by
+    ``AIMU_IMAGE_MODEL`` (default: SDXL base). Use :func:`make_async_image_tool`
+    to override the client or opt into ``preview_every=N`` intermediate previews.
 
     Args:
         prompt: A description of the desired image.
     """
     client = _get_async_image_client()
-    return await client.generate(prompt, format="path")
+    final_result: Optional[str] = None
+    async for chunk in await client.generate(prompt, format="path", stream=True):
+        yield chunk
+        content = chunk.content
+        if isinstance(content, dict) and content.get("final"):
+            final_result = content.get("result")
+    # Final chunk's content["result"] is picked up by _handle_tool_calls_streamed
+    # as the canonical tool response — no return-value needed (PEP 525 async
+    # generators don't carry return values anyway).
+    del final_result
 
 
-def make_async_image_tool(client):
-    """Build an async ``generate_image`` tool bound to a specific async image client.
+def make_async_image_tool(client, *, preview_every: Optional[int] = None):
+    """Build an async streaming ``generate_image`` tool bound to a specific client.
 
-    Pass either a sync :class:`aimu.BaseImageClient` (e.g. :class:`HuggingFaceImageClient`,
-    :class:`GeminiImageClient`) or an existing :class:`aimu.aio.AsyncImageClient`;
-    sync clients are wrapped automatically.
+    Pass a sync :class:`aimu.BaseImageClient` (e.g.
+    :class:`HuggingFaceImageClient`, :class:`GeminiImageClient`) — it'll be
+    wrapped automatically — or an existing :class:`aimu.aio.AsyncImageClient`.
+    ``preview_every=N`` opts into intermediate denoised-image previews (HF only;
+    Gemini ignores it).
     """
     from aimu.aio import image_client as _aio_image_client
     from aimu.aio.image import AsyncImageClient
@@ -77,17 +95,22 @@ def make_async_image_tool(client):
         client = _aio_image_client(client)
     elif not isinstance(client, AsyncImageClient):
         # Permit the per-provider async classes (AsyncHuggingFaceImageClient,
-        # AsyncGeminiImageClient) directly — they already expose `.generate()`.
+        # AsyncGeminiImageClient) directly — they expose .generate() too.
         pass
 
     @tool
-    async def generate_image(prompt: str) -> str:
+    async def generate_image(prompt: str):
         """Generate an image from a text prompt and return the saved file path.
+
+        Async streaming tool — yields progress chunks during generation.
 
         Args:
             prompt: A description of the desired image.
         """
-        return await client.generate(prompt, format="path")
+        async for chunk in await client.generate(
+            prompt, format="path", stream=True, preview_every=preview_every
+        ):
+            yield chunk
 
     return generate_image
 

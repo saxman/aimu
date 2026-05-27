@@ -194,20 +194,10 @@ class OpenAICompatClient(BaseModelClient):
             self.messages.append({"role": "assistant", "content": full_content})
             return
 
-        # Tool call path: dispatch calls, emit TOOL_CALLING chunks, then stream second response.
+        # Tool call path: dispatch calls (yields chunks via streaming-tool support),
+        # then stream second response.
         tool_calls = [{"name": tc["name"], "arguments": json.loads(tc["arguments"])} for tc in tool_calls_acc.values()]
-        msgs_before = len(self.messages)
-        self._handle_tool_calls(tool_calls, tools)
-
-        for i, tc in enumerate(self.messages[msgs_before]["tool_calls"]):
-            yield StreamChunk(
-                StreamingContentType.TOOL_CALLING,
-                {
-                    "name": tc["function"]["name"],
-                    "arguments": tc["function"]["arguments"],
-                    "response": self.messages[msgs_before + 1 + i]["content"],
-                },
-            )
+        yield from self._handle_tool_calls_streamed(tool_calls, tools)
 
         stream2 = self._client.chat.completions.create(
             model=self.model.value,

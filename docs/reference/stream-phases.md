@@ -1,12 +1,13 @@
 # Stream phases
 
-`StreamingContentType` is a string enum with four values, attached to every `StreamChunk` via `chunk.phase`.
+`StreamingContentType` is a string enum with five values, attached to every `StreamChunk` via `chunk.phase`.
 
 | Phase | Value | Emitted when | `chunk.content` type |
 |---|---|---|---|
 | `THINKING` | `"thinking"` | Reasoning model emits internal-monologue tokens | `str` (token) |
 | `TOOL_CALLING` | `"tool_calling"` | A tool call has just been dispatched and its result is available | `dict {"name": str, "arguments": dict, "response": str}` |
 | `GENERATING` | `"generating"` | The final response stream | `str` (token) |
+| `IMAGE_GENERATING` | `"image_generating"` | Per-step image-generation progress (HF callback / Gemini start-done) | `dict {"step": int, "total_steps": int, "image": PIL.Image \| None, "final": bool, "result": str \| bytes \| None}` |
 | `DONE` | `"done"` | Terminal marker (rarely yielded; reserved) | `str` (usually empty) |
 
 The enum inherits from `str`, so members compare equal to their string values: `chunk.phase == "thinking"` is fine.
@@ -14,8 +15,9 @@ The enum inherits from `str`, so members compare equal to their string values: `
 ## Helpers on `StreamChunk`
 
 ```python
-chunk.is_text()        # True for THINKING and GENERATING
-chunk.is_tool_call()   # True for TOOL_CALLING
+chunk.is_text()             # True for THINKING and GENERATING
+chunk.is_tool_call()        # True for TOOL_CALLING
+chunk.is_image_progress()   # True for IMAGE_GENERATING
 ```
 
 These avoid sprinkling phase comparisons through your code.

@@ -102,7 +102,13 @@ class AsyncImageClient:
         return self._client.spec
 
     async def generate(self, prompt: str, **kwargs: Any) -> Any:
-        """Generate one or more images. Forwarded to the inner async provider client."""
+        """Generate one or more images. Forwarded to the inner async provider client.
+
+        When ``stream=True`` is in ``**kwargs``, the inner client returns an
+        ``AsyncIterator[StreamChunk]`` synchronously (after ``await`` only because
+        it had to set up the to-thread pump). Callers should then ``async for``
+        the result to consume progress chunks.
+        """
         return await self._client.generate(prompt, **kwargs)
 
     def __repr__(self) -> str:

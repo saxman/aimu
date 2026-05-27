@@ -247,21 +247,12 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
         tool_calls = [{"name": b.name, "arguments": b.input} for b in parsed_blocks]
         msgs_before = len(self.messages)
-        await self._handle_tool_calls(tool_calls, tools)
+        async for chunk in self._handle_tool_calls_streamed(tool_calls, tools):
+            yield chunk
         self._patch_tool_ids(msgs_before, parsed_blocks)
 
         if self.last_thinking:
             self.messages[msgs_before]["thinking"] = self.last_thinking
-
-        for i, tc in enumerate(self.messages[msgs_before]["tool_calls"]):
-            yield StreamChunk(
-                StreamingContentType.TOOL_CALLING,
-                {
-                    "name": tc["function"]["name"],
-                    "arguments": tc["function"]["arguments"],
-                    "response": self.messages[msgs_before + 1 + i]["content"],
-                },
-            )
 
         system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
         full_content = ""

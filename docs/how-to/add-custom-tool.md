@@ -112,7 +112,37 @@ agent = Agent(client, tools=builtin.web + builtin.fs)
 
 See the [`aimu.tools` API reference](../reference/api/tools.md) for the full list with descriptions.
 
+## Streaming tools (generators)
+
+For long-running tools, make the function a generator and yield `StreamChunk` objects during execution. The agent's `Agent.run(stream=True)` forwards each yielded chunk through its own stream so callers see progress live — no side channels, no callbacks.
+
+```python
+from aimu.models import StreamChunk, StreamingContentType
+from aimu.tools import tool
+
+@tool
+def long_search(query: str):
+    """Search the web with live progress updates."""
+    yield StreamChunk(StreamingContentType.GENERATING, f"Searching {query!r}...")
+    results = _hit_search_api(query)         # imaginary slow call
+    yield StreamChunk(StreamingContentType.GENERATING, f"Got {len(results)} results, fetching pages...")
+    pages = [_fetch(r.url) for r in results]
+    return "\n".join(p.title for p in pages)  # this is the canonical tool response
+```
+
+Three rules cover the contract:
+
+1. **The decorator detects it automatically.** `@tool` sets `func.__tool_is_streaming__ = True` when the function is a generator (`inspect.isgeneratorfunction`) or async generator (`inspect.isasyncgenfunction`). No opt-in flag.
+2. **Yield any phase that fits.** `GENERATING` for text progress, `IMAGE_GENERATING` for image-gen progress, future custom phases as needed. The agent forwards each chunk untouched (it only adds the `agent` and `iteration` metadata fields).
+3. **The result comes from one of three places** — in priority order: the generator's `return` value (sync only — `StopIteration.value`); the last yielded chunk's `content["result"]` if it's a dict with that key (matches the `IMAGE_GENERATING` final-chunk convention); or `str(last_chunk.content)`.
+
+Async streaming tools are async generators (`async def + yield`); the async agent's `_handle_tool_calls_streamed` drains them with `async for`. Sync generator tools also work in the async surface — each `next()` is routed through `asyncio.to_thread` so the event loop stays free between yields.
+
+Streaming tools require `stream=True` on the calling `chat()` / `agent.run()`. The non-streaming dispatch path raises `ValueError` with a clear message pointing at `stream=True`.
+
 ## See also
 
 - [Explanation: tool integration](../explanation/tool-integration.md) — dispatch order, precedence, when to pick in-process vs MCP
+- [Explanation: StreamChunk model](../explanation/streamchunk-model.md) — phases, content shapes, why one chunk type
 - [Use MCP tools](use-mcp-tools.md) — cross-process tool servers
+- [Generate images](generate-images.md) — the built-in `generate_image` streaming tool

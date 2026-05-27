@@ -13,23 +13,35 @@ class StreamingContentType(str, Enum):
     THINKING = "thinking"
     TOOL_CALLING = "tool_calling"
     GENERATING = "generating"
+    IMAGE_GENERATING = "image_generating"
     DONE = "done"
 
 
 class StreamChunk(NamedTuple):
     """A single chunk yielded by ``client.chat(stream=True)``, ``Agent.run(stream=True)``,
-    or any workflow ``run(stream=True)``.
+    ``image_client.generate(stream=True)``, or any streaming tool / workflow.
 
     Fields:
-        phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING, DONE)
-        content:   ``str`` for THINKING/GENERATING; ``dict {"name", "arguments", "response"}``
-                   for TOOL_CALLING (arguments is the dict the model passed to the tool).
+        phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING,
+                   IMAGE_GENERATING, DONE)
+        content:   shape depends on phase:
+                   - ``str`` for THINKING / GENERATING (token).
+                   - ``dict {"name", "arguments", "response"}`` for TOOL_CALLING
+                     (``arguments`` is the dict the model passed to the tool).
+                   - ``dict {"step", "total_steps", "image", "final", "result"}`` for
+                     IMAGE_GENERATING — ``step`` is 1-indexed, ``image`` is an optional
+                     ``PIL.Image`` (None unless ``preview_every`` opted in this step),
+                     ``final=True`` marks the terminal chunk for one image, and ``result``
+                     carries the encoded output (path / bytes / data-url per ``format=``)
+                     on the final chunk.
+                   - ``str`` for DONE (usually empty).
         agent:     name of the agent that produced this chunk, or ``None`` for a plain
-                   ``client.chat()`` call. Set automatically by ``Agent`` and workflow runners.
+                   ``client.chat()`` / ``client.generate()`` call. Set automatically by
+                   ``Agent`` and workflow runners.
         iteration: zero-based iteration index inside the agent loop, or ``0`` for plain chat.
 
-    Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` to dispatch on phase without
-    repeating the equality check in user code.
+    Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_image_progress()`` to
+    dispatch on phase without repeating the equality check in user code.
     """
 
     phase: StreamingContentType
@@ -44,6 +56,10 @@ class StreamChunk(NamedTuple):
     def is_tool_call(self) -> bool:
         """True if this chunk carries a tool-call result."""
         return self.phase == StreamingContentType.TOOL_CALLING
+
+    def is_image_progress(self) -> bool:
+        """True if this chunk carries image-generation progress (IMAGE_GENERATING)."""
+        return self.phase == StreamingContentType.IMAGE_GENERATING
 
 
 @dataclass
@@ -331,9 +347,12 @@ class BaseModelClient(_ChatStateMixin, ABC):
 
         return generate_kwargs, tools
 
-    def _handle_tool_calls(self, tool_calls: list[dict], tools: list) -> None:
-        # Normalize arguments and assign IDs upfront so concurrent execution
-        # can use pre-assigned IDs and still append results in original order.
+    def _prepare_tool_calls(self, tool_calls: list[dict]) -> list[tuple[dict, str]]:
+        """Normalize ``arguments``/``parameters`` and assign tool_call_ids upfront.
+
+        Concurrent execution can use pre-assigned IDs and still append results in
+        original order.
+        """
         prepared = []
         for tc in tool_calls:
             # llama 3.1 uses 'parameters' instead of 'arguments'
@@ -341,7 +360,10 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 tc["arguments"] = tc.pop("parameters")
             tc_id = "".join(random.choices(string.ascii_letters + string.digits, k=9))
             prepared.append((tc, tc_id))
+        return prepared
 
+    def _append_assistant_tool_calls(self, prepared: list[tuple[dict, str]]) -> None:
+        """Append the assistant message that records the tool calls being made."""
         self.messages.append(
             {
                 "role": "assistant",
@@ -352,65 +374,169 @@ class BaseModelClient(_ChatStateMixin, ABC):
             }
         )
 
+    def _call_plain_tool(self, tc: dict, tc_id: str, tools: list) -> dict:
+        """Dispatch a single non-streaming tool call. Returns the tool message dict."""
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
+        fn = python_tools_by_name.get(tc["name"])
+        if fn is not None:
+            if getattr(fn, "__tool_is_async__", False):
+                raise ValueError(
+                    f"Tool '{tc['name']}' is an async function (`async def`). The sync "
+                    "BaseModelClient cannot dispatch async tools. Use the aimu.aio surface, "
+                    "or convert the tool to a regular `def`."
+                )
+            if getattr(fn, "__tool_is_streaming__", False):
+                raise ValueError(
+                    f"Tool '{tc['name']}' is a generator (streaming) tool. Streaming tools "
+                    "require the streaming dispatch path — call chat() / agent.run() with "
+                    "stream=True. For non-streaming use, convert the tool to a plain function."
+                )
+            try:
+                response = fn(**tc["arguments"])
+                content = str(response)
+            except Exception as exc:
+                content = f"Tool '{tc['name']}' raised an error: {exc}"
+                logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
+            return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
 
-        def _call_one(tc: dict, tc_id: str) -> dict:
-            # Python-function tools (registered via @tool) take precedence over MCP.
-            fn = python_tools_by_name.get(tc["name"])
-            if fn is not None:
-                if getattr(fn, "__tool_is_async__", False):
+        for tool in tools:
+            if tool["type"] == "function" and tool["function"]["name"] == tc["name"]:
+                if self.mcp_client is None:
                     raise ValueError(
-                        f"Tool '{tc['name']}' is an async function (`async def`). The sync "
-                        "BaseModelClient cannot dispatch async tools. Use the aimu.aio surface, "
-                        "or convert the tool to a regular `def`."
+                        "MCP client not initialized. Please initialize and assign an MCP client before using MCP tools."
                     )
                 try:
-                    response = fn(**tc["arguments"])
-                    content = str(response)
+                    tool_response = self.mcp_client.call_tool(tool["function"]["name"], tc["arguments"])
+                    response_content = tool_response if isinstance(tool_response, list) else tool_response.content
+                    content = ""
+                    for part in response_content:
+                        if part.type == "text":
+                            content += part.text
+                        else:
+                            logger.debug("Skipping unsupported tool response part type: %s", part.type)
                 except Exception as exc:
                     content = f"Tool '{tc['name']}' raised an error: {exc}"
                     logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
-                return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
+                return {"role": "tool", "name": tool["function"]["name"], "content": content, "tool_call_id": tc_id}
 
-            for tool in tools:
-                if tool["type"] == "function" and tool["function"]["name"] == tc["name"]:
-                    if self.mcp_client is None:
-                        raise ValueError(
-                            "MCP client not initialized. Please initialize and assign an MCP client before using MCP tools."
-                        )
-                    try:
-                        tool_response = self.mcp_client.call_tool(tool["function"]["name"], tc["arguments"])
-                        # FastMCP call_tool returns a list of content objects directly
-                        response_content = tool_response if isinstance(tool_response, list) else tool_response.content
-                        content = ""
-                        for part in response_content:
-                            if part.type == "text":
-                                content += part.text
-                            else:
-                                logger.debug("Skipping unsupported tool response part type: %s", part.type)
-                    except Exception as exc:
-                        content = f"Tool '{tc['name']}' raised an error: {exc}"
-                        logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
-                    return {"role": "tool", "name": tool["function"]["name"], "content": content, "tool_call_id": tc_id}
+        return {
+            "role": "tool",
+            "name": tc["name"],
+            "content": f"Tool '{tc['name']}' not found.",
+            "tool_call_id": tc_id,
+        }
 
-            return {
-                "role": "tool",
-                "name": tc["name"],
-                "content": f"Tool '{tc['name']}' not found.",
-                "tool_call_id": tc_id,
-            }
+    def _handle_tool_calls(self, tool_calls: list[dict], tools: list) -> None:
+        """Non-streaming tool dispatch — used by non-streaming ``_chat`` paths.
+
+        Streaming (generator) tools are rejected here; call ``chat(stream=True)``
+        to dispatch them via :meth:`_handle_tool_calls_streamed`.
+        """
+        prepared = self._prepare_tool_calls(tool_calls)
+        self._append_assistant_tool_calls(prepared)
 
         if self.concurrent_tool_calls and len(prepared) > 1:
             from concurrent.futures import ThreadPoolExecutor
 
             with ThreadPoolExecutor() as executor:
-                futures = [executor.submit(_call_one, tc, tc_id) for tc, tc_id in prepared]
-                # Collect in original order (not arrival order) to keep history consistent.
+                futures = [executor.submit(self._call_plain_tool, tc, tc_id, tools) for tc, tc_id in prepared]
                 results = [f.result() for f in futures]
         else:
-            results = [_call_one(tc, tc_id) for tc, tc_id in prepared]
+            results = [self._call_plain_tool(tc, tc_id, tools) for tc, tc_id in prepared]
 
         self.messages.extend(results)
+
+    def _handle_tool_calls_streamed(
+        self, tool_calls: list[dict], tools: list
+    ) -> Iterator[StreamChunk]:
+        """Streaming tool dispatch — generator version used by streaming ``_chat``.
+
+        For each tool call, yields zero-or-more in-flight :class:`StreamChunk` objects
+        (when the tool is a generator function decorated with ``@tool``) followed by a
+        final ``TOOL_CALLING`` chunk with the tool's canonical response.
+
+        **Result extraction for streaming tools** — in priority order:
+
+        1. The generator's ``return`` value (captured via ``StopIteration.value``).
+        2. The last yielded chunk's ``content["result"]`` if it's a dict with that key
+           (matches the convention used by ``IMAGE_GENERATING`` final chunks).
+        3. The last yielded chunk's content (stringified).
+
+        **Concurrency**: when ``concurrent_tool_calls=True`` and *no* tools in the
+        batch are streaming, the existing ``ThreadPoolExecutor`` path is reused for
+        speed. When any tool is streaming, dispatch is sequential (chunks from
+        concurrent generators would interleave).
+        """
+        prepared = self._prepare_tool_calls(tool_calls)
+        self._append_assistant_tool_calls(prepared)
+
+        python_tools_by_name = {fn.__name__: fn for fn in self.tools}
+        has_streaming_tool = any(
+            getattr(python_tools_by_name.get(tc["name"]), "__tool_is_streaming__", False)
+            for tc, _ in prepared
+        )
+
+        if self.concurrent_tool_calls and len(prepared) > 1 and not has_streaming_tool:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(self._call_plain_tool, tc, tc_id, tools) for tc, tc_id in prepared]
+                results = [f.result() for f in futures]
+            for (tc, tc_id), result_msg in zip(prepared, results):
+                self.messages.append(result_msg)
+                yield StreamChunk(
+                    StreamingContentType.TOOL_CALLING,
+                    {
+                        "name": tc["name"],
+                        "arguments": tc["arguments"],
+                        "response": result_msg["content"],
+                    },
+                )
+            return
+
+        for tc, tc_id in prepared:
+            fn = python_tools_by_name.get(tc["name"])
+            if fn is not None and getattr(fn, "__tool_is_streaming__", False):
+                if getattr(fn, "__tool_is_async__", False):
+                    raise ValueError(
+                        f"Tool '{tc['name']}' is an async streaming tool. Use the aimu.aio "
+                        "surface to dispatch it."
+                    )
+                try:
+                    gen = fn(**tc["arguments"])
+                    return_value = None
+                    last_content: Any = None
+                    while True:
+                        try:
+                            chunk = next(gen)
+                        except StopIteration as stop:
+                            return_value = stop.value
+                            break
+                        yield chunk
+                        last_content = chunk.content
+                    if return_value is not None:
+                        response = return_value
+                    elif isinstance(last_content, dict) and "result" in last_content:
+                        response = last_content["result"]
+                    else:
+                        response = last_content if last_content is not None else "(no response)"
+                    content = str(response)
+                except Exception as exc:
+                    content = f"Tool '{tc['name']}' raised an error: {exc}"
+                    logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
+                result_msg = {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
+            else:
+                result_msg = self._call_plain_tool(tc, tc_id, tools)
+
+            self.messages.append(result_msg)
+            yield StreamChunk(
+                StreamingContentType.TOOL_CALLING,
+                {
+                    "name": tc["name"],
+                    "arguments": tc["arguments"],
+                    "response": result_msg["content"],
+                },
+            )
 
 
 class BaseImageClient(ABC):
@@ -450,22 +576,82 @@ class BaseImageClient(ABC):
         num_images: int = 1,
         format: str = "pil",
         output_dir: Optional[Any] = None,
+        stream: bool = False,
+        preview_every: Optional[int] = None,
         **kwargs: Any,
     ) -> Any:
         """Generate one or more images from a text prompt.
 
-        Subclasses define the provider-specific ``**kwargs``. The base only handles
+        Subclasses define the provider-specific ``**kwargs``. The base handles
         ``num_images`` validation, format conversion via
-        :func:`aimu.models._image_output.encode_image`, and the
-        single-image-vs-list return convention.
+        :func:`aimu.models._image_output.encode_image`, and the single-image-vs-list
+        return convention.
+
+        When ``stream=True``, returns an iterator of :class:`StreamChunk` objects with
+        phase :attr:`StreamingContentType.IMAGE_GENERATING`. Providers that expose
+        step-level callbacks (e.g. HuggingFace diffusers) emit one chunk per step;
+        providers without (Gemini Nano Banana) emit coarse start/done chunks per image.
+        ``preview_every=N`` opts in to per-step latent-decoded previews (carried in
+        ``chunk.content["image"]``); default ``None`` keeps step chunks lightweight.
         """
         if num_images < 1:
             raise ValueError(f"num_images must be >= 1, got {num_images}")
+
+        if stream:
+            return self._generate_streamed(
+                prompt,
+                num_images=num_images,
+                format=format,
+                output_dir=output_dir,
+                preview_every=preview_every,
+                **kwargs,
+            )
+
         from ._image_output import encode_image  # local import keeps base.py light
 
         images = self._generate(prompt, num_images=num_images, **kwargs)
         encoded = [encode_image(img, format=format, prompt=prompt, output_dir=output_dir) for img in images]
         return encoded[0] if num_images == 1 else encoded
+
+    def _generate_streamed(
+        self,
+        prompt: str,
+        *,
+        num_images: int = 1,
+        format: str = "pil",
+        output_dir: Optional[Any] = None,
+        preview_every: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Iterator[StreamChunk]:
+        """Default streaming implementation: no per-step progress.
+
+        Calls the blocking :meth:`_generate` and emits one
+        :attr:`StreamingContentType.IMAGE_GENERATING` chunk per completed image, each
+        marked ``final=True`` with the encoded ``result``. Providers that expose
+        step-level callbacks override this to emit progress mid-generation.
+
+        ``preview_every`` is accepted but ignored at this default level — the base
+        has no notion of intermediate steps. Subclasses honour it.
+        """
+        from ._image_output import encode_image  # local import keeps base.py light
+
+        del preview_every  # unused at the default level; provider overrides honour it
+
+        images = self._generate(prompt, num_images=num_images, **kwargs)
+        for i, img in enumerate(images):
+            encoded = encode_image(img, format=format, prompt=prompt, output_dir=output_dir)
+            yield StreamChunk(
+                StreamingContentType.IMAGE_GENERATING,
+                {
+                    "step": 1,
+                    "total_steps": 1,
+                    "image": img,
+                    "final": True,
+                    "result": encoded,
+                    "image_index": i,
+                    "num_images": num_images,
+                },
+            )
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(model={self.spec.id!r})"

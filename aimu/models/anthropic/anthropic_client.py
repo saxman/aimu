@@ -394,22 +394,12 @@ class AnthropicClient(BaseModelClient):
 
         tool_calls = [{"name": b.name, "arguments": b.input} for b in parsed_blocks]
         msgs_before = len(self.messages)
-        self._handle_tool_calls(tool_calls, tools)
+        yield from self._handle_tool_calls_streamed(tool_calls, tools)
         self._patch_tool_ids(msgs_before, parsed_blocks)
 
         # Store thinking from first stream pass in the tool-call assistant message
         if self.last_thinking:
             self.messages[msgs_before]["thinking"] = self.last_thinking
-
-        for i, tc in enumerate(self.messages[msgs_before]["tool_calls"]):
-            yield StreamChunk(
-                StreamingContentType.TOOL_CALLING,
-                {
-                    "name": tc["function"]["name"],
-                    "arguments": tc["function"]["arguments"],
-                    "response": self.messages[msgs_before + 1 + i]["content"],
-                },
-            )
 
         # Second streaming call with tool results
         system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)

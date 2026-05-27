@@ -58,6 +58,12 @@ def _install_diffusers_stub():
 
     class _FakePipeline:
         device = MagicMock(type="cpu")
+        # VAE + processor stubs so _decode_latents_to_pil works under preview_every.
+        vae = MagicMock()
+        vae.config.scaling_factor = 1.0
+        vae.decode = MagicMock(return_value=(MagicMock(),))
+        image_processor = MagicMock()
+        image_processor.postprocess = MagicMock(return_value=[_make_stub_image()])
 
         @classmethod
         def from_pretrained(cls, repo_id, **kwargs):
@@ -72,6 +78,16 @@ def _install_diffusers_stub():
         def __call__(self, **kwargs):
             num = kwargs.get("num_images_per_prompt", 1)
             self._last_call_kwargs = kwargs
+            # If the caller installed a step-end callback (streaming path), fire it
+            # once per `num_inference_steps` to mimic real diffusers behaviour.
+            callback = kwargs.get("callback_on_step_end")
+            if callback is not None:
+                total_steps = kwargs.get("num_inference_steps", 1)
+                # Pretend we have a latents tensor when the caller asked for it.
+                wants_latents = "latents" in (kwargs.get("callback_on_step_end_tensor_inputs") or [])
+                for step_index in range(total_steps):
+                    callback_kwargs = {"latents": MagicMock()} if wants_latents else {}
+                    callback(self, step_index, step_index, callback_kwargs)
             result = MagicMock()
             result.images = [_make_stub_image() for _ in range(num)]
             return result
@@ -580,3 +596,82 @@ def test_top_level_generate_image_one_shot_gemini(fake_genai):
 def test_top_level_generate_image_one_shot_hf():
     img = aimu.generate_image("a cat", model="hf:runwayml/stable-diffusion-v1-5")
     assert isinstance(img, Image.Image)
+
+
+# ===========================================================================
+# Streaming (IMAGE_GENERATING) — both providers
+# ===========================================================================
+
+
+def test_hf_stream_emits_one_chunk_per_step_then_final():
+    """HF streaming: N progress chunks + 1 final chunk (num_images=1, N steps)."""
+    from aimu.models.base import StreamingContentType
+
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    chunks = list(client.generate("a cat", stream=True, num_inference_steps=5))
+
+    # 5 progress + 1 final = 6 chunks.
+    assert len(chunks) == 6
+    assert all(c.phase == StreamingContentType.IMAGE_GENERATING for c in chunks)
+    # First 5 are non-final, step 1..5.
+    for i, c in enumerate(chunks[:5]):
+        assert c.content["step"] == i + 1
+        assert c.content["total_steps"] == 5
+        assert c.content["final"] is False
+        assert c.content["image"] is None  # no preview by default
+    # Final chunk has final=True + result.
+    assert chunks[-1].content["final"] is True
+    assert chunks[-1].content["result"] is not None
+
+
+def test_hf_stream_preview_every_decodes_at_matching_steps():
+    """preview_every=2 should populate `image` at steps 2, 4 (and the final)."""
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    chunks = list(
+        client.generate("a cat", stream=True, num_inference_steps=4, preview_every=2)
+    )
+    # 4 progress + 1 final = 5 chunks.
+    assert len(chunks) == 5
+    # Step 1: no preview; step 2: preview; step 3: no; step 4: preview; final: yes.
+    assert chunks[0].content["image"] is None
+    assert chunks[1].content["image"] is not None
+    assert chunks[2].content["image"] is None
+    assert chunks[3].content["image"] is not None
+    assert chunks[4].content["final"] is True
+    assert chunks[4].content["image"] is not None
+
+
+def test_hf_stream_num_images_emits_one_final_chunk_per_image():
+    """num_images=3 should emit final chunks for each generated image."""
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    chunks = list(client.generate("a cat", stream=True, num_inference_steps=2, num_images=3))
+    finals = [c for c in chunks if c.content["final"]]
+    assert len(finals) == 3
+    for i, c in enumerate(finals):
+        assert c.content["image_index"] == i
+        assert c.content["num_images"] == 3
+
+
+def test_gemini_stream_coarse_start_then_done(fake_genai):
+    """Gemini streaming: one start chunk + one final chunk per image."""
+    from aimu.models.base import StreamingContentType
+
+    client = GeminiImageClient(GeminiImageModel.NANO_BANANA)
+    chunks = list(client.generate("a cat", stream=True))
+
+    assert len(chunks) == 2
+    assert all(c.phase == StreamingContentType.IMAGE_GENERATING for c in chunks)
+    assert chunks[0].content["final"] is False
+    assert chunks[0].content["image"] is None
+    assert chunks[1].content["final"] is True
+    assert chunks[1].content["image"] is not None
+
+
+def test_gemini_stream_num_images_two_pairs(fake_genai):
+    """num_images=2 emits two start/done pairs."""
+    client = GeminiImageClient(GeminiImageModel.NANO_BANANA)
+    chunks = list(client.generate("a cat", stream=True, num_images=2))
+    starts = [c for c in chunks if not c.content["final"]]
+    finals = [c for c in chunks if c.content["final"]]
+    assert len(starts) == 2
+    assert len(finals) == 2

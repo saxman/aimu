@@ -48,8 +48,28 @@ class AsyncGeminiImageClient:
         num_images: int = 1,
         format: str = "pil",
         output_dir: Optional[Path] = None,
+        stream: bool = False,
+        preview_every: Optional[int] = None,
     ) -> Union[Any, list[Any], str, list[str], bytes, list[bytes]]:
-        """Async equivalent of :meth:`GeminiImageClient.generate`."""
+        """Async equivalent of :meth:`GeminiImageClient.generate`.
+
+        When ``stream=True``, returns an async iterator that yields the coarse
+        start/done ``IMAGE_GENERATING`` chunks emitted by the sync client (one
+        pair per image). Each ``next()`` is routed through ``asyncio.to_thread``
+        so blocking API calls don't stall the event loop.
+        """
+        if stream:
+            sync_iter = self._sync.generate(
+                prompt,
+                aspect_ratio=aspect_ratio,
+                image_size=image_size,
+                num_images=num_images,
+                format=format,
+                output_dir=output_dir,
+                stream=True,
+                preview_every=preview_every,
+            )
+            return _stream_via_thread(sync_iter)
         return await asyncio.to_thread(
             self._sync.generate,
             prompt,
@@ -62,3 +82,14 @@ class AsyncGeminiImageClient:
 
     def __repr__(self) -> str:
         return f"AsyncGeminiImageClient({self._sync!r})"
+
+
+async def _stream_via_thread(sync_iter):
+    """Pull from a sync iterator via ``asyncio.to_thread`` between yields."""
+    sentinel = object()
+    loop_iter = iter(sync_iter)
+    while True:
+        chunk = await asyncio.to_thread(next, loop_iter, sentinel)
+        if chunk is sentinel:
+            break
+        yield chunk

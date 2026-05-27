@@ -168,5 +168,61 @@ class GeminiImageClient(BaseImageClient):
         image_config = self._build_image_config(aspect_ratio, image_size)
         return [self._generate_one(prompt, image_config) for _ in range(num_images)]
 
+    def _generate_streamed(
+        self,
+        prompt: str,
+        *,
+        num_images: int = 1,
+        format: str = "pil",
+        output_dir: Optional[Any] = None,
+        preview_every: Optional[int] = None,
+        aspect_ratio: Optional[str] = None,
+        image_size: Optional[str] = None,
+        **_ignored: Any,
+    ):
+        """Coarse streaming: one start chunk + one final chunk per image.
+
+        Gemini Nano Banana doesn't expose per-step progress via its API; this
+        emits a "started" :attr:`StreamingContentType.IMAGE_GENERATING` chunk
+        before each API call and a ``final=True`` chunk after, carrying the
+        encoded result. ``preview_every`` is accepted but has no effect (no
+        intermediate latents exist on the cloud side).
+        """
+        del preview_every  # not applicable for cloud-API providers
+
+        # Local imports keep base.py light and avoid circular import paths.
+        from .._image_output import encode_image
+        from ..base import StreamChunk, StreamingContentType
+
+        image_config = self._build_image_config(aspect_ratio, image_size)
+
+        for i in range(num_images):
+            yield StreamChunk(
+                StreamingContentType.IMAGE_GENERATING,
+                {
+                    "step": 0,
+                    "total_steps": 1,
+                    "image": None,
+                    "final": False,
+                    "result": None,
+                    "image_index": i,
+                    "num_images": num_images,
+                },
+            )
+            img = self._generate_one(prompt, image_config)
+            encoded = encode_image(img, format=format, prompt=prompt, output_dir=output_dir)
+            yield StreamChunk(
+                StreamingContentType.IMAGE_GENERATING,
+                {
+                    "step": 1,
+                    "total_steps": 1,
+                    "image": img,
+                    "final": True,
+                    "result": encoded,
+                    "image_index": i,
+                    "num_images": num_images,
+                },
+            )
+
     def __repr__(self) -> str:
         return f"GeminiImageClient(model={self.spec.id!r})"

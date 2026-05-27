@@ -253,7 +253,12 @@ The codebase uses an abstract base class pattern for model clients:
 
 - **Supporting types in base.py**:
   - `StreamingContentType(str, Enum)`: `THINKING`, `TOOL_CALLING`, `GENERATING`, `DONE`; string values (`"thinking"`, etc.).
-  - `StreamChunk(NamedTuple)`: `(phase, content, agent=None, iteration=0)`. The single chunk type used everywhere — `client.chat(stream=True)`, `Agent.run(stream=True)`, all workflow runs. `content` is `str` for `THINKING`/`GENERATING` and `dict {"name", "arguments", "response"}` for `TOOL_CALLING` (where `arguments` is the dict the model passed to the tool). Helpers `is_text()` and `is_tool_call()` dispatch on phase.
+  - `StreamChunk(NamedTuple)`: `(phase, content, agent=None, iteration=0)`. The single chunk type used everywhere — `client.chat(stream=True)`, `Agent.run(stream=True)`, `image_client.generate(stream=True)`, streaming tools, all workflow runs. `content` shape depends on phase:
+    - `str` for `THINKING` / `GENERATING` (token).
+    - `dict {"name", "arguments", "response"}` for `TOOL_CALLING` (``arguments`` is the dict the model passed to the tool).
+    - `dict {"step", "total_steps", "image", "final", "result"}` for `IMAGE_GENERATING` — emitted by image clients during denoising (HF diffusers per step; Gemini coarse start/done). ``image`` is an optional ``PIL.Image`` (None unless ``preview_every`` opted in); ``final=True`` marks the terminal chunk per image; ``result`` carries the encoded output (path / bytes / data-url per ``format=``) on the final chunk.
+
+    Helpers `is_text()` / `is_tool_call()` / `is_image_progress()` dispatch on phase.
   - `ModelSpec`: frozen dataclass with `id: str`, `tools: bool`, `thinking: bool`, `vision: bool`, `generation_kwargs: dict | None`. Equality and hash use `id` only, so it can hold a dict and still be used as an enum value. Each `Model` enum member's value is a `ModelSpec`.
   - `Model(Enum)`: base enum. Each member's value is a `ModelSpec`. Members expose `.value` (the id string), `.spec` (the `ModelSpec`), `.supports_tools`, `.supports_thinking`, `.supports_vision`, `.generation_kwargs`.
 
@@ -303,7 +308,14 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - parameter with no type hint *and* no default value
   - Missing return annotation is a warning, not an error.
 
-  **Async detection**: the decorator also sets `func.__tool_is_async__ = inspect.iscoroutinefunction(func)`. The sync `_handle_tool_calls()` rejects async tools with a `ValueError` pointing at `aimu.aio`. The async `_handle_tool_calls()` awaits async tools directly and routes sync (CPU-bound) tools through `asyncio.to_thread`.
+  **Async detection**: the decorator also sets `func.__tool_is_async__ = inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)` — true for plain `async def` tools and for `async def + yield` (async generator) tools.
+
+  **Streaming tools**: the decorator sets `func.__tool_is_streaming__ = inspect.isgeneratorfunction(func) or inspect.isasyncgenfunction(func)`. Generator tools may yield zero-or-more `StreamChunk` objects during execution; the agent forwards each yielded chunk through `agent.run(stream=True)` so callers see progress live. The tool's *response* (what goes into the tool message in the conversation history) is resolved in priority order:
+  1. The generator's `return` value (captured via `StopIteration.value`) — sync generators only.
+  2. The last yielded chunk's `content["result"]` if it's a dict with that key — the convention used by `IMAGE_GENERATING` final chunks.
+  3. `str(last_chunk.content)` as a last resort.
+
+  Streaming tools are dispatched via `BaseModelClient._handle_tool_calls_streamed` (and the async sibling on `AsyncBaseModelClient`); the non-streaming `_handle_tool_calls` path rejects them with a clear `ValueError` pointing at `stream=True`. Concurrent dispatch (`concurrent_tool_calls=True`) falls back to sequential when any tool in the batch is streaming, to avoid interleaving chunks from concurrent generators.
 
 - **MCPClient** ([aimu/tools/client.py](aimu/tools/client.py)): wraps FastMCP 2.0 for cross-process tool servers.
   - Converts async FastMCP API to synchronous interface using an internal event loop
@@ -583,7 +595,7 @@ These are *implementation* patterns — the *how*. The *why* lives in the "Desig
 1. **Single public construction path**: `ModelClient` is the factory. Provider clients are still importable but no longer the recommended public surface. The top-level `aimu.client()` and `aimu.chat()` wrap `ModelClient` for one-line use.
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed. `HAS_*` flags expose installation state; missing optional deps don't break the import of the package.
 3. **Tool Calling Abstraction**: The base class handles tool calls uniformly across providers. Concrete clients implement `_chat` / `_generate`; the public `chat` / `generate` wrap them with the `include` filter. Python `@tool` functions take precedence over MCP tools of the same name; both routes can be active on the same client.
-4. **Streaming chunk type**: All clients support streaming via `chat(..., stream=True)` and `generate(..., stream=True)`. They yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, DONE); `content` is `str` for THINKING/GENERATING and `dict {"name": ..., "response": ...}` for TOOL_CALLING. Use `chunk.is_text()` / `chunk.is_tool_call()` to dispatch on phase.
+4. **Streaming chunk type**: All clients support streaming via `chat(..., stream=True)`, `generate(..., stream=True)`, and image clients via `generate(..., stream=True)`. They yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, IMAGE_GENERATING, DONE); see the `StreamChunk` entry above for content shapes per phase. Streaming tools (generator functions decorated with `@tool`) yield their own chunks that flow through the agent's stream — see "Streaming tools" below. Use `chunk.is_text()` / `chunk.is_tool_call()` / `chunk.is_image_progress()` to dispatch on phase.
 5. **Model Capability Flags**: `supports_tools`, `supports_thinking`, and `supports_vision` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access. `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` classproperties are derived automatically.
 
 ## Important Implementation Notes
@@ -677,7 +689,8 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
   - `HuggingFaceImageModel` catalog: `SD_1_5`, `SDXL_BASE`, `SD_3_5_MEDIUM`, `FLUX_DEV`, `FLUX_SCHNELL`. Each member's value is a `HuggingFaceImageSpec`.
   - `HuggingFaceImageClient(model, model_kwargs=None)` accepts a `HuggingFaceImageModel` member, a `HuggingFaceImageSpec`, or a `"hf:<repo_id>"` string (for ad-hoc HF models not in the enum; defaults to `DiffusionPipeline` auto-detect loader).
   - Lazy pipeline load on first `generate()` call: `pipeline_cls = getattr(diffusers, spec.pipeline_class); self._pipe = pipeline_cls.from_pretrained(spec.id, **kwargs)`. Auto-moves to CUDA or MPS if available.
-  - `generate(prompt, *, negative_prompt=None, width=None, height=None, num_inference_steps=None, guidance_scale=None, seed=None, num_images=1, format="pil", output_dir=None)`. Unset params fall back to `spec.default_*`. Seed plumbed through `torch.Generator`. Returns a single image (or list when `num_images > 1`) in the chosen format.
+  - `generate(prompt, *, negative_prompt=None, width=None, height=None, num_inference_steps=None, guidance_scale=None, seed=None, num_images=1, format="pil", output_dir=None, stream=False, preview_every=None)`. Unset params fall back to `spec.default_*`. Seed plumbed through `torch.Generator`. Returns a single image (or list when `num_images > 1`) in the chosen format.
+  - `stream=True` returns an `Iterator[StreamChunk]` with phase `IMAGE_GENERATING`. Implemented via `callback_on_step_end` on the diffusers pipeline: a background thread runs the pipeline, the callback pushes per-step chunks onto a `queue.Queue`, and the public generator drains the queue. `preview_every=N` opts into per-step latent-decoded previews — when set, the callback decodes via `pipe.vae.decode` every N steps and includes the PIL in the chunk (~50–200 ms per decode on GPU). Final chunks (one per image when `num_images > 1`) carry `final=True` and the encoded `result` per `format=`.
   - `import diffusers` is a hard module-load import so `HAS_HF_IMAGE` accurately reflects "the optional dep is installed" (matches the HF convention).
 
 - **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points parallel to `client()` / `chat()`:
@@ -685,10 +698,11 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
   - `aimu.generate_image(prompt, *, model, format="pil", **kwargs)` — one-shot.
   - Both raise `ImportError` with a helpful install hint when `HAS_HF_IMAGE` is False.
 
-- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — chat integration via a built-in `@tool`:
-  - `generate_image(prompt: str) -> str` returns a saved file path (matches existing tools' string-return convention).
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — chat integration via a built-in **streaming** `@tool`:
+  - `generate_image(prompt: str)` is a **generator tool** (decorated with `@tool`) — it yields `IMAGE_GENERATING` chunks during denoising and returns the saved file path as its final value. The agent's `_handle_tool_calls_streamed` forwards the yielded chunks through the agent's stream so callers see live progress.
   - Backed by a lazy module-level singleton `_image_client` constructed on first call. Default model is `hf:stabilityai/stable-diffusion-xl-base-1.0`; override via the `AIMU_IMAGE_MODEL` env var.
-  - `make_image_tool(client)` factory binds a fresh tool to a caller-supplied `HuggingFaceImageClient` — escape hatch when multiple agents in one process need different models.
+  - `make_image_tool(client, *, preview_every=None)` factory binds a fresh streaming tool to a caller-supplied image client, with optional intermediate-image previews every N denoising steps (HF only; Gemini ignores it).
+  - `make_describe_image_tool(client, *, default_instruction=...)` builds a `describe_image(image_path, instruction=...)` tool bound to a **vision-capable chat client** (raises `ValueError` if `client.model.supports_vision` is False). The tool snapshots `client.messages` before the vision call and restores it afterwards, so the agent's conversation log isn't polluted with one-off image-Q&A turns; `use_tools=False` is passed to prevent recursive tool calls during the vision call. This is a factory rather than a lazy singleton because the most useful binding is to the *same* model the agent is already running — same knowledge, same provider, no extra API key. The Streamlit chatbot appends this tool to the agent's tool list automatically when the active chat model is vision-capable.
   - New subgroup `image = [generate_image]` next to `web`, `fs`, `compute`, `misc`. Appended to `ALL_TOOLS`.
 
 - **Skill integration (deeper, optional)** — for `SkillAgent` users, drop a `SKILL.md` under `.agents/skills/image-generation/` listing `generate_image` and adding prompt-engineering guidance (composition, style descriptors, negative-prompt hints). Skills are filesystem-discovered, not shipped with the library; see `notebooks/15 - Image Generation.ipynb` for a copyable example.

@@ -176,24 +176,22 @@ class HuggingFaceImageClient(BaseImageClient):
             self._pipe = self._load_pipeline()
         return self._pipe
 
-    def _generate(
+    def _build_call_kwargs(
         self,
         prompt: str,
         *,
-        num_images: int = 1,
-        negative_prompt: Optional[str] = None,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
-        num_inference_steps: Optional[int] = None,
-        guidance_scale: Optional[float] = None,
-        seed: Optional[int] = None,
-        **_ignored: Any,
-    ) -> list:
-        """Provider-specific generation. Returns a list of PIL Images.
+        num_images: int,
+        negative_prompt: Optional[str],
+        width: Optional[int],
+        height: Optional[int],
+        num_inference_steps: Optional[int],
+        guidance_scale: Optional[float],
+        seed: Optional[int],
+    ) -> dict[str, Any]:
+        """Compose the kwargs dict passed to the diffusers pipeline.
 
-        Public callers should use :meth:`generate` (inherited from
-        :class:`BaseImageClient`), which adds format conversion via
-        :func:`encode_image`.
+        Shared by :meth:`_generate` (blocking) and :meth:`_generate_streamed`
+        (callback-driven). Defaults fall back to ``self.spec``.
         """
         spec = self.spec
         call_kwargs: dict[str, Any] = {
@@ -216,9 +214,179 @@ class HuggingFaceImageClient(BaseImageClient):
             generator = torch.Generator(device=device.type if device is not None else "cpu").manual_seed(seed)
             call_kwargs["generator"] = generator
 
+        return call_kwargs
+
+    def _generate(
+        self,
+        prompt: str,
+        *,
+        num_images: int = 1,
+        negative_prompt: Optional[str] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[float] = None,
+        seed: Optional[int] = None,
+        **_ignored: Any,
+    ) -> list:
+        """Provider-specific generation. Returns a list of PIL Images.
+
+        Public callers should use :meth:`generate` (inherited from
+        :class:`BaseImageClient`), which adds format conversion via
+        :func:`encode_image`.
+        """
+        call_kwargs = self._build_call_kwargs(
+            prompt,
+            num_images=num_images,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            seed=seed,
+        )
         result = self.pipeline(**call_kwargs)
         images = result.images if hasattr(result, "images") else result
         return list(images)
+
+    def _decode_latents_to_pil(self, latents: Any) -> list:
+        """Decode an intermediate latents tensor to PIL Images via the pipeline's VAE.
+
+        Expensive (~50–200 ms per call on GPU). Called only when ``preview_every``
+        opts in for a given step.
+        """
+        import torch
+
+        pipe = self.pipeline
+        if not hasattr(pipe, "vae") or not hasattr(pipe, "image_processor"):
+            return []  # not all pipelines expose these; preview is best-effort
+        with torch.no_grad():
+            scaled = latents / pipe.vae.config.scaling_factor
+            decoded = pipe.vae.decode(scaled, return_dict=False)[0]
+        images = pipe.image_processor.postprocess(decoded, output_type="pil")
+        return list(images) if isinstance(images, (list, tuple)) else [images]
+
+    def _generate_streamed(
+        self,
+        prompt: str,
+        *,
+        num_images: int = 1,
+        format: str = "pil",
+        output_dir: Optional[Any] = None,
+        preview_every: Optional[int] = None,
+        negative_prompt: Optional[str] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[float] = None,
+        seed: Optional[int] = None,
+        **_ignored: Any,
+    ):
+        """Streaming generation: yields one IMAGE_GENERATING chunk per denoising step.
+
+        Implementation runs the diffusers pipeline in a background thread; a
+        ``callback_on_step_end`` closure pushes per-step ``StreamChunk``s onto a
+        :class:`queue.Queue`. The main thread (this generator) drains the queue,
+        forwarding chunks to the caller. When ``preview_every=N`` is set, latents
+        at matching steps are decoded via ``pipe.vae`` and included in the chunk.
+
+        Final ``final=True`` chunks (one per image when ``num_images > 1``) carry
+        the encoded ``result`` per the requested ``format=``.
+        """
+        import queue
+        import threading
+
+        # Local imports keep the module light.
+        from .._image_output import encode_image
+        from ..base import StreamChunk, StreamingContentType
+
+        call_kwargs = self._build_call_kwargs(
+            prompt,
+            num_images=num_images,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            seed=seed,
+        )
+        total_steps = call_kwargs["num_inference_steps"]
+
+        q: "queue.Queue[Any]" = queue.Queue()
+        _SENTINEL = object()
+        _EXC = object()
+
+        wants_preview = preview_every is not None and preview_every > 0
+        request_latents = wants_preview  # tell diffusers to expose latents
+
+        def _callback(pipe_, step_index, timestep, callback_kwargs):  # noqa: ARG001
+            # diffusers passes step_index as 0-based; promote to 1-based for display.
+            step = step_index + 1
+            include_preview = wants_preview and (step % preview_every == 0 or step == total_steps)
+            image_preview = None
+            if include_preview and "latents" in callback_kwargs:
+                try:
+                    decoded = self._decode_latents_to_pil(callback_kwargs["latents"])
+                    image_preview = decoded[0] if decoded else None
+                except Exception:  # noqa: BLE001
+                    image_preview = None  # never break generation on a preview failure
+            q.put(
+                StreamChunk(
+                    StreamingContentType.IMAGE_GENERATING,
+                    {
+                        "step": step,
+                        "total_steps": total_steps,
+                        "image": image_preview,
+                        "final": False,
+                        "result": None,
+                    },
+                )
+            )
+            return callback_kwargs
+
+        call_kwargs["callback_on_step_end"] = _callback
+        if request_latents:
+            call_kwargs["callback_on_step_end_tensor_inputs"] = ["latents"]
+
+        def _run():
+            try:
+                result = self.pipeline(**call_kwargs)
+                images = result.images if hasattr(result, "images") else result
+                q.put(("_done", list(images)))
+            except Exception as exc:  # noqa: BLE001
+                q.put((_EXC, exc))
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+
+        # Drain step chunks until the run thread reports done (or fails).
+        final_images: list = []
+        while True:
+            item = q.get()
+            if isinstance(item, tuple) and item and item[0] == "_done":
+                final_images = item[1]
+                break
+            if isinstance(item, tuple) and item and item[0] is _EXC:
+                raise item[1]
+            yield item  # IMAGE_GENERATING progress chunk
+
+        thread.join()
+
+        # Emit one final chunk per produced image, carrying the encoded result.
+        for i, img in enumerate(final_images):
+            encoded = encode_image(img, format=format, prompt=prompt, output_dir=output_dir)
+            yield StreamChunk(
+                StreamingContentType.IMAGE_GENERATING,
+                {
+                    "step": total_steps,
+                    "total_steps": total_steps,
+                    "image": img,
+                    "final": True,
+                    "result": encoded,
+                    "image_index": i,
+                    "num_images": len(final_images),
+                },
+            )
 
     def __repr__(self) -> str:
         loaded = "loaded" if self._pipe is not None else "unloaded"

@@ -1,6 +1,6 @@
 # StreamChunk model
 
-AIMU has exactly one chunk type for streaming output. Every streaming path — `client.chat()`, `Agent.run()`, every workflow `run()` — yields `StreamChunk` objects. This page explains why.
+AIMU has exactly one chunk type for streaming output. Every streaming path — `client.chat()`, `Agent.run()`, `image_client.generate()`, streaming tools, every workflow `run()` — yields `StreamChunk` objects. This page explains why.
 
 ## The shape
 
@@ -14,16 +14,17 @@ class StreamChunk(NamedTuple):
 
 | Field | Purpose |
 |---|---|
-| `phase` | Which kind of content: `THINKING` / `TOOL_CALLING` / `GENERATING` / `DONE` |
-| `content` | The payload: `str` for text phases, `dict` for tool calls |
+| `phase` | Which kind of content: `THINKING` / `TOOL_CALLING` / `GENERATING` / `IMAGE_GENERATING` / `DONE` |
+| `content` | The payload: `str` for text phases, `dict` for tool calls and image-gen progress |
 | `agent` | Which agent emitted this (workflow / agent contexts); `None` for plain `chat()` |
 | `iteration` | Loop iteration or chain step; `0` for plain `chat()` |
 
 Helpers:
 
 ```python
-chunk.is_text()        # True for THINKING and GENERATING
-chunk.is_tool_call()   # True for TOOL_CALLING
+chunk.is_text()             # True for THINKING and GENERATING
+chunk.is_tool_call()        # True for TOOL_CALLING
+chunk.is_image_progress()   # True for IMAGE_GENERATING
 ```
 
 ## Why one type, not three
@@ -65,9 +66,16 @@ The `include=[...]` parameter on `chat()` and `generate()` is the only filtering
 | `THINKING` | Reasoning model emits internal-monologue tokens | `str` (token) |
 | `TOOL_CALLING` | A tool call has just been dispatched and its result is back | `dict {"name": str, "arguments": dict, "response": str}` |
 | `GENERATING` | The final response stream | `str` (token) |
+| `IMAGE_GENERATING` | Per-step progress from an image generator (HF diffusers callback, Gemini coarse start/done) | `dict {"step": int, "total_steps": int, "image": PIL.Image \| None, "final": bool, "result": str \| bytes \| None}` |
 | `DONE` | Terminal marker (rarely yielded by providers; reserved) | `str` (usually empty) |
 
-For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING.
+For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING. For image generation, you see `IMAGE_GENERATING` chunks per denoising step (or coarse start/done pair on Gemini) — the last one of each image has `final=True` and carries the encoded `result`.
+
+## Streaming tools — a unified surface
+
+A `@tool`-decorated Python function may be **plain** (`def fn() -> T`), **async** (`async def fn() -> T`), a **sync generator** (`def fn(): yield ...; return T`), or an **async generator** (`async def fn(): yield ...`). Generator tools yield `StreamChunk` objects during execution; the agent's tool dispatcher forwards them through `agent.run(stream=True)`, so callers see per-step progress live without any side-channel callbacks. This is how the built-in `generate_image` tool delivers `IMAGE_GENERATING` chunks into the agent stream.
+
+The unification means *every* streaming source — model output, image generation, custom long-running tools — flows through the same `Iterator[StreamChunk]` shape and dispatches on the same `phase` field. UIs and loggers handle one type, not three.
 
 ## See also
 

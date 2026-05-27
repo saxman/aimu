@@ -223,21 +223,11 @@ class OllamaClient(BaseModelClient):
             ]
 
             msgs_before = len(self.messages)
-            self._handle_tool_calls(tool_calls, tools)
+            yield from self._handle_tool_calls_streamed(tool_calls, tools)
 
             if thinking:
                 self.messages[msgs_before]["thinking"] = thinking
                 thinking = ""
-
-            for tc, tr in zip(self.messages[msgs_before]["tool_calls"], self.messages[msgs_before + 1 :]):
-                yield StreamChunk(
-                    StreamingContentType.TOOL_CALLING,
-                    {
-                        "name": tc["function"]["name"],
-                        "arguments": tc["function"]["arguments"],
-                        "response": tr["content"],
-                    },
-                )
 
             response = ollama.chat(
                 model=self.model.value,
