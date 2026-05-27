@@ -1,3 +1,10 @@
+<div align="center" markdown>
+
+![AIMU](assets/aimu-horizontal-light.svg#only-light){ width="400" }
+![AIMU](assets/aimu-horizontal-dark.svg#only-dark){ width="400" }
+
+</div>
+
 # AIMU
 
 **AI Modeling Utilities** — a lightweight Python library for building AI-powered applications with a consistent, provider-agnostic interface across text, images, and audio.

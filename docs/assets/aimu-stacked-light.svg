@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="220" viewBox="0 0 240 220" role="img" aria-label="AIMU — AI Modeling Utilities">
+  <title>AIMU — AI Modeling Utilities</title>
+  <!-- mark, centered -->
+  <g transform="translate(73, 16)">
+    <rect x="36" y="0"  width="22" height="22" rx="5" fill="#4f46e5"/>
+    <rect x="20" y="26" width="22" height="22" rx="5" fill="#6366f1"/>
+    <rect x="52" y="26" width="22" height="22" rx="5" fill="#6366f1"/>
+    <rect x="4"  y="52" width="22" height="22" rx="5" fill="#0ea5a4"/>
+    <rect x="36" y="52" width="22" height="22" rx="5" fill="#14b8a6"/>
+    <rect x="68" y="52" width="22" height="22" rx="5" fill="#0ea5a4"/>
+  </g>
+  <!-- wordmark -->
+  <text x="120" y="166" text-anchor="middle" font-family="'Segoe UI', system-ui, -apple-system, sans-serif" font-size="44" font-weight="600" letter-spacing="1" fill="#0f172a">AIMU</text>
+  <text x="120" y="190" text-anchor="middle" font-family="'Segoe UI', system-ui, -apple-system, sans-serif" font-size="14" font-weight="400" letter-spacing="0.5" fill="#475569">AI Modeling Utilities</text>
+</svg>

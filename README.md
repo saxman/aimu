@@ -1,12 +1,22 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aimu-horizontal-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/aimu-horizontal-light.svg">
+  <img alt="AIMU" src="docs/assets/aimu-horizontal-light.svg" width="480">
+</picture>
+
+**Simple, composable AI for Python — local or cloud.**
+
 [![PyPI](https://img.shields.io/pypi/v/aimu)](https://pypi.org/project/aimu/) ![GitHub License](https://img.shields.io/github/license/saxman/genscai) ![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsaxman%2Faimu%2Frefs%2Fheads%2Fmain%2Fpyproject.toml) [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-# AIMU - AI Modeling Utilities
+📘 [Docs](https://saxman.github.io/aimu/) · 🎓 [Tutorials](https://saxman.github.io/aimu/tutorials/) · 🛠️ [How-to](https://saxman.github.io/aimu/how-to/) · 📚 [Reference](https://saxman.github.io/aimu/reference/) · 💡 [Explanation](https://saxman.github.io/aimu/explanation/) · 📓 [Notebooks](notebooks/)
+
+</div>
 
 AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, and audio; autonomous agents and code-controlled workflows; and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of these features in plain Python that is apparent and easy to use.
 
 Whether you need vision input, autonomous tool use, or image generation, the call is one line: `aimu.chat("What's in this photo?", model="...", images=["photo.jpg"])`, `agent.run("Search the web and summarize today's AI news")`, `aimu.generate_image("a watercolor fox in a snowy forest", model="...")`. Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
-
-📘 **[Read the docs](https://saxman.github.io/aimu/)** for tutorials, how-to guides, full API reference, and design explanations.
 
 ## Key features
 

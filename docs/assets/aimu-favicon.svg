@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="AIMU">
+  <title>AIMU</title>
+  <rect x="0" y="0" width="128" height="128" rx="28" fill="#0f172a"/>
+  <!-- mark scaled to ~76px, centered -->
+  <g transform="translate(26, 24)">
+    <rect x="29" y="0"  width="18" height="18" rx="4" fill="#6366f1"/>
+    <rect x="16" y="26" width="18" height="18" rx="4" fill="#818cf8"/>
+    <rect x="42" y="26" width="18" height="18" rx="4" fill="#818cf8"/>
+    <rect x="3"  y="52" width="18" height="18" rx="4" fill="#14b8a6"/>
+    <rect x="29" y="52" width="18" height="18" rx="4" fill="#2dd4bf"/>
+    <rect x="55" y="52" width="18" height="18" rx="4" fill="#14b8a6"/>
+  </g>
+</svg>
