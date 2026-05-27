@@ -71,7 +71,6 @@ mkdocs build --strict
 - **Plain Python over framework primitives.** No `Runnable` protocol, no `BaseTool`, no LCEL `|`, no Pydantic for tool args. See [design principles](explanation/design-principles.md) for the full list of what's deliberately out of scope.
 - **OpenAI message dicts as the only data model.** No `Message` class. Provider-specific formats are adapted at request time, never persisted.
 - **Loud failures.** Bad input raises with an actionable message. Silent skips and `try/except: pass` are reviewed carefully.
-- **Synchronous first.** Async APIs are deferred until a concrete need surfaces.
 
 ## Adding a new provider
 
