@@ -189,7 +189,7 @@ def test_search_returns_results():
     }
     client = MCPClient(server=mcp)
     with patch("aimu.tools.builtin.requests.get", return_value=_mock_response(json_data=fake_results)):
-        response = client.call_tool("search", {"query": "python", "num_results": 2})
+        response = client.call_tool("web_search", {"query": "python", "num_results": 2})
 
     text = _response_text(response)
     assert "Python Docs" in text
@@ -200,7 +200,7 @@ def test_search_returns_results():
 def test_search_no_results():
     client = MCPClient(server=mcp)
     with patch("aimu.tools.builtin.requests.get", return_value=_mock_response(json_data={"results": []})):
-        response = client.call_tool("search", {"query": "xyzzy"})
+        response = client.call_tool("web_search", {"query": "xyzzy"})
 
     assert _response_text(response) == "No results found."
 
@@ -208,7 +208,7 @@ def test_search_no_results():
 def test_search_request_error():
     client = MCPClient(server=mcp)
     with patch("aimu.tools.builtin.requests.get", side_effect=requests.RequestException("timeout")):
-        response = client.call_tool("search", {"query": "python"})
+        response = client.call_tool("web_search", {"query": "python"})
 
     assert "Error contacting SearXNG" in _response_text(response)
 
@@ -325,7 +325,7 @@ def test_read_file_on_directory():
 
 def test_builtin_web_group_contains_expected_tools():
     names = {t.__name__ for t in builtin.web}
-    assert names == {"get_weather", "get_webpage", "search", "wikipedia"}
+    assert names == {"get_weather", "get_webpage", "web_search", "wikipedia"}
 
 
 def test_builtin_fs_group_contains_expected_tools():

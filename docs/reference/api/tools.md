@@ -20,7 +20,7 @@ The `aimu.tools.builtin` module ships ready-made `@tool` functions grouped by do
 
 | Group | Tools |
 |---|---|
-| `builtin.web` | `get_weather`, `get_webpage`, `search`, `wikipedia` |
+| `builtin.web` | `get_weather`, `get_webpage`, `web_search`, `wikipedia` |
 | `builtin.fs` | `list_directory`, `read_file` |
 | `builtin.compute` | `calculate` |
 | `builtin.misc` | `echo`, `get_current_date_and_time` |
@@ -36,7 +36,7 @@ The `aimu.tools.builtin` module ships ready-made `@tool` functions grouped by do
 
 ::: aimu.tools.builtin.get_webpage
 
-::: aimu.tools.builtin.search
+::: aimu.tools.builtin.web_search
 
 ::: aimu.tools.builtin.wikipedia
 

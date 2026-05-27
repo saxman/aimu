@@ -29,7 +29,7 @@ class ResearchReportAgent(OrchestratorAgent):
         Used for both orchestrator and worker agents.
     worker_tools:
         Optional list of ``@tool``-decorated functions injected into each worker so
-        they can perform live lookups (e.g. ``aimu.tools.builtin.search`` and
+        they can perform live lookups (e.g. ``aimu.tools.builtin.web_search`` and
         ``get_webpage``). When provided, the orchestrator also enables concurrent
         tool calls so all three workers can be dispatched in a single round-trip
         when the model supports it.
@@ -47,7 +47,7 @@ class ResearchReportAgent(OrchestratorAgent):
 
         from aimu.tools import builtin
 
-        agent = ResearchReportAgent(client, worker_tools=[builtin.search, builtin.get_webpage])
+        agent = ResearchReportAgent(client, worker_tools=[builtin.web_search, builtin.get_webpage])
         report = agent.run("What is retrieval-augmented generation?")
     """
 

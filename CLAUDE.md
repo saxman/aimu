@@ -504,7 +504,7 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
 
 - **[aimu/agents/prebuilt/](aimu/agents/prebuilt/)**: Ready-to-use `OrchestratorAgent` subclasses demonstrating the orchestrator + worker tools pattern
   - Each class accepts a `ModelClient`, defines `@tool`-decorated wrappers around worker `Agent.run()` calls, and passes them to `_init_orchestrator(tools=[...])`
-  - `ResearchReportAgent`: orchestrator + `research_overview`, `find_examples`, `find_counterpoints` worker tools; accepts optional `worker_tools: list[Callable]` to give workers live tool access (e.g. `[builtin.search, builtin.get_webpage]`) and automatically enables `concurrent_tool_calls` on the orchestrator
+  - `ResearchReportAgent`: orchestrator + `research_overview`, `find_examples`, `find_counterpoints` worker tools; accepts optional `worker_tools: list[Callable]` to give workers live tool access (e.g. `[builtin.web_search, builtin.get_webpage]`) and automatically enables `concurrent_tool_calls` on the orchestrator
   - `CodeReviewAgent`: orchestrator + `review_security`, `review_performance`, `review_readability` worker tools
   - `ContentCreationAgent`: orchestrator + `research_topic`, `create_outline`, `write_section` worker tools
   - All three inherit from `OrchestratorAgent` and expose `run(task, stream=False)` and `messages`

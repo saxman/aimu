@@ -16,7 +16,7 @@ If missing, the text clients construct successfully but the first request raises
 
 | Variable | Used by | Default |
 |---|---|---|
-| `SEARXNG_BASE_URL` | `aimu.tools.builtin.search` | `http://localhost:8080` |
+| `SEARXNG_BASE_URL` | `aimu.tools.builtin.web_search` | `http://localhost:8080` |
 | `AIMU_IMAGE_MODEL` | `aimu.tools.builtin.generate_image` (lazy singleton) | `hf:stabilityai/stable-diffusion-xl-base-1.0` |
 
 The built-in `generate_image` tool constructs its image client lazily on first call, picking the provider and model from `AIMU_IMAGE_MODEL`. Accepts any string supported by `aimu.image_client()` — `"hf:<repo>"` or `"gemini:<id_or_alias>"`. Override per-agent by building your own tool with `make_image_tool(client)` instead of using the singleton.

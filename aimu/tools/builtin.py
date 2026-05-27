@@ -176,7 +176,7 @@ def get_webpage(url: str) -> str:
 
 
 @tool
-def search(query: str, num_results: int = 5) -> str:
+def web_search(query: str, num_results: int = 5) -> str:
     """Search the web using a SearXNG instance and return the top results.
 
     Args:
@@ -484,10 +484,10 @@ def make_tools(base_client, image_client=None, preview_every=None):
 
 
 # Curated subsets — pass one of these to ``tools=`` instead of importing every function.
-web = [get_weather, get_webpage, search, wikipedia]
+web = [get_weather, get_webpage, web_search, wikipedia]
 fs = [list_directory, read_file]
 compute = [calculate]
 misc = [echo, get_current_date_and_time]
 image = [generate_image]
 
-ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, search, wikipedia, *fs, *image]
+ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, web_search, wikipedia, *fs, *image]
