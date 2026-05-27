@@ -113,7 +113,7 @@ result = chain.run("Research the top Python web frameworks.")
 **Vision input.** Uniform across every vision-capable provider:
 
 ```python
-client = aimu.client("openai:gpt-4o-mini")     # or anthropic, gemini, ollama, hf
+client = aimu.client("openai:gpt-4o-mini")
 client.chat("What's in this image?", images=["./cat.jpg"])
 ```
 
@@ -124,25 +124,21 @@ client.chat("What's in this image?", images=["./cat.jpg"])
 path = aimu.generate_image(
     "a watercolor of a fox in a snowy forest",
     model="hf:runwayml/stable-diffusion-v1-5",
-    format="path",
 )
 
-# Same one-shot, Google Nano Banana (cloud)
-img = aimu.generate_image("a watercolor of a fox", model="gemini:nano-banana")
-
 # Reuse loaded weights across calls
-client = aimu.image_client(aimu.HuggingFaceImageModel.SDXL_BASE)
+client = aimu.image_client("hf:stabilityai/stable-diffusion-xl-base-1.0")
 img = client.generate("a cyberpunk city skyline at dusk")
 ```
 
-A chat agent can also call image generation as a tool:
+**Vision and image generation together.** A vision-capable agent with `generate_image` as a tool can perceive and create in the same run:
 
 ```python
 from aimu.agents import Agent
 from aimu.tools import builtin
 
 agent = Agent(aimu.client("anthropic:claude-sonnet-4-6"), tools=[builtin.generate_image])
-agent.run("Make me an illustration of a fox curled up in a snowy forest.")
+agent.run("Describe the scene in this photo, then generate a watercolor painting of it.", images=["photo.jpg"])
 ```
 
 **Async (opt-in).** Same names, one import away:
