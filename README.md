@@ -19,13 +19,11 @@ AIMU is a Python library for AI-powered applications, with language models as th
 Whether you need vision input, autonomous tool use, image generation, or audio generation, the call is one line:
 ```python
 aimu.chat("What's in this photo?", model="...", images=["photo.jpg"])
-```
-```python
-from aimu.tools import builtin
+
 aimu.agent("...", tools=builtin.web).run("Search the web and summarize today's AI news")
-```
-```python
+
 aimu.generate_image("a watercolor fox in a snowy forest", model="...")
+
 aimu.generate_audio("a lo-fi hip-hop beat with soft piano", model="...")
 ```
 Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
