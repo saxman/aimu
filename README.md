@@ -234,9 +234,9 @@ The [`web/`](web/) directory ships two Streamlit chat applications that demonstr
 | [streamlit_chatbot.py](web/streamlit_chatbot.py) | Full-featured — image generation, agentic mode, thinking display, generation sliders. Extensible foundation. |
 
 ```bash
-streamlit run web/streamlit_chatbot_basic.py   # showcase
-streamlit run web/streamlit_chatbot.py         # full-featured
-python web/gradio_chatbot.py                   # Gradio variant
+streamlit run web/streamlit_chatbot.py         # full-featured Streamit demo (includes agents, tools, images/audio, etc.)
+streamlit run web/streamlit_chatbot_basic.py   # basic Streamlit demo app
+python web/gradio_chatbot_basic.py             # basic Gradio demo app
 ```
 
 ## Design principles

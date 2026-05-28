@@ -69,7 +69,7 @@ Not strictly CLI but launched the same way:
 
 ```bash
 streamlit run web/streamlit_chatbot.py     # Streamlit UI
-python web/gradio_chatbot.py               # Gradio UI
+python web/gradio_chatbot_basic.py               # Gradio UI
 ```
 
 Both demo a full-featured chat with streaming, tool calls, and persistent history.

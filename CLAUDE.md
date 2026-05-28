@@ -145,7 +145,7 @@ The `web/` directory ships two Streamlit apps and a Gradio app:
 ```bash
 streamlit run web/streamlit_chatbot_basic.py   # showcase
 streamlit run web/streamlit_chatbot.py         # full-featured
-python web/gradio_chatbot.py                   # Gradio variant
+python web/gradio_chatbot_basic.py                   # Gradio variant
 ```
 
 ## Architecture
@@ -948,7 +948,7 @@ tests/                   # Pytest test suite
 web/                           # Example chat UIs
 ├── streamlit_chatbot_basic.py # ~70-line showcase; model selector, streaming chat, silent tools
 ├── streamlit_chatbot.py       # Full-featured; image gen, audio gen, agentic mode, thinking, sliders
-└── gradio_chatbot.py          # Gradio chat interface with streaming
+└── gradio_chatbot_basic.py          # Gradio chat interface with streaming
 
 notebooks/               # Jupyter notebook demos
 ```
