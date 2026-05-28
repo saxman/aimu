@@ -2364,6 +2364,12 @@
 <td><code>dict {"step": int, "total_steps": int, "image": PIL.Image \| None, "final": bool, "result": str \| bytes \| None}</code></td>
 </tr>
 <tr>
+<td><code>AUDIO_GENERATING</code></td>
+<td><code>"audio_generating"</code></td>
+<td>Per-step audio-generation progress (one final chunk for MusicGen; N progress + 1 final for diffusers)</td>
+<td><code>dict {"step": int, "total_steps": int, "final": bool, "result": str \| bytes \| tuple \| None, "duration_s": float}</code></td>
+</tr>
+<tr>
 <td><code>DONE</code></td>
 <td><code>"done"</code></td>
 <td>Terminal marker (rarely yielded; reserved)</td>
@@ -2376,6 +2382,7 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">()</span>             <span class="c1"># True for THINKING and GENERATING</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>        <span class="c1"># True for TOOL_CALLING</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_image_progress</span><span class="p">()</span>   <span class="c1"># True for IMAGE_GENERATING</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_audio_progress</span><span class="p">()</span>   <span class="c1"># True for AUDIO_GENERATING</span>
 </span></code></pre></div>
 <p>These avoid sprinkling phase comparisons through your code.</p>
 <h2 id="typical-sequences">Typical sequences<a class="headerlink" href="#typical-sequences" title="Permanent link">&para;</a></h2>
@@ -2419,6 +2426,8 @@
 <ul>
 <li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a> — why one chunk type instead of three</li>
 <li><a href="../../how-to/stream-output/">How-to: stream output</a> — practical patterns</li>
+<li><a href="../../how-to/generate-images/">How-to: generate images</a> — <code>IMAGE_GENERATING</code> chunks</li>
+<li><a href="../../how-to/generate-audio/">How-to: generate audio</a> — <code>AUDIO_GENERATING</code> chunks</li>
 <li><a href="../api/models/#aimu.models.StreamingContentType"><code>aimu.models.StreamingContentType</code></a> — API reference</li>
 </ul>
 

@@ -2360,7 +2360,8 @@
         <p>aimu - AI Modeling Utilities</p>
 <p>Lightweight Python library for building LLM-powered apps. Provider-agnostic model
 clients (Ollama, HuggingFace, Anthropic, OpenAI, Gemini, llama-cpp, any OpenAI-compatible
-server), text-to-image clients (HuggingFace <code>diffusers</code> + Google Nano Banana), in-process
+server), text-to-image clients (HuggingFace <code>diffusers</code> + Google Nano Banana),
+text-to-audio clients (HuggingFace MusicGen, AudioLDM2, Stable Audio Open), in-process
 tools via the <code>@tool</code> decorator, and code-controlled workflows (Chain, Router, Parallel,
 EvaluatorOptimizer) plus autonomous Agents.</p>
 <p>Quick start::</p>
@@ -2376,6 +2377,8 @@ print(agent.run(&quot;How many r&#39;s in strawberry?&quot;))
 
 image = aimu.generate_image(&quot;a watercolor of a fox&quot;, model=&quot;hf:runwayml/stable-diffusion-v1-5&quot;)
 image = aimu.generate_image(&quot;a watercolor of a fox&quot;, model=&quot;gemini:nano-banana&quot;)
+
+path = aimu.generate_audio(&quot;upbeat lo-fi jazz loop&quot;, model=&quot;hf:facebook/musicgen-small&quot;)
 </code></pre></div>
 
 

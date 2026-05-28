@@ -1614,6 +1614,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_audio_progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_audio_progress
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2647,6 +2658,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_audio_progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_audio_progress
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3250,7 +3272,7 @@ string so code can call e.g. <code>ollama.pull(model.value)</code>.</p>
 <details class="fields" open>
   <summary>Fields</summary>
   <p>phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING,
-           IMAGE_GENERATING, DONE)
+           IMAGE_GENERATING, AUDIO_GENERATING, DONE)
 content:   shape depends on phase:
            - <code>str</code> for THINKING / GENERATING (token).
            - <code>dict {"name", "arguments", "response"}</code> for TOOL_CALLING
@@ -3261,13 +3283,18 @@ content:   shape depends on phase:
              <code>final=True</code> marks the terminal chunk for one image, and <code>result</code>
              carries the encoded output (path / bytes / data-url per <code>format=</code>)
              on the final chunk.
+           - <code>dict {"step", "total_steps", "final", "result", "duration_s"}</code> for
+             AUDIO_GENERATING — <code>step</code> is 1-indexed (1 of 1 for non-diffusers
+             models), <code>final=True</code> marks the terminal chunk per audio item, and
+             <code>result</code> carries the encoded output on the final chunk.
            - <code>str</code> for DONE (usually empty).
 agent:     name of the agent that produced this chunk, or <code>None</code> for a plain
            <code>client.chat()</code> / <code>client.generate()</code> call. Set automatically by
            <code>Agent</code> and workflow runners.
 iteration: zero-based iteration index inside the agent loop, or <code>0</code> for plain chat.</p>
-</details>        <p>Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> / <code>chunk.is_image_progress()</code> to
-dispatch on phase without repeating the equality check in user code.</p>
+</details>        <p>Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> / <code>chunk.is_image_progress()</code> /
+<code>chunk.is_audio_progress()</code> to dispatch on phase without repeating the equality check
+in user code.</p>
 
 
 
@@ -3344,6 +3371,26 @@ dispatch on phase without repeating the equality check in user code.</p>
     <div class="doc doc-contents ">
 
         <p>True if this chunk carries image-generation progress (IMAGE_GENERATING).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.models.StreamChunk.is_audio_progress" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">is_audio_progress</span>
+
+
+<a href="#aimu.models.StreamChunk.is_audio_progress" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_audio_progress</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>True if this chunk carries audio-generation progress (AUDIO_GENERATING).</p>
 
 
     </div>

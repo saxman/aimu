@@ -1850,6 +1850,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#audio-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audio generation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Audio generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#huggingface-huggingfaceaudiomodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HuggingFace (HuggingFaceAudioModel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2429,6 +2457,34 @@
     <span class="md-ellipsis">
       
         Google Gemini (GeminiImageModel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#audio-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audio generation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Audio generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#huggingface-huggingfaceaudiomodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HuggingFace (HuggingFaceAudioModel)
       
     </span>
   </a>
@@ -3074,11 +3130,67 @@
 </tbody>
 </table>
 <p>Short-name aliases like <code>"gemini:nano-banana"</code> resolve to the full model id at construction. Nano Banana's <code>generate_content</code> API returns one image per call; <code>num_images &gt; 1</code> issues N requests.</p>
+<h2 id="audio-generation">Audio generation<a class="headerlink" href="#audio-generation" title="Permanent link">&para;</a></h2>
+<p>Audio clients use <code>HuggingFaceAudioSpec</code> — distinct from the image and text spec classes. The matrix shows generation defaults rather than capability flags.</p>
+<h3 id="huggingface-huggingfaceaudiomodel">HuggingFace (<code>HuggingFaceAudioModel</code>)<a class="headerlink" href="#huggingface-huggingfaceaudiomodel" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Enum member</th>
+<th>Repo id</th>
+<th>Pipeline type</th>
+<th style="text-align: center;">Default duration</th>
+<th style="text-align: center;">Default steps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MUSICGEN_SMALL</code></td>
+<td><code>facebook/musicgen-small</code></td>
+<td><code>musicgen</code></td>
+<td style="text-align: center;">10 s</td>
+<td style="text-align: center;">N/A</td>
+</tr>
+<tr>
+<td><code>MUSICGEN_MEDIUM</code></td>
+<td><code>facebook/musicgen-medium</code></td>
+<td><code>musicgen</code></td>
+<td style="text-align: center;">10 s</td>
+<td style="text-align: center;">N/A</td>
+</tr>
+<tr>
+<td><code>MUSICGEN_LARGE</code></td>
+<td><code>facebook/musicgen-large</code></td>
+<td><code>musicgen</code></td>
+<td style="text-align: center;">10 s</td>
+<td style="text-align: center;">N/A</td>
+</tr>
+<tr>
+<td><code>AUDIOLDM2</code></td>
+<td><code>cvssp/audioldm2</code></td>
+<td><code>audioldm2</code></td>
+<td style="text-align: center;">10 s</td>
+<td style="text-align: center;">200</td>
+</tr>
+<tr>
+<td><code>STABLE_AUDIO_OPEN</code></td>
+<td><code>stabilityai/stable-audio-open-1.0</code></td>
+<td><code>stable_audio</code></td>
+<td style="text-align: center;">10 s</td>
+<td style="text-align: center;">200</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Pipeline types:</strong>
+- <code>musicgen</code> — token-autoregressive generation via HuggingFace <code>transformers</code>. Duration maps to token count (~50 tokens/s at 32 kHz); <code>num_inference_steps</code> does not apply. Single final <code>AUDIO_GENERATING</code> chunk when streaming.
+- <code>audioldm2</code> / <code>stable_audio</code> — latent diffusion via HuggingFace <code>diffusers</code>. Accepts <code>num_inference_steps</code>; emits one progress chunk per step plus a final chunk when streaming.</p>
+<p>Override per call with <code>duration_s=</code>, <code>num_inference_steps=</code>, <code>seed=</code>, <code>num_audio=</code>. Power users can bypass the enum with <code>"hf:&lt;repo_id&gt;"</code> for any compatible model (pipeline type inferred from known repo prefixes, defaulting to <code>musicgen</code>).</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../provider-matrix/">Provider matrix</a> — provider × extra × API key</li>
 <li><a href="../../how-to/add-new-model/">How-to: add a new model</a> — extending these enums</li>
 <li><a href="../../how-to/generate-images/">How-to: generate images</a> — using the image surface</li>
+<li><a href="../../how-to/generate-audio/">How-to: generate audio</a> — using the audio surface</li>
 </ul>
 
 

@@ -1728,6 +1728,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#audio-providers-aimuaudio_client-aimugenerate_audio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audio providers (aimu.audio_client() / aimu.generate_audio())
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#passing-provider-kwargs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2275,6 +2286,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#audio-providers-aimuaudio_client-aimugenerate_audio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audio providers (aimu.audio_client() / aimu.generate_audio())
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#passing-provider-kwargs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2487,6 +2509,33 @@
 </tr>
 </tbody>
 </table>
+<h2 id="audio-providers-aimuaudio_client-aimugenerate_audio">Audio providers (<code>aimu.audio_client()</code> / <code>aimu.generate_audio()</code>)<a class="headerlink" href="#audio-providers-aimuaudio_client-aimugenerate_audio" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Provider key (in model string)</th>
+<th>Client class</th>
+<th>Extra</th>
+<th>API key</th>
+<th>Default endpoint</th>
+<th>Provider-specific kwargs</th>
+<th>Async kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hf</code></td>
+<td><code>HuggingFaceAudioClient</code></td>
+<td><code>aimu[hf]</code></td>
+<td>— (HF login for gated models)</td>
+<td>local</td>
+<td>—</td>
+<td>wrapped sync via <code>asyncio.to_thread</code></td>
+</tr>
+</tbody>
+</table>
+<p>Audio clients share the <code>provider:model_id</code> string format with text and image — the namespaces don't collide because they're consumed by separate factories (<code>AudioClient</code> vs <code>ModelClient</code> vs <code>ImageClient</code>). Per-call generation kwargs: <code>duration_s</code>, <code>num_inference_steps</code> (diffusers models only), <code>seed</code>, <code>num_audio</code>. All audio clients accept <code>format=</code> (<code>"numpy"</code> / <code>"path"</code> / <code>"bytes"</code> / <code>"data_url"</code>) and <code>output_dir=</code> from the shared <code>BaseAudioClient.generate()</code>.</p>
+<p>The <strong>async kind</strong> column says how <code>aimu.aio</code> reaches each provider. HuggingFace audio models load weights in-process — the async surface buys you event-loop integration (your handler doesn't block) but <strong>not</strong> coroutine-level concurrency. Async clients are built by wrapping an existing sync client via <code>aio.audio_client(sync_client)</code>; see <a href="../../how-to/use-async/#in-process-providers-huggingface-llamacpp">how-to: use async</a>.</p>
 <p>Image clients share the <code>provider:model_id</code> string format with text — the namespaces don't collide because they're consumed by separate factories (<code>ImageClient</code> vs <code>ModelClient</code>). Per-call generation kwargs differ by provider: HF takes <code>negative_prompt</code>, <code>width</code>, <code>height</code>, <code>num_inference_steps</code>, <code>guidance_scale</code>, <code>seed</code>; Gemini takes <code>aspect_ratio</code>, <code>image_size</code>. All image clients accept <code>num_images=</code>, <code>format=</code> (<code>"pil"</code> / <code>"path"</code> / <code>"bytes"</code> / <code>"data_url"</code>), and <code>output_dir=</code> from the shared <code>BaseImageClient.generate()</code>.</p>
 <p>The <strong>async kind</strong> column says how <code>aimu.aio</code> reaches each provider. <em>Native</em> providers use the SDK's own async client; the async surface delivers real coroutine concurrency. <em>Wrapped sync</em> providers (HF, LlamaCpp) load model weights in-process — the async surface buys you event-loop integration (your handler doesn't block) but <strong>not</strong> coroutine-level concurrency (the GIL and CUDA stream serialize execution). For these providers, async clients are built by wrapping an existing sync client; see <a href="../../how-to/use-async/#in-process-providers-huggingface-llamacpp">how-to: use async</a>.</p>
 <h2 id="passing-provider-kwargs">Passing provider kwargs<a class="headerlink" href="#passing-provider-kwargs" title="Permanent link">&para;</a></h2>
@@ -2519,6 +2568,8 @@
 <li><a href="../model-matrix/">Model matrix</a> — every shipped model with capability flags.</li>
 <li><a href="../env-vars/">Environment variables</a> — every env var AIMU reads.</li>
 <li><a href="../../how-to/switch-providers/">How-to: switch providers</a> — practical patterns.</li>
+<li><a href="../../how-to/generate-images/">How-to: generate images</a> — image surface details.</li>
+<li><a href="../../how-to/generate-audio/">How-to: generate audio</a> — audio surface details.</li>
 </ul>
 
 
