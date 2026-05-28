@@ -9,11 +9,14 @@ from aimu import paths
 from aimu.agents.agent import Agent
 from aimu.history import ConversationManager
 from aimu.models import (
+    BaseAudioClient,
     BaseImageClient,
+    HAS_HF_AUDIO,
     HAS_OLLAMA,
     OllamaClient,
     OllamaModel,
     StreamingContentType,
+    available_audio_clients,
     available_image_clients,
     available_text_clients,
 )
@@ -33,6 +36,7 @@ Introduce what model that you are and share what tools you have access to.
 
 MODEL_CLIENTS = available_text_clients()
 IMAGE_CLIENT_CLASSES = available_image_clients()
+AUDIO_CLIENT_CLASSES = available_audio_clients()
 
 _DEFAULT_CLIENT = OllamaClient if HAS_OLLAMA else MODEL_CLIENTS[0]
 _DEFAULT_MODEL = OllamaModel.QWEN_3_5_9B if HAS_OLLAMA else MODEL_CLIENTS[0].TOOL_MODELS[0]
@@ -44,6 +48,32 @@ SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 # than the default step count of every shipped HF model — values that exceed
 # total_steps simply never fire mid-way (only the final chunk carries a preview).
 PREVIEW_MAX = 25
+
+
+def _construct_audio_client(
+    client_cls: type[BaseAudioClient], model
+) -> tuple[Optional[BaseAudioClient], Optional[str]]:
+    """Try to construct a fresh audio client. Returns (client, error_msg)."""
+    try:
+        return client_cls(model), None
+    except (RuntimeError, ImportError) as exc:
+        return None, str(exc)
+
+
+def _rebuild_audio_client(client_cls: type[BaseAudioClient], model) -> None:
+    """Construct a fresh audio client + update the agent's tools."""
+    client, err = _construct_audio_client(client_cls, model)
+    st.session_state.audio_client_class = client_cls
+    st.session_state.audio_model = model
+    st.session_state.audio_client = client
+    st.session_state.audio_client_error = err
+    if "base_client" in st.session_state:
+        st.session_state.base_client.tools = builtin.make_tools(
+            st.session_state.base_client,
+            st.session_state.get("image_client"),
+            st.session_state.get("preview_every"),
+            st.session_state.get("audio_client"),
+        )
 
 
 def _construct_image_client(
@@ -71,7 +101,10 @@ def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
     st.session_state.image_client_error = err
     if "base_client" in st.session_state:
         st.session_state.base_client.tools = builtin.make_tools(
-            st.session_state.base_client, client, st.session_state.get("preview_every")
+            st.session_state.base_client,
+            client,
+            st.session_state.get("preview_every"),
+            st.session_state.get("audio_client"),
         )
 
 
@@ -80,6 +113,30 @@ IMAGE_DIR = paths.output / "images"
 IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+_AUDIO_EXTENSIONS = {".wav", ".mp3", ".ogg", ".flac", ".m4a"}
+
+
+def _maybe_render_audio(path_str, key_suffix):
+    """Display st.audio() + download button when ``path_str`` is a valid audio file path."""
+    try:
+        p = Path(str(path_str).strip())
+    except (TypeError, ValueError):
+        return
+    if not p.exists() or not p.is_file() or p.suffix.lower() not in _AUDIO_EXTENSIONS:
+        return
+    st.audio(str(p))
+    try:
+        data = p.read_bytes()
+    except OSError:
+        return
+    mime = f"audio/{p.suffix.lstrip('.').lower()}"
+    st.download_button(
+        label=f"Download {p.name}",
+        data=data,
+        file_name=p.name,
+        mime=mime,
+        key=f"dl_audio_{key_suffix}_{p.name}",
+    )
 
 
 def _maybe_render_image(path_str, key_suffix):
@@ -120,7 +177,10 @@ def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
     """Construct a fresh base client and (optionally) agentic wrapper, then sync session state to match."""
     base_client = model_cls(model, system_message=SYSTEM_MESSAGE)
     base_client.tools = builtin.make_tools(
-        base_client, st.session_state.get("image_client"), st.session_state.get("preview_every")
+        base_client,
+        st.session_state.get("image_client"),
+        st.session_state.get("preview_every"),
+        st.session_state.get("audio_client"),
     )
     # Store the base client separately since the agent wrapper doesn't have all the same attributes (e.g. TOOL_MODELS) and we need to reference those in the sidebar selectors and checks.
     st.session_state.base_client = base_client
@@ -137,10 +197,12 @@ def stream_chat_response(streamed_response):
     current_box = None
     current_text = ""
 
-    # IMAGE_GENERATING progress widgets (one per image-gen tool call).
+    # IMAGE_GENERATING and AUDIO_GENERATING progress widgets (one per tool call).
     progress_bar = None
     progress_text = None
     preview_placeholder = None
+    audio_progress_bar = None
+    audio_progress_text = None
 
     for chunk_idx, chunk in enumerate(streamed_response):
         if chunk.phase == StreamingContentType.IMAGE_GENERATING:
@@ -177,6 +239,30 @@ def stream_chat_response(streamed_response):
                 preview_placeholder = None
             continue
 
+        if chunk.phase == StreamingContentType.AUDIO_GENERATING:
+            current_type = None
+            content = chunk.content
+            step = content.get("step", 0)
+            total = content.get("total_steps", 1) or 1
+            is_final = content.get("final", False)
+
+            if audio_progress_bar is None:
+                with st.expander("🎵 Generating audio", expanded=True):
+                    audio_progress_bar = st.empty()
+                    audio_progress_text = st.empty()
+
+            fraction = max(0.0, min(1.0, step / total))
+            label = f"Step {step}/{total}" if total > 1 else ("Generating…" if not is_final else "Done")
+            audio_progress_bar.progress(fraction, text=label)
+            audio_progress_text.markdown(f"**{label}**")
+
+            if is_final:
+                audio_progress_bar.empty()
+                audio_progress_text.empty()
+                audio_progress_bar = None
+                audio_progress_text = None
+            continue
+
         if chunk.phase == StreamingContentType.TOOL_CALLING:
             # Tool calls render in their own expander, so reset current_type to
             # force a fresh box for whatever phase streams next (otherwise the
@@ -192,6 +278,9 @@ def stream_chat_response(streamed_response):
             if chunk.content["name"] == "generate_image":
                 with st.expander("🖼️ Image", expanded=True):
                     _maybe_render_image(chunk.content["response"], key_suffix=f"stream_{chunk_idx}")
+            elif chunk.content["name"] == "generate_audio":
+                with st.expander("🎵 Audio", expanded=True):
+                    _maybe_render_audio(chunk.content["response"], key_suffix=f"stream_{chunk_idx}")
             continue
 
         # Phase transition (THINKING ↔ GENERATING): start a new accumulator and box.
@@ -216,7 +305,7 @@ def stream_chat_response(streamed_response):
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
     st.session_state.preview_every = None  # default: no intermediate previews (fastest)
-    # Initialise image-client state up-front so _rebuild_client's _build_tools call sees it.
+    # Initialise image-client state up-front so _rebuild_client's make_tools call sees it.
     st.session_state.image_client = None
     st.session_state.image_client_class = None
     st.session_state.image_model = None
@@ -230,6 +319,19 @@ if "model_client" not in st.session_state:
         st.session_state.image_model = default_image_model
         st.session_state.image_client = client
         st.session_state.image_client_error = err
+    # Initialise audio-client state up-front so make_tools sees it.
+    st.session_state.audio_client = None
+    st.session_state.audio_client_class = None
+    st.session_state.audio_model = None
+    st.session_state.audio_client_error = None
+    if AUDIO_CLIENT_CLASSES:
+        default_audio_cls = AUDIO_CLIENT_CLASSES[0]
+        default_audio_model = next(iter(default_audio_cls.MODELS))
+        audio_c, audio_err = _construct_audio_client(default_audio_cls, default_audio_model)
+        st.session_state.audio_client_class = default_audio_cls
+        st.session_state.audio_model = default_audio_model
+        st.session_state.audio_client = audio_c
+        st.session_state.audio_client_error = audio_err
     _rebuild_client(_DEFAULT_CLIENT, _DEFAULT_MODEL, True, 10)
 
     st.session_state.conversation_manager = ConversationManager(
@@ -348,8 +450,43 @@ with st.sidebar:
                 st.session_state.base_client,
                 st.session_state.image_client,
                 selected_preview,
+                st.session_state.get("audio_client"),
             )
             st.rerun()
+
+    # Audio generation — client/model selectors + duration slider.
+    if AUDIO_CLIENT_CLASSES:
+        st.markdown("---")
+        st.markdown("**Audio generation**")
+
+        current_audio_cls = st.session_state.audio_client_class or AUDIO_CLIENT_CLASSES[0]
+        sel_audio_cls = st.selectbox(
+            "Audio client",
+            options=AUDIO_CLIENT_CLASSES,
+            index=AUDIO_CLIENT_CLASSES.index(current_audio_cls) if current_audio_cls in AUDIO_CLIENT_CLASSES else 0,
+            format_func=lambda c: c.__name__,
+        )
+
+        audio_model_options = list(sel_audio_cls.MODELS)
+        current_audio_model = (
+            st.session_state.audio_model if sel_audio_cls is current_audio_cls else audio_model_options[0]
+        )
+        sel_audio_model = st.selectbox(
+            "Audio model",
+            options=audio_model_options,
+            index=audio_model_options.index(current_audio_model) if current_audio_model in audio_model_options else 0,
+            format_func=lambda m: m.name,
+        )
+
+        if (
+            sel_audio_cls is not st.session_state.audio_client_class
+            or sel_audio_model != st.session_state.audio_model
+        ):
+            _rebuild_audio_client(sel_audio_cls, sel_audio_model)
+            st.rerun()
+
+        if st.session_state.audio_client_error:
+            st.error(f"Audio client unavailable: {st.session_state.audio_client_error}")
 
     if st.button("Reset chat"):
         # Create a new conversation that will be used as the "last" conversation when the app is reloaded.
@@ -395,6 +532,9 @@ else:
                 if tool_call["function"]["name"] == "generate_image":
                     with st.expander("🖼️ Image"):
                         _maybe_render_image(resp["content"], key_suffix=f"hist_{hist_idx}_{call_idx}")
+                elif tool_call["function"]["name"] == "generate_audio":
+                    with st.expander("🎵 Audio"):
+                        _maybe_render_audio(resp["content"], key_suffix=f"hist_{hist_idx}_{call_idx}")
         elif message["role"] != "tool" and message.get("content"):
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])

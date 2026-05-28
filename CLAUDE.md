@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AIMU (AI Modeling Utilities) is a Python library for building AI-powered applications, with language models as the primary building block. It provides a unified, provider-agnostic interface across modalities -- text generation, image generation, and audio (coming soon) -- spanning local backends (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) and cloud providers (OpenAI, Anthropic, Google Gemini). MCP tool integration and typed streaming output (thinking, tool calling, generation phases) are built into the base model client, not layered on top.
+AIMU (AI Modeling Utilities) is a Python library for building AI-powered applications, with language models as the primary building block. It provides a unified, provider-agnostic interface across modalities -- text generation, image generation, and audio generation -- spanning local backends (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) and cloud providers (OpenAI, Anthropic, Google Gemini). MCP tool integration and typed streaming output (thinking, tool calling, generation phases) are built into the base model client, not layered on top.
 
 AIMU implements the taxonomy from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. Concretely, that means **one** `Runner` ABC (no type-level split between agents and workflows) and the following concrete classes, all exported from `aimu.agents` and composable via the shared interface:
 
@@ -108,6 +108,13 @@ Run live image-generation tests (parametrized like `test_models.py`):
 pytest tests/test_images.py --image-client=hf --image-model=SD_1_5     # one HF model
 pytest tests/test_images.py --image-client=gemini                       # all Gemini models
 pytest tests/test_images.py --image-client=all                          # every installed provider
+```
+
+Run live audio-generation tests (opt-in; require HuggingFace model weights):
+```bash
+pytest tests/test_audio.py --audio-client=hf --audio-model=MUSICGEN_SMALL   # one model (fastest)
+pytest tests/test_audio.py --audio-client=hf --audio-model=AUDIOLDM2        # diffusion model
+pytest tests/test_audio.py --audio-client=hf                                # all HF audio models
 ```
 
 Run async surface tests:
@@ -729,6 +736,58 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
   - `tests/test_aio_image_api.py` (mock-only): refusal of direct enum/string construction for both `HuggingFaceImageClient` and `GeminiImageClient`, `AsyncHuggingFaceImageClient` / `AsyncGeminiImageClient` share state with wrapped sync clients, async tool detected via `__tool_is_async__`.
   - `tests/test_images.py` (live, opt-in): parametrized across image providers — the analog of `tests/test_models.py` for the image modality. Reads `--image-client` (`hf` / `gemini` / `all`) and `--image-model` (enum member name or `all`) from `conftest.py`; `helpers.resolve_image_model_params()` builds the parametrize list, `helpers.create_real_image_client()` constructs the concrete client. Cross-provider tests (PIL output, format matrix, num_images) run on every parametrized client; provider-specific tests (`seed=` reproducibility for HF, `aspect_ratio=` for Gemini) skip with a clear message when the active client doesn't support them. Skipped entirely when `--image-client` is omitted. Example: `pytest tests/test_images.py --image-client=hf --image-model=SD_1_5`.
 
+### Audio Generation
+
+AIMU supports text-to-audio generation via HuggingFace as a **parallel surface** to the text and image clients. The hierarchy mirrors the image one (one base class, one factory class, per-provider concrete clients), but the interface is disjoint from both text and image — `BaseAudioClient` is its own ABC. The two modality surfaces live side-by-side: `aimu.client()` / `ModelClient` for text, `aimu.image_client()` / `ImageClient` for image, `aimu.audio_client()` / `AudioClient` for audio.
+
+Scope: music and sound generation (not TTS). Three pipeline families ship under `HuggingFaceAudioModel`: `MUSICGEN_SMALL/MEDIUM/LARGE` (token-autoregressive via `transformers`), `AUDIOLDM2` (latent diffusion, 16 kHz), `STABLE_AUDIO_OPEN` (latent diffusion, 44.1 kHz stereo).
+
+Key files and their roles:
+
+- **[aimu/models/base.py](aimu/models/base.py)** — extended with audio base types (parallel to image types):
+  - `AUDIO_GENERATING` added to `StreamingContentType`. Content shape: `{"step": int, "total_steps": int, "final": bool, "result": Any, "duration_s": float}`.
+  - `StreamChunk.is_audio_progress()` helper (parallel to `is_image_progress()`).
+  - `AudioSpec` (id-only base, parallel to `ImageSpec`), `HuggingFaceAudioSpec(AudioSpec)` (adds `pipeline_type`, `default_duration_s`, `default_steps`), `AudioModel(Enum)` base, `BaseAudioClient(ABC)`.
+  - `BaseAudioClient.generate(prompt, *, duration_s, num_inference_steps, num_audio, format, output_dir, seed, stream)` — validates args, dispatches to `_generate()` or `_generate_streamed()`, encodes output via `encode_audio()`.
+
+- **[aimu/models/_audio_output.py](aimu/models/_audio_output.py)** — `encode_audio(audio, sample_rate, format, *, prompt, output_dir)` (parallel to `_image_output.py`):
+  - `"numpy"` → `(sample_rate, audio)` unchanged.
+  - `"bytes"` → WAV bytes via `soundfile.write` into `BytesIO`.
+  - `"data_url"` → `data:audio/wav;base64,...`.
+  - `"path"` → saves WAV to `paths.output/"audio"/{timestamp}-{hash}.wav`, returns path string.
+
+- **[aimu/models/hf_audio/hf_audio_client.py](aimu/models/hf_audio/hf_audio_client.py)** — `HuggingFaceAudioClient` + `HuggingFaceAudioModel` enum:
+  - Lazy pipeline load (same pattern as `HuggingFaceImageClient`). Auto-detects CUDA/MPS.
+  - Constructor accepts `HuggingFaceAudioModel` member, `HuggingFaceAudioSpec`, or `"hf:<repo_id>"` string (pipeline type inferred from known repo prefixes, defaulting to `"musicgen"`).
+  - Three loader methods dispatched by `spec.pipeline_type`: `_load_musicgen()` (transformers `AutoProcessor` + `MusicgenForConditionalGeneration`), `_load_audioldm2()` (diffusers `AudioLDM2Pipeline`), `_load_stable_audio()` (diffusers `StableAudioPipeline`).
+  - Three generator methods: `_run_musicgen()` (duration → `max_new_tokens = int(duration_s * 50)`), `_run_audioldm2()`, `_run_stable_audio()`. All return `list[(sample_rate, ndarray)]`.
+  - Streaming for diffusers models: background thread + `queue.Queue` + `callback_on_step_end`, draining into `AUDIO_GENERATING` chunks. MusicGen yields one final chunk (no per-step API). No intermediate audio decode (unlike image latent previews) — intermediate chunks carry step/total_steps/`final=False`/`result=None`.
+  - `import soundfile` is a hard module-load import so `HAS_HF_AUDIO` accurately reflects installed state.
+
+- **[aimu/models/audio_client.py](aimu/models/audio_client.py)** — `AudioClient` factory + `resolve_audio_model_string()` (parallel to `image_client.py`). Accepts model enum / spec / `"hf:<repo_id>"` string. Only `"hf:"` prefix registered; additional providers added as the surface grows.
+
+- **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points parallel to `client()` / `image_client()`:
+  - `aimu.audio_client(model, **kwargs)` — one-line constructor.
+  - `aimu.generate_audio(prompt, *, model, format="numpy", **kwargs)` — one-shot.
+  - Both raise `ImportError` with install hint when `HAS_HF_AUDIO` is False.
+
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_audio` generator tool + `make_audio_tool()` factory (parallel to image equivalents):
+  - `generate_audio(prompt: str)` is a generator `@tool` yielding `AUDIO_GENERATING` chunks and returning the saved file path. Backed by a lazy `_audio_client` singleton; default model via `AIMU_AUDIO_MODEL` env var (default: `"hf:facebook/musicgen-small"`).
+  - `make_audio_tool(client, *, duration_s=None)` — binds a fresh tool to a caller-supplied client.
+  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None)` — `audio_client` kwarg replaces the default singleton when provided.
+  - New subgroup `audio = [generate_audio]` (parallel to `image`); included in `ALL_TOOLS`.
+
+- **Async twin** — full mirror under `aimu.aio`:
+  - **[aimu/aio/providers/hf_audio.py](aimu/aio/providers/hf_audio.py)**: `AsyncHuggingFaceAudioClient` wraps a sync `HuggingFaceAudioClient` via `asyncio.to_thread`. Properties delegate to the wrapped sync client; no second weight load.
+  - **[aimu/aio/audio.py](aimu/aio/audio.py)**: `AsyncAudioClient` factory + `aio.audio_client(sync_client)` + `aio.generate_audio(prompt, *, model, ...)`. The factory refuses direct enum/string construction with a pointer to the wrap pattern.
+  - **[aimu/aio/tools/builtin.py](aimu/aio/tools/builtin.py)**: re-exports sync tools from `aimu.tools.builtin`. Async-native `generate_image` lives here; the `generate_audio` tool in `aimu.tools.builtin` is a sync generator and is re-exported as-is (dispatched via `asyncio.to_thread` by the async agent).
+
+- **Tests**:
+  - `tests/test_audio_api.py` (mock-only): stubs `soundfile`, `transformers`, and diffusers audio pipelines in `sys.modules`. Covers spec equality, `encode_audio` format matrix, `HuggingFaceAudioClient` construction + string parsing + kwarg threading + seed plumbing + streaming (musicgen=1 final chunk; diffusers=N progress + 1 final), `AudioClient` factory dispatch, top-level `aimu.audio_client()` / `aimu.generate_audio()`. Exports `_install_audio_stubs()` for downstream test files.
+  - `tests/test_audio_tools.py` (mock-only): `generate_audio.__tool_spec__` shape, `__tool_is_streaming__ is True`, singleton lifecycle, `AIMU_AUDIO_MODEL` env var, `make_audio_tool` factory.
+  - `tests/test_aio_audio_api.py` (mock-only): wrap refusal, state sharing, async generate.
+  - `tests/test_audio.py` (live, opt-in): `--audio-client` / `--audio-model` CLI flags; cross-model tests (numpy output, format matrix, `num_audio > 1`); model-specific tests (`seed=` for MusicGen, `num_inference_steps=` for diffusers). Skipped when `--audio-client` is omitted.
+
 ### Cloud Provider Client Notes
 
 - **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/openai_compat/openai_client.py](aimu/models/openai_compat/openai_client.py).
@@ -757,10 +816,12 @@ aimu/
 │   │   ├── hf.py             # AsyncHuggingFaceClient (wraps sync HuggingFaceClient — Decision 7)
 │   │   ├── llamacpp.py       # AsyncLlamaCppClient (wraps sync LlamaCppClient — Decision 7)
 │   │   ├── hf_image.py       # AsyncHuggingFaceImageClient (wraps sync HuggingFaceImageClient)
-│   │   └── gemini_image.py   # AsyncGeminiImageClient (wraps sync GeminiImageClient)
+│   │   ├── gemini_image.py   # AsyncGeminiImageClient (wraps sync GeminiImageClient)
+│   │   └── hf_audio.py       # AsyncHuggingFaceAudioClient (wraps sync HuggingFaceAudioClient)
 │   ├── image.py         # AsyncImageClient factory + aio.image_client() / aio.generate_image()
+│   ├── audio.py         # AsyncAudioClient factory + aio.audio_client() / aio.generate_audio()
 │   ├── tools/           # Async tools (mirrors aimu.tools)
-│   │   └── builtin.py        # Async generate_image + re-exports of sync built-ins
+│   │   └── builtin.py        # Async generate_image + re-exports of sync built-ins (incl. generate_audio)
 │   └── workflows/       # Async workflow patterns (asyncio.TaskGroup for Parallel)
 │       ├── chain.py
 │       ├── router.py
@@ -768,7 +829,7 @@ aimu/
 │       ├── evaluator.py
 │       └── plan_execute_evaluator.py
 ├── models/              # Model client implementations
-│   ├── base.py          # Abstract bases — text: BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType; image: BaseImageClient, ImageModel, ImageSpec (+ HuggingFaceImageSpec, GeminiImageSpec)
+│   ├── base.py          # Abstract bases — text: BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType; image: BaseImageClient, ImageModel, ImageSpec (+ HuggingFaceImageSpec, GeminiImageSpec); audio: BaseAudioClient, AudioModel, AudioSpec (+ HuggingFaceAudioSpec)
 │   ├── model_client.py  # ModelClient factory/wrapper + resolve_model_string
 │   ├── _chat_state.py   # _ChatStateMixin — system_message/reset/append shared by sync and async base classes
 │   ├── _streaming.py    # resolve_include, filter_chunks, afilter_chunks — shared stream helpers
@@ -793,11 +854,15 @@ aimu/
 │   ├── _image_output.py # encode_image() — shared image-output format conversion
 │   ├── hf_image/        # HuggingFace diffusers text-to-image (requires image extra)
 │   │   └── hf_image_client.py        # HuggingFaceImageClient + HuggingFaceImageModel
-│   └── gemini_image/    # Google Gemini image (Nano Banana; requires image extra)
-│       └── gemini_image_client.py    # GeminiImageClient + GeminiImageModel
+│   ├── gemini_image/    # Google Gemini image (Nano Banana; requires image extra)
+│   │   └── gemini_image_client.py    # GeminiImageClient + GeminiImageModel
+│   ├── audio_client.py  # AudioClient factory + resolve_audio_model_string
+│   ├── _audio_output.py # encode_audio() — shared audio-output format conversion (WAV via soundfile)
+│   └── hf_audio/        # HuggingFace audio generation (MusicGen/AudioLDM2/StableAudio; requires hf extra)
+│       └── hf_audio_client.py        # HuggingFaceAudioClient + HuggingFaceAudioModel
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
 │   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
-│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image subgroups (incl. lazy generate_image)
+│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio subgroups (incl. lazy generate_image, generate_audio)
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping()
 │   ├── mcp_format.py    # mcp_tools_to_openai() — shared by sync and async MCPClient.get_tools()
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
@@ -869,6 +934,10 @@ tests/                   # Pytest test suite
 ├── test_images_api.py         # Mock-only sync image surface for both providers (mirrors test_models_api.py)
 ├── test_image_tools.py        # Mock-only built-in generate_image tool + make_image_tool
 ├── test_aio_image_api.py      # Mock-only async image surface + wrap refusal
+├── test_audio.py              # Live audio-generation tests, parametrized via --audio-client/--audio-model (mirrors test_images.py)
+├── test_audio_api.py          # Mock-only sync audio surface; exports _install_audio_stubs() for downstream files
+├── test_audio_tools.py        # Mock-only built-in generate_audio tool + make_audio_tool
+├── test_aio_audio_api.py      # Mock-only async audio surface + wrap refusal
 ├── helpers_aio.py       # MockAsyncModelClient + live-backend dispatch for async tests
 ├── test_aio_models_api.py        # Mock-only async surface tests
 ├── test_aio_workflow_parallel.py # Verifies asyncio.TaskGroup overlap + sibling cancellation
@@ -878,7 +947,7 @@ tests/                   # Pytest test suite
 
 web/                           # Example chat UIs
 ├── streamlit_chatbot_basic.py # ~70-line showcase; model selector, streaming chat, silent tools
-├── streamlit_chatbot.py       # Full-featured; image gen, agentic mode, thinking, sliders
+├── streamlit_chatbot.py       # Full-featured; image gen, audio gen, agentic mode, thinking, sliders
 └── gradio_chatbot.py          # Gradio chat interface with streaming
 
 notebooks/               # Jupyter notebook demos

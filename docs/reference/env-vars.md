@@ -18,8 +18,11 @@ If missing, the text clients construct successfully but the first request raises
 |---|---|---|
 | `SEARXNG_BASE_URL` | `aimu.tools.builtin.web_search` | `http://localhost:8080` |
 | `AIMU_IMAGE_MODEL` | `aimu.tools.builtin.generate_image` (lazy singleton) | `hf:stabilityai/stable-diffusion-xl-base-1.0` |
+| `AIMU_AUDIO_MODEL` | `aimu.tools.builtin.generate_audio` (lazy singleton) | `hf:facebook/musicgen-small` |
 
 The built-in `generate_image` tool constructs its image client lazily on first call, picking the provider and model from `AIMU_IMAGE_MODEL`. Accepts any string supported by `aimu.image_client()` — `"hf:<repo>"` or `"gemini:<id_or_alias>"`. Override per-agent by building your own tool with `make_image_tool(client)` instead of using the singleton.
+
+The built-in `generate_audio` tool follows the same pattern. `AIMU_AUDIO_MODEL` accepts any string supported by `aimu.audio_client()` — currently `"hf:<repo>"`. Override per-agent with `make_audio_tool(client)` instead of using the singleton.
 
 ## MCP server storage paths
 
@@ -44,6 +47,9 @@ SEARXNG_BASE_URL=http://localhost:8080
 
 # Image generation default (used by the built-in generate_image tool)
 AIMU_IMAGE_MODEL=gemini:nano-banana
+
+# Audio generation default (used by the built-in generate_audio tool)
+AIMU_AUDIO_MODEL=hf:facebook/musicgen-small
 
 # MCP server storage
 MEMORY_STORE_PATH=./.aimu/memory

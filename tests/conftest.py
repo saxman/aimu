@@ -51,3 +51,23 @@ def pytest_addoption(parser):
             "within the selected --image-client."
         ),
     )
+
+    parser.addoption(
+        "--audio-client",
+        action="store",
+        default=None,
+        help=(
+            "Audio client to test live: 'hf' or 'all'. Required to enable "
+            "live tests in tests/test_audio.py — omit to skip them."
+        ),
+    )
+
+    parser.addoption(
+        "--audio-model",
+        action="store",
+        default="all",
+        help=(
+            "Audio model enum member name (e.g. MUSICGEN_SMALL, AUDIOLDM2). "
+            "Defaults to 'all' within the selected --audio-client."
+        ),
+    )

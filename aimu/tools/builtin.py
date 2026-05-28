@@ -465,14 +465,16 @@ def make_describe_image_tool(
     return describe_image
 
 
-def make_tools(base_client, image_client=None, preview_every=None):
+def make_tools(base_client, image_client=None, preview_every=None, audio_client=None):
     """Assemble the standard tool list for a chat client.
 
-    Starts from ALL_TOOLS, then applies two optional enhancements:
+    Starts from ALL_TOOLS, then applies optional enhancements:
     - If *image_client* is provided, replaces the default ``generate_image``
       singleton with one bound to that client (honoring *preview_every*).
     - If *base_client* supports vision, appends a ``describe_image`` tool
       bound to the same client so the model can inspect generated images.
+    - If *audio_client* is provided, replaces the default ``generate_audio``
+      singleton with one bound to that client.
     """
     tools = list(ALL_TOOLS)
     if image_client is not None:
@@ -480,7 +482,102 @@ def make_tools(base_client, image_client=None, preview_every=None):
         tools = [t for t in tools if t is not generate_image] + [bound]
     if getattr(base_client.model, "supports_vision", False):
         tools.append(make_describe_image_tool(base_client))
+    if audio_client is not None:
+        bound_audio = make_audio_tool(audio_client)
+        tools = [t for t in tools if t is not generate_audio] + [bound_audio]
     return tools
+
+
+# ---- Audio generation --------------------------------------------------------
+#
+# Audio deps (``soundfile``, ``torch``, ``transformers``, ``diffusers``) are heavy.
+# The client is constructed lazily on first ``generate_audio()`` call so that
+# importing ``aimu.tools.builtin`` does not pull torch into ``sys.modules``.
+
+_AIMU_AUDIO_DEFAULT = "hf:facebook/musicgen-small"
+_audio_client = None
+
+
+def _get_audio_client():
+    """Return the lazy singleton :class:`AudioClient` for the built-in tool.
+
+    Reads ``AIMU_AUDIO_MODEL`` from the environment (default: MusicGen small).
+    Accepts any ``"hf:<repo_id>"`` string supported by :func:`aimu.audio_client`.
+    """
+    global _audio_client
+    if _audio_client is None:
+        from aimu import audio_client as _audio_client_factory
+
+        model_str = os.environ.get("AIMU_AUDIO_MODEL", _AIMU_AUDIO_DEFAULT)
+        _audio_client = _audio_client_factory(model_str)
+    return _audio_client
+
+
+@tool
+def generate_audio(prompt: str):
+    """Generate an audio clip from a text prompt and return the saved file path.
+
+    This is a **streaming tool** — a generator that yields
+    :attr:`~aimu.models.StreamingContentType.AUDIO_GENERATING` chunks during
+    generation, then returns the saved WAV file path. When called via the agent's
+    streaming path (``agent.run(stream=True)``), each step chunk flows through
+    the agent's own stream and into the chat UI live.
+
+    Uses an :class:`aimu.AudioClient`. The default model is controlled by the
+    ``AIMU_AUDIO_MODEL`` env var (default: ``"hf:facebook/musicgen-small"``).
+    Override per-agent by constructing your own tool with :func:`make_audio_tool`.
+
+    Args:
+        prompt: A description of the desired audio (e.g. "upbeat lo-fi jazz loop").
+    """
+    final_result = None
+    for chunk in _get_audio_client().generate(prompt, format="path", stream=True):
+        yield chunk
+        content = chunk.content
+        if isinstance(content, dict) and content.get("final"):
+            final_result = content.get("result")
+    return final_result
+
+
+def make_audio_tool(client, *, duration_s: Optional[float] = None):
+    """Build a ``generate_audio`` tool bound to a specific audio client.
+
+    ``client`` may be an :class:`aimu.AudioClient` or any concrete
+    :class:`aimu.BaseAudioClient` (e.g. :class:`HuggingFaceAudioClient`). Use this
+    when an agent needs a different model from the default singleton, or to fix the
+    generation duration via ``duration_s``.
+
+    The returned tool is a **streaming tool** (generator) — its progress chunks
+    flow through ``agent.run(stream=True)`` for live UI updates.
+
+    Example::
+
+        client = aimu.audio_client(aimu.HuggingFaceAudioModel.MUSICGEN_MEDIUM)
+        my_tool = make_audio_tool(client, duration_s=15)
+        agent = Agent(text_client, tools=[my_tool])
+    """
+
+    @tool
+    def generate_audio(prompt: str):
+        """Generate an audio clip from a text prompt and return the saved file path.
+
+        Streams per-step progress chunks during generation (diffusers models only).
+
+        Args:
+            prompt: A description of the desired audio.
+        """
+        final_result = None
+        kw = {"format": "path", "stream": True}
+        if duration_s is not None:
+            kw["duration_s"] = duration_s
+        for chunk in client.generate(prompt, **kw):
+            yield chunk
+            content = chunk.content
+            if isinstance(content, dict) and content.get("final"):
+                final_result = content.get("result")
+        return final_result
+
+    return generate_audio
 
 
 # Curated subsets — pass one of these to ``tools=`` instead of importing every function.
@@ -489,5 +586,6 @@ fs = [list_directory, read_file]
 compute = [calculate]
 misc = [echo, get_current_date_and_time]
 image = [generate_image]
+audio = [generate_audio]
 
-ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, web_search, wikipedia, *fs, *image]
+ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, web_search, wikipedia, *fs, *image, *audio]

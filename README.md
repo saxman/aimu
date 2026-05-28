@@ -16,7 +16,7 @@
 
 AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, and audio; autonomous agents and code-controlled workflows; and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of these features in plain Python that is apparent and easy to use.
 
-Whether you need vision input, autonomous tool use, or image generation, the call is one line:
+Whether you need vision input, autonomous tool use, image generation, or audio generation, the call is one line:
 ```python
 aimu.chat("What's in this photo?", model="...", images=["photo.jpg"])
 ```
@@ -26,6 +26,7 @@ aimu.agent("...", tools=builtin.web).run("Search the web and summarize today's A
 ```
 ```python
 aimu.generate_image("a watercolor fox in a snowy forest", model="...")
+aimu.generate_audio("a lo-fi hip-hop beat with soft piano", model="...")
 ```
 Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
 
@@ -43,6 +44,12 @@ Composition happens by passing objects to constructors. Conversation state is a 
 - Two providers: HuggingFace `diffusers` locally (`HuggingFaceImageClient` — SD 1.5 / SDXL / SD 3.5 / FLUX dev & schnell) and Google Nano Banana via the cloud API (`GeminiImageClient` — `gemini-2.5-flash-image`).
 - Drop image generation into any chat agent via the built-in `generate_image` tool — the LLM decides when to call it. Default provider via `AIMU_IMAGE_MODEL`.
 
+### Audio generation
+
+- Parallel `aimu.audio_client()` / `aimu.generate_audio()` surface for text-to-audio, same shape as image generation. `BaseAudioClient` + `AudioClient` factory.
+- HuggingFace locally: MusicGen small/medium/large (token-autoregressive at 32 kHz), AudioLDM2 (latent diffusion, 16 kHz), Stable Audio Open (latent diffusion, 44.1 kHz stereo).
+- Drop audio generation into any chat agent via the built-in `generate_audio` tool. Default model via `AIMU_AUDIO_MODEL`.
+
 ### Agents and workflows
 
 - `Agent` runs an autonomous tool-using loop until the model stops calling tools.
@@ -53,7 +60,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 - `@tool` on any plain Python function. Type hints + docstring become the spec.
 - `MCPClient` for cross-process FastMCP tools. Combine with `@tool` on the same agent.
-- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`. `builtin.make_tools(client, image_client=None)` assembles the full tool list with auto image/vision wiring.
+- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`. `builtin.make_tools(client, image_client=None, audio_client=None)` assembles the full tool list with auto image/vision/audio wiring.
 - Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
 
 ### Memory and persistence
@@ -141,6 +148,20 @@ client = aimu.image_client("hf:stabilityai/stable-diffusion-xl-base-1.0")
 img = client.generate("a cyberpunk city skyline at dusk")
 ```
 
+**Audio generation.** Same `provider:model_id` shape, parallel factory:
+
+```python
+# One-shot — returns (sample_rate, np.ndarray) by default
+sr, audio = aimu.generate_audio(
+    "a lo-fi hip-hop beat with soft piano",
+    model="hf:facebook/musicgen-small",
+    duration_s=5.0,
+)
+
+# Save directly to WAV
+path = aimu.generate_audio("ambient ocean waves", model="hf:facebook/musicgen-small", format="path")
+```
+
 **Vision and image generation together.** A vision-capable agent with `generate_image` as a tool can perceive and create in the same run:
 
 ```python
@@ -175,7 +196,7 @@ asyncio.run(main())
 pip install aimu[all]
 ```
 
-Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]`, `aimu[hf]` (text + HuggingFace `diffusers` image generation), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
+Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]`, `aimu[hf]` (text + HuggingFace `diffusers` image generation + HuggingFace audio generation), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
 
 ## Documentation
 
@@ -207,6 +228,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [13 - Benchmarking](notebooks/13%20-%20Benchmarking.ipynb) | Multi-model comparison harness |
 | [14 - Async](notebooks/14%20-%20Async.ipynb) | `aimu.aio` surface end-to-end: chat, streaming, async tools, `asyncio.TaskGroup`-backed `Parallel`, async `MCPClient`, in-process provider wrapping |
 | [15 - Image Generation](notebooks/15%20-%20Image%20Generation.ipynb) | `aimu.image_client()` / `aimu.generate_image()` with HuggingFace `diffusers` and Google Nano Banana, plus the built-in `generate_image` agent tool |
+| [16 - Audio Generation](notebooks/16%20-%20Audio%20Generation.ipynb) | `aimu.audio_client()` / `aimu.generate_audio()` with MusicGen, AudioLDM2, and Stable Audio Open, plus streaming and the built-in `generate_audio` agent tool |
 
 ## Web apps
 

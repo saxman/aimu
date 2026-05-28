@@ -3,7 +3,8 @@ aimu - AI Modeling Utilities
 
 Lightweight Python library for building LLM-powered apps. Provider-agnostic model
 clients (Ollama, HuggingFace, Anthropic, OpenAI, Gemini, llama-cpp, any OpenAI-compatible
-server), text-to-image clients (HuggingFace ``diffusers`` + Google Nano Banana), in-process
+server), text-to-image clients (HuggingFace ``diffusers`` + Google Nano Banana),
+text-to-audio clients (HuggingFace MusicGen, AudioLDM2, Stable Audio Open), in-process
 tools via the ``@tool`` decorator, and code-controlled workflows (Chain, Router, Parallel,
 EvaluatorOptimizer) plus autonomous Agents.
 
@@ -21,6 +22,8 @@ Quick start::
 
     image = aimu.generate_image("a watercolor of a fox", model="hf:runwayml/stable-diffusion-v1-5")
     image = aimu.generate_image("a watercolor of a fox", model="gemini:nano-banana")
+
+    path = aimu.generate_audio("upbeat lo-fi jazz loop", model="hf:facebook/musicgen-small")
 """
 
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
@@ -31,12 +34,20 @@ if TYPE_CHECKING:
 from . import aio
 from .models import (
     HAS_GEMINI_IMAGE,
+    HAS_HF_AUDIO,
     HAS_HF_IMAGE,
+    AudioClient,
+    AudioModel,
+    AudioSpec,
+    BaseAudioClient,
     BaseImageClient,
     BaseModelClient,
     GeminiImageClient,
     GeminiImageModel,
     GeminiImageSpec,
+    HuggingFaceAudioClient,
+    HuggingFaceAudioModel,
+    HuggingFaceAudioSpec,
     HuggingFaceImageClient,
     HuggingFaceImageModel,
     HuggingFaceImageSpec,
@@ -48,6 +59,7 @@ from .models import (
     ModelSpec,
     StreamChunk,
     StreamingContentType,
+    resolve_audio_model_string,
     resolve_image_model_string,
     resolve_model_string,
 )
@@ -134,6 +146,61 @@ def agent(
     return Agent(client(model), system, tools=tools or [], **kwargs)
 
 
+def audio_client(model: Union[str, AudioModel, AudioSpec], **kwargs: Any) -> AudioClient:
+    """Construct an :class:`AudioClient` for text-to-audio (music/sound) generation.
+
+    ``model`` may be a :class:`HuggingFaceAudioModel` member, a :class:`HuggingFaceAudioSpec`,
+    or a ``"hf:repo_id"`` string. Extra ``**kwargs`` are forwarded as ``model_kwargs`` to
+    the underlying provider client.
+
+    Example::
+
+        client = aimu.audio_client(aimu.HuggingFaceAudioModel.MUSICGEN_SMALL)
+        client = aimu.audio_client("hf:facebook/musicgen-medium")
+    """
+    if not HAS_HF_AUDIO:
+        raise ImportError(
+            "Audio generation requires the [hf] extra (soundfile, torch, transformers, diffusers): "
+            "pip install -e '.[hf]'"
+        )
+    return AudioClient(model, model_kwargs=kwargs or None)
+
+
+def generate_audio(
+    prompt: str,
+    *,
+    model: Union[str, AudioModel, AudioSpec],
+    format: str = "path",
+    **kwargs: Any,
+) -> Any:
+    """One-shot audio generation — builds a fresh audio client and returns one audio clip.
+
+    For multiple generations, construct a client with :func:`audio_client` and reuse it
+    so weights are not reloaded per call.
+
+    Example::
+
+        path = aimu.generate_audio(
+            "upbeat lo-fi jazz loop",
+            model="hf:facebook/musicgen-small",
+            duration_s=10,
+        )
+
+        sr, audio = aimu.generate_audio(
+            "ambient forest soundscape",
+            model=aimu.HuggingFaceAudioModel.AUDIOLDM2,
+            format="numpy",
+        )
+    """
+    if not HAS_HF_AUDIO:
+        raise ImportError(
+            "Audio generation requires the [hf] extra (soundfile, torch, transformers, diffusers): "
+            "pip install -e '.[hf]'"
+        )
+    c = audio_client(model)
+    return c.generate(prompt, format=format, **kwargs)
+
+
 def image_client(model: Union[str, ImageModel, ImageSpec], **kwargs: Any) -> ImageClient:
     """Construct an :class:`ImageClient` for text-to-image generation.
 
@@ -185,13 +252,21 @@ def generate_image(
 
 __all__ = [
     "Agent",
+    "AudioClient",
+    "AudioModel",
+    "AudioSpec",
+    "BaseAudioClient",
     "BaseImageClient",
     "BaseModelClient",
     "HAS_GEMINI_IMAGE",
+    "HAS_HF_AUDIO",
     "HAS_HF_IMAGE",
     "GeminiImageClient",
     "GeminiImageModel",
     "GeminiImageSpec",
+    "HuggingFaceAudioClient",
+    "HuggingFaceAudioModel",
+    "HuggingFaceAudioSpec",
     "HuggingFaceImageClient",
     "HuggingFaceImageModel",
     "HuggingFaceImageSpec",
@@ -205,10 +280,13 @@ __all__ = [
     "StreamingContentType",
     "agent",
     "aio",
+    "audio_client",
     "chat",
     "client",
+    "generate_audio",
     "generate_image",
     "image_client",
+    "resolve_audio_model_string",
     "resolve_image_model_string",
     "resolve_model_string",
 ]

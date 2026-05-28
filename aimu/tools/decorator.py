@@ -1,4 +1,5 @@
 import inspect
+import types as _types
 from typing import Callable, Union, get_args, get_origin, get_type_hints
 
 _PY_TO_JSON = {
@@ -56,7 +57,8 @@ def tool(func: Callable) -> Callable:
 def _unwrap_optional(annotation):
     """Reduce ``Optional[T]`` / ``T | None`` to ``T``. Leaves other annotations alone."""
     origin = get_origin(annotation)
-    if origin is Union:
+    # typing.Union covers Optional[T]; types.UnionType covers Python 3.10+ T | None syntax.
+    if origin is Union or isinstance(annotation, _types.UnionType):
         args = [a for a in get_args(annotation) if a is not type(None)]
         if len(args) == 1:
             return args[0]

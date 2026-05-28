@@ -135,8 +135,29 @@ Spec defaults are starting points — pass `num_inference_steps=`, `guidance_sca
 
 Short-name aliases like `"gemini:nano-banana"` resolve to the full model id at construction. Nano Banana's `generate_content` API returns one image per call; `num_images > 1` issues N requests.
 
+## Audio generation
+
+Audio clients use `HuggingFaceAudioSpec` — distinct from the image and text spec classes. The matrix shows generation defaults rather than capability flags.
+
+### HuggingFace (`HuggingFaceAudioModel`)
+
+| Enum member | Repo id | Pipeline type | Default duration | Default steps |
+|---|---|---|:---:|:---:|
+| `MUSICGEN_SMALL` | `facebook/musicgen-small` | `musicgen` | 10 s | N/A |
+| `MUSICGEN_MEDIUM` | `facebook/musicgen-medium` | `musicgen` | 10 s | N/A |
+| `MUSICGEN_LARGE` | `facebook/musicgen-large` | `musicgen` | 10 s | N/A |
+| `AUDIOLDM2` | `cvssp/audioldm2` | `audioldm2` | 10 s | 200 |
+| `STABLE_AUDIO_OPEN` | `stabilityai/stable-audio-open-1.0` | `stable_audio` | 10 s | 200 |
+
+**Pipeline types:**
+- `musicgen` — token-autoregressive generation via HuggingFace `transformers`. Duration maps to token count (~50 tokens/s at 32 kHz); `num_inference_steps` does not apply. Single final `AUDIO_GENERATING` chunk when streaming.
+- `audioldm2` / `stable_audio` — latent diffusion via HuggingFace `diffusers`. Accepts `num_inference_steps`; emits one progress chunk per step plus a final chunk when streaming.
+
+Override per call with `duration_s=`, `num_inference_steps=`, `seed=`, `num_audio=`. Power users can bypass the enum with `"hf:<repo_id>"` for any compatible model (pipeline type inferred from known repo prefixes, defaulting to `musicgen`).
+
 ## See also
 
 - [Provider matrix](provider-matrix.md) — provider × extra × API key
 - [How-to: add a new model](../how-to/add-new-model.md) — extending these enums
 - [How-to: generate images](../how-to/generate-images.md) — using the image surface
+- [How-to: generate audio](../how-to/generate-audio.md) — using the audio surface

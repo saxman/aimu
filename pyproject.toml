@@ -42,6 +42,8 @@ hf = [
     "diffusers>=0.30",
     "safetensors",
     "Pillow",
+    # Audio generation output (HuggingFaceAudioClient WAV encoding)
+    "soundfile",
 ]
 ollama = [
     "ollama",

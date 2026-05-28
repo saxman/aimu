@@ -26,6 +26,16 @@ Every supported provider, with the extra needed to install it, the env var (if a
 | `hf` | `HuggingFaceImageClient` | `aimu[hf]` | — (HF login for gated models) | local | `model_kwargs={...}` (passed to `pipeline.from_pretrained`) | wrapped sync via `asyncio.to_thread` |
 | `gemini` | `GeminiImageClient` | `aimu[google]` | `GOOGLE_API_KEY` | generativelanguage.googleapis.com | `model_kwargs={"api_key": "..."}` | wrapped sync via `asyncio.to_thread` |
 
+## Audio providers (`aimu.audio_client()` / `aimu.generate_audio()`)
+
+| Provider key (in model string) | Client class | Extra | API key | Default endpoint | Provider-specific kwargs | Async kind |
+|---|---|---|---|---|---|---|
+| `hf` | `HuggingFaceAudioClient` | `aimu[hf]` | — (HF login for gated models) | local | — | wrapped sync via `asyncio.to_thread` |
+
+Audio clients share the `provider:model_id` string format with text and image — the namespaces don't collide because they're consumed by separate factories (`AudioClient` vs `ModelClient` vs `ImageClient`). Per-call generation kwargs: `duration_s`, `num_inference_steps` (diffusers models only), `seed`, `num_audio`. All audio clients accept `format=` (`"numpy"` / `"path"` / `"bytes"` / `"data_url"`) and `output_dir=` from the shared `BaseAudioClient.generate()`.
+
+The **async kind** column says how `aimu.aio` reaches each provider. HuggingFace audio models load weights in-process — the async surface buys you event-loop integration (your handler doesn't block) but **not** coroutine-level concurrency. Async clients are built by wrapping an existing sync client via `aio.audio_client(sync_client)`; see [how-to: use async](../how-to/use-async.md#in-process-providers-huggingface-llamacpp).
+
 Image clients share the `provider:model_id` string format with text — the namespaces don't collide because they're consumed by separate factories (`ImageClient` vs `ModelClient`). Per-call generation kwargs differ by provider: HF takes `negative_prompt`, `width`, `height`, `num_inference_steps`, `guidance_scale`, `seed`; Gemini takes `aspect_ratio`, `image_size`. All image clients accept `num_images=`, `format=` (`"pil"` / `"path"` / `"bytes"` / `"data_url"`), and `output_dir=` from the shared `BaseImageClient.generate()`.
 
 The **async kind** column says how `aimu.aio` reaches each provider. *Native* providers use the SDK's own async client; the async surface delivers real coroutine concurrency. *Wrapped sync* providers (HF, LlamaCpp) load model weights in-process — the async surface buys you event-loop integration (your handler doesn't block) but **not** coroutine-level concurrency (the GIL and CUDA stream serialize execution). For these providers, async clients are built by wrapping an existing sync client; see [how-to: use async](../how-to/use-async.md#in-process-providers-huggingface-llamacpp).
@@ -64,3 +74,5 @@ aimu.client("lmstudio:qwen3.5-9b", base_url="http://myserver:1234/v1")
 - [Model matrix](model-matrix.md) — every shipped model with capability flags.
 - [Environment variables](env-vars.md) — every env var AIMU reads.
 - [How-to: switch providers](../how-to/switch-providers.md) — practical patterns.
+- [How-to: generate images](../how-to/generate-images.md) — image surface details.
+- [How-to: generate audio](../how-to/generate-audio.md) — audio surface details.

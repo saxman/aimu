@@ -42,6 +42,7 @@ use ``asyncio.TaskGroup`` — if one worker raises, siblings are cancelled and a
 from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
 from .agent import Agent, AsyncRunner
+from .audio import AsyncAudioClient, audio_client, generate_audio
 from .image import AsyncImageClient, generate_image, image_client
 from .skill_agent import SkillAgent
 from .orchestrator_agent import OrchestratorAgent
@@ -50,6 +51,11 @@ from .workflows.router import Router
 from .workflows.parallel import Parallel
 from .workflows.evaluator import EvaluatorOptimizer
 from .workflows.plan_execute_evaluator import PlanExecuteEvaluator
+
+try:
+    from .providers.hf_audio import AsyncHuggingFaceAudioClient
+except ImportError:
+    AsyncHuggingFaceAudioClient = None  # type: ignore[assignment,misc]
 
 try:
     from .providers.hf_image import AsyncHuggingFaceImageClient
@@ -63,7 +69,9 @@ except ImportError:
 
 __all__ = [
     "Agent",
+    "AsyncAudioClient",
     "AsyncGeminiImageClient",
+    "AsyncHuggingFaceAudioClient",
     "AsyncHuggingFaceImageClient",
     "AsyncImageClient",
     "AsyncModelClient",
@@ -76,8 +84,10 @@ __all__ = [
     "PlanExecuteEvaluator",
     "Router",
     "SkillAgent",
+    "audio_client",
     "chat",
     "client",
+    "generate_audio",
     "generate_image",
     "image_client",
 ]

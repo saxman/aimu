@@ -22,7 +22,7 @@ from aimu.tools.builtin import (  # noqa: F401 — re-exports
     list_directory,
     misc,
     read_file,
-    search,
+    web_search,
     web,
     wikipedia,
 )

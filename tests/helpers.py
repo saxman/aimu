@@ -14,11 +14,13 @@ import pytest
 from aimu.models import (
     HAS_ANTHROPIC,
     HAS_GEMINI_IMAGE,
+    HAS_HF_AUDIO,
     HAS_HF_IMAGE,
     HAS_LLAMACPP,
     HAS_OPENAI_COMPAT,
     HuggingFaceClient,
     LlamaCppClient,
+    BaseAudioClient,
     BaseImageClient,
     BaseModelClient,
     OllamaClient,
@@ -52,6 +54,9 @@ if HAS_HF_IMAGE:
 
 if HAS_GEMINI_IMAGE:
     from aimu.models import GeminiImageClient
+
+if HAS_HF_AUDIO:
+    from aimu.models import HuggingFaceAudioClient, HuggingFaceAudioModel
 
 
 # ---------------------------------------------------------------------------
@@ -347,6 +352,66 @@ def create_real_image_client(request) -> Iterator[BaseImageClient]:
         client = GeminiImageClient(model)
     else:
         raise ValueError(f"Unknown image model: {model}")
+
+    yield client
+    del client
+
+
+# ---------------------------------------------------------------------------
+# Audio-client parametrization helpers (parallel to the image helpers above)
+# ---------------------------------------------------------------------------
+
+
+def resolve_audio_model_params(config) -> list:
+    """Build the list of params for parametrizing the ``audio_client`` fixture.
+
+    Reads ``--audio-client`` (``hf`` / ``all`` / default omitted) and
+    ``--audio-model`` (specific enum member name or ``all``). When the client
+    flag is unset, no live tests run (returns []), matching the opt-in
+    convention used by other live tests in this repo.
+    """
+    client_type = config.getoption("--audio-client", None)
+    model = config.getoption("--audio-model", "all")
+
+    if client_type is None:
+        return []
+
+    client_type = client_type.lower()
+
+    if client_type == "all":
+        params: list = []
+        if HAS_HF_AUDIO:
+            params += list(HuggingFaceAudioClient.MODELS)
+        if model != "all":
+            params = [p for p in params if p.name == model]
+        return params
+
+    if client_type == "hf":
+        if not HAS_HF_AUDIO:
+            pytest.skip("[hf] extra not installed (pip install -e '.[hf]')")
+        client_cls = HuggingFaceAudioClient
+        if model == "all":
+            return list(client_cls.MODELS)
+        try:
+            return [client_cls.MODELS[model]]
+        except KeyError:
+            available = ", ".join(m.name for m in client_cls.MODELS)
+            pytest.fail(f"Unknown HuggingFaceAudioModel member: {model!r}. Available: {available}")
+
+    raise ValueError(f"Unknown --audio-client value: {client_type!r}. Expected 'hf' or 'all'.")
+
+
+def create_real_audio_client(request) -> Iterator[BaseAudioClient]:
+    """Construct a real audio client from ``request.param`` (a model enum value).
+
+    Mirrors :func:`create_real_image_client` for the audio modality.
+    """
+    model = request.param
+
+    if HAS_HF_AUDIO and model in HuggingFaceAudioClient.MODELS:
+        client = HuggingFaceAudioClient(model)
+    else:
+        raise ValueError(f"Unknown audio model: {model}")
 
     yield client
     del client

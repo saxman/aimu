@@ -1,8 +1,13 @@
 # Always available
+from .audio_client import AudioClient, resolve_audio_model_string
 from .base import (
+    AudioModel,
+    AudioSpec,
+    BaseAudioClient,
     BaseImageClient,
     BaseModelClient,
     GeminiImageSpec,
+    HuggingFaceAudioSpec,
     HuggingFaceImageSpec,
     ImageModel,
     ImageSpec,
@@ -112,11 +117,25 @@ except ImportError:
     GeminiImageClient = None
     GeminiImageModel = None
 
+try:
+    from .hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+
+    HAS_HF_AUDIO = True
+except ImportError:
+    HAS_HF_AUDIO = False
+    HuggingFaceAudioClient = None
+    HuggingFaceAudioModel = None
+
 # Expose what's available
 __all__ = [
+    "AudioClient",
+    "AudioModel",
+    "AudioSpec",
+    "BaseAudioClient",
     "BaseImageClient",
     "BaseModelClient",
     "GeminiImageSpec",
+    "HuggingFaceAudioSpec",
     "HuggingFaceImageSpec",
     "ImageClient",
     "ImageModel",
@@ -126,8 +145,10 @@ __all__ = [
     "ModelSpec",
     "StreamChunk",
     "StreamingContentType",
+    "available_audio_clients",
     "available_image_clients",
     "available_text_clients",
+    "resolve_audio_model_string",
     "resolve_image_model_string",
     "resolve_model_string",
 ]
@@ -165,6 +186,8 @@ if HAS_HF_IMAGE:
     __all__.extend(["HuggingFaceImageClient", "HuggingFaceImageModel"])
 if HAS_GEMINI_IMAGE:
     __all__.extend(["GeminiImageClient", "GeminiImageModel"])
+if HAS_HF_AUDIO:
+    __all__.extend(["HuggingFaceAudioClient", "HuggingFaceAudioModel"])
 
 
 def available_text_clients() -> list[type[BaseModelClient]]:
@@ -201,4 +224,12 @@ def available_image_clients() -> list[type[BaseImageClient]]:
         clients.append(HuggingFaceImageClient)
     if HAS_GEMINI_IMAGE:
         clients.append(GeminiImageClient)
+    return clients
+
+
+def available_audio_clients() -> list[type[BaseAudioClient]]:
+    """Return client classes for all installed audio providers, in display order."""
+    clients: list[type[BaseAudioClient]] = []
+    if HAS_HF_AUDIO:
+        clients.append(HuggingFaceAudioClient)
     return clients

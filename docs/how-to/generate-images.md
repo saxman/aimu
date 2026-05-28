@@ -202,3 +202,4 @@ For Gemini, the cloud SDK could be called natively async — kept as a follow-up
 - [Reference: env vars](../reference/env-vars.md) — `GOOGLE_API_KEY`, `AIMU_IMAGE_MODEL`.
 - [Notebook 15 — Image Generation](https://github.com/saxman/aimu/tree/main/notebooks) — runnable end-to-end demo.
 - [Add a custom tool](add-custom-tool.md) — to build your own image-generation tool variant.
+- [Generate audio](generate-audio.md) — the audio surface, which mirrors this one.

@@ -14,6 +14,7 @@ class StreamingContentType(str, Enum):
     TOOL_CALLING = "tool_calling"
     GENERATING = "generating"
     IMAGE_GENERATING = "image_generating"
+    AUDIO_GENERATING = "audio_generating"
     DONE = "done"
 
 
@@ -23,7 +24,7 @@ class StreamChunk(NamedTuple):
 
     Fields:
         phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING,
-                   IMAGE_GENERATING, DONE)
+                   IMAGE_GENERATING, AUDIO_GENERATING, DONE)
         content:   shape depends on phase:
                    - ``str`` for THINKING / GENERATING (token).
                    - ``dict {"name", "arguments", "response"}`` for TOOL_CALLING
@@ -34,14 +35,19 @@ class StreamChunk(NamedTuple):
                      ``final=True`` marks the terminal chunk for one image, and ``result``
                      carries the encoded output (path / bytes / data-url per ``format=``)
                      on the final chunk.
+                   - ``dict {"step", "total_steps", "final", "result", "duration_s"}`` for
+                     AUDIO_GENERATING — ``step`` is 1-indexed (1 of 1 for non-diffusers
+                     models), ``final=True`` marks the terminal chunk per audio item, and
+                     ``result`` carries the encoded output on the final chunk.
                    - ``str`` for DONE (usually empty).
         agent:     name of the agent that produced this chunk, or ``None`` for a plain
                    ``client.chat()`` / ``client.generate()`` call. Set automatically by
                    ``Agent`` and workflow runners.
         iteration: zero-based iteration index inside the agent loop, or ``0`` for plain chat.
 
-    Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_image_progress()`` to
-    dispatch on phase without repeating the equality check in user code.
+    Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_image_progress()`` /
+    ``chunk.is_audio_progress()`` to dispatch on phase without repeating the equality check
+    in user code.
     """
 
     phase: StreamingContentType
@@ -60,6 +66,10 @@ class StreamChunk(NamedTuple):
     def is_image_progress(self) -> bool:
         """True if this chunk carries image-generation progress (IMAGE_GENERATING)."""
         return self.phase == StreamingContentType.IMAGE_GENERATING
+
+    def is_audio_progress(self) -> bool:
+        """True if this chunk carries audio-generation progress (AUDIO_GENERATING)."""
+        return self.phase == StreamingContentType.AUDIO_GENERATING
 
 
 @dataclass
@@ -160,6 +170,60 @@ class ImageModel(Enum):
     """
 
     def __init__(self, spec: ImageSpec):
+        self._value_ = spec.id
+        self.spec = spec
+
+
+@dataclass
+class AudioSpec:
+    """Base descriptor for a single audio-generation model.
+
+    Sibling to :class:`ImageSpec`; deliberately disjoint because audio models have
+    a distinct generation interface (duration-based rather than dimension-based).
+    Provider-specific subclasses (:class:`HuggingFaceAudioSpec`) add their own defaults.
+
+    Equality and hash are by ``id`` only so the spec can be used directly as an
+    enum value.
+    """
+
+    id: str
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, AudioSpec):
+            return self.id == other.id
+        return NotImplemented
+
+
+@dataclass(eq=False)
+class HuggingFaceAudioSpec(AudioSpec):
+    """Descriptor for a single HuggingFace-backed audio-generation model.
+
+    ``pipeline_type`` selects the loader/runner strategy:
+    - ``"musicgen"`` — transformers ``MusicgenForConditionalGeneration``
+    - ``"audioldm2"`` — diffusers ``AudioLDM2Pipeline``
+    - ``"stable_audio"`` — diffusers ``StableAudioPipeline``
+
+    ``default_steps`` is ignored for ``"musicgen"`` (token-autoregressive, no denoising
+    steps). ``eq=False`` inherits :class:`AudioSpec`'s id-only equality + hash.
+    """
+
+    pipeline_type: str = "musicgen"
+    default_duration_s: float = 10.0
+    default_steps: int = 200
+
+
+class AudioModel(Enum):
+    """Base enum for audio-generation provider model catalogs.
+
+    Parallel to :class:`ImageModel`. Each member's value is an :class:`AudioSpec`
+    (or subclass); the constructor sets ``_value_`` from ``spec.id`` and stores
+    the spec on the member.
+    """
+
+    def __init__(self, spec: AudioSpec):
         self._value_ = spec.id
         self.spec = spec
 
@@ -646,6 +710,137 @@ class BaseImageClient(ABC):
                     "result": encoded,
                     "image_index": i,
                     "num_images": num_images,
+                },
+            )
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(model={self.spec.id!r})"
+
+
+class BaseAudioClient(ABC):
+    """Abstract base for audio-generation provider clients.
+
+    Parallel to :class:`BaseImageClient` for audio modality. Subclasses implement
+    :meth:`_generate` returning a list of ``(sample_rate, np.ndarray)`` tuples; the
+    public :meth:`generate` wraps that with format conversion via
+    :func:`aimu.models._audio_output.encode_audio` so every audio client offers the
+    same ``format="numpy"|"path"|"bytes"|"data_url"`` surface.
+
+    ``"numpy"`` is the native format (parallel to ``"pil"`` for images); the others
+    produce WAV-encoded output.
+    """
+
+    model: Any
+    spec: AudioSpec
+
+    @abstractmethod
+    def __init__(self, model: Any, model_kwargs: Optional[dict] = None):
+        self.model = model
+        self.model_kwargs = model_kwargs
+
+    @abstractmethod
+    def _generate(
+        self, prompt: str, *, duration_s: float, num_audio: int = 1, **kwargs: Any
+    ) -> list:
+        """Provider-specific generation. Returns list of ``(sample_rate, np.ndarray)``."""
+
+    def generate(
+        self,
+        prompt: str,
+        *,
+        duration_s: Optional[float] = None,
+        num_inference_steps: Optional[int] = None,
+        num_audio: int = 1,
+        format: str = "path",
+        output_dir: Optional[Any] = None,
+        seed: Optional[int] = None,
+        stream: bool = False,
+        **kwargs: Any,
+    ) -> Any:
+        """Generate one or more audio clips from a text prompt.
+
+        ``format`` controls the return type: ``"numpy"`` returns a
+        ``(sample_rate, np.ndarray)`` tuple (or list of tuples for ``num_audio > 1``);
+        ``"path"`` saves a WAV file and returns its path; ``"bytes"`` and
+        ``"data_url"`` return WAV-encoded bytes / base64 data URL respectively.
+
+        When ``stream=True``, returns an iterator of :class:`StreamChunk` with phase
+        :attr:`StreamingContentType.AUDIO_GENERATING`. Diffusers-backed providers emit
+        one chunk per denoising step (no intermediate audio decode); other providers
+        emit a single final chunk.
+        """
+        if num_audio < 1:
+            raise ValueError(f"num_audio must be >= 1, got {num_audio}")
+
+        resolved_duration = duration_s if duration_s is not None else self.spec.default_duration_s
+
+        if stream:
+            return self._generate_streamed(
+                prompt,
+                duration_s=resolved_duration,
+                num_inference_steps=num_inference_steps,
+                num_audio=num_audio,
+                format=format,
+                output_dir=output_dir,
+                seed=seed,
+                **kwargs,
+            )
+
+        from ._audio_output import encode_audio
+
+        results = self._generate(
+            prompt,
+            duration_s=resolved_duration,
+            num_inference_steps=num_inference_steps,
+            num_audio=num_audio,
+            seed=seed,
+            **kwargs,
+        )
+        encoded = [
+            encode_audio(audio, sr, format=format, prompt=prompt, output_dir=output_dir)
+            for sr, audio in results
+        ]
+        return encoded[0] if num_audio == 1 else encoded
+
+    def _generate_streamed(
+        self,
+        prompt: str,
+        *,
+        duration_s: float,
+        num_inference_steps: Optional[int] = None,
+        num_audio: int = 1,
+        format: str = "path",
+        output_dir: Optional[Any] = None,
+        seed: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Iterator[StreamChunk]:
+        """Default streaming: calls blocking :meth:`_generate`, emits one final chunk per clip.
+
+        Providers that expose step-level callbacks (diffusers models) override this to
+        emit progress mid-generation. Intermediate chunks carry ``final=False`` and
+        ``result=None``; the terminal chunk per clip carries ``final=True`` and the
+        encoded output.
+        """
+        from ._audio_output import encode_audio
+
+        results = self._generate(
+            prompt,
+            duration_s=duration_s,
+            num_inference_steps=num_inference_steps,
+            num_audio=num_audio,
+            seed=seed,
+            **kwargs,
+        )
+        for sr, audio in results:
+            encoded = encode_audio(audio, sr, format=format, prompt=prompt, output_dir=output_dir)
+            yield StreamChunk(
+                StreamingContentType.AUDIO_GENERATING,
+                {
+                    "step": 1,
+                    "total_steps": 1,
+                    "final": True,
+                    "result": encoded,
+                    "duration_s": duration_s,
                 },
             )
 
