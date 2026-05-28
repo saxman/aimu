@@ -192,12 +192,12 @@ from aimu import audio_client
 from aimu.tools.builtin import make_audio_tool
 
 medium = audio_client("hf:facebook/musicgen-medium")
-medium_tool = make_audio_tool(medium, duration_s=15.0)
+medium_tool = make_audio_tool(medium, duration_s=15.0, num_inference_steps=100)
 
 agent = Agent(text_client, tools=[medium_tool])
 ```
 
-`make_audio_tool()` returns a fresh `@tool`-decorated callable bound to the supplied client; the singleton stays untouched. Pass `duration_s=` to fix the generation length for that tool.
+`make_audio_tool()` returns a fresh `@tool`-decorated callable bound to the supplied client; the singleton stays untouched. Pass `duration_s=` to fix the generation length, and `num_inference_steps=N` to override the default denoising step count (diffusers models only — AudioLDM2, Stable Audio; ignored by MusicGen).
 
 ## Async
 

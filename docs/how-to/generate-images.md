@@ -162,12 +162,12 @@ from aimu import image_client
 from aimu.tools.builtin import make_image_tool
 
 fast = image_client("hf:black-forest-labs/FLUX.1-schnell")  # 4-step model
-fast_tool = make_image_tool(fast)
+fast_tool = make_image_tool(fast, preview_every=2, num_inference_steps=20)
 
 agent = Agent(text_client, tools=[fast_tool])
 ```
 
-`make_image_tool()` returns a fresh `@tool`-decorated callable bound to the supplied client; the singleton stays untouched.
+`make_image_tool()` returns a fresh `@tool`-decorated callable bound to the supplied client; the singleton stays untouched. Pass `preview_every=N` to opt into intermediate latent previews and `num_inference_steps=N` to override the model's default denoising step count (HuggingFace diffusers only; ignored by Gemini).
 
 ## Skill integration (deeper, optional)
 
