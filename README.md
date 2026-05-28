@@ -46,7 +46,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 - Parallel `aimu.audio_client()` / `aimu.generate_audio()` surface for text-to-audio, same shape as image generation. `BaseAudioClient` + `AudioClient` factory.
 - HuggingFace locally: MusicGen small/medium/large (token-autoregressive at 32 kHz), AudioLDM2 (latent diffusion, 16 kHz), Stable Audio Open (latent diffusion, 44.1 kHz stereo).
-- Drop audio generation into any chat agent via the built-in `generate_audio` tool. Default model via `AIMU_AUDIO_MODEL`.
+- Drop audio generation into any chat agent via the built-in `generate_audio` tool.
 
 ### Agents and workflows
 
