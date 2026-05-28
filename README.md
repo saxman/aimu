@@ -41,8 +41,8 @@ Composition happens by passing objects to constructors. Conversation state is a 
 ### Image generation
 
 - Parallel `aimu.image_client()` / `aimu.generate_image()` surface for text-to-image, mirroring the text client shape. `BaseImageClient` + `ImageClient` factory mirror `BaseModelClient` + `ModelClient` for the new modality.
-- Two providers: HuggingFace `diffusers` locally (`HuggingFaceImageClient` — SD 1.5 / SDXL / SD 3.5 / FLUX dev & schnell) and Google Nano Banana via the cloud API (`GeminiImageClient` — `gemini-2.5-flash-image`).
-- Drop image generation into any chat agent via the built-in `generate_image` tool — the LLM decides when to call it. Default provider via `AIMU_IMAGE_MODEL`.
+- Two providers (for now...): HuggingFace `diffusers` locally (`HuggingFaceImageClient`, SD 1.5 / SDXL / SD 3.5 / FLUX dev & schnell) and Google Nano Banana via the cloud API (`GeminiImageClient`).
+- Drop image generation into any chat agent via the built-in `generate_image` tool. The LLM decides when to call it.
 
 ### Audio generation
 
