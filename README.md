@@ -38,7 +38,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 ### Image/audio generation
 
-- Consistent APIs for text-to-image (`aimu.image_client()` / `aimu.generate_image()`), and text-to-audio (`aimu.audio_client()` / `aimu.generate_audio()`), mirroring the text client interface.
+- Consistent APIs for text-to-image (`aimu.image_client()` / `aimu.generate_image()`) and text-to-audio (`aimu.audio_client()` / `aimu.generate_audio()`), mirroring the text client interface.
 - For images, two providers (for now...): HuggingFace `diffusers` locally (`HuggingFaceImageClient`, SD 1.5 / SDXL / SD 3.5 / FLUX dev & schnell) and Google Nano Banana via the cloud API (`GeminiImageClient`).
 - For audion, one provider (HuggingFace), with support for MusicGen small/medium/large (token-autoregressive at 32 kHz), AudioLDM2 (latent diffusion, 16 kHz), Stable Audio Open (latent diffusion, 44.1 kHz stereo).
 - Drop image and auidio generation into any chat agent via the built-in `generate_image` and `generate_audio` tools. The LLM decides when to call it.
