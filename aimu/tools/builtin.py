@@ -354,7 +354,7 @@ def generate_image(prompt: str):
     return final_result
 
 
-def make_image_tool(client, *, preview_every: Optional[int] = None):
+def make_image_tool(client, *, preview_every: Optional[int] = None, num_inference_steps: Optional[int] = None):
     """Build a ``generate_image`` tool bound to a specific image client.
 
     ``client`` may be an :class:`aimu.ImageClient` or any concrete
@@ -370,7 +370,7 @@ def make_image_tool(client, *, preview_every: Optional[int] = None):
     Example::
 
         client = aimu.image_client(aimu.HuggingFaceImageModel.SDXL_BASE)
-        my_tool = make_image_tool(client, preview_every=5)
+        my_tool = make_image_tool(client, preview_every=5, num_inference_steps=20)
         agent = Agent(text_client, tools=[my_tool])
     """
 
@@ -384,7 +384,10 @@ def make_image_tool(client, *, preview_every: Optional[int] = None):
             prompt: A description of the desired image.
         """
         final_result = None
-        for chunk in client.generate(prompt, format="path", stream=True, preview_every=preview_every):
+        kw = {"format": "path", "stream": True, "preview_every": preview_every}
+        if num_inference_steps is not None:
+            kw["num_inference_steps"] = num_inference_steps
+        for chunk in client.generate(prompt, **kw):
             yield chunk
             content = chunk.content
             if isinstance(content, dict) and content.get("final"):
@@ -465,25 +468,33 @@ def make_describe_image_tool(
     return describe_image
 
 
-def make_tools(base_client, image_client=None, preview_every=None, audio_client=None):
+def make_tools(
+    base_client,
+    image_client=None,
+    preview_every=None,
+    audio_client=None,
+    image_steps: Optional[int] = None,
+    audio_steps: Optional[int] = None,
+):
     """Assemble the standard tool list for a chat client.
 
     Starts from ALL_TOOLS, then applies optional enhancements:
     - If *image_client* is provided, replaces the default ``generate_image``
-      singleton with one bound to that client (honoring *preview_every*).
+      singleton with one bound to that client (honoring *preview_every* and
+      *image_steps*).
     - If *base_client* supports vision, appends a ``describe_image`` tool
       bound to the same client so the model can inspect generated images.
     - If *audio_client* is provided, replaces the default ``generate_audio``
-      singleton with one bound to that client.
+      singleton with one bound to that client (honoring *audio_steps*).
     """
     tools = list(ALL_TOOLS)
     if image_client is not None:
-        bound = make_image_tool(image_client, preview_every=preview_every)
+        bound = make_image_tool(image_client, preview_every=preview_every, num_inference_steps=image_steps)
         tools = [t for t in tools if t is not generate_image] + [bound]
     if getattr(base_client.model, "supports_vision", False):
         tools.append(make_describe_image_tool(base_client))
     if audio_client is not None:
-        bound_audio = make_audio_tool(audio_client)
+        bound_audio = make_audio_tool(audio_client, num_inference_steps=audio_steps)
         tools = [t for t in tools if t is not generate_audio] + [bound_audio]
     return tools
 
@@ -539,13 +550,14 @@ def generate_audio(prompt: str):
     return final_result
 
 
-def make_audio_tool(client, *, duration_s: Optional[float] = None):
+def make_audio_tool(client, *, duration_s: Optional[float] = None, num_inference_steps: Optional[int] = None):
     """Build a ``generate_audio`` tool bound to a specific audio client.
 
     ``client`` may be an :class:`aimu.AudioClient` or any concrete
     :class:`aimu.BaseAudioClient` (e.g. :class:`HuggingFaceAudioClient`). Use this
     when an agent needs a different model from the default singleton, or to fix the
-    generation duration via ``duration_s``.
+    generation duration via ``duration_s`` or the denoising step count via
+    ``num_inference_steps`` (diffusers models only).
 
     The returned tool is a **streaming tool** (generator) — its progress chunks
     flow through ``agent.run(stream=True)`` for live UI updates.
@@ -553,7 +565,7 @@ def make_audio_tool(client, *, duration_s: Optional[float] = None):
     Example::
 
         client = aimu.audio_client(aimu.HuggingFaceAudioModel.MUSICGEN_MEDIUM)
-        my_tool = make_audio_tool(client, duration_s=15)
+        my_tool = make_audio_tool(client, duration_s=15, num_inference_steps=100)
         agent = Agent(text_client, tools=[my_tool])
     """
 
@@ -570,6 +582,8 @@ def make_audio_tool(client, *, duration_s: Optional[float] = None):
         kw = {"format": "path", "stream": True}
         if duration_s is not None:
             kw["duration_s"] = duration_s
+        if num_inference_steps is not None:
+            kw["num_inference_steps"] = num_inference_steps
         for chunk in client.generate(prompt, **kw):
             yield chunk
             content = chunk.content

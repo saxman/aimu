@@ -73,6 +73,8 @@ def _rebuild_audio_client(client_cls: type[BaseAudioClient], model) -> None:
             st.session_state.get("image_client"),
             st.session_state.get("preview_every"),
             st.session_state.get("audio_client"),
+            image_steps=st.session_state.get("image_steps"),
+            audio_steps=st.session_state.get("audio_steps"),
         )
 
 
@@ -92,7 +94,7 @@ def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
 
     Stores the client (or None + error message) in session_state. Refreshes the
     base client's tool list so the bound ``generate_image`` picks up the new
-    image client and the current ``preview_every`` setting.
+    image client and the current ``preview_every`` and ``image_steps`` settings.
     """
     client, err = _construct_image_client(client_cls, model)
     st.session_state.image_client_class = client_cls
@@ -105,6 +107,8 @@ def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
             client,
             st.session_state.get("preview_every"),
             st.session_state.get("audio_client"),
+            image_steps=st.session_state.get("image_steps"),
+            audio_steps=st.session_state.get("audio_steps"),
         )
 
 
@@ -181,6 +185,8 @@ def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
         st.session_state.get("image_client"),
         st.session_state.get("preview_every"),
         st.session_state.get("audio_client"),
+        image_steps=st.session_state.get("image_steps"),
+        audio_steps=st.session_state.get("audio_steps"),
     )
     # Store the base client separately since the agent wrapper doesn't have all the same attributes (e.g. TOOL_MODELS) and we need to reference those in the sidebar selectors and checks.
     st.session_state.base_client = base_client
@@ -305,6 +311,8 @@ def stream_chat_response(streamed_response):
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
 if "model_client" not in st.session_state:
     st.session_state.preview_every = None  # default: no intermediate previews (fastest)
+    st.session_state.image_steps = None  # default: use the model's default step count
+    st.session_state.audio_steps = None  # default: use the model's default step count
     # Initialise image-client state up-front so _rebuild_client's make_tools call sees it.
     st.session_state.image_client = None
     st.session_state.image_client_class = None
@@ -451,6 +459,37 @@ with st.sidebar:
                 st.session_state.image_client,
                 selected_preview,
                 st.session_state.get("audio_client"),
+                image_steps=st.session_state.get("image_steps"),
+                audio_steps=st.session_state.get("audio_steps"),
+            )
+            st.rerun()
+
+        # Denoising steps slider — 0 maps to "use model default".
+        is_hf_image = type(st.session_state.image_client).__name__ == "HuggingFaceImageClient"
+        current_image_steps = st.session_state.get("image_steps") or 0
+        image_steps_raw = st.slider(
+            "Denoising steps (image)",
+            min_value=0,
+            max_value=100,
+            value=current_image_steps,
+            step=1,
+            disabled=not is_hf_image,
+            help=(
+                "0 = use the model's default step count. "
+                "Fewer steps generate faster but with lower quality; more steps improve quality "
+                "but take longer. Only applies to HuggingFace diffusers models."
+            ),
+        )
+        selected_image_steps = None if image_steps_raw == 0 else image_steps_raw
+        if selected_image_steps != st.session_state.get("image_steps"):
+            st.session_state.image_steps = selected_image_steps
+            st.session_state.base_client.tools = builtin.make_tools(
+                st.session_state.base_client,
+                st.session_state.image_client,
+                st.session_state.get("preview_every"),
+                st.session_state.get("audio_client"),
+                image_steps=selected_image_steps,
+                audio_steps=st.session_state.get("audio_steps"),
             )
             st.rerun()
 
@@ -487,6 +526,40 @@ with st.sidebar:
 
         if st.session_state.audio_client_error:
             st.error(f"Audio client unavailable: {st.session_state.audio_client_error}")
+
+        # Denoising steps slider — 0 maps to "use model default". Only meaningful
+        # for diffusers-backed models (AudioLDM2, StableAudio); MusicGen ignores it.
+        is_diffusers_audio = type(st.session_state.audio_client).__name__ == "HuggingFaceAudioClient" and (
+            st.session_state.audio_model is not None
+            and getattr(st.session_state.audio_model, "spec", None) is not None
+            and getattr(st.session_state.audio_model.spec, "pipeline_type", "musicgen") != "musicgen"
+        )
+        current_audio_steps = st.session_state.get("audio_steps") or 0
+        audio_steps_raw = st.slider(
+            "Denoising steps (audio)",
+            min_value=0,
+            max_value=300,
+            value=current_audio_steps,
+            step=10,
+            disabled=not is_diffusers_audio,
+            help=(
+                "0 = use the model's default step count. "
+                "Only applies to diffusers-backed audio models (AudioLDM2, StableAudio). "
+                "MusicGen is token-autoregressive and ignores this setting."
+            ),
+        )
+        selected_audio_steps = None if audio_steps_raw == 0 else audio_steps_raw
+        if selected_audio_steps != st.session_state.get("audio_steps"):
+            st.session_state.audio_steps = selected_audio_steps
+            st.session_state.base_client.tools = builtin.make_tools(
+                st.session_state.base_client,
+                st.session_state.get("image_client"),
+                st.session_state.get("preview_every"),
+                st.session_state.get("audio_client"),
+                image_steps=st.session_state.get("image_steps"),
+                audio_steps=selected_audio_steps,
+            )
+            st.rerun()
 
     if st.button("Reset chat"):
         # Create a new conversation that will be used as the "last" conversation when the app is reloaded.
