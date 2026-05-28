@@ -46,6 +46,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 ### Agents and workflows
 
 - `Agent` runs an autonomous tool-using loop until the model stops calling tools.
+- `OrchestrationAgent` interface/pattern for coordinating sub-agent work, and three pre-built agents (`CodeReviewAgent`, `ContentCreationAgent`, and `ResearchReportAgent`).
 - Four code-controlled workflow patterns: `Chain.from_client(...)`, `Router.from_client(...)`, `Parallel.from_client(...)`, `EvaluatorOptimizer(...)`. Compose freely. Workflows accept agents as steps; agents accept workflows as tools via `as_model_client()`.
 - `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients are interchangeable.
 
