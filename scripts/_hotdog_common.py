@@ -23,7 +23,7 @@ def parse_evaluator_response(text: str) -> dict:
             score = val
 
     done_match = re.search(r'^DONE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
-    continue_match = re.search(r'^CONTINUE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
+    continue_match = re.search(r'^CONTINUE\s*:\s*(.+)$', text, re.IGNORECASE | re.MULTILINE)
 
     # DONE takes priority if both are present
     if done_match:
@@ -87,7 +87,7 @@ EVALUATOR_PROMPT = """\
 You are evaluating how visually "hot" this hotdog image is.
 Rate its hotness from 1 to 10 (10 = blazing inferno hotdog, 1 = cold).
 Then decide: can this hotdog get any hotter? If not, output exactly:
-  DONE: <your reasoning>
+DONE: <your reasoning>
 If it can get hotter, output exactly:
-  CONTINUE: <a refined image generation prompt that will make it hotter>
+CONTINUE: <a refined image generation prompt that will make it hotter>
 """
