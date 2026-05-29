@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/generate-audio/">
+        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/generate-speech/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>Generate audio - AIMU</title>
+        <title>Generate speech - AIMU</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#generate-audio" class="md-skip">
+        <a href="#generate-speech" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Generate audio
+              Generate speech
             
           </span>
         </div>
@@ -2167,6 +2167,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Choosing a model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#openai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenAI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#huggingface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HuggingFace
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2238,10 +2266,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#per-agent-override-make_audio_tool" class="md-nav__link">
+  <a href="#per-agent-override-make_speech_tool" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Per-agent override — make_audio_tool
+        Per-agent override — make_speech_tool
       
     </span>
   </a>
@@ -2295,40 +2323,68 @@
   
 
 
-<h1 id="generate-audio">Generate audio<a class="headerlink" href="#generate-audio" title="Permanent link">&para;</a></h1>
-<p>AIMU has a parallel audio-generation surface to the text and image clients. The shape mirrors image generation: a base ABC (<code>BaseAudioClient</code>), a factory class (<code>AudioClient</code>), per-provider concrete clients, and one-line entry points (<code>aimu.audio_client()</code> / <code>aimu.generate_audio()</code>). One provider ships today:</p>
+<h1 id="generate-speech">Generate speech<a class="headerlink" href="#generate-speech" title="Permanent link">&para;</a></h1>
+<p>AIMU has a parallel speech-generation surface to the text, image, and audio clients. The shape mirrors audio generation: a base ABC (<code>BaseSpeechClient</code>), a factory class (<code>SpeechClient</code>), per-provider concrete clients, and one-line entry points (<code>aimu.speech_client()</code> / <code>aimu.generate_speech()</code>). Two providers ship today:</p>
 <ul>
-<li><strong>HuggingFace</strong> for local generation (MusicGen small/medium/large, AudioLDM2, Stable Audio Open)</li>
+<li><strong>HuggingFace</strong> for local TTS (MMS-TTS-ENG, BARK)</li>
+<li><strong>OpenAI</strong> for cloud TTS (tts-1, tts-1-hd; requires <code>OPENAI_API_KEY</code>)</li>
 </ul>
-<p>The scope is music and sound generation, not text-to-speech.</p>
+<p>Speech is distinct from audio: the audio surface (<code>aimu.audio_client()</code>) generates music and sounds from a descriptive prompt; the speech surface converts literal text to spoken audio.</p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[hf]&#39;</span>
+<p><strong>OpenAI TTS</strong> (recommended for low latency):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[openai_compat]&#39;</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span>sk-...
 </span></code></pre></div>
-<p>The <code>[hf]</code> extra already ships <code>torch</code> and <code>transformers</code> for the HuggingFace text client. Audio adds <code>diffusers</code> (for AudioLDM2 / Stable Audio) and <code>soundfile</code> (for WAV encoding). All come in one extra — no separate install step.</p>
+<p><strong>HuggingFace TTS</strong> (local, no API key):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[hf]&#39;</span>
+</span></code></pre></div>
+<p>The <code>[hf]</code> extra already ships <code>torch</code>, <code>transformers</code>, and <code>soundfile</code> for the HuggingFace text and audio clients. TTS adds no new dependencies.</p>
 <h2 id="one-shot">One-shot<a class="headerlink" href="#one-shot" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Save a WAV file and return its path</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">path</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_audio</span><span class="p">(</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="s2">&quot;a lo-fi hip-hop beat with soft piano&quot;</span><span class="p">,</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;hf:facebook/musicgen-small&quot;</span><span class="p">,</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;path&quot;</span><span class="p">,</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">)</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Return raw WAV bytes</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">data</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_audio</span><span class="p">(</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="s2">&quot;gentle ocean waves on a beach&quot;</span><span class="p">,</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;hf:cvssp/audioldm2&quot;</span><span class="p">,</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;bytes&quot;</span><span class="p">,</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Save a WAV file and return its path (default format)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">path</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span><span class="s2">&quot;Hello, world!&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Return raw WAV bytes</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">wav_bytes</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span><span class="s2">&quot;Good morning.&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># Local HuggingFace TTS</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">sr</span><span class="p">,</span> <span class="n">audio</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="s2">&quot;Hello from HuggingFace!&quot;</span><span class="p">,</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;hf:facebook/mms-tts-eng&quot;</span><span class="p">,</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;numpy&quot;</span><span class="p">,</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">)</span>
 </span></code></pre></div>
 <p><code>format=</code> selects how the audio is returned:
-- <code>"numpy"</code> (default) — <code>(sample_rate: int, audio: np.ndarray)</code> tuple, the native representation
-- <code>"path"</code> — saves a WAV file, returns the path string
+- <code>"path"</code> (default) — saves a WAV file, returns the path string
 - <code>"bytes"</code> — raw WAV-encoded bytes
+- <code>"numpy"</code> — <code>(sample_rate: int, audio: np.ndarray)</code> tuple
 - <code>"data_url"</code> — <code>data:audio/wav;base64,...</code> for inline embedding</p>
 <h2 id="choosing-a-model">Choosing a model<a class="headerlink" href="#choosing-a-model" title="Permanent link">&para;</a></h2>
-<p>Three pipeline families ship in the <code>HuggingFaceAudioModel</code> enum:</p>
+<h3 id="openai">OpenAI<a class="headerlink" href="#openai" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Enum member</th>
+<th>Model id</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TTS_1</code></td>
+<td><code>tts-1</code></td>
+<td>Fast, standard quality. Recommended for live narration</td>
+</tr>
+<tr>
+<td><code>TTS_1_HD</code></td>
+<td><code>tts-1-hd</code></td>
+<td>Slower, higher quality</td>
+</tr>
+</tbody>
+</table>
+<p>Voices (pass <code>voice=</code> to <code>generate</code>): <code>alloy</code>, <code>echo</code>, <code>fable</code>, <code>onyx</code>, <code>nova</code>, <code>shimmer</code>. Default: <code>alloy</code>.</p>
+<h3 id="huggingface">HuggingFace<a class="headerlink" href="#huggingface" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2340,223 +2396,179 @@
 </thead>
 <tbody>
 <tr>
-<td><code>MUSICGEN_SMALL</code></td>
-<td><code>facebook/musicgen-small</code></td>
-<td><code>musicgen</code></td>
-<td>Fastest; 300M params</td>
+<td><code>MMS_TTS_ENG</code></td>
+<td><code>facebook/mms-tts-eng</code></td>
+<td><code>tts_pipeline</code></td>
+<td>Fast; English only</td>
 </tr>
 <tr>
-<td><code>MUSICGEN_MEDIUM</code></td>
-<td><code>facebook/musicgen-medium</code></td>
-<td><code>musicgen</code></td>
-<td>Balanced quality</td>
+<td><code>SPEECHT5</code></td>
+<td><code>microsoft/speecht5_tts</code></td>
+<td><code>speecht5</code></td>
+<td>Good quality English; uses speaker embeddings (xvectors)</td>
 </tr>
 <tr>
-<td><code>MUSICGEN_LARGE</code></td>
-<td><code>facebook/musicgen-large</code></td>
-<td><code>musicgen</code></td>
-<td>Best quality; 3.3B params</td>
-</tr>
-<tr>
-<td><code>AUDIOLDM2</code></td>
-<td><code>cvssp/audioldm2</code></td>
-<td><code>audioldm2</code></td>
-<td>Diffusion model; general sound</td>
-</tr>
-<tr>
-<td><code>STABLE_AUDIO_OPEN</code></td>
-<td><code>stabilityai/stable-audio-open-1.0</code></td>
-<td><code>stable_audio</code></td>
-<td>Diffusion model; 44.1 kHz stereo</td>
+<td><code>BARK</code></td>
+<td><code>suno/bark</code></td>
+<td><code>bark</code></td>
+<td>Zero-shot voice codes; multilingual</td>
 </tr>
 </tbody>
 </table>
-<p><strong>MusicGen</strong> (<code>musicgen</code>) is token-autoregressive — it generates directly at 32 kHz without a diffusion loop, so there are no inference steps. Duration maps to a token count (~50 tokens/s).</p>
-<p><strong>AudioLDM2</strong> and <strong>Stable Audio Open</strong> (<code>audioldm2</code> / <code>stable_audio</code>) use latent diffusion — they accept <code>num_inference_steps</code> and support step-by-step streaming progress.</p>
+<p><strong>SpeechT5</strong> uses x-vector speaker embeddings for voice control. The default embedding (CMU Arctic index 7306) is loaded automatically from <code>datasets</code> on first call. To use a different speaker, pass <code>voice="N"</code> where N is an integer index into the <code>Matthijs/cmu-arctic-xvectors</code> dataset (0–1132):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">sr</span><span class="p">,</span> <span class="n">audio</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">&quot;42&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p><strong>BARK</strong> voice codes: <code>v2/en_speaker_6</code>, <code>v2/en_speaker_9</code>, etc. Pass as <code>voice=</code> to <code>generate</code>.</p>
+<p>Ad-hoc models via <code>"hf:&lt;repo_id&gt;"</code> — pipeline type inferred from known repo prefixes, defaults to <code>tts_pipeline</code>.</p>
 <h2 id="direct-client">Direct client<a class="headerlink" href="#direct-client" title="Permanent link">&para;</a></h2>
-<p>Build a client once, reuse it for multiple generations:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">audio_client</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">audio_client</span><span class="p">(</span><span class="s2">&quot;hf:facebook/musicgen-small&quot;</span><span class="p">)</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">for</span> <span class="n">prompt</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;lo-fi jazz loop&quot;</span><span class="p">,</span> <span class="s2">&quot;driving electronic beat&quot;</span><span class="p">,</span> <span class="s2">&quot;calm acoustic guitar&quot;</span><span class="p">]:</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">sr</span><span class="p">,</span> <span class="n">audio</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">prompt</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">audio</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">sr</span><span class="si">}</span><span class="s2"> Hz&quot;</span><span class="p">)</span>
+<p>Build a client once, reuse it for multiple synthesis calls (weights load on first call):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">speech_client</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;Good morning.&quot;</span><span class="p">,</span> <span class="s2">&quot;How can I help you today?&quot;</span><span class="p">,</span> <span class="s2">&quot;Have a great day!&quot;</span><span class="p">]:</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">&quot;nova&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;path&quot;</span><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 </span></code></pre></div>
 <p>You can also pass an enum member for IDE autocomplete:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">audio_client</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">HuggingFaceAudioModel</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">audio_client</span><span class="p">(</span><span class="n">HuggingFaceAudioModel</span><span class="o">.</span><span class="n">MUSICGEN_MEDIUM</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">speech_client</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenAISpeechModel</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="n">OpenAISpeechModel</span><span class="o">.</span><span class="n">TTS_1_HD</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="per-call-kwargs">Per-call kwargs<a class="headerlink" href="#per-call-kwargs" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
 <th>Kwarg</th>
-<th>Applies to</th>
-<th>Default</th>
 <th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>duration_s</code></td>
-<td>all</td>
-<td>10.0</td>
-<td>Seconds of audio to generate (max 30)</td>
+<td><code>voice</code></td>
+<td>Voice name (provider-specific; see above). Defaults to spec default (<code>"alloy"</code> for OpenAI).</td>
 </tr>
 <tr>
-<td><code>num_inference_steps</code></td>
-<td>diffusers (<code>audioldm2</code>, <code>stable_audio</code>)</td>
-<td>200</td>
-<td>More steps → higher quality, slower</td>
-</tr>
-<tr>
-<td><code>seed</code></td>
-<td>all</td>
-<td>None</td>
-<td>Reproducible output for MusicGen; passed to diffusers scheduler for others</td>
+<td><code>speed</code></td>
+<td>Playback speed multiplier. Default: <code>1.0</code>.</td>
 </tr>
 <tr>
 <td><code>num_audio</code></td>
-<td>all</td>
-<td>1</td>
-<td>Generate multiple clips in one call</td>
+<td>Generate multiple clips in one call (default: <code>1</code>).</td>
 </tr>
 <tr>
 <td><code>format</code></td>
-<td>all</td>
-<td><code>"numpy"</code></td>
-<td>Output format (see above)</td>
+<td>Output format (see above). Default: <code>"path"</code>.</td>
 </tr>
 <tr>
 <td><code>output_dir</code></td>
-<td>all</td>
-<td>None</td>
-<td>Directory for <code>format="path"</code>; defaults to <code>&lt;output&gt;/audio/</code></td>
+<td>Directory for <code>format="path"</code>; defaults to <code>&lt;output&gt;/speech/</code>.</td>
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Fast smoke test: 3 seconds, 10 diffusion steps</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">clip</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s2">&quot;rainstorm on a tin roof&quot;</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">duration_s</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;path&quot;</span><span class="p">,</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">)</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="c1"># Two clips, same call</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">clips</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;lo-fi beat&quot;</span><span class="p">,</span> <span class="n">num_audio</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="k">for</span> <span class="n">sr</span><span class="p">,</span> <span class="n">audio</span> <span class="ow">in</span> <span class="n">clips</span><span class="p">:</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">audio</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">sr</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Two clips, same call</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">clips</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">,</span> <span class="n">num_audio</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">for</span> <span class="n">wav</span> <span class="ow">in</span> <span class="n">clips</span><span class="p">:</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">wav</span><span class="p">),</span> <span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="streaming-progress">Streaming progress<a class="headerlink" href="#streaming-progress" title="Permanent link">&para;</a></h2>
-<p>Pass <code>stream=True</code> to get an iterator of <code>AUDIO_GENERATING</code> chunks. For MusicGen, one final chunk is emitted when generation completes. For diffusers models, one chunk per step plus a final chunk:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">audio_client</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">audio_client</span><span class="p">(</span><span class="s2">&quot;hf:cvssp/audioldm2&quot;</span><span class="p">)</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;summer thunderstorm&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">c</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;final&quot;</span><span class="p">]:</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done — saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;step&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;total_steps&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
+<p>Pass <code>stream=True</code> to get an iterator of <code>SPEECH_GENERATING</code> chunks. For OpenAI, chunks arrive as HTTP bytes stream with <code>total_chunks=None</code>. For HuggingFace (single-pass), one final chunk is emitted:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">speech_client</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;The quick brown fox jumps over the lazy dog.&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">c</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;final&quot;</span><span class="p">]:</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done — saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Chunk </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;chunk_index&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>chunk.content</code> shape for <code>AUDIO_GENERATING</code>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>{
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    &quot;step&quot;: int,            # current step (1-based; 0 before any step)
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    &quot;total_steps&quot;: int,     # total steps (1 for MusicGen)
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    &quot;final&quot;: bool,          # True on the last chunk per clip
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    &quot;result&quot;: str | bytes | tuple | None,  # encoded output on final chunk, None otherwise
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    &quot;duration_s&quot;: float,    # requested duration
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>}
+<p><code>chunk.content</code> shape for <code>SPEECH_GENERATING</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>{
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    &quot;chunk_index&quot;: int,          # 1-based index of this chunk
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    &quot;total_chunks&quot;: int | None,  # None for OpenAI (unknown upfront); 1 for HF single-pass
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    &quot;final&quot;: bool,               # True on the last chunk
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    &quot;result&quot;: str | bytes | ..., # encoded output on final chunk, None otherwise
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>}
 </span></code></pre></div>
-<p>Use <code>chunk.is_audio_progress()</code> to dispatch cleanly.</p>
+<p>Use <code>chunk.is_speech_progress()</code> to dispatch cleanly.</p>
 <h3 id="streaming-through-an-agent">Streaming through an agent<a class="headerlink" href="#streaming-through-an-agent" title="Permanent link">&para;</a></h3>
-<p>The built-in <code>generate_audio</code> tool is a generator. Its progress chunks flow through <code>agent.run(stream=True)</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">builtin</span><span class="o">.</span><span class="n">generate_audio</span><span class="p">])</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;compose a 10-second lo-fi beat&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_audio_progress</span><span class="p">():</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="n">c</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;final&quot;</span><span class="p">]:</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;step&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;total_steps&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>        <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  Saved: </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="k">elif</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<p>The built-in <code>generate_speech</code> tool is a generator. Its progress chunks flow through <code>agent.run(stream=True)</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">builtin</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">])</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Say hello in a warm, welcoming tone.&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_speech_progress</span><span class="p">():</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="n">c</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;final&quot;</span><span class="p">]:</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Saved: </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="k">elif</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="as-an-agent-tool">As an agent tool<a class="headerlink" href="#as-an-agent-tool" title="Permanent link">&para;</a></h2>
-<p>The built-in <code>generate_audio</code> tool lets any chat LLM call audio generation when the user asks. The LLM decides when to call it; the tool saves a WAV and returns the path.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;AIMU_AUDIO_MODEL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;hf:facebook/musicgen-small&quot;</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">client</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">text_client</span> <span class="o">=</span> <span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="n">text_client</span><span class="p">,</span>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="n">system_message</span><span class="o">=</span><span class="p">(</span>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>        <span class="s2">&quot;You can generate audio with the generate_audio tool. When the user asks &quot;</span>
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>        <span class="s2">&quot;for music or sound effects, call the tool and tell them where the file was saved.&quot;</span>
-</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="p">),</span>
-</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">builtin</span><span class="o">.</span><span class="n">generate_audio</span><span class="p">],</span>
-</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="p">)</span>
-</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>
-</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="n">response</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Make me a short lo-fi beat I can study to.&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<p>The tool uses a lazy module-level singleton — first call constructs an audio client from <code>AIMU_AUDIO_MODEL</code> (default: MusicGen small), subsequent calls reuse it.</p>
-<h3 id="per-agent-override-make_audio_tool">Per-agent override — <code>make_audio_tool</code><a class="headerlink" href="#per-agent-override-make_audio_tool" title="Permanent link">&para;</a></h3>
-<p>When you need a different model from the global singleton, or multiple agents in one process should use different pipelines:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">audio_client</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_audio_tool</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">medium</span> <span class="o">=</span> <span class="n">audio_client</span><span class="p">(</span><span class="s2">&quot;hf:facebook/musicgen-medium&quot;</span><span class="p">)</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">medium_tool</span> <span class="o">=</span> <span class="n">make_audio_tool</span><span class="p">(</span><span class="n">medium</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span> <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">medium_tool</span><span class="p">])</span>
-</span></code></pre></div>
-<p><code>make_audio_tool()</code> returns a fresh <code>@tool</code>-decorated callable bound to the supplied client; the singleton stays untouched. Pass <code>duration_s=</code> to fix the generation length, and <code>num_inference_steps=N</code> to override the default denoising step count (diffusers models only — AudioLDM2, Stable Audio; ignored by MusicGen).</p>
-<h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
-<p>The async surface mirrors the sync surface one-for-one. HuggingFace models load weights in-process, so the factory follows the wrap pattern — build a sync client first and pass it to <code>aio.audio_client()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">audio_client</span>
+<p>The built-in <code>generate_speech</code> tool lets any chat LLM call TTS when the user asks. The LLM decides when to call it; the tool saves a WAV and returns the path.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;AIMU_SPEECH_MODEL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;hf:microsoft/speecht5_tts&quot;</span>
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">audio_client</span><span class="p">(</span><span class="s2">&quot;hf:facebook/musicgen-small&quot;</span><span class="p">)</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">audio_client</span><span class="p">(</span><span class="n">sync</span><span class="p">)</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_two</span><span class="p">():</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;lo-fi beat&quot;</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="mf">5.0</span><span class="p">),</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;ambient wind&quot;</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="mf">5.0</span><span class="p">),</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="p">)</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">client</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">text_client</span> <span class="o">=</span> <span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">text_client</span><span class="p">,</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">system_message</span><span class="o">=</span><span class="p">(</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        <span class="s2">&quot;You can speak responses using the generate_speech tool. &quot;</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        <span class="s2">&quot;When the user asks you to say something aloud, call the tool.&quot;</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="p">),</span>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">builtin</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">],</span>
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="p">)</span>
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="n">response</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Please say &#39;Welcome to AIMU&#39; in a friendly voice.&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>generate()</code> routes through <code>asyncio.to_thread</code> so the event loop stays free during inference. On a single GPU, sibling <code>gather</code>-ed calls don't truly overlap (CUDA streams and the GIL serialize), but the event loop stays free for other coroutines.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Async one-shot</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+<p>The tool uses a lazy module-level singleton — first call constructs a speech client from <code>AIMU_SPEECH_MODEL</code> (default: <code>"hf:microsoft/speecht5_tts"</code>), subsequent calls reuse it.</p>
+<h3 id="per-agent-override-make_speech_tool">Per-agent override — <code>make_speech_tool</code><a class="headerlink" href="#per-agent-override-make_speech_tool" title="Permanent link">&para;</a></h3>
+<p>When you need a specific voice or speed from the global singleton, or multiple agents should use different voices:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">speech_client</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_speech_tool</span>
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">path</span> <span class="o">=</span> <span class="k">await</span> <span class="n">aio</span><span class="o">.</span><span class="n">generate_audio</span><span class="p">(</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="s2">&quot;driving electronic beat&quot;</span><span class="p">,</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;hf:facebook/musicgen-small&quot;</span><span class="p">,</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;path&quot;</span><span class="p">,</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">duration_s</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="p">)</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">client_nova</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">nova_tool</span> <span class="o">=</span> <span class="n">make_speech_tool</span><span class="p">(</span><span class="n">client_nova</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">&quot;nova&quot;</span><span class="p">,</span> <span class="n">speed</span><span class="o">=</span><span class="mf">1.1</span><span class="p">)</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">nova_tool</span><span class="p">])</span>
+</span></code></pre></div>
+<p><code>make_speech_tool()</code> returns a fresh <code>@tool</code>-decorated callable bound to the supplied client; the singleton stays untouched.</p>
+<h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
+<p>The async surface mirrors the sync surface. Build a sync client first and pass it to <code>aio.speech_client()</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">speech_client</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">speech_client</span><span class="p">(</span><span class="n">sync</span><span class="p">)</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">narrate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="p">[</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="p">])</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="k">return</span> <span class="n">results</span>
+</span></code></pre></div>
+<p><code>generate()</code> routes through <code>asyncio.to_thread</code> so the event loop stays free during API calls.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Async one-shot — pass a sync client as model</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">speech_client</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">wav</span> <span class="o">=</span> <span class="k">await</span> <span class="n">aio</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">sync</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../reference/model-matrix/">Reference: model matrix</a> — audio model table with pipeline types and defaults.</li>
-<li><a href="../../reference/stream-phases/">Reference: stream phases</a> — <code>AUDIO_GENERATING</code> chunk shape.</li>
-<li><a href="../../reference/env-vars/">Reference: env vars</a> — <code>AIMU_AUDIO_MODEL</code>.</li>
-<li><a href="https://github.com/saxman/aimu/tree/main/notebooks">Notebook 16 — Audio Generation</a> — runnable end-to-end demo.</li>
-<li><a href="../generate-images/">Generate images</a> — the image surface, which this mirrors.</li>
-<li><a href="../generate-speech/">Generate speech</a> — the TTS surface (<code>aimu.speech_client()</code> / <code>aimu.generate_speech()</code>). Audio and speech are separate modalities: audio generates music/sounds from descriptive prompts; speech converts literal text to spoken audio.</li>
+<li><a href="../../reference/stream-phases/">Reference: stream phases</a> — <code>SPEECH_GENERATING</code> chunk shape.</li>
+<li><a href="../../reference/env-vars/">Reference: env vars</a> — <code>AIMU_SPEECH_MODEL</code>.</li>
+<li><a href="../generate-audio/">Generate audio</a> — the music/sound surface, which this mirrors.</li>
+<li><a href="https://github.com/saxman/aimu/tree/main/notebooks">Notebook 17 — Speech</a> — runnable end-to-end demo (TTS now, STT placeholder).</li>
 </ul>
 
 

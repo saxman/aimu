@@ -2344,13 +2344,13 @@
 <img alt="AIMU" src="assets/aimu-horizontal-dark.svg#only-dark" width="400" /></p>
 </div>
 <h1 id="aimu">AIMU<a class="headerlink" href="#aimu" title="Permanent link">&para;</a></h1>
-<p><strong>AI Modeling Utilities</strong> — a lightweight Python library for building AI-powered applications with a consistent, provider-agnostic interface across text, images, and audio.</p>
-<p>Language models are the primary building block, with the same interface extending to image generation and audio processing. AIMU separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a plain model client is accepted. Tool integration is structural (not a plugin), semantic and document memory can be dropped in, and a prompt-tuning loop optimises prompts against labelled data without ML machinery.</p>
+<p><strong>AI Modeling Utilities</strong> — a lightweight Python library for building AI-powered applications with a consistent, provider-agnostic interface across text, images, audio, and speech.</p>
+<p>Language models are the primary building block, with the same interface extending to image generation, audio generation, and text-to-speech. AIMU separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a plain model client is accepted. Tool integration is structural (not a plugin), semantic and document memory can be dropped in, and a prompt-tuning loop optimises prompts against labelled data without ML machinery.</p>
 <hr />
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>all<span class="o">]</span>
 </span></code></pre></div>
-<p>Or pick the providers you need: <code>aimu[ollama]</code>, <code>aimu[anthropic]</code>, <code>aimu[openai_compat]</code>, <code>aimu[hf]</code> (text + HF <code>diffusers</code> image generation), <code>aimu[google]</code> (Google Nano Banana image generation), <code>aimu[llamacpp]</code>.</p>
+<p>Or pick the providers you need: <code>aimu[ollama]</code>, <code>aimu[anthropic]</code>, <code>aimu[openai_compat]</code> (also enables OpenAI TTS), <code>aimu[hf]</code> (text + HF image + audio + TTS), <code>aimu[google]</code> (Google Nano Banana image), <code>aimu[llamacpp]</code>.</p>
 <h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
@@ -2388,6 +2388,8 @@
 <ul>
 <li><strong>Provider-agnostic clients</strong> — Ollama, HuggingFace, llama-cpp, Anthropic, OpenAI, Gemini, plus every OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve).</li>
 <li><strong>Text-to-image</strong> — <code>aimu.image_client()</code> and <code>aimu.generate_image()</code> parallel the text surface. HuggingFace <code>diffusers</code> for local generation (SD 1.5 / SDXL / SD 3.5 / FLUX), Google Nano Banana for cloud. Drops into any chat agent via the built-in <code>generate_image</code> tool. See <a href="how-to/generate-images/">how-to: generate images</a>.</li>
+<li><strong>Text-to-audio</strong> — <code>aimu.audio_client()</code> and <code>aimu.generate_audio()</code> for music and sound generation (not TTS). HuggingFace MusicGen, AudioLDM2, and Stable Audio Open. See <a href="how-to/generate-audio/">how-to: generate audio</a>.</li>
+<li><strong>Text-to-speech</strong> — <code>aimu.speech_client()</code> and <code>aimu.generate_speech()</code> for TTS. HuggingFace MMS-TTS/BARK locally; OpenAI tts-1/tts-1-hd in the cloud. Live sentence-by-sentence narration in the Streamlit chatbot. See <a href="how-to/generate-speech/">how-to: generate speech</a>.</li>
 <li><strong>Agents and workflows</strong> — <code>Agent</code> for autonomous tool-using loops; <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>EvaluatorOptimizer</code> for code-controlled patterns from Anthropic's <em>Building Effective Agents</em>.</li>
 <li><strong>Tools</strong> — <code>@tool</code> decorator for plain Python functions, plus a synchronous <code>MCPClient</code> wrapper for cross-process tools.</li>
 <li><strong>Skills</strong> — filesystem-discovered <code>SKILL.md</code> files that auto-inject capabilities into a <code>SkillAgent</code>.</li>
@@ -2397,9 +2399,9 @@
 <li><strong>Optional async surface</strong> — <code>aimu.aio</code> mirrors the whole sync API (same class names, one-import-away). <code>Parallel</code> and <code>concurrent_tool_calls</code> use <code>asyncio.TaskGroup</code> for structured concurrency. See <a href="explanation/async-design/">async design</a>.</li>
 </ul>
 <h2 id="notebooks">Notebooks<a class="headerlink" href="#notebooks" title="Permanent link">&para;</a></h2>
-<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 15 runnable demos covering every subsystem end-to-end, including a dedicated <code>14 - Async</code> notebook for the <code>aimu.aio</code> surface and <code>15 - Image Generation</code> for text-to-image. The <a href="https://github.com/saxman/aimu#examples">README</a> lists each one.</p>
+<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 17 runnable demos covering every subsystem end-to-end, including <code>14 - Async</code>, <code>15 - Image Generation</code>, <code>16 - Audio Generation</code>, and <code>17 - Speech</code> (TTS now, STT placeholder for Whisper). The <a href="https://github.com/saxman/aimu#examples">README</a> lists each one.</p>
 <h2 id="web-apps">Web apps<a class="headerlink" href="#web-apps" title="Permanent link">&para;</a></h2>
-<p>The <a href="https://github.com/saxman/aimu/tree/main/web"><code>web/</code></a> directory ships two Streamlit chat applications. <code>streamlit_chatbot_basic.py</code> (~70 lines) is a minimal showcase — provider/model selector, streaming chat, built-in tools — illustrating how little code a working AIMU chatbot takes. <code>streamlit_chatbot.py</code> is a full-featured version that adds image generation, agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included.</p>
+<p>The <a href="https://github.com/saxman/aimu/tree/main/web"><code>web/</code></a> directory ships two Streamlit chat applications. <code>streamlit_chatbot_basic.py</code> (~70 lines) is a minimal showcase — provider/model selector, streaming chat, built-in tools — illustrating how little code a working AIMU chatbot takes. <code>streamlit_chatbot.py</code> is a full-featured version that adds image generation, audio generation, speech narration (live sentence-by-sentence TTS as the model streams), agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included.</p>
 
 
 

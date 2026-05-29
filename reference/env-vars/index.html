@@ -2382,10 +2382,16 @@
 <td><code>aimu.tools.builtin.generate_audio</code> (lazy singleton)</td>
 <td><code>hf:facebook/musicgen-small</code></td>
 </tr>
+<tr>
+<td><code>AIMU_SPEECH_MODEL</code></td>
+<td><code>aimu.tools.builtin.generate_speech</code> (lazy singleton)</td>
+<td><code>hf:microsoft/speecht5_tts</code></td>
+</tr>
 </tbody>
 </table>
 <p>The built-in <code>generate_image</code> tool constructs its image client lazily on first call, picking the provider and model from <code>AIMU_IMAGE_MODEL</code>. Accepts any string supported by <code>aimu.image_client()</code> — <code>"hf:&lt;repo&gt;"</code> or <code>"gemini:&lt;id_or_alias&gt;"</code>. Override per-agent by building your own tool with <code>make_image_tool(client)</code> instead of using the singleton.</p>
 <p>The built-in <code>generate_audio</code> tool follows the same pattern. <code>AIMU_AUDIO_MODEL</code> accepts any string supported by <code>aimu.audio_client()</code> — currently <code>"hf:&lt;repo&gt;"</code>. Override per-agent with <code>make_audio_tool(client)</code> instead of using the singleton.</p>
+<p>The built-in <code>generate_speech</code> tool follows the same pattern. <code>AIMU_SPEECH_MODEL</code> accepts any string supported by <code>aimu.speech_client()</code> — <code>"openai:&lt;model_id&gt;"</code> (requires <code>OPENAI_API_KEY</code>) or <code>"hf:&lt;repo_id&gt;"</code>. Override per-agent with <code>make_speech_tool(client)</code> instead of using the singleton.</p>
 <h2 id="mcp-server-storage-paths">MCP server storage paths<a class="headerlink" href="#mcp-server-storage-paths" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2429,10 +2435,13 @@
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Audio generation default (used by the built-in generate_audio tool)</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="na">AIMU_AUDIO_MODEL</span><span class="o">=</span><span class="s">hf:facebook/musicgen-small</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># MCP server storage</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="na">MEMORY_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/memory</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="na">DOCUMENT_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/docs</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="na">PROMPT_CATALOG_PATH</span><span class="o">=</span><span class="s">./.aimu/prompts.db</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Speech generation default (used by the built-in generate_speech tool)</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="na">AIMU_SPEECH_MODEL</span><span class="o">=</span><span class="s">hf:microsoft/speecht5_tts</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># MCP server storage</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="na">MEMORY_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/memory</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="na">DOCUMENT_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/docs</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="na">PROMPT_CATALOG_PATH</span><span class="o">=</span><span class="s">./.aimu/prompts.db</span>
 </span></code></pre></div>
 <p>Place it in your project root. Don't commit it — add <code>.env</code> to <code>.gitignore</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

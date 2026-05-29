@@ -2370,6 +2370,12 @@
 <td><code>dict {"step": int, "total_steps": int, "final": bool, "result": str \| bytes \| tuple \| None, "duration_s": float}</code></td>
 </tr>
 <tr>
+<td><code>SPEECH_GENERATING</code></td>
+<td><code>"speech_generating"</code></td>
+<td>Per-chunk speech-generation progress (one final chunk for HuggingFace single-pass; N chunks for OpenAI HTTP stream)</td>
+<td><code>dict {"chunk_index": int, "total_chunks": int \| None, "final": bool, "result": str \| bytes \| ... \| None}</code></td>
+</tr>
+<tr>
 <td><code>DONE</code></td>
 <td><code>"done"</code></td>
 <td>Terminal marker (rarely yielded; reserved)</td>
@@ -2383,6 +2389,7 @@
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>        <span class="c1"># True for TOOL_CALLING</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_image_progress</span><span class="p">()</span>   <span class="c1"># True for IMAGE_GENERATING</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_audio_progress</span><span class="p">()</span>   <span class="c1"># True for AUDIO_GENERATING</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_speech_progress</span><span class="p">()</span>  <span class="c1"># True for SPEECH_GENERATING</span>
 </span></code></pre></div>
 <p>These avoid sprinkling phase comparisons through your code.</p>
 <h2 id="typical-sequences">Typical sequences<a class="headerlink" href="#typical-sequences" title="Permanent link">&para;</a></h2>
@@ -2428,6 +2435,7 @@
 <li><a href="../../how-to/stream-output/">How-to: stream output</a> — practical patterns</li>
 <li><a href="../../how-to/generate-images/">How-to: generate images</a> — <code>IMAGE_GENERATING</code> chunks</li>
 <li><a href="../../how-to/generate-audio/">How-to: generate audio</a> — <code>AUDIO_GENERATING</code> chunks</li>
+<li><a href="../../how-to/generate-speech/">How-to: generate speech</a> — <code>SPEECH_GENERATING</code> chunks</li>
 <li><a href="../api/models/#aimu.models.StreamingContentType"><code>aimu.models.StreamingContentType</code></a> — API reference</li>
 </ul>
 
