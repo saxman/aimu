@@ -22,8 +22,8 @@ def parse_evaluator_response(text: str) -> dict:
         if 1 <= val <= 10:
             score = val
 
-    done_match = re.search(r'DONE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE)
-    continue_match = re.search(r'CONTINUE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE)
+    done_match = re.search(r'^DONE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
+    continue_match = re.search(r'^CONTINUE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
 
     # DONE takes priority if both are present
     if done_match:

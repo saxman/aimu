@@ -90,3 +90,10 @@ def test_get_ollama_model_unknown():
 def test_get_ollama_model_no_vision():
     with pytest.raises(ValueError, match="does not support vision"):
         get_ollama_model("llama3.1:8b")
+
+
+def test_parse_does_not_match_done_mid_sentence():
+    text = "Not done: the hotdog needs more heat. Score: 5/10\nCONTINUE: hotter hotdog on fire"
+    result = parse_evaluator_response(text)
+    assert result["action"] == "CONTINUE"
+    assert result["next_prompt"] == "hotter hotdog on fire"
