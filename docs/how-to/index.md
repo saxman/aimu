@@ -13,6 +13,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 - [Handle vision input](handle-vision.md) — pass images via `images=`
 - [Generate images](generate-images.md) — `aimu.image_client()` / `generate_image()` with HuggingFace `diffusers` + Google Nano Banana
 - [Generate audio](generate-audio.md) — `aimu.audio_client()` / `generate_audio()` with HuggingFace MusicGen, AudioLDM2, and Stable Audio
+- [Generate speech](generate-speech.md) — `aimu.speech_client()` / `generate_speech()` for TTS with HuggingFace MMS-TTS/BARK or OpenAI tts-1/tts-1-hd
 
 ## Tools
 

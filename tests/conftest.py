@@ -71,3 +71,23 @@ def pytest_addoption(parser):
             "Defaults to 'all' within the selected --audio-client."
         ),
     )
+
+    parser.addoption(
+        "--speech-client",
+        action="store",
+        default=None,
+        help=(
+            "Speech client to test live: 'hf', 'openai', or 'all'. Required to enable "
+            "live tests in tests/test_speech.py — omit to skip them."
+        ),
+    )
+
+    parser.addoption(
+        "--speech-model",
+        action="store",
+        default="all",
+        help=(
+            "Speech model enum member name (e.g. MMS_TTS_ENG, TTS_1). "
+            "Defaults to 'all' within the selected --speech-client."
+        ),
+    )

@@ -36,12 +36,15 @@ from .models import (
     HAS_GEMINI_IMAGE,
     HAS_HF_AUDIO,
     HAS_HF_IMAGE,
+    HAS_HF_SPEECH,
+    HAS_OPENAI_SPEECH,
     AudioClient,
     AudioModel,
     AudioSpec,
     BaseAudioClient,
     BaseImageClient,
     BaseModelClient,
+    BaseSpeechClient,
     GeminiImageClient,
     GeminiImageModel,
     GeminiImageSpec,
@@ -51,17 +54,28 @@ from .models import (
     HuggingFaceImageClient,
     HuggingFaceImageModel,
     HuggingFaceImageSpec,
+    HuggingFaceSpeechClient,
+    HuggingFaceSpeechModel,
+    HuggingFaceSpeechSpec,
     ImageClient,
     ImageModel,
     ImageSpec,
     Model,
     ModelClient,
     ModelSpec,
+    OpenAISpeechClient,
+    OpenAISpeechModel,
+    OpenAISpeechSpec,
+    SpeechClient,
+    SpeechModel,
+    SpeechSpec,
     StreamChunk,
     StreamingContentType,
+    available_speech_clients,
     resolve_audio_model_string,
     resolve_image_model_string,
     resolve_model_string,
+    resolve_speech_model_string,
 )
 
 
@@ -201,6 +215,43 @@ def generate_audio(
     return c.generate(prompt, format=format, **kwargs)
 
 
+def speech_client(model: Union[str, SpeechModel, SpeechSpec], **kwargs: Any) -> SpeechClient:
+    """Construct a :class:`SpeechClient` for text-to-speech generation.
+
+    ``model`` may be a :class:`HuggingFaceSpeechModel` / :class:`OpenAISpeechModel`
+    member, a :class:`SpeechSpec`, or a ``"provider:model_id"`` string
+    (``"hf:..."`` for HuggingFace; ``"openai:..."`` for OpenAI TTS).
+    Extra ``**kwargs`` are forwarded as ``model_kwargs`` to the underlying client.
+
+    Example::
+
+        client = aimu.speech_client("openai:tts-1")
+        client = aimu.speech_client(aimu.HuggingFaceSpeechModel.MMS_TTS_ENG)
+    """
+    return SpeechClient(model, model_kwargs=kwargs or None)
+
+
+def generate_speech(
+    text: str,
+    *,
+    model: Union[str, SpeechModel, SpeechSpec],
+    format: str = "path",
+    **kwargs: Any,
+) -> Any:
+    """One-shot speech synthesis — builds a fresh client and returns one audio clip.
+
+    For repeated synthesis, construct a client with :func:`speech_client` and
+    reuse it so API clients aren't rebuilt per call.
+
+    Example::
+
+        path = aimu.generate_speech("Hello, world!", model="openai:tts-1")
+        sr, audio = aimu.generate_speech("Hello", model="hf:facebook/mms-tts-eng", format="numpy")
+    """
+    c = speech_client(model)
+    return c.generate(text, format=format, **kwargs)
+
+
 def image_client(model: Union[str, ImageModel, ImageSpec], **kwargs: Any) -> ImageClient:
     """Construct an :class:`ImageClient` for text-to-image generation.
 
@@ -258,9 +309,12 @@ __all__ = [
     "BaseAudioClient",
     "BaseImageClient",
     "BaseModelClient",
+    "BaseSpeechClient",
     "HAS_GEMINI_IMAGE",
     "HAS_HF_AUDIO",
     "HAS_HF_IMAGE",
+    "HAS_HF_SPEECH",
+    "HAS_OPENAI_SPEECH",
     "GeminiImageClient",
     "GeminiImageModel",
     "GeminiImageSpec",
@@ -270,23 +324,36 @@ __all__ = [
     "HuggingFaceImageClient",
     "HuggingFaceImageModel",
     "HuggingFaceImageSpec",
+    "HuggingFaceSpeechClient",
+    "HuggingFaceSpeechModel",
+    "HuggingFaceSpeechSpec",
     "ImageClient",
     "ImageModel",
     "ImageSpec",
     "Model",
     "ModelClient",
     "ModelSpec",
+    "OpenAISpeechClient",
+    "OpenAISpeechModel",
+    "OpenAISpeechSpec",
+    "SpeechClient",
+    "SpeechModel",
+    "SpeechSpec",
     "StreamChunk",
     "StreamingContentType",
     "agent",
     "aio",
     "audio_client",
+    "available_speech_clients",
     "chat",
     "client",
     "generate_audio",
     "generate_image",
+    "generate_speech",
     "image_client",
     "resolve_audio_model_string",
     "resolve_image_model_string",
     "resolve_model_string",
+    "resolve_speech_model_string",
+    "speech_client",
 ]

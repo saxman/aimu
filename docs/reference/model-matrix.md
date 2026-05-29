@@ -155,9 +155,42 @@ Audio clients use `HuggingFaceAudioSpec` — distinct from the image and text sp
 
 Override per call with `duration_s=`, `num_inference_steps=`, `seed=`, `num_audio=`. Power users can bypass the enum with `"hf:<repo_id>"` for any compatible model (pipeline type inferred from known repo prefixes, defaulting to `musicgen`).
 
+## Speech generation
+
+Speech clients use `SpeechSpec` subclasses — distinct from image and audio spec classes. Speech is text-to-speech (TTS) only; speech-to-text will use a separate `BaseTranscriptionClient` surface.
+
+### HuggingFace (`HuggingFaceSpeechModel`)
+
+| Enum member | Repo id | Pipeline type | Sample rate | Default voice |
+|---|---|---|:---:|---|
+| `MMS_TTS_ENG` | `facebook/mms-tts-eng` | `tts_pipeline` | 16 kHz | N/A |
+| `SPEECHT5` | `microsoft/speecht5_tts` | `speecht5` | 16 kHz | CMU Arctic xvectors idx 7306 |
+| `BARK` | `suno/bark` | `bark` | 24 kHz | `v2/en_speaker_6` |
+
+**Pipeline types:**
+- `tts_pipeline` — HuggingFace `pipeline("text-to-speech")`. Any compatible TTS pipeline model.
+- `speecht5` — `SpeechT5ForTextToSpeech` + `SpeechT5HifiGan` vocoder + x-vector speaker embeddings. Default embedding loads from `Matthijs/cmu-arctic-xvectors` (index 7306) on first call. Pass `voice="N"` to use a different dataset index (0–1132); the dataset is cached on the client after the first lookup.
+- `bark` — zero-shot voice cloning. Pass `voice=` a Bark voice code (`"v2/en_speaker_6"`, `"v2/en_speaker_9"`, etc.).
+
+Power users can bypass the enum with `"hf:<repo_id>"` for any compatible model (pipeline type inferred from known repo prefixes, defaulting to `tts_pipeline`).
+
+### OpenAI (`OpenAISpeechModel`)
+
+Requires `OPENAI_API_KEY`.
+
+| Enum member | Model id | Notes |
+|---|---|---|
+| `TTS_1` | `tts-1` | Fast, standard quality. Recommended for live narration. |
+| `TTS_1_HD` | `tts-1-hd` | Slower, higher quality. |
+
+Available voices: `alloy` (default), `echo`, `fable`, `onyx`, `nova`, `shimmer`. Pass as `voice=` to `generate()`. OpenAI returns raw 24 kHz 16-bit PCM; `encode_audio()` handles WAV conversion.
+
+Override per call with `voice=`, `speed=`, `num_audio=`. Override per-agent with `make_speech_tool(client, voice=..., speed=...)`.
+
 ## See also
 
 - [Provider matrix](provider-matrix.md) — provider × extra × API key
 - [How-to: add a new model](../how-to/add-new-model.md) — extending these enums
 - [How-to: generate images](../how-to/generate-images.md) — using the image surface
 - [How-to: generate audio](../how-to/generate-audio.md) — using the audio surface
+- [How-to: generate speech](../how-to/generate-speech.md) — using the speech surface

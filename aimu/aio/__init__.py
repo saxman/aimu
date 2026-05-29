@@ -44,6 +44,7 @@ from ._model_client import AsyncModelClient, client, chat
 from .agent import Agent, AsyncRunner
 from .audio import AsyncAudioClient, audio_client, generate_audio
 from .image import AsyncImageClient, generate_image, image_client
+from .speech import AsyncSpeechClient, speech_client, generate_speech
 from .skill_agent import SkillAgent
 from .orchestrator_agent import OrchestratorAgent
 from .workflows.chain import Chain
@@ -67,15 +68,28 @@ try:
 except ImportError:
     AsyncGeminiImageClient = None  # type: ignore[assignment,misc]
 
+try:
+    from .providers.hf_speech import AsyncHuggingFaceSpeechClient
+except ImportError:
+    AsyncHuggingFaceSpeechClient = None  # type: ignore[assignment,misc]
+
+try:
+    from .providers.openai_speech import AsyncOpenAISpeechClient
+except ImportError:
+    AsyncOpenAISpeechClient = None  # type: ignore[assignment,misc]
+
 __all__ = [
     "Agent",
     "AsyncAudioClient",
     "AsyncGeminiImageClient",
     "AsyncHuggingFaceAudioClient",
     "AsyncHuggingFaceImageClient",
+    "AsyncHuggingFaceSpeechClient",
     "AsyncImageClient",
     "AsyncModelClient",
+    "AsyncOpenAISpeechClient",
     "AsyncRunner",
+    "AsyncSpeechClient",
     "Chain",
     "EvaluatorOptimizer",
     "MCPClient",
@@ -89,5 +103,7 @@ __all__ = [
     "client",
     "generate_audio",
     "generate_image",
+    "generate_speech",
     "image_client",
+    "speech_client",
 ]

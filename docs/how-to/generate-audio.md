@@ -239,3 +239,4 @@ path = await aio.generate_audio(
 - [Reference: env vars](../reference/env-vars.md) — `AIMU_AUDIO_MODEL`.
 - [Notebook 16 — Audio Generation](https://github.com/saxman/aimu/tree/main/notebooks) — runnable end-to-end demo.
 - [Generate images](generate-images.md) — the image surface, which this mirrors.
+- [Generate speech](generate-speech.md) — the TTS surface (`aimu.speech_client()` / `aimu.generate_speech()`). Audio and speech are separate modalities: audio generates music/sounds from descriptive prompts; speech converts literal text to spoken audio.

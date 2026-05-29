@@ -19,10 +19,13 @@ If missing, the text clients construct successfully but the first request raises
 | `SEARXNG_BASE_URL` | `aimu.tools.builtin.web_search` | `http://localhost:8080` |
 | `AIMU_IMAGE_MODEL` | `aimu.tools.builtin.generate_image` (lazy singleton) | `hf:stabilityai/stable-diffusion-xl-base-1.0` |
 | `AIMU_AUDIO_MODEL` | `aimu.tools.builtin.generate_audio` (lazy singleton) | `hf:facebook/musicgen-small` |
+| `AIMU_SPEECH_MODEL` | `aimu.tools.builtin.generate_speech` (lazy singleton) | `hf:microsoft/speecht5_tts` |
 
 The built-in `generate_image` tool constructs its image client lazily on first call, picking the provider and model from `AIMU_IMAGE_MODEL`. Accepts any string supported by `aimu.image_client()` — `"hf:<repo>"` or `"gemini:<id_or_alias>"`. Override per-agent by building your own tool with `make_image_tool(client)` instead of using the singleton.
 
 The built-in `generate_audio` tool follows the same pattern. `AIMU_AUDIO_MODEL` accepts any string supported by `aimu.audio_client()` — currently `"hf:<repo>"`. Override per-agent with `make_audio_tool(client)` instead of using the singleton.
+
+The built-in `generate_speech` tool follows the same pattern. `AIMU_SPEECH_MODEL` accepts any string supported by `aimu.speech_client()` — `"openai:<model_id>"` (requires `OPENAI_API_KEY`) or `"hf:<repo_id>"`. Override per-agent with `make_speech_tool(client)` instead of using the singleton.
 
 ## MCP server storage paths
 
@@ -50,6 +53,9 @@ AIMU_IMAGE_MODEL=gemini:nano-banana
 
 # Audio generation default (used by the built-in generate_audio tool)
 AIMU_AUDIO_MODEL=hf:facebook/musicgen-small
+
+# Speech generation default (used by the built-in generate_speech tool)
+AIMU_SPEECH_MODEL=hf:microsoft/speecht5_tts
 
 # MCP server storage
 MEMORY_STORE_PATH=./.aimu/memory

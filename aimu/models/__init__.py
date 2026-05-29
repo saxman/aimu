@@ -6,18 +6,24 @@ from .base import (
     BaseAudioClient,
     BaseImageClient,
     BaseModelClient,
+    BaseSpeechClient,
     GeminiImageSpec,
     HuggingFaceAudioSpec,
     HuggingFaceImageSpec,
+    HuggingFaceSpeechSpec,
     ImageModel,
     ImageSpec,
     Model,
     ModelSpec,
+    OpenAISpeechSpec,
+    SpeechModel,
+    SpeechSpec,
     StreamChunk,
     StreamingContentType,
 )
 from .image_client import ImageClient, resolve_image_model_string
 from .model_client import ModelClient, resolve_model_string
+from .speech_client import SpeechClient, resolve_speech_model_string
 
 # Optional imports with graceful fallbacks
 try:
@@ -126,6 +132,24 @@ except ImportError:
     HuggingFaceAudioClient = None
     HuggingFaceAudioModel = None
 
+try:
+    from .hf_speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
+
+    HAS_HF_SPEECH = True
+except ImportError:
+    HAS_HF_SPEECH = False
+    HuggingFaceSpeechClient = None
+    HuggingFaceSpeechModel = None
+
+try:
+    from .openai_speech import OpenAISpeechClient, OpenAISpeechModel
+
+    HAS_OPENAI_SPEECH = True
+except ImportError:
+    HAS_OPENAI_SPEECH = False
+    OpenAISpeechClient = None
+    OpenAISpeechModel = None
+
 # Expose what's available
 __all__ = [
     "AudioClient",
@@ -134,23 +158,31 @@ __all__ = [
     "BaseAudioClient",
     "BaseImageClient",
     "BaseModelClient",
+    "BaseSpeechClient",
     "GeminiImageSpec",
     "HuggingFaceAudioSpec",
     "HuggingFaceImageSpec",
+    "HuggingFaceSpeechSpec",
     "ImageClient",
     "ImageModel",
     "ImageSpec",
     "Model",
     "ModelClient",
     "ModelSpec",
+    "OpenAISpeechSpec",
+    "SpeechClient",
+    "SpeechModel",
+    "SpeechSpec",
     "StreamChunk",
     "StreamingContentType",
     "available_audio_clients",
     "available_image_clients",
+    "available_speech_clients",
     "available_text_clients",
     "resolve_audio_model_string",
     "resolve_image_model_string",
     "resolve_model_string",
+    "resolve_speech_model_string",
 ]
 if HAS_HF:
     __all__.extend(["HuggingFaceClient", "HuggingFaceModel", "ToolCallFormat"])
@@ -188,6 +220,10 @@ if HAS_GEMINI_IMAGE:
     __all__.extend(["GeminiImageClient", "GeminiImageModel"])
 if HAS_HF_AUDIO:
     __all__.extend(["HuggingFaceAudioClient", "HuggingFaceAudioModel"])
+if HAS_HF_SPEECH:
+    __all__.extend(["HuggingFaceSpeechClient", "HuggingFaceSpeechModel"])
+if HAS_OPENAI_SPEECH:
+    __all__.extend(["OpenAISpeechClient", "OpenAISpeechModel"])
 
 
 def available_text_clients() -> list[type[BaseModelClient]]:
@@ -232,4 +268,14 @@ def available_audio_clients() -> list[type[BaseAudioClient]]:
     clients: list[type[BaseAudioClient]] = []
     if HAS_HF_AUDIO:
         clients.append(HuggingFaceAudioClient)
+    return clients
+
+
+def available_speech_clients() -> list:
+    """Return client classes for all installed speech (TTS) providers, in display order."""
+    clients = []
+    if HAS_OPENAI_SPEECH:
+        clients.append(OpenAISpeechClient)
+    if HAS_HF_SPEECH:
+        clients.append(HuggingFaceSpeechClient)
     return clients
