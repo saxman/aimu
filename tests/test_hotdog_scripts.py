@@ -120,3 +120,120 @@ def test_loop_arg_parser_overrides():
     assert args.eval_model == "gemma4:26b"
     assert args.output_dir == "/tmp/hotdog"
     assert args.max_iterations == 3
+
+
+import json
+from unittest.mock import MagicMock
+
+
+def test_agent_arg_parser_defaults():
+    from hotdog_agent import build_arg_parser
+    args = build_arg_parser().parse_args([])
+    assert args.image_model == "FLUX_SCHNELL"
+    assert args.eval_model == "gemma4:e4b"
+    assert args.output_dir is None
+    assert args.max_iterations == 10
+
+
+def test_agent_parse_trace_single_iteration():
+    from hotdog_agent import parse_agent_trace
+    messages = [
+        {"role": "user", "content": "Start the experiment."},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{
+                "id": "c1", "type": "function",
+                "function": {"name": "generate_hotdog_image", "arguments": json.dumps({"prompt": "a hot hotdog"})},
+            }],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "/out/01.png"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{
+                "id": "c2", "type": "function",
+                "function": {"name": "evaluate_hotness", "arguments": json.dumps({"image_path": "/out/01.png"})},
+            }],
+        },
+        {"role": "tool", "tool_call_id": "c2", "content": "9/10\nDONE: Maximum achieved."},
+        {"role": "assistant", "content": "Experiment complete."},
+    ]
+    trace = parse_agent_trace(messages)
+    assert len(trace) == 1
+    assert trace[0]["iteration"] == 1
+    assert trace[0]["prompt"] == "a hot hotdog"
+    assert trace[0]["image_path"] == "/out/01.png"
+    assert trace[0]["score"] == 9
+    assert trace[0]["action"] == "DONE"
+
+
+def test_agent_parse_trace_two_iterations():
+    from hotdog_agent import parse_agent_trace
+    messages = [
+        {"role": "user", "content": "Start."},
+        {
+            "role": "assistant", "content": None,
+            "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "generate_hotdog_image", "arguments": json.dumps({"prompt": "a hot hotdog"})}}],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "/out/01.png"},
+        {
+            "role": "assistant", "content": None,
+            "tool_calls": [{"id": "c2", "type": "function", "function": {"name": "evaluate_hotness", "arguments": json.dumps({"image_path": "/out/01.png"})}}],
+        },
+        {"role": "tool", "tool_call_id": "c2", "content": "6/10\nCONTINUE: flaming hotdog on lava"},
+        {
+            "role": "assistant", "content": None,
+            "tool_calls": [{"id": "c3", "type": "function", "function": {"name": "generate_hotdog_image", "arguments": json.dumps({"prompt": "flaming hotdog on lava"})}}],
+        },
+        {"role": "tool", "tool_call_id": "c3", "content": "/out/02.png"},
+        {
+            "role": "assistant", "content": None,
+            "tool_calls": [{"id": "c4", "type": "function", "function": {"name": "evaluate_hotness", "arguments": json.dumps({"image_path": "/out/02.png"})}}],
+        },
+        {"role": "tool", "tool_call_id": "c4", "content": "9/10\nDONE: Peak hotness."},
+        {"role": "assistant", "content": "Done."},
+    ]
+    trace = parse_agent_trace(messages)
+    assert len(trace) == 2
+    assert trace[0]["prompt"] == "a hot hotdog"
+    assert trace[0]["action"] == "CONTINUE"
+    assert trace[1]["prompt"] == "flaming hotdog on lava"
+    assert trace[1]["action"] == "DONE"
+
+
+def test_make_tools_counter_increments(tmp_path):
+    from hotdog_agent import make_tools
+
+    image_client = MagicMock()
+    image_client.generate.return_value = str(tmp_path / "generated.png")
+    (tmp_path / "generated.png").touch()
+
+    eval_client = MagicMock()
+    eval_client.chat.return_value = "8/10\nCONTINUE: hotter hotdog"
+
+    generate_fn, _ = make_tools(image_client, eval_client, tmp_path)
+
+    path1 = generate_fn("first prompt")
+    assert path1 == str(tmp_path / "01.png")
+    assert (tmp_path / "01.png").exists()
+
+    (tmp_path / "generated.png").touch()
+    path2 = generate_fn("second prompt")
+    assert path2 == str(tmp_path / "02.png")
+    assert (tmp_path / "02.png").exists()
+
+
+def test_make_tools_evaluate_resets_client(tmp_path):
+    from hotdog_agent import make_tools, EVALUATOR_PROMPT
+
+    image_client = MagicMock()
+    eval_client = MagicMock()
+    eval_client.chat.return_value = "8/10\nCONTINUE: hotter"
+
+    _, evaluate_fn = make_tools(image_client, eval_client, tmp_path)
+    result = evaluate_fn("/some/01.png")
+
+    eval_client.reset.assert_called_once()
+    eval_client.chat.assert_called_once_with(EVALUATOR_PROMPT, images=["/some/01.png"])
+    assert "CONTINUE" in result
