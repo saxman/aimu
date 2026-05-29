@@ -22,16 +22,7 @@ from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 from aimu.models.ollama import OllamaClient
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _hotdog_common import get_ollama_model, parse_evaluator_response, write_summary
-
-EVALUATOR_PROMPT = """\
-You are evaluating how visually "hot" this hotdog image is.
-Rate its hotness from 1 to 10 (10 = blazing inferno hotdog, 1 = cold).
-Then decide: can this hotdog get any hotter? If not, output exactly:
-  DONE: <your reasoning>
-If it can get hotter, output exactly:
-  CONTINUE: <a refined image generation prompt that will make it hotter>
-"""
+from _hotdog_common import get_ollama_model, parse_evaluator_response, write_summary, EVALUATOR_PROMPT
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

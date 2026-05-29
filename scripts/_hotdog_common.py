@@ -81,3 +81,13 @@ def get_ollama_model(model_id: str):
             return m
     known = [m.value for m in OllamaModel]
     raise ValueError(f"Unknown Ollama model: {model_id!r}. Known models: {known}")
+
+
+EVALUATOR_PROMPT = """\
+You are evaluating how visually "hot" this hotdog image is.
+Rate its hotness from 1 to 10 (10 = blazing inferno hotdog, 1 = cold).
+Then decide: can this hotdog get any hotter? If not, output exactly:
+  DONE: <your reasoning>
+If it can get hotter, output exactly:
+  CONTINUE: <a refined image generation prompt that will make it hotter>
+"""

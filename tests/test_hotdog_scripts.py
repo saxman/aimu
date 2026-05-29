@@ -1,5 +1,7 @@
+import json
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -120,10 +122,6 @@ def test_loop_arg_parser_overrides():
     assert args.eval_model == "gemma4:26b"
     assert args.output_dir == "/tmp/hotdog"
     assert args.max_iterations == 3
-
-
-import json
-from unittest.mock import MagicMock
 
 
 def test_agent_arg_parser_defaults():

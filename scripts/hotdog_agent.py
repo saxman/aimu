@@ -24,16 +24,7 @@ from aimu.models.ollama import OllamaClient
 from aimu.tools.decorator import tool
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _hotdog_common import get_ollama_model, parse_evaluator_response, write_summary
-
-EVALUATOR_PROMPT = """\
-You are evaluating how visually "hot" this hotdog image is.
-Rate its hotness from 1 to 10 (10 = blazing inferno hotdog, 1 = cold).
-Then decide: can this hotdog get any hotter? If not, output exactly:
-  DONE: <your reasoning>
-If it can get hotter, output exactly:
-  CONTINUE: <a refined image generation prompt that will make it hotter>
-"""
+from _hotdog_common import get_ollama_model, parse_evaluator_response, write_summary, EVALUATOR_PROMPT
 
 AGENT_SYSTEM_PROMPT = """\
 You are running a hotdog heating experiment. Your job is to iteratively make
