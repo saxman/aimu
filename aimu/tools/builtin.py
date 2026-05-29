@@ -473,8 +473,10 @@ def make_tools(
     image_client=None,
     preview_every=None,
     audio_client=None,
+    *,
     image_steps: Optional[int] = None,
     audio_steps: Optional[int] = None,
+    speech_client=None,
 ):
     """Assemble the standard tool list for a chat client.
 
@@ -486,6 +488,8 @@ def make_tools(
       bound to the same client so the model can inspect generated images.
     - If *audio_client* is provided, replaces the default ``generate_audio``
       singleton with one bound to that client (honoring *audio_steps*).
+    - If *speech_client* is provided, replaces the default ``generate_speech``
+      singleton with one bound to that client.
     """
     tools = list(ALL_TOOLS)
     if image_client is not None:
@@ -496,6 +500,9 @@ def make_tools(
     if audio_client is not None:
         bound_audio = make_audio_tool(audio_client, num_inference_steps=audio_steps)
         tools = [t for t in tools if t is not generate_audio] + [bound_audio]
+    if speech_client is not None:
+        bound_speech = make_speech_tool(speech_client)
+        tools = [t for t in tools if t is not generate_speech] + [bound_speech]
     return tools
 
 
@@ -594,6 +601,98 @@ def make_audio_tool(client, *, duration_s: Optional[float] = None, num_inference
     return generate_audio
 
 
+# ---- Speech generation (TTS) ------------------------------------------------
+#
+# Speech deps (``soundfile``, ``torch``, ``transformers``) and the ``openai``
+# SDK are heavy. The client is constructed lazily on first ``generate_speech()``
+# call so that importing ``aimu.tools.builtin`` does not pull them into
+# ``sys.modules``.
+
+_AIMU_SPEECH_DEFAULT = "hf:microsoft/speecht5_tts"
+_speech_client = None
+
+
+def _get_speech_client():
+    """Return the lazy singleton :class:`SpeechClient` for the built-in tool.
+
+    Reads ``AIMU_SPEECH_MODEL`` from the environment (default: ``"hf:microsoft/speecht5_tts"``).
+    Accepts any ``"provider:model_id"`` string supported by :func:`aimu.speech_client`.
+    """
+    global _speech_client
+    if _speech_client is None:
+        from aimu import speech_client as _speech_client_factory
+
+        model_str = os.environ.get("AIMU_SPEECH_MODEL", _AIMU_SPEECH_DEFAULT)
+        _speech_client = _speech_client_factory(model_str)
+    return _speech_client
+
+
+@tool
+def generate_speech(text: str):
+    """Synthesise speech from text and return the saved WAV file path.
+
+    This is a **streaming tool** — a generator that yields
+    :attr:`~aimu.models.StreamingContentType.SPEECH_GENERATING` chunks during
+    generation, then returns the saved WAV file path.
+
+    Uses a :class:`aimu.SpeechClient`. The default model is controlled by the
+    ``AIMU_SPEECH_MODEL`` env var (default: ``"hf:microsoft/speecht5_tts"``).
+    Override per-agent by constructing your own tool with :func:`make_speech_tool`.
+
+    Args:
+        text: The text to speak (e.g. "Hello, world!").
+    """
+    final_result = None
+    for chunk in _get_speech_client().generate(text, format="path", stream=True):
+        yield chunk
+        content = chunk.content
+        if isinstance(content, dict) and content.get("final"):
+            final_result = content.get("result")
+    return final_result
+
+
+def make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[float] = None):
+    """Build a ``generate_speech`` tool bound to a specific speech client.
+
+    ``client`` may be a :class:`aimu.SpeechClient` or any concrete
+    :class:`aimu.BaseSpeechClient`. Use this when an agent needs a different
+    model or voice from the default singleton.
+
+    The returned tool is a **streaming tool** — its progress chunks flow through
+    ``agent.run(stream=True)`` for live UI updates.
+
+    Example::
+
+        client = aimu.speech_client("openai:tts-1-hd")
+        my_tool = make_speech_tool(client, voice="nova")
+        agent = Agent(text_client, tools=[my_tool])
+    """
+
+    @tool
+    def generate_speech(text: str):
+        """Synthesise speech from text and return the saved WAV file path.
+
+        Streams progress chunks during generation.
+
+        Args:
+            text: The text to speak.
+        """
+        final_result = None
+        kw = {"format": "path", "stream": True}
+        if voice is not None:
+            kw["voice"] = voice
+        if speed is not None:
+            kw["speed"] = speed
+        for chunk in client.generate(text, **kw):
+            yield chunk
+            content = chunk.content
+            if isinstance(content, dict) and content.get("final"):
+                final_result = content.get("result")
+        return final_result
+
+    return generate_speech
+
+
 # Curated subsets — pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_webpage, web_search, wikipedia]
 fs = [list_directory, read_file]
@@ -601,5 +700,6 @@ compute = [calculate]
 misc = [echo, get_current_date_and_time]
 image = [generate_image]
 audio = [generate_audio]
+speech = [generate_speech]
 
-ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, web_search, wikipedia, *fs, *image, *audio]
+ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, web_search, wikipedia, *fs, *image, *audio, *speech]

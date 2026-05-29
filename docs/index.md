@@ -7,9 +7,9 @@
 
 # AIMU
 
-**AI Modeling Utilities** — a lightweight Python library for building AI-powered applications with a consistent, provider-agnostic interface across text, images, and audio.
+**AI Modeling Utilities** — a lightweight Python library for building AI-powered applications with a consistent, provider-agnostic interface across text, images, audio, and speech.
 
-Language models are the primary building block, with the same interface extending to image generation and audio processing. AIMU separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a plain model client is accepted. Tool integration is structural (not a plugin), semantic and document memory can be dropped in, and a prompt-tuning loop optimises prompts against labelled data without ML machinery.
+Language models are the primary building block, with the same interface extending to image generation, audio generation, and text-to-speech. AIMU separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a plain model client is accepted. Tool integration is structural (not a plugin), semantic and document memory can be dropped in, and a prompt-tuning loop optimises prompts against labelled data without ML machinery.
 
 ---
 
@@ -19,7 +19,7 @@ Language models are the primary building block, with the same interface extendin
 pip install aimu[all]
 ```
 
-Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]`, `aimu[hf]` (text + HF `diffusers` image generation), `aimu[google]` (Google Nano Banana image generation), `aimu[llamacpp]`.
+Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS), `aimu[hf]` (text + HF image + audio + TTS), `aimu[google]` (Google Nano Banana image), `aimu[llamacpp]`.
 
 ## Quick start
 
@@ -63,6 +63,8 @@ That's the full mental model: a `chat()` function for one-shots, a `client()` fa
 
 - **Provider-agnostic clients** — Ollama, HuggingFace, llama-cpp, Anthropic, OpenAI, Gemini, plus every OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve).
 - **Text-to-image** — `aimu.image_client()` and `aimu.generate_image()` parallel the text surface. HuggingFace `diffusers` for local generation (SD 1.5 / SDXL / SD 3.5 / FLUX), Google Nano Banana for cloud. Drops into any chat agent via the built-in `generate_image` tool. See [how-to: generate images](how-to/generate-images.md).
+- **Text-to-audio** — `aimu.audio_client()` and `aimu.generate_audio()` for music and sound generation (not TTS). HuggingFace MusicGen, AudioLDM2, and Stable Audio Open. See [how-to: generate audio](how-to/generate-audio.md).
+- **Text-to-speech** — `aimu.speech_client()` and `aimu.generate_speech()` for TTS. HuggingFace MMS-TTS/BARK locally; OpenAI tts-1/tts-1-hd in the cloud. Live sentence-by-sentence narration in the Streamlit chatbot. See [how-to: generate speech](how-to/generate-speech.md).
 - **Agents and workflows** — `Agent` for autonomous tool-using loops; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` for code-controlled patterns from Anthropic's *Building Effective Agents*.
 - **Tools** — `@tool` decorator for plain Python functions, plus a synchronous `MCPClient` wrapper for cross-process tools.
 - **Skills** — filesystem-discovered `SKILL.md` files that auto-inject capabilities into a `SkillAgent`.
@@ -73,8 +75,8 @@ That's the full mental model: a `chat()` function for one-shots, a `client()` fa
 
 ## Notebooks
 
-The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 15 runnable demos covering every subsystem end-to-end, including a dedicated `14 - Async` notebook for the `aimu.aio` surface and `15 - Image Generation` for text-to-image. The [README](https://github.com/saxman/aimu#examples) lists each one.
+The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 17 runnable demos covering every subsystem end-to-end, including `14 - Async`, `15 - Image Generation`, `16 - Audio Generation`, and `17 - Speech` (TTS now, STT placeholder for Whisper). The [README](https://github.com/saxman/aimu#examples) lists each one.
 
 ## Web apps
 
-The [`web/`](https://github.com/saxman/aimu/tree/main/web) directory ships two Streamlit chat applications. `streamlit_chatbot_basic.py` (~70 lines) is a minimal showcase — provider/model selector, streaming chat, built-in tools — illustrating how little code a working AIMU chatbot takes. `streamlit_chatbot.py` is a full-featured version that adds image generation, agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included.
+The [`web/`](https://github.com/saxman/aimu/tree/main/web) directory ships two Streamlit chat applications. `streamlit_chatbot_basic.py` (~70 lines) is a minimal showcase — provider/model selector, streaming chat, built-in tools — illustrating how little code a working AIMU chatbot takes. `streamlit_chatbot.py` is a full-featured version that adds image generation, audio generation, speech narration (live sentence-by-sentence TTS as the model streams), agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included.

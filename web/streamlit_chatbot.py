@@ -1,4 +1,5 @@
 import json  # used for the Messages debug popover
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -18,6 +19,7 @@ from aimu.models import (
     StreamingContentType,
     available_audio_clients,
     available_image_clients,
+    available_speech_clients,
     available_text_clients,
 )
 from aimu.tools import builtin
@@ -37,6 +39,7 @@ Introduce what model that you are and share what tools you have access to.
 MODEL_CLIENTS = available_text_clients()
 IMAGE_CLIENT_CLASSES = available_image_clients()
 AUDIO_CLIENT_CLASSES = available_audio_clients()
+SPEECH_CLIENT_CLASSES = available_speech_clients()
 
 _DEFAULT_CLIENT = OllamaClient if HAS_OLLAMA else MODEL_CLIENTS[0]
 _DEFAULT_MODEL = OllamaModel.QWEN_3_5_9B if HAS_OLLAMA else MODEL_CLIENTS[0].TOOL_MODELS[0]
@@ -143,6 +146,18 @@ def _maybe_render_audio(path_str, key_suffix):
     )
 
 
+def _extract_sentences(text: str) -> tuple[list[str], str]:
+    """Split text at sentence boundaries, returning (complete_sentences, remainder).
+
+    Uses look-behind on sentence-ending punctuation followed by whitespace so
+    the delimiter character stays attached to the completed sentence.
+    """
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    if len(parts) > 1:
+        return parts[:-1], parts[-1]
+    return [], text
+
+
 def _maybe_render_image(path_str, key_suffix):
     """Display an image with a download button when ``path_str`` is a valid image file path."""
     try:
@@ -197,7 +212,7 @@ def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
     _set_slider_defaults(model)
 
 
-def stream_chat_response(streamed_response):
+def stream_chat_response(streamed_response, speech_client=None, narrate=False):
     """Render a streaming chat response, coalescing consecutive same-phase chunks into a single live-updating box."""
     current_type = None
     current_box = None
@@ -209,6 +224,8 @@ def stream_chat_response(streamed_response):
     preview_placeholder = None
     audio_progress_bar = None
     audio_progress_text = None
+    speech_progress_placeholder = None
+    narration_buffer = ""
 
     for chunk_idx, chunk in enumerate(streamed_response):
         if chunk.phase == StreamingContentType.IMAGE_GENERATING:
@@ -269,6 +286,23 @@ def stream_chat_response(streamed_response):
                 audio_progress_text = None
             continue
 
+        if chunk.phase == StreamingContentType.SPEECH_GENERATING:
+            current_type = None
+            content = chunk.content
+            is_final = content.get("final", False)
+
+            if speech_progress_placeholder is None:
+                with st.expander("🔊 Generating speech", expanded=True):
+                    speech_progress_placeholder = st.empty()
+
+            label = "Done" if is_final else "Generating…"
+            speech_progress_placeholder.markdown(f"**{label}**")
+
+            if is_final:
+                speech_progress_placeholder.empty()
+                speech_progress_placeholder = None
+            continue
+
         if chunk.phase == StreamingContentType.TOOL_CALLING:
             # Tool calls render in their own expander, so reset current_type to
             # force a fresh box for whatever phase streams next (otherwise the
@@ -287,6 +321,9 @@ def stream_chat_response(streamed_response):
             elif chunk.content["name"] == "generate_audio":
                 with st.expander("🎵 Audio", expanded=True):
                     _maybe_render_audio(chunk.content["response"], key_suffix=f"stream_{chunk_idx}")
+            elif chunk.content["name"] == "generate_speech":
+                with st.expander("🔊 Speech", expanded=True):
+                    _maybe_render_audio(chunk.content["response"], key_suffix=f"stream_{chunk_idx}")
             continue
 
         # Phase transition (THINKING ↔ GENERATING): start a new accumulator and box.
@@ -296,6 +333,17 @@ def stream_chat_response(streamed_response):
             current_box = None
 
         current_text += chunk.content
+        if chunk.phase == StreamingContentType.GENERATING and narrate and speech_client is not None:
+            narration_buffer += chunk.content
+            sentences, narration_buffer = _extract_sentences(narration_buffer)
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if sentence:
+                    try:
+                        wav_bytes = speech_client.generate(sentence, format="bytes")
+                        st.audio(wav_bytes, format="audio/wav", autoplay=True)
+                    except Exception:
+                        pass
         if current_text:
             # Defer box creation until we have non-empty text — avoids rendering
             # an empty "Thinking" expander when a thinking phase yields nothing.
@@ -306,6 +354,13 @@ def stream_chat_response(streamed_response):
                     else st.chat_message("assistant").empty()
                 )
             current_box.markdown(current_text)
+
+    if narrate and speech_client is not None and narration_buffer.strip():
+        try:
+            wav_bytes = speech_client.generate(narration_buffer.strip(), format="bytes")
+            st.audio(wav_bytes, format="audio/wav", autoplay=True)
+        except Exception:
+            pass
 
 
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
@@ -340,6 +395,23 @@ if "model_client" not in st.session_state:
         st.session_state.audio_model = default_audio_model
         st.session_state.audio_client = audio_c
         st.session_state.audio_client_error = audio_err
+    st.session_state.speech_client = None
+    st.session_state.speech_client_class = None
+    st.session_state.speech_model = None
+    st.session_state.speech_client_error = None
+    st.session_state.narrate_responses = False
+    if SPEECH_CLIENT_CLASSES:
+        default_speech_cls = SPEECH_CLIENT_CLASSES[0]
+        default_speech_model = next(iter(default_speech_cls.MODELS))
+        try:
+            speech_c = default_speech_cls(default_speech_model)
+            speech_err = None
+        except Exception as exc:
+            speech_c, speech_err = None, str(exc)
+        st.session_state.speech_client_class = default_speech_cls
+        st.session_state.speech_model = default_speech_model
+        st.session_state.speech_client = speech_c
+        st.session_state.speech_client_error = speech_err
     _rebuild_client(_DEFAULT_CLIENT, _DEFAULT_MODEL, True, 10)
 
     st.session_state.conversation_manager = ConversationManager(
@@ -561,6 +633,65 @@ with st.sidebar:
             )
             st.rerun()
 
+    if SPEECH_CLIENT_CLASSES:
+        st.markdown("---")
+        st.markdown("**Speech generation**")
+
+        current_speech_cls = st.session_state.speech_client_class or SPEECH_CLIENT_CLASSES[0]
+        sel_speech_cls = st.selectbox(
+            "Speech client",
+            options=SPEECH_CLIENT_CLASSES,
+            index=SPEECH_CLIENT_CLASSES.index(current_speech_cls)
+            if current_speech_cls in SPEECH_CLIENT_CLASSES
+            else 0,
+            format_func=lambda c: c.__name__,
+        )
+
+        speech_model_options = list(sel_speech_cls.MODELS)
+        current_speech_model = (
+            st.session_state.speech_model
+            if sel_speech_cls is current_speech_cls
+            else speech_model_options[0]
+        )
+        sel_speech_model = st.selectbox(
+            "Speech model",
+            options=speech_model_options,
+            index=speech_model_options.index(current_speech_model)
+            if current_speech_model in speech_model_options
+            else 0,
+            format_func=lambda m: m.name,
+        )
+
+        if (
+            sel_speech_cls is not st.session_state.speech_client_class
+            or sel_speech_model != st.session_state.speech_model
+        ):
+            try:
+                speech_c = sel_speech_cls(sel_speech_model)
+                speech_err = None
+            except Exception as exc:
+                speech_c, speech_err = None, str(exc)
+            st.session_state.speech_client_class = sel_speech_cls
+            st.session_state.speech_model = sel_speech_model
+            st.session_state.speech_client = speech_c
+            st.session_state.speech_client_error = speech_err
+            st.rerun()
+
+        if st.session_state.speech_client_error:
+            st.error(f"Speech client unavailable: {st.session_state.speech_client_error}")
+
+        is_hf_speech = type(st.session_state.speech_client).__name__ == "HuggingFaceSpeechClient"
+        st.checkbox(
+            "🔊 Speak responses",
+            key="narrate_responses",
+            help=(
+                "Narrate assistant responses sentence by sentence as they stream. "
+                "Each completed sentence is spoken aloud via TTS. "
+                "Recommended with OpenAI TTS (~200–500 ms latency per sentence). "
+                + ("⚠️ HuggingFace models may delay the first sentence while loading." if is_hf_speech else "")
+            ),
+        )
+
     if st.button("Reset chat"):
         # Create a new conversation that will be used as the "last" conversation when the app is reloaded.
         st.session_state.conversation_manager.create_new_conversation()
@@ -581,7 +712,9 @@ generate_kwargs = {
 
 if len(st.session_state.model_client.messages) == 0:
     stream_chat_response(
-        st.session_state.model_client.chat(INITIAL_USER_MESSAGE, generate_kwargs=generate_kwargs, stream=True)
+        st.session_state.model_client.chat(INITIAL_USER_MESSAGE, generate_kwargs=generate_kwargs, stream=True),
+        speech_client=st.session_state.get("speech_client"),
+        narrate=st.session_state.get("narrate_responses", False),
     )
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 else:
@@ -608,13 +741,20 @@ else:
                 elif tool_call["function"]["name"] == "generate_audio":
                     with st.expander("🎵 Audio"):
                         _maybe_render_audio(resp["content"], key_suffix=f"hist_{hist_idx}_{call_idx}")
+                elif tool_call["function"]["name"] == "generate_speech":
+                    with st.expander("🔊 Speech"):
+                        _maybe_render_audio(resp["content"], key_suffix=f"hist_{hist_idx}_{call_idx}")
         elif message["role"] != "tool" and message.get("content"):
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
 if prompt := st.chat_input("What's up?"):
     st.chat_message("user").markdown(prompt)
-    stream_chat_response(st.session_state.model_client.chat(prompt, generate_kwargs=generate_kwargs, stream=True))
+    stream_chat_response(
+        st.session_state.model_client.chat(prompt, generate_kwargs=generate_kwargs, stream=True),
+        speech_client=st.session_state.get("speech_client"),
+        narrate=st.session_state.get("narrate_responses", False),
+    )
     st.session_state.conversation_manager.update_conversation(st.session_state.model_client.messages)
 
 # TODO: Determine better layout

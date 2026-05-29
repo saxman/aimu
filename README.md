@@ -14,9 +14,9 @@
 
 </div>
 
-AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, and audio; autonomous agents and code-controlled workflows; and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of these features in plain Python that is apparent and easy to use.
+AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, audio, and speech; autonomous agents and code-controlled workflows; and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of these features in plain Python that is apparent and easy to use.
 
-Whether you need vision input, autonomous tool use, image generation, or audio generation, the call is one line:
+Whether you need vision input, autonomous tool use, image generation, audio generation, or text-to-speech, the call is one line:
 ```python
 aimu.chat("What's in this photo?", model="...", images=["photo.jpg"])
 
@@ -25,6 +25,8 @@ aimu.agent("...", tools=builtin.web).run("Search the web and summarize today's A
 aimu.generate_image("a watercolor fox in a snowy forest", model="...")
 
 aimu.generate_audio("a lo-fi hip-hop beat with soft piano", model="...")
+
+aimu.generate_speech("Hello, world!", model="...")
 ```
 Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
 
@@ -36,12 +38,19 @@ Composition happens by passing objects to constructors. Conversation state is a 
 - Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamingContentType.THINKING` chunks via the same API.
 - Typed streaming: `StreamChunk(phase, content, agent, iteration)` flows through `client.chat()`, `Agent.run()`, and every workflow. Filter with `include=["generating"]`.
 
-### Image/audio generation
+### Image and audio generation
 
 - Consistent APIs for text-to-image (`aimu.image_client()` / `aimu.generate_image()`) and text-to-audio (`aimu.audio_client()` / `aimu.generate_audio()`), mirroring the text client interface.
-- For images, two providers (for now...): HuggingFace `diffusers` locally (`HuggingFaceImageClient`, SD 1.5 / SDXL / SD 3.5 / FLUX dev & schnell) and Google Nano Banana via the cloud API (`GeminiImageClient`).
-- For audion, one provider (HuggingFace), with support for MusicGen small/medium/large (token-autoregressive at 32 kHz), AudioLDM2 (latent diffusion, 16 kHz), Stable Audio Open (latent diffusion, 44.1 kHz stereo).
-- Drop image and auidio generation into any chat agent via the built-in `generate_image` and `generate_audio` tools. The LLM decides when to call it.
+- For images: HuggingFace `diffusers` locally (SD 1.5 / SDXL / SD 3.5 / FLUX dev & schnell) and Google Nano Banana via the cloud API.
+- For audio (music and sound): HuggingFace with MusicGen small/medium/large (32 kHz), AudioLDM2 (16 kHz), and Stable Audio Open (44.1 kHz stereo).
+- Drop image and audio generation into any chat agent via the built-in `generate_image` and `generate_audio` tools.
+
+### Speech
+
+- `aimu.speech_client()` / `aimu.generate_speech()` for text-to-speech. HuggingFace locally (SpeechT5, MMS-TTS, BARK); OpenAI (`tts-1`, `tts-1-hd`) in the cloud.
+- Live narration in the Streamlit chatbot: responses are spoken sentence-by-sentence as the LLM streams.
+- Drop TTS into any agent via the built-in `generate_speech` tool; bind a specific voice with `make_speech_tool(client, voice=...)`.
+- Speech-to-text (transcription) is planned as a parallel `aimu.transcription_client()` surface.
 
 ### Agents and workflows
 
@@ -54,7 +63,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 - `@tool` on any plain Python function. Type hints + docstring become the spec.
 - `MCPClient` for cross-process FastMCP tools. Combine with `@tool` on the same agent.
-- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`. `builtin.make_tools(client, image_client=None, audio_client=None)` assembles the full tool list with auto image/vision/audio wiring.
+- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`. `builtin.make_tools(client, image_client=None, audio_client=None, speech_client=None)` assembles the full tool list with auto image/vision/audio/speech wiring.
 - Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
 
 ### Memory and persistence
@@ -156,6 +165,20 @@ sr, audio = aimu.generate_audio(
 path = aimu.generate_audio("ambient ocean waves", model="hf:facebook/musicgen-small", format="path")
 ```
 
+**Speech generation (TTS).** Same `provider:model_id` shape:
+
+```python
+# Save spoken WAV — OpenAI cloud (requires OPENAI_API_KEY)
+path = aimu.generate_speech("Hello, world!", model="openai:tts-1")
+
+# Local HuggingFace TTS — returns (sample_rate, np.ndarray)
+sr, audio = aimu.generate_speech("Hello!", model="hf:facebook/mms-tts-eng", format="numpy")
+
+# Reuse a client across calls — weights load once
+client = aimu.speech_client("openai:tts-1-hd")
+path = client.generate("Good morning.", voice="nova", format="path")
+```
+
 **Vision and image generation together.** A vision-capable agent with `generate_image` as a tool can perceive and create in the same run:
 
 ```python
@@ -190,7 +213,7 @@ asyncio.run(main())
 pip install aimu[all]
 ```
 
-Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]`, `aimu[hf]` (text + HuggingFace `diffusers` image generation + HuggingFace audio generation), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
+Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
 
 ## Documentation
 
@@ -223,6 +246,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [14 - Async](notebooks/14%20-%20Async.ipynb) | `aimu.aio` surface end-to-end: chat, streaming, async tools, `asyncio.TaskGroup`-backed `Parallel`, async `MCPClient`, in-process provider wrapping |
 | [15 - Image Generation](notebooks/15%20-%20Image%20Generation.ipynb) | `aimu.image_client()` / `aimu.generate_image()` with HuggingFace `diffusers` and Google Nano Banana, plus the built-in `generate_image` agent tool |
 | [16 - Audio Generation](notebooks/16%20-%20Audio%20Generation.ipynb) | `aimu.audio_client()` / `aimu.generate_audio()` with MusicGen, AudioLDM2, and Stable Audio Open, plus streaming and the built-in `generate_audio` agent tool |
+| [17 - Speech](notebooks/17%20-%20Speech.ipynb) | TTS with HuggingFace (SpeechT5, MMS-TTS, BARK) and OpenAI (tts-1/tts-1-hd); `generate_speech` agent tool; Streamlit live narration; STT placeholder |
 
 ## Web apps
 
@@ -231,10 +255,10 @@ The [`web/`](web/) directory ships two Streamlit chat applications that demonstr
 | App | Description |
 |---|---|
 | [streamlit_chatbot_basic.py](web/streamlit_chatbot_basic.py) | ~70-line showcase — provider/model selector, streaming chat, built-in tools. Start here. |
-| [streamlit_chatbot.py](web/streamlit_chatbot.py) | Full-featured — image generation, agentic mode, thinking display, generation sliders. Extensible foundation. |
+| [streamlit_chatbot.py](web/streamlit_chatbot.py) | Full-featured — image/audio/speech generation, agentic mode, thinking display, generation sliders, live TTS narration. Extensible foundation. |
 
 ```bash
-streamlit run web/streamlit_chatbot.py         # full-featured Streamit demo (includes agents, tools, images/audio, etc.)
+streamlit run web/streamlit_chatbot.py         # full-featured Streamlit demo (agents, tools, images, audio, speech narration, etc.)
 streamlit run web/streamlit_chatbot_basic.py   # basic Streamlit demo app
 python web/gradio_chatbot_basic.py             # basic Gradio demo app
 ```

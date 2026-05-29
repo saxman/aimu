@@ -774,7 +774,7 @@ Key files and their roles:
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_audio` generator tool + `make_audio_tool()` factory (parallel to image equivalents):
   - `generate_audio(prompt: str)` is a generator `@tool` yielding `AUDIO_GENERATING` chunks and returning the saved file path. Backed by a lazy `_audio_client` singleton; default model via `AIMU_AUDIO_MODEL` env var (default: `"hf:facebook/musicgen-small"`).
   - `make_audio_tool(client, *, duration_s=None)` — binds a fresh tool to a caller-supplied client.
-  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None)` — `audio_client` kwarg replaces the default singleton when provided.
+  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None)` — `audio_client` and `speech_client` kwargs replace their respective singletons when provided.
   - New subgroup `audio = [generate_audio]` (parallel to `image`); included in `ALL_TOOLS`.
 
 - **Async twin** — full mirror under `aimu.aio`:
@@ -787,6 +787,62 @@ Key files and their roles:
   - `tests/test_audio_tools.py` (mock-only): `generate_audio.__tool_spec__` shape, `__tool_is_streaming__ is True`, singleton lifecycle, `AIMU_AUDIO_MODEL` env var, `make_audio_tool` factory.
   - `tests/test_aio_audio_api.py` (mock-only): wrap refusal, state sharing, async generate.
   - `tests/test_audio.py` (live, opt-in): `--audio-client` / `--audio-model` CLI flags; cross-model tests (numpy output, format matrix, `num_audio > 1`); model-specific tests (`seed=` for MusicGen, `num_inference_steps=` for diffusers). Skipped when `--audio-client` is omitted.
+
+### Speech Generation
+
+AIMU supports text-to-speech (TTS) generation as a **parallel surface** to the text, image, and audio clients. The hierarchy mirrors audio: one base ABC (`BaseSpeechClient`), one factory class (`SpeechClient`), per-provider concrete clients. Speech is distinct from audio — audio generates music and sounds from a descriptive prompt; speech converts literal text to spoken audio. `BaseSpeechClient` is scoped to TTS only; future STT will use `BaseTranscriptionClient`.
+
+Two providers ship: **HuggingFace** for local generation (MMS-TTS, BARK), **OpenAI** for cloud TTS (tts-1, tts-1-hd). Both reuse `encode_audio()` for output — no new encoder needed.
+
+Key files and their roles:
+
+- **[aimu/models/base.py](aimu/models/base.py)** — extended with speech base types (parallel to audio types):
+  - `SPEECH_GENERATING` added to `StreamingContentType`. Content shape: `{"chunk_index": int, "total_chunks": int | None, "final": bool, "result": Any}`. `total_chunks=None` for OpenAI streaming (unknown upfront); `total_chunks=N` for HuggingFace (single-pass).
+  - `StreamChunk.is_speech_progress()` helper (parallel to `is_audio_progress()`).
+  - `SpeechSpec` dataclass with `id`, `default_voice`, `default_speed`; id-only `__hash__` and `__eq__`.
+  - `HuggingFaceSpeechSpec(SpeechSpec)` with `@dataclass(eq=False)`, adds `pipeline_type` (`"tts_pipeline"` | `"bark"`).
+  - `OpenAISpeechSpec(SpeechSpec)` with `@dataclass(eq=False)`.
+  - `SpeechModel(Enum)` base — `__init__` sets `_value_ = spec.id` and stores `self.spec`.
+  - `BaseSpeechClient(ABC)`: concrete `generate(text, *, voice, speed, num_audio, format, output_dir, stream)` validates args, resolves voice/speed from spec defaults, delegates to abstract `_generate()`, encodes output via `encode_audio()`.
+
+- **[aimu/models/hf_speech/hf_speech_client.py](aimu/models/hf_speech/hf_speech_client.py)** — `HuggingFaceSpeechClient` + `HuggingFaceSpeechModel` enum:
+  - `HuggingFaceSpeechModel` members: `MMS_TTS_ENG` (`facebook/mms-tts-eng`, `tts_pipeline`), `SPEECHT5` (`microsoft/speecht5_tts`, `speecht5`), `BARK` (`suno/bark`, `bark`).
+  - Lazy pipeline load on first `generate()` call; auto-moves to CUDA/MPS.
+  - Constructor accepts `HuggingFaceSpeechModel` member, `HuggingFaceSpeechSpec`, or `"hf:<repo_id>"` string (pipeline type inferred from known repo prefixes).
+  - Three loader methods: `_load_tts_pipeline()` (HuggingFace `pipeline("text-to-speech", ...)`), `_load_speecht5()` (`SpeechT5ForTextToSpeech` + `SpeechT5HifiGan` vocoder + default CMU Arctic speaker embedding from `datasets`), `_load_bark()` (`BarkProcessor` + `BarkModel`). All return `(sample_rate, np.ndarray)`.
+  - SpeechT5 voice selection: `voice=None` uses the pre-loaded default embedding (CMU Arctic index 7306); `voice="N"` loads index N from the xvectors dataset (cached on the client after first lookup). Sample rate: 16 kHz.
+  - `import soundfile` is a hard module-load import so `HAS_HF_SPEECH` accurately reflects installed state.
+
+- **[aimu/models/openai_speech/openai_speech_client.py](aimu/models/openai_speech/openai_speech_client.py)** — `OpenAISpeechClient` + `OpenAISpeechModel` enum:
+  - `OpenAISpeechModel` members: `TTS_1` (`tts-1`), `TTS_1_HD` (`tts-1-hd`).
+  - Auth via `OPENAI_API_KEY` env var. Uses `openai.audio.speech.create()` with `response_format="pcm"` (raw 24 kHz 16-bit PCM), decoded to `float32` via `np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0`.
+  - Streaming via `client.audio.with_streaming_response.speech.create(...)` — yields HTTP byte chunks as `SPEECH_GENERATING` progress chunks with `total_chunks=None`.
+
+- **[aimu/models/speech_client.py](aimu/models/speech_client.py)** — `SpeechClient` factory + `resolve_speech_model_string()` (parallel to `audio_client.py`). Accepts model enum / spec / `"provider:model_id"` string; dispatches on `"hf:"` or `"openai:"` prefix.
+
+- **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points:
+  - `aimu.speech_client(model, **kwargs)` — one-line constructor.
+  - `aimu.generate_speech(text, *, model, format="path", **kwargs)` — one-shot.
+  - Both raise `ImportError` with install hint when neither `HAS_HF_SPEECH` nor `HAS_OPENAI_SPEECH` is True.
+
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_speech` generator tool + `make_speech_tool()` factory:
+  - `generate_speech(text: str)` is a generator `@tool` yielding `SPEECH_GENERATING` chunks and returning the saved WAV path. Backed by a lazy `_speech_client` singleton; default model via `AIMU_SPEECH_MODEL` env var (default: `"hf:microsoft/speecht5_tts"`).
+  - `make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[float] = None)` — binds a fresh tool to a caller-supplied client.
+  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None)` — `speech_client` kwarg replaces the default singleton when provided.
+  - Subgroup `speech = [generate_speech]` (parallel to `audio`, `image`); included in `ALL_TOOLS`.
+
+- **Async twin** — full mirror under `aimu.aio`:
+  - **[aimu/aio/providers/hf_speech.py](aimu/aio/providers/hf_speech.py)**: `AsyncHuggingFaceSpeechClient` wraps a sync `HuggingFaceSpeechClient` via `asyncio.to_thread`. Properties delegate to the wrapped sync client; no second weight load.
+  - **[aimu/aio/providers/openai_speech.py](aimu/aio/providers/openai_speech.py)**: `AsyncOpenAISpeechClient` wraps a sync `OpenAISpeechClient` via `asyncio.to_thread`.
+  - **[aimu/aio/speech.py](aimu/aio/speech.py)**: `AsyncSpeechClient` factory + `aio.speech_client(sync_client)` + `aio.generate_speech(text, *, model, ...)`. The factory refuses direct enum/string construction with a pointer to the wrap pattern. `generate_speech` accepts both existing sync clients and enum/string model identifiers (mirrors sync surface).
+
+- **Optional dep flags**: `HAS_HF_SPEECH` (hard `import soundfile` at top of `hf_speech_client.py`), `HAS_OPENAI_SPEECH` (hard `import openai` at top of `openai_speech_client.py`). Both set independently so a partial install works.
+
+- **Tests**:
+  - `tests/test_speech_api.py` (mock-only): stubs `soundfile`, `transformers`, and `openai` in `sys.modules`. Covers spec equality, `encode_audio` reuse, `HuggingFaceSpeechClient` construction + pipeline dispatch + lazy load, `OpenAISpeechClient` construction + PCM decode + streaming, `SpeechClient` factory dispatch, top-level `aimu.speech_client()` / `aimu.generate_speech()`. Exports `_install_speech_stubs()` for downstream test files.
+  - `tests/test_speech_tools.py` (mock-only): `generate_speech.__tool_spec__` shape, `__tool_is_streaming__ is True`, singleton lifecycle, `AIMU_SPEECH_MODEL` env var, voice/speed threading in `make_speech_tool`.
+  - `tests/test_aio_speech_api.py` (mock-only): wrap refusal, state sharing, async generate, streaming path.
+  - `tests/test_speech.py` (live, opt-in): `--speech-client` / `--speech-model` CLI flags; cross-model tests (path output, format matrix); model-specific tests (voice param, speed param). Skipped when `--speech-client` is omitted.
 
 ### Cloud Provider Client Notes
 
@@ -817,11 +873,14 @@ aimu/
 │   │   ├── llamacpp.py       # AsyncLlamaCppClient (wraps sync LlamaCppClient — Decision 7)
 │   │   ├── hf_image.py       # AsyncHuggingFaceImageClient (wraps sync HuggingFaceImageClient)
 │   │   ├── gemini_image.py   # AsyncGeminiImageClient (wraps sync GeminiImageClient)
-│   │   └── hf_audio.py       # AsyncHuggingFaceAudioClient (wraps sync HuggingFaceAudioClient)
+│   │   ├── hf_audio.py       # AsyncHuggingFaceAudioClient (wraps sync HuggingFaceAudioClient)
+│   │   ├── hf_speech.py      # AsyncHuggingFaceSpeechClient (wraps sync HuggingFaceSpeechClient)
+│   │   └── openai_speech.py  # AsyncOpenAISpeechClient (wraps sync OpenAISpeechClient)
 │   ├── image.py         # AsyncImageClient factory + aio.image_client() / aio.generate_image()
 │   ├── audio.py         # AsyncAudioClient factory + aio.audio_client() / aio.generate_audio()
+│   ├── speech.py        # AsyncSpeechClient factory + aio.speech_client() / aio.generate_speech()
 │   ├── tools/           # Async tools (mirrors aimu.tools)
-│   │   └── builtin.py        # Async generate_image + re-exports of sync built-ins (incl. generate_audio)
+│   │   └── builtin.py        # Async generate_image + re-exports of sync built-ins (incl. generate_audio, generate_speech)
 │   └── workflows/       # Async workflow patterns (asyncio.TaskGroup for Parallel)
 │       ├── chain.py
 │       ├── router.py
@@ -829,7 +888,7 @@ aimu/
 │       ├── evaluator.py
 │       └── plan_execute_evaluator.py
 ├── models/              # Model client implementations
-│   ├── base.py          # Abstract bases — text: BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType; image: BaseImageClient, ImageModel, ImageSpec (+ HuggingFaceImageSpec, GeminiImageSpec); audio: BaseAudioClient, AudioModel, AudioSpec (+ HuggingFaceAudioSpec)
+│   ├── base.py          # Abstract bases — text: BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType; image: BaseImageClient, ImageModel, ImageSpec (+ HuggingFaceImageSpec, GeminiImageSpec); audio: BaseAudioClient, AudioModel, AudioSpec (+ HuggingFaceAudioSpec); speech: BaseSpeechClient, SpeechModel, SpeechSpec (+ HuggingFaceSpeechSpec, OpenAISpeechSpec)
 │   ├── model_client.py  # ModelClient factory/wrapper + resolve_model_string
 │   ├── _chat_state.py   # _ChatStateMixin — system_message/reset/append shared by sync and async base classes
 │   ├── _streaming.py    # resolve_include, filter_chunks, afilter_chunks — shared stream helpers
@@ -857,12 +916,17 @@ aimu/
 │   ├── gemini_image/    # Google Gemini image (Nano Banana; requires image extra)
 │   │   └── gemini_image_client.py    # GeminiImageClient + GeminiImageModel
 │   ├── audio_client.py  # AudioClient factory + resolve_audio_model_string
-│   ├── _audio_output.py # encode_audio() — shared audio-output format conversion (WAV via soundfile)
-│   └── hf_audio/        # HuggingFace audio generation (MusicGen/AudioLDM2/StableAudio; requires hf extra)
-│       └── hf_audio_client.py        # HuggingFaceAudioClient + HuggingFaceAudioModel
+│   ├── _audio_output.py # encode_audio() — shared audio-output format conversion (WAV via soundfile); reused by speech
+│   ├── hf_audio/        # HuggingFace audio generation (MusicGen/AudioLDM2/StableAudio; requires hf extra)
+│   │   └── hf_audio_client.py        # HuggingFaceAudioClient + HuggingFaceAudioModel
+│   ├── speech_client.py # SpeechClient factory + resolve_speech_model_string
+│   ├── hf_speech/       # HuggingFace TTS (MMS-TTS, BARK; requires hf extra)
+│   │   └── hf_speech_client.py       # HuggingFaceSpeechClient + HuggingFaceSpeechModel
+│   └── openai_speech/   # OpenAI TTS (tts-1, tts-1-hd; requires openai_compat extra)
+│       └── openai_speech_client.py   # OpenAISpeechClient + OpenAISpeechModel
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
 │   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
-│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio subgroups (incl. lazy generate_image, generate_audio)
+│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech subgroups (incl. lazy generate_image, generate_audio, generate_speech)
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping()
 │   ├── mcp_format.py    # mcp_tools_to_openai() — shared by sync and async MCPClient.get_tools()
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
@@ -911,7 +975,7 @@ aimu/
 └── paths.py             # Path configuration (root, tests, package, output, skills)
 
 tests/                   # Pytest test suite
-├── conftest.py          # CLI options: --client/--model (text), --image-client/--image-model (image), --model-path (llamacpp)
+├── conftest.py          # CLI options: --client/--model (text), --image-client/--image-model (image), --speech-client/--speech-model (speech), --model-path (llamacpp)
 ├── helpers.py           # Shared text + image parametrization helpers (resolve_model_params, create_real_model_client, resolve_image_model_params, create_real_image_client, MockModelClient)
 ├── test_models.py       # Live text-model tests, parametrized via --client/--model
 ├── test_vision.py       # Vision tests (_normalize_image, per-provider adapters, agentic forwarding)
@@ -938,6 +1002,9 @@ tests/                   # Pytest test suite
 ├── test_audio_api.py          # Mock-only sync audio surface; exports _install_audio_stubs() for downstream files
 ├── test_audio_tools.py        # Mock-only built-in generate_audio tool + make_audio_tool
 ├── test_aio_audio_api.py      # Mock-only async audio surface + wrap refusal
+├── test_speech_api.py         # Mock-only sync speech surface; exports _install_speech_stubs() for downstream files
+├── test_speech_tools.py       # Mock-only built-in generate_speech tool + make_speech_tool
+├── test_aio_speech_api.py     # Mock-only async speech surface + wrap refusal
 ├── helpers_aio.py       # MockAsyncModelClient + live-backend dispatch for async tests
 ├── test_aio_models_api.py        # Mock-only async surface tests
 ├── test_aio_workflow_parallel.py # Verifies asyncio.TaskGroup overlap + sibling cancellation
@@ -947,7 +1014,7 @@ tests/                   # Pytest test suite
 
 web/                           # Example chat UIs
 ├── streamlit_chatbot_basic.py # ~70-line showcase; model selector, streaming chat, silent tools
-├── streamlit_chatbot.py       # Full-featured; image gen, audio gen, agentic mode, thinking, sliders
+├── streamlit_chatbot.py       # Full-featured; image gen, audio gen, speech narration, agentic mode, thinking, sliders
 └── gradio_chatbot_basic.py          # Gradio chat interface with streaming
 
 notebooks/               # Jupyter notebook demos
