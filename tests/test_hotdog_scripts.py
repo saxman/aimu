@@ -97,3 +97,26 @@ def test_parse_does_not_match_done_mid_sentence():
     result = parse_evaluator_response(text)
     assert result["action"] == "CONTINUE"
     assert result["next_prompt"] == "hotter hotdog on fire"
+
+
+def test_loop_arg_parser_defaults():
+    from hotdog_loop import build_arg_parser
+    args = build_arg_parser().parse_args([])
+    assert args.image_model == "FLUX_SCHNELL"
+    assert args.eval_model == "gemma4:e4b"
+    assert args.output_dir is None
+    assert args.max_iterations == 10
+
+
+def test_loop_arg_parser_overrides():
+    from hotdog_loop import build_arg_parser
+    args = build_arg_parser().parse_args([
+        "--image-model", "SDXL_BASE",
+        "--eval-model", "gemma4:26b",
+        "--output-dir", "/tmp/hotdog",
+        "--max-iterations", "3",
+    ])
+    assert args.image_model == "SDXL_BASE"
+    assert args.eval_model == "gemma4:26b"
+    assert args.output_dir == "/tmp/hotdog"
+    assert args.max_iterations == 3
