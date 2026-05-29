@@ -17,6 +17,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from aimu import paths as aimu_paths
 from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 from aimu.models.ollama import OllamaClient
 
@@ -106,6 +107,7 @@ def run_loop(
         if parsed["action"] == "unknown":
             print("Could not parse evaluator response (no DONE/CONTINUE). Stopping.")
             break
+
         if i == max_iterations:
             print(f"Reached maximum iterations ({max_iterations}). Stopping.")
             break
@@ -122,7 +124,7 @@ def main() -> None:
         output_dir = Path(args.output_dir)
     else:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output_dir = Path("output") / "hotdog" / timestamp
+        output_dir = aimu_paths.output / "hotdog" / timestamp
     run_loop(args.image_model, args.eval_model, output_dir, args.max_iterations)
 
 
