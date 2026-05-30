@@ -130,12 +130,12 @@ Both share: `num_images=N`, `format=`, `output_dir=`.
 CLIP-based models (SD 1.5, SDXL) cap prompts at **77 tokens** and silently truncate the rest. Models with a T5 text encoder accept far more — SD 3.5 ≈ 256 tokens, FLUX ≈ 512. Each spec records this as `max_prompt_tokens`, and the client exposes it:
 
 ```python
-client = image_client(HuggingFaceImageModel.SD_3_5_MEDIUM)
-client.max_prompt_tokens      # 256
-client.supports_long_prompts  # True  (None or > 77)
-
-image_client(HuggingFaceImageModel.SDXL_BASE).supports_long_prompts  # False
+image_client(HuggingFaceImageModel.SD_3_5_MEDIUM).max_prompt_tokens  # 256
+image_client(HuggingFaceImageModel.SDXL_BASE).max_prompt_tokens      # 77
+image_client(GeminiImageModel.NANO_BANANA).max_prompt_tokens         # None (uncapped cloud)
 ```
+
+Use it to size prompts to the model — e.g. a summarization step that condenses a long description to fit the budget (see the hotdog scripts in `scripts/`).
 
 Note: ad-hoc `"hf:<repo>"` strings get the conservative 77-token default (the catalog isn't consulted) — pass the enum member to pick up the model's real budget.
 

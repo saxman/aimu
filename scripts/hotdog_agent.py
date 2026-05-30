@@ -26,6 +26,7 @@ from _hotdog_common import (
     NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
+    build_summarizer_prompt,
     collage_generated_images,
     parse_evaluator_response,
     resolve_output_dir,
@@ -46,11 +47,12 @@ Procedure:
 """
 
 
-def make_tools(image_client, eval_client, output_dir: Path) -> tuple:
+def make_tools(image_client, eval_client, output_dir: Path, max_prompt_tokens: int | None) -> tuple:
     """Return (generate_hotdog_image, evaluate_hotness, summarize_description) tools.
 
     All three share the closure; ``eval_client`` backs both the vision evaluation
-    and the text summarization step.
+    and the text summarization step. ``max_prompt_tokens`` is the image model's prompt
+    budget, used to size the summarized prompt.
     """
     counter = {"value": 0}
 
@@ -78,7 +80,7 @@ def make_tools(image_client, eval_client, output_dir: Path) -> tuple:
     @tool
     def summarize_description(description: str) -> str:
         """Condense a detailed natural-language description into a short text-to-image prompt. Returns the short prompt."""
-        short = summarize_for_image(eval_client, description)
+        short = summarize_for_image(eval_client, description, max_prompt_tokens)
         print(f"[Summarized] {short}\n")
         return short
 
@@ -155,14 +157,16 @@ def main() -> None:
     if not eval_client.is_vision_model:
         raise ValueError(f"Eval model {args.eval_model!r} does not support vision.")
 
-    generate_fn, evaluate_fn, summarize_fn = make_tools(image_client, eval_client, output_dir)
+    # Summarize the evaluator's description down to the image model's token budget.
+    # Uncapped models (cloud, max_prompt_tokens is None) take the description directly.
+    max_prompt_tokens = image_client.max_prompt_tokens
+    summarizer_instruction = build_summarizer_prompt(max_prompt_tokens) if max_prompt_tokens else None
+    budget_label = f"{max_prompt_tokens} tokens" if max_prompt_tokens else "uncapped"
+    print(f"Image prompt budget: {budget_label} ({'summarizing' if summarizer_instruction else 'direct'})\n")
 
-    # Long-prompt models (T5-based: SD3, FLUX) take the full description directly;
-    # CLIP-only models (SD/SDXL) need the summarize step to stay under 77 tokens.
-    long_prompts = image_client.supports_long_prompts
-    print(f"Long-prompt model: {long_prompts} (summarize step {'skipped' if long_prompts else 'enabled'})\n")
+    generate_fn, evaluate_fn, summarize_fn = make_tools(image_client, eval_client, output_dir, max_prompt_tokens)
 
-    if long_prompts:
+    if summarizer_instruction is None:
         continue_rule = (
             "If the evaluator outputs CONTINUE, it gives a detailed natural-language "
             "description. Use that description directly as the prompt and repeat from step 1."
@@ -210,7 +214,11 @@ def main() -> None:
         trace = parse_agent_trace(agent.model_client.messages)
         if trace:
             summary_path = write_summary(
-                output_dir, trace, image_model=image_client.spec.id, eval_model=args.eval_model
+                output_dir,
+                trace,
+                image_model=image_client.spec.id,
+                eval_model=args.eval_model,
+                summarizer_instruction=summarizer_instruction,
             )
             print(f"\nSummary written to: {summary_path}")
         else:

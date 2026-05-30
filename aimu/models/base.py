@@ -827,11 +827,6 @@ class BaseImageClient(ABC):
         """The model's text-encoder prompt budget in tokens; ``None`` means no practical cap."""
         return self.spec.max_prompt_tokens
 
-    @property
-    def supports_long_prompts(self) -> bool:
-        """True when the model accepts prompts beyond CLIP's 77-token limit (T5-based / cloud)."""
-        return self.max_prompt_tokens is None or self.max_prompt_tokens > 77
-
     @abstractmethod
     def _generate(self, prompt: str, *, num_images: int = 1, **kwargs: Any) -> list:
         """Provider-specific generation. Returns a list of PIL ``Image.Image`` objects.

@@ -15,25 +15,21 @@ Rate its hotness from 1 to 10 (10 = blazing inferno hotdog, 1 = cold).
 Then decide: can this hotdog get any hotter? If not, output exactly:
 DONE: <your reasoning>
 If it can get hotter, output exactly:
-CONTINUE: <a full, natural-language description of how the next image should look
-to make the hotdog hotter — describe the flames, char, spices, steam, colors, and
-lighting in as much detail as you like>
+CONTINUE: <a natural-language description of how the next image should look to make
+the hotdog hotter — describe the flames, char, spices, steam, colors, and lighting>
 The scene must depict exactly ONE single hotdog — never multiple hotdogs, a pile,
 or a platter.
 """
 
 
 # Second stage of the prompt chain: condense the evaluator's free-form description
-# into a short prompt for image models with tight token limits (e.g. SDXL's CLIP
-# encoder caps at 77 tokens). Run through a text client via summarize_for_image().
+# into a prompt that fits the image model's token budget. ``{max_words}`` is filled
+# from the model's ImageSpec.max_prompt_tokens via build_summarizer_prompt().
 SUMMARIZER_PROMPT = """\
-Condense the following description into a short text-to-image prompt.
+Condense the following description into a text-to-image prompt.
 Output ONLY the prompt — comma-separated visual descriptors, no full sentences,
-under 40 words. It must depict exactly ONE single hotdog. Put the most important
-"hot" details first; image encoders truncate long prompts.
-
-Description:
-{description}
+under {max_words} words. It must depict exactly ONE single hotdog. Put the most
+important "hot" details first; image encoders truncate prompts past their limit.
 """
 
 
@@ -56,16 +52,31 @@ def build_image_prompt(prompt: str) -> str:
     return f"{SUBJECT_ANCHOR}, {prompt}"
 
 
-def summarize_for_image(client, description: str) -> str:
-    """Condense a free-form description into a short image-generation prompt.
+def prompt_word_budget(max_prompt_tokens: int) -> int:
+    """A conservative word cap for a model's token budget (≈0.45×tokens, min 20).
 
-    The second stage of the describe → summarize chain. Runs ``SUMMARIZER_PROMPT``
-    through a text ``client`` (the eval model is reused — summarization is text-only)
-    and returns the stripped short prompt. The client is reset first so the call
-    doesn't inherit or pollute prior conversation state.
+    English averages ~1.3 tokens/word, so 0.45×tokens words ≈ 0.6×tokens — comfortably
+    under the limit even if the model overshoots.
+    """
+    return max(20, int(max_prompt_tokens * 0.45))
+
+
+def build_summarizer_prompt(max_prompt_tokens: int) -> str:
+    """Format SUMMARIZER_PROMPT with a word budget derived from the model's token limit."""
+    return SUMMARIZER_PROMPT.format(max_words=prompt_word_budget(max_prompt_tokens))
+
+
+def summarize_for_image(client, description: str, max_prompt_tokens: int) -> str:
+    """Condense a free-form description into an image prompt that fits ``max_prompt_tokens``.
+
+    The second stage of the describe → summarize chain. Runs the budget-aware
+    summarizer instruction through a text ``client`` (the eval model is reused —
+    summarization is text-only) and returns the stripped prompt. The client is reset
+    first so the call doesn't inherit or pollute prior conversation state.
     """
     client.reset()
-    return client.chat(SUMMARIZER_PROMPT.format(description=description)).strip()
+    instruction = build_summarizer_prompt(max_prompt_tokens)
+    return client.chat(f"{instruction}\nDescription:\n{description}").strip()
 
 
 def build_arg_parser(description: str) -> argparse.ArgumentParser:
@@ -75,7 +86,7 @@ def build_arg_parser(description: str) -> argparse.ArgumentParser:
         "--image-model",
         default=HuggingFaceImageModel.SD_3_5_MEDIUM,
         help="Image model: 'provider:model_id' string or enum member "
-        "(default: SD 3.5 Medium — a long-prompt T5 model, so the summarize step is skipped)",
+        "(default: SD 3.5 Medium, a 256-token T5 model)",
     )
     p.add_argument(
         "--eval-model",
@@ -156,12 +167,14 @@ def write_summary(
     *,
     image_model: str | None = None,
     eval_model: str | None = None,
+    summarizer_instruction: str | None = None,
 ) -> Path:
     """Write summary.txt with the full iteration trace to output_dir.
 
     Records exactly what is sent to each model: the model names, the constant image
-    negative prompt, and the evaluator/summarizer instructions once at the top, then
-    per iteration the working prompt alongside the anchored prompt actually sent.
+    negative prompt, the evaluator instruction, and (when summarizing) the budget-aware
+    summarizer instruction, once at the top; then per iteration the working prompt
+    alongside the anchored prompt actually sent.
     """
     path = output_dir / "summary.txt"
 
@@ -173,8 +186,9 @@ def write_summary(
     header_lines += [
         f"Image negative prompt: {NEGATIVE_PROMPT}",
         f"Evaluator instruction:\n{EVALUATOR_PROMPT.strip()}",
-        f"Summarizer instruction:\n{SUMMARIZER_PROMPT.strip()}",
     ]
+    if summarizer_instruction:
+        header_lines.append(f"Summarizer instruction:\n{summarizer_instruction.strip()}")
     sections = ["\n".join(header_lines)]
     for entry in trace:
         lines = [

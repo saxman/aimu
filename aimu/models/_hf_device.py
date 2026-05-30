@@ -58,6 +58,25 @@ def cuda_free_memory() -> list[tuple[int, int]]:
     return infos
 
 
+def default_torch_dtype() -> Any:
+    """The memory-efficient ``torch.dtype`` for the active accelerator.
+
+    CUDA → ``bfloat16`` (``float16`` if the GPU lacks bf16 support); MPS → ``float16``;
+    CPU → ``float32``. bf16 is preferred on capable GPUs because it halves VRAM versus
+    fp32 without fp16's overflow issues (e.g. black-image VAE decodes). Returns ``None``
+    if torch is unavailable, so callers can simply omit the argument.
+    """
+    try:
+        import torch
+    except ImportError:
+        return None
+    if torch.cuda.is_available():
+        return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.float16
+    return torch.float32
+
+
 def resolve_device(hint: Optional[str] = None) -> str:
     """Resolve a placement target: the explicit ``hint`` or the best accelerator.
 

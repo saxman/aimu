@@ -24,6 +24,7 @@ from _hotdog_common import (
     NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
+    build_summarizer_prompt,
     collage_generated_images,
     parse_evaluator_response,
     resolve_output_dir,
@@ -49,10 +50,12 @@ def run_loop(
     prompt = "a hot hotdog"
     trace = []
 
-    # Long-prompt models (T5-based: SD3, FLUX) take the full description directly;
-    # CLIP-only models (SD/SDXL) need the summarize step to stay under 77 tokens.
-    long_prompts = image_client.supports_long_prompts
-    print(f"Long-prompt model: {long_prompts} (summarize step {'skipped' if long_prompts else 'enabled'})\n")
+    # Summarize the evaluator's description down to the image model's token budget.
+    # Models with no cap (cloud, max_prompt_tokens is None) take the description directly.
+    max_prompt_tokens = image_client.max_prompt_tokens
+    summarizer_instruction = build_summarizer_prompt(max_prompt_tokens) if max_prompt_tokens else None
+    budget_label = f"{max_prompt_tokens} tokens" if max_prompt_tokens else "uncapped"
+    print(f"Image prompt budget: {budget_label} ({'summarizing' if summarizer_instruction else 'direct'})\n")
 
     # max_iterations == 0 means run indefinitely until the evaluator says DONE.
     iterations = itertools.count(1) if max_iterations == 0 else iter(range(1, max_iterations + 1))
@@ -99,13 +102,12 @@ def run_loop(
                 print(f"Reached maximum iterations ({max_iterations}). Stopping.")
                 break
 
-            if long_prompts:
-                # Model handles long prompts — feed the full description straight through.
+            if summarizer_instruction is None:
+                # Uncapped model — feed the full description straight through.
                 prompt = parsed["next_prompt"]
             else:
-                # Second stage of the chain: condense the description into a short,
-                # CLIP-friendly prompt for the next image.
-                prompt = summarize_for_image(eval_client, parsed["next_prompt"])
+                # Second stage of the chain: condense the description to fit the budget.
+                prompt = summarize_for_image(eval_client, parsed["next_prompt"], max_prompt_tokens)
                 entry["summarized_prompt"] = prompt
                 print(f"Summarized → next prompt: {prompt}\n")
     except KeyboardInterrupt:
@@ -115,7 +117,11 @@ def run_loop(
         # image files so it includes every generated image, not just evaluated ones.
         if trace:
             summary_path = write_summary(
-                output_dir, trace, image_model=image_client.spec.id, eval_model=eval_model_id
+                output_dir,
+                trace,
+                image_model=image_client.spec.id,
+                eval_model=eval_model_id,
+                summarizer_instruction=summarizer_instruction,
             )
             print(f"Summary written to: {summary_path}")
         collage_path = collage_generated_images(output_dir)

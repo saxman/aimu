@@ -169,10 +169,6 @@ class ImageClient:
     def max_prompt_tokens(self) -> Optional[int]:
         return self._client.max_prompt_tokens
 
-    @property
-    def supports_long_prompts(self) -> bool:
-        return self._client.supports_long_prompts
-
     def generate(self, prompt: str, **kwargs: Any) -> Any:
         """Generate one or more images. Forwarded to the inner client's
         :meth:`BaseImageClient.generate`."""

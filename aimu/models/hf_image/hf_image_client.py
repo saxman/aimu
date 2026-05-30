@@ -27,15 +27,16 @@ from typing import Any, Optional, Union
 # loader. Pipeline weights are still loaded lazily inside ``_load_pipeline``.
 import diffusers  # noqa: F401  # used dynamically via getattr in _load_pipeline
 
-from .._hf_device import auto_place_pipeline, move_to_device, pop_device_hint
+from .._hf_device import auto_place_pipeline, default_torch_dtype, move_to_device, pop_device_hint
 from ..base import BaseImageClient, HuggingFaceImageSpec, ImageModel
 
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_MODEL_KWARGS: dict[str, Any] = {
-    "torch_dtype": "auto",
-}
+# torch_dtype is intentionally not fixed here: it defaults per-device at load time
+# (bf16 on CUDA, fp16 on MPS, fp32 on CPU) unless the caller specifies one. See
+# _load_pipeline.
+DEFAULT_MODEL_KWARGS: dict[str, Any] = {}
 
 
 class HuggingFaceImageModel(ImageModel):
@@ -170,6 +171,14 @@ class HuggingFaceImageClient(BaseImageClient):
             kwargs.update(self.model_kwargs)
 
         device = pop_device_hint(kwargs)
+
+        # Default to a memory-efficient dtype for the active accelerator (bf16 on CUDA)
+        # unless the caller set one. fp32 doubles VRAM for no quality gain on GPU, and
+        # "auto" can silently resolve to fp32 from a model's config.
+        if "torch_dtype" not in kwargs:
+            dtype = default_torch_dtype()
+            if dtype is not None:
+                kwargs["torch_dtype"] = dtype
 
         logger.info("Loading diffusion pipeline %s (%s)", self.spec.id, self.spec.pipeline_class)
         pipe = pipeline_cls.from_pretrained(self.spec.id, **kwargs)

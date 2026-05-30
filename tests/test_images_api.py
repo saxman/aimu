@@ -176,10 +176,17 @@ def test_max_prompt_tokens_capability():
     assert HuggingFaceImageSpec("custom/repo").max_prompt_tokens == 77
 
 
-def test_supports_long_prompts_property():
-    """The client property derives long-prompt support from the spec's token budget."""
-    assert HuggingFaceImageClient(HuggingFaceImageModel.SDXL_BASE).supports_long_prompts is False
-    assert HuggingFaceImageClient(HuggingFaceImageModel.SD_3_5_MEDIUM).supports_long_prompts is True
+def test_default_torch_dtype_injected_and_overridable():
+    """torch_dtype defaults to a real device dtype (not 'auto'), but an explicit value wins."""
+    import torch
+
+    # No torch_dtype given → a concrete torch.dtype is passed to from_pretrained.
+    c = HuggingFaceImageClient(HuggingFaceImageModel.SD_3_5_MEDIUM)
+    assert isinstance(c.pipeline.load_kwargs["torch_dtype"], torch.dtype)
+
+    # Explicit value is respected (e.g. opting back into "auto").
+    c2 = HuggingFaceImageClient(HuggingFaceImageModel.SD_3_5_MEDIUM, model_kwargs={"torch_dtype": "auto"})
+    assert c2.pipeline.load_kwargs["torch_dtype"] == "auto"
 
 
 def test_auto_place_pipeline_tiers(monkeypatch):
