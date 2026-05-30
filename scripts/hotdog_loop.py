@@ -130,6 +130,12 @@ def run_loop(
 
 
 def main() -> None:
+    # SD 3.5 always warns that its CLIP encoders truncate prompts past 77 tokens; that's harmless
+    # (T5 carries the full prompt), so quiet transformers' logging to keep output readable.
+    from transformers.utils import logging as hf_logging
+
+    hf_logging.set_verbosity_error()
+
     args = build_arg_parser(
         "Iteratively heat a hotdog image using local HF diffusers + Ollama vision."
     ).parse_args()
