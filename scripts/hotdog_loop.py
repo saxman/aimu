@@ -29,6 +29,7 @@ from _hotdog_common import (
     parse_evaluator_response,
     resolve_output_dir,
     summarize_for_image,
+    suppress_benign_clip_warning,
     write_summary,
 )
 
@@ -40,6 +41,7 @@ def run_loop(
     max_iterations: int,
 ) -> None:
     image_client = aimu.image_client(image_model_name)
+    suppress_benign_clip_warning(image_client)
     eval_client = aimu.client(eval_model_id)
     if not eval_client.is_vision_model:
         raise ValueError(f"Eval model {eval_model_id!r} does not support vision.")
@@ -130,12 +132,6 @@ def run_loop(
 
 
 def main() -> None:
-    # SD 3.5 always warns that its CLIP encoders truncate prompts past 77 tokens; that's harmless
-    # (T5 carries the full prompt), so quiet transformers' logging to keep output readable.
-    from transformers.utils import logging as hf_logging
-
-    hf_logging.set_verbosity_error()
-
     args = build_arg_parser(
         "Iteratively heat a hotdog image using local HF diffusers + Ollama vision."
     ).parse_args()

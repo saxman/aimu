@@ -31,6 +31,7 @@ from _hotdog_common import (
     parse_evaluator_response,
     resolve_output_dir,
     summarize_for_image,
+    suppress_benign_clip_warning,
     write_summary,
 )
 
@@ -142,12 +143,6 @@ def parse_agent_trace(messages: list[dict]) -> list[dict]:
 
 
 def main() -> None:
-    # SD 3.5 always warns that its CLIP encoders truncate prompts past 77 tokens; that's harmless
-    # (T5 carries the full prompt), so quiet transformers' logging to keep output readable.
-    from transformers.utils import logging as hf_logging
-
-    hf_logging.set_verbosity_error()
-
     args = build_arg_parser(
         "Iteratively heat a hotdog image using an AIMU Agent + local models."
     ).parse_args()
@@ -157,6 +152,7 @@ def main() -> None:
     print(f"Output directory: {output_dir}\n")
 
     image_client = aimu.image_client(args.image_model)
+    suppress_benign_clip_warning(image_client)
     # Two separate client instances: one for agent reasoning, one for vision eval inside the tool.
     agent_client = aimu.client(args.eval_model)
     eval_client = aimu.client(args.eval_model)

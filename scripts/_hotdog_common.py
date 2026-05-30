@@ -79,6 +79,33 @@ def summarize_for_image(client, description: str, max_prompt_tokens: int) -> str
     return client.chat(f"{instruction}\nDescription:\n{description}").strip()
 
 
+def suppress_benign_clip_warning(image_client) -> None:
+    """Hide diffusers' CLIP-77 truncation warning, but only where it's benign.
+
+    Models with an encoder beyond CLIP (T5-based: SD3, FLUX — ``max_prompt_tokens`` > 77)
+    route the full prompt through T5, so CLIP truncating at 77 is by design and harmless.
+    For CLIP-only models (SDXL, SD 1.5 — ``max_prompt_tokens`` == 77) the same warning means
+    prompt content was actually dropped, so it stays visible. Only the CLIP-77 message is
+    filtered — other diffusers warnings (e.g. T5's own ``max_sequence_length`` truncation,
+    which matters for every model) are left untouched.
+    """
+    max_tokens = image_client.max_prompt_tokens
+    if max_tokens is None or max_tokens <= 77:
+        return  # CLIP-only (or cloud) model — the truncation warning is a real signal; keep it.
+
+    import logging
+
+    from diffusers.utils import logging as diffusers_logging
+
+    class _DropClip77(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            return "CLIP can only handle sequences up to 77 tokens" not in record.getMessage()
+
+    diffusers_logging.get_logger()  # ensure the library's root handler is configured
+    for handler in logging.getLogger("diffusers").handlers:
+        handler.addFilter(_DropClip77())
+
+
 def build_arg_parser(description: str) -> argparse.ArgumentParser:
     """Build an argument parser with the options common to both hotdog scripts."""
     p = argparse.ArgumentParser(description=description)
