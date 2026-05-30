@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://saxman.github.io/aimu/changelog/">
+        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/iterative-image-refinement/">
       
       
-        <link rel="prev" href="../explanation/async-design/">
+        <link rel="prev" href="../generate-speech/">
       
       
-        <link rel="next" href="../contributing/">
+        <link rel="next" href="../persist-conversations/">
       
       
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Changelog - AIMU</title>
+        <title>Iterative image refinement - AIMU</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#changelog" class="md-skip">
+        <a href="#iterative-image-refinement" class="md-skip">
           Skip to content
         </a>
       
@@ -96,7 +96,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="AIMU" class="md-header__button md-logo" aria-label="AIMU" data-md-component="logo">
+    <a href="../.." title="AIMU" class="md-header__button md-logo" aria-label="AIMU" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Changelog
+              Iterative image refinement
             
           </span>
         </div>
@@ -223,7 +223,7 @@
   
   
     <li class="md-tabs__item">
-      <a href=".." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -244,7 +244,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../tutorials/" class="md-tabs__link">
+        <a href="../../tutorials/" class="md-tabs__link">
           
   
   
@@ -262,11 +262,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../how-to/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -288,7 +290,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../reference/" class="md-tabs__link">
+        <a href="../../reference/" class="md-tabs__link">
           
   
   
@@ -310,7 +312,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../explanation/" class="md-tabs__link">
+        <a href="../../explanation/" class="md-tabs__link">
           
   
   
@@ -328,11 +330,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
         
   
   
@@ -351,7 +351,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../contributing/" class="md-tabs__link">
+      <a href="../../contributing/" class="md-tabs__link">
         
   
   
@@ -392,7 +392,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="AIMU" class="md-nav__button md-logo" aria-label="AIMU" data-md-component="logo">
+    <a href="../.." title="AIMU" class="md-nav__button md-logo" aria-label="AIMU" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -422,7 +422,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -480,7 +480,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../tutorials/" class="md-nav__link ">
+            <a href="../../tutorials/" class="md-nav__link ">
               
   
   
@@ -524,7 +524,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tutorials/01-getting-started/" class="md-nav__link">
+      <a href="../../tutorials/01-getting-started/" class="md-nav__link">
         
   
   
@@ -552,7 +552,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tutorials/02-first-agent-with-tools/" class="md-nav__link">
+      <a href="../../tutorials/02-first-agent-with-tools/" class="md-nav__link">
         
   
   
@@ -580,7 +580,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tutorials/03-workflows/" class="md-nav__link">
+      <a href="../../tutorials/03-workflows/" class="md-nav__link">
         
   
   
@@ -608,7 +608,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tutorials/04-vision-and-streaming/" class="md-nav__link">
+      <a href="../../tutorials/04-vision-and-streaming/" class="md-nav__link">
         
   
   
@@ -640,6 +640,8 @@
       
   
   
+    
+  
   
   
     
@@ -693,20 +695,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../how-to/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -724,13 +729,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -750,7 +755,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/switch-providers/" class="md-nav__link">
+      <a href="../switch-providers/" class="md-nav__link">
         
   
   
@@ -778,7 +783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/add-custom-tool/" class="md-nav__link">
+      <a href="../add-custom-tool/" class="md-nav__link">
         
   
   
@@ -806,7 +811,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/add-new-model/" class="md-nav__link">
+      <a href="../add-new-model/" class="md-nav__link">
         
   
   
@@ -834,7 +839,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/use-mcp-tools/" class="md-nav__link">
+      <a href="../use-mcp-tools/" class="md-nav__link">
         
   
   
@@ -862,7 +867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/use-skills/" class="md-nav__link">
+      <a href="../use-skills/" class="md-nav__link">
         
   
   
@@ -890,7 +895,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/stream-output/" class="md-nav__link">
+      <a href="../stream-output/" class="md-nav__link">
         
   
   
@@ -918,7 +923,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/use-async/" class="md-nav__link">
+      <a href="../use-async/" class="md-nav__link">
         
   
   
@@ -946,7 +951,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/handle-vision/" class="md-nav__link">
+      <a href="../handle-vision/" class="md-nav__link">
         
   
   
@@ -974,7 +979,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/generate-images/" class="md-nav__link">
+      <a href="../generate-images/" class="md-nav__link">
         
   
   
@@ -1002,7 +1007,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/generate-audio/" class="md-nav__link">
+      <a href="../generate-audio/" class="md-nav__link">
         
   
   
@@ -1030,7 +1035,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/generate-speech/" class="md-nav__link">
+      <a href="../generate-speech/" class="md-nav__link">
         
   
   
@@ -1055,10 +1060,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../how-to/iterative-image-refinement/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative image refinement
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1074,6 +1106,164 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#two-ways-to-run-the-same-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two ways to run the same loop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pieces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The pieces
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The pieces">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#two-clients-a-generator-and-a-vision-critic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two clients: a generator and a vision critic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-evaluator-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The evaluator contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-directed-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code-directed loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-directed-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent-directed loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prompt-chaining-describe-richly-then-summarize-to-the-models-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prompt chaining: describe richly, then summarize to the model's budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#keeping-it-to-one-subject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keeping it to one subject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#placement-and-dtype-are-automatic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placement and dtype are automatic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#durable-output-summary-collage-even-on-ctrl-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Durable output: summary + collage, even on Ctrl-C
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quieting-the-benign-clip-warning-but-only-when-its-benign" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quieting the benign CLIP warning — but only when it's benign
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1086,7 +1276,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/persist-conversations/" class="md-nav__link">
+      <a href="../persist-conversations/" class="md-nav__link">
         
   
   
@@ -1114,7 +1304,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/use-semantic-memory/" class="md-nav__link">
+      <a href="../use-semantic-memory/" class="md-nav__link">
         
   
   
@@ -1142,7 +1332,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/use-document-memory/" class="md-nav__link">
+      <a href="../use-document-memory/" class="md-nav__link">
         
   
   
@@ -1170,7 +1360,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/build-orchestrator/" class="md-nav__link">
+      <a href="../build-orchestrator/" class="md-nav__link">
         
   
   
@@ -1198,7 +1388,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/plan-execute-evaluate/" class="md-nav__link">
+      <a href="../plan-execute-evaluate/" class="md-nav__link">
         
   
   
@@ -1226,7 +1416,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/tune-prompts/" class="md-nav__link">
+      <a href="../tune-prompts/" class="md-nav__link">
         
   
   
@@ -1254,7 +1444,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/benchmark-models/" class="md-nav__link">
+      <a href="../benchmark-models/" class="md-nav__link">
         
   
   
@@ -1282,7 +1472,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/integrate-deepeval/" class="md-nav__link">
+      <a href="../integrate-deepeval/" class="md-nav__link">
         
   
   
@@ -1352,7 +1542,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/" class="md-nav__link ">
+            <a href="../../reference/" class="md-nav__link ">
               
   
   
@@ -1470,7 +1660,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/aimu/" class="md-nav__link">
+      <a href="../../reference/api/aimu/" class="md-nav__link">
         
   
   
@@ -1498,7 +1688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/aio/" class="md-nav__link">
+      <a href="../../reference/api/aio/" class="md-nav__link">
         
   
   
@@ -1526,7 +1716,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/models/" class="md-nav__link">
+      <a href="../../reference/api/models/" class="md-nav__link">
         
   
   
@@ -1554,7 +1744,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/agents/" class="md-nav__link">
+      <a href="../../reference/api/agents/" class="md-nav__link">
         
   
   
@@ -1582,7 +1772,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/tools/" class="md-nav__link">
+      <a href="../../reference/api/tools/" class="md-nav__link">
         
   
   
@@ -1610,7 +1800,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/skills/" class="md-nav__link">
+      <a href="../../reference/api/skills/" class="md-nav__link">
         
   
   
@@ -1638,7 +1828,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/memory/" class="md-nav__link">
+      <a href="../../reference/api/memory/" class="md-nav__link">
         
   
   
@@ -1666,7 +1856,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/prompts/" class="md-nav__link">
+      <a href="../../reference/api/prompts/" class="md-nav__link">
         
   
   
@@ -1694,7 +1884,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/evals/" class="md-nav__link">
+      <a href="../../reference/api/evals/" class="md-nav__link">
         
   
   
@@ -1722,7 +1912,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/history/" class="md-nav__link">
+      <a href="../../reference/api/history/" class="md-nav__link">
         
   
   
@@ -1758,7 +1948,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/provider-matrix/" class="md-nav__link">
+      <a href="../../reference/provider-matrix/" class="md-nav__link">
         
   
   
@@ -1786,7 +1976,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/model-matrix/" class="md-nav__link">
+      <a href="../../reference/model-matrix/" class="md-nav__link">
         
   
   
@@ -1814,7 +2004,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/stream-phases/" class="md-nav__link">
+      <a href="../../reference/stream-phases/" class="md-nav__link">
         
   
   
@@ -1842,7 +2032,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/env-vars/" class="md-nav__link">
+      <a href="../../reference/env-vars/" class="md-nav__link">
         
   
   
@@ -1870,7 +2060,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/cli/" class="md-nav__link">
+      <a href="../../reference/cli/" class="md-nav__link">
         
   
   
@@ -1942,7 +2132,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../explanation/" class="md-nav__link ">
+            <a href="../../explanation/" class="md-nav__link ">
               
   
   
@@ -1986,7 +2176,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../explanation/architecture/" class="md-nav__link">
+      <a href="../../explanation/architecture/" class="md-nav__link">
         
   
   
@@ -2014,7 +2204,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../explanation/design-principles/" class="md-nav__link">
+      <a href="../../explanation/design-principles/" class="md-nav__link">
         
   
   
@@ -2042,7 +2232,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../explanation/agents-vs-workflows/" class="md-nav__link">
+      <a href="../../explanation/agents-vs-workflows/" class="md-nav__link">
         
   
   
@@ -2070,7 +2260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../explanation/streamchunk-model/" class="md-nav__link">
+      <a href="../../explanation/streamchunk-model/" class="md-nav__link">
         
   
   
@@ -2098,7 +2288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../explanation/system-message-lifecycle/" class="md-nav__link">
+      <a href="../../explanation/system-message-lifecycle/" class="md-nav__link">
         
   
   
@@ -2126,7 +2316,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../explanation/tool-integration/" class="md-nav__link">
+      <a href="../../explanation/tool-integration/" class="md-nav__link">
         
   
   
@@ -2154,7 +2344,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../explanation/async-design/" class="md-nav__link">
+      <a href="../../explanation/async-design/" class="md-nav__link">
         
   
   
@@ -2186,37 +2376,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changelog
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
         
   
   
@@ -2232,120 +2395,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#v04-unreleased-api-redesign" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        v0.4 (unreleased) — API redesign
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="v0.4 (unreleased) — API redesign">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#top-level-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Top-level API
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#model-clients" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Model clients
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#agents" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Agents
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tools" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tools
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#skills" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Skills
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentation
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#earlier-versions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Earlier versions
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2357,7 +2406,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../contributing/" class="md-nav__link">
+      <a href="../../contributing/" class="md-nav__link">
         
   
   
@@ -2404,22 +2453,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#v04-unreleased-api-redesign" class="md-nav__link">
+  <a href="#two-ways-to-run-the-same-loop" class="md-nav__link">
     <span class="md-ellipsis">
       
-        v0.4 (unreleased) — API redesign
+        Two ways to run the same loop
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="v0.4 (unreleased) — API redesign">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pieces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The pieces
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The pieces">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#top-level-api" class="md-nav__link">
+  <a href="#two-clients-a-generator-and-a-vision-critic" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Top-level API
+        Two clients: a generator and a vision critic
       
     </span>
   </a>
@@ -2427,10 +2487,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#model-clients" class="md-nav__link">
+  <a href="#the-evaluator-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Model clients
+        The evaluator contract
       
     </span>
   </a>
@@ -2438,10 +2498,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents" class="md-nav__link">
+  <a href="#code-directed-loop" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Agents
+        Code-directed loop
       
     </span>
   </a>
@@ -2449,10 +2509,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tools" class="md-nav__link">
+  <a href="#agent-directed-loop" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tools
+        Agent-directed loop
       
     </span>
   </a>
@@ -2460,10 +2520,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#skills" class="md-nav__link">
+  <a href="#prompt-chaining-describe-richly-then-summarize-to-the-models-budget" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Skills
+        Prompt chaining: describe richly, then summarize to the model's budget
       
     </span>
   </a>
@@ -2471,10 +2531,43 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation" class="md-nav__link">
+  <a href="#keeping-it-to-one-subject" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Documentation
+        Keeping it to one subject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#placement-and-dtype-are-automatic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placement and dtype are automatic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#durable-output-summary-collage-even-on-ctrl-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Durable output: summary + collage, even on Ctrl-C
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quieting-the-benign-clip-warning-but-only-when-its-benign" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quieting the benign CLIP warning — but only when it's benign
       
     </span>
   </a>
@@ -2487,10 +2580,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#earlier-versions" class="md-nav__link">
+  <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Earlier versions
+        See also
       
     </span>
   </a>
@@ -2517,60 +2610,99 @@
   
 
 
-<h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="v04-unreleased-api-redesign">v0.4 (unreleased) — API redesign<a class="headerlink" href="#v04-unreleased-api-redesign" title="Permanent link">&para;</a></h2>
-<p>Breaking changes across four areas, plus the new documentation site.</p>
-<h3 id="top-level-api">Top-level API<a class="headerlink" href="#top-level-api" title="Permanent link">&para;</a></h3>
+<h1 id="iterative-image-refinement">Iterative image refinement<a class="headerlink" href="#iterative-image-refinement" title="Permanent link">&para;</a></h1>
+<p>Build a <strong>generate → evaluate → refine</strong> loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — <em>"make a hotdog as visually hot as possible"</em> — that composes image generation, vision input, prompt chaining, and either an agent or a plain Python loop.</p>
+<p>The full, runnable code lives in two scripts that share one helper module:</p>
 <ul>
-<li><strong>New</strong> <code>aimu.chat(user_message, *, model, ...)</code> — one-shot chat with a model string or enum.</li>
-<li><strong>New</strong> <code>aimu.client(model, *, system=None, **kwargs)</code> — one-line <code>ModelClient</code> factory.</li>
-<li><strong>New</strong> <code>aimu.resolve_model_string("provider:model_id")</code> — model-string parser.</li>
-<li><strong>New</strong> <code>ModelClient</code> now accepts a <code>"provider:model_id"</code> string in addition to enum members.</li>
+<li><code>scripts/hotdog_loop.py</code> — <strong>Python directs the loop</strong> (a code-controlled workflow).</li>
+<li><code>scripts/hotdog_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
+<li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by both.</li>
 </ul>
-<h3 id="model-clients">Model clients<a class="headerlink" href="#model-clients" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w">                 </span><span class="c1"># code-directed</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w">                </span><span class="c1"># agent-directed</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">   </span><span class="c1"># run until the critic says DONE</span>
+</span></code></pre></div>
+<h2 id="two-ways-to-run-the-same-loop">Two ways to run the same loop<a class="headerlink" href="#two-ways-to-run-the-same-loop" title="Permanent link">&para;</a></h2>
+<p>The same task is implemented twice on purpose — it's a concrete take on <a href="../../explanation/agents-vs-workflows/">agents vs workflows</a>:</p>
 <ul>
-<li><strong>New</strong> <code>ModelSpec</code> frozen dataclass replaces positional enum tuples. All <code>Model</code> enums migrated.</li>
-<li><strong>New</strong> <code>client.reset(system_message="__keep__")</code> clears history and unlocks the system-message setter.</li>
-<li><strong>Breaking</strong> <code>system_message</code> is immutable after the first <code>chat()</code> call. The setter raises <code>RuntimeError</code>; call <code>reset()</code> to unlock.</li>
-<li><strong>New</strong> <code>include=[...]</code> stream filter on <code>chat()</code> and <code>generate()</code> selects phases (<code>"thinking"</code>, <code>"tool_calling"</code>, <code>"generating"</code>, <code>"done"</code>).</li>
-<li><strong>Internal</strong> Abstract methods renamed <code>chat → _chat</code>, <code>generate → _generate</code>. Concrete <code>chat</code>/<code>generate</code> on the base class apply the <code>include</code> filter and delegate.</li>
-<li><strong>New</strong> Memory-aware GPU placement for <code>HuggingFaceImageClient</code>: on load it measures the pipeline size and each GPU's <em>free</em> VRAM (accounting for other processes), then pins to the freest GPU or falls back to model / sequential CPU offload so large models (SD3, FLUX) load without OOM. Override with <code>model_kwargs={"device": "cuda:1"}</code> or <code>{"device_map": ...}</code>. Audio/speech clients take the same <code>{"device": ...}</code> hint. Shared <code>aimu/models/_hf_device.py</code> helpers back all three.</li>
-<li><strong>New</strong> <code>ImageSpec.max_prompt_tokens</code> records the model's text-encoder prompt budget (77 for CLIP, 256/512 for T5 models like SD3/FLUX, <code>None</code> for uncapped cloud models), exposed on <code>BaseImageClient</code>. Use it to size prompts to the model.</li>
-<li><strong>Changed</strong> <code>HuggingFaceImageClient</code> now defaults <code>torch_dtype</code> per device (bf16 on CUDA, fp16 on MPS, fp32 on CPU) instead of <code>"auto"</code>, which could silently load in fp32 and double VRAM. Pass <code>model_kwargs={"torch_dtype": ...}</code> to override.</li>
+<li><strong>Code-directed</strong> (<code>hotdog_loop.py</code>): you write the <code>for</code> loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility.</li>
+<li><strong>Agent-directed</strong> (<code>hotdog_agent.py</code>): you hand an <a href="../../reference/api/agents/"><code>Agent</code></a> three tools (<code>generate_hotdog_image</code>, <code>evaluate_hotness</code>, <code>summarize_description</code>) and let its tool-calling loop decide when to call what. Reach for this when you want the model to own the control flow, or as a stepping stone to more open-ended behaviour.</li>
 </ul>
-<h3 id="agents">Agents<a class="headerlink" href="#agents" title="Permanent link">&para;</a></h3>
+<p>Both produce the same artifacts and share every prompt and helper, so the diff between them is purely <em>who drives the loop</em>.</p>
+<h2 id="the-pieces">The pieces<a class="headerlink" href="#the-pieces" title="Permanent link">&para;</a></h2>
+<h3 id="two-clients-a-generator-and-a-vision-critic">Two clients: a generator and a vision critic<a class="headerlink" href="#two-clients-a-generator-and-a-vision-critic" title="Permanent link">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">image_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">image_client</span><span class="p">(</span><span class="s2">&quot;hf:stabilityai/stable-diffusion-3.5-medium&quot;</span><span class="p">)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">eval_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:gemma4:e4b&quot;</span><span class="p">)</span>          <span class="c1"># any vision-capable chat model</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">eval_client</span><span class="o">.</span><span class="n">is_vision_model</span><span class="p">:</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;the eval model must support image input&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The critic is a normal chat client used with <code>images=</code> (see <a href="../handle-vision/">Handle vision input</a>); the generator is an image client (see <a href="../generate-images/">Generate images</a>).</p>
+<h3 id="the-evaluator-contract">The evaluator contract<a class="headerlink" href="#the-evaluator-contract" title="Permanent link">&para;</a></h3>
+<p>The critic is prompted to return a score plus a machine-readable verdict — <code>DONE:</code> (stop) or <code>CONTINUE:</code> (here's how to make it hotter):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Rate its hotness from 1 to 10. Then decide: can it get hotter? If not, output exactly:
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>DONE: &lt;reasoning&gt;
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>If it can, output exactly:
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>CONTINUE: &lt;a natural-language description of how the next image should look&gt;
+</span></code></pre></div>
+<p>A small regex parser turns that into <code>{"action": "DONE"|"CONTINUE"|"unknown", "score", "next_prompt"}</code>, so the loop has a clean stop condition.</p>
+<h3 id="code-directed-loop">Code-directed loop<a class="headerlink" href="#code-directed-loop" title="Permanent link">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">prompt</span> <span class="o">=</span> <span class="s2">&quot;a hot hotdog&quot;</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">image_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">build_image_prompt</span><span class="p">(</span><span class="n">prompt</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;path&quot;</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">eval_client</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">verdict</span> <span class="o">=</span> <span class="n">eval_client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="n">EVALUATOR_PROMPT</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="n">path</span><span class="p">])</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">parsed</span> <span class="o">=</span> <span class="n">parse_evaluator_response</span><span class="p">(</span><span class="n">verdict</span><span class="p">)</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">if</span> <span class="n">parsed</span><span class="p">[</span><span class="s2">&quot;action&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;DONE&quot;</span><span class="p">:</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="k">break</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">prompt</span> <span class="o">=</span> <span class="n">summarize_for_image</span><span class="p">(</span><span class="n">eval_client</span><span class="p">,</span> <span class="n">parsed</span><span class="p">[</span><span class="s2">&quot;next_prompt&quot;</span><span class="p">],</span> <span class="n">image_client</span><span class="o">.</span><span class="n">max_prompt_tokens</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="agent-directed-loop">Agent-directed loop<a class="headerlink" href="#agent-directed-loop" title="Permanent link">&para;</a></h3>
+<p>Wrap the same three operations as <code>@tool</code>s and let the agent sequence them:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">agent_client</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;hotdog-agent&quot;</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">system_message</span><span class="o">=</span><span class="n">AGENT_SYSTEM_PROMPT</span><span class="p">,</span>   <span class="c1"># &quot;generate → evaluate → (summarize) → repeat until DONE&quot;</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">generate_hotdog_image</span><span class="p">,</span> <span class="n">evaluate_hotness</span><span class="p">,</span> <span class="n">summarize_description</span><span class="p">],</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">max_iterations</span><span class="o">=</span><span class="n">max_iterations</span> <span class="o">*</span> <span class="mi">4</span><span class="p">,</span>    <span class="c1"># ~3 tool calls per round + headroom</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Begin the hotdog heating experiment. Start with &#39;a hot hotdog&#39;.&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The agent stops on its own once the critic returns <code>DONE</code> (it simply stops calling tools). <code>--max-iterations 0</code> removes the hard cap so the <em>critic</em> decides when to stop.</p>
+<h3 id="prompt-chaining-describe-richly-then-summarize-to-the-models-budget">Prompt chaining: describe richly, then summarize to the model's budget<a class="headerlink" href="#prompt-chaining-describe-richly-then-summarize-to-the-models-budget" title="Permanent link">&para;</a></h3>
+<p>The critic writes a detailed, free-form description (the "hot" it imagines). But image models cap prompt length — SDXL's CLIP encoder at 77 tokens, SD 3.5's T5 at 256. So a second step condenses the description to fit, sized from the model's own <a href="../generate-images/#prompt-length"><code>max_prompt_tokens</code></a>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">summarize_for_image</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">max_prompt_tokens</span><span class="p">):</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">instruction</span> <span class="o">=</span> <span class="n">build_summarizer_prompt</span><span class="p">(</span><span class="n">max_prompt_tokens</span><span class="p">)</span>   <span class="c1"># &quot;...under N words...&quot;</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">instruction</span><span class="si">}</span><span class="se">\n</span><span class="s2">Description:</span><span class="se">\n</span><span class="si">{</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span></code></pre></div>
+<p>This is <a href="../../explanation/agents-vs-workflows/">prompt chaining</a>: step N's output (a rich description) becomes step N+1's input (a tight prompt). When <code>max_prompt_tokens</code> is <code>None</code> (uncapped cloud models), the description is fed straight through and the summarize step is skipped.</p>
+<h3 id="keeping-it-to-one-subject">Keeping it to one subject<a class="headerlink" href="#keeping-it-to-one-subject" title="Permanent link">&para;</a></h3>
+<p>Diffusion models drift toward "more of a good thing." Two levers keep it to a single hotdog:</p>
 <ul>
-<li><strong>Breaking</strong> <code>Agent</code> constructor signature changed: <code>Agent(model_client, system_message=None, name=None, tools=None, ...)</code>. <code>system_message</code> is the second positional argument; <code>name</code> is optional (auto-derived).</li>
-<li><strong>Breaking</strong> <code>AgenticModelClient</code> removed from the public API. Use <code>agent.as_model_client()</code> instead.</li>
-<li><strong>Breaking</strong> <code>OrchestratorAgent._setup_orchestrator</code> renamed to <code>_init_orchestrator</code>.</li>
-<li><strong>New</strong> <code>OrchestratorAgent.assemble(client, system_message, workers=[...])</code> factory builds an orchestrator without subclassing.</li>
-<li><strong>New</strong> Workflow factories: <code>Chain.from_client(client, prompts)</code>, <code>Router.from_client(client, classifier_prompt, handlers)</code>, <code>Parallel.from_client(client, worker_prompts, aggregator_prompt=)</code>, <code>PlanExecuteEvaluator.from_client(client, ...)</code>.</li>
-<li><strong>Breaking</strong> <code>BaseAgent</code> and <code>Workflow</code> ABCs removed. All concrete agents and workflows inherit directly from <code>Runner</code>. The agent-vs-workflow split survives as a conceptual category in the docs.</li>
-<li><strong>Breaking</strong> <code>AgentChunk</code> and <code>ChainChunk</code> collapsed into <code>StreamChunk</code> — no back-compat aliases. <code>chunk.agent_name → chunk.agent</code>; <code>chunk.step → chunk.iteration</code>.</li>
+<li><strong>Positive anchor</strong> — every prompt is prefixed with <code>"a single hotdog, one sausage in one bun, solo, centered, close-up shot"</code>. Stating the subject and framing is the reliable lever for count.</li>
+<li><strong>Negative prompt</strong> — <code>"multiple, two, several, pile, platter, ..."</code> discourages plurality. It deliberately omits the word <em>hotdog</em> (a CLIP negative suppresses the <em>concept</em>, so "no hotdogs" removes the subject entirely).</li>
 </ul>
-<h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
+<h3 id="placement-and-dtype-are-automatic">Placement and dtype are automatic<a class="headerlink" href="#placement-and-dtype-are-automatic" title="Permanent link">&para;</a></h3>
+<p>Nothing in either script pins a GPU or sets a dtype. <code>HuggingFaceImageClient</code> measures free VRAM across your GPUs and the model's size, then <a href="../generate-images/#gpu-placement-huggingface">places it for you</a> — pinning to the freest card or falling back to CPU offload — and defaults to a memory-efficient dtype (bf16 on CUDA). So SD 3.5 loads alongside a local LLM without manual juggling.</p>
+<h3 id="durable-output-summary-collage-even-on-ctrl-c">Durable output: summary + collage, even on Ctrl-C<a class="headerlink" href="#durable-output-summary-collage-even-on-ctrl-c" title="Permanent link">&para;</a></h3>
+<p>Both scripts write results in a <code>finally</code> block, so an interrupted run still produces output:</p>
 <ul>
-<li><strong>New</strong> <code>@tool</code> raises <code>ToolSignatureError</code> at decoration time on unsupported signatures (<code>*args</code>/<code>**kwargs</code>, params with no type hint and no default).</li>
-<li><strong>New</strong> <code>Optional[T]</code> and <code>T | None</code> unwrap to the inner type in tool specs.</li>
-<li><strong>New</strong> Built-in tool subgroups: <code>builtin.web</code>, <code>builtin.fs</code>, <code>builtin.compute</code>, <code>builtin.misc</code>.</li>
-<li><strong>New</strong> <code>MCPClient</code> raises <code>MCPConnectionError</code> (rather than silently failing) on construction or call failure. Added <code>.ping()</code> method.</li>
+<li><code>summary.txt</code> — the constant model inputs (negative prompt, evaluator/summarizer instructions) plus a per-iteration trace of exactly what was sent.</li>
+<li><code>collage.png</code> — a near-square grid of every generated image, in order. It scans the saved files rather than the trace, so even an image generated just before you hit Ctrl-C is included.</li>
 </ul>
-<h3 id="skills">Skills<a class="headerlink" href="#skills" title="Permanent link">&para;</a></h3>
+<h3 id="quieting-the-benign-clip-warning-but-only-when-its-benign">Quieting the benign CLIP warning — but only when it's benign<a class="headerlink" href="#quieting-the-benign-clip-warning-but-only-when-its-benign" title="Permanent link">&para;</a></h3>
+<p>On SD 3.5, the two CLIP encoders always truncate prompts past 77 tokens and warn about it — harmless, because T5 carries the full prompt. The scripts filter <em>just that message</em> via <code>suppress_benign_clip_warning(image_client)</code>, and <strong>only for models whose <code>max_prompt_tokens &gt; 77</code></strong>. On a CLIP-only model (SDXL), the same warning means content was actually dropped, so it stays visible.</p>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Breaking</strong> <code>SkillManager</code> raises <code>SkillLoadError</code> on malformed <code>SKILL.md</code> (instead of silently skipping).</li>
-<li><strong>Breaking</strong> <code>SkillManager.get_skill_body()</code> raises <code>SkillNotFoundError</code> on unknown skill name (instead of returning a sentinel string).</li>
-<li><strong>New</strong> Skill catalogue prompt includes script-derived tool names inline.</li>
-<li><strong>Breaking</strong> <code>Skill</code> renamed to <code>AgentSkill</code> (no back-compat alias).</li>
-<li><strong>New</strong> Skills logged at <code>INFO</code> on discovery.</li>
+<li><a href="../generate-images/">Generate images</a> — the image client, placement, and prompt length</li>
+<li><a href="../handle-vision/">Handle vision input</a> — passing images to a chat model</li>
+<li><a href="../../explanation/agents-vs-workflows/">Agents vs workflows</a> — when to let the model drive</li>
+<li><a href="../build-orchestrator/">Build an orchestrator</a> — coordinating multiple worker agents</li>
 </ul>
-<h3 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h3>
-<ul>
-<li>New documentation site built with MkDocs Material and hosted on GitHub Pages.</li>
-<li>Diátaxis structure: tutorials, how-to guides, reference, explanation.</li>
-<li>README slimmed to landing-page size.</li>
-</ul>
-<h2 id="earlier-versions">Earlier versions<a class="headerlink" href="#earlier-versions" title="Permanent link">&para;</a></h2>
-<p>This is the first formal changelog entry. Prior versions tracked changes via git history; consult <code>git log</code> on GitHub for v0.3.x and earlier.</p>
 
 
 
@@ -2653,10 +2785,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
