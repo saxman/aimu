@@ -93,9 +93,9 @@ def test_parse_does_not_match_done_mid_sentence():
     assert result["next_prompt"] == "hotter hotdog on fire"
 
 
-def test_workflow_arg_parser_defaults():
+def test_loop_arg_parser_defaults():
     from aimu.models import HuggingFaceImageModel
-    from hotdog_workflow import build_arg_parser
+    from hotdog_loop import build_arg_parser
     args = build_arg_parser("test").parse_args([])
     assert args.image_model == HuggingFaceImageModel.SD_3_5_MEDIUM
     assert args.eval_model == "ollama:gemma4:e4b"
@@ -103,8 +103,8 @@ def test_workflow_arg_parser_defaults():
     assert args.max_iterations == 10
 
 
-def test_workflow_arg_parser_overrides():
-    from hotdog_workflow import build_arg_parser
+def test_loop_arg_parser_overrides():
+    from hotdog_loop import build_arg_parser
     args = build_arg_parser("test").parse_args([
         "--image-model", "hf:stabilityai/stable-diffusion-xl-base-1.0",
         "--eval-model", "ollama:gemma4:26b",

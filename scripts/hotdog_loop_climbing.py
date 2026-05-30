@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Hill-climbing variant of the hotdog heating workflow.
+"""Hill-climbing variant of the hotdog heating loop.
 
-`hotdog_workflow.py` and `hotdog_agent.py` walk forward greedily: whatever prompt the critic
+`hotdog_loop.py` and `hotdog_agent.py` walk forward greedily: whatever prompt the critic
 proposes next is generated and accepted, even if the new image is *worse* than a previous
 one. This script instead keeps the best image seen so far and **reverts on regression** —
 if a generation scores lower than the best, it's discarded and the critic is asked for a
@@ -13,9 +13,9 @@ dataset. Stops when the critic says DONE, after --patience consecutive non-impro
 at --max-iterations.
 
 Usage:
-    python scripts/hotdog_workflow_climbing.py
-    python scripts/hotdog_workflow_climbing.py --max-iterations 0 --patience 4
-    python scripts/hotdog_workflow_climbing.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0
+    python scripts/hotdog_loop_climbing.py
+    python scripts/hotdog_loop_climbing.py --max-iterations 0 --patience 4
+    python scripts/hotdog_loop_climbing.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0
 """
 
 from __future__ import annotations
