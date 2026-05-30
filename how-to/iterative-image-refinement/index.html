@@ -1134,6 +1134,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#greedy-walk-vs-hill-climbing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Greedy walk vs hill-climbing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-pieces" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2464,6 +2475,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#greedy-walk-vs-hill-climbing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Greedy walk vs hill-climbing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-pieces" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2612,23 +2634,35 @@
 
 <h1 id="iterative-image-refinement">Iterative image refinement<a class="headerlink" href="#iterative-image-refinement" title="Permanent link">&para;</a></h1>
 <p>Build a <strong>generate → evaluate → refine</strong> loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — <em>"make a hotdog as visually hot as possible"</em> — that composes image generation, vision input, prompt chaining, and either an agent or a plain Python loop.</p>
-<p>The full, runnable code lives in two scripts that share one helper module:</p>
+<p>The full, runnable code lives in three scripts that share one helper module:</p>
 <ul>
-<li><code>scripts/hotdog_loop.py</code> — <strong>Python directs the loop</strong> (a code-controlled workflow).</li>
+<li><code>scripts/hotdog_workflow.py</code> — <strong>Python directs the loop</strong> (a code-controlled workflow).</li>
 <li><code>scripts/hotdog_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
-<li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by both.</li>
+<li><code>scripts/hotdog_workflow_climbing.py</code> — like the loop, but <strong>hill-climbs</strong>: keeps the best image and reverts on regression.</li>
+<li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by all three.</li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w">                 </span><span class="c1"># code-directed</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w">                </span><span class="c1"># agent-directed</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">   </span><span class="c1"># run until the critic says DONE</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_workflow.py<span class="w">                 </span><span class="c1"># code-directed greedy walk</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w">                </span><span class="c1"># agent-directed greedy walk</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_workflow_climbing.py<span class="w">                </span><span class="c1"># hill-climb: keep best, revert on regression</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">   </span><span class="c1"># run until the critic says DONE</span>
 </span></code></pre></div>
 <h2 id="two-ways-to-run-the-same-loop">Two ways to run the same loop<a class="headerlink" href="#two-ways-to-run-the-same-loop" title="Permanent link">&para;</a></h2>
 <p>The same task is implemented twice on purpose — it's a concrete take on <a href="../../explanation/agents-vs-workflows/">agents vs workflows</a>:</p>
 <ul>
-<li><strong>Code-directed</strong> (<code>hotdog_loop.py</code>): you write the <code>for</code> loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility.</li>
+<li><strong>Code-directed</strong> (<code>hotdog_workflow.py</code>): you write the <code>for</code> loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility.</li>
 <li><strong>Agent-directed</strong> (<code>hotdog_agent.py</code>): you hand an <a href="../../reference/api/agents/"><code>Agent</code></a> three tools (<code>generate_hotdog_image</code>, <code>evaluate_hotness</code>, <code>summarize_description</code>) and let its tool-calling loop decide when to call what. Reach for this when you want the model to own the control flow, or as a stepping stone to more open-ended behaviour.</li>
 </ul>
 <p>Both produce the same artifacts and share every prompt and helper, so the diff between them is purely <em>who drives the loop</em>.</p>
+<h2 id="greedy-walk-vs-hill-climbing">Greedy walk vs hill-climbing<a class="headerlink" href="#greedy-walk-vs-hill-climbing" title="Permanent link">&para;</a></h2>
+<p>The loop and agent scripts are <strong>greedy</strong>: each round they accept whatever prompt the critic proposes and move on — even if the new image scored <em>lower</em> than a previous one. That's simple and often fine, but the "best" image can be somewhere in the middle of the run rather than at the end.</p>
+<p><code>hotdog_workflow_climbing.py</code> borrows the strategy from <a href="../tune-prompts/"><code>aimu.prompts</code></a> tuning — <strong>best-state caching + revert-on-regression</strong>:</p>
+<ul>
+<li>Track the highest-scoring image so far.</li>
+<li>If a generation <strong>improves</strong> on the best, adopt it and refine from there.</li>
+<li>If it <strong>regresses</strong>, discard it, revert to the best, and ask the critic for a <em>different</em> refinement (passing the ideas that already failed so it explores a new direction).</li>
+<li>Stop on <code>DONE</code>, after <code>--patience</code> consecutive non-improvements, or at <code>--max-iterations</code>. The winner is copied to <code>best.png</code>.</li>
+</ul>
+<p>This makes the search monotonic (the result is never worse than the best seen) at the cost of extra critic calls on regressions. It's the single-artifact analog of how prompt tuning hill-climbs a reusable prompt — see the comparison in <a href="../tune-prompts/">Tune prompts</a>. Note the <em>opposite</em> direction (using prompt tuning to find a reusable image prompt across a dataset) is a different, also-valid use of the <code>Scorer</code> abstraction.</p>
 <h2 id="the-pieces">The pieces<a class="headerlink" href="#the-pieces" title="Permanent link">&para;</a></h2>
 <h3 id="two-clients-a-generator-and-a-vision-critic">Two clients: a generator and a vision critic<a class="headerlink" href="#two-clients-a-generator-and-a-vision-critic" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
