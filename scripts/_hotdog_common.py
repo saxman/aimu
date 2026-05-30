@@ -66,22 +66,6 @@ def write_summary(output_dir: Path, trace: list[dict]) -> Path:
     return path
 
 
-def get_ollama_model(model_id: str):
-    """Look up an OllamaModel by its model id string, requiring vision support."""
-    from aimu.models.ollama import OllamaModel
-
-    for m in OllamaModel:
-        if m.value == model_id:
-            if not m.supports_vision:
-                vision_ids = [m.value for m in OllamaModel if m.supports_vision]
-                raise ValueError(
-                    f"Model {model_id!r} does not support vision. "
-                    f"Vision models: {vision_ids}"
-                )
-            return m
-    known = [m.value for m in OllamaModel]
-    raise ValueError(f"Unknown Ollama model: {model_id!r}. Known models: {known}")
-
 
 EVALUATOR_PROMPT = """\
 You are evaluating how visually "hot" this hotdog image is.

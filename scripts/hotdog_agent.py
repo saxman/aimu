@@ -2,11 +2,11 @@
 """Iteratively generate and evaluate a hotdog image using local models.
 
 An AIMU Agent autonomously controls the loop via tool calls.
-Stops when the Ollama vision evaluator declares the hotdog cannot get hotter.
+Stops when the vision evaluator declares the hotdog cannot get hotter.
 
 Usage:
     python scripts/hotdog_agent.py
-    python scripts/hotdog_agent.py --image-model SDXL_BASE --eval-model gemma4:26b
+    python scripts/hotdog_agent.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0 --eval-model ollama:gemma4:26b
     python scripts/hotdog_agent.py --output-dir /tmp/hotdog --max-iterations 5
 """
 
@@ -18,13 +18,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import aimu
 from aimu.agents import Agent
-from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
-from aimu.models.ollama import OllamaClient
 from aimu.tools.decorator import tool
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _hotdog_common import get_ollama_model, parse_evaluator_response, write_summary, EVALUATOR_PROMPT
+from _hotdog_common import parse_evaluator_response, write_summary, EVALUATOR_PROMPT
 
 AGENT_SYSTEM_PROMPT = """\
 You are running a hotdog heating experiment. Your job is to iteratively make
@@ -39,11 +38,7 @@ Procedure:
 """
 
 
-def make_tools(
-    image_client: HuggingFaceImageClient,
-    eval_client: OllamaClient,
-    output_dir: Path,
-) -> tuple:
+def make_tools(image_client, eval_client, output_dir: Path) -> tuple:
     """Return (generate_hotdog_image, evaluate_hotness) tools sharing a counter closure."""
     counter = {"value": 0}
 
@@ -115,13 +110,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--image-model",
-        default="FLUX_SCHNELL",
-        help="HuggingFaceImageModel enum member name (default: FLUX_SCHNELL)",
+        default="hf:black-forest-labs/FLUX.1-schnell",
+        help="Image model string in 'provider:model_id' form (default: hf:black-forest-labs/FLUX.1-schnell)",
     )
     p.add_argument(
         "--eval-model",
-        default="gemma4:e4b",
-        help="Ollama model id for agent reasoning and vision evaluation (default: gemma4:e4b)",
+        default="ollama:gemma4:e4b",
+        help="Vision eval model string in 'provider:model_id' form (default: ollama:gemma4:e4b)",
     )
     p.add_argument(
         "--output-dir",
@@ -149,11 +144,12 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}\n")
 
-    image_client = HuggingFaceImageClient(HuggingFaceImageModel[args.image_model])
-    ollama_model = get_ollama_model(args.eval_model)
+    image_client = aimu.image_client(args.image_model)
     # Two separate client instances: one for agent reasoning, one for vision eval inside the tool.
-    agent_client = OllamaClient(ollama_model)
-    eval_client = OllamaClient(ollama_model)
+    agent_client = aimu.client(args.eval_model)
+    eval_client = aimu.client(args.eval_model)
+    if not eval_client.is_vision_model:
+        raise ValueError(f"Eval model {args.eval_model!r} does not support vision.")
 
     generate_fn, evaluate_fn = make_tools(image_client, eval_client, output_dir)
 

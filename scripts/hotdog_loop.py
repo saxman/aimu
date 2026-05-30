@@ -2,11 +2,11 @@
 """Iteratively generate and evaluate a hotdog image using local models.
 
 Python controls the loop; LLMs handle evaluation and prompt evolution.
-Stops when the Ollama vision evaluator declares the hotdog cannot get hotter.
+Stops when the vision evaluator declares the hotdog cannot get hotter.
 
 Usage:
     python scripts/hotdog_loop.py
-    python scripts/hotdog_loop.py --image-model SDXL_BASE --eval-model gemma4:26b
+    python scripts/hotdog_loop.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0 --eval-model ollama:gemma4:26b
     python scripts/hotdog_loop.py --output-dir /tmp/hotdog --max-iterations 5
 """
 
@@ -17,12 +17,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import aimu
 from aimu import paths as aimu_paths
-from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
-from aimu.models.ollama import OllamaClient
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _hotdog_common import get_ollama_model, parse_evaluator_response, write_summary, EVALUATOR_PROMPT
+from _hotdog_common import parse_evaluator_response, write_summary, EVALUATOR_PROMPT
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -31,13 +30,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--image-model",
-        default="FLUX_SCHNELL",
-        help="HuggingFaceImageModel enum member name (default: FLUX_SCHNELL)",
+        default="hf:black-forest-labs/FLUX.1-schnell",
+        help="Image model string in 'provider:model_id' form (default: hf:black-forest-labs/FLUX.1-schnell)",
     )
     p.add_argument(
         "--eval-model",
-        default="gemma4:e4b",
-        help="Ollama model id for vision evaluation (default: gemma4:e4b)",
+        default="ollama:gemma4:e4b",
+        help="Vision eval model string in 'provider:model_id' form (default: ollama:gemma4:e4b)",
     )
     p.add_argument(
         "--output-dir",
@@ -59,8 +58,10 @@ def run_loop(
     output_dir: Path,
     max_iterations: int,
 ) -> None:
-    image_client = HuggingFaceImageClient(HuggingFaceImageModel[image_model_name])
-    eval_client = OllamaClient(get_ollama_model(eval_model_id))
+    image_client = aimu.image_client(image_model_name)
+    eval_client = aimu.client(eval_model_id)
+    if not eval_client.is_vision_model:
+        raise ValueError(f"Eval model {eval_model_id!r} does not support vision.")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}\n")

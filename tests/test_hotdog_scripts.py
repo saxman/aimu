@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from _hotdog_common import parse_evaluator_response, write_summary, get_ollama_model
+from _hotdog_common import parse_evaluator_response, write_summary
 
 
 def test_parse_done_response():
@@ -78,21 +78,6 @@ def test_write_summary(tmp_path):
     assert "DONE: max heat" in text
 
 
-def test_get_ollama_model_valid():
-    from aimu.models.ollama import OllamaModel
-    model = get_ollama_model("gemma4:e4b")
-    assert model == OllamaModel.GEMMA_4_E4B
-
-
-def test_get_ollama_model_unknown():
-    with pytest.raises(ValueError, match="Unknown Ollama model"):
-        get_ollama_model("nonexistent:model")
-
-
-def test_get_ollama_model_no_vision():
-    with pytest.raises(ValueError, match="does not support vision"):
-        get_ollama_model("llama3.1:8b")
-
 
 def test_parse_continue_does_not_bleed_extra_lines():
     text = "8/10 hotness.\nCONTINUE: a flaming hotdog on lava\nThis will look dramatic."
@@ -111,8 +96,8 @@ def test_parse_does_not_match_done_mid_sentence():
 def test_loop_arg_parser_defaults():
     from hotdog_loop import build_arg_parser
     args = build_arg_parser().parse_args([])
-    assert args.image_model == "FLUX_SCHNELL"
-    assert args.eval_model == "gemma4:e4b"
+    assert args.image_model == "hf:black-forest-labs/FLUX.1-schnell"
+    assert args.eval_model == "ollama:gemma4:e4b"
     assert args.output_dir is None
     assert args.max_iterations == 10
 
@@ -120,13 +105,13 @@ def test_loop_arg_parser_defaults():
 def test_loop_arg_parser_overrides():
     from hotdog_loop import build_arg_parser
     args = build_arg_parser().parse_args([
-        "--image-model", "SDXL_BASE",
-        "--eval-model", "gemma4:26b",
+        "--image-model", "hf:stabilityai/stable-diffusion-xl-base-1.0",
+        "--eval-model", "ollama:gemma4:26b",
         "--output-dir", "/tmp/hotdog",
         "--max-iterations", "3",
     ])
-    assert args.image_model == "SDXL_BASE"
-    assert args.eval_model == "gemma4:26b"
+    assert args.image_model == "hf:stabilityai/stable-diffusion-xl-base-1.0"
+    assert args.eval_model == "ollama:gemma4:26b"
     assert args.output_dir == "/tmp/hotdog"
     assert args.max_iterations == 3
 
@@ -134,8 +119,8 @@ def test_loop_arg_parser_overrides():
 def test_agent_arg_parser_defaults():
     from hotdog_agent import build_arg_parser
     args = build_arg_parser().parse_args([])
-    assert args.image_model == "FLUX_SCHNELL"
-    assert args.eval_model == "gemma4:e4b"
+    assert args.image_model == "hf:black-forest-labs/FLUX.1-schnell"
+    assert args.eval_model == "ollama:gemma4:e4b"
     assert args.output_dir is None
     assert args.max_iterations == 10
 
