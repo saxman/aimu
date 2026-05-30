@@ -82,7 +82,9 @@ def parse_agent_trace(messages: list[dict]) -> list[dict]:
         for tc in msg.get("tool_calls") or []:
             fn = tc.get("function", {})
             name = fn.get("name", "")
-            args = json.loads(fn.get("arguments", "{}"))
+            raw_args = fn.get("arguments", "{}")
+            # Tool-call arguments arrive as a JSON string (OpenAI) or an already-parsed dict (Ollama).
+            args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
             result = tool_results.get(tc.get("id", ""), "")
 
             if name == "generate_hotdog_image":
