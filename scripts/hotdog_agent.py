@@ -110,8 +110,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--image-model",
-        default="hf:black-forest-labs/FLUX.1-schnell",
-        help="Image model string in 'provider:model_id' form (default: hf:black-forest-labs/FLUX.1-schnell)",
+        default="hf:stabilityai/stable-diffusion-xl-base-1.0",
+        help="Image model string in 'provider:model_id' form (default: hf:stabilityai/stable-diffusion-xl-base-1.0)",
     )
     p.add_argument(
         "--eval-model",

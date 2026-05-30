@@ -96,7 +96,7 @@ def test_parse_does_not_match_done_mid_sentence():
 def test_loop_arg_parser_defaults():
     from hotdog_loop import build_arg_parser
     args = build_arg_parser().parse_args([])
-    assert args.image_model == "hf:black-forest-labs/FLUX.1-schnell"
+    assert args.image_model == "hf:stabilityai/stable-diffusion-xl-base-1.0"
     assert args.eval_model == "ollama:gemma4:e4b"
     assert args.output_dir is None
     assert args.max_iterations == 10
@@ -119,7 +119,7 @@ def test_loop_arg_parser_overrides():
 def test_agent_arg_parser_defaults():
     from hotdog_agent import build_arg_parser
     args = build_arg_parser().parse_args([])
-    assert args.image_model == "hf:black-forest-labs/FLUX.1-schnell"
+    assert args.image_model == "hf:stabilityai/stable-diffusion-xl-base-1.0"
     assert args.eval_model == "ollama:gemma4:e4b"
     assert args.output_dir is None
     assert args.max_iterations == 10
