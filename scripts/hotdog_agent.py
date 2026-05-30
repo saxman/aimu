@@ -25,8 +25,8 @@ from _hotdog_common import (
     EVALUATOR_PROMPT,
     NEGATIVE_PROMPT,
     build_arg_parser,
-    build_collage,
     build_image_prompt,
+    collage_generated_images,
     parse_evaluator_response,
     resolve_output_dir,
     summarize_for_image,
@@ -41,9 +41,7 @@ Procedure:
 1. Call generate_hotdog_image with your current prompt (start: "a hot hotdog")
 2. Call evaluate_hotness with the returned image path
 3. If the evaluator outputs DONE, stop and summarise the final result
-4. If the evaluator outputs CONTINUE, it gives a detailed natural-language
-   description. Call summarize_description with that full description to get a
-   short image prompt, then repeat from step 1 using that short prompt.
+4. {continue_rule}
 5. {iteration_limit_rule}
 """
 
@@ -159,6 +157,27 @@ def main() -> None:
 
     generate_fn, evaluate_fn, summarize_fn = make_tools(image_client, eval_client, output_dir)
 
+    # Long-prompt models (T5-based: SD3, FLUX) take the full description directly;
+    # CLIP-only models (SD/SDXL) need the summarize step to stay under 77 tokens.
+    long_prompts = image_client.supports_long_prompts
+    print(f"Long-prompt model: {long_prompts} (summarize step {'skipped' if long_prompts else 'enabled'})\n")
+
+    if long_prompts:
+        continue_rule = (
+            "If the evaluator outputs CONTINUE, it gives a detailed natural-language "
+            "description. Use that description directly as the prompt and repeat from step 1."
+        )
+        tools = [generate_fn, evaluate_fn]
+        tools_per_iteration = 2
+    else:
+        continue_rule = (
+            "If the evaluator outputs CONTINUE, it gives a detailed natural-language "
+            "description. Call summarize_description with that full description to get a short "
+            "image prompt, then repeat from step 1 using that short prompt."
+        )
+        tools = [generate_fn, evaluate_fn, summarize_fn]
+        tools_per_iteration = 3
+
     if args.max_iterations == 0:
         # Run indefinitely: the agent stops on its own once the evaluator says DONE.
         # Agent.max_iterations has no unbounded sentinel, so use a very high cap as the safety net.
@@ -166,31 +185,41 @@ def main() -> None:
         agent_max_iterations = 10**6
     else:
         iteration_limit_rule = f"Never exceed {args.max_iterations} iterations total"
-        # Each hotdog iteration calls ~3 tools (generate, evaluate, summarize); allow
-        # headroom for the agent's decision rounds.
-        agent_max_iterations = args.max_iterations * 4
+        # Allow headroom: tools-per-iteration plus a decision round.
+        agent_max_iterations = args.max_iterations * (tools_per_iteration + 1)
 
     agent = Agent(
         agent_client,
         name="hotdog-agent",
-        system_message=AGENT_SYSTEM_PROMPT.format(iteration_limit_rule=iteration_limit_rule),
-        tools=[generate_fn, evaluate_fn, summarize_fn],
+        system_message=AGENT_SYSTEM_PROMPT.format(
+            continue_rule=continue_rule, iteration_limit_rule=iteration_limit_rule
+        ),
+        tools=tools,
         max_iterations=agent_max_iterations,
     )
 
     print("Starting hotdog heating experiment...\n")
-    result = agent.run("Begin the hotdog heating experiment. Start with 'a hot hotdog'.")
-    print(f"\nAgent final response:\n{result}")
-
-    trace = parse_agent_trace(agent.messages.get("hotdog-agent", []))
-    if trace:
-        summary_path = write_summary(output_dir, trace)
-        print(f"\nSummary written to: {summary_path}")
-        collage_path = build_collage([e["image_path"] for e in trace], output_dir)
+    try:
+        result = agent.run("Begin the hotdog heating experiment. Start with 'a hot hotdog'.")
+        print(f"\nAgent final response:\n{result}")
+    except KeyboardInterrupt:
+        print("\nInterrupted — writing partial results so far...")
+    finally:
+        # Reconstruct from the live conversation (not agent.messages, whose snapshot is
+        # only set when run() finishes) so an interrupted run still produces output.
+        trace = parse_agent_trace(agent.model_client.messages)
+        if trace:
+            summary_path = write_summary(
+                output_dir, trace, image_model=image_client.spec.id, eval_model=args.eval_model
+            )
+            print(f"\nSummary written to: {summary_path}")
+        else:
+            print("\nNo iterations recorded in agent messages.")
+        # Collage scans the saved image files, so it works even when no trace was
+        # reconstructed (e.g. interrupted before the first evaluation completed).
+        collage_path = collage_generated_images(output_dir)
         if collage_path:
             print(f"Collage written to: {collage_path}")
-    else:
-        print("\nNo iterations recorded in agent messages.")
 
 
 if __name__ == "__main__":

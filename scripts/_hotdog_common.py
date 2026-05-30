@@ -7,6 +7,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from aimu.models import HuggingFaceImageModel
+
 EVALUATOR_PROMPT = """\
 You are evaluating how visually "hot" this hotdog image is.
 Rate its hotness from 1 to 10 (10 = blazing inferno hotdog, 1 = cold).
@@ -39,7 +41,7 @@ Description:
 # suppress a *concept*, not a *count* — listing "hotdogs" in the negative prompt
 # removes hotdogs entirely. Stating a singular subject in the positive prompt is
 # the reliable lever for "exactly one".
-SUBJECT_ANCHOR = "a single hotdog, one sausage in one bun"
+SUBJECT_ANCHOR = "a single hotdog, one sausage in one bun, solo, centered, close-up shot"
 
 # Generic plurality/duplication cues to discourage. Deliberately omits the word
 # "hotdog" (which would suppress the subject). HF uses it; providers without
@@ -71,8 +73,9 @@ def build_arg_parser(description: str) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=description)
     p.add_argument(
         "--image-model",
-        default="hf:stabilityai/stable-diffusion-xl-base-1.0",
-        help="Image model string in 'provider:model_id' form (default: hf:stabilityai/stable-diffusion-xl-base-1.0)",
+        default=HuggingFaceImageModel.SD_3_5_MEDIUM,
+        help="Image model: 'provider:model_id' string or enum member "
+        "(default: SD 3.5 Medium — a long-prompt T5 model, so the summarize step is skipped)",
     )
     p.add_argument(
         "--eval-model",
@@ -147,23 +150,32 @@ def parse_evaluator_response(text: str) -> dict:
     }
 
 
-def write_summary(output_dir: Path, trace: list[dict]) -> Path:
+def write_summary(
+    output_dir: Path,
+    trace: list[dict],
+    *,
+    image_model: str | None = None,
+    eval_model: str | None = None,
+) -> Path:
     """Write summary.txt with the full iteration trace to output_dir.
 
-    Records exactly what is sent to each model: the constant image negative prompt
-    and evaluator instruction once at the top, then per iteration the working prompt
-    alongside the anchored prompt actually sent to the image model.
+    Records exactly what is sent to each model: the model names, the constant image
+    negative prompt, and the evaluator/summarizer instructions once at the top, then
+    per iteration the working prompt alongside the anchored prompt actually sent.
     """
     path = output_dir / "summary.txt"
 
-    sections = [
-        "\n".join([
-            "=== Constant model inputs ===",
-            f"Image negative prompt: {NEGATIVE_PROMPT}",
-            f"Evaluator instruction:\n{EVALUATOR_PROMPT.strip()}",
-            f"Summarizer instruction:\n{SUMMARIZER_PROMPT.strip()}",
-        ])
+    header_lines = ["=== Constant model inputs ==="]
+    if image_model:
+        header_lines.append(f"Image model: {image_model}")
+    if eval_model:
+        header_lines.append(f"Eval model:  {eval_model}")
+    header_lines += [
+        f"Image negative prompt: {NEGATIVE_PROMPT}",
+        f"Evaluator instruction:\n{EVALUATOR_PROMPT.strip()}",
+        f"Summarizer instruction:\n{SUMMARIZER_PROMPT.strip()}",
     ]
+    sections = ["\n".join(header_lines)]
     for entry in trace:
         lines = [
             f"=== Iteration {entry['iteration']} ===",
@@ -214,3 +226,18 @@ def build_collage(image_paths: list, output_dir: Path) -> Path | None:
     path = output_dir / "collage.png"
     canvas.save(path)
     return path
+
+
+def collage_generated_images(output_dir: Path) -> Path | None:
+    """Build the collage from the numbered image files saved in ``output_dir``.
+
+    Scans for ``NN.png`` files (the per-iteration images) rather than relying on a
+    trace, so the collage includes every generated image even if the run was
+    interrupted before that image could be evaluated. Non-numeric names (the raw
+    pre-rename file, ``collage.png``) are skipped. Returns the collage path, or None.
+    """
+    paths = sorted(
+        (p for p in output_dir.glob("*.png") if p.stem.isdigit()),
+        key=lambda p: int(p.stem),
+    )
+    return build_collage([str(p) for p in paths], output_dir)

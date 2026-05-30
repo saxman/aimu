@@ -23,8 +23,8 @@ from _hotdog_common import (
     EVALUATOR_PROMPT,
     NEGATIVE_PROMPT,
     build_arg_parser,
-    build_collage,
     build_image_prompt,
+    collage_generated_images,
     parse_evaluator_response,
     resolve_output_dir,
     summarize_for_image,
@@ -49,62 +49,78 @@ def run_loop(
     prompt = "a hot hotdog"
     trace = []
 
+    # Long-prompt models (T5-based: SD3, FLUX) take the full description directly;
+    # CLIP-only models (SD/SDXL) need the summarize step to stay under 77 tokens.
+    long_prompts = image_client.supports_long_prompts
+    print(f"Long-prompt model: {long_prompts} (summarize step {'skipped' if long_prompts else 'enabled'})\n")
+
     # max_iterations == 0 means run indefinitely until the evaluator says DONE.
     iterations = itertools.count(1) if max_iterations == 0 else iter(range(1, max_iterations + 1))
     cap_label = "∞" if max_iterations == 0 else str(max_iterations)
 
-    for i in iterations:
-        print(f"--- Iteration {i}/{cap_label} ---")
-        print(f"Prompt: {prompt}")
+    try:
+        for i in iterations:
+            print(f"--- Iteration {i}/{cap_label} ---")
+            print(f"Prompt: {prompt}")
 
-        image_prompt = build_image_prompt(prompt)
-        raw_path = image_client.generate(
-            image_prompt, negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
-        )
-        dest = output_dir / f"{i:02d}.png"
-        Path(raw_path).rename(dest)
-        print(f"Image saved: {dest}")
+            image_prompt = build_image_prompt(prompt)
+            raw_path = image_client.generate(
+                image_prompt, negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
+            )
+            dest = output_dir / f"{i:02d}.png"
+            Path(raw_path).rename(dest)
+            print(f"Image saved: {dest}")
 
-        eval_client.reset()
-        evaluator_response = eval_client.chat(EVALUATOR_PROMPT, images=[str(dest)])
-        print(f"Evaluator:\n{evaluator_response}\n")
+            eval_client.reset()
+            evaluator_response = eval_client.chat(EVALUATOR_PROMPT, images=[str(dest)])
+            print(f"Evaluator:\n{evaluator_response}\n")
 
-        parsed = parse_evaluator_response(evaluator_response)
-        entry = {
-            "iteration": i,
-            "prompt": prompt,
-            "image_prompt": image_prompt,
-            "image_path": str(dest),
-            "evaluator_response": evaluator_response,
-            "score": parsed["score"],
-            "action": parsed["action"],
-            "next_prompt": parsed["next_prompt"],
-        }
-        trace.append(entry)
+            parsed = parse_evaluator_response(evaluator_response)
+            entry = {
+                "iteration": i,
+                "prompt": prompt,
+                "image_prompt": image_prompt,
+                "image_path": str(dest),
+                "evaluator_response": evaluator_response,
+                "score": parsed["score"],
+                "action": parsed["action"],
+                "next_prompt": parsed["next_prompt"],
+            }
+            trace.append(entry)
 
-        if parsed["action"] == "DONE":
-            print(f"Evaluator declared maximum hotness after {i} iteration(s).")
-            break
-        if parsed["action"] == "unknown":
-            print("Could not parse evaluator response (no DONE/CONTINUE). Stopping.")
-            break
+            if parsed["action"] == "DONE":
+                print(f"Evaluator declared maximum hotness after {i} iteration(s).")
+                break
+            if parsed["action"] == "unknown":
+                print("Could not parse evaluator response (no DONE/CONTINUE). Stopping.")
+                break
 
-        if i == max_iterations:
-            print(f"Reached maximum iterations ({max_iterations}). Stopping.")
-            break
+            if i == max_iterations:
+                print(f"Reached maximum iterations ({max_iterations}). Stopping.")
+                break
 
-        # Second stage of the chain: condense the evaluator's full description into
-        # a short, CLIP-friendly prompt for the next image.
-        prompt = summarize_for_image(eval_client, parsed["next_prompt"])
-        entry["summarized_prompt"] = prompt
-        print(f"Summarized → next prompt: {prompt}\n")
-
-    summary_path = write_summary(output_dir, trace)
-    print(f"Summary written to: {summary_path}")
-
-    collage_path = build_collage([e["image_path"] for e in trace], output_dir)
-    if collage_path:
-        print(f"Collage written to: {collage_path}")
+            if long_prompts:
+                # Model handles long prompts — feed the full description straight through.
+                prompt = parsed["next_prompt"]
+            else:
+                # Second stage of the chain: condense the description into a short,
+                # CLIP-friendly prompt for the next image.
+                prompt = summarize_for_image(eval_client, parsed["next_prompt"])
+                entry["summarized_prompt"] = prompt
+                print(f"Summarized → next prompt: {prompt}\n")
+    except KeyboardInterrupt:
+        print("\nInterrupted — writing partial results so far...")
+    finally:
+        # Always emit summary + collage, even on interrupt. The collage scans the saved
+        # image files so it includes every generated image, not just evaluated ones.
+        if trace:
+            summary_path = write_summary(
+                output_dir, trace, image_model=image_client.spec.id, eval_model=eval_model_id
+            )
+            print(f"Summary written to: {summary_path}")
+        collage_path = collage_generated_images(output_dir)
+        if collage_path:
+            print(f"Collage written to: {collage_path}")
 
 
 def main() -> None:
