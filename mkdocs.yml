@@ -101,6 +101,7 @@ nav:
       - Generate images: how-to/generate-images.md
       - Generate audio: how-to/generate-audio.md
       - Generate speech: how-to/generate-speech.md
+      - Iterative image refinement: how-to/iterative-image-refinement.md
       - Persist conversations: how-to/persist-conversations.md
       - Use semantic memory: how-to/use-semantic-memory.md
       - Use document memory: how-to/use-document-memory.md
