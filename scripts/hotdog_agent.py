@@ -25,6 +25,7 @@ from _hotdog_common import (
     EVALUATOR_PROMPT,
     NEGATIVE_PROMPT,
     build_arg_parser,
+    build_collage,
     build_image_prompt,
     parse_evaluator_response,
     resolve_output_dir,
@@ -185,6 +186,9 @@ def main() -> None:
     if trace:
         summary_path = write_summary(output_dir, trace)
         print(f"\nSummary written to: {summary_path}")
+        collage_path = build_collage([e["image_path"] for e in trace], output_dir)
+        if collage_path:
+            print(f"Collage written to: {collage_path}")
     else:
         print("\nNo iterations recorded in agent messages.")
 

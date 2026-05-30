@@ -179,3 +179,38 @@ def write_summary(output_dir: Path, trace: list[dict]) -> Path:
         sections.append("\n".join(lines))
     path.write_text("\n\n".join(sections) + "\n")
     return path
+
+
+def build_collage(image_paths: list, output_dir: Path) -> Path | None:
+    """Assemble the generated images into a near-square grid collage.
+
+    Images are placed left-to-right, top-to-bottom in generation order. The grid
+    uses the most-square layout that holds all of them (cols = ceil(sqrt(n))); any
+    trailing empty cells stay blank. Returns the collage path, or None when there
+    are no images. Requires Pillow (installed with the image extra).
+    """
+    from math import ceil, sqrt
+
+    from PIL import Image
+
+    paths = [Path(p) for p in image_paths if p and Path(p).exists()]
+    if not paths:
+        return None
+
+    cols = ceil(sqrt(len(paths)))
+    rows = ceil(len(paths) / cols)
+
+    tiles = [Image.open(p).convert("RGB") for p in paths]
+    cell_w = max(tile.width for tile in tiles)
+    cell_h = max(tile.height for tile in tiles)
+
+    canvas = Image.new("RGB", (cols * cell_w, rows * cell_h), "white")
+    for i, tile in enumerate(tiles):
+        if tile.size != (cell_w, cell_h):
+            tile = tile.resize((cell_w, cell_h))
+        row, col = divmod(i, cols)
+        canvas.paste(tile, (col * cell_w, row * cell_h))
+
+    path = output_dir / "collage.png"
+    canvas.save(path)
+    return path
