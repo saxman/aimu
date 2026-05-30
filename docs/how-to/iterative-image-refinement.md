@@ -2,15 +2,17 @@
 
 Build a **generate → evaluate → refine** loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — *"make a hotdog as visually hot as possible"* — that composes image generation, vision input, prompt chaining, and either an agent or a plain Python loop.
 
-The full, runnable code lives in two scripts that share one helper module:
+The full, runnable code lives in three scripts that share one helper module:
 
-- `scripts/hotdog_loop.py` — **Python directs the loop** (a code-controlled workflow).
+- `scripts/hotdog_workflow.py` — **Python directs the loop** (a code-controlled workflow).
 - `scripts/hotdog_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
-- `scripts/_hotdog_common.py` — shared prompts and helpers used by both.
+- `scripts/hotdog_workflow_climbing.py` — like the loop, but **hill-climbs**: keeps the best image and reverts on regression.
+- `scripts/_hotdog_common.py` — shared prompts and helpers used by all three.
 
 ```bash
-python scripts/hotdog_loop.py                 # code-directed
-python scripts/hotdog_agent.py                # agent-directed
+python scripts/hotdog_workflow.py                 # code-directed greedy walk
+python scripts/hotdog_agent.py                # agent-directed greedy walk
+python scripts/hotdog_workflow_climbing.py                # hill-climb: keep best, revert on regression
 python scripts/hotdog_agent.py --max-iterations 0   # run until the critic says DONE
 ```
 
@@ -18,10 +20,23 @@ python scripts/hotdog_agent.py --max-iterations 0   # run until the critic says 
 
 The same task is implemented twice on purpose — it's a concrete take on [agents vs workflows](../explanation/agents-vs-workflows.md):
 
-- **Code-directed** (`hotdog_loop.py`): you write the `for` loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility.
+- **Code-directed** (`hotdog_workflow.py`): you write the `for` loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility.
 - **Agent-directed** (`hotdog_agent.py`): you hand an [`Agent`](../reference/api/agents.md) three tools (`generate_hotdog_image`, `evaluate_hotness`, `summarize_description`) and let its tool-calling loop decide when to call what. Reach for this when you want the model to own the control flow, or as a stepping stone to more open-ended behaviour.
 
 Both produce the same artifacts and share every prompt and helper, so the diff between them is purely *who drives the loop*.
+
+## Greedy walk vs hill-climbing
+
+The loop and agent scripts are **greedy**: each round they accept whatever prompt the critic proposes and move on — even if the new image scored *lower* than a previous one. That's simple and often fine, but the "best" image can be somewhere in the middle of the run rather than at the end.
+
+`hotdog_workflow_climbing.py` borrows the strategy from [`aimu.prompts`](tune-prompts.md) tuning — **best-state caching + revert-on-regression**:
+
+- Track the highest-scoring image so far.
+- If a generation **improves** on the best, adopt it and refine from there.
+- If it **regresses**, discard it, revert to the best, and ask the critic for a *different* refinement (passing the ideas that already failed so it explores a new direction).
+- Stop on `DONE`, after `--patience` consecutive non-improvements, or at `--max-iterations`. The winner is copied to `best.png`.
+
+This makes the search monotonic (the result is never worse than the best seen) at the cost of extra critic calls on regressions. It's the single-artifact analog of how prompt tuning hill-climbs a reusable prompt — see the comparison in [Tune prompts](tune-prompts.md). Note the *opposite* direction (using prompt tuning to find a reusable image prompt across a dataset) is a different, also-valid use of the `Scorer` abstraction.
 
 ## The pieces
 

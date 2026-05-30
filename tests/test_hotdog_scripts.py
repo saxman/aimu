@@ -3,8 +3,6 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from _hotdog_common import parse_evaluator_response, write_summary
@@ -79,11 +77,13 @@ def test_write_summary(tmp_path):
 
 
 
-def test_parse_continue_does_not_bleed_extra_lines():
-    text = "8/10 hotness.\nCONTINUE: a flaming hotdog on lava\nThis will look dramatic."
+def test_parse_continue_captures_multiline_description():
+    # The CONTINUE description is matched with re.DOTALL so a multi-line, free-form
+    # description (the describe → summarize chain's first stage) is captured in full.
+    text = "8/10 hotness.\nCONTINUE: a flaming hotdog on lava\nwith dramatic backlighting."
     result = parse_evaluator_response(text)
     assert result["action"] == "CONTINUE"
-    assert result["next_prompt"] == "a flaming hotdog on lava"
+    assert result["next_prompt"] == "a flaming hotdog on lava\nwith dramatic backlighting."
 
 
 def test_parse_does_not_match_done_mid_sentence():
@@ -93,18 +93,19 @@ def test_parse_does_not_match_done_mid_sentence():
     assert result["next_prompt"] == "hotter hotdog on fire"
 
 
-def test_loop_arg_parser_defaults():
-    from hotdog_loop import build_arg_parser
-    args = build_arg_parser().parse_args([])
-    assert args.image_model == "hf:stabilityai/stable-diffusion-xl-base-1.0"
+def test_workflow_arg_parser_defaults():
+    from aimu.models import HuggingFaceImageModel
+    from hotdog_workflow import build_arg_parser
+    args = build_arg_parser("test").parse_args([])
+    assert args.image_model == HuggingFaceImageModel.SD_3_5_MEDIUM
     assert args.eval_model == "ollama:gemma4:e4b"
     assert args.output_dir is None
     assert args.max_iterations == 10
 
 
-def test_loop_arg_parser_overrides():
-    from hotdog_loop import build_arg_parser
-    args = build_arg_parser().parse_args([
+def test_workflow_arg_parser_overrides():
+    from hotdog_workflow import build_arg_parser
+    args = build_arg_parser("test").parse_args([
         "--image-model", "hf:stabilityai/stable-diffusion-xl-base-1.0",
         "--eval-model", "ollama:gemma4:26b",
         "--output-dir", "/tmp/hotdog",
@@ -117,9 +118,10 @@ def test_loop_arg_parser_overrides():
 
 
 def test_agent_arg_parser_defaults():
+    from aimu.models import HuggingFaceImageModel
     from hotdog_agent import build_arg_parser
-    args = build_arg_parser().parse_args([])
-    assert args.image_model == "hf:stabilityai/stable-diffusion-xl-base-1.0"
+    args = build_arg_parser("test").parse_args([])
+    assert args.image_model == HuggingFaceImageModel.SD_3_5_MEDIUM
     assert args.eval_model == "ollama:gemma4:e4b"
     assert args.output_dir is None
     assert args.max_iterations == 10
@@ -202,7 +204,7 @@ def test_make_tools_counter_increments(tmp_path):
     eval_client = MagicMock()
     eval_client.chat.return_value = "8/10\nCONTINUE: hotter hotdog"
 
-    generate_fn, _ = make_tools(image_client, eval_client, tmp_path)
+    generate_fn, _, _ = make_tools(image_client, eval_client, tmp_path, 256)
 
     path1 = generate_fn("first prompt")
     assert path1 == str(tmp_path / "01.png")
@@ -221,7 +223,7 @@ def test_make_tools_evaluate_resets_client(tmp_path):
     eval_client = MagicMock()
     eval_client.chat.return_value = "8/10\nCONTINUE: hotter"
 
-    _, evaluate_fn = make_tools(image_client, eval_client, tmp_path)
+    _, evaluate_fn, _ = make_tools(image_client, eval_client, tmp_path, 256)
     result = evaluate_fn("/some/01.png")
 
     eval_client.reset.assert_called_once()

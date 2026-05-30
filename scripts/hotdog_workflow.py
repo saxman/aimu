@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Iteratively generate and evaluate a hotdog image using local models.
 
-Python controls the loop; LLMs handle evaluation and prompt evolution.
-Stops when the vision evaluator declares the hotdog cannot get hotter.
+A code-controlled **workflow**: Python directs the loop; the LLMs only evaluate and evolve
+the prompt. The agent-driven counterpart is ``hotdog_agent.py``; ``hotdog_workflow_climbing.py``
+adds best-state caching + revert-on-regression. Stops when the vision evaluator declares the
+hotdog cannot get hotter.
 
 Usage:
-    python scripts/hotdog_loop.py
-    python scripts/hotdog_loop.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0 --eval-model ollama:gemma4:26b
-    python scripts/hotdog_loop.py --output-dir /tmp/hotdog --max-iterations 5
+    python scripts/hotdog_workflow.py
+    python scripts/hotdog_workflow.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0 --eval-model ollama:gemma4:26b
+    python scripts/hotdog_workflow.py --output-dir /tmp/hotdog --max-iterations 5
 """
 
 from __future__ import annotations

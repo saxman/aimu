@@ -226,6 +226,8 @@ def write_summary(
         ]
         if entry.get("score") is not None:
             lines.append(f"Hotness Score: {entry['score']}/10")
+        if entry.get("status"):  # set by hill-climbing runs (accepted/rejected); absent otherwise
+            lines.append(f"Status: {entry['status']}")
         lines.append(f"Evaluator Response (full description):\n{entry['evaluator_response']}")
         if entry.get("summarized_prompt"):
             lines.append(f"Summarized → next image prompt: {entry['summarized_prompt']}")
