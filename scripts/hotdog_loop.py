@@ -21,6 +21,7 @@ import aimu
 sys.path.insert(0, str(Path(__file__).parent))
 from _hotdog_common import (
     EVALUATOR_PROMPT,
+    NEGATIVE_PROMPT,
     build_arg_parser,
     parse_evaluator_response,
     resolve_output_dir,
@@ -53,7 +54,9 @@ def run_loop(
         print(f"--- Iteration {i}/{cap_label} ---")
         print(f"Prompt: {prompt}")
 
-        raw_path = image_client.generate(prompt, format="path", output_dir=output_dir)
+        raw_path = image_client.generate(
+            prompt, negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
+        )
         dest = output_dir / f"{i:02d}.png"
         Path(raw_path).rename(dest)
         print(f"Image saved: {dest}")

@@ -14,7 +14,17 @@ Then decide: can this hotdog get any hotter? If not, output exactly:
 DONE: <your reasoning>
 If it can get hotter, output exactly:
 CONTINUE: <a refined image generation prompt that will make it hotter>
+The prompt must depict exactly ONE single hotdog — never multiple hotdogs, a
+pile, or a platter. Keep the CONTINUE prompt concise — under 40 words, as
+comma-separated visual descriptors (no full sentences). Image encoders truncate
+long prompts, so put the most important "hot" details first.
 """
+
+
+# Pushes the diffusion model away from rendering more than one hotdog. Applied as
+# the image client's negative_prompt — used by HuggingFace; providers without
+# negative-prompt support (e.g. Gemini Nano Banana) silently ignore it.
+NEGATIVE_PROMPT = "multiple hotdogs, two hotdogs, several hotdogs, pile of hotdogs, platter, group of hotdogs"
 
 
 def build_arg_parser(description: str) -> argparse.ArgumentParser:
