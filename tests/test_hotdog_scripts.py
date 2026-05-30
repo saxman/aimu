@@ -229,3 +229,61 @@ def test_make_tools_evaluate_resets_client(tmp_path):
     eval_client.reset.assert_called_once()
     eval_client.chat.assert_called_once_with(EVALUATOR_PROMPT, images=["/some/01.png"])
     assert "CONTINUE" in result
+
+
+def test_evaluator_arg_parser_defaults():
+    from aimu.models import HuggingFaceImageModel
+    from hotdog_evaluator import build_arg_parser
+
+    args = build_arg_parser("test").parse_args([])
+    assert args.image_model == HuggingFaceImageModel.SD_3_5_MEDIUM
+    assert args.eval_model == "ollama:gemma4:e4b"
+    assert args.max_iterations == 10
+
+
+def test_evaluator_make_tools_records(tmp_path):
+    from hotdog_evaluator import make_tools
+
+    image_client = MagicMock()
+    image_client.generate.return_value = str(tmp_path / "generated.png")
+    (tmp_path / "generated.png").touch()
+
+    vision_client = MagicMock()
+    vision_client.chat.return_value = "8/10\nCONTINUE: hotter hotdog"
+
+    records = []
+    generate_fn, evaluate_fn = make_tools(image_client, vision_client, tmp_path, records)
+
+    path1 = generate_fn("first prompt")
+    assert path1 == str(tmp_path / "01.png")
+    assert records[0]["iteration"] == 1
+    assert records[0]["evaluator_response"] is None  # not yet evaluated
+
+    result = evaluate_fn(path1)
+    vision_client.reset.assert_called_once()
+    assert "CONTINUE" in result
+    # The matching record is filled in with the parsed verdict.
+    assert records[0]["action"] == "CONTINUE"
+    assert records[0]["score"] == 8
+
+
+def test_evaluator_evaluate_falls_back_to_latest_image(tmp_path):
+    """A mangled relayed path falls back to the most recent generation, not a crash."""
+    from _hotdog_common import EVALUATOR_PROMPT
+    from hotdog_evaluator import make_tools
+
+    image_client = MagicMock()
+    image_client.generate.return_value = str(tmp_path / "generated.png")
+    (tmp_path / "generated.png").touch()
+
+    vision_client = MagicMock()
+    vision_client.chat.return_value = "9/10\nDONE: maximal char"
+
+    records = []
+    generate_fn, evaluate_fn = make_tools(image_client, vision_client, tmp_path, records)
+    real_path = generate_fn("a hot hotdog")
+
+    evaluate_fn("/nonexistent/path/that/llm/hallucinated.png")
+    # The vision call used the real latest image, not the bogus path.
+    vision_client.chat.assert_called_once_with(EVALUATOR_PROMPT, images=[real_path])
+    assert records[0]["action"] == "DONE"

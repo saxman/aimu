@@ -1,29 +1,32 @@
 # Iterative image refinement
 
-Build a **generate → evaluate → refine** loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — *"make a hotdog as visually hot as possible"* — that composes image generation, vision input, prompt chaining, and either an agent or a plain Python loop.
+Build a **generate → evaluate → refine** loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — *"make a hotdog as visually hot as possible"* — that composes image generation, vision input, prompt chaining, and either an agent, a plain Python loop, or a library workflow class.
 
-The full, runnable code lives in three scripts that share one helper module:
+The full, runnable code lives in four scripts that share one helper module:
 
 - `scripts/hotdog_loop.py` — **Python directs the loop** (a plain code-controlled `for` loop).
 - `scripts/hotdog_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
+- `scripts/hotdog_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + critic agent).
 - `scripts/hotdog_loop_climbing.py` — like the loop, but **hill-climbs**: keeps the best image and reverts on regression.
-- `scripts/_hotdog_common.py` — shared prompts and helpers used by all three.
+- `scripts/_hotdog_common.py` — shared prompts and helpers used by all four.
 
 ```bash
 python scripts/hotdog_loop.py                 # code-directed greedy walk
 python scripts/hotdog_agent.py                # agent-directed greedy walk
+python scripts/hotdog_evaluator.py            # EvaluatorOptimizer workflow class
 python scripts/hotdog_loop_climbing.py                # hill-climb: keep best, revert on regression
 python scripts/hotdog_agent.py --max-iterations 0   # run until the critic says DONE
 ```
 
-## Two ways to run the same loop
+## Three ways to run the same loop
 
-The same task is implemented twice on purpose — it's a concrete take on [agents vs workflows](../explanation/agents-vs-workflows.md):
+The same task is implemented three times on purpose — it's a concrete take on [agents vs workflows](../explanation/agents-vs-workflows.md):
 
 - **Code-directed** (`hotdog_loop.py`): you write the `for` loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility.
 - **Agent-directed** (`hotdog_agent.py`): you hand an [`Agent`](../reference/api/agents.md) three tools (`generate_hotdog_image`, `evaluate_hotness`, `summarize_description`) and let its tool-calling loop decide when to call what. Reach for this when you want the model to own the control flow, or as a stepping stone to more open-ended behaviour.
+- **Workflow-class** (`hotdog_evaluator.py`): you express the loop with [`EvaluatorOptimizer`](../reference/api/agents.md), the library's generate → evaluate → revise workflow, by composing a generator agent and a critic agent. Reach for this when your task already matches a named pattern and you'd rather configure it than hand-write the loop.
 
-Both produce the same artifacts and share every prompt and helper, so the diff between them is purely *who drives the loop*.
+All three produce the same artifacts and share every prompt and helper, so the diff between them is purely *who drives the loop*.
 
 ## Greedy walk vs hill-climbing
 
@@ -99,6 +102,24 @@ agent.run("Begin the hotdog heating experiment. Start with 'a hot hotdog'.")
 
 The agent stops on its own once the critic returns `DONE` (it simply stops calling tools). `--max-iterations 0` removes the hard cap so the *critic* decides when to stop.
 
+### Workflow-class loop ([`EvaluatorOptimizer`](../reference/api/agents.md))
+
+The hand-written loop *is* generate → evaluate → revise — which is exactly what `EvaluatorOptimizer` automates. So the same task drops onto the workflow class by composing two agents: a **generator** holding `generate_hotdog_image`, and an **evaluator** holding `evaluate_hotness`. The workflow stops when `pass_keyword` shows up in the critic's reply.
+
+```python
+from aimu.agents import Agent, EvaluatorOptimizer
+
+eo = EvaluatorOptimizer(
+    generator=Agent(gen_client, "Write a prompt, generate, reply with the path.", tools=[generate_hotdog_image]),
+    evaluator=Agent(critic_client, "Evaluate the image; relay DONE or CONTINUE verbatim.", tools=[evaluate_hotness]),
+    max_rounds=max_iterations,
+    pass_keyword="DONE",
+)
+eo.run("Make a single hotdog look as hot as possible. Start from: a hot hotdog.")
+```
+
+The catch worth seeing: `EvaluatorOptimizer` orchestrates *text* `Runner`s — it passes each step's output to the next as a **string** (see `aimu/agents/workflows/evaluator.py`). Image generation and vision evaluation therefore live *inside the tools*, and the image path travels between the two agents as text — two extra LLM hops for what `hotdog_loop.py` hands off as a plain variable. That's more indirect and more fragile (the script falls back to the latest image if the relayed path doesn't resolve). It also needs **three** client instances — a generator brain, a critic brain, and a separate vision client for the tool (which calls `reset()`) — and the *final* generation is returned unevaluated, an artifact of the loop's shape. Reach for the workflow class when the pattern fit is clean; reach for the hand-written loop when you want every hand-off explicit.
+
 ### Prompt chaining: describe richly, then summarize to the model's budget
 
 The critic writes a detailed, free-form description (the "hot" it imagines). But image models cap prompt length — SDXL's CLIP encoder at 77 tokens, SD 3.5's T5 at 256. So a second step condenses the description to fit, sized from the model's own [`max_prompt_tokens`](generate-images.md#prompt-length):
@@ -121,11 +142,11 @@ Diffusion models drift toward "more of a good thing." Two levers keep it to a si
 
 ### Placement and dtype are automatic
 
-Nothing in either script pins a GPU or sets a dtype. `HuggingFaceImageClient` measures free VRAM across your GPUs and the model's size, then [places it for you](generate-images.md#gpu-placement-huggingface) — pinning to the freest card or falling back to CPU offload — and defaults to a memory-efficient dtype (bf16 on CUDA). So SD 3.5 loads alongside a local LLM without manual juggling.
+Nothing in any script pins a GPU or sets a dtype. `HuggingFaceImageClient` measures free VRAM across your GPUs and the model's size, then [places it for you](generate-images.md#gpu-placement-huggingface) — pinning to the freest card or falling back to CPU offload — and defaults to a memory-efficient dtype (bf16 on CUDA). So SD 3.5 loads alongside a local LLM without manual juggling.
 
 ### Durable output: summary + collage, even on Ctrl-C
 
-Both scripts write results in a `finally` block, so an interrupted run still produces output:
+Every script writes results in a `finally` block, so an interrupted run still produces output:
 
 - `summary.txt` — the constant model inputs (negative prompt, evaluator/summarizer instructions) plus a per-iteration trace of exactly what was sent.
 - `collage.png` — a near-square grid of every generated image, in order. It scans the saved files rather than the trace, so even an image generated just before you hit Ctrl-C is included.
