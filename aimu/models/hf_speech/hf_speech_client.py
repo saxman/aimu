@@ -39,7 +39,8 @@ from typing import Any, Optional, Union
 # since torch/transformers are pulled via the [hf] extra.
 import soundfile  # noqa: F401
 
-from ..base import BaseSpeechClient, HuggingFaceSpeechSpec, SpeechModel, StreamChunk, StreamingContentType
+from .._hf_device import move_to_device, pop_device_hint, resolve_device
+from ..base import BaseSpeechClient, HuggingFaceSpeechSpec, SpeechModel
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,11 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
     Loads pipeline weights lazily on the first :meth:`_generate` call. Pass a
     :class:`HuggingFaceSpeechModel` enum member, a :class:`HuggingFaceSpeechSpec`,
     or a ``"hf:<repo_id>"`` string. ``model_kwargs`` is forwarded to the loader.
+
+    Target a specific GPU with ``model_kwargs={"device": "cuda:1"}`` (TTS models are
+    small, so there is no sharding default). Note the SpeechT5 and BARK loaders move
+    to the autodetected accelerator by default; the MMS-TTS ``pipeline`` stays on CPU
+    unless a ``device`` hint is given.
     """
 
     MODELS = HuggingFaceSpeechModel
@@ -153,9 +159,12 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
         kwargs: dict[str, Any] = {}
         if self.model_kwargs:
             kwargs.update(self.model_kwargs)
+        # transformers' pipeline() takes placement via its own ``device=`` arg; None
+        # preserves the default (CPU). A ``device`` hint (e.g. "cuda:1") targets one GPU.
+        device = pop_device_hint(kwargs)
 
         logger.info("Loading TTS pipeline %s", self.spec.id)
-        return pipeline("text-to-speech", model=self.spec.id, **kwargs)
+        return pipeline("text-to-speech", model=self.spec.id, device=device, **kwargs)
 
     def _load_speecht5(self) -> tuple[Any, Any, Any, Any]:
         """Load SpeechT5 TTS model, HiFi-GAN vocoder, and default speaker embedding."""
@@ -165,20 +174,13 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
         kwargs: dict[str, Any] = {}
         if self.model_kwargs:
             kwargs.update(self.model_kwargs)
+        device = resolve_device(pop_device_hint(kwargs))
 
         logger.info("Loading SpeechT5 %s", self.spec.id)
         processor = SpeechT5Processor.from_pretrained(self.spec.id, **kwargs)
         model = SpeechT5ForTextToSpeech.from_pretrained(self.spec.id, **kwargs)
         vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5-hifigan", **kwargs)
 
-        device = "cpu"
-        try:
-            if torch.cuda.is_available():
-                device = "cuda"
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                device = "mps"
-        except ImportError:
-            pass
         model = model.to(device)
         vocoder = vocoder.to(device)
 
@@ -197,20 +199,12 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
         kwargs: dict[str, Any] = {}
         if self.model_kwargs:
             kwargs.update(self.model_kwargs)
+        device = pop_device_hint(kwargs)
 
         logger.info("Loading Bark model %s", self.spec.id)
         processor = AutoProcessor.from_pretrained(self.spec.id, **kwargs)
         model = BarkModel.from_pretrained(self.spec.id, **kwargs)
-        try:
-            import torch
-
-            if torch.cuda.is_available():
-                model = model.to("cuda")
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                model = model.to("mps")
-        except ImportError:
-            pass
-        return processor, model
+        return processor, move_to_device(model, device)
 
     def _ensure_loaded(self) -> None:
         if self._pipe is not None:

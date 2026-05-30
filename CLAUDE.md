@@ -696,7 +696,7 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
 - **[aimu/models/hf_image/hf_image_client.py](aimu/models/hf_image/hf_image_client.py)**: `HuggingFaceImageClient` + `HuggingFaceImageModel` enum.
   - `HuggingFaceImageModel` catalog: `SD_1_5`, `SDXL_BASE`, `SD_3_5_MEDIUM`, `FLUX_DEV`, `FLUX_SCHNELL`. Each member's value is a `HuggingFaceImageSpec`.
   - `HuggingFaceImageClient(model, model_kwargs=None)` accepts a `HuggingFaceImageModel` member, a `HuggingFaceImageSpec`, or a `"hf:<repo_id>"` string (for ad-hoc HF models not in the enum; defaults to `DiffusionPipeline` auto-detect loader).
-  - Lazy pipeline load on first `generate()` call: `pipeline_cls = getattr(diffusers, spec.pipeline_class); self._pipe = pipeline_cls.from_pretrained(spec.id, **kwargs)`. Auto-moves to CUDA or MPS if available.
+  - Lazy pipeline load on first `generate()` call: `pipeline_cls = getattr(diffusers, spec.pipeline_class); self._pipe = pipeline_cls.from_pretrained(spec.id, **kwargs)`. Device placement uses the shared `_hf_device.py` helpers: defaults to `device_map="balanced"` (sharding across GPUs) when >1 CUDA device is visible **and** `accelerate` is installed; otherwise moves the whole pipeline to CUDA/MPS. Override via `model_kwargs={"device": "cuda:1"}` (whole pipeline on one GPU) or `model_kwargs={"device_map": ...}`. `"balanced"` is the only `device_map` diffusers supports at the pipeline level (`"auto"` is transformers-only, used by the text `HuggingFaceClient`).
   - `generate(prompt, *, negative_prompt=None, width=None, height=None, num_inference_steps=None, guidance_scale=None, seed=None, num_images=1, format="pil", output_dir=None, stream=False, preview_every=None)`. Unset params fall back to `spec.default_*`. Seed plumbed through `torch.Generator`. Returns a single image (or list when `num_images > 1`) in the chosen format.
   - `stream=True` returns an `Iterator[StreamChunk]` with phase `IMAGE_GENERATING`. Implemented via `callback_on_step_end` on the diffusers pipeline: a background thread runs the pipeline, the callback pushes per-step chunks onto a `queue.Queue`, and the public generator drains the queue. `preview_every=N` opts into per-step latent-decoded previews — when set, the callback decodes via `pipe.vae.decode` every N steps and includes the PIL in the chunk (~50–200 ms per decode on GPU). Final chunks (one per image when `num_images > 1`) carry `final=True` and the encoded `result` per `format=`.
   - `import diffusers` is a hard module-load import so `HAS_HF_IMAGE` accurately reflects "the optional dep is installed" (matches the HF convention).
@@ -757,7 +757,7 @@ Key files and their roles:
   - `"path"` → saves WAV to `paths.output/"audio"/{timestamp}-{hash}.wav`, returns path string.
 
 - **[aimu/models/hf_audio/hf_audio_client.py](aimu/models/hf_audio/hf_audio_client.py)** — `HuggingFaceAudioClient` + `HuggingFaceAudioModel` enum:
-  - Lazy pipeline load (same pattern as `HuggingFaceImageClient`). Auto-detects CUDA/MPS.
+  - Lazy pipeline load (same pattern as `HuggingFaceImageClient`). Auto-detects CUDA/MPS via the shared `_hf_device.py` helpers; `model_kwargs={"device": "cuda:1"}` targets a specific GPU. No sharding default — audio models are small enough for one card.
   - Constructor accepts `HuggingFaceAudioModel` member, `HuggingFaceAudioSpec`, or `"hf:<repo_id>"` string (pipeline type inferred from known repo prefixes, defaulting to `"musicgen"`).
   - Three loader methods dispatched by `spec.pipeline_type`: `_load_musicgen()` (transformers `AutoProcessor` + `MusicgenForConditionalGeneration`), `_load_audioldm2()` (diffusers `AudioLDM2Pipeline`), `_load_stable_audio()` (diffusers `StableAudioPipeline`).
   - Three generator methods: `_run_musicgen()` (duration → `max_new_tokens = int(duration_s * 50)`), `_run_audioldm2()`, `_run_stable_audio()`. All return `list[(sample_rate, ndarray)]`.
@@ -807,7 +807,7 @@ Key files and their roles:
 
 - **[aimu/models/hf_speech/hf_speech_client.py](aimu/models/hf_speech/hf_speech_client.py)** — `HuggingFaceSpeechClient` + `HuggingFaceSpeechModel` enum:
   - `HuggingFaceSpeechModel` members: `MMS_TTS_ENG` (`facebook/mms-tts-eng`, `tts_pipeline`), `SPEECHT5` (`microsoft/speecht5_tts`, `speecht5`), `BARK` (`suno/bark`, `bark`).
-  - Lazy pipeline load on first `generate()` call; auto-moves to CUDA/MPS.
+  - Lazy pipeline load on first `generate()` call; auto-moves to CUDA/MPS via the shared `_hf_device.py` helpers. `model_kwargs={"device": "cuda:1"}` targets a specific GPU (no sharding default — TTS models are small). The SpeechT5/BARK loaders move to the accelerator by default; the MMS-TTS `pipeline` stays on CPU unless a `device` hint is given.
   - Constructor accepts `HuggingFaceSpeechModel` member, `HuggingFaceSpeechSpec`, or `"hf:<repo_id>"` string (pipeline type inferred from known repo prefixes).
   - Three loader methods: `_load_tts_pipeline()` (HuggingFace `pipeline("text-to-speech", ...)`), `_load_speecht5()` (`SpeechT5ForTextToSpeech` + `SpeechT5HifiGan` vocoder + default CMU Arctic speaker embedding from `datasets`), `_load_bark()` (`BarkProcessor` + `BarkModel`). All return `(sample_rate, np.ndarray)`.
   - SpeechT5 voice selection: `voice=None` uses the pre-loaded default embedding (CMU Arctic index 7306); `voice="N"` loads index N from the xvectors dataset (cached on the client after first lookup). Sample rate: 16 kHz.
@@ -894,6 +894,7 @@ aimu/
 │   ├── _streaming.py    # resolve_include, filter_chunks, afilter_chunks — shared stream helpers
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── _images.py       # Shared vision utilities (_normalize_image, per-provider adapters)
+│   ├── _hf_device.py    # Shared GPU-placement helpers for in-process HF clients (image/audio/speech): device hint, cuda/mps fallback, multi-GPU balanced default
 │   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
 │   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallFormat)
 │   ├── anthropic/       # Anthropic Claude client (AnthropicClient, AnthropicModel)

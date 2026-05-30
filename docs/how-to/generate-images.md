@@ -125,6 +125,20 @@ Per-provider knobs differ:
 
 Both share: `num_images=N`, `format=`, `output_dir=`.
 
+### Multi-GPU placement (HuggingFace)
+
+By default the diffusion pipeline moves to the autodetected accelerator — which on a multi-GPU box means `cuda:0`. If GPU 0 is already busy (e.g. a language model is loaded there) you can hit out-of-memory errors even when other cards are free. Control placement through `model_kwargs`:
+
+```python
+# Put the whole pipeline on a specific GPU (best when it fits on one card)
+client = image_client("hf:stabilityai/stable-diffusion-xl-base-1.0", model_kwargs={"device": "cuda:1"})
+
+# Shard the pipeline's components across all visible GPUs (for models too large for one)
+client = image_client("hf:black-forest-labs/FLUX.1-dev", model_kwargs={"device_map": "balanced"})
+```
+
+When more than one CUDA device is visible **and** `accelerate` is installed, the client already defaults to `device_map="balanced"`. A `device` or `device_map` you pass yourself always overrides that default. Single-GPU, CPU, and MPS (Apple Silicon) setups keep the simple single-device path — `device_map` is gated to multi-GPU CUDA because diffusers doesn't support it on MPS. `"balanced"` is the only `device_map` value diffusers accepts at the pipeline level (`"auto"` is transformers-only).
+
 ## As an agent tool
 
 The built-in `generate_image` tool lets any chat LLM call image generation when the user asks. The LLM decides *when* to call it; the tool saves a PNG and returns the path so it appears in the conversation history.

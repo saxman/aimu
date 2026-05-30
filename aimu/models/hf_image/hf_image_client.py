@@ -27,6 +27,7 @@ from typing import Any, Optional, Union
 # loader. Pipeline weights are still loaded lazily inside ``_load_pipeline``.
 import diffusers  # noqa: F401  # used dynamically via getattr in _load_pipeline
 
+from .._hf_device import move_to_device, multi_gpu_with_accelerate, pop_device_hint
 from ..base import BaseImageClient, HuggingFaceImageSpec, ImageModel
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,17 @@ class HuggingFaceImageClient(BaseImageClient):
     or a ``"hf:<repo_id>"`` string. ``model_kwargs`` is forwarded to
     ``pipeline_cls.from_pretrained()`` (overrides on top of
     :data:`DEFAULT_MODEL_KWARGS` and ``spec.pipeline_kwargs``).
+
+    Multi-GPU placement (``model_kwargs``): when more than one CUDA device is
+    visible and ``accelerate`` is installed, the pipeline defaults to
+    ``device_map="balanced"``, sharding its components across all visible GPUs.
+    Otherwise (single GPU, MPS, or CPU) the whole pipeline moves to
+    ``cuda``/``mps``. Override the default explicitly:
+
+    - ``model_kwargs={"device": "cuda:1"}`` — load the whole pipeline onto one
+      specific GPU (best when the model fits in a single card's memory).
+    - ``model_kwargs={"device_map": "balanced"}`` — force sharding across all
+      visible GPUs (or any other diffusers-supported ``device_map`` value).
     """
 
     MODELS = HuggingFaceImageModel
@@ -152,20 +164,27 @@ class HuggingFaceImageClient(BaseImageClient):
         if self.model_kwargs:
             kwargs.update(self.model_kwargs)
 
+        device = pop_device_hint(kwargs)
+
+        # Default to sharding across GPUs ("balanced") when it is both safe and useful:
+        # more than one CUDA device is visible and ``accelerate`` is installed. diffusers
+        # supports only "balanced" at the pipeline level; it is unnecessary on single-GPU/
+        # CPU and unsupported on MPS, so those keep the single-device path below. An
+        # explicit ``device`` or ``device_map`` in ``model_kwargs`` overrides this default.
+        if device is None and "device_map" not in kwargs and multi_gpu_with_accelerate():
+            kwargs["device_map"] = "balanced"
+
         logger.info("Loading diffusion pipeline %s (%s)", self.spec.id, self.spec.pipeline_class)
         pipe = pipeline_cls.from_pretrained(self.spec.id, **kwargs)
 
-        try:
-            import torch
+        # ``device_map`` shards the pipeline across visible GPUs during load; diffusers
+        # owns placement and ``.to()`` must not be called afterward (it raises).
+        if "device_map" in kwargs:
+            if device is not None:
+                logger.warning("Ignoring device=%r because device_map=%r was set.", device, kwargs["device_map"])
+            return pipe
 
-            if torch.cuda.is_available():
-                pipe = pipe.to("cuda")
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                pipe = pipe.to("mps")
-        except ImportError:
-            pass
-
-        return pipe
+        return move_to_device(pipe, device)
 
     @property
     def pipeline(self) -> Any:

@@ -98,6 +98,9 @@ nav:
       - Stream output: how-to/stream-output.md
       - Use async (aio): how-to/use-async.md
       - Handle vision input: how-to/handle-vision.md
+      - Generate images: how-to/generate-images.md
+      - Generate audio: how-to/generate-audio.md
+      - Generate speech: how-to/generate-speech.md
       - Persist conversations: how-to/persist-conversations.md
       - Use semantic memory: how-to/use-semantic-memory.md
       - Use document memory: how-to/use-document-memory.md

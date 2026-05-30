@@ -100,6 +100,8 @@ from aimu.models import OpenAISpeechModel
 client = speech_client(OpenAISpeechModel.TTS_1_HD)
 ```
 
+For local HuggingFace TTS on a multi-GPU box, target a specific card with `model_kwargs={"device": "cuda:1"}`. TTS models are small, so there is no sharding default. (OpenAI TTS is a cloud API — placement doesn't apply.)
+
 ### Per-call kwargs
 
 | Kwarg | Notes |

@@ -78,6 +78,8 @@ from aimu.models import HuggingFaceAudioModel
 client = audio_client(HuggingFaceAudioModel.MUSICGEN_MEDIUM)
 ```
 
+On a multi-GPU box, target a specific card with `model_kwargs={"device": "cuda:1"}` (default placement is `cuda:0`). These models are small enough to fit one card, so — unlike the image client — there is no sharding default.
+
 ### Per-call kwargs
 
 | Kwarg | Applies to | Default | Notes |

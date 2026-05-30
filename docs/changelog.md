@@ -18,6 +18,7 @@ Breaking changes across four areas, plus the new documentation site.
 - **Breaking** `system_message` is immutable after the first `chat()` call. The setter raises `RuntimeError`; call `reset()` to unlock.
 - **New** `include=[...]` stream filter on `chat()` and `generate()` selects phases (`"thinking"`, `"tool_calling"`, `"generating"`, `"done"`).
 - **Internal** Abstract methods renamed `chat → _chat`, `generate → _generate`. Concrete `chat`/`generate` on the base class apply the `include` filter and delegate.
+- **New** Multi-GPU placement for in-process HuggingFace clients (image/audio/speech) via `model_kwargs={"device": "cuda:1"}`. The image client also defaults to `device_map="balanced"` when more than one CUDA GPU is visible and `accelerate` is installed. Shared `aimu/models/_hf_device.py` helpers back all three.
 
 ### Agents
 

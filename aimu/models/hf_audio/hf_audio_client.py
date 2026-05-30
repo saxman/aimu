@@ -40,6 +40,7 @@ from typing import Any, Optional, Union
 # torch/transformers/diffusers are pulled via the [hf] extra.
 import soundfile  # noqa: F401
 
+from .._hf_device import move_to_device, pop_device_hint
 from ..base import AudioModel, BaseAudioClient, HuggingFaceAudioSpec, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,11 @@ class HuggingFaceAudioClient(BaseAudioClient):
     :class:`HuggingFaceAudioModel` enum member, a :class:`HuggingFaceAudioSpec`,
     or a ``"hf:<repo_id>"`` string. ``model_kwargs`` is forwarded to
     the loader (``from_pretrained`` for all pipeline types).
+
+    By default the model moves to the autodetected accelerator (``cuda``/``mps``,
+    i.e. ``cuda:0``). On a busy multi-GPU box, target a specific GPU with
+    ``model_kwargs={"device": "cuda:1"}``. These models are small enough to fit one
+    card, so there is no sharding default (unlike the image client).
     """
 
     MODELS = HuggingFaceAudioModel
@@ -160,20 +166,12 @@ class HuggingFaceAudioClient(BaseAudioClient):
         kwargs: dict[str, Any] = {}
         if self.model_kwargs:
             kwargs.update(self.model_kwargs)
+        device = pop_device_hint(kwargs)
 
         logger.info("Loading MusicGen model %s", model_id)
         processor = AutoProcessor.from_pretrained(model_id, **kwargs)
         model = MusicgenForConditionalGeneration.from_pretrained(model_id, **kwargs)
-        try:
-            import torch
-
-            if torch.cuda.is_available():
-                model = model.to("cuda")
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                model = model.to("mps")
-        except ImportError:
-            pass
-        return processor, model
+        return processor, move_to_device(model, device)
 
     def _load_diffusers_pipeline(self, pipeline_class_name: str) -> Any:
         """Load a diffusers audio pipeline by class name."""
@@ -190,19 +188,11 @@ class HuggingFaceAudioClient(BaseAudioClient):
         kwargs: dict[str, Any] = {"torch_dtype": "auto"}
         if self.model_kwargs:
             kwargs.update(self.model_kwargs)
+        device = pop_device_hint(kwargs)
 
         logger.info("Loading %s pipeline %s", pipeline_class_name, self.spec.id)
         pipe = pipeline_cls.from_pretrained(self.spec.id, **kwargs)
-        try:
-            import torch
-
-            if torch.cuda.is_available():
-                pipe = pipe.to("cuda")
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                pipe = pipe.to("mps")
-        except ImportError:
-            pass
-        return pipe
+        return move_to_device(pipe, device)
 
     def _ensure_loaded(self) -> None:
         """Trigger lazy weight loading if not already done."""
