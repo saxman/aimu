@@ -120,9 +120,15 @@ class ImageSpec:
 
     Equality and hash are by ``id`` only — matching :class:`ModelSpec` — so the spec
     can be used directly as an enum value even when carrying dict fields.
+
+    ``max_prompt_tokens`` is the model's text-encoder prompt budget — the image-side
+    analog of :class:`ModelSpec`'s capability flags. ``77`` is the CLIP default (SD,
+    SDXL); T5-based models carry more (SD3 ≈ 256, FLUX-dev ≈ 512, PixArt-Σ ≈ 300);
+    ``None`` means no practical cap (cloud providers that take natural-language prompts).
     """
 
     id: str
+    max_prompt_tokens: Optional[int] = 77
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -167,6 +173,8 @@ class GeminiImageSpec(ImageSpec):
     dataclass-default per-field ``__eq__`` would otherwise shadow it.
     """
 
+    # Cloud models take natural-language prompts with no CLIP-style token cap.
+    max_prompt_tokens: Optional[int] = None
     default_aspect_ratio: Optional[str] = None  # e.g. "1:1", "16:9"
     default_image_size: Optional[str] = None  # e.g. "1024x1024" (SDK-dependent)
     image_config_kwargs: Optional[dict] = field(default=None)
@@ -813,6 +821,16 @@ class BaseImageClient(ABC):
     def __init__(self, model: Any, model_kwargs: Optional[dict] = None):
         self.model = model
         self.model_kwargs = model_kwargs
+
+    @property
+    def max_prompt_tokens(self) -> Optional[int]:
+        """The model's text-encoder prompt budget in tokens; ``None`` means no practical cap."""
+        return self.spec.max_prompt_tokens
+
+    @property
+    def supports_long_prompts(self) -> bool:
+        """True when the model accepts prompts beyond CLIP's 77-token limit (T5-based / cloud)."""
+        return self.max_prompt_tokens is None or self.max_prompt_tokens > 77
 
     @abstractmethod
     def _generate(self, prompt: str, *, num_images: int = 1, **kwargs: Any) -> list:

@@ -18,7 +18,8 @@ Breaking changes across four areas, plus the new documentation site.
 - **Breaking** `system_message` is immutable after the first `chat()` call. The setter raises `RuntimeError`; call `reset()` to unlock.
 - **New** `include=[...]` stream filter on `chat()` and `generate()` selects phases (`"thinking"`, `"tool_calling"`, `"generating"`, `"done"`).
 - **Internal** Abstract methods renamed `chat → _chat`, `generate → _generate`. Concrete `chat`/`generate` on the base class apply the `include` filter and delegate.
-- **New** Multi-GPU placement for in-process HuggingFace clients (image/audio/speech) via `model_kwargs={"device": "cuda:1"}`. The image client also defaults to `device_map="balanced"` when more than one CUDA GPU is visible and `accelerate` is installed. Shared `aimu/models/_hf_device.py` helpers back all three.
+- **New** Memory-aware GPU placement for `HuggingFaceImageClient`: on load it measures the pipeline size and each GPU's *free* VRAM (accounting for other processes), then pins to the freest GPU or falls back to model / sequential CPU offload so large models (SD3, FLUX) load without OOM. Override with `model_kwargs={"device": "cuda:1"}` or `{"device_map": ...}`. Audio/speech clients take the same `{"device": ...}` hint. Shared `aimu/models/_hf_device.py` helpers back all three.
+- **New** `ImageSpec.max_prompt_tokens` records the model's text-encoder prompt budget (77 for CLIP, 256/512 for T5 models like SD3/FLUX, `None` for uncapped cloud models). `BaseImageClient` exposes `max_prompt_tokens` and a derived `supports_long_prompts` property.
 
 ### Agents
 

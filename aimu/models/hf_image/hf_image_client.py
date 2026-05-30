@@ -27,7 +27,7 @@ from typing import Any, Optional, Union
 # loader. Pipeline weights are still loaded lazily inside ``_load_pipeline``.
 import diffusers  # noqa: F401  # used dynamically via getattr in _load_pipeline
 
-from .._hf_device import move_to_device, multi_gpu_with_accelerate, pop_device_hint
+from .._hf_device import auto_place_pipeline, move_to_device, pop_device_hint
 from ..base import BaseImageClient, HuggingFaceImageSpec, ImageModel
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,7 @@ class HuggingFaceImageModel(ImageModel):
         default_guidance=3.5,
         default_width=1024,
         default_height=1024,
+        max_prompt_tokens=256,  # T5-XXL encoder
     )
     FLUX_DEV = HuggingFaceImageSpec(
         "black-forest-labs/FLUX.1-dev",
@@ -79,6 +80,7 @@ class HuggingFaceImageModel(ImageModel):
         default_guidance=3.5,
         default_width=1024,
         default_height=1024,
+        max_prompt_tokens=512,  # T5-XXL encoder
     )
     FLUX_SCHNELL = HuggingFaceImageSpec(
         "black-forest-labs/FLUX.1-schnell",
@@ -87,6 +89,7 @@ class HuggingFaceImageModel(ImageModel):
         default_guidance=0.0,
         default_width=1024,
         default_height=1024,
+        max_prompt_tokens=256,  # T5-XXL encoder
     )
 
 
@@ -114,16 +117,18 @@ class HuggingFaceImageClient(BaseImageClient):
     ``pipeline_cls.from_pretrained()`` (overrides on top of
     :data:`DEFAULT_MODEL_KWARGS` and ``spec.pipeline_kwargs``).
 
-    Multi-GPU placement (``model_kwargs``): when more than one CUDA device is
-    visible and ``accelerate`` is installed, the pipeline defaults to
-    ``device_map="balanced"``, sharding its components across all visible GPUs.
-    Otherwise (single GPU, MPS, or CPU) the whole pipeline moves to
-    ``cuda``/``mps``. Override the default explicitly:
+    Placement is automatic by default: on first generation the client measures the
+    loaded pipeline's size and the *free* memory on each visible GPU (so it accounts
+    for other processes, e.g. a local LLM server), then picks the cheapest strategy
+    that fits — pin to the freest GPU, else model CPU offload, else sequential CPU
+    offload (see :func:`aimu.models._hf_device.auto_place_pipeline`). Override it:
 
-    - ``model_kwargs={"device": "cuda:1"}`` — load the whole pipeline onto one
-      specific GPU (best when the model fits in a single card's memory).
-    - ``model_kwargs={"device_map": "balanced"}`` — force sharding across all
-      visible GPUs (or any other diffusers-supported ``device_map`` value).
+    - ``model_kwargs={"device": "cuda:1"}`` — pin the whole pipeline to one GPU.
+    - ``model_kwargs={"device_map": "balanced"}`` — hand placement to diffusers/
+      accelerate (or any other diffusers-supported ``device_map`` value).
+
+    CPU offload requires ``accelerate``; without it, an oversized model is pinned to
+    the freest GPU with a warning.
     """
 
     MODELS = HuggingFaceImageModel
@@ -166,25 +171,21 @@ class HuggingFaceImageClient(BaseImageClient):
 
         device = pop_device_hint(kwargs)
 
-        # Default to sharding across GPUs ("balanced") when it is both safe and useful:
-        # more than one CUDA device is visible and ``accelerate`` is installed. diffusers
-        # supports only "balanced" at the pipeline level; it is unnecessary on single-GPU/
-        # CPU and unsupported on MPS, so those keep the single-device path below. An
-        # explicit ``device`` or ``device_map`` in ``model_kwargs`` overrides this default.
-        if device is None and "device_map" not in kwargs and multi_gpu_with_accelerate():
-            kwargs["device_map"] = "balanced"
-
         logger.info("Loading diffusion pipeline %s (%s)", self.spec.id, self.spec.pipeline_class)
         pipe = pipeline_cls.from_pretrained(self.spec.id, **kwargs)
 
-        # ``device_map`` shards the pipeline across visible GPUs during load; diffusers
-        # owns placement and ``.to()`` must not be called afterward (it raises).
+        # Placement precedence (most → least explicit):
+        #   1. ``device_map`` in model_kwargs — caller shards manually; diffusers owns
+        #      placement, so ``.to()`` must not be called afterward.
+        #   2. ``device`` hint — pin the whole pipeline to one GPU.
+        #   3. neither — auto-plan from the live free VRAM across all visible GPUs.
         if "device_map" in kwargs:
             if device is not None:
                 logger.warning("Ignoring device=%r because device_map=%r was set.", device, kwargs["device_map"])
             return pipe
-
-        return move_to_device(pipe, device)
+        if device is not None:
+            return move_to_device(pipe, device)
+        return auto_place_pipeline(pipe)
 
     @property
     def pipeline(self) -> Any:

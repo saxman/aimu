@@ -125,19 +125,39 @@ Per-provider knobs differ:
 
 Both share: `num_images=N`, `format=`, `output_dir=`.
 
-### Multi-GPU placement (HuggingFace)
+### Prompt length
 
-By default the diffusion pipeline moves to the autodetected accelerator — which on a multi-GPU box means `cuda:0`. If GPU 0 is already busy (e.g. a language model is loaded there) you can hit out-of-memory errors even when other cards are free. Control placement through `model_kwargs`:
+CLIP-based models (SD 1.5, SDXL) cap prompts at **77 tokens** and silently truncate the rest. Models with a T5 text encoder accept far more — SD 3.5 ≈ 256 tokens, FLUX ≈ 512. Each spec records this as `max_prompt_tokens`, and the client exposes it:
 
 ```python
-# Put the whole pipeline on a specific GPU (best when it fits on one card)
-client = image_client("hf:stabilityai/stable-diffusion-xl-base-1.0", model_kwargs={"device": "cuda:1"})
+client = image_client(HuggingFaceImageModel.SD_3_5_MEDIUM)
+client.max_prompt_tokens      # 256
+client.supports_long_prompts  # True  (None or > 77)
 
-# Shard the pipeline's components across all visible GPUs (for models too large for one)
-client = image_client("hf:black-forest-labs/FLUX.1-dev", model_kwargs={"device_map": "balanced"})
+image_client(HuggingFaceImageModel.SDXL_BASE).supports_long_prompts  # False
 ```
 
-When more than one CUDA device is visible **and** `accelerate` is installed, the client already defaults to `device_map="balanced"`. A `device` or `device_map` you pass yourself always overrides that default. Single-GPU, CPU, and MPS (Apple Silicon) setups keep the simple single-device path — `device_map` is gated to multi-GPU CUDA because diffusers doesn't support it on MPS. `"balanced"` is the only `device_map` value diffusers accepts at the pipeline level (`"auto"` is transformers-only).
+Note: ad-hoc `"hf:<repo>"` strings get the conservative 77-token default (the catalog isn't consulted) — pass the enum member to pick up the model's real budget.
+
+### GPU placement (HuggingFace)
+
+Placement is **automatic and memory-aware**. On first generation the client measures the loaded pipeline's size and the *free* memory on each visible GPU — so it accounts for other processes already using the cards (e.g. a local LLM server) — then picks the cheapest strategy that fits:
+
+1. **Pin to the freest GPU** when the whole pipeline fits there (fastest).
+2. **Model CPU offload** when it doesn't fit one GPU but the largest single component does (components stream to GPU as needed).
+3. **Sequential CPU offload** when memory is very tight (per-layer streaming; slowest, fits almost anything).
+
+This means large models like SD 3.5 or FLUX load without OOM even when a GPU is partly occupied. The decision is logged at INFO. CPU offload requires `accelerate` (`pip install accelerate`); without it, an oversized model is pinned to the freest GPU with a warning.
+
+Override the automatic plan through `model_kwargs`:
+
+```python
+# Pin the whole pipeline to a specific GPU
+client = image_client(HuggingFaceImageModel.SDXL_BASE, model_kwargs={"device": "cuda:1"})
+
+# Hand placement to diffusers/accelerate (e.g. shard across GPUs)
+client = image_client(HuggingFaceImageModel.FLUX_DEV, model_kwargs={"device_map": "balanced"})
+```
 
 ## As an agent tool
 

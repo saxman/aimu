@@ -165,6 +165,69 @@ def test_gemini_spec_equality_by_id():
     assert hash(a) == hash(b)
 
 
+def test_max_prompt_tokens_capability():
+    """max_prompt_tokens defaults to CLIP's 77; T5 catalog models carry more; Gemini is uncapped."""
+    assert HuggingFaceImageModel.SD_1_5.spec.max_prompt_tokens == 77
+    assert HuggingFaceImageModel.SDXL_BASE.spec.max_prompt_tokens == 77
+    assert HuggingFaceImageModel.SD_3_5_MEDIUM.spec.max_prompt_tokens == 256
+    assert HuggingFaceImageModel.FLUX_DEV.spec.max_prompt_tokens == 512
+    assert GeminiImageModel.NANO_BANANA.spec.max_prompt_tokens is None
+    # Ad-hoc string specs have no catalog knowledge → conservative CLIP default.
+    assert HuggingFaceImageSpec("custom/repo").max_prompt_tokens == 77
+
+
+def test_supports_long_prompts_property():
+    """The client property derives long-prompt support from the spec's token budget."""
+    assert HuggingFaceImageClient(HuggingFaceImageModel.SDXL_BASE).supports_long_prompts is False
+    assert HuggingFaceImageClient(HuggingFaceImageModel.SD_3_5_MEDIUM).supports_long_prompts is True
+
+
+def test_auto_place_pipeline_tiers(monkeypatch):
+    """Memory-aware placement picks pin / model-offload / sequential-offload by free VRAM."""
+    import torch
+    import torch.nn as nn
+
+    import aimu.models._hf_device as hd
+
+    class _Comp(nn.Module):
+        def __init__(self, nbytes):
+            super().__init__()
+            self.w = nn.Parameter(torch.zeros(nbytes // 4))  # float32 → 4 bytes/elem
+
+    class _Pipe:
+        def __init__(self, comps):
+            self._c = comps
+            self.placed = None
+
+        @property
+        def components(self):
+            return self._c
+
+        def to(self, dev):
+            self.placed = ("to", dev)
+            return self
+
+        def enable_model_cpu_offload(self, gpu_id=None):
+            self.placed = ("model", gpu_id)
+
+        def enable_sequential_cpu_offload(self, gpu_id=None):
+            self.placed = ("seq", gpu_id)
+
+    gib = 1024**3
+
+    def place(free_gib, comp_gib, accel=True):
+        monkeypatch.setattr(hd, "cuda_free_memory", lambda: [(0, int(free_gib * gib))])
+        monkeypatch.setattr(hd, "has_accelerate", lambda: accel)
+        pipe = _Pipe({f"c{i}": _Comp(int(g * gib)) for i, g in enumerate(comp_gib)})
+        hd.auto_place_pipeline(pipe)
+        return pipe.placed
+
+    assert place(20, [1.0, 1.0]) == ("to", "cuda:0")  # fits one GPU → pin
+    assert place(12, [10.0, 6.0]) == ("model", 0)  # too big, largest fits → model offload
+    assert place(8, [10.0, 12.0]) == ("seq", 0)  # largest doesn't fit → sequential offload
+    assert place(8, [10.0, 12.0], accel=False) == ("to", "cuda:0")  # no accelerate → pin (warns)
+
+
 def test_hf_model_value_is_repo_id():
     assert HuggingFaceImageModel.SD_1_5.value == "runwayml/stable-diffusion-v1-5"
     assert HuggingFaceImageModel.SDXL_BASE.spec.pipeline_class == "StableDiffusionXLPipeline"
