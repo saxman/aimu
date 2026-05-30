@@ -23,8 +23,10 @@ from _hotdog_common import (
     EVALUATOR_PROMPT,
     NEGATIVE_PROMPT,
     build_arg_parser,
+    build_image_prompt,
     parse_evaluator_response,
     resolve_output_dir,
+    summarize_for_image,
     write_summary,
 )
 
@@ -54,8 +56,9 @@ def run_loop(
         print(f"--- Iteration {i}/{cap_label} ---")
         print(f"Prompt: {prompt}")
 
+        image_prompt = build_image_prompt(prompt)
         raw_path = image_client.generate(
-            prompt, negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
+            image_prompt, negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
         )
         dest = output_dir / f"{i:02d}.png"
         Path(raw_path).rename(dest)
@@ -66,15 +69,17 @@ def run_loop(
         print(f"Evaluator:\n{evaluator_response}\n")
 
         parsed = parse_evaluator_response(evaluator_response)
-        trace.append({
+        entry = {
             "iteration": i,
             "prompt": prompt,
+            "image_prompt": image_prompt,
             "image_path": str(dest),
             "evaluator_response": evaluator_response,
             "score": parsed["score"],
             "action": parsed["action"],
             "next_prompt": parsed["next_prompt"],
-        })
+        }
+        trace.append(entry)
 
         if parsed["action"] == "DONE":
             print(f"Evaluator declared maximum hotness after {i} iteration(s).")
@@ -87,7 +92,11 @@ def run_loop(
             print(f"Reached maximum iterations ({max_iterations}). Stopping.")
             break
 
-        prompt = parsed["next_prompt"]
+        # Second stage of the chain: condense the evaluator's full description into
+        # a short, CLIP-friendly prompt for the next image.
+        prompt = summarize_for_image(eval_client, parsed["next_prompt"])
+        entry["summarized_prompt"] = prompt
+        print(f"Summarized → next prompt: {prompt}\n")
 
     summary_path = write_summary(output_dir, trace)
     print(f"Summary written to: {summary_path}")

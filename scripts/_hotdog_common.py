@@ -13,18 +13,57 @@ Rate its hotness from 1 to 10 (10 = blazing inferno hotdog, 1 = cold).
 Then decide: can this hotdog get any hotter? If not, output exactly:
 DONE: <your reasoning>
 If it can get hotter, output exactly:
-CONTINUE: <a refined image generation prompt that will make it hotter>
-The prompt must depict exactly ONE single hotdog — never multiple hotdogs, a
-pile, or a platter. Keep the CONTINUE prompt concise — under 40 words, as
-comma-separated visual descriptors (no full sentences). Image encoders truncate
-long prompts, so put the most important "hot" details first.
+CONTINUE: <a full, natural-language description of how the next image should look
+to make the hotdog hotter — describe the flames, char, spices, steam, colors, and
+lighting in as much detail as you like>
+The scene must depict exactly ONE single hotdog — never multiple hotdogs, a pile,
+or a platter.
 """
 
 
-# Pushes the diffusion model away from rendering more than one hotdog. Applied as
-# the image client's negative_prompt — used by HuggingFace; providers without
+# Second stage of the prompt chain: condense the evaluator's free-form description
+# into a short prompt for image models with tight token limits (e.g. SDXL's CLIP
+# encoder caps at 77 tokens). Run through a text client via summarize_for_image().
+SUMMARIZER_PROMPT = """\
+Condense the following description into a short text-to-image prompt.
+Output ONLY the prompt — comma-separated visual descriptors, no full sentences,
+under 40 words. It must depict exactly ONE single hotdog. Put the most important
+"hot" details first; image encoders truncate long prompts.
+
+Description:
+{description}
+"""
+
+
+# Positive subject anchor prepended to every generation. CLIP negative prompts
+# suppress a *concept*, not a *count* — listing "hotdogs" in the negative prompt
+# removes hotdogs entirely. Stating a singular subject in the positive prompt is
+# the reliable lever for "exactly one".
+SUBJECT_ANCHOR = "a single hotdog, one sausage in one bun"
+
+# Generic plurality/duplication cues to discourage. Deliberately omits the word
+# "hotdog" (which would suppress the subject). HF uses it; providers without
 # negative-prompt support (e.g. Gemini Nano Banana) silently ignore it.
-NEGATIVE_PROMPT = "multiple hotdogs, two hotdogs, several hotdogs, pile of hotdogs, platter, group of hotdogs"
+NEGATIVE_PROMPT = "multiple, two, several, pile, platter, group, crowd, duplicate"
+
+
+def build_image_prompt(prompt: str) -> str:
+    """Prepend the single-hotdog subject anchor unless the prompt already states it."""
+    if "single hotdog" in prompt.lower():
+        return prompt
+    return f"{SUBJECT_ANCHOR}, {prompt}"
+
+
+def summarize_for_image(client, description: str) -> str:
+    """Condense a free-form description into a short image-generation prompt.
+
+    The second stage of the describe → summarize chain. Runs ``SUMMARIZER_PROMPT``
+    through a text ``client`` (the eval model is reused — summarization is text-only)
+    and returns the stripped short prompt. The client is reset first so the call
+    doesn't inherit or pollute prior conversation state.
+    """
+    client.reset()
+    return client.chat(SUMMARIZER_PROMPT.format(description=description)).strip()
 
 
 def build_arg_parser(description: str) -> argparse.ArgumentParser:
@@ -71,7 +110,8 @@ def parse_evaluator_response(text: str) -> dict:
       action      -- "DONE", "CONTINUE", or "unknown"
       score       -- int 1-10 or None
       reasoning   -- text after DONE: (or None)
-      next_prompt -- text after CONTINUE: (or None)
+      next_prompt -- text after CONTINUE: (or None); the full natural-language
+                     description, which may span multiple lines
     """
     score = None
     score_match = re.search(r'\b(\d+)/10\b', text)
@@ -81,7 +121,8 @@ def parse_evaluator_response(text: str) -> dict:
             score = val
 
     done_match = re.search(r'^DONE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
-    continue_match = re.search(r'^CONTINUE\s*:\s*(.+)$', text, re.IGNORECASE | re.MULTILINE)
+    # DOTALL so the CONTINUE description can run across multiple lines.
+    continue_match = re.search(r'^CONTINUE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
 
     # DONE takes priority if both are present
     if done_match:
@@ -107,18 +148,34 @@ def parse_evaluator_response(text: str) -> dict:
 
 
 def write_summary(output_dir: Path, trace: list[dict]) -> Path:
-    """Write summary.txt with the full iteration trace to output_dir."""
+    """Write summary.txt with the full iteration trace to output_dir.
+
+    Records exactly what is sent to each model: the constant image negative prompt
+    and evaluator instruction once at the top, then per iteration the working prompt
+    alongside the anchored prompt actually sent to the image model.
+    """
     path = output_dir / "summary.txt"
-    sections = []
+
+    sections = [
+        "\n".join([
+            "=== Constant model inputs ===",
+            f"Image negative prompt: {NEGATIVE_PROMPT}",
+            f"Evaluator instruction:\n{EVALUATOR_PROMPT.strip()}",
+            f"Summarizer instruction:\n{SUMMARIZER_PROMPT.strip()}",
+        ])
+    ]
     for entry in trace:
         lines = [
             f"=== Iteration {entry['iteration']} ===",
-            f"Prompt: {entry['prompt']}",
-            f"Image:  {entry['image_path']}",
+            f"Working prompt:    {entry['prompt']}",
+            f"Image prompt sent: {entry.get('image_prompt', entry['prompt'])}",
+            f"Image:             {entry['image_path']}",
         ]
         if entry.get("score") is not None:
             lines.append(f"Hotness Score: {entry['score']}/10")
-        lines.append(f"Evaluator Response:\n{entry['evaluator_response']}")
+        lines.append(f"Evaluator Response (full description):\n{entry['evaluator_response']}")
+        if entry.get("summarized_prompt"):
+            lines.append(f"Summarized → next image prompt: {entry['summarized_prompt']}")
         sections.append("\n".join(lines))
     path.write_text("\n\n".join(sections) + "\n")
     return path

@@ -25,8 +25,10 @@ from _hotdog_common import (
     EVALUATOR_PROMPT,
     NEGATIVE_PROMPT,
     build_arg_parser,
+    build_image_prompt,
     parse_evaluator_response,
     resolve_output_dir,
+    summarize_for_image,
     write_summary,
 )
 
@@ -38,22 +40,28 @@ Procedure:
 1. Call generate_hotdog_image with your current prompt (start: "a hot hotdog")
 2. Call evaluate_hotness with the returned image path
 3. If the evaluator outputs DONE, stop and summarise the final result
-4. If the evaluator outputs CONTINUE, use the suggested prompt and repeat from step 1
+4. If the evaluator outputs CONTINUE, it gives a detailed natural-language
+   description. Call summarize_description with that full description to get a
+   short image prompt, then repeat from step 1 using that short prompt.
 5. {iteration_limit_rule}
 """
 
 
 def make_tools(image_client, eval_client, output_dir: Path) -> tuple:
-    """Return (generate_hotdog_image, evaluate_hotness) tools sharing a counter closure."""
+    """Return (generate_hotdog_image, evaluate_hotness, summarize_description) tools.
+
+    All three share the closure; ``eval_client`` backs both the vision evaluation
+    and the text summarization step.
+    """
     counter = {"value": 0}
 
     @tool
     def generate_hotdog_image(prompt: str) -> str:
-        """Generate a hotdog image from a text prompt and save it locally. Returns the saved file path."""
+        """Generate a hotdog image from a short text prompt and save it locally. Returns the saved file path."""
         counter["value"] += 1
         i = counter["value"]
         raw_path = image_client.generate(
-            prompt, negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
+            build_image_prompt(prompt), negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
         )
         dest = output_dir / f"{i:02d}.png"
         Path(raw_path).rename(dest)
@@ -62,13 +70,20 @@ def make_tools(image_client, eval_client, output_dir: Path) -> tuple:
 
     @tool
     def evaluate_hotness(image_path: str) -> str:
-        """Evaluate how hot a hotdog image is. Returns DONE or CONTINUE with reasoning."""
+        """Evaluate how hot a hotdog image is. Returns DONE, or CONTINUE with a detailed description."""
         eval_client.reset()
         response = eval_client.chat(EVALUATOR_PROMPT, images=[image_path])
         print(f"[Evaluator] {response}\n")
         return response
 
-    return generate_hotdog_image, evaluate_hotness
+    @tool
+    def summarize_description(description: str) -> str:
+        """Condense a detailed natural-language description into a short text-to-image prompt. Returns the short prompt."""
+        short = summarize_for_image(eval_client, description)
+        print(f"[Summarized] {short}\n")
+        return short
+
+    return generate_hotdog_image, evaluate_hotness, summarize_description
 
 
 def parse_agent_trace(messages: list[dict]) -> list[dict]:
@@ -82,6 +97,7 @@ def parse_agent_trace(messages: list[dict]) -> list[dict]:
     trace = []
     iteration = 0
     pending: dict | None = None
+    last_entry: dict | None = None
 
     for msg in messages:
         if msg.get("role") != "assistant":
@@ -95,20 +111,31 @@ def parse_agent_trace(messages: list[dict]) -> list[dict]:
             result = tool_results.get(tc.get("id", ""), "")
 
             if name == "generate_hotdog_image":
-                pending = {"prompt": args.get("prompt", ""), "image_path": result}
+                tool_prompt = args.get("prompt", "")
+                pending = {
+                    "prompt": tool_prompt,
+                    # The tool anchors the prompt before generating; reconstruct what was sent.
+                    "image_prompt": build_image_prompt(tool_prompt),
+                    "image_path": result,
+                }
             elif name == "evaluate_hotness" and pending is not None:
                 iteration += 1
                 parsed = parse_evaluator_response(result)
-                trace.append({
+                last_entry = {
                     "iteration": iteration,
                     "prompt": pending["prompt"],
+                    "image_prompt": pending["image_prompt"],
                     "image_path": pending["image_path"],
                     "evaluator_response": result,
                     "score": parsed["score"],
                     "action": parsed["action"],
                     "next_prompt": parsed["next_prompt"],
-                })
+                }
+                trace.append(last_entry)
                 pending = None
+            elif name == "summarize_description" and last_entry is not None:
+                # The summarized short prompt feeds the next generate_hotdog_image call.
+                last_entry["summarized_prompt"] = result
 
     return trace
 
@@ -129,7 +156,7 @@ def main() -> None:
     if not eval_client.is_vision_model:
         raise ValueError(f"Eval model {args.eval_model!r} does not support vision.")
 
-    generate_fn, evaluate_fn = make_tools(image_client, eval_client, output_dir)
+    generate_fn, evaluate_fn, summarize_fn = make_tools(image_client, eval_client, output_dir)
 
     if args.max_iterations == 0:
         # Run indefinitely: the agent stops on its own once the evaluator says DONE.
@@ -138,14 +165,15 @@ def main() -> None:
         agent_max_iterations = 10**6
     else:
         iteration_limit_rule = f"Never exceed {args.max_iterations} iterations total"
-        # Each hotdog iteration calls ~2 tools; allow headroom for the agent's decision rounds.
-        agent_max_iterations = args.max_iterations * 3
+        # Each hotdog iteration calls ~3 tools (generate, evaluate, summarize); allow
+        # headroom for the agent's decision rounds.
+        agent_max_iterations = args.max_iterations * 4
 
     agent = Agent(
         agent_client,
         name="hotdog-agent",
         system_message=AGENT_SYSTEM_PROMPT.format(iteration_limit_rule=iteration_limit_rule),
-        tools=[generate_fn, evaluate_fn],
+        tools=[generate_fn, evaluate_fn, summarize_fn],
         max_iterations=agent_max_iterations,
     )
 
