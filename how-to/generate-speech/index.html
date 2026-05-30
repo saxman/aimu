@@ -13,6 +13,10 @@
         <link rel="canonical" href="https://saxman.github.io/aimu/how-to/generate-speech/">
       
       
+        <link rel="prev" href="../generate-audio/">
+      
+      
+        <link rel="next" href="../persist-conversations/">
       
       
         
@@ -258,10 +262,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../" class="md-tabs__link">
           
   
@@ -634,6 +640,8 @@
       
   
   
+    
+  
   
   
     
@@ -675,20 +683,29 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -710,13 +727,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -948,6 +965,304 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../generate-images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../generate-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate speech
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate speech
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#one-shot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One-shot
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-a-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing a model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Choosing a model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#openai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenAI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#huggingface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HuggingFace
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#direct-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct client
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Direct client">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-call-kwargs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-call kwargs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streaming-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming progress
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Streaming progress">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#streaming-through-an-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming through an agent
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#as-an-agent-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        As an agent tool
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="As an agent tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-agent-override-make_speech_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-agent override — make_speech_tool
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#async" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2435,6 +2750,7 @@
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="n">OpenAISpeechModel</span><span class="o">.</span><span class="n">TTS_1_HD</span><span class="p">)</span>
 </span></code></pre></div>
+<p>For local HuggingFace TTS on a multi-GPU box, target a specific card with <code>model_kwargs={"device": "cuda:1"}</code>. TTS models are small, so there is no sharding default. (OpenAI TTS is a cloud API — placement doesn't apply.)</p>
 <h3 id="per-call-kwargs">Per-call kwargs<a class="headerlink" href="#per-call-kwargs" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

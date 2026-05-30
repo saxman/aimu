@@ -681,6 +681,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -946,6 +952,90 @@
     
   
     Handle vision input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/generate-images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/generate-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/generate-speech/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate speech
   
 
     
@@ -2414,6 +2504,9 @@
 <li><strong>Breaking</strong> <code>system_message</code> is immutable after the first <code>chat()</code> call. The setter raises <code>RuntimeError</code>; call <code>reset()</code> to unlock.</li>
 <li><strong>New</strong> <code>include=[...]</code> stream filter on <code>chat()</code> and <code>generate()</code> selects phases (<code>"thinking"</code>, <code>"tool_calling"</code>, <code>"generating"</code>, <code>"done"</code>).</li>
 <li><strong>Internal</strong> Abstract methods renamed <code>chat → _chat</code>, <code>generate → _generate</code>. Concrete <code>chat</code>/<code>generate</code> on the base class apply the <code>include</code> filter and delegate.</li>
+<li><strong>New</strong> Memory-aware GPU placement for <code>HuggingFaceImageClient</code>: on load it measures the pipeline size and each GPU's <em>free</em> VRAM (accounting for other processes), then pins to the freest GPU or falls back to model / sequential CPU offload so large models (SD3, FLUX) load without OOM. Override with <code>model_kwargs={"device": "cuda:1"}</code> or <code>{"device_map": ...}</code>. Audio/speech clients take the same <code>{"device": ...}</code> hint. Shared <code>aimu/models/_hf_device.py</code> helpers back all three.</li>
+<li><strong>New</strong> <code>ImageSpec.max_prompt_tokens</code> records the model's text-encoder prompt budget (77 for CLIP, 256/512 for T5 models like SD3/FLUX, <code>None</code> for uncapped cloud models), exposed on <code>BaseImageClient</code>. Use it to size prompts to the model.</li>
+<li><strong>Changed</strong> <code>HuggingFaceImageClient</code> now defaults <code>torch_dtype</code> per device (bf16 on CUDA, fp16 on MPS, fp32 on CPU) instead of <code>"auto"</code>, which could silently load in fp32 and double VRAM. Pass <code>model_kwargs={"torch_dtype": ...}</code> to override.</li>
 </ul>
 <h3 id="agents">Agents<a class="headerlink" href="#agents" title="Permanent link">&para;</a></h3>
 <ul>

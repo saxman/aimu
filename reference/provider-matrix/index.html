@@ -681,6 +681,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -946,6 +952,90 @@
     
   
     Handle vision input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/generate-images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/generate-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/generate-speech/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate speech
   
 
     
@@ -2560,7 +2650,7 @@
 <li><strong><code>LlamaCppClient</code></strong> loads GGUF files in-process. Vision needs an <code>mmproj</code> projector via the <code>chat_handler=</code> kwarg (e.g. <code>Llava15ChatHandler(clip_model_path=...)</code>).</li>
 <li><strong><code>HuggingFaceClient</code></strong> uses <code>AutoProcessor</code> for vision when available (Gemma 3/4, Qwen 3.5/3.6 VL). The model's <code>tool_call_format</code> enum value (<code>XML</code> / <code>JSON_OBJECT</code> / <code>JSON_ARRAY</code> / <code>BRACKETED</code>) tells the client how to parse tool calls.</li>
 <li><strong>OpenAI-compatible local servers</strong> (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve) all subclass <code>OpenAICompatClient</code> and differ only in default <code>base_url</code> and the format of their model id strings.</li>
-<li><strong><code>HuggingFaceImageClient</code></strong> loads the <code>diffusers</code> pipeline lazily on the first <code>generate()</code> call. The spec's <code>pipeline_class</code> field names a class in the <code>diffusers</code> namespace (e.g. <code>"StableDiffusionXLPipeline"</code>, <code>"FluxPipeline"</code>); auto-moves to CUDA or MPS if available.</li>
+<li><strong><code>HuggingFaceImageClient</code></strong> loads the <code>diffusers</code> pipeline lazily on the first <code>generate()</code> call. The spec's <code>pipeline_class</code> field names a class in the <code>diffusers</code> namespace (e.g. <code>"StableDiffusionXLPipeline"</code>, <code>"FluxPipeline"</code>). Placement is <strong>memory-aware and automatic</strong>: it measures the model size and each GPU's <em>free</em> VRAM (accounting for other processes), then pins to the freest GPU, or falls back to model / sequential CPU offload when the model is too big to fit. Override with <code>model_kwargs={"device": "cuda:1"}</code> (pin) or <code>model_kwargs={"device_map": ...}</code> (hand to diffusers/accelerate). The audio and speech HF clients take the same <code>{"device": ...}</code> hint but place on a single device (small models).</li>
 <li><strong><code>GeminiImageClient</code></strong> uses Google's native <code>google-genai</code> SDK (not the OpenAI-compat endpoint). Calls <code>client.models.generate_content</code> with <code>response_modalities=[Modality.IMAGE]</code>; Nano Banana returns one image per call so <code>num_images &gt; 1</code> issues N requests. Aliases like <code>"gemini:nano-banana"</code> resolve to <code>gemini-2.5-flash-image</code>.</li>
 </ul>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

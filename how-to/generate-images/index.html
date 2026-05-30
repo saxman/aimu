@@ -13,6 +13,10 @@
         <link rel="canonical" href="https://saxman.github.io/aimu/how-to/generate-images/">
       
       
+        <link rel="prev" href="../handle-vision/">
+      
+      
+        <link rel="next" href="../generate-audio/">
       
       
         
@@ -258,10 +262,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../" class="md-tabs__link">
           
   
@@ -634,6 +640,8 @@
       
   
   
+    
+  
   
   
     
@@ -675,20 +683,29 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -710,13 +727,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -940,6 +957,298 @@
     
   
     Handle vision input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate images
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#one-shot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One-shot
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streaming-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming progress
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Streaming progress">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#intermediate-image-previews-preview_everyn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate-image previews — preview_every=N
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#streaming-the-built-in-tool-through-an-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming the built-in tool through an agent
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#direct-client-reuse-weights-api-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct client — reuse weights / API client
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Direct client — reuse weights / API client">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prompt-length" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prompt length
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-placement-huggingface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU placement (HuggingFace)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#as-an-agent-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        As an agent tool
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="As an agent tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-agent-override-make_image_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-agent override — make_image_tool
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skill-integration-deeper-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill integration (deeper, optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#async" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../generate-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../generate-speech/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate speech
   
 
     
@@ -2206,6 +2515,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Direct client — reuse weights / API client">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prompt-length" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prompt length
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-placement-huggingface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU placement (HuggingFace)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2383,56 +2720,79 @@
 <li><strong>Gemini Nano Banana</strong>: <code>aspect_ratio</code> (e.g. <code>"1:1"</code>, <code>"16:9"</code>), <code>image_size</code>. No <code>seed</code> — the API doesn't expose one.</li>
 </ul>
 <p>Both share: <code>num_images=N</code>, <code>format=</code>, <code>output_dir=</code>.</p>
+<h3 id="prompt-length">Prompt length<a class="headerlink" href="#prompt-length" title="Permanent link">&para;</a></h3>
+<p>CLIP-based models (SD 1.5, SDXL) cap prompts at <strong>77 tokens</strong> and silently truncate the rest. Models with a T5 text encoder accept far more — SD 3.5 ≈ 256 tokens, FLUX ≈ 512. Each spec records this as <code>max_prompt_tokens</code>, and the client exposes it:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">image_client</span><span class="p">(</span><span class="n">HuggingFaceImageModel</span><span class="o">.</span><span class="n">SD_3_5_MEDIUM</span><span class="p">)</span><span class="o">.</span><span class="n">max_prompt_tokens</span>  <span class="c1"># 256</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">image_client</span><span class="p">(</span><span class="n">HuggingFaceImageModel</span><span class="o">.</span><span class="n">SDXL_BASE</span><span class="p">)</span><span class="o">.</span><span class="n">max_prompt_tokens</span>      <span class="c1"># 77</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">image_client</span><span class="p">(</span><span class="n">GeminiImageModel</span><span class="o">.</span><span class="n">NANO_BANANA</span><span class="p">)</span><span class="o">.</span><span class="n">max_prompt_tokens</span>         <span class="c1"># None (uncapped cloud)</span>
+</span></code></pre></div>
+<p>Use it to size prompts to the model — e.g. a summarization step that condenses a long description to fit the budget (see the hotdog scripts in <code>scripts/</code>).</p>
+<p>Note: ad-hoc <code>"hf:&lt;repo&gt;"</code> strings get the conservative 77-token default (the catalog isn't consulted) — pass the enum member to pick up the model's real budget.</p>
+<h3 id="gpu-placement-huggingface">GPU placement (HuggingFace)<a class="headerlink" href="#gpu-placement-huggingface" title="Permanent link">&para;</a></h3>
+<p>Placement is <strong>automatic and memory-aware</strong>. On first generation the client measures the loaded pipeline's size and the <em>free</em> memory on each visible GPU — so it accounts for other processes already using the cards (e.g. a local LLM server) — then picks the cheapest strategy that fits:</p>
+<ol>
+<li><strong>Pin to the freest GPU</strong> when the whole pipeline fits there (fastest).</li>
+<li><strong>Model CPU offload</strong> when it doesn't fit one GPU but the largest single component does (components stream to GPU as needed).</li>
+<li><strong>Sequential CPU offload</strong> when memory is very tight (per-layer streaming; slowest, fits almost anything).</li>
+</ol>
+<p>This means large models like SD 3.5 or FLUX load without OOM even when a GPU is partly occupied. The decision is logged at INFO. CPU offload requires <code>accelerate</code> (<code>pip install accelerate</code>); without it, an oversized model is pinned to the freest GPU with a warning.</p>
+<p>Override the automatic plan through <code>model_kwargs</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Pin the whole pipeline to a specific GPU</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">client</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="n">HuggingFaceImageModel</span><span class="o">.</span><span class="n">SDXL_BASE</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="s2">&quot;cuda:1&quot;</span><span class="p">})</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Hand placement to diffusers/accelerate (e.g. shard across GPUs)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">client</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="n">HuggingFaceImageModel</span><span class="o">.</span><span class="n">FLUX_DEV</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;device_map&quot;</span><span class="p">:</span> <span class="s2">&quot;balanced&quot;</span><span class="p">})</span>
+</span></code></pre></div>
 <h2 id="as-an-agent-tool">As an agent tool<a class="headerlink" href="#as-an-agent-tool" title="Permanent link">&para;</a></h2>
 <p>The built-in <code>generate_image</code> tool lets any chat LLM call image generation when the user asks. The LLM decides <em>when</em> to call it; the tool saves a PNG and returns the path so it appears in the conversation history.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;AIMU_IMAGE_MODEL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;gemini:nano-banana&quot;</span>  <span class="c1"># or any &quot;hf:...&quot; string</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">client</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">text_client</span> <span class="o">=</span> <span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="n">text_client</span><span class="p">,</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">system_message</span><span class="o">=</span><span class="p">(</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>        <span class="s2">&quot;You can generate images with the generate_image tool. When the user &quot;</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="s2">&quot;asks for an image, write a vivid prompt and call the tool. Tell the &quot;</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="s2">&quot;user where the image was saved.&quot;</span>
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="p">),</span>
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">builtin</span><span class="o">.</span><span class="n">generate_image</span><span class="p">],</span>
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="p">)</span>
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>
-</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="n">response</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Please make me a watercolor of a fox in a snowy forest.&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;AIMU_IMAGE_MODEL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;gemini:nano-banana&quot;</span>  <span class="c1"># or any &quot;hf:...&quot; string</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">client</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="n">text_client</span> <span class="o">=</span> <span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="n">text_client</span><span class="p">,</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="n">system_message</span><span class="o">=</span><span class="p">(</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>        <span class="s2">&quot;You can generate images with the generate_image tool. When the user &quot;</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>        <span class="s2">&quot;asks for an image, write a vivid prompt and call the tool. Tell the &quot;</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>        <span class="s2">&quot;user where the image was saved.&quot;</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    <span class="p">),</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">builtin</span><span class="o">.</span><span class="n">generate_image</span><span class="p">],</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="p">)</span>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="n">response</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Please make me a watercolor of a fox in a snowy forest.&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The tool uses a lazy module-level singleton — first call constructs an image client based on <code>AIMU_IMAGE_MODEL</code> (default: SDXL base), subsequent calls reuse it.</p>
 <h3 id="per-agent-override-make_image_tool">Per-agent override — <code>make_image_tool</code><a class="headerlink" href="#per-agent-override-make_image_tool" title="Permanent link">&para;</a></h3>
 <p>When you want a different model from the global singleton (or several agents in one process shouldn't share a pipeline), bind a tool to a specific client:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">image_client</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_image_tool</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">fast</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="s2">&quot;hf:black-forest-labs/FLUX.1-schnell&quot;</span><span class="p">)</span>  <span class="c1"># 4-step model</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">fast_tool</span> <span class="o">=</span> <span class="n">make_image_tool</span><span class="p">(</span><span class="n">fast</span><span class="p">,</span> <span class="n">preview_every</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">fast_tool</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">image_client</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_image_tool</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">fast</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="s2">&quot;hf:black-forest-labs/FLUX.1-schnell&quot;</span><span class="p">)</span>  <span class="c1"># 4-step model</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">fast_tool</span> <span class="o">=</span> <span class="n">make_image_tool</span><span class="p">(</span><span class="n">fast</span><span class="p">,</span> <span class="n">preview_every</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">fast_tool</span><span class="p">])</span>
 </span></code></pre></div>
 <p><code>make_image_tool()</code> returns a fresh <code>@tool</code>-decorated callable bound to the supplied client; the singleton stays untouched. Pass <code>preview_every=N</code> to opt into intermediate latent previews and <code>num_inference_steps=N</code> to override the model's default denoising step count (HuggingFace diffusers only; ignored by Gemini).</p>
 <h2 id="skill-integration-deeper-optional">Skill integration (deeper, optional)<a class="headerlink" href="#skill-integration-deeper-optional" title="Permanent link">&para;</a></h2>
 <p>For <code>SkillAgent</code> users, drop a <code>SKILL.md</code> under <code>.agents/skills/image-generation/</code> with prompt-engineering guidance. Skills are filesystem-discovered (not shipped with AIMU); see <a href="https://github.com/saxman/aimu/tree/main/notebooks">notebooks/15 - Image Generation.ipynb</a> for a copyable example.</p>
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
 <p>The async surface mirrors the sync surface one-for-one. Because image providers either load weights in-process (HuggingFace) or hold an SDK client (Gemini), the factory follows the wrap pattern established for HF / LlamaCpp text clients — build a sync client first and pass it to <code>aio.image_client()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">image_client</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="s2">&quot;hf:runwayml/stable-diffusion-v1-5&quot;</span><span class="p">)</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">image_client</span><span class="p">(</span><span class="n">sync</span><span class="p">)</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_two</span><span class="p">():</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;a watercolor of a fox&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">512</span><span class="p">),</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;a watercolor of a deer&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">512</span><span class="p">),</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="p">)</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">image_client</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="s2">&quot;hf:runwayml/stable-diffusion-v1-5&quot;</span><span class="p">)</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">image_client</span><span class="p">(</span><span class="n">sync</span><span class="p">)</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_two</span><span class="p">():</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;a watercolor of a fox&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">512</span><span class="p">),</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;a watercolor of a deer&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">512</span><span class="p">),</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>    <span class="p">)</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span>
 </span></code></pre></div>
 <p>Async <code>generate()</code> routes through <code>asyncio.to_thread</code> so the event loop stays free during inference. On a single GPU, sibling <code>gather</code>-ed HF calls don't truly overlap on the device (CUDA streams + the GIL serialise), but the event loop stays free for other coroutines.</p>
 <p>For Gemini, the cloud SDK could be called natively async — kept as a follow-up for shape consistency with the in-process wrap pattern.</p>
