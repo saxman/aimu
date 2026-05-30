@@ -12,44 +12,20 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
+import itertools
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import aimu
-from aimu import paths as aimu_paths
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _hotdog_common import parse_evaluator_response, write_summary, EVALUATOR_PROMPT
-
-
-def build_arg_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        description="Iteratively heat a hotdog image using local HF diffusers + Ollama vision."
-    )
-    p.add_argument(
-        "--image-model",
-        default="hf:stabilityai/stable-diffusion-xl-base-1.0",
-        help="Image model string in 'provider:model_id' form (default: hf:stabilityai/stable-diffusion-xl-base-1.0)",
-    )
-    p.add_argument(
-        "--eval-model",
-        default="ollama:gemma4:e4b",
-        help="Vision eval model string in 'provider:model_id' form (default: ollama:gemma4:e4b)",
-    )
-    p.add_argument(
-        "--output-dir",
-        default=None,
-        help="Output directory for images and summary (default: output/hotdog/<timestamp>/)",
-    )
-    p.add_argument(
-        "--max-iterations",
-        type=int,
-        default=10,
-        help="Hard cap on iteration count (default: 10)",
-    )
-    return p
+from _hotdog_common import (
+    EVALUATOR_PROMPT,
+    build_arg_parser,
+    parse_evaluator_response,
+    resolve_output_dir,
+    write_summary,
+)
 
 
 def run_loop(
@@ -69,8 +45,12 @@ def run_loop(
     prompt = "a hot hotdog"
     trace = []
 
-    for i in range(1, max_iterations + 1):
-        print(f"--- Iteration {i}/{max_iterations} ---")
+    # max_iterations == 0 means run indefinitely until the evaluator says DONE.
+    iterations = itertools.count(1) if max_iterations == 0 else iter(range(1, max_iterations + 1))
+    cap_label = "∞" if max_iterations == 0 else str(max_iterations)
+
+    for i in iterations:
+        print(f"--- Iteration {i}/{cap_label} ---")
         print(f"Prompt: {prompt}")
 
         raw_path = image_client.generate(prompt, format="path", output_dir=output_dir)
@@ -111,12 +91,10 @@ def run_loop(
 
 
 def main() -> None:
-    args = build_arg_parser().parse_args()
-    if args.output_dir:
-        output_dir = Path(args.output_dir)
-    else:
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output_dir = aimu_paths.output / "hotdog" / timestamp
+    args = build_arg_parser(
+        "Iteratively heat a hotdog image using local HF diffusers + Ollama vision."
+    ).parse_args()
+    output_dir = resolve_output_dir(args.output_dir)
     run_loop(args.image_model, args.eval_model, output_dir, args.max_iterations)
 
 

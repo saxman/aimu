@@ -12,10 +12,8 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import aimu
@@ -23,18 +21,24 @@ from aimu.agents import Agent
 from aimu.tools.decorator import tool
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _hotdog_common import parse_evaluator_response, write_summary, EVALUATOR_PROMPT
+from _hotdog_common import (
+    EVALUATOR_PROMPT,
+    build_arg_parser,
+    parse_evaluator_response,
+    resolve_output_dir,
+    write_summary,
+)
 
 AGENT_SYSTEM_PROMPT = """\
 You are running a hotdog heating experiment. Your job is to iteratively make
-a hotdog image as hot as possible using image generation.
+an image of a single hotdog as hot as possible using image generation.
 
 Procedure:
 1. Call generate_hotdog_image with your current prompt (start: "a hot hotdog")
 2. Call evaluate_hotness with the returned image path
 3. If the evaluator outputs DONE, stop and summarise the final result
 4. If the evaluator outputs CONTINUE, use the suggested prompt and repeat from step 1
-5. Never exceed {max_iterations} iterations total
+5. {iteration_limit_rule}
 """
 
 
@@ -106,42 +110,11 @@ def parse_agent_trace(messages: list[dict]) -> list[dict]:
     return trace
 
 
-def build_arg_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        description="Iteratively heat a hotdog image using an AIMU Agent + local models."
-    )
-    p.add_argument(
-        "--image-model",
-        default="hf:stabilityai/stable-diffusion-xl-base-1.0",
-        help="Image model string in 'provider:model_id' form (default: hf:stabilityai/stable-diffusion-xl-base-1.0)",
-    )
-    p.add_argument(
-        "--eval-model",
-        default="ollama:gemma4:e4b",
-        help="Vision eval model string in 'provider:model_id' form (default: ollama:gemma4:e4b)",
-    )
-    p.add_argument(
-        "--output-dir",
-        default=None,
-        help="Output directory for images and summary (default: output/hotdog/<timestamp>/)",
-    )
-    p.add_argument(
-        "--max-iterations",
-        type=int,
-        default=10,
-        help="Hard cap on hotdog generation iterations (default: 10)",
-    )
-    return p
-
-
 def main() -> None:
-    args = build_arg_parser().parse_args()
-    if args.output_dir:
-        output_dir = Path(args.output_dir)
-    else:
-        from aimu import paths as aimu_paths
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output_dir = aimu_paths.output / "hotdog" / timestamp
+    args = build_arg_parser(
+        "Iteratively heat a hotdog image using an AIMU Agent + local models."
+    ).parse_args()
+    output_dir = resolve_output_dir(args.output_dir)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}\n")
@@ -155,13 +128,22 @@ def main() -> None:
 
     generate_fn, evaluate_fn = make_tools(image_client, eval_client, output_dir)
 
+    if args.max_iterations == 0:
+        # Run indefinitely: the agent stops on its own once the evaluator says DONE.
+        # Agent.max_iterations has no unbounded sentinel, so use a very high cap as the safety net.
+        iteration_limit_rule = "Continue until the evaluator outputs DONE; there is no fixed iteration limit"
+        agent_max_iterations = 10**6
+    else:
+        iteration_limit_rule = f"Never exceed {args.max_iterations} iterations total"
+        # Each hotdog iteration calls ~2 tools; allow headroom for the agent's decision rounds.
+        agent_max_iterations = args.max_iterations * 3
+
     agent = Agent(
         agent_client,
         name="hotdog-agent",
-        system_message=AGENT_SYSTEM_PROMPT.format(max_iterations=args.max_iterations),
+        system_message=AGENT_SYSTEM_PROMPT.format(iteration_limit_rule=iteration_limit_rule),
         tools=[generate_fn, evaluate_fn],
-        # Each hotdog iteration calls ~2 tools; allow headroom for the agent's decision rounds.
-        max_iterations=args.max_iterations * 3,
+        max_iterations=agent_max_iterations,
     )
 
     print("Starting hotdog heating experiment...\n")

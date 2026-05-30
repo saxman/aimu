@@ -2,8 +2,56 @@
 
 from __future__ import annotations
 
+import argparse
 import re
+from datetime import datetime
 from pathlib import Path
+
+EVALUATOR_PROMPT = """\
+You are evaluating how visually "hot" this hotdog image is.
+Rate its hotness from 1 to 10 (10 = blazing inferno hotdog, 1 = cold).
+Then decide: can this hotdog get any hotter? If not, output exactly:
+DONE: <your reasoning>
+If it can get hotter, output exactly:
+CONTINUE: <a refined image generation prompt that will make it hotter>
+"""
+
+
+def build_arg_parser(description: str) -> argparse.ArgumentParser:
+    """Build an argument parser with the options common to both hotdog scripts."""
+    p = argparse.ArgumentParser(description=description)
+    p.add_argument(
+        "--image-model",
+        default="hf:stabilityai/stable-diffusion-xl-base-1.0",
+        help="Image model string in 'provider:model_id' form (default: hf:stabilityai/stable-diffusion-xl-base-1.0)",
+    )
+    p.add_argument(
+        "--eval-model",
+        default="ollama:gemma4:e4b",
+        help="Vision eval model string in 'provider:model_id' form (default: ollama:gemma4:e4b)",
+    )
+    p.add_argument(
+        "--output-dir",
+        default=None,
+        help="Output directory for images and summary (default: output/hotdog/<timestamp>/)",
+    )
+    p.add_argument(
+        "--max-iterations",
+        type=int,
+        default=10,
+        help="Hard cap on iteration count (default: 10; 0 = run until the evaluator says DONE)",
+    )
+    return p
+
+
+def resolve_output_dir(output_dir: str | None) -> Path:
+    """Resolve the output directory, defaulting to output/hotdog/<timestamp>/."""
+    if output_dir:
+        return Path(output_dir)
+    from aimu import paths as aimu_paths
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    return aimu_paths.output / "hotdog" / timestamp
 
 
 def parse_evaluator_response(text: str) -> dict:
@@ -64,14 +112,3 @@ def write_summary(output_dir: Path, trace: list[dict]) -> Path:
         sections.append("\n".join(lines))
     path.write_text("\n\n".join(sections) + "\n")
     return path
-
-
-
-EVALUATOR_PROMPT = """\
-You are evaluating how visually "hot" this hotdog image is.
-Rate its hotness from 1 to 10 (10 = blazing inferno hotdog, 1 = cold).
-Then decide: can this hotdog get any hotter? If not, output exactly:
-DONE: <your reasoning>
-If it can get hotter, output exactly:
-CONTINUE: <a refined image generation prompt that will make it hotter>
-"""
