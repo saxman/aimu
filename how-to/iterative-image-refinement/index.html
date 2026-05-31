@@ -1123,10 +1123,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#two-ways-to-run-the-same-loop" class="md-nav__link">
+  <a href="#three-ways-to-run-the-same-loop" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Two ways to run the same loop
+        Three ways to run the same loop
       
     </span>
   </a>
@@ -1194,6 +1194,17 @@
     <span class="md-ellipsis">
       
         Agent-directed loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow-class-loop-evaluatoroptimizer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow-class loop (EvaluatorOptimizer)
       
     </span>
   </a>
@@ -2464,10 +2475,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#two-ways-to-run-the-same-loop" class="md-nav__link">
+  <a href="#three-ways-to-run-the-same-loop" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Two ways to run the same loop
+        Three ways to run the same loop
       
     </span>
   </a>
@@ -2535,6 +2546,17 @@
     <span class="md-ellipsis">
       
         Agent-directed loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow-class-loop-evaluatoroptimizer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow-class loop (EvaluatorOptimizer)
       
     </span>
   </a>
@@ -2633,29 +2655,32 @@
 
 
 <h1 id="iterative-image-refinement">Iterative image refinement<a class="headerlink" href="#iterative-image-refinement" title="Permanent link">&para;</a></h1>
-<p>Build a <strong>generate → evaluate → refine</strong> loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — <em>"make a hotdog as visually hot as possible"</em> — that composes image generation, vision input, prompt chaining, and either an agent or a plain Python loop.</p>
-<p>The full, runnable code lives in three scripts that share one helper module:</p>
+<p>Build a <strong>generate → evaluate → refine</strong> loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — <em>"make a hotdog as visually hot as possible"</em> — that composes image generation, vision input, prompt chaining, and either an agent, a plain Python loop, or a library workflow class.</p>
+<p>The full, runnable code lives in four scripts that share one helper module:</p>
 <ul>
-<li><code>scripts/hotdog_workflow.py</code> — <strong>Python directs the loop</strong> (a code-controlled workflow).</li>
+<li><code>scripts/hotdog_loop.py</code> — <strong>Python directs the loop</strong> (a plain code-controlled <code>for</code> loop).</li>
 <li><code>scripts/hotdog_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
-<li><code>scripts/hotdog_workflow_climbing.py</code> — like the loop, but <strong>hill-climbs</strong>: keeps the best image and reverts on regression.</li>
-<li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by all three.</li>
+<li><code>scripts/hotdog_evaluator.py</code> — <strong><code>EvaluatorOptimizer</code> directs the loop</strong> (the library workflow class, composing a generator + critic agent).</li>
+<li><code>scripts/hotdog_loop_climbing.py</code> — like the loop, but <strong>hill-climbs</strong>: keeps the best image and reverts on regression.</li>
+<li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by all four.</li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_workflow.py<span class="w">                 </span><span class="c1"># code-directed greedy walk</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w">                 </span><span class="c1"># code-directed greedy walk</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w">                </span><span class="c1"># agent-directed greedy walk</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_workflow_climbing.py<span class="w">                </span><span class="c1"># hill-climb: keep best, revert on regression</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">   </span><span class="c1"># run until the critic says DONE</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_evaluator.py<span class="w">            </span><span class="c1"># EvaluatorOptimizer workflow class</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_loop_climbing.py<span class="w">                </span><span class="c1"># hill-climb: keep best, revert on regression</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">   </span><span class="c1"># run until the critic says DONE</span>
 </span></code></pre></div>
-<h2 id="two-ways-to-run-the-same-loop">Two ways to run the same loop<a class="headerlink" href="#two-ways-to-run-the-same-loop" title="Permanent link">&para;</a></h2>
-<p>The same task is implemented twice on purpose — it's a concrete take on <a href="../../explanation/agents-vs-workflows/">agents vs workflows</a>:</p>
+<h2 id="three-ways-to-run-the-same-loop">Three ways to run the same loop<a class="headerlink" href="#three-ways-to-run-the-same-loop" title="Permanent link">&para;</a></h2>
+<p>The same task is implemented three times on purpose — it's a concrete take on <a href="../../explanation/agents-vs-workflows/">agents vs workflows</a>:</p>
 <ul>
-<li><strong>Code-directed</strong> (<code>hotdog_workflow.py</code>): you write the <code>for</code> loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility.</li>
+<li><strong>Code-directed</strong> (<code>hotdog_loop.py</code>): you write the <code>for</code> loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility.</li>
 <li><strong>Agent-directed</strong> (<code>hotdog_agent.py</code>): you hand an <a href="../../reference/api/agents/"><code>Agent</code></a> three tools (<code>generate_hotdog_image</code>, <code>evaluate_hotness</code>, <code>summarize_description</code>) and let its tool-calling loop decide when to call what. Reach for this when you want the model to own the control flow, or as a stepping stone to more open-ended behaviour.</li>
+<li><strong>Workflow-class</strong> (<code>hotdog_evaluator.py</code>): you express the loop with <a href="../../reference/api/agents/"><code>EvaluatorOptimizer</code></a>, the library's generate → evaluate → revise workflow, by composing a generator agent and a critic agent. Reach for this when your task already matches a named pattern and you'd rather configure it than hand-write the loop.</li>
 </ul>
-<p>Both produce the same artifacts and share every prompt and helper, so the diff between them is purely <em>who drives the loop</em>.</p>
+<p>All three produce the same artifacts and share every prompt and helper, so the diff between them is purely <em>who drives the loop</em>.</p>
 <h2 id="greedy-walk-vs-hill-climbing">Greedy walk vs hill-climbing<a class="headerlink" href="#greedy-walk-vs-hill-climbing" title="Permanent link">&para;</a></h2>
 <p>The loop and agent scripts are <strong>greedy</strong>: each round they accept whatever prompt the critic proposes and move on — even if the new image scored <em>lower</em> than a previous one. That's simple and often fine, but the "best" image can be somewhere in the middle of the run rather than at the end.</p>
-<p><code>hotdog_workflow_climbing.py</code> borrows the strategy from <a href="../tune-prompts/"><code>aimu.prompts</code></a> tuning — <strong>best-state caching + revert-on-regression</strong>:</p>
+<p><code>hotdog_loop_climbing.py</code> borrows the strategy from <a href="../tune-prompts/"><code>aimu.prompts</code></a> tuning — <strong>best-state caching + revert-on-regression</strong>:</p>
 <ul>
 <li>Track the highest-scoring image so far.</li>
 <li>If a generation <strong>improves</strong> on the best, adopt it and refine from there.</li>
@@ -2706,12 +2731,25 @@
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Begin the hotdog heating experiment. Start with &#39;a hot hotdog&#39;.&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The agent stops on its own once the critic returns <code>DONE</code> (it simply stops calling tools). <code>--max-iterations 0</code> removes the hard cap so the <em>critic</em> decides when to stop.</p>
+<h3 id="workflow-class-loop-evaluatoroptimizer">Workflow-class loop (<a href="../../reference/api/agents/"><code>EvaluatorOptimizer</code></a>)<a class="headerlink" href="#workflow-class-loop-evaluatoroptimizer" title="Permanent link">&para;</a></h3>
+<p>The hand-written loop <em>is</em> generate → evaluate → revise — which is exactly what <code>EvaluatorOptimizer</code> automates. So the same task drops onto the workflow class by composing two agents: a <strong>generator</strong> holding <code>generate_hotdog_image</code>, and an <strong>evaluator</strong> holding <code>evaluate_hotness</code>. The workflow stops when <code>pass_keyword</code> shows up in the critic's reply.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">EvaluatorOptimizer</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">eo</span> <span class="o">=</span> <span class="n">EvaluatorOptimizer</span><span class="p">(</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">generator</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">gen_client</span><span class="p">,</span> <span class="s2">&quot;Write a prompt, generate, reply with the path.&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">generate_hotdog_image</span><span class="p">]),</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">evaluator</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">critic_client</span><span class="p">,</span> <span class="s2">&quot;Evaluate the image; relay DONE or CONTINUE verbatim.&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">evaluate_hotness</span><span class="p">]),</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">max_rounds</span><span class="o">=</span><span class="n">max_iterations</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">pass_keyword</span><span class="o">=</span><span class="s2">&quot;DONE&quot;</span><span class="p">,</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">eo</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Make a single hotdog look as hot as possible. Start from: a hot hotdog.&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The catch worth seeing: <code>EvaluatorOptimizer</code> orchestrates <em>text</em> <code>Runner</code>s — it passes each step's output to the next as a <strong>string</strong> (see <code>aimu/agents/workflows/evaluator.py</code>). Image generation and vision evaluation therefore live <em>inside the tools</em>, and the image path travels between the two agents as text — two extra LLM hops for what <code>hotdog_loop.py</code> hands off as a plain variable. That's more indirect and more fragile (the script falls back to the latest image if the relayed path doesn't resolve). It also needs <strong>three</strong> client instances — a generator brain, a critic brain, and a separate vision client for the tool (which calls <code>reset()</code>) — and the <em>final</em> generation is returned unevaluated, an artifact of the loop's shape. Reach for the workflow class when the pattern fit is clean; reach for the hand-written loop when you want every hand-off explicit.</p>
 <h3 id="prompt-chaining-describe-richly-then-summarize-to-the-models-budget">Prompt chaining: describe richly, then summarize to the model's budget<a class="headerlink" href="#prompt-chaining-describe-richly-then-summarize-to-the-models-budget" title="Permanent link">&para;</a></h3>
 <p>The critic writes a detailed, free-form description (the "hot" it imagines). But image models cap prompt length — SDXL's CLIP encoder at 77 tokens, SD 3.5's T5 at 256. So a second step condenses the description to fit, sized from the model's own <a href="../generate-images/#prompt-length"><code>max_prompt_tokens</code></a>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">summarize_for_image</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">max_prompt_tokens</span><span class="p">):</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">instruction</span> <span class="o">=</span> <span class="n">build_summarizer_prompt</span><span class="p">(</span><span class="n">max_prompt_tokens</span><span class="p">)</span>   <span class="c1"># &quot;...under N words...&quot;</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">instruction</span><span class="si">}</span><span class="se">\n</span><span class="s2">Description:</span><span class="se">\n</span><span class="si">{</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">summarize_for_image</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">max_prompt_tokens</span><span class="p">):</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">instruction</span> <span class="o">=</span> <span class="n">build_summarizer_prompt</span><span class="p">(</span><span class="n">max_prompt_tokens</span><span class="p">)</span>   <span class="c1"># &quot;...under N words...&quot;</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">instruction</span><span class="si">}</span><span class="se">\n</span><span class="s2">Description:</span><span class="se">\n</span><span class="si">{</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
 </span></code></pre></div>
 <p>This is <a href="../../explanation/agents-vs-workflows/">prompt chaining</a>: step N's output (a rich description) becomes step N+1's input (a tight prompt). When <code>max_prompt_tokens</code> is <code>None</code> (uncapped cloud models), the description is fed straight through and the summarize step is skipped.</p>
 <h3 id="keeping-it-to-one-subject">Keeping it to one subject<a class="headerlink" href="#keeping-it-to-one-subject" title="Permanent link">&para;</a></h3>
@@ -2721,9 +2759,9 @@
 <li><strong>Negative prompt</strong> — <code>"multiple, two, several, pile, platter, ..."</code> discourages plurality. It deliberately omits the word <em>hotdog</em> (a CLIP negative suppresses the <em>concept</em>, so "no hotdogs" removes the subject entirely).</li>
 </ul>
 <h3 id="placement-and-dtype-are-automatic">Placement and dtype are automatic<a class="headerlink" href="#placement-and-dtype-are-automatic" title="Permanent link">&para;</a></h3>
-<p>Nothing in either script pins a GPU or sets a dtype. <code>HuggingFaceImageClient</code> measures free VRAM across your GPUs and the model's size, then <a href="../generate-images/#gpu-placement-huggingface">places it for you</a> — pinning to the freest card or falling back to CPU offload — and defaults to a memory-efficient dtype (bf16 on CUDA). So SD 3.5 loads alongside a local LLM without manual juggling.</p>
+<p>Nothing in any script pins a GPU or sets a dtype. <code>HuggingFaceImageClient</code> measures free VRAM across your GPUs and the model's size, then <a href="../generate-images/#gpu-placement-huggingface">places it for you</a> — pinning to the freest card or falling back to CPU offload — and defaults to a memory-efficient dtype (bf16 on CUDA). So SD 3.5 loads alongside a local LLM without manual juggling.</p>
 <h3 id="durable-output-summary-collage-even-on-ctrl-c">Durable output: summary + collage, even on Ctrl-C<a class="headerlink" href="#durable-output-summary-collage-even-on-ctrl-c" title="Permanent link">&para;</a></h3>
-<p>Both scripts write results in a <code>finally</code> block, so an interrupted run still produces output:</p>
+<p>Every script writes results in a <code>finally</code> block, so an interrupted run still produces output:</p>
 <ul>
 <li><code>summary.txt</code> — the constant model inputs (negative prompt, evaluator/summarizer instructions) plus a per-iteration trace of exactly what was sent.</li>
 <li><code>collage.png</code> — a near-square grid of every generated image, in order. It scans the saved files rather than the trace, so even an image generated just before you hit Ctrl-C is included.</li>
