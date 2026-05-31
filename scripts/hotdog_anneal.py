@@ -16,6 +16,11 @@ Acceptance (Metropolis rule), with ``Δ = new_score − current_score``:
 
 The best-ever image is tracked separately and copied to ``best.png`` regardless of the walk.
 
+The same cooling schedule also drives the **proposer's** LLM sampling temperature: the critic
+proposes refinement ideas hot (diverse, exploratory) early and cold (conservative tweaks) late
+— see ``_proposer_temperature``. Only proposals are annealed; the **judge** (scoring) is always
+cold, since the score is the objective and must stay stable.
+
 Honest caveats for this domain:
 - The judge is a coarse, conservative integer 1–10, so ``Δ`` is almost always ``0`` or ``±1``
   — annealing's fine temperature control is blunted (mostly "always accept ties, accept −1
@@ -71,9 +76,29 @@ Output only the description.
 """
 
 
+# Sampling-temperature band for the *proposer* (refinement-idea generation). The annealing
+# schedule slides the proposer between these — diverse/creative ideas while hot, conservative
+# tweaks once cooled. The judge (scoring) is never annealed; only proposals get this.
+PROPOSER_TEMP_HOT = 1.1
+PROPOSER_TEMP_COLD = 0.3
+
+
 def _score(value: int | None) -> int:
     """Coerce a possibly-missing hotness score to a comparable int (unparsed → 0)."""
     return value if value is not None else 0
+
+
+def _proposer_temperature(temperature: float, initial_temp: float) -> float:
+    """Map the current annealing temperature to an LLM sampling temperature for proposals.
+
+    Shares the annealing *schedule* — via the cooling fraction ``f = T / T0`` (1 → 0) — but
+    lives in the LLM's own units: hot early (``PROPOSER_TEMP_HOT``, diverse refinement ideas)
+    cooling to ``PROPOSER_TEMP_COLD`` (conservative tweaks). ``f`` depends only on how far the
+    run has cooled (``cooling_rate ** (i-1)``), not on ``T0``'s absolute value.
+    """
+    fraction = temperature / initial_temp if initial_temp > 0 else 0.0
+    fraction = max(0.0, min(1.0, fraction))
+    return PROPOSER_TEMP_COLD + fraction * (PROPOSER_TEMP_HOT - PROPOSER_TEMP_COLD)
 
 
 def _accept(delta: int, temperature: float, rng: random.Random) -> bool:
@@ -91,14 +116,21 @@ def _accept(delta: int, temperature: float, rng: random.Random) -> bool:
     return rng.random() < math.exp(delta / temperature)
 
 
-def refine_from_current(eval_client, current_image_path: str, rejected: list[str]) -> str:
-    """Ask the critic for a fresh refinement of the current image, avoiding failed ideas."""
+def refine_from_current(
+    eval_client, current_image_path: str, rejected: list[str], temperature: float | None = None
+) -> str:
+    """Ask the critic for a fresh refinement of the current image, avoiding failed ideas.
+
+    ``temperature`` (when set) is the proposer's LLM sampling temperature — higher early in the
+    anneal for diverse ideas, lower late for conservative ones. ``None`` uses the model default.
+    """
     avoid = ""
     if rejected:
         bullets = "\n".join(f"- {idea}" for idea in rejected)
         avoid = f"\nDo NOT reuse these approaches that were already tried and did not help:\n{bullets}"
+    generate_kwargs = {"temperature": temperature} if temperature is not None else None
     # Stateless one-shot vision call — no reset() needed, no history kept.
-    return eval_client.generate(REFINE_PROMPT.format(avoid=avoid), images=[current_image_path]).strip()
+    return eval_client.generate(REFINE_PROMPT.format(avoid=avoid), generate_kwargs, images=[current_image_path]).strip()
 
 
 def run_anneal(
@@ -194,16 +226,23 @@ def run_anneal(
                 break
 
             if accept:
-                # Move the walk to this image and explore from its own suggested refinement.
+                # Move the walk to this image; a fresh accept clears the failed-idea list.
                 current = {"score": parsed["score"], "prompt": candidate_prompt, "image_path": str(dest)}
                 rejected = []
-                next_idea = parsed["next_prompt"]
             else:
-                # Stay at current; remember the failed idea and ask for a different refinement of it.
+                # Stay at current; remember the failed idea so the proposer avoids it.
                 if candidate_idea is not None:
                     rejected.append(candidate_idea)
                 print(f"Staying at current (iteration's score {parsed['score']} rejected).")
-                next_idea = refine_from_current(eval_client, current["image_path"], rejected)
+
+            # Propose the next refinement from the current image at the *annealed* proposer
+            # temperature — diverse ideas while hot, conservative once cooled. Routing both the
+            # accept and reject paths through the proposer (rather than reusing the evaluator's
+            # cold CONTINUE suggestion) is what lets the schedule actually drive proposal
+            # diversity early, when the temperature is highest. The score itself stays cold.
+            proposer_temp = _proposer_temperature(temperature, initial_temp)
+            print(f"Proposing next refinement at sampling temperature {proposer_temp:.2f}.\n")
+            next_idea = refine_from_current(eval_client, current["image_path"], rejected, temperature=proposer_temp)
 
             candidate_idea = next_idea
             candidate_prompt = to_prompt(next_idea)

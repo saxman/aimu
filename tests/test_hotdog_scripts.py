@@ -443,3 +443,43 @@ def test_anneal_arg_parser_has_sa_knobs():
 
     args = build_parser().parse_args(["--initial-temp", "3", "--cooling-rate", "0.9", "--seed", "7"])
     assert (args.initial_temp, args.cooling_rate, args.seed) == (3.0, 0.9, 7)
+
+
+def test_anneal_proposer_temperature_hot_to_cold():
+    """The proposer temperature rides the cooling fraction from HOT (start) down to COLD."""
+    from hotdog_anneal import PROPOSER_TEMP_COLD, PROPOSER_TEMP_HOT, _proposer_temperature
+
+    assert _proposer_temperature(2.0, 2.0) == PROPOSER_TEMP_HOT          # f = 1.0 → fully hot
+    assert _proposer_temperature(0.0, 2.0) == PROPOSER_TEMP_COLD         # f = 0.0 → fully cold
+    mid = _proposer_temperature(1.0, 2.0)                               # f = 0.5 → halfway
+    assert PROPOSER_TEMP_COLD < mid < PROPOSER_TEMP_HOT
+    # Schedule depends only on the cooling fraction, not T0's absolute value.
+    assert _proposer_temperature(4.0, 4.0) == PROPOSER_TEMP_HOT
+
+
+def test_anneal_refine_threads_annealed_temperature(tmp_path):
+    """refine_from_current forwards the proposer temperature as generate_kwargs (stateless)."""
+    from hotdog_anneal import refine_from_current
+
+    client = MagicMock()
+    client.generate.return_value = "  brighter flames  "
+
+    out = refine_from_current(client, str(tmp_path / "01.png"), [], temperature=0.9)
+
+    client.reset.assert_not_called()
+    args, kwargs = client.generate.call_args
+    assert args[1] == {"temperature": 0.9}          # generate_kwargs (positional)
+    assert kwargs["images"] == [str(tmp_path / "01.png")]
+    assert out == "brighter flames"
+
+
+def test_anneal_refine_without_temperature_uses_model_default(tmp_path):
+    from hotdog_anneal import refine_from_current
+
+    client = MagicMock()
+    client.generate.return_value = "more char"
+
+    refine_from_current(client, str(tmp_path / "01.png"), [])
+
+    args, _ = client.generate.call_args
+    assert args[1] is None  # no generate_kwargs → model default temperature

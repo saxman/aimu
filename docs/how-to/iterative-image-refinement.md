@@ -49,6 +49,8 @@ This makes the search monotonic (the result is never worse than the best seen) a
 - `Δ == 0` (tie): always accept — a free sideways move, the deliberate *opposite* of the climber's revert-on-tie.
 - `Δ < 0` (cooler): accept with probability `exp(Δ / T)`. A falling temperature (`--initial-temp`, `--cooling-rate`) means it explores freely early — taking downhill steps to escape a local optimum — then cools into greedy behaviour. `--seed` makes the acceptance decisions reproducible. The best-ever image is still tracked separately and copied to `best.png`.
 
+The same cooling schedule also drives the **proposer's** sampling temperature: the critic generates refinement ideas at a high LLM temperature while hot (diverse, exploratory) and a low one once cooled (conservative tweaks), via `_proposer_temperature`. Only proposals are annealed — the **judge that assigns the score stays cold**, since the score is the optimisation objective and must stay stable (annealing it would inject noise into the very signal you're climbing). This is the difference between annealing the *acceptance* and annealing the *proposal distribution* too; the script does both off one schedule.
+
 Annealing is worth reaching for when the climber gets stuck on a plateau, but mind the domain: the judge's coarse integer score means `Δ` is almost always `0` or `±1` (so temperature control is blunt), and each step is an expensive image generation, so runs are short — the practical win is local-optimum escape, not asymptotic convergence.
 
 Note the *opposite* direction (using prompt tuning to find a reusable image prompt across a dataset) is a different, also-valid use of the `Scorer` abstraction.
