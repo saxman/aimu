@@ -28,10 +28,10 @@ After the SCORE line, decide whether the hotdog could possibly be rendered any
 hotter. As long as there is ANY way to make it hotter, it is not done. Only when
 the rating is 10/10 — the hotdog cannot get any hotter — output exactly:
 DONE: <your reasoning>
-Otherwise — the overwhelmingly likely case — output exactly:
+Otherwise output exactly:
 CONTINUE: <a natural-language description of how the next image should look to make
-the hotdog hotter — describe the flames, char, spices, steam, colors, and lighting>
-The scene must depict exactly ONE single hotdog — never multiple hotdogs, a pile,
+the hotdog hotter. Creatively describe how to turn up the heat.>
+The scene must depict exactly ONE single hotdog, never multiple hotdogs, a pile,
 or a platter.
 """
 
