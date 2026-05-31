@@ -1,5 +1,5 @@
 from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
-from .._images import _adapt_messages_for_ollama
+from .._images import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
 
 import ollama
 import logging
@@ -83,15 +83,18 @@ class OllamaClient(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        gen_images = self._extract_ollama_images(images)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs)
+            return self._generate_streamed(prompt, generate_kwargs, images=gen_images)
 
         response = ollama.generate(
             model=self.model.value,
             prompt=prompt,
+            images=gen_images,
             options=generate_kwargs,
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
@@ -108,14 +111,27 @@ class OllamaClient(BaseModelClient):
 
         return response.response
 
+    @staticmethod
+    def _extract_ollama_images(images: Optional[list]) -> Optional[list]:
+        """Normalise vision inputs to Ollama's bare-base64 list (the generate endpoint's ``images=``).
+
+        Reuses ``_ollama_split_message`` so the http(s)-URL rejection matches the chat path.
+        """
+        if not images:
+            return None
+        adapted = _ollama_split_message({"role": "user", "content": _build_user_content_blocks("", images)})
+        return adapted.get("images")
+
     def _generate_streamed(
         self,
         prompt: str,
         generate_kwargs: dict,
+        images: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
         response = ollama.generate(
             model=self.model.value,
             prompt=prompt,
+            images=images,
             options=generate_kwargs,
             stream=True,
             think=self.is_thinking_model,

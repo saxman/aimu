@@ -515,6 +515,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         """Provider-specific generate implementation. Use :meth:`generate`."""
         pass
@@ -536,10 +537,24 @@ class BaseModelClient(_ChatStateMixin, ABC):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        """Single-turn generation. See :meth:`chat` for the ``include`` filter semantics."""
-        result = self._generate(prompt, generate_kwargs, stream=stream)
+        """Single-turn, stateless generation. See :meth:`chat` for the ``include`` filter semantics.
+
+        Args:
+            prompt: The text to generate from.
+            generate_kwargs: Provider-specific generation parameters.
+            stream: If True, return an iterator of :class:`StreamChunk` instead of a string.
+            images: Optional list of images for vision-capable models — same accepted forms as
+                :meth:`chat` (file path, ``pathlib.Path``, ``bytes``, http(s) URL, or data URL).
+                Raises ``ValueError`` if the model does not support vision. Unlike :meth:`chat`,
+                this does not touch ``self.messages`` — the call stays single-turn and stateless.
+            include: Optional iterable of stream phases to yield. Has no effect when ``stream=False``.
+        """
+        if images:
+            self._require_vision()
+        result = self._generate(prompt, generate_kwargs, stream=stream, images=images)
         if stream and include is not None:
             return self._filter_chunks(result, self._resolve_include(include))
         return result

@@ -5,6 +5,7 @@ from typing import Iterator, Optional, Any, Union
 import openai
 
 from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from .._images import _build_user_content_blocks
 from .._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
@@ -72,15 +73,17 @@ class OpenAICompatClient(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs)
+            return self._generate_streamed(prompt, generate_kwargs, images=images)
 
+        content_in = _build_user_content_blocks(prompt, images) if images else prompt
         response = self._client.chat.completions.create(
             model=self.model.value,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content_in}],
             **generate_kwargs,
         )
         logger.debug("LLM raw response: %s", response)
@@ -96,10 +99,12 @@ class OpenAICompatClient(BaseModelClient):
         self,
         prompt: str,
         generate_kwargs: dict[str, Any],
+        images: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
+        content_in = _build_user_content_blocks(prompt, images) if images else prompt
         stream = self._client.chat.completions.create(
             model=self.model.value,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content_in}],
             stream=True,
             **generate_kwargs,
         )

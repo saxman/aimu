@@ -92,9 +92,10 @@ class _AgenticView(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         # generate() bypasses the agent loop (no message history, no tools).
-        return self._inner_client._generate(prompt, generate_kwargs, stream=stream)
+        return self._inner_client._generate(prompt, generate_kwargs, stream=stream, images=images)
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         return self._inner_client._update_generate_kwargs(generate_kwargs)

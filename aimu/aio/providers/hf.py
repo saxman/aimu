@@ -115,10 +115,11 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         if stream:
-            return self._stream_via_thread(self._sync._generate(prompt, generate_kwargs, stream=True))
-        return await asyncio.to_thread(self._sync._generate, prompt, generate_kwargs, False)
+            return self._stream_via_thread(self._sync._generate(prompt, generate_kwargs, stream=True, images=images))
+        return await asyncio.to_thread(self._sync._generate, prompt, generate_kwargs, False, images)
 
     async def _chat(
         self,

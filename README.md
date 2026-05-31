@@ -130,11 +130,12 @@ chain = Chain.from_client(client, [
 result = chain.run("Research the top Python web frameworks.")
 ```
 
-**Vision input.** Uniform across every vision-capable provider:
+**Vision input.** Uniform across every vision-capable provider — on stateful `chat()` or stateless one-shot `generate()`:
 
 ```python
 client = aimu.client("openai:gpt-4o-mini")
-client.chat("What's in this image?", images=["./cat.jpg"])
+client.chat("What's in this image?", images=["./cat.jpg"])      # multi-turn, keeps history
+client.generate("Caption this image.", images=["./cat.jpg"])    # one-shot, no history
 ```
 
 **Image generation.** Same `provider:model_id` shape, parallel factory:
@@ -231,7 +232,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | Notebook | Description |
 |---|---|
 | [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) | Text generation, chat, streaming, thinking models |
-| [02 - Vision](notebooks/02%20-%20Vision.ipynb) | Image input via `images=` on `chat()` |
+| [02 - Vision](notebooks/02%20-%20Vision.ipynb) | Image input via `images=` on `chat()` and one-shot `generate()` |
 | [03 - Tools](notebooks/03%20-%20Tools.ipynb) | `@tool` decorator, built-in tool groups, MCPClient |
 | [04 - Prompt Management](notebooks/04%20-%20Prompt%20Management.ipynb) | Versioned prompt storage |
 | [05 - Prompt Tuning](notebooks/05%20-%20Prompt%20Tuning.ipynb) | Classification, multi-class, extraction, judged tuners |

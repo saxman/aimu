@@ -1,5 +1,5 @@
 from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
-from .._images import _extract_pil_images, _replace_image_url_with_image_placeholder
+from .._images import _build_user_content_blocks, _extract_pil_images, _replace_image_url_with_image_placeholder
 
 import torch
 from transformers import AutoTokenizer
@@ -494,10 +494,14 @@ class HuggingFaceClient(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        messages = [{"role": "user", "content": prompt}]
+        # Vision flows through the same content-block message the chat path builds; the
+        # processor branch in _apply_chat_template decodes image_url blocks via _extract_pil_images.
+        content = _build_user_content_blocks(prompt, images) if images else prompt
+        messages = [{"role": "user", "content": content}]
 
         if stream:
             return self._generate_streamed(messages, generate_kwargs)

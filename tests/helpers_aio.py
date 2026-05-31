@@ -106,10 +106,10 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         response = await self._chat(user_message, generate_kwargs, use_tools, images=images)
         yield StreamChunk(StreamingContentType.GENERATING, response)
 
-    async def _generate(self, prompt, generate_kwargs=None, stream=False):
+    async def _generate(self, prompt, generate_kwargs=None, stream=False, images=None):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs)
-        return await self._chat(prompt, generate_kwargs)
+        return await self._chat(prompt, generate_kwargs, images=images)
 
     async def _generate_streamed(self, prompt, generate_kwargs=None) -> AsyncIterator[StreamChunk]:
         text = await self._generate(prompt, generate_kwargs)

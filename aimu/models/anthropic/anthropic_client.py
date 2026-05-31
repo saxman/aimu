@@ -8,7 +8,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from ..base import BaseModelClient, Model, ModelSpec, StreamingContentType, StreamChunk, classproperty
-from .._images import _openai_blocks_to_anthropic
+from .._images import _build_user_content_blocks, _openai_blocks_to_anthropic
 
 logger = logging.getLogger(__name__)
 
@@ -217,16 +217,17 @@ class AnthropicClient(BaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs)
+            return self._generate_streamed(prompt, generate_kwargs, images=images)
 
         response = self._client.messages.create(
             model=self.model.value,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": self._generate_content(prompt, images)}],
             **generate_kwargs,
         )
         logger.debug("Anthropic raw response: %s", response)
@@ -240,16 +241,24 @@ class AnthropicClient(BaseModelClient):
                 content = block.text
         return content
 
+    @staticmethod
+    def _generate_content(prompt: str, images: Optional[list]):
+        """Build the single-turn user content: plain string, or Anthropic image blocks when images are passed."""
+        if not images:
+            return prompt
+        return _openai_blocks_to_anthropic(_build_user_content_blocks(prompt, images))
+
     def _generate_streamed(
         self,
         prompt: str,
         generate_kwargs: dict[str, Any],
+        images: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
         self.last_thinking = ""
 
         with self._client.messages.stream(
             model=self.model.value,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": self._generate_content(prompt, images)}],
             **generate_kwargs,
         ) as stream:
             for event in stream:

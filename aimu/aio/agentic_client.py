@@ -86,8 +86,9 @@ class _AsyncAgenticView(AsyncBaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        return await self._inner_client._generate(prompt, generate_kwargs, stream=stream)
+        return await self._inner_client._generate(prompt, generate_kwargs, stream=stream, images=images)
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         return self._inner_client._update_generate_kwargs(generate_kwargs)

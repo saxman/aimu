@@ -78,16 +78,17 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs)
+            return self._generate_streamed(prompt, generate_kwargs, images=images)
 
         response = await self._client.messages.create(
             model=self.model.value,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": _SyncAnthropicClient._generate_content(prompt, images)}],
             **generate_kwargs,
         )
 
@@ -104,12 +105,13 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         self,
         prompt: str,
         generate_kwargs: dict[str, Any],
+        images: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
         self.last_thinking = ""
 
         async with self._client.messages.stream(
             model=self.model.value,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": _SyncAnthropicClient._generate_content(prompt, images)}],
             **generate_kwargs,
         ) as stream:
             async for event in stream:

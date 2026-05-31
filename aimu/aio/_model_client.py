@@ -233,8 +233,9 @@ class AsyncModelClient(AsyncBaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        return await self._client._generate(prompt, generate_kwargs, stream=stream)
+        return await self._client._generate(prompt, generate_kwargs, stream=stream, images=images)
 
     async def _chat(
         self,

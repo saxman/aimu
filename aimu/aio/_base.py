@@ -73,6 +73,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         """Provider-specific async generate implementation. Use :meth:`generate`."""
         pass
@@ -94,10 +95,17 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        """Single-turn async generation. See :meth:`chat` for ``include`` semantics."""
-        result = await self._generate(prompt, generate_kwargs, stream=stream)
+        """Single-turn, stateless async generation. See sync :meth:`BaseModelClient.generate`.
+
+        ``images`` accepts the same forms as :meth:`chat` and raises ``ValueError`` for
+        non-vision models; the call stays stateless (does not touch ``self.messages``).
+        """
+        if images:
+            self._require_vision()
+        result = await self._generate(prompt, generate_kwargs, stream=stream, images=images)
         if stream and include is not None:
             return afilter_chunks(result, resolve_include(include))
         return result

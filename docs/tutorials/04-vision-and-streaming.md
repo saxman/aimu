@@ -36,6 +36,12 @@ Multiple images? Just add to the list:
 client.chat("Compare these.", images=["a.png", "b.png"])
 ```
 
+For a one-shot "look once and answer" call that *doesn't* keep history, use `generate(images=...)` instead — it's the stateless sibling of `chat()`:
+
+```python
+caption = client.generate("Caption this image.", images=["./cat.jpg"])  # client.messages stays empty
+```
+
 `client.messages` keeps everything in OpenAI content-block format internally. Each provider adapts at request time — see [how-to: handle vision](../how-to/handle-vision.md) for the per-provider details.
 
 ## 2. Stream the response

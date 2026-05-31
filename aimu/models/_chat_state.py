@@ -72,6 +72,17 @@ class _ChatStateMixin:
     def is_vision_model(self) -> bool:
         return self.model.supports_vision
 
+    def _require_vision(self) -> None:
+        """Raise ``ValueError`` if the model lacks vision support.
+
+        Shared by the stateful ``chat(images=...)`` path (via ``_append_user_turn``) and the
+        stateless ``generate(images=...)`` path, so both reject images with one message.
+        """
+        if not self.model.supports_vision:
+            raise ValueError(
+                f"Model {self.model.name} does not support vision input. Use a model with supports_vision=True."
+            )
+
     def _append_user_turn(self, user_message: str, images: Optional[list] = None) -> None:
         """Append the system message (if first turn) and the user turn to ``self.messages``.
 
@@ -82,10 +93,7 @@ class _ChatStateMixin:
             self.messages.append({"role": "system", "content": self._system_message})
 
         if images:
-            if not self.model.supports_vision:
-                raise ValueError(
-                    f"Model {self.model.name} does not support vision input. Use a model with supports_vision=True."
-                )
+            self._require_vision()
             from ._images import _build_user_content_blocks
 
             self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})

@@ -75,8 +75,7 @@ A small regex parser turns that into `{"action": "DONE"|"CONTINUE"|"unknown", "s
 prompt = "a hot hotdog"
 for i in range(1, max_iterations + 1):
     path = image_client.generate(build_image_prompt(prompt), format="path", output_dir=out)
-    eval_client.reset()
-    verdict = eval_client.chat(EVALUATOR_PROMPT, images=[path])
+    verdict = eval_client.generate(EVALUATOR_PROMPT, images=[path])  # stateless one-shot — no reset()
     parsed = parse_evaluator_response(verdict)
     if parsed["action"] == "DONE":
         break

@@ -340,3 +340,45 @@ def test_available_image_clients_are_base_image_client_subclasses():
 def test_available_image_clients_no_duplicates():
     clients = available_image_clients()
     assert len(clients) == len(set(clients))
+
+
+# ---------------------------------------------------------------------------
+# generate(images=) — stateless single-turn vision input
+# ---------------------------------------------------------------------------
+
+_DATA_URL = "data:image/png;base64,iVBORw0KGgo="
+
+
+def test_generate_images_builds_content_blocks():
+    """generate(images=) threads the image into the request as OpenAI content blocks."""
+    client = MockModelClient(["a description"])
+    client.model.supports_vision = True
+
+    out = client.generate("describe this", images=[_DATA_URL])
+
+    assert out == "a description"
+    # The user turn carries multimodal content blocks (text + image_url), not a bare string.
+    user_content = client.messages[0]["content"]
+    assert isinstance(user_content, list)
+    assert [b["type"] for b in user_content] == ["text", "image_url"]
+    assert user_content[1]["image_url"]["url"] == _DATA_URL
+
+
+def test_generate_images_rejected_for_non_vision_model():
+    """A non-vision model raises before any request is built (no file read, no API call)."""
+    client = MockModelClient(["unused"])
+    client.model.supports_vision = False
+
+    with pytest.raises(ValueError, match="does not support vision input"):
+        client.generate("describe this", images=[_DATA_URL])
+
+
+def test_generate_without_images_stays_plain_string():
+    """Omitting images keeps the single-turn content a plain string (unchanged behavior)."""
+    client = MockModelClient(["plain"])
+    client.model.supports_vision = False
+
+    out = client.generate("hello")
+
+    assert out == "plain"
+    assert client.messages[0]["content"] == "hello"

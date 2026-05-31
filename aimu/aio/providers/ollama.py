@@ -9,7 +9,7 @@ import ollama
 
 from aimu.models._images import _adapt_messages_for_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
-from aimu.models.ollama.ollama_client import OllamaModel
+from aimu.models.ollama.ollama_client import OllamaClient, OllamaModel
 
 from .._base import AsyncBaseModelClient
 
@@ -60,15 +60,18 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        gen_images = OllamaClient._extract_ollama_images(images)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs)
+            return self._generate_streamed(prompt, generate_kwargs, images=gen_images)
 
         response = await self._client.generate(
             model=self.model.value,
             prompt=prompt,
+            images=gen_images,
             options=generate_kwargs,
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
@@ -84,10 +87,12 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         self,
         prompt: str,
         generate_kwargs: dict,
+        images: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
         response = await self._client.generate(
             model=self.model.value,
             prompt=prompt,
+            images=images,
             options=generate_kwargs,
             stream=True,
             think=self.is_thinking_model,

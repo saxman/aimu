@@ -155,3 +155,31 @@ async def test_async_plain_tool_still_works_via_streamed_dispatch():
     assert len(chunks) == 1
     assert chunks[0].phase == StreamingContentType.TOOL_CALLING
     assert chunks[0].content["response"] == "HI"
+
+
+# ---------------------------------------------------------------------------
+# generate(images=) — stateless single-turn vision input (async mirror)
+# ---------------------------------------------------------------------------
+
+_DATA_URL = "data:image/png;base64,iVBORw0KGgo="
+
+
+async def test_async_generate_images_builds_content_blocks():
+    client = MockAsyncModelClient(["a description"])
+    client.model.supports_vision = True
+
+    out = await client.generate("describe this", images=[_DATA_URL])
+
+    assert out == "a description"
+    user_content = client.messages[0]["content"]
+    assert isinstance(user_content, list)
+    assert [b["type"] for b in user_content] == ["text", "image_url"]
+    assert user_content[1]["image_url"]["url"] == _DATA_URL
+
+
+async def test_async_generate_images_rejected_for_non_vision_model():
+    client = MockAsyncModelClient(["unused"])
+    client.model.supports_vision = False
+
+    with pytest.raises(ValueError, match="does not support vision input"):
+        await client.generate("describe this", images=[_DATA_URL])

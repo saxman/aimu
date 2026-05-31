@@ -216,19 +216,51 @@ def test_make_tools_counter_increments(tmp_path):
     assert (tmp_path / "02.png").exists()
 
 
-def test_make_tools_evaluate_resets_client(tmp_path):
-    from hotdog_agent import make_tools, EVALUATOR_PROMPT
+def test_make_tools_evaluate_uses_stateless_generate(tmp_path):
+    """The agent's evaluate tool routes through evaluate_image → stateless generate(images=)."""
+    from _hotdog_common import EVALUATOR_PROMPT
+    from hotdog_agent import make_tools
 
     image_client = MagicMock()
     eval_client = MagicMock()
-    eval_client.chat.return_value = "8/10\nCONTINUE: hotter"
+    eval_client.generate.return_value = "8/10\nCONTINUE: hotter"
 
     _, evaluate_fn, _ = make_tools(image_client, eval_client, tmp_path, 256)
     result = evaluate_fn("/some/01.png")
 
-    eval_client.reset.assert_called_once()
-    eval_client.chat.assert_called_once_with(EVALUATOR_PROMPT, images=["/some/01.png"])
+    # generate() is stateless: no reset() dance, no history pollution.
+    eval_client.reset.assert_not_called()
+    eval_client.generate.assert_called_once_with(EVALUATOR_PROMPT, images=["/some/01.png"])
     assert "CONTINUE" in result
+
+
+def test_evaluate_image_uses_stateless_generate(tmp_path):
+    from _hotdog_common import EVALUATOR_PROMPT, evaluate_image
+
+    eval_client = MagicMock()
+    eval_client.generate.return_value = "7/10\nCONTINUE: more char"
+
+    response, parsed = evaluate_image(eval_client, tmp_path / "01.png")
+
+    eval_client.reset.assert_not_called()
+    eval_client.generate.assert_called_once_with(EVALUATOR_PROMPT, images=[str(tmp_path / "01.png")])
+    assert parsed["score"] == 7
+    assert parsed["action"] == "CONTINUE"
+
+
+def test_evaluate_image_retries_when_no_score(tmp_path):
+    """A scoreless first reply triggers a retry with SCORE_REMINDER appended."""
+    from _hotdog_common import EVALUATOR_PROMPT, SCORE_REMINDER, evaluate_image
+
+    eval_client = MagicMock()
+    eval_client.generate.side_effect = ["no score here", "9/10\nDONE: peak heat"]
+
+    response, parsed = evaluate_image(eval_client, tmp_path / "01.png", max_retries=2)
+
+    assert eval_client.generate.call_count == 2
+    assert eval_client.generate.call_args_list[1].args[0] == EVALUATOR_PROMPT + SCORE_REMINDER
+    assert parsed["score"] == 9
+    assert parsed["action"] == "DONE"
 
 
 def test_evaluator_arg_parser_defaults():
@@ -249,7 +281,7 @@ def test_evaluator_make_tools_records(tmp_path):
     (tmp_path / "generated.png").touch()
 
     vision_client = MagicMock()
-    vision_client.chat.return_value = "8/10\nCONTINUE: hotter hotdog"
+    vision_client.generate.return_value = "8/10\nCONTINUE: hotter hotdog"
 
     records = []
     generate_fn, evaluate_fn = make_tools(image_client, vision_client, tmp_path, records)
@@ -260,7 +292,8 @@ def test_evaluator_make_tools_records(tmp_path):
     assert records[0]["evaluator_response"] is None  # not yet evaluated
 
     result = evaluate_fn(path1)
-    vision_client.reset.assert_called_once()
+    # evaluate_image uses stateless generate(images=) — no reset() dance.
+    vision_client.reset.assert_not_called()
     assert "CONTINUE" in result
     # The matching record is filled in with the parsed verdict.
     assert records[0]["action"] == "CONTINUE"
@@ -277,7 +310,7 @@ def test_evaluator_evaluate_falls_back_to_latest_image(tmp_path):
     (tmp_path / "generated.png").touch()
 
     vision_client = MagicMock()
-    vision_client.chat.return_value = "9/10\nDONE: maximal char"
+    vision_client.generate.return_value = "9/10\nDONE: maximal char"
 
     records = []
     generate_fn, evaluate_fn = make_tools(image_client, vision_client, tmp_path, records)
@@ -285,5 +318,5 @@ def test_evaluator_evaluate_falls_back_to_latest_image(tmp_path):
 
     evaluate_fn("/nonexistent/path/that/llm/hallucinated.png")
     # The vision call used the real latest image, not the bogus path.
-    vision_client.chat.assert_called_once_with(EVALUATOR_PROMPT, images=[real_path])
+    vision_client.generate.assert_called_once_with(EVALUATOR_PROMPT, images=[real_path])
     assert records[0]["action"] == "DONE"

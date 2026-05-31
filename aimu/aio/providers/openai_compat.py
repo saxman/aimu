@@ -14,6 +14,7 @@ from typing import Any, AsyncIterator, Optional, Union
 
 import openai
 
+from aimu.models._images import _build_user_content_blocks
 from aimu.models._thinking import _ThinkingParser, _split_thinking
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 from aimu.models.openai_compat.gemini_client import GeminiModel
@@ -92,15 +93,17 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         prompt: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
+        images: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs)
+            return self._generate_streamed(prompt, generate_kwargs, images=images)
 
+        content_in = _build_user_content_blocks(prompt, images) if images else prompt
         response = await self._client.chat.completions.create(
             model=self.model.value,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content_in}],
             **generate_kwargs,
         )
         content = response.choices[0].message.content or ""
@@ -115,10 +118,12 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         self,
         prompt: str,
         generate_kwargs: dict[str, Any],
+        images: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
+        content_in = _build_user_content_blocks(prompt, images) if images else prompt
         stream = await self._client.chat.completions.create(
             model=self.model.value,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content_in}],
             stream=True,
             **generate_kwargs,
         )

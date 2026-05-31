@@ -1,6 +1,6 @@
 # Handle vision input
 
-Pass `images=[...]` to `chat()` on a vision-capable model. AIMU normalises every input to OpenAI content blocks internally and adapts them per-provider.
+Pass `images=[...]` to `chat()` (stateful) or `generate()` (stateless one-shot) on a vision-capable model. AIMU normalises every input to OpenAI content blocks internally and adapts them per-provider.
 
 ## Basic usage
 
@@ -13,6 +13,22 @@ client.chat("What's in this image?", images=["./cat.jpg"])
 # Multiple images
 client.chat("Compare these two photos.", images=["a.png", "b.png"])
 ```
+
+## Stateless single-turn (`generate`)
+
+Use `generate(images=...)` for a one-shot vision call that **does not touch conversation history** — ideal for "look once and answer" tasks (captioning, scoring, classification) where you don't want the image and reply accumulating in `self.messages`:
+
+```python
+client = aimu.client("openai:gpt-4o-mini")
+
+# Each call is independent — no history kept, no reset() needed between calls.
+caption = client.generate("Caption this image in one sentence.", images=["./cat.jpg"])
+score = client.generate("Rate this image's quality 1-10.", images=["./cat.jpg"])
+
+assert client.messages == []   # generate() never mutates message state
+```
+
+`chat(images=...)` is the stateful path — the turn persists so you can ask follow-ups. `generate(images=...)` is the stateless path — each call stands alone. Both accept the same image forms and raise `ValueError` for a non-vision model. (Before, one-shot vision required a `client.reset()` + `chat()` dance to avoid polluting history; `generate(images=...)` removes that.)
 
 ## Accepted image forms
 

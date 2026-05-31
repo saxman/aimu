@@ -247,8 +247,8 @@ The codebase uses an abstract base class pattern for model clients:
 
 - **[aimu/models/base.py](aimu/models/base.py)**: Defines `BaseModelClient` abstract base class with:
   - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None, include=None)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`. Concrete clients implement `_chat()`; the public `chat()` is provided by the base and applies the `include` stream filter.
-  - `generate(prompt, generate_kwargs, stream=False, include=None)`: Single-turn stateless generation. Concrete clients implement `_generate()`; the public `generate()` is provided by the base.
-  - `images=` (vision-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, http(s) URLs, or `data:image/...` URLs.
+  - `generate(prompt, generate_kwargs, stream=False, images=None, include=None)`: Single-turn stateless generation. Concrete clients implement `_generate()`; the public `generate()` is provided by the base. Accepts `images=` for one-shot vision (same forms as `chat`) **without** touching `self.messages` — the base validates vision support (raises `ValueError` for non-vision models) and each provider's `_generate()` builds the image-bearing request locally. This is the stateless path for vision Q&A; no `reset()` dance required.
+  - `images=` (vision-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, http(s) URLs, or `data:image/...` URLs. Available on both `chat()` (stateful) and `generate()` (stateless).
   - `include=` (streaming only): optional iterable of `StreamingContentType` values (or their string equivalents `"thinking"`, `"tool_calling"`, `"generating"`, `"done"`) selecting which phases to yield. Defaults to all phases.
   - `reset(system_message="__keep__")`: clears the conversation history and unlocks `system_message`. Default keeps the existing system message; pass `None` to clear it or a new string to replace it.
   - `_chat_setup()`: Prepares messages and tools before a chat call; normalizes `images=` into OpenAI-format `image_url` content blocks; locks `system_message` after the first user turn.
@@ -641,13 +641,14 @@ Models with `supports_thinking=True` support extended reasoning:
 ### Vision Input
 
 Models with `supports_vision=True` accept images alongside the user prompt:
-- Pass `images=[...]` to `chat()`. Each item may be a file path string, `pathlib.Path`, raw `bytes`, an `http(s)://` URL, or a `data:image/...;base64,...` URL
-- Internally normalized to OpenAI-format content blocks (`{"type": "image_url", "image_url": {"url": ...}}`) inside `self.messages`; helpers live in [aimu/models/_images.py](aimu/models/_images.py) (`_normalize_image`, `_build_user_content_blocks`, plus per-provider adapters)
-- `BaseModelClient._chat_setup()` raises `ValueError` if `images=` is passed for a non-vision model
+- Pass `images=[...]` to `chat()` (stateful, persisted in `self.messages`) **or** to `generate()` (stateless single-turn, not persisted). Each item may be a file path string, `pathlib.Path`, raw `bytes`, an `http(s)://` URL, or a `data:image/...;base64,...` URL
+- Internally normalized to OpenAI-format content blocks (`{"type": "image_url", "image_url": {"url": ...}}`); for `chat()` these live in `self.messages`, for `generate()` they're built into a one-off request message and discarded. Helpers live in [aimu/models/_images.py](aimu/models/_images.py) (`_normalize_image`, `_build_user_content_blocks`, plus per-provider adapters)
+- Vision support is validated once at the public layer: `_ChatStateMixin._require_vision()` raises `ValueError` for a non-vision model — called from `_append_user_turn()` (the `chat` path) and from `BaseModelClient.generate()` / `AsyncBaseModelClient.generate()` (the `generate` path)
+- Per-provider adaptation is shared between `chat` and `generate`: `generate(images=...)` reuses the same pure adapters (`_build_user_content_blocks`, `_openai_blocks_to_anthropic`, `_ollama_split_message` via `OllamaClient._extract_ollama_images`, HF's `_extract_pil_images` template path) rather than duplicating per-provider request building
 - Per-provider adaptation happens at request time without mutating `self.messages`:
   - `OpenAICompatClient` (and subclasses): pass-through (the `openai` SDK speaks `image_url` blocks natively)
   - `AnthropicClient`: `_openai_messages_to_anthropic` calls `_openai_blocks_to_anthropic` to rewrite `image_url` → `image` blocks (`base64` source for data URLs, `url` source for http(s))
-  - `OllamaClient` (native): `_adapt_messages_for_ollama` is called before each `ollama.chat()` invocation to extract `image_url` content blocks into Ollama's message-level `images=[<bare base64>]` field. Only inline base64 (`data:image/...`) is supported; http(s) URLs raise `ValueError`
+  - `OllamaClient` (native): `_adapt_messages_for_ollama` is called before each `ollama.chat()` invocation to extract `image_url` content blocks into Ollama's message-level `images=[<bare base64>]` field. The `generate()` path uses `OllamaClient._extract_ollama_images()` to pass the same bare-base64 list to `ollama.generate(images=...)`. Only inline base64 (`data:image/...`) is supported; http(s) URLs raise `ValueError`
   - `HuggingFaceClient`: when the model has a processor (Gemma 3 / Gemma 4), `_apply_chat_template` decodes images via `_extract_pil_images` and passes them as `images=` to the processor; `image_url` blocks are rewritten to `{"type": "image"}` placeholders for the chat template
   - `LlamaCppClient`: pass-through; vision requires loading an `mmproj` projector via the new `chat_handler=` constructor kwarg (e.g. `Llava15ChatHandler(clip_model_path=...)`)
 - Capability flag: each `ModelSpec` accepts `vision: bool` (default `False`). `BaseModelClient.is_vision_model` and `VISION_MODELS` classproperty mirror the thinking/tools equivalents

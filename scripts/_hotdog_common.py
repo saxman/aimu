@@ -172,19 +172,19 @@ def resolve_output_dir(output_dir: str | None) -> Path:
 def evaluate_image(eval_client, image_path, *, max_retries: int = 2) -> tuple[str, dict]:
     """Run the evaluator on an image, re-prompting if no score is parsed.
 
-    Resets ``eval_client`` and sends ``EVALUATOR_PROMPT`` with the image. If the
-    response has no parseable score (``parse_evaluator_response`` returns
-    ``score is None``), the prompt is reissued with ``SCORE_REMINDER`` appended, up
-    to ``max_retries`` extra attempts. Returns ``(response_text, parsed_dict)`` from
-    the last attempt; ``parsed_dict["score"]`` may still be ``None`` if every attempt
-    failed to produce one, so callers should still tolerate a missing score.
+    Sends ``EVALUATOR_PROMPT`` with the image via stateless ``generate(images=...)``: each
+    attempt is a single, self-contained turn, so there's no conversation state to reset or
+    pollute. If the response has no parseable score (``parse_evaluator_response`` returns
+    ``score is None``), the prompt is reissued with ``SCORE_REMINDER`` appended, up to
+    ``max_retries`` extra attempts. Returns ``(response_text, parsed_dict)`` from the last
+    attempt; ``parsed_dict["score"]`` may still be ``None`` if every attempt failed to
+    produce one, so callers should still tolerate a missing score.
     """
     prompt = EVALUATOR_PROMPT
     response = ""
     parsed: dict = {}
     for attempt in range(max_retries + 1):
-        eval_client.reset()
-        response = eval_client.chat(prompt, images=[str(image_path)])
+        response = eval_client.generate(prompt, images=[str(image_path)])
         parsed = parse_evaluator_response(response)
         if parsed["score"] is not None:
             break
