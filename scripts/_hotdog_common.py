@@ -11,7 +11,7 @@ from aimu.models import HuggingFaceImageModel
 
 EVALUATOR_PROMPT = """\
 You are evaluating how visually "hot" this hotdog image is.
-Rate its hotness from 1 to 10 (10 = can't be conceivably hotter, 1 = cold).
+Rate its hotness from 1 to 10 (10 = can't be conceivably hotter, 1 = no indication of heat).
 Then decide: can this hotdog get any hotter? If not, output exactly:
 DONE: <your reasoning>
 If it can get hotter, output exactly:
