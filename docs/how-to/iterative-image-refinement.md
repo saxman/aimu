@@ -2,19 +2,21 @@
 
 Build a **generate → evaluate → refine** loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — *"make a hotdog as visually hot as possible"* — that composes image generation, vision input, prompt chaining, and either an agent, a plain Python loop, or a library workflow class.
 
-The full, runnable code lives in four scripts that share one helper module:
+The full, runnable code lives in five scripts that share one helper module:
 
 - `scripts/hotdog_loop.py` — **Python directs the loop** (a plain code-controlled `for` loop).
 - `scripts/hotdog_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
 - `scripts/hotdog_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + critic agent).
-- `scripts/hotdog_loop_climbing.py` — like the loop, but **hill-climbs**: keeps the best image and reverts on regression.
-- `scripts/_hotdog_common.py` — shared prompts and helpers used by all four.
+- `scripts/hotdog_loop_climbing.py` — like the loop, but **hill-climbs**: keeps the best image and reverts when a step doesn't beat it.
+- `scripts/hotdog_anneal.py` — **simulated annealing**: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.
+- `scripts/_hotdog_common.py` — shared prompts and helpers used by all of them.
 
 ```bash
 python scripts/hotdog_loop.py                 # code-directed greedy walk
 python scripts/hotdog_agent.py                # agent-directed greedy walk
 python scripts/hotdog_evaluator.py            # EvaluatorOptimizer workflow class
-python scripts/hotdog_loop_climbing.py                # hill-climb: keep best, revert on regression
+python scripts/hotdog_loop_climbing.py                # hill-climb: keep best, revert when a step doesn't beat it
+python scripts/hotdog_anneal.py --seed 7              # simulated annealing: explore early, cool to greedy
 python scripts/hotdog_agent.py --max-iterations 0   # run until the critic says DONE
 ```
 
@@ -28,18 +30,28 @@ The same task is implemented three times on purpose — it's a concrete take on 
 
 All three produce the same artifacts and share every prompt and helper, so the diff between them is purely *who drives the loop*.
 
-## Greedy walk vs hill-climbing
+## Search strategy: greedy → hill-climbing → simulated annealing
 
 The loop and agent scripts are **greedy**: each round they accept whatever prompt the critic proposes and move on — even if the new image scored *lower* than a previous one. That's simple and often fine, but the "best" image can be somewhere in the middle of the run rather than at the end.
 
-`hotdog_loop_climbing.py` borrows the strategy from [`aimu.prompts`](tune-prompts.md) tuning — **best-state caching + revert-on-regression**:
+`hotdog_loop_climbing.py` borrows the strategy from [`aimu.prompts`](tune-prompts.md) tuning — **best-state caching + revert when a step doesn't beat the best**:
 
 - Track the highest-scoring image so far.
-- If a generation **improves** on the best, adopt it and refine from there.
-- If it **regresses**, discard it, revert to the best, and ask the critic for a *different* refinement (passing the ideas that already failed so it explores a new direction).
+- If a generation **beats** the best (strictly higher score), adopt it and refine from there.
+- If it **doesn't** (a lower score *or* a tie — the coarse 1–10 judge makes ties common, and a tie isn't demonstrated progress), discard it, revert to the best, and ask the critic for a *different* refinement (passing the ideas that already failed so it explores a new direction).
 - Stop on `DONE`, after `--patience` consecutive non-improvements, or at `--max-iterations`. The winner is copied to `best.png`.
 
-This makes the search monotonic (the result is never worse than the best seen) at the cost of extra critic calls on regressions. It's the single-artifact analog of how prompt tuning hill-climbs a reusable prompt — see the comparison in [Tune prompts](tune-prompts.md). Note the *opposite* direction (using prompt tuning to find a reusable image prompt across a dataset) is a different, also-valid use of the `Scorer` abstraction.
+This makes the search monotonic (the result is never worse than the best seen) at the cost of extra critic calls on non-improving steps. It's the single-artifact analog of how prompt tuning hill-climbs a reusable prompt — see the comparison in [Tune prompts](tune-prompts.md).
+
+`hotdog_anneal.py` **generalises the climber into simulated annealing** — in fact the climber is annealing's `T → 0` limit. It keeps a `current` walk-state (distinct from the best-ever) and accepts the critic's proposed step by the Metropolis rule, where `Δ = new_score − current_score`:
+
+- `Δ > 0` (hotter): always accept.
+- `Δ == 0` (tie): always accept — a free sideways move, the deliberate *opposite* of the climber's revert-on-tie.
+- `Δ < 0` (cooler): accept with probability `exp(Δ / T)`. A falling temperature (`--initial-temp`, `--cooling-rate`) means it explores freely early — taking downhill steps to escape a local optimum — then cools into greedy behaviour. `--seed` makes the acceptance decisions reproducible. The best-ever image is still tracked separately and copied to `best.png`.
+
+Annealing is worth reaching for when the climber gets stuck on a plateau, but mind the domain: the judge's coarse integer score means `Δ` is almost always `0` or `±1` (so temperature control is blunt), and each step is an expensive image generation, so runs are short — the practical win is local-optimum escape, not asymptotic convergence.
+
+Note the *opposite* direction (using prompt tuning to find a reusable image prompt across a dataset) is a different, also-valid use of the `Scorer` abstraction.
 
 ## The pieces
 

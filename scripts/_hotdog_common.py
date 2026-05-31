@@ -47,14 +47,17 @@ where N is an integer from 1 to 10, followed by your DONE: or CONTINUE: output.
 """
 
 
-# Second stage of the prompt chain: condense the evaluator's free-form description
-# into a prompt that fits the image model's token budget. ``{max_words}`` is filled
-# from the model's ImageSpec.max_prompt_tokens via build_summarizer_prompt().
+# Second stage of the prompt chain: condense the evaluator's free-form description into the
+# "hot" descriptors that fit the image model's token budget. The single-hotdog subject is
+# front-loaded separately by build_image_prompt, so this stage spends the whole budget on the
+# heat and does NOT restate the subject. ``{max_words}`` is filled from the model's
+# ImageSpec.max_prompt_tokens via build_summarizer_prompt().
 SUMMARIZER_PROMPT = """\
-Condense the following description into a text-to-image prompt.
-Output ONLY the prompt — comma-separated visual descriptors, no full sentences,
-under {max_words} words. It must depict exactly ONE single hotdog. Put the most
-important "hot" details first; image encoders truncate prompts past their limit.
+Condense the following description into text-to-image prompt fragments.
+The prompt is already anchored to a single hotdog, so describe ONLY how to make that hotdog
+look hotter — do NOT restate the subject. Output ONLY comma-separated visual descriptors
+(flames, char, spices, steam, colors, lighting), no full sentences, under {max_words} words.
+Put the most important "hot" details first; image encoders truncate prompts past their limit.
 """
 
 
@@ -71,8 +74,15 @@ NEGATIVE_PROMPT = "multiple, two, several, pile, platter, group, crowd, duplicat
 
 
 def build_image_prompt(prompt: str) -> str:
-    """Prepend the single-hotdog subject anchor unless the prompt already states it."""
-    if "single hotdog" in prompt.lower():
+    """Front-load the single-hotdog subject anchor so the subject leads the prompt.
+
+    Diffusion text encoders (CLIP/T5) weight earlier tokens most heavily and truncate later
+    ones, so the subject must come *first* to render reliably. Prepend the anchor unless the
+    prompt already *starts* with it. Crucially, a ``single hotdog`` mention buried later still
+    gets the anchor — the summarizer is told to put the "hot" details first, which otherwise
+    pushes the subject to the end and the model drifts to flames/lava with no hotdog.
+    """
+    if prompt.lower().lstrip().startswith("a single hotdog"):
         return prompt
     return f"{SUBJECT_ANCHOR}, {prompt}"
 

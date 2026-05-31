@@ -8,6 +8,48 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from _hotdog_common import parse_evaluator_response, write_summary
 
 
+# ---------------------------------------------------------------------------
+# build_image_prompt — the subject anchor must lead the prompt
+# ---------------------------------------------------------------------------
+
+
+def test_build_image_prompt_prepends_for_plain_prompt():
+    from _hotdog_common import SUBJECT_ANCHOR, build_image_prompt
+
+    assert build_image_prompt("a hot hotdog") == f"{SUBJECT_ANCHOR}, a hot hotdog"
+
+
+def test_build_image_prompt_front_loads_when_subject_buried():
+    """A 'single hotdog' mention buried mid-prompt still gets the anchor front-loaded.
+
+    Regression for non-hotdog output: the summarizer puts hot details first, so the subject
+    lands late; the old 'contains anywhere' guard skipped the anchor and the subject was
+    under-rendered.
+    """
+    from _hotdog_common import SUBJECT_ANCHOR, build_image_prompt
+
+    buried = "raging white-hot flames, a single hotdog at the center, molten lava glow"
+    out = build_image_prompt(buried)
+    assert out.startswith(f"{SUBJECT_ANCHOR},")
+    assert out.lower().startswith("a single hotdog")
+
+
+def test_build_image_prompt_no_double_anchor_when_already_leading():
+    from _hotdog_common import SUBJECT_ANCHOR, build_image_prompt
+
+    already = f"{SUBJECT_ANCHOR}, engulfed in flames"
+    assert build_image_prompt(already) == already
+
+
+def test_build_summarizer_prompt_targets_heat_not_subject():
+    """The summarizer spends the budget on heat and defers the subject to the anchor."""
+    from _hotdog_common import build_summarizer_prompt, prompt_word_budget
+
+    out = build_summarizer_prompt(256)
+    assert str(prompt_word_budget(256)) in out          # {max_words} budget is filled in
+    assert "do not restate the subject" in out.lower()  # subject is the anchor's job, not the summary's
+
+
 def test_parse_done_response():
     text = "Hotness: 9/10\nDONE: The hotdog is fully engulfed in flames and cannot get hotter."
     result = parse_evaluator_response(text)
@@ -353,3 +395,51 @@ def test_refine_from_best_uses_stateless_generate(tmp_path):
     assert kwargs["images"] == [str(tmp_path / "best.png")]
     assert "more steam" in args[0]  # the rejected idea is listed in the avoid clause
     assert out == "brighter flames and more char"
+
+
+# ---------------------------------------------------------------------------
+# Simulated annealing (hotdog_anneal.py)
+# ---------------------------------------------------------------------------
+
+
+def test_anneal_accept_uphill_and_ties_always():
+    """Non-worsening moves (Δ >= 0) are always accepted, at any temperature."""
+    import random
+
+    from hotdog_anneal import _accept
+
+    rng = random.Random(0)
+    assert _accept(2, 0.01, rng) is True   # uphill, even at near-zero T
+    assert _accept(0, 0.01, rng) is True   # tie — a free sideways move
+
+
+def test_anneal_accept_downhill_greedy_at_zero_temperature():
+    """At T = 0 a worsening move is never accepted — the pure-greedy (climber) limit."""
+    import random
+
+    from hotdog_anneal import _accept
+
+    assert _accept(-1, 0.0, random.Random(0)) is False
+
+
+def test_anneal_accept_downhill_high_temperature_mostly_accepts():
+    """High T accepts worsening moves nearly always (exp(-1/100) ≈ 0.99)."""
+    import random
+
+    from hotdog_anneal import _accept
+
+    rng = random.Random(0)
+    accepts = sum(_accept(-1, 100.0, rng) for _ in range(100))
+    assert accepts > 90
+
+
+def test_anneal_arg_parser_has_sa_knobs():
+    from hotdog_anneal import build_parser
+
+    args = build_parser().parse_args([])
+    assert args.initial_temp == 2.0
+    assert args.cooling_rate == 0.85
+    assert args.seed is None
+
+    args = build_parser().parse_args(["--initial-temp", "3", "--cooling-rate", "0.9", "--seed", "7"])
+    assert (args.initial_temp, args.cooling_rate, args.seed) == (3.0, 0.9, 7)
