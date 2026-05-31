@@ -90,9 +90,7 @@ def make_tools(image_client, eval_client, output_dir: Path, max_prompt_tokens: i
 def parse_agent_trace(messages: list[dict]) -> list[dict]:
     """Reconstruct the per-iteration trace from agent message history (OpenAI format)."""
     tool_results: dict[str, str] = {
-        msg.get("tool_call_id", ""): msg.get("content", "")
-        for msg in messages
-        if msg.get("role") == "tool"
+        msg.get("tool_call_id", ""): msg.get("content", "") for msg in messages if msg.get("role") == "tool"
     }
 
     trace = []
@@ -142,9 +140,7 @@ def parse_agent_trace(messages: list[dict]) -> list[dict]:
 
 
 def main() -> None:
-    args = build_arg_parser(
-        "Iteratively heat a hotdog image using an AIMU Agent + local models."
-    ).parse_args()
+    args = build_arg_parser("Iteratively heat a hotdog image using an AIMU Agent + local models.").parse_args()
     output_dir = resolve_output_dir(args.output_dir)
 
     output_dir.mkdir(parents=True, exist_ok=True)

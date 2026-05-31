@@ -130,9 +130,7 @@ def run_loop(
 
 
 def main() -> None:
-    args = build_arg_parser(
-        "Iteratively heat a hotdog image using local HF diffusers + Ollama vision."
-    ).parse_args()
+    args = build_arg_parser("Iteratively heat a hotdog image using local HF diffusers + Ollama vision.").parse_args()
     output_dir = resolve_output_dir(args.output_dir)
     run_loop(args.image_model, args.eval_model, output_dir, args.max_iterations)
 

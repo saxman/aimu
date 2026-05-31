@@ -117,17 +117,19 @@ def run_climb(
             status = "accepted (new best)" if improved else "rejected (regression)"
             print(f"Evaluator: score={parsed['score']} action={parsed['action']} → {status}\n")
 
-            trace.append({
-                "iteration": i,
-                "prompt": candidate_prompt,
-                "image_prompt": image_prompt,
-                "image_path": str(dest),
-                "evaluator_response": response,
-                "score": parsed["score"],
-                "action": parsed["action"],
-                "next_prompt": parsed["next_prompt"],
-                "status": status,
-            })
+            trace.append(
+                {
+                    "iteration": i,
+                    "prompt": candidate_prompt,
+                    "image_prompt": image_prompt,
+                    "image_path": str(dest),
+                    "evaluator_response": response,
+                    "score": parsed["score"],
+                    "action": parsed["action"],
+                    "next_prompt": parsed["next_prompt"],
+                    "status": status,
+                }
+            )
 
             if improved:
                 best = {"score": parsed["score"], "prompt": candidate_prompt, "image_path": str(dest), "iteration": i}

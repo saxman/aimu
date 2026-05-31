@@ -136,8 +136,7 @@ def build_arg_parser(description: str) -> argparse.ArgumentParser:
     p.add_argument(
         "--image-model",
         default=HuggingFaceImageModel.SD_3_5_MEDIUM,
-        help="Image model: 'provider:model_id' string or enum member "
-        "(default: SD 3.5 Medium, a 256-token T5 model)",
+        help="Image model: 'provider:model_id' string or enum member (default: SD 3.5 Medium, a 256-token T5 model)",
     )
     p.add_argument(
         "--eval-model",
@@ -204,15 +203,15 @@ def parse_evaluator_response(text: str) -> dict:
     score = None
     # Prefer the explicit "SCORE: N" line the prompt asks for; fall back to a bare
     # "N/10" anywhere in the text (tolerating spaces around the slash).
-    score_match = re.search(r'SCORE\s*:\s*(\d+)', text, re.IGNORECASE) or re.search(r'\b(\d+)\s*/\s*10\b', text)
+    score_match = re.search(r"SCORE\s*:\s*(\d+)", text, re.IGNORECASE) or re.search(r"\b(\d+)\s*/\s*10\b", text)
     if score_match:
         val = int(score_match.group(1))
         if 1 <= val <= 10:
             score = val
 
-    done_match = re.search(r'^DONE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
+    done_match = re.search(r"^DONE\s*:\s*(.+)", text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
     # DOTALL so the CONTINUE description can run across multiple lines.
-    continue_match = re.search(r'^CONTINUE\s*:\s*(.+)', text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
+    continue_match = re.search(r"^CONTINUE\s*:\s*(.+)", text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
 
     # DONE takes priority if both are present
     if done_match:
