@@ -10,15 +10,40 @@ from pathlib import Path
 from aimu.models import HuggingFaceImageModel
 
 EVALUATOR_PROMPT = """\
-You are evaluating how visually "hot" this hotdog image is.
-Rate its hotness from 1 to 10 (10 = can't be conceivably hotter, 1 = no indication of heat).
-Then decide: can this hotdog get any hotter? If not, output exactly:
+You are evaluating how visually "hot" this hotdog image is, and you are an
+EXTREMELY conservative, hard-to-impress judge. Calibrate the top of the scale
+against the theoretical maximum temperature of the universe (the Planck
+temperature, ~1.4x10^32 K): a 10 means the hotdog cannot conceivably look any
+hotter — it is rendered at that absolute ceiling. Rate hotness from 1 to 10 where
+1 = room temperature and 10 = maximally, impossibly hot. Be stingy: even roaring
+flames and white-hot char fall well short of a 10, and when in doubt, rate lower.
+
+Your response MUST begin with the rating on its very first line, written exactly
+in this format with no other text on that line:
+SCORE: N/10
+where N is an integer from 1 to 10. Always include this line — never omit it, even
+when you decide the hotdog is done. For example, a fairly hot image: "SCORE: 4/10".
+
+After the SCORE line, decide whether the hotdog could possibly be rendered any
+hotter. As long as there is ANY way to make it hotter, it is not done. Only when
+the rating is 10/10 — the hotdog cannot get any hotter — output exactly:
 DONE: <your reasoning>
-If it can get hotter, output exactly:
+Otherwise — the overwhelmingly likely case — output exactly:
 CONTINUE: <a natural-language description of how the next image should look to make
 the hotdog hotter — describe the flames, char, spices, steam, colors, and lighting>
 The scene must depict exactly ONE single hotdog — never multiple hotdogs, a pile,
 or a platter.
+"""
+
+
+# Appended to the evaluator prompt on a retry when the first response had no
+# parseable score. Reasserts the required format as forcefully as possible.
+SCORE_REMINDER = """\
+
+IMPORTANT: your previous reply was rejected because it did not contain a valid score.
+Evaluate the SAME image again and make ABSOLUTELY SURE your reply begins with the line:
+SCORE: N/10
+where N is an integer from 1 to 10, followed by your DONE: or CONTINUE: output.
 """
 
 
@@ -144,6 +169,29 @@ def resolve_output_dir(output_dir: str | None) -> Path:
     return aimu_paths.output / "hotdog" / timestamp
 
 
+def evaluate_image(eval_client, image_path, *, max_retries: int = 2) -> tuple[str, dict]:
+    """Run the evaluator on an image, re-prompting if no score is parsed.
+
+    Resets ``eval_client`` and sends ``EVALUATOR_PROMPT`` with the image. If the
+    response has no parseable score (``parse_evaluator_response`` returns
+    ``score is None``), the prompt is reissued with ``SCORE_REMINDER`` appended, up
+    to ``max_retries`` extra attempts. Returns ``(response_text, parsed_dict)`` from
+    the last attempt; ``parsed_dict["score"]`` may still be ``None`` if every attempt
+    failed to produce one, so callers should still tolerate a missing score.
+    """
+    prompt = EVALUATOR_PROMPT
+    response = ""
+    parsed: dict = {}
+    for attempt in range(max_retries + 1):
+        eval_client.reset()
+        response = eval_client.chat(prompt, images=[str(image_path)])
+        parsed = parse_evaluator_response(response)
+        if parsed["score"] is not None:
+            break
+        prompt = EVALUATOR_PROMPT + SCORE_REMINDER
+    return response, parsed
+
+
 def parse_evaluator_response(text: str) -> dict:
     """Parse DONE/CONTINUE signal and hotness score from an evaluator response.
 
@@ -155,7 +203,9 @@ def parse_evaluator_response(text: str) -> dict:
                      description, which may span multiple lines
     """
     score = None
-    score_match = re.search(r'\b(\d+)/10\b', text)
+    # Prefer the explicit "SCORE: N" line the prompt asks for; fall back to a bare
+    # "N/10" anywhere in the text (tolerating spaces around the slash).
+    score_match = re.search(r'SCORE\s*:\s*(\d+)', text, re.IGNORECASE) or re.search(r'\b(\d+)\s*/\s*10\b', text)
     if score_match:
         val = int(score_match.group(1))
         if 1 <= val <= 10:

@@ -22,12 +22,12 @@ from aimu.tools.decorator import tool
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _hotdog_common import (
-    EVALUATOR_PROMPT,
     NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
     build_summarizer_prompt,
     collage_generated_images,
+    evaluate_image,
     parse_evaluator_response,
     resolve_output_dir,
     summarize_for_image,
@@ -73,8 +73,7 @@ def make_tools(image_client, eval_client, output_dir: Path, max_prompt_tokens: i
     @tool
     def evaluate_hotness(image_path: str) -> str:
         """Evaluate how hot a hotdog image is. Returns DONE, or CONTINUE with a detailed description."""
-        eval_client.reset()
-        response = eval_client.chat(EVALUATOR_PROMPT, images=[image_path])
+        response, _ = evaluate_image(eval_client, image_path)
         print(f"[Evaluator] {response}\n")
         return response
 

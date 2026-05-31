@@ -29,13 +29,12 @@ import aimu
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _hotdog_common import (
-    EVALUATOR_PROMPT,
     NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
     build_summarizer_prompt,
     collage_generated_images,
-    parse_evaluator_response,
+    evaluate_image,
     resolve_output_dir,
     summarize_for_image,
     suppress_benign_clip_warning,
@@ -113,9 +112,7 @@ def run_climb(
             dest = output_dir / f"{i:02d}.png"
             Path(raw_path).rename(dest)
 
-            eval_client.reset()
-            response = eval_client.chat(EVALUATOR_PROMPT, images=[str(dest)])
-            parsed = parse_evaluator_response(response)
+            response, parsed = evaluate_image(eval_client, dest)
             improved = best is None or _score(parsed["score"]) > _score(best["score"])
             status = "accepted (new best)" if improved else "rejected (regression)"
             print(f"Evaluator: score={parsed['score']} action={parsed['action']} → {status}\n")

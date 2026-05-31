@@ -46,12 +46,11 @@ from aimu.tools.decorator import tool
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _hotdog_common import (
-    EVALUATOR_PROMPT,
     NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
     collage_generated_images,
-    parse_evaluator_response,
+    evaluate_image,
     prompt_word_budget,
     resolve_output_dir,
     write_summary,
@@ -124,9 +123,7 @@ def make_tools(image_client, vision_client, output_dir: Path, records: list[dict
         # The path arrives via a text relay through two LLMs, so it may be mangled. Fall back
         # to the most recent generation if it doesn't resolve, rather than failing the run.
         path = image_path if Path(image_path).exists() else (records[-1]["image_path"] if records else image_path)
-        vision_client.reset()
-        response = vision_client.chat(EVALUATOR_PROMPT, images=[path])
-        parsed = parse_evaluator_response(response)
+        response, parsed = evaluate_image(vision_client, path)
         for record in reversed(records):
             if record["image_path"] == str(path):
                 record["evaluator_response"] = response

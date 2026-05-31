@@ -22,13 +22,12 @@ import aimu
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _hotdog_common import (
-    EVALUATOR_PROMPT,
     NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
     build_summarizer_prompt,
     collage_generated_images,
-    parse_evaluator_response,
+    evaluate_image,
     resolve_output_dir,
     summarize_for_image,
     suppress_benign_clip_warning,
@@ -78,11 +77,8 @@ def run_loop(
             Path(raw_path).rename(dest)
             print(f"Image saved: {dest}")
 
-            eval_client.reset()
-            evaluator_response = eval_client.chat(EVALUATOR_PROMPT, images=[str(dest)])
+            evaluator_response, parsed = evaluate_image(eval_client, dest)
             print(f"Evaluator:\n{evaluator_response}\n")
-
-            parsed = parse_evaluator_response(evaluator_response)
             entry = {
                 "iteration": i,
                 "prompt": prompt,
