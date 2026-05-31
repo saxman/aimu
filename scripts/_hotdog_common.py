@@ -294,13 +294,46 @@ def write_summary(
     return path
 
 
-def build_collage(image_paths: list, output_dir: Path) -> Path | None:
+def _load_label_font(size: int):
+    """Best-effort scalable font for collage labels; degrades to PIL's bundled default."""
+    from PIL import ImageFont
+
+    for name in ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf"):
+        try:
+            return ImageFont.truetype(name, size)
+        except OSError:
+            continue
+    try:
+        return ImageFont.load_default(size=size)  # Pillow >= 10.1 takes a size
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def _annotate_tile(tile, label: str, font) -> None:
+    """Draw a label badge (dark box + white text) in the tile's top-left corner, in place."""
+    from PIL import ImageDraw
+
+    draw = ImageDraw.Draw(tile)
+    left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
+    text_w, text_h = right - left, bottom - top
+    pad = max(4, text_h // 3)
+    draw.rectangle((0, 0, text_w + 2 * pad, text_h + 2 * pad), fill=(0, 0, 0))
+    # textbbox's top/left may be non-zero; offset so the glyphs sit inside the box.
+    draw.text((pad - left, pad - top), label, fill=(255, 255, 255), font=font)
+
+
+def build_collage(image_paths: list, output_dir: Path, *, scores: dict | None = None) -> Path | None:
     """Assemble the generated images into a near-square grid collage.
 
     Images are placed left-to-right, top-to-bottom in generation order. The grid
     uses the most-square layout that holds all of them (cols = ceil(sqrt(n))); any
     trailing empty cells stay blank. Returns the collage path, or None when there
     are no images. Requires Pillow (installed with the image extra).
+
+    Each tile is badged with its iteration number (the file stem) and, when ``scores``
+    maps the file's name to a hotness score, that score (``#03  7/10``). Tiles with no
+    score show just the iteration (``#03``). The badge is drawn on a copy — the saved
+    ``NN.png`` originals are left untouched.
     """
     from math import ceil, sqrt
 
@@ -310,17 +343,21 @@ def build_collage(image_paths: list, output_dir: Path) -> Path | None:
     if not paths:
         return None
 
+    scores = scores or {}
     cols = ceil(sqrt(len(paths)))
     rows = ceil(len(paths) / cols)
 
     tiles = [Image.open(p).convert("RGB") for p in paths]
     cell_w = max(tile.width for tile in tiles)
     cell_h = max(tile.height for tile in tiles)
+    font = _load_label_font(max(16, cell_h // 18))
 
     canvas = Image.new("RGB", (cols * cell_w, rows * cell_h), "white")
-    for i, tile in enumerate(tiles):
-        if tile.size != (cell_w, cell_h):
-            tile = tile.resize((cell_w, cell_h))
+    for i, (src, tile) in enumerate(zip(paths, tiles)):
+        tile = tile.resize((cell_w, cell_h)) if tile.size != (cell_w, cell_h) else tile.copy()
+        score = scores.get(src.name)
+        label = f"#{src.stem}  {score}/10" if score is not None else f"#{src.stem}"
+        _annotate_tile(tile, label, font)
         row, col = divmod(i, cols)
         canvas.paste(tile, (col * cell_w, row * cell_h))
 
@@ -329,16 +366,24 @@ def build_collage(image_paths: list, output_dir: Path) -> Path | None:
     return path
 
 
-def collage_generated_images(output_dir: Path) -> Path | None:
+def collage_generated_images(output_dir: Path, trace: list[dict] | None = None) -> Path | None:
     """Build the collage from the numbered image files saved in ``output_dir``.
 
     Scans for ``NN.png`` files (the per-iteration images) rather than relying on a
     trace, so the collage includes every generated image even if the run was
     interrupted before that image could be evaluated. Non-numeric names (the raw
     pre-rename file, ``collage.png``) are skipped. Returns the collage path, or None.
+
+    Pass ``trace`` (the per-iteration log, whose entries carry ``image_path`` and
+    ``score``) to badge each tile with its hotness score. Tiles with no matching trace
+    entry — e.g. a generation interrupted before evaluation — show just their iteration
+    number.
     """
     paths = sorted(
         (p for p in output_dir.glob("*.png") if p.stem.isdigit()),
         key=lambda p: int(p.stem),
     )
-    return build_collage([str(p) for p in paths], output_dir)
+    scores = None
+    if trace:
+        scores = {Path(e["image_path"]).name: e.get("score") for e in trace if e.get("image_path")}
+    return build_collage([str(p) for p in paths], output_dir, scores=scores)

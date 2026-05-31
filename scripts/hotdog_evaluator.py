@@ -217,7 +217,7 @@ def main() -> None:
             print(f"\nSummary written to: {summary_path}")
         else:
             print("\nNo iterations recorded.")
-        collage_path = collage_generated_images(output_dir)
+        collage_path = collage_generated_images(output_dir, trace)
         if collage_path:
             print(f"Collage written to: {collage_path}")
 

@@ -3,6 +3,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from _hotdog_common import parse_evaluator_response, write_summary
@@ -46,7 +48,7 @@ def test_build_summarizer_prompt_targets_heat_not_subject():
     from _hotdog_common import build_summarizer_prompt, prompt_word_budget
 
     out = build_summarizer_prompt(256)
-    assert str(prompt_word_budget(256)) in out          # {max_words} budget is filled in
+    assert str(prompt_word_budget(256)) in out  # {max_words} budget is filled in
     assert "do not restate the subject" in out.lower()  # subject is the anchor's job, not the summary's
 
 
@@ -118,7 +120,6 @@ def test_write_summary(tmp_path):
     assert "DONE: max heat" in text
 
 
-
 def test_parse_continue_captures_multiline_description():
     # The CONTINUE description is matched with re.DOTALL so a multi-line, free-form
     # description (the describe → summarize chain's first stage) is captured in full.
@@ -138,6 +139,7 @@ def test_parse_does_not_match_done_mid_sentence():
 def test_loop_arg_parser_defaults():
     from aimu.models import HuggingFaceImageModel
     from hotdog_loop import build_arg_parser
+
     args = build_arg_parser("test").parse_args([])
     assert args.image_model == HuggingFaceImageModel.SD_3_5_MEDIUM
     assert args.eval_model == "ollama:gemma4:e4b"
@@ -147,12 +149,19 @@ def test_loop_arg_parser_defaults():
 
 def test_loop_arg_parser_overrides():
     from hotdog_loop import build_arg_parser
-    args = build_arg_parser("test").parse_args([
-        "--image-model", "hf:stabilityai/stable-diffusion-xl-base-1.0",
-        "--eval-model", "ollama:gemma4:26b",
-        "--output-dir", "/tmp/hotdog",
-        "--max-iterations", "3",
-    ])
+
+    args = build_arg_parser("test").parse_args(
+        [
+            "--image-model",
+            "hf:stabilityai/stable-diffusion-xl-base-1.0",
+            "--eval-model",
+            "ollama:gemma4:26b",
+            "--output-dir",
+            "/tmp/hotdog",
+            "--max-iterations",
+            "3",
+        ]
+    )
     assert args.image_model == "hf:stabilityai/stable-diffusion-xl-base-1.0"
     assert args.eval_model == "ollama:gemma4:26b"
     assert args.output_dir == "/tmp/hotdog"
@@ -162,6 +171,7 @@ def test_loop_arg_parser_overrides():
 def test_agent_arg_parser_defaults():
     from aimu.models import HuggingFaceImageModel
     from hotdog_agent import build_arg_parser
+
     args = build_arg_parser("test").parse_args([])
     assert args.image_model == HuggingFaceImageModel.SD_3_5_MEDIUM
     assert args.eval_model == "ollama:gemma4:e4b"
@@ -171,24 +181,31 @@ def test_agent_arg_parser_defaults():
 
 def test_agent_parse_trace_single_iteration():
     from hotdog_agent import parse_agent_trace
+
     messages = [
         {"role": "user", "content": "Start the experiment."},
         {
             "role": "assistant",
             "content": None,
-            "tool_calls": [{
-                "id": "c1", "type": "function",
-                "function": {"name": "generate_hotdog_image", "arguments": json.dumps({"prompt": "a hot hotdog"})},
-            }],
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "generate_hotdog_image", "arguments": json.dumps({"prompt": "a hot hotdog"})},
+                }
+            ],
         },
         {"role": "tool", "tool_call_id": "c1", "content": "/out/01.png"},
         {
             "role": "assistant",
             "content": None,
-            "tool_calls": [{
-                "id": "c2", "type": "function",
-                "function": {"name": "evaluate_hotness", "arguments": json.dumps({"image_path": "/out/01.png"})},
-            }],
+            "tool_calls": [
+                {
+                    "id": "c2",
+                    "type": "function",
+                    "function": {"name": "evaluate_hotness", "arguments": json.dumps({"image_path": "/out/01.png"})},
+                }
+            ],
         },
         {"role": "tool", "tool_call_id": "c2", "content": "9/10\nDONE: Maximum achieved."},
         {"role": "assistant", "content": "Experiment complete."},
@@ -204,26 +221,58 @@ def test_agent_parse_trace_single_iteration():
 
 def test_agent_parse_trace_two_iterations():
     from hotdog_agent import parse_agent_trace
+
     messages = [
         {"role": "user", "content": "Start."},
         {
-            "role": "assistant", "content": None,
-            "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "generate_hotdog_image", "arguments": json.dumps({"prompt": "a hot hotdog"})}}],
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "generate_hotdog_image", "arguments": json.dumps({"prompt": "a hot hotdog"})},
+                }
+            ],
         },
         {"role": "tool", "tool_call_id": "c1", "content": "/out/01.png"},
         {
-            "role": "assistant", "content": None,
-            "tool_calls": [{"id": "c2", "type": "function", "function": {"name": "evaluate_hotness", "arguments": json.dumps({"image_path": "/out/01.png"})}}],
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c2",
+                    "type": "function",
+                    "function": {"name": "evaluate_hotness", "arguments": json.dumps({"image_path": "/out/01.png"})},
+                }
+            ],
         },
         {"role": "tool", "tool_call_id": "c2", "content": "6/10\nCONTINUE: flaming hotdog on lava"},
         {
-            "role": "assistant", "content": None,
-            "tool_calls": [{"id": "c3", "type": "function", "function": {"name": "generate_hotdog_image", "arguments": json.dumps({"prompt": "flaming hotdog on lava"})}}],
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c3",
+                    "type": "function",
+                    "function": {
+                        "name": "generate_hotdog_image",
+                        "arguments": json.dumps({"prompt": "flaming hotdog on lava"}),
+                    },
+                }
+            ],
         },
         {"role": "tool", "tool_call_id": "c3", "content": "/out/02.png"},
         {
-            "role": "assistant", "content": None,
-            "tool_calls": [{"id": "c4", "type": "function", "function": {"name": "evaluate_hotness", "arguments": json.dumps({"image_path": "/out/02.png"})}}],
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c4",
+                    "type": "function",
+                    "function": {"name": "evaluate_hotness", "arguments": json.dumps({"image_path": "/out/02.png"})},
+                }
+            ],
         },
         {"role": "tool", "tool_call_id": "c4", "content": "9/10\nDONE: Peak hotness."},
         {"role": "assistant", "content": "Done."},
@@ -409,8 +458,8 @@ def test_anneal_accept_uphill_and_ties_always():
     from hotdog_anneal import _accept
 
     rng = random.Random(0)
-    assert _accept(2, 0.01, rng) is True   # uphill, even at near-zero T
-    assert _accept(0, 0.01, rng) is True   # tie — a free sideways move
+    assert _accept(2, 0.01, rng) is True  # uphill, even at near-zero T
+    assert _accept(0, 0.01, rng) is True  # tie — a free sideways move
 
 
 def test_anneal_accept_downhill_greedy_at_zero_temperature():
@@ -449,9 +498,9 @@ def test_anneal_proposer_temperature_hot_to_cold():
     """The proposer temperature rides the cooling fraction from HOT (start) down to COLD."""
     from hotdog_anneal import PROPOSER_TEMP_COLD, PROPOSER_TEMP_HOT, _proposer_temperature
 
-    assert _proposer_temperature(2.0, 2.0) == PROPOSER_TEMP_HOT          # f = 1.0 → fully hot
-    assert _proposer_temperature(0.0, 2.0) == PROPOSER_TEMP_COLD         # f = 0.0 → fully cold
-    mid = _proposer_temperature(1.0, 2.0)                               # f = 0.5 → halfway
+    assert _proposer_temperature(2.0, 2.0) == PROPOSER_TEMP_HOT  # f = 1.0 → fully hot
+    assert _proposer_temperature(0.0, 2.0) == PROPOSER_TEMP_COLD  # f = 0.0 → fully cold
+    mid = _proposer_temperature(1.0, 2.0)  # f = 0.5 → halfway
     assert PROPOSER_TEMP_COLD < mid < PROPOSER_TEMP_HOT
     # Schedule depends only on the cooling fraction, not T0's absolute value.
     assert _proposer_temperature(4.0, 4.0) == PROPOSER_TEMP_HOT
@@ -468,7 +517,7 @@ def test_anneal_refine_threads_annealed_temperature(tmp_path):
 
     client.reset.assert_not_called()
     args, kwargs = client.generate.call_args
-    assert args[1] == {"temperature": 0.9}          # generate_kwargs (positional)
+    assert args[1] == {"temperature": 0.9}  # generate_kwargs (positional)
     assert kwargs["images"] == [str(tmp_path / "01.png")]
     assert out == "brighter flames"
 
@@ -483,3 +532,46 @@ def test_anneal_refine_without_temperature_uses_model_default(tmp_path):
 
     args, _ = client.generate.call_args
     assert args[1] is None  # no generate_kwargs → model default temperature
+
+
+# ---------------------------------------------------------------------------
+# Collage — tiles are badged with their score
+# ---------------------------------------------------------------------------
+
+
+def test_collage_badges_scores_from_trace(tmp_path):
+    pytest.importorskip("PIL")
+    from PIL import Image
+
+    from _hotdog_common import collage_generated_images
+
+    for n in (1, 2):
+        Image.new("RGB", (40, 40), (200, 50, 50)).save(tmp_path / f"0{n}.png")
+    trace = [
+        {"image_path": str(tmp_path / "01.png"), "score": 4},
+        {"image_path": str(tmp_path / "02.png"), "score": 7},
+    ]
+
+    out = collage_generated_images(tmp_path, trace)
+
+    assert out == tmp_path / "collage.png"
+    assert out.exists()
+    # 2 tiles → cols = ceil(sqrt(2)) = 2, rows = 1 → 80x40 grid (badges don't change geometry).
+    assert Image.open(out).size == (80, 40)
+
+
+def test_collage_without_trace_still_builds(tmp_path):
+    """No trace → tiles fall back to iteration-only labels; collage still produced."""
+    pytest.importorskip("PIL")
+    from PIL import Image
+
+    from _hotdog_common import collage_generated_images
+
+    Image.new("RGB", (40, 40), (0, 0, 0)).save(tmp_path / "01.png")
+    assert collage_generated_images(tmp_path).exists()
+
+
+def test_collage_none_when_no_images(tmp_path):
+    from _hotdog_common import collage_generated_images
+
+    assert collage_generated_images(tmp_path, trace=[]) is None

@@ -124,7 +124,7 @@ def run_loop(
                 summarizer_instruction=summarizer_instruction,
             )
             print(f"Summary written to: {summary_path}")
-        collage_path = collage_generated_images(output_dir)
+        collage_path = collage_generated_images(output_dir, trace)
         if collage_path:
             print(f"Collage written to: {collage_path}")
 

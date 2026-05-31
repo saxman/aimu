@@ -222,7 +222,7 @@ def main() -> None:
             print("\nNo iterations recorded in agent messages.")
         # Collage scans the saved image files, so it works even when no trace was
         # reconstructed (e.g. interrupted before the first evaluation completed).
-        collage_path = collage_generated_images(output_dir)
+        collage_path = collage_generated_images(output_dir, trace)
         if collage_path:
             print(f"Collage written to: {collage_path}")
 
