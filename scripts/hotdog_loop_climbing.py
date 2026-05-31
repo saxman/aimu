@@ -3,14 +3,16 @@
 
 `hotdog_loop.py` and `hotdog_agent.py` walk forward greedily: whatever prompt the critic
 proposes next is generated and accepted, even if the new image is *worse* than a previous
-one. This script instead keeps the best image seen so far and **reverts on regression** —
-if a generation scores lower than the best, it's discarded and the critic is asked for a
-*different* refinement of the current best (avoiding ideas that already failed).
+one. This script instead keeps the best image seen so far and **only advances on a strictly
+higher score** — if a generation fails to beat the best (a lower score *or* a tie; the coarse
+1–10 judge makes ties common, and a tie isn't demonstrated progress), it's discarded and the
+critic is asked for a *different* refinement of the current best (avoiding ideas that already
+failed).
 
-That mirrors the hill-climbing in `aimu.prompts` (best-state caching + revert-on-regression),
-applied here to single-artifact image refinement rather than to a reusable prompt over a
-dataset. Stops when the critic says DONE, after --patience consecutive non-improvements, or
-at --max-iterations.
+That mirrors the hill-climbing in `aimu.prompts` (best-state caching + revert when a candidate
+doesn't improve), applied here to single-artifact image refinement rather than to a reusable
+prompt over a dataset. Stops when the critic says DONE, after --patience consecutive
+non-improvements, or at --max-iterations.
 
 Usage:
     python scripts/hotdog_loop_climbing.py
@@ -41,9 +43,10 @@ from _hotdog_common import (
     write_summary,
 )
 
-# Asks the critic to propose a *fresh* refinement of the best image. Used only on
-# regression — {avoid} lists ideas already tried that didn't help, so the critic explores
-# a different direction instead of re-suggesting what just failed.
+# Asks the critic to propose a *fresh* refinement of the best image. Used only when a
+# candidate fails to beat the best (lower score or a tie) — {avoid} lists ideas already
+# tried that didn't help, so the critic explores a different direction instead of re-suggesting
+# what just failed.
 REFINE_PROMPT = """\
 This is the best image of a single hotdog so far. Propose ONE new way to make it look even
 hotter — describe the flames, char, spices, steam, colors, and lighting. The scene must
@@ -114,7 +117,7 @@ def run_climb(
 
             response, parsed = evaluate_image(eval_client, dest)
             improved = best is None or _score(parsed["score"]) > _score(best["score"])
-            status = "accepted (new best)" if improved else "rejected (regression)"
+            status = "accepted (new best)" if improved else "rejected (no improvement)"
             print(f"Evaluator: score={parsed['score']} action={parsed['action']} → {status}\n")
 
             trace.append(
@@ -150,7 +153,8 @@ def run_climb(
                 stale = 0
                 next_idea = parsed["next_prompt"]
             else:
-                # Regression — keep the best, remember the failed idea, and ask for a different one.
+                # No improvement (lower score or a tie) — keep the best, remember the failed
+                # idea, and ask for a different one.
                 if candidate_idea is not None:
                     rejected.append(candidate_idea)
                 stale += 1
