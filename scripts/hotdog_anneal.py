@@ -59,21 +59,12 @@ from _hotdog_common import (
     build_summarizer_prompt,
     collage_generated_images,
     evaluate_image,
+    refine_image,
     resolve_output_dir,
     summarize_for_image,
     suppress_benign_clip_warning,
     write_summary,
 )
-
-# Asks the critic for a *fresh* refinement of the current image. Used when a proposed step is
-# rejected — {avoid} lists ideas already tried against the current state that didn't stick, so
-# the critic explores a different direction. (Mirrors the climber's REFINE_PROMPT.)
-REFINE_PROMPT = """\
-This is the current image of a single hotdog. Propose ONE new way to make it look even
-hotter — describe the flames, char, spices, steam, colors, and lighting. The scene must
-depict exactly ONE single hotdog, never multiple.{avoid}
-Output only the description.
-"""
 
 
 # Sampling-temperature band for the *proposer* (refinement-idea generation). The annealing
@@ -114,23 +105,6 @@ def _accept(delta: int, temperature: float, rng: random.Random) -> bool:
     if temperature <= 1e-9:
         return False
     return rng.random() < math.exp(delta / temperature)
-
-
-def refine_from_current(
-    eval_client, current_image_path: str, rejected: list[str], temperature: float | None = None
-) -> str:
-    """Ask the critic for a fresh refinement of the current image, avoiding failed ideas.
-
-    ``temperature`` (when set) is the proposer's LLM sampling temperature — higher early in the
-    anneal for diverse ideas, lower late for conservative ones. ``None`` uses the model default.
-    """
-    avoid = ""
-    if rejected:
-        bullets = "\n".join(f"- {idea}" for idea in rejected)
-        avoid = f"\nDo NOT reuse these approaches that were already tried and did not help:\n{bullets}"
-    generate_kwargs = {"temperature": temperature} if temperature is not None else None
-    # Stateless one-shot vision call — no reset() needed, no history kept.
-    return eval_client.generate(REFINE_PROMPT.format(avoid=avoid), generate_kwargs, images=[current_image_path]).strip()
 
 
 def run_anneal(
@@ -242,7 +216,7 @@ def run_anneal(
             # diversity early, when the temperature is highest. The score itself stays cold.
             proposer_temp = _proposer_temperature(temperature, initial_temp)
             print(f"Proposing next refinement at sampling temperature {proposer_temp:.2f}.\n")
-            next_idea = refine_from_current(eval_client, current["image_path"], rejected, temperature=proposer_temp)
+            next_idea = refine_image(eval_client, current["image_path"], rejected, temperature=proposer_temp)
 
             candidate_idea = next_idea
             candidate_prompt = to_prompt(next_idea)

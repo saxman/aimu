@@ -37,37 +37,17 @@ from _hotdog_common import (
     build_summarizer_prompt,
     collage_generated_images,
     evaluate_image,
+    refine_image,
     resolve_output_dir,
     summarize_for_image,
     suppress_benign_clip_warning,
     write_summary,
 )
 
-# Asks the critic to propose a *fresh* refinement of the best image. Used only when a
-# candidate fails to beat the best (lower score or a tie) — {avoid} lists ideas already
-# tried that didn't help, so the critic explores a different direction instead of re-suggesting
-# what just failed.
-REFINE_PROMPT = """\
-This is the best image of a single hotdog so far. Propose ONE new way to make it look even
-hotter — describe the flames, char, spices, steam, colors, and lighting. The scene must
-depict exactly ONE single hotdog, never multiple.{avoid}
-Output only the description.
-"""
-
 
 def _score(value: int | None) -> int:
     """Coerce a possibly-missing hotness score to a comparable int (unparsed → 0)."""
     return value if value is not None else 0
-
-
-def refine_from_best(eval_client, best_image_path: str, rejected: list[str]) -> str:
-    """Ask the critic for a fresh refinement of the best image, avoiding failed ideas."""
-    avoid = ""
-    if rejected:
-        bullets = "\n".join(f"- {idea}" for idea in rejected)
-        avoid = f"\nDo NOT reuse these approaches that were already tried and did not help:\n{bullets}"
-    # Stateless one-shot vision call — no reset() needed, no history kept.
-    return eval_client.generate(REFINE_PROMPT.format(avoid=avoid), images=[best_image_path]).strip()
 
 
 def run_climb(
@@ -162,7 +142,7 @@ def run_climb(
                     print(f"No improvement after {patience} attempt(s); stopping.")
                     break
                 print(f"Reverting to best (iteration {best['iteration']}, score {best['score']}/10).")
-                next_idea = refine_from_best(eval_client, best["image_path"], rejected)
+                next_idea = refine_image(eval_client, best["image_path"], rejected)
 
             candidate_idea = next_idea
             candidate_prompt = to_prompt(next_idea)

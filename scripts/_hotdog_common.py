@@ -11,12 +11,20 @@ from aimu.models import HuggingFaceImageModel
 
 EVALUATOR_PROMPT = """\
 You are evaluating how visually "hot" this hotdog image is, and you are an
-EXTREMELY conservative, hard-to-impress judge. Calibrate the top of the scale
-against the theoretical maximum temperature of the universe (the Planck
-temperature, ~1.4x10^32 K): a 10 means the hotdog cannot conceivably look any
-hotter — it is rendered at that absolute ceiling. Rate hotness from 1 to 10 where
-1 = room temperature and 10 = maximally, impossibly hot. Be stingy: even roaring
-flames and white-hot char fall well short of a 10, and when in doubt, rate lower.
+EXTREMELY conservative, hard-to-impress judge.
+
+FIRST, a gate: the image must clearly show ONE single, well-formed hotdog. If it does not —
+no recognizable hotdog, a distorted/melted blob, or multiple hotdogs — it has FAILED the
+task no matter how hot it looks: output "SCORE: 1/10" and a CONTINUE telling the next image
+to restore a clear, single, well-formed hotdog.
+
+If a clear single hotdog IS present, score how hot the hotdog itself looks — the physical
+temperature it appears to embody — calibrated against the theoretical maximum temperature of
+the universe (the Planck temperature, ~1.4x10^32 K): a 10 means the hotdog cannot conceivably
+be rendered any hotter. Rate from 1 to 10 where 1 = room temperature and 10 = maximally,
+impossibly hot. Be stingy: ordinary fire, embers, and char sit nowhere near the ceiling — far
+hotter things exist — so a merely flaming hotdog rates low, and when in doubt, rate lower.
+Reserve high scores for a hotdog that itself embodies genuinely extreme heat.
 
 Your response MUST begin with the rating on its very first line, written exactly
 in this format with no other text on that line:
@@ -25,12 +33,15 @@ where N is an integer from 1 to 10. Always include this line — never omit it, 
 when you decide the hotdog is done. For example, a fairly hot image: "SCORE: 4/10".
 
 After the SCORE line, decide whether the hotdog could possibly be rendered any
-hotter. As long as there is ANY way to make it hotter, it is not done. Only when
-the rating is 10/10 — the hotdog cannot get any hotter — output exactly:
+hotter. As long as there is ANY hotter phenomenon it could embody, it is not done.
+Only when the rating is 10/10 — a clear single hotdog that cannot be hotter — output exactly:
 DONE: <your reasoning>
 Otherwise output exactly:
-CONTINUE: <a natural-language description of how the next image should look to make
-the hotdog hotter. Creatively describe how to turn up the heat.>
+CONTINUE: <describe the next image as a step UP the temperature scale — what hotter, more
+extreme phenomenon should the hotdog ITSELF embody, rendered as if made of or engulfed by
+that heat? It must stay a clearly recognizable single hotdog — do NOT replace the hotdog with
+the phenomenon. Reach for the most striking, non-obvious escalation; don't just add more of
+the same fire or char.>
 The scene must depict exactly ONE single hotdog, never multiple hotdogs, a pile,
 or a platter.
 """
@@ -55,9 +66,10 @@ where N is an integer from 1 to 10, followed by your DONE: or CONTINUE: output.
 SUMMARIZER_PROMPT = """\
 Condense the following description into text-to-image prompt fragments.
 The prompt is already anchored to a single hotdog, so describe ONLY how to make that hotdog
-look hotter — do NOT restate the subject. Output ONLY comma-separated visual descriptors
-(flames, char, spices, steam, colors, lighting), no full sentences, under {max_words} words.
-Put the most important "hot" details first; image encoders truncate prompts past their limit.
+look hotter — do NOT restate the subject. Output ONLY comma-separated visual descriptors,
+no full sentences, under {max_words} words. Preserve the description's most distinctive,
+specific imagery; put the most important details first, since image encoders truncate
+prompts past their limit.
 """
 
 
@@ -67,10 +79,15 @@ Put the most important "hot" details first; image encoders truncate prompts past
 # the reliable lever for "exactly one".
 SUBJECT_ANCHOR = "a single hotdog, one sausage in one bun, solo, centered, close-up shot"
 
-# Generic plurality/duplication cues to discourage. Deliberately omits the word
-# "hotdog" (which would suppress the subject). HF uses it; providers without
-# negative-prompt support (e.g. Gemini Nano Banana) silently ignore it.
-NEGATIVE_PROMPT = "multiple, two, several, pile, platter, group, crowd, duplicate"
+# Generic plurality/duplication cues plus distortion/illegibility cues to discourage.
+# Deliberately omits the word "hotdog" (which would suppress the subject). The distortion
+# terms counter the "seriously distorted / not a hotdog" drift that the creativity-oriented
+# prompts can induce. HF uses it; providers without negative-prompt support (e.g. Gemini
+# Nano Banana) silently ignore it.
+NEGATIVE_PROMPT = (
+    "multiple, two, several, pile, platter, group, crowd, duplicate, "
+    "deformed, distorted, melted, disfigured, mangled, blurry, unrecognizable, abstract"
+)
 
 
 def build_image_prompt(prompt: str) -> str:
@@ -111,6 +128,38 @@ def summarize_for_image(client, description: str, max_prompt_tokens: int) -> str
     """
     instruction = build_summarizer_prompt(max_prompt_tokens)
     return client.generate(f"{instruction}\nDescription:\n{description}").strip()
+
+
+# Asks the critic for a *fresh* refinement of the image a search is building on (the climber's
+# best, the annealer's current state). Used when a candidate fails to beat it — {avoid} lists
+# ideas already tried that didn't help, so the critic explores a different direction. The
+# wording deliberately enumerates no descriptor categories (so the model isn't caged into
+# flames/char/etc.) and frames the ask as escalating UP the temperature scale.
+REFINE_PROMPT = """\
+This is the image of a single hotdog to improve on. Propose ONE new way to make the hotdog
+ITSELF hotter — a step UP the temperature scale toward a hotter, more extreme phenomenon the
+hotdog could embody (rendered as if made of or engulfed by that heat). It must remain a
+clearly recognizable, well-formed single hotdog — do NOT replace it with the phenomenon.
+Reach for the most striking, non-obvious escalation; don't just pile on more of the same
+fire, char, or glow.{avoid}
+Output only the description.
+"""
+
+
+def refine_image(eval_client, image_path, rejected: list[str], *, temperature: float | None = None) -> str:
+    """Ask the critic for a fresh refinement of ``image_path``, avoiding failed ideas.
+
+    Shared by the search scripts: the climber refines from its best image, the annealer from
+    its current walk-state. ``temperature`` (when set) is the proposer's LLM sampling
+    temperature — higher for diverse ideas, lower for conservative ones; ``None`` uses the
+    model default. Stateless ``generate(images=)`` — no reset, no history kept.
+    """
+    avoid = ""
+    if rejected:
+        bullets = "\n".join(f"- {idea}" for idea in rejected)
+        avoid = f"\nDo NOT reuse these approaches that were already tried and did not help:\n{bullets}"
+    generate_kwargs = {"temperature": temperature} if temperature is not None else None
+    return eval_client.generate(REFINE_PROMPT.format(avoid=avoid), generate_kwargs, images=[str(image_path)]).strip()
 
 
 def suppress_benign_clip_warning(image_client) -> None:

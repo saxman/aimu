@@ -52,6 +52,42 @@ def test_build_summarizer_prompt_targets_heat_not_subject():
     assert "do not restate the subject" in out.lower()  # subject is the anchor's job, not the summary's
 
 
+def test_summarizer_prompt_no_longer_enumerates_categories():
+    """De-primed: the summarizer must not seed the old flames/char/steam category list."""
+    from _hotdog_common import build_summarizer_prompt
+
+    out = build_summarizer_prompt(256).lower()
+    for caged in ("flames", "char", "spices", "steam"):
+        assert caged not in out
+
+
+def test_evaluator_prompt_keeps_parser_contract():
+    """Rewording must preserve the SCORE/DONE/CONTINUE structure parse_evaluator_response needs."""
+    from _hotdog_common import EVALUATOR_PROMPT
+
+    assert "SCORE: N/10" in EVALUATOR_PROMPT
+    assert "DONE:" in EVALUATOR_PROMPT
+    assert "CONTINUE:" in EVALUATOR_PROMPT
+
+
+def test_evaluator_prompt_has_fidelity_gate():
+    """The judge gates on a recognizable single hotdog (A1): non-hotdogs score 1/10."""
+    from _hotdog_common import EVALUATOR_PROMPT
+
+    low = EVALUATOR_PROMPT.lower()
+    assert "must clearly show one single, well-formed hotdog" in low
+    assert "score: 1/10" in low  # the explicit failure score the gate emits
+
+
+def test_negative_prompt_includes_distortion_terms():
+    """B2: distortion/illegibility cues are discouraged, without suppressing the subject word."""
+    from _hotdog_common import NEGATIVE_PROMPT
+
+    for term in ("deformed", "distorted", "melted", "mangled", "unrecognizable"):
+        assert term in NEGATIVE_PROMPT
+    assert "hotdog" not in NEGATIVE_PROMPT  # never suppress the subject concept
+
+
 def test_parse_done_response():
     text = "Hotness: 9/10\nDONE: The hotdog is fully engulfed in flames and cannot get hotter."
     result = parse_evaluator_response(text)
@@ -429,14 +465,14 @@ def test_summarize_for_image_uses_stateless_generate():
     assert "images" not in kwargs
 
 
-def test_refine_from_best_uses_stateless_generate(tmp_path):
-    """refine_from_best is a one-shot vision call via stateless generate(images=)."""
-    from hotdog_loop_climbing import refine_from_best
+def test_refine_image_stateless_and_avoids_rejected(tmp_path):
+    """Shared refine_image is a one-shot stateless generate(images=) listing rejected ideas."""
+    from _hotdog_common import refine_image
 
     client = MagicMock()
     client.generate.return_value = "  brighter flames and more char  "
 
-    out = refine_from_best(client, str(tmp_path / "best.png"), rejected=["more steam"])
+    out = refine_image(client, str(tmp_path / "best.png"), rejected=["more steam"])
 
     client.reset.assert_not_called()
     client.generate.assert_called_once()
@@ -506,14 +542,14 @@ def test_anneal_proposer_temperature_hot_to_cold():
     assert _proposer_temperature(4.0, 4.0) == PROPOSER_TEMP_HOT
 
 
-def test_anneal_refine_threads_annealed_temperature(tmp_path):
-    """refine_from_current forwards the proposer temperature as generate_kwargs (stateless)."""
-    from hotdog_anneal import refine_from_current
+def test_refine_image_threads_temperature(tmp_path):
+    """refine_image forwards the (annealed) proposer temperature as generate_kwargs."""
+    from _hotdog_common import refine_image
 
     client = MagicMock()
     client.generate.return_value = "  brighter flames  "
 
-    out = refine_from_current(client, str(tmp_path / "01.png"), [], temperature=0.9)
+    out = refine_image(client, str(tmp_path / "01.png"), [], temperature=0.9)
 
     client.reset.assert_not_called()
     args, kwargs = client.generate.call_args
@@ -522,13 +558,13 @@ def test_anneal_refine_threads_annealed_temperature(tmp_path):
     assert out == "brighter flames"
 
 
-def test_anneal_refine_without_temperature_uses_model_default(tmp_path):
-    from hotdog_anneal import refine_from_current
+def test_refine_image_without_temperature_uses_model_default(tmp_path):
+    from _hotdog_common import refine_image
 
     client = MagicMock()
     client.generate.return_value = "more char"
 
-    refine_from_current(client, str(tmp_path / "01.png"), [])
+    refine_image(client, str(tmp_path / "01.png"), [])
 
     args, _ = client.generate.call_args
     assert args[1] is None  # no generate_kwargs → model default temperature
