@@ -1022,6 +1022,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#stateless-single-turn-generate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stateless single-turn (generate)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#accepted-image-forms" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2392,6 +2403,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#stateless-single-turn-generate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stateless single-turn (generate)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#accepted-image-forms" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2467,7 +2489,7 @@
 
 
 <h1 id="handle-vision-input">Handle vision input<a class="headerlink" href="#handle-vision-input" title="Permanent link">&para;</a></h1>
-<p>Pass <code>images=[...]</code> to <code>chat()</code> on a vision-capable model. AIMU normalises every input to OpenAI content blocks internally and adapts them per-provider.</p>
+<p>Pass <code>images=[...]</code> to <code>chat()</code> (stateful) or <code>generate()</code> (stateless one-shot) on a vision-capable model. AIMU normalises every input to OpenAI content blocks internally and adapts them per-provider.</p>
 <h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -2477,6 +2499,17 @@
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Multiple images</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Compare these two photos.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a.png&quot;</span><span class="p">,</span> <span class="s2">&quot;b.png&quot;</span><span class="p">])</span>
 </span></code></pre></div>
+<h2 id="stateless-single-turn-generate">Stateless single-turn (<code>generate</code>)<a class="headerlink" href="#stateless-single-turn-generate" title="Permanent link">&para;</a></h2>
+<p>Use <code>generate(images=...)</code> for a one-shot vision call that <strong>does not touch conversation history</strong> — ideal for "look once and answer" tasks (captioning, scoring, classification) where you don't want the image and reply accumulating in <code>self.messages</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4o-mini&quot;</span><span class="p">)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Each call is independent — no history kept, no reset() needed between calls.</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">caption</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Caption this image in one sentence.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./cat.jpg&quot;</span><span class="p">])</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">score</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Rate this image&#39;s quality 1-10.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./cat.jpg&quot;</span><span class="p">])</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">assert</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span> <span class="o">==</span> <span class="p">[]</span>   <span class="c1"># generate() never mutates message state</span>
+</span></code></pre></div>
+<p><code>chat(images=...)</code> is the stateful path — the turn persists so you can ask follow-ups. <code>generate(images=...)</code> is the stateless path — each call stands alone. Both accept the same image forms and raise <code>ValueError</code> for a non-vision model. (Before, one-shot vision required a <code>client.reset()</code> + <code>chat()</code> dance to avoid polluting history; <code>generate(images=...)</code> removes that.)</p>
 <h2 id="accepted-image-forms">Accepted image forms<a class="headerlink" href="#accepted-image-forms" title="Permanent link">&para;</a></h2>
 <p>Each item in <code>images=[...]</code> may be any of:</p>
 <ul>
@@ -2485,15 +2518,15 @@
 <li><strong><code>http(s)://</code> URL</strong> — passed through to providers that support it</li>
 <li><strong><code>data:image/...;base64,...</code> URL</strong> — passed through</li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">&quot;./local.jpg&quot;</span><span class="p">,</span>                                   <span class="c1"># path string</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./other.png&quot;</span><span class="p">),</span>                             <span class="c1"># Path</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x89</span><span class="s2">PNG</span><span class="se">\r\n\x1a\n</span><span class="s2">...&quot;</span><span class="p">,</span>                         <span class="c1"># bytes</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="s2">&quot;https://example.com/cat.jpg&quot;</span><span class="p">,</span>                   <span class="c1"># URL</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="s2">&quot;data:image/png;base64,iVBORw0KGgoAAAANS...&quot;</span><span class="p">,</span>    <span class="c1"># data URL</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="s2">&quot;./local.jpg&quot;</span><span class="p">,</span>                                   <span class="c1"># path string</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./other.png&quot;</span><span class="p">),</span>                             <span class="c1"># Path</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x89</span><span class="s2">PNG</span><span class="se">\r\n\x1a\n</span><span class="s2">...&quot;</span><span class="p">,</span>                         <span class="c1"># bytes</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="s2">&quot;https://example.com/cat.jpg&quot;</span><span class="p">,</span>                   <span class="c1"># URL</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="s2">&quot;data:image/png;base64,iVBORw0KGgoAAAANS...&quot;</span><span class="p">,</span>    <span class="c1"># data URL</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">])</span>
 </span></code></pre></div>
 <h2 id="vision-capable-models">Vision-capable models<a class="headerlink" href="#vision-capable-models" title="Permanent link">&para;</a></h2>
 <p>Each <code>Model</code> enum exposes a <code>VISION_MODELS</code> classproperty listing members where <code>supports_vision=True</code>. Passing <code>images=</code> to a non-vision model raises <code>ValueError</code> up front.</p>
