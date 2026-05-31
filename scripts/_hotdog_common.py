@@ -96,12 +96,11 @@ def summarize_for_image(client, description: str, max_prompt_tokens: int) -> str
 
     The second stage of the describe → summarize chain. Runs the budget-aware
     summarizer instruction through a text ``client`` (the eval model is reused —
-    summarization is text-only) and returns the stripped prompt. The client is reset
-    first so the call doesn't inherit or pollute prior conversation state.
+    summarization is text-only) and returns the stripped prompt. Uses stateless
+    ``generate()`` so the call neither inherits nor pollutes prior conversation state.
     """
-    client.reset()
     instruction = build_summarizer_prompt(max_prompt_tokens)
-    return client.chat(f"{instruction}\nDescription:\n{description}").strip()
+    return client.generate(f"{instruction}\nDescription:\n{description}").strip()
 
 
 def suppress_benign_clip_warning(image_client) -> None:

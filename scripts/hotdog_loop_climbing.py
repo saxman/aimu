@@ -63,8 +63,8 @@ def refine_from_best(eval_client, best_image_path: str, rejected: list[str]) -> 
     if rejected:
         bullets = "\n".join(f"- {idea}" for idea in rejected)
         avoid = f"\nDo NOT reuse these approaches that were already tried and did not help:\n{bullets}"
-    eval_client.reset()
-    return eval_client.chat(REFINE_PROMPT.format(avoid=avoid), images=[best_image_path]).strip()
+    # Stateless one-shot vision call — no reset() needed, no history kept.
+    return eval_client.generate(REFINE_PROMPT.format(avoid=avoid), images=[best_image_path]).strip()
 
 
 def run_climb(

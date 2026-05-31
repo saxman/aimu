@@ -320,3 +320,36 @@ def test_evaluator_evaluate_falls_back_to_latest_image(tmp_path):
     # The vision call used the real latest image, not the bogus path.
     vision_client.generate.assert_called_once_with(EVALUATOR_PROMPT, images=[real_path])
     assert records[0]["action"] == "DONE"
+
+
+def test_summarize_for_image_uses_stateless_generate():
+    """summarize_for_image is text-only and stateless (generate, no reset)."""
+    from _hotdog_common import summarize_for_image
+
+    client = MagicMock()
+    client.generate.return_value = "  flaming hotdog, charred, lava lighting  "
+
+    out = summarize_for_image(client, "a long flaming description", 256)
+
+    client.reset.assert_not_called()
+    assert out == "flaming hotdog, charred, lava lighting"  # stripped
+    # Text-only: no images forwarded.
+    _, kwargs = client.generate.call_args
+    assert "images" not in kwargs
+
+
+def test_refine_from_best_uses_stateless_generate(tmp_path):
+    """refine_from_best is a one-shot vision call via stateless generate(images=)."""
+    from hotdog_loop_climbing import refine_from_best
+
+    client = MagicMock()
+    client.generate.return_value = "  brighter flames and more char  "
+
+    out = refine_from_best(client, str(tmp_path / "best.png"), rejected=["more steam"])
+
+    client.reset.assert_not_called()
+    client.generate.assert_called_once()
+    args, kwargs = client.generate.call_args
+    assert kwargs["images"] == [str(tmp_path / "best.png")]
+    assert "more steam" in args[0]  # the rejected idea is listed in the avoid clause
+    assert out == "brighter flames and more char"
