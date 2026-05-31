@@ -1134,10 +1134,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#greedy-walk-vs-hill-climbing" class="md-nav__link">
+  <a href="#search-strategy-greedy-hill-climbing-simulated-annealing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Greedy walk vs hill-climbing
+        Search strategy: greedy → hill-climbing → simulated annealing
       
     </span>
   </a>
@@ -2486,10 +2486,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#greedy-walk-vs-hill-climbing" class="md-nav__link">
+  <a href="#search-strategy-greedy-hill-climbing-simulated-annealing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Greedy walk vs hill-climbing
+        Search strategy: greedy → hill-climbing → simulated annealing
       
     </span>
   </a>
@@ -2656,19 +2656,21 @@
 
 <h1 id="iterative-image-refinement">Iterative image refinement<a class="headerlink" href="#iterative-image-refinement" title="Permanent link">&para;</a></h1>
 <p>Build a <strong>generate → evaluate → refine</strong> loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — <em>"make a hotdog as visually hot as possible"</em> — that composes image generation, vision input, prompt chaining, and either an agent, a plain Python loop, or a library workflow class.</p>
-<p>The full, runnable code lives in four scripts that share one helper module:</p>
+<p>The full, runnable code lives in five scripts that share one helper module:</p>
 <ul>
 <li><code>scripts/hotdog_loop.py</code> — <strong>Python directs the loop</strong> (a plain code-controlled <code>for</code> loop).</li>
 <li><code>scripts/hotdog_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
 <li><code>scripts/hotdog_evaluator.py</code> — <strong><code>EvaluatorOptimizer</code> directs the loop</strong> (the library workflow class, composing a generator + critic agent).</li>
-<li><code>scripts/hotdog_loop_climbing.py</code> — like the loop, but <strong>hill-climbs</strong>: keeps the best image and reverts on regression.</li>
-<li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by all four.</li>
+<li><code>scripts/hotdog_loop_climbing.py</code> — like the loop, but <strong>hill-climbs</strong>: keeps the best image and reverts when a step doesn't beat it.</li>
+<li><code>scripts/hotdog_anneal.py</code> — <strong>simulated annealing</strong>: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.</li>
+<li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by all of them.</li>
 </ul>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w">                 </span><span class="c1"># code-directed greedy walk</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w">                </span><span class="c1"># agent-directed greedy walk</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_evaluator.py<span class="w">            </span><span class="c1"># EvaluatorOptimizer workflow class</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_loop_climbing.py<span class="w">                </span><span class="c1"># hill-climb: keep best, revert on regression</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">   </span><span class="c1"># run until the critic says DONE</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_loop_climbing.py<span class="w">                </span><span class="c1"># hill-climb: keep best, revert when a step doesn&#39;t beat it</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>scripts/hotdog_anneal.py<span class="w"> </span>--seed<span class="w"> </span><span class="m">7</span><span class="w">              </span><span class="c1"># simulated annealing: explore early, cool to greedy</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">   </span><span class="c1"># run until the critic says DONE</span>
 </span></code></pre></div>
 <h2 id="three-ways-to-run-the-same-loop">Three ways to run the same loop<a class="headerlink" href="#three-ways-to-run-the-same-loop" title="Permanent link">&para;</a></h2>
 <p>The same task is implemented three times on purpose — it's a concrete take on <a href="../../explanation/agents-vs-workflows/">agents vs workflows</a>:</p>
@@ -2678,16 +2680,25 @@
 <li><strong>Workflow-class</strong> (<code>hotdog_evaluator.py</code>): you express the loop with <a href="../../reference/api/agents/"><code>EvaluatorOptimizer</code></a>, the library's generate → evaluate → revise workflow, by composing a generator agent and a critic agent. Reach for this when your task already matches a named pattern and you'd rather configure it than hand-write the loop.</li>
 </ul>
 <p>All three produce the same artifacts and share every prompt and helper, so the diff between them is purely <em>who drives the loop</em>.</p>
-<h2 id="greedy-walk-vs-hill-climbing">Greedy walk vs hill-climbing<a class="headerlink" href="#greedy-walk-vs-hill-climbing" title="Permanent link">&para;</a></h2>
+<h2 id="search-strategy-greedy-hill-climbing-simulated-annealing">Search strategy: greedy → hill-climbing → simulated annealing<a class="headerlink" href="#search-strategy-greedy-hill-climbing-simulated-annealing" title="Permanent link">&para;</a></h2>
 <p>The loop and agent scripts are <strong>greedy</strong>: each round they accept whatever prompt the critic proposes and move on — even if the new image scored <em>lower</em> than a previous one. That's simple and often fine, but the "best" image can be somewhere in the middle of the run rather than at the end.</p>
-<p><code>hotdog_loop_climbing.py</code> borrows the strategy from <a href="../tune-prompts/"><code>aimu.prompts</code></a> tuning — <strong>best-state caching + revert-on-regression</strong>:</p>
+<p><code>hotdog_loop_climbing.py</code> borrows the strategy from <a href="../tune-prompts/"><code>aimu.prompts</code></a> tuning — <strong>best-state caching + revert when a step doesn't beat the best</strong>:</p>
 <ul>
 <li>Track the highest-scoring image so far.</li>
-<li>If a generation <strong>improves</strong> on the best, adopt it and refine from there.</li>
-<li>If it <strong>regresses</strong>, discard it, revert to the best, and ask the critic for a <em>different</em> refinement (passing the ideas that already failed so it explores a new direction).</li>
+<li>If a generation <strong>beats</strong> the best (strictly higher score), adopt it and refine from there.</li>
+<li>If it <strong>doesn't</strong> (a lower score <em>or</em> a tie — the coarse 1–10 judge makes ties common, and a tie isn't demonstrated progress), discard it, revert to the best, and ask the critic for a <em>different</em> refinement (passing the ideas that already failed so it explores a new direction).</li>
 <li>Stop on <code>DONE</code>, after <code>--patience</code> consecutive non-improvements, or at <code>--max-iterations</code>. The winner is copied to <code>best.png</code>.</li>
 </ul>
-<p>This makes the search monotonic (the result is never worse than the best seen) at the cost of extra critic calls on regressions. It's the single-artifact analog of how prompt tuning hill-climbs a reusable prompt — see the comparison in <a href="../tune-prompts/">Tune prompts</a>. Note the <em>opposite</em> direction (using prompt tuning to find a reusable image prompt across a dataset) is a different, also-valid use of the <code>Scorer</code> abstraction.</p>
+<p>This makes the search monotonic (the result is never worse than the best seen) at the cost of extra critic calls on non-improving steps. It's the single-artifact analog of how prompt tuning hill-climbs a reusable prompt — see the comparison in <a href="../tune-prompts/">Tune prompts</a>.</p>
+<p><code>hotdog_anneal.py</code> <strong>generalises the climber into simulated annealing</strong> — in fact the climber is annealing's <code>T → 0</code> limit. It keeps a <code>current</code> walk-state (distinct from the best-ever) and accepts the critic's proposed step by the Metropolis rule, where <code>Δ = new_score − current_score</code>:</p>
+<ul>
+<li><code>Δ &gt; 0</code> (hotter): always accept.</li>
+<li><code>Δ == 0</code> (tie): always accept — a free sideways move, the deliberate <em>opposite</em> of the climber's revert-on-tie.</li>
+<li><code>Δ &lt; 0</code> (cooler): accept with probability <code>exp(Δ / T)</code>. A falling temperature (<code>--initial-temp</code>, <code>--cooling-rate</code>) means it explores freely early — taking downhill steps to escape a local optimum — then cools into greedy behaviour. <code>--seed</code> makes the acceptance decisions reproducible. The best-ever image is still tracked separately and copied to <code>best.png</code>.</li>
+</ul>
+<p>The same cooling schedule also drives the <strong>proposer's</strong> sampling temperature: the critic generates refinement ideas at a high LLM temperature while hot (diverse, exploratory) and a low one once cooled (conservative tweaks), via <code>_proposer_temperature</code>. Only proposals are annealed — the <strong>judge that assigns the score stays cold</strong>, since the score is the optimisation objective and must stay stable (annealing it would inject noise into the very signal you're climbing). This is the difference between annealing the <em>acceptance</em> and annealing the <em>proposal distribution</em> too; the script does both off one schedule.</p>
+<p>Annealing is worth reaching for when the climber gets stuck on a plateau, but mind the domain: the judge's coarse integer score means <code>Δ</code> is almost always <code>0</code> or <code>±1</code> (so temperature control is blunt), and each step is an expensive image generation, so runs are short — the practical win is local-optimum escape, not asymptotic convergence.</p>
+<p>Note the <em>opposite</em> direction (using prompt tuning to find a reusable image prompt across a dataset) is a different, also-valid use of the <code>Scorer</code> abstraction.</p>
 <h2 id="the-pieces">The pieces<a class="headerlink" href="#the-pieces" title="Permanent link">&para;</a></h2>
 <h3 id="two-clients-a-generator-and-a-vision-critic">Two clients: a generator and a vision critic<a class="headerlink" href="#two-clients-a-generator-and-a-vision-critic" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
