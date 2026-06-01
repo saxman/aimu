@@ -79,16 +79,26 @@ from .models import (
 )
 
 
-def client(model: Union[str, Model], *, system: Optional[str] = None, **kwargs: Any) -> ModelClient:
+def client(model: Union[str, Model, None] = None, *, system: Optional[str] = None, **kwargs: Any) -> ModelClient:
     """Construct a :class:`ModelClient` from a model string or enum member.
 
     ``model`` may be a ``"provider:model_id"`` string (``"anthropic:claude-sonnet-4-6"``,
     ``"ollama:qwen3.5:9b"``) or any provider's ``Model`` enum member. Extra ``**kwargs``
     are forwarded to the underlying provider client (e.g. ``model_path=`` for llama-cpp).
 
+    When ``model`` is omitted, a default is resolved: the ``AIMU_LANGUAGE_MODEL`` env var
+    if set, otherwise an already-available local model (a running Ollama server, a cached
+    HuggingFace model, or a local OpenAI-compatible server). A cloud provider is never
+    auto-selected and weights are never downloaded implicitly; if nothing resolves a
+    ``ValueError`` is raised naming the remedies.
+
     Use this as the one-line construction helper. For full control over the provider
     client constructor, use :class:`ModelClient` directly.
     """
+    if model is None:
+        from .models._defaults import resolve_default_text_model
+
+        model = resolve_default_text_model()
     if system is not None:
         kwargs["system_message"] = system
     return ModelClient(model, **kwargs)
@@ -97,7 +107,7 @@ def client(model: Union[str, Model], *, system: Optional[str] = None, **kwargs: 
 def chat(
     user_message: str,
     *,
-    model: Union[str, Model],
+    model: Union[str, Model, None] = None,
     system: Optional[str] = None,
     generate_kwargs: Optional[dict] = None,
     stream: bool = False,
@@ -109,9 +119,13 @@ def chat(
     For multi-turn conversations construct a :class:`ModelClient` with :func:`client` and
     call its ``chat()`` repeatedly.
 
+    ``model`` may be omitted to use the default resolved by :func:`client` (the
+    ``AIMU_LANGUAGE_MODEL`` env var or an already-available local model).
+
     Example::
 
         text = aimu.chat("Summarize this", model="anthropic:claude-sonnet-4-6")
+        text = aimu.chat("Hello")  # uses AIMU_LANGUAGE_MODEL or a local model
 
         for chunk in aimu.chat("Tell me a story", model="ollama:qwen3.5:9b", stream=True):
             if chunk.is_text():
@@ -128,7 +142,7 @@ def chat(
 
 
 def agent(
-    model: Union[str, Model],
+    model: Union[str, Model, None] = None,
     *,
     system: Optional[str] = None,
     tools: Optional[list] = None,
@@ -139,6 +153,8 @@ def agent(
     Shortcut for the common case of ``Agent(aimu.client(model), ...)``. For full
     control (``mcp_client``, ``max_iterations``, ``name``, etc.) construct
     :class:`~aimu.agents.Agent` directly.
+
+    ``model`` may be omitted to use the default resolved by :func:`client`.
 
     ``**kwargs`` are forwarded to :class:`~aimu.agents.Agent` (e.g.
     ``max_iterations=5``, ``name="my-agent"``).
@@ -160,12 +176,15 @@ def agent(
     return Agent(client(model), system, tools=tools or [], **kwargs)
 
 
-def audio_client(model: Union[str, AudioModel, AudioSpec], **kwargs: Any) -> AudioClient:
+def audio_client(model: Union[str, AudioModel, AudioSpec, None] = None, **kwargs: Any) -> AudioClient:
     """Construct an :class:`AudioClient` for text-to-audio (music/sound) generation.
 
     ``model`` may be a :class:`HuggingFaceAudioModel` member, a :class:`HuggingFaceAudioSpec`,
     or a ``"hf:repo_id"`` string. Extra ``**kwargs`` are forwarded as ``model_kwargs`` to
     the underlying provider client.
+
+    When ``model`` is omitted, the ``AIMU_AUDIO_MODEL`` env var is used; if it is unset a
+    ``ValueError`` is raised (no model is downloaded implicitly).
 
     Example::
 
@@ -177,13 +196,17 @@ def audio_client(model: Union[str, AudioModel, AudioSpec], **kwargs: Any) -> Aud
             "Audio generation requires the [hf] extra (soundfile, torch, transformers, diffusers): "
             "pip install -e '.[hf]'"
         )
+    if model is None:
+        from .models._defaults import AUDIO_MODEL_ENV, resolve_default_modality_model
+
+        model = resolve_default_modality_model(AUDIO_MODEL_ENV)
     return AudioClient(model, model_kwargs=kwargs or None)
 
 
 def generate_audio(
     prompt: str,
     *,
-    model: Union[str, AudioModel, AudioSpec],
+    model: Union[str, AudioModel, AudioSpec, None] = None,
     format: str = "path",
     **kwargs: Any,
 ) -> Any:
@@ -215,7 +238,7 @@ def generate_audio(
     return c.generate(prompt, format=format, **kwargs)
 
 
-def speech_client(model: Union[str, SpeechModel, SpeechSpec], **kwargs: Any) -> SpeechClient:
+def speech_client(model: Union[str, SpeechModel, SpeechSpec, None] = None, **kwargs: Any) -> SpeechClient:
     """Construct a :class:`SpeechClient` for text-to-speech generation.
 
     ``model`` may be a :class:`HuggingFaceSpeechModel` / :class:`OpenAISpeechModel`
@@ -223,18 +246,25 @@ def speech_client(model: Union[str, SpeechModel, SpeechSpec], **kwargs: Any) -> 
     (``"hf:..."`` for HuggingFace; ``"openai:..."`` for OpenAI TTS).
     Extra ``**kwargs`` are forwarded as ``model_kwargs`` to the underlying client.
 
+    When ``model`` is omitted, the ``AIMU_SPEECH_MODEL`` env var is used; if it is unset a
+    ``ValueError`` is raised (no model is downloaded implicitly).
+
     Example::
 
         client = aimu.speech_client("openai:tts-1")
         client = aimu.speech_client(aimu.HuggingFaceSpeechModel.MMS_TTS_ENG)
     """
+    if model is None:
+        from .models._defaults import SPEECH_MODEL_ENV, resolve_default_modality_model
+
+        model = resolve_default_modality_model(SPEECH_MODEL_ENV)
     return SpeechClient(model, model_kwargs=kwargs or None)
 
 
 def generate_speech(
     text: str,
     *,
-    model: Union[str, SpeechModel, SpeechSpec],
+    model: Union[str, SpeechModel, SpeechSpec, None] = None,
     format: str = "path",
     **kwargs: Any,
 ) -> Any:
@@ -252,7 +282,7 @@ def generate_speech(
     return c.generate(text, format=format, **kwargs)
 
 
-def image_client(model: Union[str, ImageModel, ImageSpec], **kwargs: Any) -> ImageClient:
+def image_client(model: Union[str, ImageModel, ImageSpec, None] = None, **kwargs: Any) -> ImageClient:
     """Construct an :class:`ImageClient` for text-to-image generation.
 
     ``model`` may be a :class:`HuggingFaceImageModel` / :class:`GeminiImageModel` member,
@@ -261,18 +291,25 @@ def image_client(model: Union[str, ImageModel, ImageSpec], **kwargs: Any) -> Ima
     Extra ``**kwargs`` are forwarded as ``model_kwargs`` to the underlying provider client
     (e.g. ``api_key=`` for Gemini, ``variant="fp16"`` for diffusers pipelines).
 
+    When ``model`` is omitted, the ``AIMU_IMAGE_MODEL`` env var is used; if it is unset a
+    ``ValueError`` is raised (no model is downloaded implicitly).
+
     Example::
 
         client = aimu.image_client(aimu.HuggingFaceImageModel.SD_1_5)
         client = aimu.image_client("gemini:nano-banana")
     """
+    if model is None:
+        from .models._defaults import IMAGE_MODEL_ENV, resolve_default_modality_model
+
+        model = resolve_default_modality_model(IMAGE_MODEL_ENV)
     return ImageClient(model, model_kwargs=kwargs or None)
 
 
 def generate_image(
     prompt: str,
     *,
-    model: Union[str, ImageModel, ImageSpec],
+    model: Union[str, ImageModel, ImageSpec, None] = None,
     format: str = "pil",
     **kwargs: Any,
 ) -> Any:

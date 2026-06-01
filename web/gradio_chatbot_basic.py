@@ -61,7 +61,7 @@ def respond(message, history, client, manager):
     manager.update_conversation(client.messages)
 
 
-from aimu.models.ollama import OllamaClient, OllamaModel
+from aimu.models.ollama import OllamaClient, OllamaModel  # noqa: E402
 
 _default_cls = OllamaClient
 _default_model = OllamaModel.QWEN_3_5_9B
@@ -101,7 +101,12 @@ with gr.Blocks(title="AIMU Chatbot") as demo:
     def on_client_change(client_name):
         cls = next(c for c in _all_clients if c.__name__ == client_name)
         model = cls.TOOL_MODELS[0]
-        return gr.update(choices=[m.name for m in cls.TOOL_MODELS], value=model.name), _new_client(cls, model), _new_manager(), []
+        return (
+            gr.update(choices=[m.name for m in cls.TOOL_MODELS], value=model.name),
+            _new_client(cls, model),
+            _new_manager(),
+            [],
+        )
 
     def on_model_change(client_name, model_name):
         cls = next(c for c in _all_clients if c.__name__ == client_name)

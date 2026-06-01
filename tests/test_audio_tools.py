@@ -71,7 +71,10 @@ def test_lazy_singleton_constructed_once(monkeypatch):
 
     constructed: list[str] = []
 
-    def fake_audio_client(model_str):
+    def fake_audio_client(model=None):
+        import os
+
+        model_str = model or os.environ.get("AIMU_AUDIO_MODEL")
         constructed.append(model_str)
         from aimu.models.hf_audio import HuggingFaceAudioClient
 
@@ -92,6 +95,18 @@ def test_singleton_honours_env_var(monkeypatch):
 
     c = builtin._get_audio_client()
     assert c.spec.id == "facebook/musicgen-small"
+
+
+def test_singleton_raises_when_env_unset(monkeypatch):
+    """With AIMU_AUDIO_MODEL unset, the tool raises and never downloads a default."""
+    import pytest
+
+    monkeypatch.setattr(builtin, "_audio_client", None)
+    monkeypatch.delenv("AIMU_AUDIO_MODEL", raising=False)
+
+    with pytest.raises(ValueError, match="AIMU_AUDIO_MODEL"):
+        builtin._get_audio_client()
+    assert builtin._audio_client is None
 
 
 def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):

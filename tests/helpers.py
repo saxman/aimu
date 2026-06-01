@@ -56,7 +56,7 @@ if HAS_GEMINI_IMAGE:
     from aimu.models import GeminiImageClient
 
 if HAS_HF_AUDIO:
-    from aimu.models import HuggingFaceAudioClient, HuggingFaceAudioModel
+    from aimu.models import HuggingFaceAudioClient
 
 
 # ---------------------------------------------------------------------------

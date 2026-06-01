@@ -3,6 +3,7 @@
 
 Parallel to tests/test_audio_api.py for the speech (TTS) modality.
 """
+
 from __future__ import annotations
 import sys
 import types
@@ -14,58 +15,92 @@ import pytest
 def _make_stub_module(name: str) -> types.ModuleType:
     """Create a stub module with a valid __spec__ so importlib.util.find_spec works."""
     import importlib.machinery
+
     mod = types.ModuleType(name)
     mod.__spec__ = importlib.machinery.ModuleSpec(name, None)
     mod._aimu_stub = True  # type: ignore[attr-defined]
     return mod
 
 
-def _install_speech_stubs():
-    """Install minimal stubs for soundfile, transformers, openai before importing speech clients."""
+def _install_speech_stubs(monkeypatch=None, force=False):
+    """Install minimal stubs for soundfile, transformers, openai before importing speech clients.
+
+    ``test_audio_api`` and ``test_speech_api`` both stub ``transformers`` but with different
+    fakes (MusicGen vs. SpeechT5/Bark/pipeline), and they share the ``_aimu_stub`` marker — so
+    whichever is imported first during collection wins and the other's polite guard skips, leaving
+    the wrong stub in ``sys.modules``. Pass ``force=True`` (from the autouse fixture below) to
+    overwrite whatever is present; pass ``monkeypatch`` so the override is scoped to one test and
+    restored afterwards (no cross-file pollution). Called once at import time with neither argument
+    purely so module-level ``from aimu.models.hf_speech import ...`` can import (it hard-imports
+    ``soundfile``)."""
+
+    def _set(name, mod):
+        if monkeypatch is not None:
+            monkeypatch.setitem(sys.modules, name, mod)
+        else:
+            sys.modules[name] = mod
+
     # soundfile — needed by encode_audio (imported by hf_speech_client)
-    if not getattr(sys.modules.get("soundfile"), "_aimu_stub", False):
+    if force or not getattr(sys.modules.get("soundfile"), "_aimu_stub", False):
         sf_stub = _make_stub_module("soundfile")
+
         def _sf_write(file, data, samplerate, format=None, subtype=None):
             file.write(b"RIFF" + b"\x00" * 40)
+
         sf_stub.write = _sf_write
-        sys.modules["soundfile"] = sf_stub
+        _set("soundfile", sf_stub)
 
     # diffusers — stub before transformers to prevent the real diffusers from
     # calling importlib.util.find_spec("transformers") on our stub (which has
     # __spec__=None and triggers a ValueError).
     try:
         from test_images_api import _install_diffusers_stub
+
         _install_diffusers_stub()
     except ImportError:
         if "diffusers" not in sys.modules:
             sys.modules["diffusers"] = _make_stub_module("diffusers")
 
     # transformers
-    if not getattr(sys.modules.get("transformers"), "_aimu_stub", False):
+    if force or not getattr(sys.modules.get("transformers"), "_aimu_stub", False):
         tr_stub = _make_stub_module("transformers")
 
         class _FakeTTSPipeline:
             _last_text = None
+
             @classmethod
-            def from_pretrained(cls, *a, **kw): return cls()
+            def from_pretrained(cls, *a, **kw):
+                return cls()
+
             def __call__(self, text, **kw):
                 _FakeTTSPipeline._last_text = text
                 return {"audio": np.zeros(1000, dtype=np.float32), "sampling_rate": 16000}
 
         class _FakeBarkProcessor:
             @classmethod
-            def from_pretrained(cls, *a, **kw): return cls()
+            def from_pretrained(cls, *a, **kw):
+                return cls()
+
             def __call__(self, text, voice_preset=None, return_tensors=None):
                 return {"input_ids": np.array([[1, 2, 3]])}
 
         class _FakeBarkModel:
             class generation_config:
                 sample_rate = 24000
+
             @classmethod
-            def from_pretrained(cls, *a, **kw): return cls()
+            def from_pretrained(cls, *a, **kw):
+                return cls()
+
             def parameters(self):
-                p = MagicMock(); p.device = MagicMock(); p.device.type = "cpu"; yield p
-            def to(self, device): return self
+                p = MagicMock()
+                p.device = MagicMock()
+                p.device.type = "cpu"
+                yield p
+
+            def to(self, device):
+                return self
+
             def generate(self, **kw):
                 arr = MagicMock()
                 arr.cpu.return_value = arr
@@ -75,17 +110,27 @@ def _install_speech_stubs():
 
         class _FakeSpeechT5Processor:
             @classmethod
-            def from_pretrained(cls, *a, **kw): return cls()
+            def from_pretrained(cls, *a, **kw):
+                return cls()
+
             def __call__(self, text=None, return_tensors=None, **kw):
                 return {"input_ids": MagicMock(to=lambda d: MagicMock())}
 
         class _FakeSpeechT5Model:
             _device = "cpu"
+
             @classmethod
-            def from_pretrained(cls, *a, **kw): return cls()
-            def to(self, device): return self
+            def from_pretrained(cls, *a, **kw):
+                return cls()
+
+            def to(self, device):
+                return self
+
             def parameters(self):
-                p = MagicMock(); p.device = "cpu"; yield p
+                p = MagicMock()
+                p.device = "cpu"
+                yield p
+
             def generate_speech(self, input_ids, speaker_embeddings, vocoder=None):
                 arr = MagicMock()
                 arr.cpu.return_value = arr
@@ -95,8 +140,11 @@ def _install_speech_stubs():
 
         class _FakeSpeechT5HifiGan:
             @classmethod
-            def from_pretrained(cls, *a, **kw): return cls()
-            def to(self, device): return self
+            def from_pretrained(cls, *a, **kw):
+                return cls()
+
+            def to(self, device):
+                return self
 
         def _pipeline(task, model=None, **kw):
             return _FakeTTSPipeline()
@@ -107,10 +155,10 @@ def _install_speech_stubs():
         tr_stub.SpeechT5Processor = _FakeSpeechT5Processor
         tr_stub.SpeechT5ForTextToSpeech = _FakeSpeechT5Model
         tr_stub.SpeechT5HifiGan = _FakeSpeechT5HifiGan
-        sys.modules["transformers"] = tr_stub
+        _set("transformers", tr_stub)
 
     # datasets — needed by SpeechT5 for speaker embeddings
-    if not getattr(sys.modules.get("datasets"), "_aimu_stub", False):
+    if force or not getattr(sys.modules.get("datasets"), "_aimu_stub", False):
         ds_stub = _make_stub_module("datasets")
 
         class _FakeXvectorsDataset:
@@ -121,10 +169,10 @@ def _install_speech_stubs():
             return _FakeXvectorsDataset()
 
         ds_stub.load_dataset = _load_dataset
-        sys.modules["datasets"] = ds_stub
+        _set("datasets", ds_stub)
 
     # openai
-    if not getattr(sys.modules.get("openai"), "_aimu_stub", False):
+    if force or not getattr(sys.modules.get("openai"), "_aimu_stub", False):
         openai_stub = _make_stub_module("openai")
 
         class _FakeSpeechResponse:
@@ -138,7 +186,10 @@ def _install_speech_stubs():
             def __enter__(self):
                 self._chunks = [b"\x00\x01" * 512, b"\x00\x02" * 512]
                 return self
-            def __exit__(self, *a): pass
+
+            def __exit__(self, *a):
+                pass
+
             def iter_bytes(self, chunk_size=4096):
                 yield from self._chunks
 
@@ -148,32 +199,47 @@ def _install_speech_stubs():
 
         class _FakeAudioSpeech:
             speech = _FakeSpeechCreate()
+
             class with_streaming_response:
                 speech = _FakeWithStreaming()
 
         class _FakeOpenAI:
-            def __init__(self, **kw): pass
+            def __init__(self, **kw):
+                pass
+
             audio = _FakeAudioSpeech()
 
         openai_stub.OpenAI = _FakeOpenAI
-        sys.modules["openai"] = openai_stub
-        sys.modules["openai.resources"] = _make_stub_module("openai.resources")
-        sys.modules["openai._client"] = _make_stub_module("openai._client")
+        _set("openai", openai_stub)
+        _set("openai.resources", _make_stub_module("openai.resources"))
+        _set("openai._client", _make_stub_module("openai._client"))
 
 
+# Permanent install so module-level ``from aimu.models.hf_speech import ...`` can import at
+# collection time (hf_speech_client hard-imports soundfile).
 _install_speech_stubs()
+
+
+@pytest.fixture(autouse=True)
+def _force_speech_stubs(monkeypatch):
+    """Re-assert the speech stubs before each test, scoped + restored via monkeypatch.
+
+    Guarantees this module's tests see the SpeechT5/Bark/pipeline transformers stub even when
+    another test file (e.g. test_audio_api) installed its own transformers stub earlier in the
+    session. monkeypatch restores the prior sys.modules entries afterwards, so this never leaks
+    into other files."""
+    _install_speech_stubs(monkeypatch=monkeypatch, force=True)
 
 
 # ---------------------------------------------------------------------------
 # SpeechSpec equality and StreamChunk helper
 # ---------------------------------------------------------------------------
 
-from aimu.models.base import (
+from aimu.models.base import (  # noqa: E402
     BaseSpeechClient,
     SpeechSpec,
     HuggingFaceSpeechSpec,
     OpenAISpeechSpec,
-    SpeechModel,
     StreamChunk,
     StreamingContentType,
 )
@@ -331,8 +397,8 @@ def test_base_client_stream_num_audio_correct_indices():
 # HuggingFace speech client
 # ---------------------------------------------------------------------------
 
-import importlib
-import aimu.models
+import importlib  # noqa: E402
+import aimu.models  # noqa: E402
 
 
 def _register_hf_speech():
@@ -343,9 +409,10 @@ def _register_hf_speech():
     aimu.models.HuggingFaceSpeechClient = mod.HuggingFaceSpeechClient
     aimu.models.HuggingFaceSpeechModel = mod.HuggingFaceSpeechModel
 
+
 _register_hf_speech()
 
-from aimu.models.hf_speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
+from aimu.models.hf_speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel  # noqa: E402
 
 
 def test_hf_speech_model_enum_values():
@@ -457,6 +524,7 @@ def test_hf_speech_client_num_audio():
 # OpenAI speech client
 # ---------------------------------------------------------------------------
 
+
 def _register_openai_speech():
     if getattr(aimu.models, "HAS_OPENAI_SPEECH", False):
         return
@@ -466,9 +534,10 @@ def _register_openai_speech():
     aimu.models.OpenAISpeechModel = mod.OpenAISpeechModel
     aimu.models.HAS_OPENAI_SPEECH = True
 
+
 _register_openai_speech()
 
-from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel
+from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel  # noqa: E402
 
 
 def test_openai_speech_model_enum_values():
@@ -502,6 +571,7 @@ def test_openai_speech_client_generate_numpy(monkeypatch):
 def test_openai_speech_client_pcm_decode_produces_float32(monkeypatch):
     """PCM bytes must be decoded to float32 in [-1, 1]."""
     import numpy as np
+
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     client = OpenAISpeechClient(OpenAISpeechModel.TTS_1)
     sr, audio = client.generate("Test", format="numpy")
@@ -536,11 +606,12 @@ def test_openai_speech_client_voice_param_forwarded(monkeypatch):
 # SpeechClient factory + top-level API
 # ---------------------------------------------------------------------------
 
-import aimu
+import aimu  # noqa: E402
 
 
 def test_speech_client_factory_hf_string():
     from aimu.models.speech_client import SpeechClient
+
     client = SpeechClient("hf:facebook/mms-tts-eng")
     assert client.spec.id == "facebook/mms-tts-eng"
 
@@ -548,12 +619,14 @@ def test_speech_client_factory_hf_string():
 def test_speech_client_factory_openai_string(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     from aimu.models.speech_client import SpeechClient
+
     client = SpeechClient("openai:tts-1")
     assert client.spec.id == "tts-1"
 
 
 def test_speech_client_factory_hf_enum():
     from aimu.models.speech_client import SpeechClient
+
     client = SpeechClient(HuggingFaceSpeechModel.MMS_TTS_ENG)
     assert client.spec.id == "facebook/mms-tts-eng"
 
@@ -561,6 +634,7 @@ def test_speech_client_factory_hf_enum():
 def test_speech_client_factory_openai_enum(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     from aimu.models.speech_client import SpeechClient
+
     client = SpeechClient(OpenAISpeechModel.TTS_1)
     assert client.spec.id == "tts-1"
 
@@ -568,12 +642,14 @@ def test_speech_client_factory_openai_enum(monkeypatch):
 def test_speech_client_factory_spec_raises():
     from aimu.models.speech_client import SpeechClient
     from aimu.models.base import HuggingFaceSpeechSpec
+
     with pytest.raises(TypeError, match="enum member"):
         SpeechClient(HuggingFaceSpeechSpec("facebook/mms-tts-eng"))
 
 
 def test_speech_client_factory_unknown_provider():
     from aimu.models.speech_client import SpeechClient
+
     with pytest.raises(ValueError, match="Unknown speech provider"):
         SpeechClient("gcp:wavenet-en")
 
@@ -581,6 +657,7 @@ def test_speech_client_factory_unknown_provider():
 def test_speech_client_generate_delegates(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     from aimu.models.speech_client import SpeechClient
+
     client = SpeechClient("openai:tts-1")
     result = client.generate("Hello", format="path", output_dir=tmp_path)
     assert result.endswith(".wav")
@@ -589,6 +666,7 @@ def test_speech_client_generate_delegates(monkeypatch, tmp_path):
 def test_top_level_speech_client(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     import aimu
+
     assert callable(aimu.speech_client)
     client = aimu.speech_client("openai:tts-1")
     assert client.spec.id == "tts-1"
@@ -597,12 +675,14 @@ def test_top_level_speech_client(monkeypatch):
 def test_top_level_generate_speech(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     import aimu
+
     result = aimu.generate_speech("Hello", model="openai:tts-1", format="path", output_dir=tmp_path)
     assert result.endswith(".wav")
 
 
 def test_available_speech_clients_returns_list():
     from aimu.models import available_speech_clients
+
     clients = available_speech_clients()
     assert isinstance(clients, list)
     assert len(clients) >= 1  # at least one provider installed

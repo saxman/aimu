@@ -253,7 +253,9 @@ class AsyncModelClient(AsyncBaseModelClient):
         return self._client._update_generate_kwargs(generate_kwargs)
 
 
-def client(model: Union[str, Model, Any], *, system: Optional[str] = None, **kwargs: Any) -> AsyncModelClient:
+def client(
+    model: Union[str, Model, Any, None] = None, *, system: Optional[str] = None, **kwargs: Any
+) -> AsyncModelClient:
     """Construct an :class:`AsyncModelClient` from a model string, enum, or existing sync client.
 
     For in-process providers (HuggingFace, LlamaCpp), pass an existing sync client to
@@ -261,7 +263,15 @@ def client(model: Union[str, Model, Any], *, system: Optional[str] = None, **kwa
 
         sync_client = aimu.client(HuggingFaceModel.LLAMA_70B)
         async_client = aio.client(sync_client)
+
+    When ``model`` is omitted, a default is resolved from ``AIMU_LANGUAGE_MODEL`` or an
+    already-available local model. The async path probes only Ollama and local
+    OpenAI-compatible servers (an ``hf:`` default would need an explicit sync-client wrap).
     """
+    if model is None:
+        from aimu.models._defaults import resolve_default_text_model
+
+        model = resolve_default_text_model(include_hf_cache=False)
     if system is not None:
         kwargs["system_message"] = system
     return AsyncModelClient(model, **kwargs)
@@ -270,7 +280,7 @@ def client(model: Union[str, Model, Any], *, system: Optional[str] = None, **kwa
 async def chat(
     user_message: str,
     *,
-    model: Union[str, Model],
+    model: Union[str, Model, None] = None,
     system: Optional[str] = None,
     generate_kwargs: Optional[dict] = None,
     stream: bool = False,

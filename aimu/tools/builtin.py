@@ -305,23 +305,22 @@ def read_file(path: str, max_lines: int = 200) -> str:
 # constructed lazily on first ``generate_image()`` call so that importing
 # ``aimu.tools.builtin`` does not pull torch into ``sys.modules``.
 
-_AIMU_IMAGE_DEFAULT = "hf:stabilityai/stable-diffusion-xl-base-1.0"
 _image_client = None
 
 
 def _get_image_client():
     """Return the lazy singleton :class:`ImageClient` for the built-in tool.
 
-    Reads ``AIMU_IMAGE_MODEL`` from the environment (default: SDXL base). Accepts
-    any model string supported by :func:`aimu.image_client` — ``"hf:..."`` for
-    HuggingFace diffusers, ``"gemini:..."`` for Google Nano Banana.
+    Reads ``AIMU_IMAGE_MODEL`` from the environment. Raises ``ValueError`` if it is
+    unset — no model is downloaded implicitly. Accepts any model string supported by
+    :func:`aimu.image_client` — ``"hf:..."`` for HuggingFace diffusers, ``"gemini:..."``
+    for Google Nano Banana.
     """
     global _image_client
     if _image_client is None:
         from aimu import image_client as _image_client_factory
 
-        model_str = os.environ.get("AIMU_IMAGE_MODEL", _AIMU_IMAGE_DEFAULT)
-        _image_client = _image_client_factory(model_str)
+        _image_client = _image_client_factory()  # resolves AIMU_IMAGE_MODEL or raises
     return _image_client
 
 
@@ -335,12 +334,12 @@ def generate_image(prompt: str):
     streaming path (``agent.run(stream=True)``), each step chunk flows through
     the agent's own stream and into the chat UI live.
 
-    Uses an :class:`aimu.ImageClient`. The default model is controlled by the
-    ``AIMU_IMAGE_MODEL`` env var (default: SDXL base; pass any HF diffusers repo
-    via ``"hf:..."`` or ``"gemini:nano-banana"`` for Google Nano Banana).
-    Override per-agent by constructing your own tool with :func:`make_image_tool`
-    — it supports a ``preview_every=N`` kwarg for intermediate denoised-image
-    previews.
+    Uses an :class:`aimu.ImageClient`. The model is controlled by the
+    ``AIMU_IMAGE_MODEL`` env var (required — pass any HF diffusers repo via
+    ``"hf:..."`` or ``"gemini:nano-banana"`` for Google Nano Banana); the tool raises
+    if it is unset. Override per-agent by constructing your own tool with
+    :func:`make_image_tool` — it supports a ``preview_every=N`` kwarg for intermediate
+    denoised-image previews.
 
     Args:
         prompt: A description of the desired image.
@@ -512,22 +511,21 @@ def make_tools(
 # The client is constructed lazily on first ``generate_audio()`` call so that
 # importing ``aimu.tools.builtin`` does not pull torch into ``sys.modules``.
 
-_AIMU_AUDIO_DEFAULT = "hf:facebook/musicgen-small"
 _audio_client = None
 
 
 def _get_audio_client():
     """Return the lazy singleton :class:`AudioClient` for the built-in tool.
 
-    Reads ``AIMU_AUDIO_MODEL`` from the environment (default: MusicGen small).
-    Accepts any ``"hf:<repo_id>"`` string supported by :func:`aimu.audio_client`.
+    Reads ``AIMU_AUDIO_MODEL`` from the environment. Raises ``ValueError`` if it is
+    unset — no model is downloaded implicitly. Accepts any ``"hf:<repo_id>"`` string
+    supported by :func:`aimu.audio_client`.
     """
     global _audio_client
     if _audio_client is None:
         from aimu import audio_client as _audio_client_factory
 
-        model_str = os.environ.get("AIMU_AUDIO_MODEL", _AIMU_AUDIO_DEFAULT)
-        _audio_client = _audio_client_factory(model_str)
+        _audio_client = _audio_client_factory()  # resolves AIMU_AUDIO_MODEL or raises
     return _audio_client
 
 
@@ -541,8 +539,8 @@ def generate_audio(prompt: str):
     streaming path (``agent.run(stream=True)``), each step chunk flows through
     the agent's own stream and into the chat UI live.
 
-    Uses an :class:`aimu.AudioClient`. The default model is controlled by the
-    ``AIMU_AUDIO_MODEL`` env var (default: ``"hf:facebook/musicgen-small"``).
+    Uses an :class:`aimu.AudioClient`. The model is controlled by the
+    ``AIMU_AUDIO_MODEL`` env var (required; the tool raises if it is unset).
     Override per-agent by constructing your own tool with :func:`make_audio_tool`.
 
     Args:
@@ -608,22 +606,21 @@ def make_audio_tool(client, *, duration_s: Optional[float] = None, num_inference
 # call so that importing ``aimu.tools.builtin`` does not pull them into
 # ``sys.modules``.
 
-_AIMU_SPEECH_DEFAULT = "hf:microsoft/speecht5_tts"
 _speech_client = None
 
 
 def _get_speech_client():
     """Return the lazy singleton :class:`SpeechClient` for the built-in tool.
 
-    Reads ``AIMU_SPEECH_MODEL`` from the environment (default: ``"hf:microsoft/speecht5_tts"``).
-    Accepts any ``"provider:model_id"`` string supported by :func:`aimu.speech_client`.
+    Reads ``AIMU_SPEECH_MODEL`` from the environment. Raises ``ValueError`` if it is
+    unset — no model is downloaded implicitly. Accepts any ``"provider:model_id"``
+    string supported by :func:`aimu.speech_client`.
     """
     global _speech_client
     if _speech_client is None:
         from aimu import speech_client as _speech_client_factory
 
-        model_str = os.environ.get("AIMU_SPEECH_MODEL", _AIMU_SPEECH_DEFAULT)
-        _speech_client = _speech_client_factory(model_str)
+        _speech_client = _speech_client_factory()  # resolves AIMU_SPEECH_MODEL or raises
     return _speech_client
 
 
@@ -635,8 +632,8 @@ def generate_speech(text: str):
     :attr:`~aimu.models.StreamingContentType.SPEECH_GENERATING` chunks during
     generation, then returns the saved WAV file path.
 
-    Uses a :class:`aimu.SpeechClient`. The default model is controlled by the
-    ``AIMU_SPEECH_MODEL`` env var (default: ``"hf:microsoft/speecht5_tts"``).
+    Uses a :class:`aimu.SpeechClient`. The model is controlled by the
+    ``AIMU_SPEECH_MODEL`` env var (required; the tool raises if it is unset).
     Override per-agent by constructing your own tool with :func:`make_speech_tool`.
 
     Args:

@@ -153,8 +153,9 @@ python web/gradio_chatbot_basic.py                   # Gradio variant
 ### Top-Level API
 
 - **[aimu/__init__.py](aimu/__init__.py)** exposes the small public surface most users start from:
-  - `aimu.chat(user_message, *, model, system=None, generate_kwargs=None, stream=False, images=None, include=None)` — one-shot chat: builds a fresh client, sends one message, returns the response (or a `StreamChunk` iterator when `stream=True`).
-  - `aimu.client(model, *, system=None, **provider_kwargs)` — one-line constructor that returns a fully configured `ModelClient`. Use this for multi-turn chats.
+  - `aimu.chat(user_message, *, model=None, system=None, generate_kwargs=None, stream=False, images=None, include=None)` — one-shot chat: builds a fresh client, sends one message, returns the response (or a `StreamChunk` iterator when `stream=True`).
+  - `aimu.client(model=None, *, system=None, **provider_kwargs)` — one-line constructor that returns a fully configured `ModelClient`. Use this for multi-turn chats.
+  - **Default model resolution (when `model` is omitted)** — `client()` / `chat()` / `agent()` resolve a text default via `aimu.models._defaults.resolve_default_text_model()`: (1) the `AIMU_LANGUAGE_MODEL` env var (a `"provider:model_id"` string, read after `load_dotenv()`); else (2) an *already-available* local model — a running Ollama server (`ollama.list()`), a cached HuggingFace model (`huggingface_hub.scan_cache_dir()`, download-free), or a running local OpenAI-compat server probed at its default base_url (`models.list()`) — each restricted to ids matching a provider `Model` enum so capabilities are known, preferring tool-capable, logged at WARNING; else (3) a `ValueError` naming the remedies. A cloud provider is **never** auto-selected and weights are **never** downloaded implicitly. The async `aio.client()` reuses the same resolver with `include_hf_cache=False` (an `hf:` default would need an explicit sync-client wrap). The `ModelClient` factory itself still requires an explicit model — the default magic lives only at the ergonomic `aimu.*` layer.
   - `aimu.resolve_model_string(s)` — parses a `"provider:model_id"` string and returns the matching `Model` enum member. Raises `ValueError` with the list of valid ids on miss.
   - Re-exports: `BaseModelClient`, `Model`, `ModelClient`, `ModelSpec`, `StreamChunk`, `StreamingContentType`.
   - `aimu.aio` — async submodule. Imported by default (one-line `from . import aio`) so users can `from aimu import aio` without a separate install. See "Async Surface" below.
@@ -703,13 +704,14 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
   - `import diffusers` is a hard module-load import so `HAS_HF_IMAGE` accurately reflects "the optional dep is installed" (matches the HF convention).
 
 - **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points parallel to `client()` / `chat()`:
-  - `aimu.image_client(model, **kwargs) -> HuggingFaceImageClient` — one-line constructor.
-  - `aimu.generate_image(prompt, *, model, format="pil", **kwargs)` — one-shot.
+  - `aimu.image_client(model=None, **kwargs) -> HuggingFaceImageClient` — one-line constructor.
+  - `aimu.generate_image(prompt, *, model=None, format="pil", **kwargs)` — one-shot.
+  - When `model` is omitted, image/audio/speech entry points read their env var (`AIMU_IMAGE_MODEL` / `AIMU_AUDIO_MODEL` / `AIMU_SPEECH_MODEL`) via `resolve_default_modality_model()`; **unset raises `ValueError`** (no local registry to probe, and weights are never downloaded implicitly).
   - Both raise `ImportError` with a helpful install hint when `HAS_HF_IMAGE` is False.
 
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — chat integration via a built-in **streaming** `@tool`:
   - `generate_image(prompt: str)` is a **generator tool** (decorated with `@tool`) — it yields `IMAGE_GENERATING` chunks during denoising and returns the saved file path as its final value. The agent's `_handle_tool_calls_streamed` forwards the yielded chunks through the agent's stream so callers see live progress.
-  - Backed by a lazy module-level singleton `_image_client` constructed on first call. Default model is `hf:stabilityai/stable-diffusion-xl-base-1.0`; override via the `AIMU_IMAGE_MODEL` env var.
+  - Backed by a lazy module-level singleton `_image_client` constructed on first call via `aimu.image_client()`. The model comes from the `AIMU_IMAGE_MODEL` env var (**required** — the tool raises `ValueError` if unset; no default is downloaded).
   - `make_image_tool(client, *, preview_every=None)` factory binds a fresh streaming tool to a caller-supplied image client, with optional intermediate-image previews every N denoising steps (HF only; Gemini ignores it).
   - `make_describe_image_tool(client, *, default_instruction=...)` builds a `describe_image(image_path, instruction=...)` tool bound to a **vision-capable chat client** (raises `ValueError` if `client.model.supports_vision` is False). The tool snapshots `client.messages` before the vision call and restores it afterwards, so the agent's conversation log isn't polluted with one-off image-Q&A turns; `use_tools=False` is passed to prevent recursive tool calls during the vision call. This is a factory rather than a lazy singleton because the most useful binding is to the *same* model the agent is already running — same knowledge, same provider, no extra API key. The Streamlit chatbot appends this tool to the agent's tool list automatically when the active chat model is vision-capable.
   - New subgroup `image = [generate_image]` next to `web`, `fs`, `compute`, `misc`. Appended to `ALL_TOOLS`.
@@ -773,7 +775,7 @@ Key files and their roles:
   - Both raise `ImportError` with install hint when `HAS_HF_AUDIO` is False.
 
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_audio` generator tool + `make_audio_tool()` factory (parallel to image equivalents):
-  - `generate_audio(prompt: str)` is a generator `@tool` yielding `AUDIO_GENERATING` chunks and returning the saved file path. Backed by a lazy `_audio_client` singleton; default model via `AIMU_AUDIO_MODEL` env var (default: `"hf:facebook/musicgen-small"`).
+  - `generate_audio(prompt: str)` is a generator `@tool` yielding `AUDIO_GENERATING` chunks and returning the saved file path. Backed by a lazy `_audio_client` singleton; model via `AIMU_AUDIO_MODEL` env var (**required**; the tool raises if unset — no default is downloaded).
   - `make_audio_tool(client, *, duration_s=None)` — binds a fresh tool to a caller-supplied client.
   - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None)` — `audio_client` and `speech_client` kwargs replace their respective singletons when provided.
   - New subgroup `audio = [generate_audio]` (parallel to `image`); included in `ALL_TOOLS`.
@@ -827,7 +829,7 @@ Key files and their roles:
   - Both raise `ImportError` with install hint when neither `HAS_HF_SPEECH` nor `HAS_OPENAI_SPEECH` is True.
 
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_speech` generator tool + `make_speech_tool()` factory:
-  - `generate_speech(text: str)` is a generator `@tool` yielding `SPEECH_GENERATING` chunks and returning the saved WAV path. Backed by a lazy `_speech_client` singleton; default model via `AIMU_SPEECH_MODEL` env var (default: `"hf:microsoft/speecht5_tts"`).
+  - `generate_speech(text: str)` is a generator `@tool` yielding `SPEECH_GENERATING` chunks and returning the saved WAV path. Backed by a lazy `_speech_client` singleton; model via `AIMU_SPEECH_MODEL` env var (**required**; the tool raises if unset — no default is downloaded).
   - `make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[float] = None)` — binds a fresh tool to a caller-supplied client.
   - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None)` — `speech_client` kwarg replaces the default singleton when provided.
   - Subgroup `speech = [generate_speech]` (parallel to `audio`, `image`); included in `ALL_TOOLS`.
@@ -893,6 +895,7 @@ aimu/
 │   ├── model_client.py  # ModelClient factory/wrapper + resolve_model_string
 │   ├── _chat_state.py   # _ChatStateMixin — system_message/reset/append shared by sync and async base classes
 │   ├── _streaming.py    # resolve_include, filter_chunks, afilter_chunks — shared stream helpers
+│   ├── _defaults.py     # Default-model resolution when model= omitted (AIMU_LANGUAGE_MODEL + local Ollama/HF-cache/OpenAI-compat probes; modality env-var resolver)
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── _images.py       # Shared vision utilities (_normalize_image, per-provider adapters)
 │   ├── _hf_device.py    # Shared GPU-placement helpers for in-process HF clients: device hint, cuda/mps fallback, memory-aware auto_place_pipeline() (free-VRAM-driven pin/offload)

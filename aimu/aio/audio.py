@@ -68,8 +68,7 @@ class AsyncAudioClient:
         else:
             _refuse(sync_client)
             raise TypeError(
-                f"AsyncAudioClient expects a sync HuggingFaceAudioClient. "
-                f"Got: {type(sync_client).__name__}"
+                f"AsyncAudioClient expects a sync HuggingFaceAudioClient. Got: {type(sync_client).__name__}"
             )
 
     @property
@@ -99,16 +98,14 @@ def audio_client(model: Any) -> AsyncAudioClient:
     raises ``ValueError`` pointing at the wrap pattern.
     """
     if not _HAS_HF_AUDIO:
-        raise ImportError(
-            "Audio support requires the [hf] extra: pip install -e '.[hf]'"
-        )
+        raise ImportError("Audio support requires the [hf] extra: pip install -e '.[hf]'")
     return AsyncAudioClient(model)
 
 
 async def generate_audio(
     prompt: str,
     *,
-    model: Any,
+    model: Any = None,
     format: str = "path",
     **kwargs: Any,
 ) -> Any:
@@ -117,11 +114,17 @@ async def generate_audio(
     Accepts either an existing sync audio client (preferred — weights reused across
     calls) or a model enum/spec/string (constructs a fresh sync client inside, which
     loads weights each call).
+
+    When ``model`` is omitted, the ``AIMU_AUDIO_MODEL`` env var is used; if it is unset a
+    ``ValueError`` is raised (no model is downloaded implicitly).
     """
     if not _HAS_HF_AUDIO:
-        raise ImportError(
-            "Audio support requires the [hf] extra: pip install -e '.[hf]'"
-        )
+        raise ImportError("Audio support requires the [hf] extra: pip install -e '.[hf]'")
+
+    if model is None:
+        from aimu.models._defaults import AUDIO_MODEL_ENV, resolve_default_modality_model
+
+        model = resolve_default_modality_model(AUDIO_MODEL_ENV)
 
     sync_client: Optional[Any] = None
     if _HAS_HF_AUDIO and isinstance(model, HuggingFaceAudioClient):

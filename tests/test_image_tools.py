@@ -71,7 +71,10 @@ def test_lazy_singleton_constructed_once(monkeypatch):
 
     constructed: list[str] = []
 
-    def fake_image_client(model_str):
+    def fake_image_client(model=None):
+        import os
+
+        model_str = model or os.environ.get("AIMU_IMAGE_MODEL")
         constructed.append(model_str)
         from aimu.models.hf_image import HuggingFaceImageClient
 
@@ -92,6 +95,18 @@ def test_singleton_honours_env_var(monkeypatch, tmp_path):
 
     c = builtin._get_image_client()
     assert c.spec.id == "my/custom-repo"
+
+
+def test_singleton_raises_when_env_unset(monkeypatch):
+    """With AIMU_IMAGE_MODEL unset, the tool raises and never downloads a default."""
+    import pytest
+
+    monkeypatch.setattr(builtin, "_image_client", None)
+    monkeypatch.delenv("AIMU_IMAGE_MODEL", raising=False)
+
+    with pytest.raises(ValueError, match="AIMU_IMAGE_MODEL"):
+        builtin._get_image_client()
+    assert builtin._image_client is None  # nothing constructed/cached
 
 
 def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):

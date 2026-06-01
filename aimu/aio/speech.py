@@ -13,7 +13,7 @@ wrap pattern (same convention as HuggingFace text/image/audio clients).
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 try:
     from aimu.models.base import HuggingFaceSpeechSpec, SpeechModel, SpeechSpec
@@ -127,7 +127,7 @@ def speech_client(model: Any) -> AsyncSpeechClient:
 async def generate_speech(
     text: str,
     *,
-    model: Any,
+    model: Any = None,
     format: str = "path",
     **kwargs: Any,
 ) -> Any:
@@ -137,12 +137,20 @@ async def generate_speech(
     :class:`OpenAISpeechClient` (preferred — state reused across calls), a
     :class:`HuggingFaceSpeechModel` / :class:`OpenAISpeechModel` enum member, or
     a ``"provider:model_id"`` string — same dispatch as :func:`aimu.generate_speech`.
+
+    When ``model`` is omitted, the ``AIMU_SPEECH_MODEL`` env var is used; if it is unset a
+    ``ValueError`` is raised (no model is downloaded implicitly).
     """
     if not _HAS_HF_SPEECH and not _HAS_OPENAI_SPEECH:
         raise ImportError(
             "Speech support requires the [hf] or [openai_compat] extra: "
             "pip install -e '.[hf]' or pip install -e '.[openai_compat]'"
         )
+
+    if model is None:
+        from aimu.models._defaults import SPEECH_MODEL_ENV, resolve_default_modality_model
+
+        model = resolve_default_modality_model(SPEECH_MODEL_ENV)
 
     if _HAS_HF_SPEECH and HuggingFaceSpeechClient is not None and isinstance(model, HuggingFaceSpeechClient):
         sync_client: Any = model
@@ -155,6 +163,7 @@ async def generate_speech(
         or (_HAS_OPENAI_SPEECH and OpenAISpeechSpec is not None and isinstance(model, OpenAISpeechSpec))
     ):
         import aimu
+
         sync_client = aimu.speech_client(model)
     else:
         raise TypeError(f"Unrecognised speech model: {type(model).__name__}")

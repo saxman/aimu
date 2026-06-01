@@ -31,6 +31,22 @@ You should see something like *"The capital of France is Paris."*
 
 `aimu.chat()` is a one-shot: it builds a fresh client, sends one message, returns the response, and is done. There's no client object to manage.
 
+### Omitting the model
+
+You can leave out `model=` entirely:
+
+```python
+response = aimu.chat("What is the capital of France?")
+```
+
+When the model is omitted, AIMU resolves a default in this order:
+
+1. The **`AIMU_LANGUAGE_MODEL`** env var (a `"provider:model_id"` string) — set it in your project's `.env` to pin a default: `AIMU_LANGUAGE_MODEL=ollama:qwen3.5:9b`.
+2. An **already-available local model** — a running Ollama server, a model already in your HuggingFace cache, or a running local OpenAI-compatible server (LM Studio, vLLM, llama-server, SGLang). The chosen model is logged.
+3. Otherwise a `ValueError` listing how to fix it.
+
+AIMU never auto-selects a cloud provider (no surprise API bills) and never downloads weights implicitly. Passing `model=` explicitly — as every example here does — is always the clearest, most reproducible choice.
+
 ## 3. Multi-turn conversation
 
 For a conversation, build a reusable client with `aimu.client()`:

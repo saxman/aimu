@@ -8,7 +8,6 @@ generation.
 
 from __future__ import annotations
 
-import os
 from typing import Optional
 
 from aimu.tools.builtin import (  # noqa: F401 — re-exports
@@ -28,24 +27,22 @@ from aimu.tools.builtin import (  # noqa: F401 — re-exports
 )
 from aimu.tools.decorator import tool
 
-_AIMU_IMAGE_DEFAULT = "hf:stabilityai/stable-diffusion-xl-base-1.0"
 _async_image_client = None
 
 
 def _get_async_image_client():
     """Lazy singleton :class:`AsyncImageClient` for the async built-in tool.
 
-    Reads ``AIMU_IMAGE_MODEL`` from the environment (default: SDXL base). Accepts
-    any model string supported by :func:`aimu.aio.image_client` —
-    ``"hf:..."`` / ``"gemini:..."``.
+    Reads ``AIMU_IMAGE_MODEL`` from the environment. Raises ``ValueError`` if it is
+    unset — no model is downloaded implicitly. Accepts any model string supported by
+    :func:`aimu.aio.image_client` — ``"hf:..."`` / ``"gemini:..."``.
     """
     global _async_image_client
     if _async_image_client is None:
         import aimu
         from aimu.aio import image_client as _aio_image_client
 
-        model_str = os.environ.get("AIMU_IMAGE_MODEL", _AIMU_IMAGE_DEFAULT)
-        _async_image_client = _aio_image_client(aimu.image_client(model_str))
+        _async_image_client = _aio_image_client(aimu.image_client())  # resolves AIMU_IMAGE_MODEL or raises
     return _async_image_client
 
 
@@ -58,9 +55,10 @@ async def generate_image(prompt: str):
     denoising. When dispatched by ``aio.Agent.run(stream=True)``, chunks flow
     through the agent's own stream and into the UI live.
 
-    Uses an :class:`aimu.aio.AsyncImageClient`. Default model is controlled by
-    ``AIMU_IMAGE_MODEL`` (default: SDXL base). Use :func:`make_async_image_tool`
-    to override the client or opt into ``preview_every=N`` intermediate previews.
+    Uses an :class:`aimu.aio.AsyncImageClient`. The model is controlled by
+    ``AIMU_IMAGE_MODEL`` (required; the tool raises if it is unset). Use
+    :func:`make_async_image_tool` to override the client or opt into
+    ``preview_every=N`` intermediate previews.
 
     Args:
         prompt: A description of the desired image.

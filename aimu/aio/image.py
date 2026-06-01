@@ -131,7 +131,7 @@ def image_client(model: Any) -> AsyncImageClient:
 async def generate_image(
     prompt: str,
     *,
-    model: Any,
+    model: Any = None,
     format: str = "pil",
     **kwargs: Any,
 ) -> Any:
@@ -140,11 +140,19 @@ async def generate_image(
     Accepts either an existing sync image client (preferred — weights / API client
     reused across calls) or a model spec/string (constructs a fresh sync client
     inside, which loads weights each call for diffusers).
+
+    When ``model`` is omitted, the ``AIMU_IMAGE_MODEL`` env var is used; if it is unset a
+    ``ValueError`` is raised (no model is downloaded implicitly).
     """
     if not _HAS_HF_IMAGE and not _HAS_GEMINI_IMAGE:
         raise ImportError(
             "Image support requires the [hf] or [google] extra: pip install -e '.[hf]' or pip install -e '.[google]'"
         )
+
+    if model is None:
+        from aimu.models._defaults import IMAGE_MODEL_ENV, resolve_default_modality_model
+
+        model = resolve_default_modality_model(IMAGE_MODEL_ENV)
 
     sync_client: Optional[Any] = None
     if _HAS_HF_IMAGE and isinstance(model, HuggingFaceImageClient):

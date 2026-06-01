@@ -3,10 +3,12 @@
 Verifies the lazy singleton wiring, the tool spec shape, env-var override, and
 the per-agent factory escape hatch. No real speech weights required.
 """
+
 from __future__ import annotations
 
 import sys
 import os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 from test_speech_api import _install_speech_stubs, _register_hf_speech, _register_openai_speech
 
@@ -14,16 +16,17 @@ _install_speech_stubs()
 _register_hf_speech()
 _register_openai_speech()
 
-import aimu.models
+import aimu.models  # noqa: E402
 
 # Patch speech clients into aimu namespace so speech_client() works
 aimu.models.HAS_OPENAI_SPEECH = True
-import aimu
+import aimu  # noqa: E402
+
 aimu.HAS_OPENAI_SPEECH = True
 aimu.OpenAISpeechClient = aimu.models.OpenAISpeechClient
 aimu.OpenAISpeechModel = aimu.models.OpenAISpeechModel
 
-from aimu.tools import builtin
+from aimu.tools import builtin  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -63,9 +66,12 @@ def test_lazy_singleton_constructed_once(monkeypatch):
 
     constructed: list[str] = []
 
-    def fake_speech_client(model_str):
-        constructed.append(model_str)
+    def fake_speech_client(model=None):
+        import os
+
+        constructed.append(model or os.environ.get("AIMU_SPEECH_MODEL"))
         from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel
+
         return OpenAISpeechClient(OpenAISpeechModel.TTS_1)
 
     monkeypatch.setattr("aimu.speech_client", fake_speech_client)
@@ -82,6 +88,18 @@ def test_singleton_honours_env_var(monkeypatch):
 
     c = builtin._get_speech_client()
     assert c.spec.id == "tts-1"
+
+
+def test_singleton_raises_when_env_unset(monkeypatch):
+    """With AIMU_SPEECH_MODEL unset, the tool raises and never downloads a default."""
+    import pytest
+
+    monkeypatch.setattr(builtin, "_speech_client", None)
+    monkeypatch.delenv("AIMU_SPEECH_MODEL", raising=False)
+
+    with pytest.raises(ValueError, match="AIMU_SPEECH_MODEL"):
+        builtin._get_speech_client()
+    assert builtin._speech_client is None
 
 
 def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
@@ -187,6 +205,7 @@ def test_make_speech_tool_threads_voice_and_speed(monkeypatch, tmp_path):
 
 def _fake_base_client(supports_vision=False):
     from unittest.mock import MagicMock
+
     client = MagicMock()
     client.model = MagicMock()
     client.model.supports_vision = supports_vision
