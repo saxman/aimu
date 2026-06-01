@@ -121,8 +121,8 @@ Image clients use a different spec class than text (`HuggingFaceImageSpec` / `Ge
 | `SD_1_5` | `runwayml/stable-diffusion-v1-5` | `StableDiffusionPipeline` | 25 | 512×512 | ✓ (`strength=`) |
 | `SDXL_BASE` | `stabilityai/stable-diffusion-xl-base-1.0` | `StableDiffusionXLPipeline` | 30 | 1024×1024 | ✓ (`strength=`) |
 | `SD_3_5_MEDIUM` | `stabilityai/stable-diffusion-3.5-medium` | `StableDiffusion3Pipeline` | 28 | 1024×1024 | ✓ (`strength=`) |
-| `FLUX_DEV` | `black-forest-labs/FLUX.1-dev` | `FluxPipeline` | 28 | 1024×1024 | ✓ (`strength=`) |
-| `FLUX_SCHNELL` | `black-forest-labs/FLUX.1-schnell` | `FluxPipeline` | 4 | 1024×1024 | ✓ (`strength=`) |
+| `FLUX_1_DEV` | `black-forest-labs/FLUX.1-dev` | `FluxPipeline` | 28 | 1024×1024 | ✓ (`strength=`) |
+| `FLUX_1_SCHNELL` | `black-forest-labs/FLUX.1-schnell` | `FluxPipeline` | 4 | 1024×1024 | ✓ (`strength=`) |
 | `FLUX_2_KLEIN_4B` | `black-forest-labs/FLUX.2-klein-4B` | `Flux2KleinPipeline` | 4 | 1024×1024 | ✓ (unified) |
 | `FLUX_2_KLEIN_9B` | `black-forest-labs/FLUX.2-klein-9B` | `Flux2KleinPipeline` | 4 | 1024×1024 | ✓ (unified) |
 

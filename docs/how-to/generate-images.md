@@ -158,7 +158,7 @@ Override the automatic plan through `model_kwargs`:
 client = image_client(HuggingFaceImageModel.SDXL_BASE, model_kwargs={"device": "cuda:1"})
 
 # Hand placement to diffusers/accelerate (e.g. shard across GPUs)
-client = image_client(HuggingFaceImageModel.FLUX_DEV, model_kwargs={"device_map": "balanced"})
+client = image_client(HuggingFaceImageModel.FLUX_1_DEV, model_kwargs={"device_map": "balanced"})
 ```
 
 ## Image-to-image

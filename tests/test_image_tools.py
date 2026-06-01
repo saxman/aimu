@@ -152,7 +152,7 @@ def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
 def test_make_image_tool_returns_new_streaming_tool_bound_to_supplied_client():
     from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 
-    client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_SCHNELL)
+    client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_1_SCHNELL)
     bound_tool = builtin.make_image_tool(client)
 
     assert bound_tool is not builtin.generate_image
@@ -175,7 +175,7 @@ def test_make_image_tool_threads_preview_every_through(monkeypatch, tmp_path):
             {"step": 1, "total_steps": 1, "image": None, "final": True, "result": f"{tmp_path}/x.png"},
         )
 
-    custom = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_SCHNELL)
+    custom = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_1_SCHNELL)
     monkeypatch.setattr(custom, "generate", fake_stream)
     bound = builtin.make_image_tool(custom, preview_every=7)
 
@@ -192,7 +192,7 @@ def test_make_image_tool_uses_its_client_not_singleton(monkeypatch, tmp_path):
     sentinel = "singleton-should-not-be-touched"
     monkeypatch.setattr(builtin, "_image_client", sentinel)
 
-    custom = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_SCHNELL)
+    custom = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_1_SCHNELL)
     bound_tool = builtin.make_image_tool(custom)
 
     final_path = f"{tmp_path}/custom.png"
@@ -328,7 +328,7 @@ def test_make_tools_with_image_client_replaces_generate_image():
     from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 
     client = _fake_vision_chat_client(supports_vision=False)
-    image_client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_SCHNELL)
+    image_client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_1_SCHNELL)
     tools = builtin.make_tools(client, image_client=image_client)
 
     assert len(tools) == len(builtin.ALL_TOOLS)
@@ -351,7 +351,7 @@ def test_make_tools_with_both_applies_both_transformations():
     from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 
     client = _fake_vision_chat_client(supports_vision=True)
-    image_client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_SCHNELL)
+    image_client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_1_SCHNELL)
     tools = builtin.make_tools(client, image_client=image_client)
 
     assert len(tools) == len(builtin.ALL_TOOLS) + 1

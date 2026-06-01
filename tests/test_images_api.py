@@ -184,7 +184,7 @@ def test_max_prompt_tokens_capability():
     assert HuggingFaceImageModel.SD_1_5.spec.max_prompt_tokens == 77
     assert HuggingFaceImageModel.SDXL_BASE.spec.max_prompt_tokens == 77
     assert HuggingFaceImageModel.SD_3_5_MEDIUM.spec.max_prompt_tokens == 256
-    assert HuggingFaceImageModel.FLUX_DEV.spec.max_prompt_tokens == 512
+    assert HuggingFaceImageModel.FLUX_1_DEV.spec.max_prompt_tokens == 512
     assert GeminiImageModel.NANO_BANANA.spec.max_prompt_tokens is None
     # Ad-hoc string specs have no catalog knowledge → conservative CLIP default.
     assert HuggingFaceImageSpec("custom/repo").max_prompt_tokens == 77

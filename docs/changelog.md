@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.2 (unreleased)
+
+### Image generation
+
+- **Breaking** Renamed `HuggingFaceImageModel.FLUX_DEV` → `FLUX_1_DEV` and `FLUX_SCHNELL` → `FLUX_1_SCHNELL` for naming consistency with the `FLUX_2_KLEIN_4B`/`FLUX_2_KLEIN_9B` members. The underlying model id strings (`black-forest-labs/FLUX.1-dev`, `black-forest-labs/FLUX.1-schnell`) are unchanged. Update enum references; `"hf:black-forest-labs/FLUX.1-dev"` string-form usage is unaffected.
+
 ## v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog
 
 ### Image generation

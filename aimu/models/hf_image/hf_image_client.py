@@ -77,7 +77,7 @@ class HuggingFaceImageModel(ImageModel):
         default_height=1024,
         max_prompt_tokens=256,  # T5-XXL encoder
     )
-    FLUX_DEV = HuggingFaceImageSpec(
+    FLUX_1_DEV = HuggingFaceImageSpec(
         "black-forest-labs/FLUX.1-dev",
         pipeline_class="FluxPipeline",
         img2img_pipeline_class="FluxImg2ImgPipeline",
@@ -87,7 +87,7 @@ class HuggingFaceImageModel(ImageModel):
         default_height=1024,
         max_prompt_tokens=512,  # T5-XXL encoder
     )
-    FLUX_SCHNELL = HuggingFaceImageSpec(
+    FLUX_1_SCHNELL = HuggingFaceImageSpec(
         "black-forest-labs/FLUX.1-schnell",
         pipeline_class="FluxPipeline",
         img2img_pipeline_class="FluxImg2ImgPipeline",
