@@ -116,15 +116,19 @@ Image clients use a different spec class than text (`HuggingFaceImageSpec` / `Ge
 
 ### HuggingFace diffusers (`HuggingFaceImageModel`)
 
-| Enum member | Repo id | Pipeline class | Default steps | Default size |
-|---|---|---|:---:|:---:|
-| `SD_1_5` | `runwayml/stable-diffusion-v1-5` | `StableDiffusionPipeline` | 25 | 512×512 |
-| `SDXL_BASE` | `stabilityai/stable-diffusion-xl-base-1.0` | `StableDiffusionXLPipeline` | 30 | 1024×1024 |
-| `SD_3_5_MEDIUM` | `stabilityai/stable-diffusion-3.5-medium` | `StableDiffusion3Pipeline` | 28 | 1024×1024 |
-| `FLUX_DEV` | `black-forest-labs/FLUX.1-dev` | `FluxPipeline` | 28 | 1024×1024 |
-| `FLUX_SCHNELL` | `black-forest-labs/FLUX.1-schnell` | `FluxPipeline` | 4 | 1024×1024 |
+| Enum member | Repo id | Pipeline class | Default steps | Default size | img2img |
+|---|---|---|:---:|:---:|:---:|
+| `SD_1_5` | `runwayml/stable-diffusion-v1-5` | `StableDiffusionPipeline` | 25 | 512×512 | ✓ (`strength=`) |
+| `SDXL_BASE` | `stabilityai/stable-diffusion-xl-base-1.0` | `StableDiffusionXLPipeline` | 30 | 1024×1024 | ✓ (`strength=`) |
+| `SD_3_5_MEDIUM` | `stabilityai/stable-diffusion-3.5-medium` | `StableDiffusion3Pipeline` | 28 | 1024×1024 | ✓ (`strength=`) |
+| `FLUX_DEV` | `black-forest-labs/FLUX.1-dev` | `FluxPipeline` | 28 | 1024×1024 | ✓ (`strength=`) |
+| `FLUX_SCHNELL` | `black-forest-labs/FLUX.1-schnell` | `FluxPipeline` | 4 | 1024×1024 | ✓ (`strength=`) |
+| `FLUX_2_KLEIN_4B` | `black-forest-labs/FLUX.2-klein-4B` | `Flux2KleinPipeline` | 4 | 1024×1024 | ✓ (unified) |
+| `FLUX_2_KLEIN_9B` | `black-forest-labs/FLUX.2-klein-9B` | `Flux2KleinPipeline` | 4 | 1024×1024 | ✓ (unified) |
 
-Spec defaults are starting points — pass `num_inference_steps=`, `guidance_scale=`, `width=`, `height=`, `seed=` to override per call. Power users can bypass the enum with a `"hf:<repo_id>"` string for any HuggingFace diffusers model (defaults to `DiffusionPipeline` auto-detect loader).
+The **img2img** column indicates `reference_image=` support. `strength=` models derive output from a noisy version of the reference (0 = identical, 1 = ignore it; default 0.75). "unified" models (`Flux2KleinPipeline`) condition on the reference directly — no `strength` parameter; `width`/`height` are derived from the reference.
+
+Spec defaults are starting points — pass `num_inference_steps=`, `guidance_scale=`, `width=`, `height=`, `seed=` to override per call. Power users can bypass the enum with a `"hf:<repo_id>"` string for any HuggingFace diffusers model (defaults to `DiffusionPipeline` auto-detect loader, `img2img_pipeline_class=None`).
 
 ### Google Gemini (`GeminiImageModel`)
 

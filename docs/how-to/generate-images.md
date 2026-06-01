@@ -2,8 +2,10 @@
 
 AIMU has a parallel image-generation surface to the text chat client. The shape mirrors text: a base ABC (`BaseImageClient`), a factory class (`ImageClient`), per-provider concrete clients, and one-line entry points (`aimu.image_client()` / `aimu.generate_image()`). Two providers ship today:
 
-- **HuggingFace `diffusers`** for local generation (Stable Diffusion 1.5 / XL / 3.5, FLUX dev / schnell)
+- **HuggingFace `diffusers`** for local generation (Stable Diffusion 1.5 / XL / 3.5, FLUX 1 dev / schnell, FLUX 2 Klein 4B / 9B)
 - **Google Nano Banana** (`gemini-2.5-flash-image`) via the cloud Gemini API
+
+Both providers support image-to-image generation via `reference_image=` on `generate()` — see [Image-to-image](#image-to-image) below.
 
 ## Install
 
@@ -120,10 +122,10 @@ client = image_client(GeminiImageModel.NANO_BANANA)
 
 Per-provider knobs differ:
 
-- **HuggingFace**: `negative_prompt`, `width`, `height`, `num_inference_steps`, `guidance_scale`, `seed`. Defaults come from the `HuggingFaceImageSpec` (e.g. SD 1.5 → 25 steps, 512×512, guidance 7.5; FLUX schnell → 4 steps, 1024×1024).
-- **Gemini Nano Banana**: `aspect_ratio` (e.g. `"1:1"`, `"16:9"`), `image_size`. No `seed` — the API doesn't expose one.
+- **HuggingFace**: `negative_prompt`, `width`, `height`, `num_inference_steps`, `guidance_scale`, `seed`, `reference_image`, `strength`. Defaults come from the `HuggingFaceImageSpec` (e.g. SD 1.5 → 25 steps, 512×512, guidance 7.5; FLUX schnell / FLUX 2 Klein → 4 steps, 1024×1024).
+- **Gemini Nano Banana**: `aspect_ratio` (e.g. `"1:1"`, `"16:9"`), `image_size`, `reference_image`. No `seed` — the API doesn't expose one.
 
-Both share: `num_images=N`, `format=`, `output_dir=`.
+Both share: `num_images=N`, `format=`, `output_dir=`, `reference_image=` (see [Image-to-image](#image-to-image)).
 
 ### Prompt length
 
@@ -158,6 +160,51 @@ client = image_client(HuggingFaceImageModel.SDXL_BASE, model_kwargs={"device": "
 # Hand placement to diffusers/accelerate (e.g. shard across GPUs)
 client = image_client(HuggingFaceImageModel.FLUX_DEV, model_kwargs={"device_map": "balanced"})
 ```
+
+## Image-to-image
+
+Pass `reference_image=` to any `generate()` call to use an existing image as the starting point for generation. Accepted input forms match vision input: a file path string, `pathlib.Path`, raw bytes, `data:image/...` URL, `http(s)://` URL, or a PIL Image.
+
+```python
+from aimu import image_client
+
+client = image_client("hf:stabilityai/stable-diffusion-xl-base-1.0")
+
+# Generate a variation of an existing image
+img = client.generate("a cyberpunk city, neon lights", reference_image="./photo.jpg")
+
+# strength= controls how much the output deviates from the reference
+# 0.0 = nearly identical, 1.0 = ignore it entirely; default 0.75
+img = client.generate("a watercolor painting", reference_image="./photo.jpg", strength=0.5)
+```
+
+The img2img pipeline is loaded lazily on the first call via `from_pipe()`, which derives it from the already-loaded txt2img pipeline — sharing all weights (UNet, VAE, encoders) at no extra VRAM cost. `width` and `height` are ignored in img2img mode; output size comes from the reference image.
+
+For Gemini, `reference_image` triggers image editing: the reference and the prompt are sent together as a multipart request, and Nano Banana returns an edited version of the image.
+
+```python
+# Gemini image editing
+client = image_client("gemini:nano-banana")
+img = client.generate("make it snowy", reference_image="./summer_scene.jpg")
+```
+
+### FLUX.2 Klein — native img2img
+
+FLUX.2 Klein uses a unified pipeline (`Flux2KleinPipeline`) that handles both txt2img and img2img in the same call. It does not use a `strength` parameter — it conditions on the reference image directly:
+
+```python
+from aimu import image_client
+
+client = image_client("hf:black-forest-labs/FLUX.2-klein-4B")  # 4-step distilled
+
+# txt2img
+img = client.generate("a cat in a sunlit garden")
+
+# img2img — same client, same loaded weights
+img = client.generate("add snow to the scene", reference_image="./cat.jpg")
+```
+
+FLUX.2 Klein generates in 4 steps (like FLUX.1 Schnell) with improved text rendering, better hand/face quality, and native img2img without a separate pipeline load.
 
 ## As an agent tool
 

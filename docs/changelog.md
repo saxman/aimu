@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.1 (unreleased) — Image-to-image and FLUX.2 Klein
+
+### Image generation
+
+- **New** Image-to-image (img2img) support: pass `reference_image=` to `BaseImageClient.generate()` (and all subclasses). Accepts a file path string, `pathlib.Path`, raw bytes, data URL, http(s) URL, or PIL Image. HuggingFace derives the img2img pipeline from the loaded txt2img pipeline via `from_pipe()` — shared weights, no extra VRAM. `strength=` (default `0.75`) controls deviation from the reference for FLUX.1-style pipelines. `width`/`height` are ignored; output size is derived from the reference image. Gemini passes the reference as inline PNG data in a multipart request, enabling image editing.
+- **New** `HuggingFaceImageModel.FLUX_2_KLEIN_4B` and `FLUX_2_KLEIN_9B` — FLUX.2 Klein by Black Forest Labs. 4-step distilled model with improved text rendering, better hand/face quality, and higher resolution support. Uses `Flux2KleinPipeline` (diffusers 0.37+), a unified pipeline that handles both txt2img and img2img natively (`image=` parameter, no `strength`). `img2img_uses_strength=False` on the spec distinguishes it from FLUX.1-style img2img.
+- **New** `HuggingFaceImageSpec.img2img_pipeline_class` — diffusers class name for the img2img variant (e.g. `"StableDiffusionImg2ImgPipeline"`); `None` for ad-hoc `"hf:<repo>"` strings.
+- **New** `HuggingFaceImageSpec.img2img_uses_strength` — `True` (default) for strength-based pipelines; `False` for unified pipelines like FLUX.2 Klein that condition on the reference image directly.
+- **New** `aimu.models._images._reference_image_to_pil()` — shared helper used by both HF and Gemini image clients to normalise any reference image input form to a PIL Image.
+
 ## v0.5.0 (2026-05-31) — Async, audio, speech, and default models
 
 A feature release on top of the v0.4 redesign: a full async surface, two new output modalities (audio and speech), a cloud image provider, automatic default-model resolution, and streaming tools. No breaking changes to the v0.4 sync API.
