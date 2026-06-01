@@ -1,5 +1,4 @@
 import json  # used for the Messages debug popover
-import re
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +11,6 @@ from aimu.history import ConversationManager
 from aimu.models import (
     BaseAudioClient,
     BaseImageClient,
-    HAS_HF_AUDIO,
     HAS_OLLAMA,
     OllamaClient,
     OllamaModel,
@@ -146,18 +144,6 @@ def _maybe_render_audio(path_str, key_suffix):
     )
 
 
-def _extract_sentences(text: str) -> tuple[list[str], str]:
-    """Split text at sentence boundaries, returning (complete_sentences, remainder).
-
-    Uses look-behind on sentence-ending punctuation followed by whitespace so
-    the delimiter character stays attached to the completed sentence.
-    """
-    parts = re.split(r"(?<=[.!?])\s+", text)
-    if len(parts) > 1:
-        return parts[:-1], parts[-1]
-    return [], text
-
-
 def _maybe_render_image(path_str, key_suffix):
     """Display an image with a download button when ``path_str`` is a valid image file path."""
     try:
@@ -213,7 +199,11 @@ def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
 
 
 def stream_chat_response(streamed_response, speech_client=None, narrate=False):
-    """Render a streaming chat response, coalescing consecutive same-phase chunks into a single live-updating box."""
+    """Render a streaming chat response, coalescing consecutive same-phase chunks into a single live-updating box.
+
+    When ``narrate`` is set and a ``speech_client`` is available, the full generated text is collected
+    during streaming and synthesized to audio once streaming completes; a playback control is then shown.
+    """
     current_type = None
     current_box = None
     current_text = ""
@@ -225,7 +215,8 @@ def stream_chat_response(streamed_response, speech_client=None, narrate=False):
     audio_progress_bar = None
     audio_progress_text = None
     speech_progress_placeholder = None
-    narration_buffer = ""
+    # Accumulates all GENERATING text across the response for post-stream narration.
+    generated_text = ""
 
     for chunk_idx, chunk in enumerate(streamed_response):
         if chunk.phase == StreamingContentType.IMAGE_GENERATING:
@@ -334,16 +325,7 @@ def stream_chat_response(streamed_response, speech_client=None, narrate=False):
 
         current_text += chunk.content
         if chunk.phase == StreamingContentType.GENERATING and narrate and speech_client is not None:
-            narration_buffer += chunk.content
-            sentences, narration_buffer = _extract_sentences(narration_buffer)
-            for sentence in sentences:
-                sentence = sentence.strip()
-                if sentence:
-                    try:
-                        wav_bytes = speech_client.generate(sentence, format="bytes")
-                        st.audio(wav_bytes, format="audio/wav", autoplay=True)
-                    except Exception:
-                        pass
+            generated_text += chunk.content
         if current_text:
             # Defer box creation until we have non-empty text — avoids rendering
             # an empty "Thinking" expander when a thinking phase yields nothing.
@@ -355,12 +337,15 @@ def stream_chat_response(streamed_response, speech_client=None, narrate=False):
                 )
             current_box.markdown(current_text)
 
-    if narrate and speech_client is not None and narration_buffer.strip():
-        try:
-            wav_bytes = speech_client.generate(narration_buffer.strip(), format="bytes")
-            st.audio(wav_bytes, format="audio/wav", autoplay=True)
-        except Exception:
-            pass
+    # Streaming finished: synthesize the full response once and show a playback control.
+    if narrate and speech_client is not None and generated_text.strip():
+        with st.expander("🔊 Narration", expanded=True):
+            with st.spinner("Generating audio…"):
+                try:
+                    wav_bytes = speech_client.generate(generated_text.strip(), format="bytes")
+                    st.audio(wav_bytes, format="audio/wav", autoplay=True)
+                except Exception as exc:
+                    st.error(f"Speech generation failed: {exc}")
 
 
 # Initialize the session state if we don't already have a model loaded. This only happens first run.
@@ -589,10 +574,7 @@ with st.sidebar:
             format_func=lambda m: m.name,
         )
 
-        if (
-            sel_audio_cls is not st.session_state.audio_client_class
-            or sel_audio_model != st.session_state.audio_model
-        ):
+        if sel_audio_cls is not st.session_state.audio_client_class or sel_audio_model != st.session_state.audio_model:
             _rebuild_audio_client(sel_audio_cls, sel_audio_model)
             st.rerun()
 
@@ -641,17 +623,13 @@ with st.sidebar:
         sel_speech_cls = st.selectbox(
             "Speech client",
             options=SPEECH_CLIENT_CLASSES,
-            index=SPEECH_CLIENT_CLASSES.index(current_speech_cls)
-            if current_speech_cls in SPEECH_CLIENT_CLASSES
-            else 0,
+            index=SPEECH_CLIENT_CLASSES.index(current_speech_cls) if current_speech_cls in SPEECH_CLIENT_CLASSES else 0,
             format_func=lambda c: c.__name__,
         )
 
         speech_model_options = list(sel_speech_cls.MODELS)
         current_speech_model = (
-            st.session_state.speech_model
-            if sel_speech_cls is current_speech_cls
-            else speech_model_options[0]
+            st.session_state.speech_model if sel_speech_cls is current_speech_cls else speech_model_options[0]
         )
         sel_speech_model = st.selectbox(
             "Speech model",
@@ -680,15 +658,22 @@ with st.sidebar:
         if st.session_state.speech_client_error:
             st.error(f"Speech client unavailable: {st.session_state.speech_client_error}")
 
+        # Disable narration when no usable speech client could be constructed.
+        speech_available = st.session_state.speech_client is not None and not st.session_state.speech_client_error
+        if not speech_available:
+            st.session_state.narrate_responses = False
+
         is_hf_speech = type(st.session_state.speech_client).__name__ == "HuggingFaceSpeechClient"
         st.checkbox(
             "🔊 Speak responses",
             key="narrate_responses",
+            disabled=not speech_available,
             help=(
-                "Narrate assistant responses sentence by sentence as they stream. "
-                "Each completed sentence is spoken aloud via TTS. "
-                "Recommended with OpenAI TTS (~200–500 ms latency per sentence). "
-                + ("⚠️ HuggingFace models may delay the first sentence while loading." if is_hf_speech else "")
+                "After the response finishes streaming, synthesize the full text via TTS "
+                "and show an audio playback control. "
+                + ("⚠️ HuggingFace models may take a moment to load on first use." if is_hf_speech else "")
+                if speech_available
+                else "Set up a working speech model above to enable narration."
             ),
         )
 
