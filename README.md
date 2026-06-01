@@ -23,9 +23,7 @@ aimu.chat("What's in this photo?", model="...", images=["photo.jpg"])
 aimu.agent("...", tools=builtin.web).run("Search the web and summarize today's AI news")
 
 aimu.generate_image("a watercolor fox in a snowy forest", model="...")
-
 aimu.generate_audio("a lo-fi hip-hop beat with soft piano", model="...")
-
 aimu.generate_speech("Hello, world!", model="...")
 ```
 Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
@@ -48,7 +46,6 @@ Composition happens by passing objects to constructors. Conversation state is a 
 ### Speech
 
 - `aimu.speech_client()` / `aimu.generate_speech()` for text-to-speech. HuggingFace locally (SpeechT5, MMS-TTS, BARK); OpenAI (`tts-1`, `tts-1-hd`) in the cloud.
-- Live narration in the Streamlit chatbot: responses are spoken sentence-by-sentence as the LLM streams.
 - Drop TTS into any agent via the built-in `generate_speech` tool; bind a specific voice with `make_speech_tool(client, voice=...)`.
 - Speech-to-text (transcription) is planned as a parallel `aimu.transcription_client()` surface.
 
@@ -95,6 +92,15 @@ client = aimu.client("ollama:qwen3.5:9b", system="You are concise.")
 client.chat("Hi there")
 client.chat("What did I just say?")     # history preserved
 ```
+
+**Default model.** Omit `model=` and AIMU resolves one for you: it reads `AIMU_LANGUAGE_MODEL` (`"provider:model_id"`), else auto-selects an already-available local model (a running Ollama server, a cached HuggingFace model, or a local OpenAI-compatible server). A cloud provider is never auto-selected and weights are never downloaded implicitly.
+
+```python
+reply = aimu.chat("Hello")                # uses AIMU_LANGUAGE_MODEL or a discovered local model
+client = aimu.client(system="Be brief.")  # same resolution
+```
+
+Image, audio, and speech read `AIMU_IMAGE_MODEL` / `AIMU_AUDIO_MODEL` / `AIMU_SPEECH_MODEL` respectively.
 
 **Streaming with phase filtering.** Drop unwanted phases (thinking, tool calls) with `include=`:
 
