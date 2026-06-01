@@ -2249,15 +2249,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#v051-unreleased-image-to-image-and-flux2-klein" class="md-nav__link">
+  <a href="#v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog" class="md-nav__link">
     <span class="md-ellipsis">
       
-        v0.5.1 (unreleased) — Image-to-image and FLUX.2 Klein
+        v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="v0.5.1 (unreleased) — Image-to-image and FLUX.2 Klein">
+    <nav class="md-nav" aria-label="v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2548,15 +2548,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#v051-unreleased-image-to-image-and-flux2-klein" class="md-nav__link">
+  <a href="#v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog" class="md-nav__link">
     <span class="md-ellipsis">
       
-        v0.5.1 (unreleased) — Image-to-image and FLUX.2 Klein
+        v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="v0.5.1 (unreleased) — Image-to-image and FLUX.2 Klein">
+    <nav class="md-nav" aria-label="v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2806,7 +2806,7 @@
 
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="v051-unreleased-image-to-image-and-flux2-klein">v0.5.1 (unreleased) — Image-to-image and FLUX.2 Klein<a class="headerlink" href="#v051-unreleased-image-to-image-and-flux2-klein" title="Permanent link">&para;</a></h2>
+<h2 id="v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog">v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog<a class="headerlink" href="#v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog" title="Permanent link">&para;</a></h2>
 <h3 id="image-generation">Image generation<a class="headerlink" href="#image-generation" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> Image-to-image (img2img) support: pass <code>reference_image=</code> to <code>BaseImageClient.generate()</code> (and all subclasses). Accepts a file path string, <code>pathlib.Path</code>, raw bytes, data URL, http(s) URL, or PIL Image. HuggingFace derives the img2img pipeline from the loaded txt2img pipeline via <code>from_pipe()</code> — shared weights, no extra VRAM. <code>strength=</code> (default <code>0.75</code>) controls deviation from the reference for FLUX.1-style pipelines. <code>width</code>/<code>height</code> are ignored; output size is derived from the reference image. Gemini passes the reference as inline PNG data in a multipart request, enabling image editing.</li>
