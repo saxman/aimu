@@ -26,7 +26,13 @@ Quick start::
     path = aimu.generate_audio("upbeat lo-fi jazz loop", model="hf:facebook/musicgen-small")
 """
 
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
+
+try:
+    __version__ = _pkg_version("aimu")
+except PackageNotFoundError:  # not installed (e.g. running from a source checkout without an install)
+    __version__ = "0.0.0+unknown"
 
 if TYPE_CHECKING:
     from .agents import Agent
@@ -339,6 +345,7 @@ def generate_image(
 
 
 __all__ = [
+    "__version__",
     "Agent",
     "AudioClient",
     "AudioModel",
