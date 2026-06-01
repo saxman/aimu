@@ -22,12 +22,12 @@ import aimu
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _hotdog_common import (
-    NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
     build_summarizer_prompt,
     collage_generated_images,
     evaluate_image,
+    negative_prompt_plan,
     resolve_image_model,
     resolve_output_dir,
     summarize_for_image,
@@ -56,8 +56,12 @@ def run_loop(
 
     # Summarize the evaluator's description down to the image model's token budget.
     # Models with no cap (cloud, max_prompt_tokens is None) take the description directly.
+    # The plan decides how NEGATIVE_PROMPT is applied, based on the model's spec.
+    neg_plan = negative_prompt_plan(image_client)
     max_prompt_tokens = image_client.max_prompt_tokens
-    summarizer_instruction = build_summarizer_prompt(max_prompt_tokens) if max_prompt_tokens else None
+    summarizer_instruction = (
+        build_summarizer_prompt(max_prompt_tokens, avoid=neg_plan.summarizer_avoid) if max_prompt_tokens else None
+    )
     budget_label = f"{max_prompt_tokens} tokens" if max_prompt_tokens else "uncapped"
     print(f"Image prompt budget: {budget_label} ({'summarizing' if summarizer_instruction else 'direct'})\n")
 
@@ -70,9 +74,9 @@ def run_loop(
             print(f"--- Iteration {i}/{cap_label} ---")
             print(f"Prompt: {prompt}")
 
-            image_prompt = build_image_prompt(prompt)
+            image_prompt = build_image_prompt(prompt) + neg_plan.prompt_suffix
             raw_path = image_client.generate(
-                image_prompt, negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
+                image_prompt, format="path", output_dir=output_dir, **neg_plan.generate_kwargs
             )
             dest = output_dir / f"{i:02d}.png"
             Path(raw_path).rename(dest)
@@ -108,7 +112,9 @@ def run_loop(
                 prompt = parsed["next_prompt"]
             else:
                 # Second stage of the chain: condense the description to fit the budget.
-                prompt = summarize_for_image(eval_client, parsed["next_prompt"], max_prompt_tokens)
+                prompt = summarize_for_image(
+                    eval_client, parsed["next_prompt"], max_prompt_tokens, avoid=neg_plan.summarizer_avoid
+                )
                 entry["summarized_prompt"] = prompt
                 print(f"Summarized → next prompt: {prompt}\n")
     except KeyboardInterrupt:
@@ -123,6 +129,7 @@ def run_loop(
                 image_model=image_client.spec.id,
                 eval_model=eval_model_id,
                 summarizer_instruction=summarizer_instruction,
+                neg_plan=neg_plan,
             )
             print(f"Summary written to: {summary_path}")
         collage_path = collage_generated_images(output_dir, trace)

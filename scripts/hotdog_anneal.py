@@ -53,12 +53,12 @@ import aimu
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _hotdog_common import (
-    NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
     build_summarizer_prompt,
     collage_generated_images,
     evaluate_image,
+    negative_prompt_plan,
     refine_image,
     resolve_image_model,
     resolve_output_dir,
@@ -130,11 +130,18 @@ def run_anneal(
     rng = random.Random(seed)
 
     # Summarize each candidate idea down to the image model's token budget (None → direct).
+    # The plan decides whether NEGATIVE_PROMPT rides as a kwarg, folds into the summarizer,
+    # or appends to the prompt — based on the model's spec.
+    neg_plan = negative_prompt_plan(image_client)
     max_prompt_tokens = image_client.max_prompt_tokens
-    summarizer_instruction = build_summarizer_prompt(max_prompt_tokens) if max_prompt_tokens else None
+    summarizer_instruction = (
+        build_summarizer_prompt(max_prompt_tokens, avoid=neg_plan.summarizer_avoid) if max_prompt_tokens else None
+    )
 
     def to_prompt(idea: str) -> str:
-        return summarize_for_image(eval_client, idea, max_prompt_tokens) if max_prompt_tokens else idea
+        if not max_prompt_tokens:
+            return idea
+        return summarize_for_image(eval_client, idea, max_prompt_tokens, avoid=neg_plan.summarizer_avoid)
 
     candidate_prompt = "a hot hotdog"
     candidate_idea: str | None = None  # the description that produced the current candidate
@@ -152,9 +159,9 @@ def run_anneal(
             print(f"--- Iteration {i}/{cap} (T={temperature:.3f}) ---")
             print(f"Prompt: {candidate_prompt}")
 
-            image_prompt = build_image_prompt(candidate_prompt)
+            image_prompt = build_image_prompt(candidate_prompt) + neg_plan.prompt_suffix
             raw_path = image_client.generate(
-                image_prompt, negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
+                image_prompt, format="path", output_dir=output_dir, **neg_plan.generate_kwargs
             )
             dest = output_dir / f"{i:02d}.png"
             Path(raw_path).rename(dest)
@@ -236,6 +243,7 @@ def run_anneal(
                 image_model=image_client.spec.id,
                 eval_model=eval_model_id,
                 summarizer_instruction=summarizer_instruction,
+                neg_plan=neg_plan,
             )
             print(f"Summary written to: {summary_path}")
         collage_path = collage_generated_images(output_dir, trace)

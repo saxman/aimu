@@ -6,6 +6,7 @@ import argparse
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
 
 from aimu.models import HuggingFaceImageModel
 
@@ -116,6 +117,18 @@ prompts past their limit.
 """
 
 
+# Appended to SUMMARIZER_PROMPT for prose image models that have a token budget but no
+# separate negative prompt (e.g. FLUX.2 Klein). The undesired qualities are folded in as
+# *positive* descriptors so the model conditions on them naturally, rather than appended
+# as an "avoid: ..." suffix after the budget has already been spent.
+SUMMARIZER_AVOID_CLAUSE = """\
+This model has no separate negative prompt. So also fold in a few positive descriptors that
+rule out these undesired qualities — phrase them affirmatively (e.g. a duplicate/pile becomes
+"a single, solo hotdog"; deformed/blurry becomes "well-formed, crisp, undistorted"), never as
+a list of things to avoid, and stay within the word budget: {avoid}
+"""
+
+
 # Positive subject anchor prepended to every generation. CLIP negative prompts
 # suppress a *concept*, not a *count* — listing "hotdogs" in the negative prompt
 # removes hotdogs entirely. Stating a singular subject in the positive prompt is
@@ -125,12 +138,18 @@ SUBJECT_ANCHOR = "a single hotdog, one sausage in one bun, solo, centered, close
 # Generic plurality/duplication cues plus distortion/illegibility cues to discourage.
 # Deliberately omits the word "hotdog" (which would suppress the subject). The distortion
 # terms counter the "seriously distorted / not a hotdog" drift that the creativity-oriented
-# prompts can induce. HF uses it; providers without negative-prompt support (e.g. Gemini
-# Nano Banana) silently ignore it.
+# prompts can induce. Applied only to models whose spec supports a negative prompt; for prose
+# models (FLUX.2 Klein, Gemini Nano Banana) negative_prompt_plan() folds the intent in as
+# positive prose instead, because passing it to those models now raises (see BaseImageClient).
 NEGATIVE_PROMPT = (
     "multiple, two, several, pile, platter, group, crowd, duplicate, "
     "deformed, distorted, melted, disfigured, mangled, blurry, unrecognizable, abstract"
 )
+
+# Positive-prose equivalent of NEGATIVE_PROMPT for prose models that have no token budget
+# (Gemini Nano Banana), where there is no summarizer step to rephrase the avoid-list. Mirrors
+# NEGATIVE_PROMPT's intent (singular + undistorted); keep the two in sync if either changes.
+POSITIVE_CONSTRAINT = "Keep it a single, solo, well-formed, crisp and undistorted hotdog."
 
 
 def build_image_prompt(prompt: str) -> str:
@@ -156,21 +175,88 @@ def prompt_word_budget(max_prompt_tokens: int) -> int:
     return max(20, int(max_prompt_tokens * 0.45))
 
 
-def build_summarizer_prompt(max_prompt_tokens: int) -> str:
-    """Format SUMMARIZER_PROMPT with a word budget derived from the model's token limit."""
-    return SUMMARIZER_PROMPT.format(max_words=prompt_word_budget(max_prompt_tokens))
+def build_summarizer_prompt(max_prompt_tokens: int, avoid: str | None = None) -> str:
+    """Format SUMMARIZER_PROMPT with a word budget derived from the model's token limit.
+
+    When ``avoid`` is given (a comma-separated list of undesired qualities), append an
+    instruction to fold them in as *positive* descriptors within the same budget. Used for
+    prose image models that have a token budget but no separate negative prompt (FLUX.2
+    Klein), so avoidance is baked into the one budget-aware prompt rather than bolted on.
+    """
+    prompt = SUMMARIZER_PROMPT.format(max_words=prompt_word_budget(max_prompt_tokens))
+    if avoid:
+        prompt += SUMMARIZER_AVOID_CLAUSE.format(avoid=avoid)
+    return prompt
 
 
-def summarize_for_image(client, description: str, max_prompt_tokens: int) -> str:
+def summarize_for_image(client, description: str, max_prompt_tokens: int, *, avoid: str | None = None) -> str:
     """Condense a free-form description into an image prompt that fits ``max_prompt_tokens``.
 
     The second stage of the describe → summarize chain. Runs the budget-aware
     summarizer instruction through a text ``client`` (the eval model is reused —
     summarization is text-only) and returns the stripped prompt. Uses stateless
     ``generate()`` so the call neither inherits nor pollutes prior conversation state.
+
+    ``avoid`` (when set) is folded into the summarizer instruction as positive constraints —
+    see :func:`build_summarizer_prompt` and :func:`negative_prompt_plan`.
     """
-    instruction = build_summarizer_prompt(max_prompt_tokens)
+    instruction = build_summarizer_prompt(max_prompt_tokens, avoid=avoid)
     return client.generate(f"{instruction}\nDescription:\n{description}").strip()
+
+
+class NegativePromptPlan(NamedTuple):
+    """How a script should apply NEGATIVE_PROMPT for a given image model.
+
+    - ``generate_kwargs``: ``{"negative_prompt": ...}`` for models that support it, else ``{}``.
+    - ``summarizer_avoid``: passed to ``summarize_for_image(avoid=...)`` to fold avoidance in as
+      positive constraints (capped prose models); ``None`` otherwise.
+    - ``prompt_suffix``: positive-constraint prose appended to the image prompt for uncapped
+      prose models that have no summarizer step; ``""`` otherwise.
+    """
+
+    generate_kwargs: dict
+    summarizer_avoid: str | None
+    prompt_suffix: str
+
+
+def negative_prompt_plan(image_client, *, has_summarizer: bool = True) -> NegativePromptPlan:
+    """Decide how to express NEGATIVE_PROMPT for ``image_client``, by its spec.
+
+    The framework rejects ``negative_prompt`` for models with
+    ``supports_negative_prompt=False`` (it raises), so callers must branch:
+
+    - Supports a negative prompt → pass it as the ``negative_prompt`` kwarg.
+    - No support, has a token budget *and* a summarizer step (FLUX.2 Klein in the search
+      scripts) → fold avoidance into the summarizer as positive constraints (pre-budget).
+    - No support otherwise (uncapped like Gemini Nano Banana, or a script with no summarizer
+      step like the EvaluatorOptimizer flow) → append a positive-constraint sentence to the
+      prose prompt.
+
+    ``has_summarizer=False`` tells the plan the caller has no condensation step to fold into,
+    so avoidance always rides as a prompt suffix.
+    """
+    spec = image_client.spec
+    if spec.supports_negative_prompt:
+        return NegativePromptPlan({"negative_prompt": NEGATIVE_PROMPT}, None, "")
+    if has_summarizer and spec.max_prompt_tokens is not None:
+        return NegativePromptPlan({}, NEGATIVE_PROMPT, "")
+    return NegativePromptPlan({}, None, f" {POSITIVE_CONSTRAINT}")
+
+
+def _negative_summary_line(neg_plan: "NegativePromptPlan | None") -> str:
+    """Render the summary header's negative-handling line, honestly reflecting the mechanism.
+
+    ``None`` (caller didn't pass a plan) falls back to reporting the raw NEGATIVE_PROMPT, for
+    back-compat with any caller that hasn't been updated."""
+    if neg_plan is None:
+        return f"Image negative prompt: {NEGATIVE_PROMPT}"
+    if neg_plan.generate_kwargs.get("negative_prompt"):
+        return f"Image negative prompt: {neg_plan.generate_kwargs['negative_prompt']}"
+    if neg_plan.summarizer_avoid:
+        return f"Image negative (folded into summarizer as positive constraints): {neg_plan.summarizer_avoid}"
+    if neg_plan.prompt_suffix:
+        return f"Image negative (appended as positive prose): {neg_plan.prompt_suffix.strip()}"
+    return "Image negative prompt: (none)"
 
 
 # Asks the critic for a *fresh* refinement of the image a search is building on (the climber's
@@ -345,6 +431,7 @@ def write_summary(
     image_model: str | None = None,
     eval_model: str | None = None,
     summarizer_instruction: str | None = None,
+    neg_plan: "NegativePromptPlan | None" = None,
 ) -> Path:
     """Write summary.txt with the full iteration trace to output_dir.
 
@@ -360,10 +447,8 @@ def write_summary(
         header_lines.append(f"Image model: {image_model}")
     if eval_model:
         header_lines.append(f"Eval model:  {eval_model}")
-    header_lines += [
-        f"Image negative prompt: {NEGATIVE_PROMPT}",
-        f"Evaluator instruction:\n{EVALUATOR_PROMPT.strip()}",
-    ]
+    header_lines.append(_negative_summary_line(neg_plan))
+    header_lines.append(f"Evaluator instruction:\n{EVALUATOR_PROMPT.strip()}")
     if summarizer_instruction:
         header_lines.append(f"Summarizer instruction:\n{summarizer_instruction.strip()}")
     sections = ["\n".join(header_lines)]

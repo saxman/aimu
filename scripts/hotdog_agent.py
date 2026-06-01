@@ -22,12 +22,12 @@ from aimu.tools.decorator import tool
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _hotdog_common import (
-    NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
     build_summarizer_prompt,
     collage_generated_images,
     evaluate_image,
+    negative_prompt_plan,
     parse_evaluator_response,
     resolve_image_model,
     resolve_output_dir,
@@ -49,12 +49,13 @@ Procedure:
 """
 
 
-def make_tools(image_client, eval_client, output_dir: Path, max_prompt_tokens: int | None) -> tuple:
+def make_tools(image_client, eval_client, output_dir: Path, max_prompt_tokens: int | None, neg_plan) -> tuple:
     """Return (generate_hotdog_image, evaluate_hotness, summarize_description) tools.
 
     All three share the closure; ``eval_client`` backs both the vision evaluation
     and the text summarization step. ``max_prompt_tokens`` is the image model's prompt
-    budget, used to size the summarized prompt.
+    budget, used to size the summarized prompt. ``neg_plan`` (from
+    :func:`negative_prompt_plan`) decides how NEGATIVE_PROMPT is applied for this model.
     """
     counter = {"value": 0}
 
@@ -64,7 +65,10 @@ def make_tools(image_client, eval_client, output_dir: Path, max_prompt_tokens: i
         counter["value"] += 1
         i = counter["value"]
         raw_path = image_client.generate(
-            build_image_prompt(prompt), negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
+            build_image_prompt(prompt) + neg_plan.prompt_suffix,
+            format="path",
+            output_dir=output_dir,
+            **neg_plan.generate_kwargs,
         )
         dest = output_dir / f"{i:02d}.png"
         Path(raw_path).rename(dest)
@@ -81,7 +85,7 @@ def make_tools(image_client, eval_client, output_dir: Path, max_prompt_tokens: i
     @tool
     def summarize_description(description: str) -> str:
         """Condense a detailed natural-language description into a short text-to-image prompt. Returns the short prompt."""
-        short = summarize_for_image(eval_client, description, max_prompt_tokens)
+        short = summarize_for_image(eval_client, description, max_prompt_tokens, avoid=neg_plan.summarizer_avoid)
         print(f"[Summarized] {short}\n")
         return short
 
@@ -157,12 +161,18 @@ def main() -> None:
 
     # Summarize the evaluator's description down to the image model's token budget.
     # Uncapped models (cloud, max_prompt_tokens is None) take the description directly.
+    # The plan decides how NEGATIVE_PROMPT is applied, based on the model's spec.
+    neg_plan = negative_prompt_plan(image_client)
     max_prompt_tokens = image_client.max_prompt_tokens
-    summarizer_instruction = build_summarizer_prompt(max_prompt_tokens) if max_prompt_tokens else None
+    summarizer_instruction = (
+        build_summarizer_prompt(max_prompt_tokens, avoid=neg_plan.summarizer_avoid) if max_prompt_tokens else None
+    )
     budget_label = f"{max_prompt_tokens} tokens" if max_prompt_tokens else "uncapped"
     print(f"Image prompt budget: {budget_label} ({'summarizing' if summarizer_instruction else 'direct'})\n")
 
-    generate_fn, evaluate_fn, summarize_fn = make_tools(image_client, eval_client, output_dir, max_prompt_tokens)
+    generate_fn, evaluate_fn, summarize_fn = make_tools(
+        image_client, eval_client, output_dir, max_prompt_tokens, neg_plan
+    )
 
     if summarizer_instruction is None:
         continue_rule = (
@@ -217,6 +227,7 @@ def main() -> None:
                 image_model=image_client.spec.id,
                 eval_model=args.eval_model,
                 summarizer_instruction=summarizer_instruction,
+                neg_plan=neg_plan,
             )
             print(f"\nSummary written to: {summary_path}")
         else:

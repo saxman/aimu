@@ -36,12 +36,12 @@ import aimu
 from aimu import image_client
 
 from _hotdog_common import (
-    NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
     build_summarizer_prompt,
     collage_generated_images,
     evaluate_image,
+    negative_prompt_plan,
     refine_image,
     resolve_image_model,
     resolve_output_dir,
@@ -88,6 +88,7 @@ def run(
     eval_client = aimu.client(eval_model)
     suppress_benign_clip_warning(img_client)
 
+    neg_plan = negative_prompt_plan(img_client)
     max_prompt_tokens = img_client.max_prompt_tokens
     use_summarizer = max_prompt_tokens is not None
     anneal_steps = max_iterations if max_iterations > 0 else _UNLIMITED_ANNEAL_STEPS
@@ -122,12 +123,12 @@ def run(
             # Strength for this iteration (0-indexed for the schedule)
             strength = _anneal_strength(i - 1, anneal_steps, initial_strength, final_strength)
 
-            image_prompt = build_image_prompt(prompt)
+            image_prompt = build_image_prompt(prompt) + neg_plan.prompt_suffix
 
             gen_kwargs: dict = dict(
-                negative_prompt=NEGATIVE_PROMPT,
                 format="path",
                 output_dir=output_dir,
+                **neg_plan.generate_kwargs,
             )
             if seed is not None:
                 gen_kwargs["seed"] = rng.randint(0, 2**31)
@@ -205,7 +206,9 @@ def run(
                 raw_next = refine_image(eval_client, best["path"], rejected=rejected)
 
             if use_summarizer:
-                prompt = summarize_for_image(eval_client, raw_next, max_prompt_tokens)
+                prompt = summarize_for_image(
+                    eval_client, raw_next, max_prompt_tokens, avoid=neg_plan.summarizer_avoid
+                )
                 record["summarized_prompt"] = prompt
             else:
                 prompt = raw_next
@@ -216,7 +219,12 @@ def run(
             trace,
             image_model=image_model_name,
             eval_model=eval_model,
-            summarizer_instruction=build_summarizer_prompt(max_prompt_tokens) if use_summarizer else None,
+            summarizer_instruction=(
+                build_summarizer_prompt(max_prompt_tokens, avoid=neg_plan.summarizer_avoid)
+                if use_summarizer
+                else None
+            ),
+            neg_plan=neg_plan,
         )
         collage_generated_images(output_dir, trace)
         if best:

@@ -46,11 +46,11 @@ from aimu.tools.decorator import tool
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _hotdog_common import (
-    NEGATIVE_PROMPT,
     build_arg_parser,
     build_image_prompt,
     collage_generated_images,
     evaluate_image,
+    negative_prompt_plan,
     prompt_word_budget,
     resolve_image_model,
     resolve_output_dir,
@@ -85,7 +85,7 @@ INITIAL_TASK = (
 )
 
 
-def make_tools(image_client, vision_client, output_dir: Path, records: list[dict]) -> tuple:
+def make_tools(image_client, vision_client, output_dir: Path, records: list[dict], neg_plan) -> tuple:
     """Return (generate_hotdog_image, evaluate_hotness) tools sharing a live ``records`` log.
 
     ``records`` accumulates one dict per generated image; ``evaluate_hotness`` fills in the
@@ -97,9 +97,9 @@ def make_tools(image_client, vision_client, output_dir: Path, records: list[dict
     def generate_hotdog_image(prompt: str) -> str:
         """Generate a hotdog image from a short text prompt and save it locally. Returns the saved file path."""
         i = len(records) + 1
-        image_prompt = build_image_prompt(prompt)
+        image_prompt = build_image_prompt(prompt) + neg_plan.prompt_suffix
         raw_path = image_client.generate(
-            image_prompt, negative_prompt=NEGATIVE_PROMPT, format="path", output_dir=output_dir
+            image_prompt, format="path", output_dir=output_dir, **neg_plan.generate_kwargs
         )
         dest = output_dir / f"{i:02d}.png"
         Path(raw_path).rename(dest)
@@ -168,8 +168,12 @@ def main() -> None:
         budget_label = "uncapped"
     print(f"Image prompt budget: {budget_label}\n")
 
+    # No condensation step here (the generator LLM writes within budget itself), so the plan
+    # expresses avoidance as a prompt suffix for prose models rather than via a summarizer.
+    neg_plan = negative_prompt_plan(image_client, has_summarizer=False)
+
     records: list[dict] = []
-    generate_fn, evaluate_fn = make_tools(image_client, vision_client, output_dir, records)
+    generate_fn, evaluate_fn = make_tools(image_client, vision_client, output_dir, records, neg_plan)
 
     generator = Agent(
         gen_client,
@@ -214,6 +218,7 @@ def main() -> None:
                 image_model=image_client.spec.id,
                 eval_model=args.eval_model,
                 summarizer_instruction=None,
+                neg_plan=neg_plan,
             )
             print(f"\nSummary written to: {summary_path}")
         else:
