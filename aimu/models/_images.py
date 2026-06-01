@@ -157,6 +157,18 @@ def _decode_image_url_to_pil(url: str):
     raise ValueError(f"Unrecognized image URL: {url[:64]!r}")
 
 
+def _reference_image_to_pil(image):
+    """Decode any reference_image input to a PIL.Image.
+
+    Accepts: PIL.Image (passthrough), file path string/Path, raw bytes, data URL, http(s) URL.
+    """
+    from PIL import Image as _PIL
+
+    if isinstance(image, _PIL.Image):
+        return image
+    return _decode_image_url_to_pil(_normalize_image(image))
+
+
 def _extract_pil_images(messages: list[dict]) -> list:
     """Walk messages and return all images decoded to PIL.Image (in order)."""
     images: list = []

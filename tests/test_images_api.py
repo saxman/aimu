@@ -74,6 +74,12 @@ def _install_diffusers_stub():
             inst.load_kwargs = kwargs
             return inst
 
+        @classmethod
+        def from_pipe(cls, pipe):
+            inst = cls()
+            inst._source_pipe = pipe
+            return inst
+
         def to(self, device):  # noqa: ARG002
             return self
 
@@ -101,6 +107,13 @@ def _install_diffusers_stub():
     stub.StableDiffusionXLPipeline = _FakePipeline
     stub.StableDiffusion3Pipeline = _FakePipeline
     stub.FluxPipeline = _FakePipeline
+    for _img2img_name in [
+        "StableDiffusionImg2ImgPipeline",
+        "StableDiffusionXLImg2ImgPipeline",
+        "StableDiffusion3Img2ImgPipeline",
+        "FluxImg2ImgPipeline",
+    ]:
+        setattr(stub, _img2img_name, _FakePipeline)
     sys.modules["diffusers"] = stub
 
     # Rebind the name inside the HF image client module if it's already loaded.
@@ -743,3 +756,153 @@ def test_gemini_stream_num_images_two_pairs(fake_genai):
     finals = [c for c in chunks if c.content["final"]]
     assert len(starts) == 2
     assert len(finals) == 2
+
+
+# ===========================================================================
+# reference_image — HuggingFace img2img
+# ===========================================================================
+
+
+def test_hf_img2img_uses_img2img_pipeline_and_pil_image():
+    """reference_image routes to the img2img pipeline with image + strength in kwargs."""
+    from PIL import Image as _PIL
+
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    ref = _make_stub_image()
+    client.generate("a cat", reference_image=ref)
+
+    # The img2img pipeline was created and called (not the txt2img pipeline).
+    assert client._img2img_pipe is not None
+    kw = client._img2img_pipe._last_call_kwargs
+    assert isinstance(kw["image"], _PIL.Image)
+    assert kw["strength"] == 0.75
+    # width + height must not be passed; img2img derives size from the input image.
+    assert "width" not in kw
+    assert "height" not in kw
+
+
+def test_hf_img2img_strength_override():
+    """Explicit strength kwarg overrides the 0.75 default."""
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    client.generate("a cat", reference_image=_make_stub_image(), strength=0.4)
+    assert client._img2img_pipe._last_call_kwargs["strength"] == 0.4
+
+
+def test_hf_img2img_no_reference_uses_txt2img_pipeline():
+    """Without reference_image the original txt2img pipeline is used and has width/height."""
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    client.generate("a cat")
+    assert client._img2img_pipe is None
+    assert "width" in client.pipeline._last_call_kwargs
+
+
+def test_hf_img2img_accepts_path_input(tmp_path):
+    """A file-path string for reference_image is decoded to a PIL Image."""
+    from PIL import Image as _PIL
+
+    path = tmp_path / "ref.png"
+    _make_stub_image().save(path, format="PNG")
+
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    client.generate("a cat", reference_image=str(path))
+    assert isinstance(client._img2img_pipe._last_call_kwargs["image"], _PIL.Image)
+
+
+def test_hf_img2img_accepts_bytes_input():
+    """Raw PNG bytes for reference_image are decoded to a PIL Image."""
+    from io import BytesIO
+
+    from PIL import Image as _PIL
+
+    buf = BytesIO()
+    _make_stub_image().save(buf, format="PNG")
+
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    client.generate("a cat", reference_image=buf.getvalue())
+    assert isinstance(client._img2img_pipe._last_call_kwargs["image"], _PIL.Image)
+
+
+def test_hf_img2img_no_img2img_class_raises():
+    """A spec without img2img_pipeline_class raises ValueError when reference_image is given."""
+    spec = HuggingFaceImageSpec("custom/repo")  # img2img_pipeline_class=None
+    client = HuggingFaceImageClient(spec)
+    with pytest.raises(ValueError, match="img2img_pipeline_class"):
+        client.generate("a cat", reference_image=_make_stub_image())
+
+
+def test_hf_img2img_from_pipe_called_only_once():
+    """_img2img_pipe is cached; from_pipe() is not called on the second generate."""
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    ref = _make_stub_image()
+    client.generate("a cat", reference_image=ref)
+    pipe_after_first = client._img2img_pipe
+    assert pipe_after_first is not None
+
+    client.generate("a dog", reference_image=ref)
+    assert client._img2img_pipe is pipe_after_first  # same cached instance
+
+
+def test_hf_img2img_streamed_uses_img2img_pipeline():
+    """stream=True + reference_image routes to the img2img pipeline and emits a final chunk."""
+    from PIL import Image as _PIL
+
+    from aimu.models.base import StreamingContentType
+
+    client = HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5)
+    ref = _make_stub_image()
+    chunks = list(client.generate("a cat", reference_image=ref, stream=True, num_inference_steps=2))
+
+    # img2img pipeline was used
+    assert client._img2img_pipe is not None
+    kw = client._img2img_pipe._last_call_kwargs
+    assert isinstance(kw["image"], _PIL.Image)
+    assert kw["strength"] == 0.75
+
+    # At least one final chunk
+    finals = [c for c in chunks if c.content.get("final")]
+    assert len(finals) >= 1
+    assert finals[-1].phase == StreamingContentType.IMAGE_GENERATING
+
+
+# ===========================================================================
+# reference_image — Gemini image editing
+# ===========================================================================
+
+
+def test_gemini_without_reference_image_uses_plain_string_contents(fake_genai):
+    """Baseline: no reference_image → contents is a bare string list (backward compat)."""
+    c = GeminiImageClient(GeminiImageModel.NANO_BANANA)
+    c.generate("a cat")
+    contents = c.client.models.last_call_kwargs["contents"]
+    assert contents == ["a cat"]
+
+
+def test_gemini_with_reference_image_builds_multipart_content(fake_genai):
+    """reference_image → contents is a Content object with text + inlineData parts."""
+    from google.genai import types as _gt
+
+    c = GeminiImageClient(GeminiImageModel.NANO_BANANA)
+    c.generate("a cat", reference_image=_make_stub_image())
+
+    contents = c.client.models.last_call_kwargs["contents"]
+    assert len(contents) == 1
+    content = contents[0]
+    assert isinstance(content, _gt.Content)
+    assert len(content.parts) == 2
+    assert content.parts[0].text == "a cat"
+    assert content.parts[1].inline_data is not None
+    assert content.parts[1].inline_data.mime_type == "image/png"
+
+
+def test_gemini_with_reference_image_path_input(fake_genai, tmp_path):
+    """A file path for reference_image is accepted and encoded as PNG inline data."""
+    from google.genai import types as _gt
+
+    path = tmp_path / "ref.png"
+    _make_stub_image().save(path, format="PNG")
+
+    c = GeminiImageClient(GeminiImageModel.NANO_BANANA)
+    c.generate("a cat", reference_image=str(path))
+    contents = c.client.models.last_call_kwargs["contents"]
+    assert isinstance(contents[0], _gt.Content)
+    assert contents[0].parts[1].inline_data.mime_type == "image/png"

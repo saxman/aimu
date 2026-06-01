@@ -153,6 +153,7 @@ class HuggingFaceImageSpec(ImageSpec):
     """
 
     pipeline_class: str = "DiffusionPipeline"
+    img2img_pipeline_class: Optional[str] = None
     default_steps: int = 30
     default_guidance: float = 7.5
     default_width: int = 1024
@@ -860,6 +861,7 @@ class BaseImageClient(ABC):
         output_dir: Optional[Any] = None,
         stream: bool = False,
         preview_every: Optional[int] = None,
+        reference_image: Optional[Any] = None,
         **kwargs: Any,
     ) -> Any:
         """Generate one or more images from a text prompt.
@@ -875,6 +877,15 @@ class BaseImageClient(ABC):
         providers without (Gemini Nano Banana) emit coarse start/done chunks per image.
         ``preview_every=N`` opts in to per-step latent-decoded previews (carried in
         ``chunk.content["image"]``); default ``None`` keeps step chunks lightweight.
+
+        ``reference_image`` enables img2img generation: the output is guided by the
+        reference alongside the prompt. Accepts a PIL Image, file path string,
+        :class:`pathlib.Path`, raw bytes, ``data:image/...`` URL, or ``http(s)://`` URL.
+        For HuggingFace, the model spec must have ``img2img_pipeline_class`` set and
+        the ``strength`` kwarg controls deviation from the reference (default ``0.75``).
+        For Gemini, the reference is included as inline image data in the request.
+        Output size for HuggingFace img2img is determined by the reference image;
+        ``width`` and ``height`` kwargs are ignored.
         """
         if num_images < 1:
             raise ValueError(f"num_images must be >= 1, got {num_images}")
@@ -886,12 +897,13 @@ class BaseImageClient(ABC):
                 format=format,
                 output_dir=output_dir,
                 preview_every=preview_every,
+                reference_image=reference_image,
                 **kwargs,
             )
 
         from ._image_output import encode_image  # local import keeps base.py light
 
-        images = self._generate(prompt, num_images=num_images, **kwargs)
+        images = self._generate(prompt, num_images=num_images, reference_image=reference_image, **kwargs)
         encoded = [encode_image(img, format=format, prompt=prompt, output_dir=output_dir) for img in images]
         return encoded[0] if num_images == 1 else encoded
 

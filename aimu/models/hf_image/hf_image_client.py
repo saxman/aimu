@@ -51,6 +51,7 @@ class HuggingFaceImageModel(ImageModel):
     SD_1_5 = HuggingFaceImageSpec(
         "runwayml/stable-diffusion-v1-5",
         pipeline_class="StableDiffusionPipeline",
+        img2img_pipeline_class="StableDiffusionImg2ImgPipeline",
         default_steps=25,
         default_guidance=7.5,
         default_width=512,
@@ -59,6 +60,7 @@ class HuggingFaceImageModel(ImageModel):
     SDXL_BASE = HuggingFaceImageSpec(
         "stabilityai/stable-diffusion-xl-base-1.0",
         pipeline_class="StableDiffusionXLPipeline",
+        img2img_pipeline_class="StableDiffusionXLImg2ImgPipeline",
         default_steps=30,
         default_guidance=5.0,
         default_width=1024,
@@ -68,6 +70,7 @@ class HuggingFaceImageModel(ImageModel):
     SD_3_5_MEDIUM = HuggingFaceImageSpec(
         "stabilityai/stable-diffusion-3.5-medium",
         pipeline_class="StableDiffusion3Pipeline",
+        img2img_pipeline_class="StableDiffusion3Img2ImgPipeline",
         default_steps=28,
         default_guidance=3.5,
         default_width=1024,
@@ -77,6 +80,7 @@ class HuggingFaceImageModel(ImageModel):
     FLUX_DEV = HuggingFaceImageSpec(
         "black-forest-labs/FLUX.1-dev",
         pipeline_class="FluxPipeline",
+        img2img_pipeline_class="FluxImg2ImgPipeline",
         default_steps=28,
         default_guidance=3.5,
         default_width=1024,
@@ -86,6 +90,7 @@ class HuggingFaceImageModel(ImageModel):
     FLUX_SCHNELL = HuggingFaceImageSpec(
         "black-forest-labs/FLUX.1-schnell",
         pipeline_class="FluxPipeline",
+        img2img_pipeline_class="FluxImg2ImgPipeline",
         default_steps=4,
         default_guidance=0.0,
         default_width=1024,
@@ -153,6 +158,7 @@ class HuggingFaceImageClient(BaseImageClient):
         super().__init__(model=model, model_kwargs=model_kwargs)
         self.spec = spec
         self._pipe: Any = None  # lazy
+        self._img2img_pipe: Any = None  # lazy; loaded via from_pipe() on first img2img call
 
     def _load_pipeline(self) -> Any:
         """Resolve the pipeline class from the diffusers namespace and load weights."""
@@ -203,6 +209,35 @@ class HuggingFaceImageClient(BaseImageClient):
             self._pipe = self._load_pipeline()
         return self._pipe
 
+    def _get_img2img_pipeline(self) -> Any:
+        """Return the img2img pipeline, loading it lazily via ``from_pipe()``.
+
+        ``from_pipe()`` derives the img2img variant from the already-loaded txt2img
+        pipeline, sharing all weights (UNet, VAE, encoders) in memory at no extra
+        VRAM cost. Raises ``ValueError`` if the model spec has no
+        ``img2img_pipeline_class`` set (e.g. ad-hoc ``"hf:<repo>"`` strings).
+        """
+        if self._img2img_pipe is not None:
+            return self._img2img_pipe
+        if not self.spec.img2img_pipeline_class:
+            raise ValueError(
+                f"reference_image requires spec.img2img_pipeline_class but "
+                f"{self.spec.id!r} has none set. Use a named HuggingFaceImageModel "
+                f"member or set img2img_pipeline_class on a custom HuggingFaceImageSpec."
+            )
+        try:
+            img2img_cls = getattr(diffusers, self.spec.img2img_pipeline_class)
+        except AttributeError as exc:
+            raise ValueError(
+                f"diffusers has no pipeline class {self.spec.img2img_pipeline_class!r}."
+            ) from exc
+        logger.info(
+            "Loading img2img pipeline %s from loaded txt2img weights (from_pipe)",
+            self.spec.img2img_pipeline_class,
+        )
+        self._img2img_pipe = img2img_cls.from_pipe(self.pipeline)
+        return self._img2img_pipe
+
     def _build_call_kwargs(
         self,
         prompt: str,
@@ -214,11 +249,17 @@ class HuggingFaceImageClient(BaseImageClient):
         num_inference_steps: Optional[int],
         guidance_scale: Optional[float],
         seed: Optional[int],
+        reference_image: Optional[Any] = None,
+        strength: Optional[float] = None,
     ) -> dict[str, Any]:
         """Compose the kwargs dict passed to the diffusers pipeline.
 
         Shared by :meth:`_generate` (blocking) and :meth:`_generate_streamed`
         (callback-driven). Defaults fall back to ``self.spec``.
+
+        When ``reference_image`` is provided, adds ``image`` and ``strength`` to the
+        returned dict and omits ``width``/``height`` (img2img pipelines size their
+        output from the reference image).
         """
         spec = self.spec
         call_kwargs: dict[str, Any] = {
@@ -241,6 +282,15 @@ class HuggingFaceImageClient(BaseImageClient):
             generator = torch.Generator(device=device.type if device is not None else "cpu").manual_seed(seed)
             call_kwargs["generator"] = generator
 
+        if reference_image is not None:
+            from .._images import _reference_image_to_pil
+
+            call_kwargs["image"] = _reference_image_to_pil(reference_image)
+            call_kwargs["strength"] = strength if strength is not None else 0.75
+            # img2img pipelines derive output size from the reference; drop explicit dims
+            call_kwargs.pop("width", None)
+            call_kwargs.pop("height", None)
+
         return call_kwargs
 
     def _generate(
@@ -254,6 +304,8 @@ class HuggingFaceImageClient(BaseImageClient):
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         seed: Optional[int] = None,
+        reference_image: Optional[Any] = None,
+        strength: Optional[float] = None,
         **_ignored: Any,
     ) -> list:
         """Provider-specific generation. Returns a list of PIL Images.
@@ -271,8 +323,11 @@ class HuggingFaceImageClient(BaseImageClient):
             num_inference_steps=num_inference_steps,
             guidance_scale=guidance_scale,
             seed=seed,
+            reference_image=reference_image,
+            strength=strength,
         )
-        result = self.pipeline(**call_kwargs)
+        pipe = self._get_img2img_pipeline() if reference_image is not None else self.pipeline
+        result = pipe(**call_kwargs)
         images = result.images if hasattr(result, "images") else result
         return list(images)
 
@@ -307,6 +362,8 @@ class HuggingFaceImageClient(BaseImageClient):
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         seed: Optional[int] = None,
+        reference_image: Optional[Any] = None,
+        strength: Optional[float] = None,
         **_ignored: Any,
     ):
         """Streaming generation: yields one IMAGE_GENERATING chunk per denoising step.
@@ -336,6 +393,8 @@ class HuggingFaceImageClient(BaseImageClient):
             num_inference_steps=num_inference_steps,
             guidance_scale=guidance_scale,
             seed=seed,
+            reference_image=reference_image,
+            strength=strength,
         )
         total_steps = call_kwargs["num_inference_steps"]
 
@@ -375,9 +434,11 @@ class HuggingFaceImageClient(BaseImageClient):
         if request_latents:
             call_kwargs["callback_on_step_end_tensor_inputs"] = ["latents"]
 
+        pipe = self._get_img2img_pipeline() if reference_image is not None else self.pipeline
+
         def _run():
             try:
-                result = self.pipeline(**call_kwargs)
+                result = pipe(**call_kwargs)
                 images = result.images if hasattr(result, "images") else result
                 q.put(("_done", list(images)))
             except Exception as exc:  # noqa: BLE001

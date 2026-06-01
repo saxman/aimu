@@ -123,15 +123,32 @@ class GeminiImageClient(BaseImageClient):
             kwargs["image_size"] = image_size
         return genai_types.ImageConfig(**kwargs) if kwargs else None
 
-    def _generate_one(self, prompt: str, image_config: Any) -> Image.Image:
+    def _generate_one(self, prompt: str, image_config: Any, reference_image: Optional[Any] = None) -> Image.Image:
         """Issue one generate_content call and extract the first image part."""
         config = genai_types.GenerateContentConfig(
             response_modalities=[genai_types.Modality.IMAGE],
             image_config=image_config,
         )
+        if reference_image is not None:
+            from .._images import _reference_image_to_pil
+
+            pil = _reference_image_to_pil(reference_image)
+            buf = BytesIO()
+            pil.save(buf, format="PNG")
+            contents = [
+                genai_types.Content(
+                    role="user",
+                    parts=[
+                        genai_types.Part(text=prompt),
+                        genai_types.Part(inlineData=genai_types.Blob(mimeType="image/png", data=buf.getvalue())),
+                    ],
+                )
+            ]
+        else:
+            contents = [prompt]
         response = self.client.models.generate_content(
             model=self.spec.id,
-            contents=[prompt],
+            contents=contents,
             config=config,
         )
 
@@ -157,6 +174,7 @@ class GeminiImageClient(BaseImageClient):
         num_images: int = 1,
         aspect_ratio: Optional[str] = None,
         image_size: Optional[str] = None,
+        reference_image: Optional[Any] = None,
         **_ignored: Any,
     ) -> list:
         """Provider-specific generation. Returns a list of PIL Images.
@@ -165,7 +183,7 @@ class GeminiImageClient(BaseImageClient):
         ``num_images > 1`` issues N calls.
         """
         image_config = self._build_image_config(aspect_ratio, image_size)
-        return [self._generate_one(prompt, image_config) for _ in range(num_images)]
+        return [self._generate_one(prompt, image_config, reference_image) for _ in range(num_images)]
 
     def _generate_streamed(
         self,
@@ -177,6 +195,7 @@ class GeminiImageClient(BaseImageClient):
         preview_every: Optional[int] = None,
         aspect_ratio: Optional[str] = None,
         image_size: Optional[str] = None,
+        reference_image: Optional[Any] = None,
         **_ignored: Any,
     ):
         """Coarse streaming: one start chunk + one final chunk per image.
@@ -208,7 +227,7 @@ class GeminiImageClient(BaseImageClient):
                     "num_images": num_images,
                 },
             )
-            img = self._generate_one(prompt, image_config)
+            img = self._generate_one(prompt, image_config, reference_image)
             encoded = encode_image(img, format=format, prompt=prompt, output_dir=output_dir)
             yield StreamChunk(
                 StreamingContentType.IMAGE_GENERATING,
