@@ -2,22 +2,26 @@
 
 Build a **generate → evaluate → refine** loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — *"make a hotdog as visually hot as possible"* — that composes image generation, vision input, prompt chaining, and either an agent, a plain Python loop, or a library workflow class.
 
-The full, runnable code lives in five scripts that share one helper module:
+The full, runnable code lives in six scripts that share one helper module:
 
 - `scripts/hotdog_loop.py` — **Python directs the loop** (a plain code-controlled `for` loop).
 - `scripts/hotdog_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
 - `scripts/hotdog_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + critic agent).
 - `scripts/hotdog_climbing.py` — like the loop, but **hill-climbs**: keeps the best image and reverts when a step doesn't beat it.
 - `scripts/hotdog_anneal.py` — **simulated annealing**: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.
+- `scripts/hotdog_img2img.py` — **image-to-image refinement**: each iteration starts from the current best image rather than pure noise, combining hill-climbing with strength annealing (high `strength` early to explore, low `strength` late to polish).
 - `scripts/_hotdog_common.py` — shared prompts and helpers used by all of them.
 
 ```bash
-python scripts/hotdog_loop.py                 # code-directed greedy walk
-python scripts/hotdog_agent.py                # agent-directed greedy walk
-python scripts/hotdog_evaluator.py            # EvaluatorOptimizer workflow class
-python scripts/hotdog_climbing.py                # hill-climb: keep best, revert when a step doesn't beat it
-python scripts/hotdog_anneal.py --seed 7              # simulated annealing: explore early, cool to greedy
-python scripts/hotdog_agent.py --max-iterations 0   # run until the critic says DONE
+python scripts/hotdog_loop.py                                        # code-directed greedy walk
+python scripts/hotdog_agent.py                                       # agent-directed greedy walk
+python scripts/hotdog_evaluator.py                                   # EvaluatorOptimizer workflow class
+python scripts/hotdog_climbing.py                                    # hill-climb: keep best, revert when a step doesn't beat it
+python scripts/hotdog_anneal.py --seed 7                             # simulated annealing: explore early, cool to greedy
+python scripts/hotdog_agent.py --max-iterations 0                    # run until the critic says DONE
+python scripts/hotdog_img2img.py                                     # img2img hill-climbing + strength annealing
+python scripts/hotdog_img2img.py --image-model FLUX_2_KLEIN_4B      # unified pipeline — no strength knob (warning printed)
+python scripts/hotdog_img2img.py --initial-strength 0.85 --final-strength 0.2 --patience 3
 ```
 
 ## Three ways to run the same loop
@@ -54,6 +58,21 @@ The same cooling schedule also drives the **proposer's** sampling temperature: t
 Annealing is worth reaching for when the climber gets stuck on a plateau, but mind the domain: the judge's coarse integer score means `Δ` is almost always `0` or `±1` (so temperature control is blunt), and each step is an expensive image generation, so runs are short — the practical win is local-optimum escape, not asymptotic convergence.
 
 Note the *opposite* direction (using prompt tuning to find a reusable image prompt across a dataset) is a different, also-valid use of the `Scorer` abstraction.
+
+### Image-to-image: refining in image space, not prompt space
+
+All five scripts above refine by updating the *prompt* and regenerating from pure noise — the image can change completely between rounds (different composition, different colours, different character). `hotdog_img2img.py` takes a different axis: it uses [image-to-image generation](generate-images.md#image-to-image) so each round starts from the current best image rather than Gaussian noise.
+
+The `strength` parameter controls how far each round can stray from the reference:
+
+- **High strength (≈0.8)** — the reference is a loose constraint; large changes are possible. Used early in the run to explore: push lighting, texture, and heat intensity while preserving rough composition.
+- **Low strength (≈0.3)** — the reference is a tight constraint; only fine adjustments get through. Used late to polish what's already working without blowing up the composition.
+
+The script anneals `strength` **linearly** from `--initial-strength` to `--final-strength` over the run, and combines this with hill-climbing: it always refines from the *best* image seen so far, not just the most recent. A rejected round leaves the reference unchanged.
+
+Compared with the prompt-refinement scripts, img2img preserves things that are already good (framing, a specific sear pattern, a particular colour palette) at the cost of constraining the search: if the reference is pulling in the wrong direction, low strength slows the escape. The tradeoff is deliberate — "make this hotter, don't change the composition" vs "try a completely different take".
+
+**Models without a `strength` knob** (e.g. `FLUX_2_KLEIN_4B`, which uses a unified `Flux2KleinPipeline` that conditions on the reference image directly): the script detects this via `spec.img2img_uses_strength` and prints a warning at startup. The annealing schedule is a no-op — all iterations condition at the model's fixed degree of influence — but hill-climbing in image space still applies.
 
 ## The pieces
 
