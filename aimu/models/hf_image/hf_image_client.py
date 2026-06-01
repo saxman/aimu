@@ -126,7 +126,13 @@ class HuggingFaceImageModel(ImageModel):
 
 
 def _parse_model_string(s: str) -> HuggingFaceImageSpec:
-    """Parse a ``"hf:<repo_id>"`` string into an ad-hoc :class:`HuggingFaceImageSpec`."""
+    """Resolve a ``"hf:<repo_id>"`` string to a known :class:`HuggingFaceImageModel` spec.
+
+    AIMU ships curated specs for best-of-class models only; an arbitrary repo id is **not**
+    supported via string (capabilities like ``pipeline_class`` / ``supports_negative_prompt``
+    can't be inferred reliably and silent guesses cause unforeseen results). For a custom
+    model, hand-build a :class:`HuggingFaceImageSpec` and pass that object instead.
+    """
     if ":" not in s:
         raise ValueError(
             f"HuggingFace image model string must be in 'provider:repo_id' form (e.g. "
@@ -137,7 +143,15 @@ def _parse_model_string(s: str) -> HuggingFaceImageSpec:
         raise ValueError(f"Only 'hf:' provider is supported for HuggingFaceImageClient. Got provider: {provider!r}")
     if not repo_id:
         raise ValueError(f"Empty model id after 'hf:': {s!r}")
-    return HuggingFaceImageSpec(repo_id)
+    for member in HuggingFaceImageModel:
+        if member.value == repo_id:
+            return member.spec
+    available = sorted(m.value for m in HuggingFaceImageModel)
+    raise ValueError(
+        f"Unknown HuggingFace image model id {repo_id!r}. AIMU supports curated models only; "
+        f"pass a known id, a HuggingFaceImageModel member, or a hand-built HuggingFaceImageSpec "
+        f"for a custom model. Available ids: {available}"
+    )
 
 
 class HuggingFaceImageClient(BaseImageClient):

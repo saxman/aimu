@@ -67,7 +67,7 @@ def test_generate_image_in_image_subgroup():
 def test_lazy_singleton_constructed_once(monkeypatch):
     """_get_image_client should cache a single image client and reuse it."""
     monkeypatch.setattr(builtin, "_image_client", None)
-    monkeypatch.setenv("AIMU_IMAGE_MODEL", "hf:test/repo")
+    monkeypatch.setenv("AIMU_IMAGE_MODEL", "hf:runwayml/stable-diffusion-v1-5")
 
     constructed: list[str] = []
 
@@ -85,16 +85,16 @@ def test_lazy_singleton_constructed_once(monkeypatch):
     c1 = builtin._get_image_client()
     c2 = builtin._get_image_client()
     assert c1 is c2
-    assert constructed == ["hf:test/repo"]
+    assert constructed == ["hf:runwayml/stable-diffusion-v1-5"]
 
 
 def test_singleton_honours_env_var(monkeypatch, tmp_path):
     """AIMU_IMAGE_MODEL env var should pick the singleton's model."""
     monkeypatch.setattr(builtin, "_image_client", None)
-    monkeypatch.setenv("AIMU_IMAGE_MODEL", "hf:my/custom-repo")
+    monkeypatch.setenv("AIMU_IMAGE_MODEL", "hf:stabilityai/stable-diffusion-xl-base-1.0")
 
     c = builtin._get_image_client()
-    assert c.spec.id == "my/custom-repo"
+    assert c.spec.id == "stabilityai/stable-diffusion-xl-base-1.0"
 
 
 def test_singleton_raises_when_env_unset(monkeypatch):

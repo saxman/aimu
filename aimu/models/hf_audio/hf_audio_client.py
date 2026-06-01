@@ -88,16 +88,13 @@ class HuggingFaceAudioModel(AudioModel):
     )
 
 
-# Known repo-id prefixes for pipeline-type inference when parsing ad-hoc strings.
-_REPO_PIPELINE_HINTS: list[tuple[str, str]] = [
-    ("facebook/musicgen", "musicgen"),
-    ("cvssp/audioldm", "audioldm2"),
-    ("stabilityai/stable-audio", "stable_audio"),
-]
-
-
 def _parse_model_string(s: str) -> HuggingFaceAudioSpec:
-    """Parse a ``"hf:<repo_id>"`` string into an ad-hoc :class:`HuggingFaceAudioSpec`."""
+    """Resolve a ``"hf:<repo_id>"`` string to a known :class:`HuggingFaceAudioModel` spec.
+
+    AIMU ships curated specs for best-of-class models only; an arbitrary repo id is **not**
+    supported via string (``pipeline_type`` and generation defaults can't be inferred reliably).
+    For a custom model, hand-build a :class:`HuggingFaceAudioSpec` and pass that object.
+    """
     if ":" not in s:
         raise ValueError(
             f"HuggingFace audio model string must be in 'provider:repo_id' form "
@@ -109,12 +106,15 @@ def _parse_model_string(s: str) -> HuggingFaceAudioSpec:
     if not repo_id:
         raise ValueError(f"Empty model id after 'hf:': {s!r}")
 
-    pipeline_type = "musicgen"
-    for prefix, ptype in _REPO_PIPELINE_HINTS:
-        if repo_id.startswith(prefix):
-            pipeline_type = ptype
-            break
-    return HuggingFaceAudioSpec(repo_id, pipeline_type=pipeline_type)
+    for member in HuggingFaceAudioModel:
+        if member.value == repo_id:
+            return member.spec
+    available = sorted(m.value for m in HuggingFaceAudioModel)
+    raise ValueError(
+        f"Unknown HuggingFace audio model id {repo_id!r}. AIMU supports curated models only; "
+        f"pass a known id, a HuggingFaceAudioModel member, or a hand-built HuggingFaceAudioSpec "
+        f"for a custom model. Available ids: {available}"
+    )
 
 
 class HuggingFaceAudioClient(BaseAudioClient):

@@ -11,6 +11,17 @@
 - **New** `aimu.models._images._reference_image_to_pil()` — shared helper used by both HF and Gemini image clients to normalise any reference image input form to a PIL Image.
 - **New** `scripts/hotdog_img2img.py` — iterative hotdog refinement via img2img + strength annealing. Hill-climbs in image space (always refines from the best image, not the most recent) while annealing `strength` from high (explore) to low (polish). Detects and warns when the active model does not support `strength` (e.g. FLUX.2 Klein).
 
+### Negative prompts
+
+- **New** `ImageSpec.supports_negative_prompt` capability flag. `True` by default; `False` for guidance-distilled / conversational models that have no negative-prompt parameter — `HuggingFaceImageModel.FLUX_2_KLEIN_4B`/`_9B` and the entire Gemini image family (`GeminiImageSpec` defaults it to `False`).
+- **Behavior** `BaseImageClient.generate()` now raises `ValueError` if `negative_prompt=` is passed to a model whose spec sets `supports_negative_prompt=False`, instead of crashing deep in the pipeline (HuggingFace) or silently ignoring it (Gemini). Callers branch on `spec.supports_negative_prompt` and fold avoidance into the prose prompt for unsupporting models. The hotdog scripts do this via a new `negative_prompt_plan()` helper (native kwarg → summarizer-folded positive constraints → prompt suffix, by model).
+
+### Curated model catalog (breaking for unknown ids)
+
+- **Breaking** Model id strings must name a model AIMU ships a spec for. Passing an arbitrary `"hf:<unknown-repo>"` / `"gemini:<unknown-id>"` / `"openai:<unknown-id>"` to an image, audio, or speech client now raises `ValueError` (listing available ids) instead of fabricating a spec with guessed capabilities. Text was always strict (`resolve_model_string` raises); this brings the other modalities in line. For a one-off custom model, construct the provider spec and pass the object (e.g. `ImageClient(HuggingFaceImageSpec(...))`) — the explicit escape hatch.
+- **Fixed** A `"provider:model_id"` string for a *known* model now resolves to the **same spec object** as the equivalent enum member, so capabilities are identical regardless of construction path. Previously the string form fabricated a default spec — e.g. `"hf:black-forest-labs/FLUX.2-klein-4B"` lost `supports_negative_prompt=False`/`img2img_uses_strength=False`, and `"hf:suno/bark"` lost BARK's `default_voice`.
+- **Removed** The `_REPO_PIPELINE_HINTS` repo-prefix capability-guessing heuristics in the HuggingFace audio and speech clients (dead once unknown ids raise).
+
 ## v0.5.0 (2026-05-31) — Async, audio, speech, and default models
 
 A feature release on top of the v0.4 redesign: a full async surface, two new output modalities (audio and speech), a cloud image provider, automatic default-model resolution, and streaming tools. No breaking changes to the v0.4 sync API.

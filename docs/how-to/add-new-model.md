@@ -2,6 +2,9 @@
 
 To make a new model usable with `ModelClient`, add a member to that provider's `Model` enum. The member's value is a `ModelSpec` with the model id and capability flags.
 
+!!! note "AIMU ships curated models only"
+    Every modality requires the model to be a member of its provider enum (or a hand-built spec — see [Custom models](#custom-models)). Passing an arbitrary `"provider:some/unknown-repo"` string **raises** `ValueError`, rather than silently fabricating a spec with guessed capabilities. Capability flags (tools/thinking/vision, `pipeline_class`, `supports_negative_prompt`, voice/step defaults, …) can't be inferred reliably from a repo name, and a wrong guess causes hard-to-debug runtime failures. So the catalog is intentional: to use a new model, add it to the enum here.
+
 ## Basic case
 
 For most providers (`OllamaModel`, `AnthropicModel`, `OpenAIModel`, etc.) the enum value is a single `ModelSpec`:
@@ -52,6 +55,61 @@ class HuggingFaceModel(Model):
 ```
 
 Pick `ToolCallFormat.XML` / `JSON_OBJECT` / `JSON_ARRAY` / `BRACKETED` / `NA` based on how the base model emits tool calls. See existing entries in `aimu/models/hf/hf_client.py` for examples per model family.
+
+## Image, audio, and speech models
+
+The non-text modalities follow the same pattern with their own spec type and enum. Add a member to the provider enum in the relevant client module:
+
+```python
+# aimu/models/hf_image/hf_image_client.py — diffusers text-to-image
+class HuggingFaceImageModel(ImageModel):
+    SD_1_5 = HuggingFaceImageSpec("runwayml/stable-diffusion-v1-5", max_prompt_tokens=77)
+    FLUX_2_KLEIN_4B = HuggingFaceImageSpec(
+        "black-forest-labs/FLUX.2-klein-4B",
+        pipeline_class="Flux2KleinPipeline",
+        img2img_pipeline_class="Flux2KleinPipeline",
+        img2img_uses_strength=False,        # unified pipeline conditions on the image directly
+        supports_negative_prompt=False,     # Flux2KleinPipeline.__call__ has no negative_prompt param
+        default_steps=4,
+        max_prompt_tokens=512,              # T5-XXL encoder
+    )
+
+# aimu/models/gemini_image/gemini_image_client.py — Gemini Nano Banana (cloud)
+class GeminiImageModel(ImageModel):
+    NANO_BANANA = GeminiImageSpec("gemini-2.5-flash-image")   # supports_negative_prompt defaults False
+
+# aimu/models/hf_audio/hf_audio_client.py — music / sound generation
+class HuggingFaceAudioModel(AudioModel):
+    MUSICGEN_SMALL = HuggingFaceAudioSpec("facebook/musicgen-small", pipeline_type="musicgen")
+    AUDIOLDM2 = HuggingFaceAudioSpec("cvssp/audioldm2", pipeline_type="audioldm2", default_steps=200)
+
+# aimu/models/hf_speech/hf_speech_client.py — text-to-speech
+class HuggingFaceSpeechModel(SpeechModel):
+    BARK = HuggingFaceSpeechSpec("suno/bark", pipeline_type="bark", default_voice="v2/en_speaker_6")
+```
+
+Capability fields differ per modality — set the ones that matter for the model:
+
+- **`HuggingFaceImageSpec`**: `pipeline_class`, `img2img_pipeline_class`, `img2img_uses_strength`, `supports_negative_prompt`, `default_steps`/`default_guidance`/`default_width`/`default_height`, `default_negative_prompt`, `max_prompt_tokens`.
+- **`GeminiImageSpec`**: `supports_negative_prompt` (defaults `False`), `default_aspect_ratio`, `default_image_size`, `image_config_kwargs`.
+- **`HuggingFaceAudioSpec`**: `pipeline_type` (`"musicgen"` / `"audioldm2"` / `"stable_audio"`), `default_duration_s`, `default_steps`.
+- **`HuggingFaceSpeechSpec`** / **`OpenAISpeechSpec`**: `pipeline_type` (HF: `"tts_pipeline"` / `"speecht5"` / `"bark"`), `default_voice`, `default_speed`.
+
+Because these specs carry behaviour the runtime depends on (e.g. `pipeline_class`, `supports_negative_prompt`), the enum is the single source of truth — the string form (`"hf:<repo>"`, `"gemini:<id>"`) resolves to the **same** spec object as the enum member, and an unknown id raises.
+
+## Custom models
+
+For a one-off model not worth adding to the catalog, construct the spec yourself and pass the object (not a string) to the client — an explicit, deliberate escape hatch where you supply every capability flag:
+
+```python
+from aimu.models import ImageClient
+from aimu.models.base import HuggingFaceImageSpec
+
+spec = HuggingFaceImageSpec("my-org/my-diffusion-model", pipeline_class="StableDiffusionPipeline")
+client = ImageClient(spec)   # accepted: you've stated the capabilities explicitly
+```
+
+If the model is genuinely best-of-class, prefer adding it to the enum so everyone benefits.
 
 ## Verify
 

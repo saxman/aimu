@@ -401,28 +401,32 @@ def test_hf_audio_client_lazy_pipeline_not_loaded_at_init():
 
 
 # ---------------------------------------------------------------------------
-# String parsing — pipeline_type inference
+# String parsing — resolves a known id to the curated enum spec
 # ---------------------------------------------------------------------------
 
 
-def test_hf_audio_string_musicgen_infers_pipeline_type():
-    client = HuggingFaceAudioClient("hf:facebook/musicgen-medium")
-    assert client.spec.pipeline_type == "musicgen"
+def test_hf_audio_string_musicgen_resolves_to_enum_spec():
+    member = HuggingFaceAudioModel.MUSICGEN_MEDIUM
+    client = HuggingFaceAudioClient(f"hf:{member.value}")
+    assert client.spec is member.spec
 
 
-def test_hf_audio_string_audioldm_infers_pipeline_type():
-    client = HuggingFaceAudioClient("hf:cvssp/audioldm2")
-    assert client.spec.pipeline_type == "audioldm2"
+def test_hf_audio_string_audioldm_resolves_to_enum_spec():
+    member = HuggingFaceAudioModel.AUDIOLDM2
+    client = HuggingFaceAudioClient(f"hf:{member.value}")
+    assert client.spec is member.spec
 
 
-def test_hf_audio_string_stable_audio_infers_pipeline_type():
-    client = HuggingFaceAudioClient("hf:stabilityai/stable-audio-open-1.0")
-    assert client.spec.pipeline_type == "stable_audio"
+def test_hf_audio_string_stable_audio_resolves_to_enum_spec():
+    member = HuggingFaceAudioModel.STABLE_AUDIO_OPEN
+    client = HuggingFaceAudioClient(f"hf:{member.value}")
+    assert client.spec is member.spec
 
 
-def test_hf_audio_string_unknown_prefix_defaults_to_musicgen():
-    client = HuggingFaceAudioClient("hf:someorg/custom-audio-model")
-    assert client.spec.pipeline_type == "musicgen"
+def test_hf_audio_string_unknown_id_raises():
+    # Arbitrary repos are not supported via string — curated enum models only.
+    with pytest.raises(ValueError, match="curated models only"):
+        HuggingFaceAudioClient("hf:someorg/custom-audio-model")
 
 
 # ---------------------------------------------------------------------------

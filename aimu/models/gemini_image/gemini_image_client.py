@@ -52,7 +52,11 @@ _ALIASES = {
 
 
 def _parse_model_string(s: str) -> GeminiImageSpec:
-    """Parse a ``"gemini:<model_id>"`` string into a :class:`GeminiImageSpec`."""
+    """Resolve a ``"gemini:<model_id>"`` string (or alias) to a known :class:`GeminiImageModel` spec.
+
+    AIMU ships curated specs for best-of-class models only; an arbitrary id is **not** supported
+    via string. For a custom model, hand-build a :class:`GeminiImageSpec` and pass that object.
+    """
     if ":" not in s:
         raise ValueError(
             f"Gemini image model string must be in 'provider:model_id' form (e.g. "
@@ -64,7 +68,15 @@ def _parse_model_string(s: str) -> GeminiImageSpec:
     if not model_id:
         raise ValueError(f"Empty model id after 'gemini:': {s!r}")
     resolved = _ALIASES.get(model_id, model_id)
-    return GeminiImageSpec(resolved)
+    for member in GeminiImageModel:
+        if member.value == resolved:
+            return member.spec
+    available = sorted(m.value for m in GeminiImageModel)
+    raise ValueError(
+        f"Unknown Gemini image model id {model_id!r}. AIMU supports curated models only; pass a "
+        f"known id or alias ({sorted(_ALIASES)}), a GeminiImageModel member, or a hand-built "
+        f"GeminiImageSpec for a custom model. Available ids: {available}"
+    )
 
 
 class GeminiImageClient(BaseImageClient):

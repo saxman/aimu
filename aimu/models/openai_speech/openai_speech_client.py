@@ -75,13 +75,18 @@ class OpenAISpeechClient(BaseSpeechClient):
                         f"Only 'openai:' provider is supported for OpenAISpeechClient. "
                         f"Got provider: {provider!r}"
                     )
-                # Look up enum by model_id or fall back to ad-hoc spec
+                # Resolve to a known enum member; arbitrary ids are not supported via string.
                 for member in OpenAISpeechModel:
                     if member.value == model_id:
                         model = member
                         break
                 else:
-                    model = OpenAISpeechSpec(model_id)
+                    available = sorted(m.value for m in OpenAISpeechModel)
+                    raise ValueError(
+                        f"Unknown OpenAI speech model id {model_id!r}. AIMU supports curated "
+                        f"models only; pass a known id, an OpenAISpeechModel member, or a hand-built "
+                        f"OpenAISpeechSpec for a custom model. Available ids: {available}"
+                    )
             else:
                 raise ValueError(
                     f"OpenAI speech model string must be in 'openai:model_id' form "

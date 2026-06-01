@@ -438,14 +438,23 @@ def test_hf_speech_client_from_string():
     assert client.spec.pipeline_type == "tts_pipeline"
 
 
-def test_hf_speech_client_speecht5_string_infers_pipeline_type():
-    client = HuggingFaceSpeechClient("hf:microsoft/speecht5_tts")
-    assert client.spec.pipeline_type == "speecht5"
+def test_hf_speech_client_speecht5_string_resolves_to_enum_spec():
+    member = HuggingFaceSpeechModel.SPEECHT5
+    client = HuggingFaceSpeechClient(f"hf:{member.value}")
+    assert client.spec is member.spec
 
 
-def test_hf_speech_client_bark_string_infers_pipeline_type():
+def test_hf_speech_client_bark_string_resolves_to_enum_spec():
+    # Regression: the string form must yield BARK's curated default_voice, not a default None.
     client = HuggingFaceSpeechClient("hf:suno/bark")
-    assert client.spec.pipeline_type == "bark"
+    assert client.spec is HuggingFaceSpeechModel.BARK.spec
+    assert client.spec.default_voice == "v2/en_speaker_6"
+
+
+def test_hf_speech_client_unknown_id_raises():
+    # Arbitrary repos are not supported via string — curated enum models only.
+    with pytest.raises(ValueError, match="curated models only"):
+        HuggingFaceSpeechClient("hf:someorg/custom-tts")
 
 
 def test_hf_speech_client_invalid_string():

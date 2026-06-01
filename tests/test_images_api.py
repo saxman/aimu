@@ -321,10 +321,17 @@ def test_hf_client_accepts_spec():
     assert client.spec is spec
 
 
-def test_hf_client_accepts_hf_string():
-    client = HuggingFaceImageClient("hf:custom/repo-id")
-    assert client.spec.id == "custom/repo-id"
-    assert client.spec.pipeline_class == "DiffusionPipeline"
+def test_hf_client_accepts_known_hf_string():
+    # A known id string resolves to the same spec object as the enum member.
+    member = HuggingFaceImageModel.SD_1_5
+    client = HuggingFaceImageClient(f"hf:{member.value}")
+    assert client.spec is member.spec
+
+
+def test_hf_client_rejects_unknown_repo_id():
+    # Arbitrary repos are not supported via string — curated enum models only.
+    with pytest.raises(ValueError, match="curated models only"):
+        HuggingFaceImageClient("hf:custom/repo-id")
 
 
 def test_hf_client_rejects_bare_repo_id():

@@ -611,11 +611,15 @@ These are *implementation* patterns — the *how*. The *why* lives in the "Desig
 
 ### Adding New Models
 
+**Curated-catalog policy (all modalities).** AIMU ships specs for best-of-class models only. A model must be a member of its provider enum (or a hand-built spec object passed explicitly). Passing an arbitrary `"provider:some/unknown-repo"` string **raises `ValueError`** — the clients never fabricate a spec with guessed capabilities, because a wrong guess (`pipeline_class`, `supports_negative_prompt`, tool/thinking/vision flags, voice/step defaults) causes hard-to-debug runtime failures. The string form resolves to the *same* spec object as the enum member; unknown ids raise. This is enforced in each provider's `_parse_model_string` (text's `resolve_model_string` was always strict). See [docs/how-to/add-new-model.md](docs/how-to/add-new-model.md).
+
 When adding new models to a client:
 1. Add an enum member to the client's `Model` class with a `ModelSpec(id, tools=..., thinking=..., vision=..., generation_kwargs=...)` value. Example: `QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)`.
 2. `TOOL_MODELS`, `THINKING_MODELS`, and `VISION_MODELS` lists are derived automatically from the capability flags; no manual update needed.
 3. For HuggingFace models, the enum value is a tuple `(ModelSpec(...), ToolCallFormat.XXX[, think_opener_in_prompt])` because HF carries provider-specific extras alongside the spec.
 4. Test with `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`
+
+**Other modalities** use the same pattern with their own spec type and enum: image (`HuggingFaceImageSpec`/`GeminiImageSpec` in `HuggingFaceImageModel`/`GeminiImageModel`), audio (`HuggingFaceAudioSpec` in `HuggingFaceAudioModel`), speech (`HuggingFaceSpeechSpec`/`OpenAISpeechSpec` in `HuggingFaceSpeechModel`/`OpenAISpeechModel`). For a one-off custom model, construct the spec object and pass it to the factory (`ImageClient(spec)`) — the explicit escape hatch — rather than a string. Test with the modality's live suite (e.g. `pytest tests/test_images.py --image-client=hf --image-model=<NAME>`).
 
 ### Tool Calling Compatibility
 

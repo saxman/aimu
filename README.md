@@ -166,6 +166,10 @@ img = client.generate("a cat in a sunlit garden")
 img = client.generate("add snow", reference_image="./cat.jpg")  # img2img
 ```
 
+> **Curated models, no arbitrary repos.** A `provider:model_id` string must name a model AIMU ships a spec for (the ids above are all curated). An unknown id raises rather than running with guessed capabilities — for a one-off custom model, build the provider spec and pass the object (`aimu.image_client(HuggingFaceImageSpec(...))`). This applies to every modality.
+>
+> **Negative prompts** are accepted only by models whose spec sets `supports_negative_prompt`; prose models (FLUX.2 Klein, Nano Banana) raise if passed one — describe what to avoid in the prompt itself instead.
+
 **Audio generation.** Same `provider:model_id` shape, parallel factory:
 
 ```python

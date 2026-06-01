@@ -79,16 +79,13 @@ class HuggingFaceSpeechModel(SpeechModel):
     )
 
 
-# Known repo-id prefixes for pipeline-type inference when parsing ad-hoc strings.
-_REPO_PIPELINE_HINTS: list[tuple[str, str]] = [
-    ("suno/bark", "bark"),
-    ("microsoft/speecht5", "speecht5"),
-    ("facebook/mms-tts", "tts_pipeline"),
-]
-
-
 def _parse_model_string(s: str) -> HuggingFaceSpeechSpec:
-    """Parse a ``"hf:<repo_id>"`` string into an ad-hoc :class:`HuggingFaceSpeechSpec`."""
+    """Resolve a ``"hf:<repo_id>"`` string to a known :class:`HuggingFaceSpeechModel` spec.
+
+    AIMU ships curated specs for best-of-class models only; an arbitrary repo id is **not**
+    supported via string (``pipeline_type`` / ``default_voice`` can't be inferred reliably).
+    For a custom model, hand-build a :class:`HuggingFaceSpeechSpec` and pass that object.
+    """
     if ":" not in s:
         raise ValueError(
             f"HuggingFace speech model string must be in 'provider:repo_id' form "
@@ -102,12 +99,15 @@ def _parse_model_string(s: str) -> HuggingFaceSpeechSpec:
     if not repo_id:
         raise ValueError(f"Empty model id after 'hf:': {s!r}")
 
-    pipeline_type = "tts_pipeline"
-    for prefix, ptype in _REPO_PIPELINE_HINTS:
-        if repo_id.startswith(prefix):
-            pipeline_type = ptype
-            break
-    return HuggingFaceSpeechSpec(repo_id, pipeline_type=pipeline_type)
+    for member in HuggingFaceSpeechModel:
+        if member.value == repo_id:
+            return member.spec
+    available = sorted(m.value for m in HuggingFaceSpeechModel)
+    raise ValueError(
+        f"Unknown HuggingFace speech model id {repo_id!r}. AIMU supports curated models only; "
+        f"pass a known id, a HuggingFaceSpeechModel member, or a hand-built HuggingFaceSpeechSpec "
+        f"for a custom model. Available ids: {available}"
+    )
 
 
 class HuggingFaceSpeechClient(BaseSpeechClient):
