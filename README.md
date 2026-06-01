@@ -39,7 +39,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 ### Image and audio generation
 
 - Consistent APIs for text-to-image (`aimu.image_client()` / `aimu.generate_image()`) and text-to-audio (`aimu.audio_client()` / `aimu.generate_audio()`), mirroring the text client interface.
-- For images: HuggingFace `diffusers` locally (SD 1.5 / SDXL / SD 3.5 / FLUX dev & schnell) and Google Nano Banana via the cloud API.
+- For images: HuggingFace `diffusers` locally (SD 1.5 / SDXL / SD 3.5 / FLUX 1 dev & schnell / FLUX 2 Klein 4B & 9B) and Google Nano Banana via the cloud API. Pass `reference_image=` to any `generate()` call for image-to-image workflows.
 - For audio (music and sound): HuggingFace with MusicGen small/medium/large (32 kHz), AudioLDM2 (16 kHz), and Stable Audio Open (44.1 kHz stereo).
 - Drop image and audio generation into any chat agent via the built-in `generate_image` and `generate_audio` tools.
 
@@ -144,7 +144,7 @@ client.chat("What's in this image?", images=["./cat.jpg"])      # multi-turn, ke
 client.generate("Caption this image.", images=["./cat.jpg"])    # one-shot, no history
 ```
 
-**Image generation.** Same `provider:model_id` shape, parallel factory:
+**Image generation.** Same `provider:model_id` shape, parallel factory. Pass `reference_image=` for image-to-image:
 
 ```python
 # One-shot, local HuggingFace diffusers
@@ -156,6 +156,14 @@ path = aimu.generate_image(
 # Reuse loaded weights across calls
 client = aimu.image_client("hf:stabilityai/stable-diffusion-xl-base-1.0")
 img = client.generate("a cyberpunk city skyline at dusk")
+
+# Image-to-image: steer generation from a reference image
+img = client.generate("a cyberpunk version", reference_image="./photo.jpg", strength=0.7)
+
+# FLUX.2 Klein — 4-step distilled, native img2img (no separate strength param)
+client = aimu.image_client("hf:black-forest-labs/FLUX.2-klein-4B")
+img = client.generate("a cat in a sunlit garden")
+img = client.generate("add snow", reference_image="./cat.jpg")  # img2img
 ```
 
 **Audio generation.** Same `provider:model_id` shape, parallel factory:
