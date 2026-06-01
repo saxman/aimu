@@ -97,6 +97,30 @@ class HuggingFaceImageModel(ImageModel):
         default_height=1024,
         max_prompt_tokens=256,  # T5-XXL encoder
     )
+    # FLUX.2 Klein: unified pipeline — same class handles txt2img and img2img.
+    # Distilled to 4 steps. ``strength`` is not a parameter (direct image conditioning).
+    FLUX_2_KLEIN_4B = HuggingFaceImageSpec(
+        "black-forest-labs/FLUX.2-klein-4B",
+        pipeline_class="Flux2KleinPipeline",
+        img2img_pipeline_class="Flux2KleinPipeline",
+        img2img_uses_strength=False,
+        default_steps=4,
+        default_guidance=4.0,
+        default_width=1024,
+        default_height=1024,
+        max_prompt_tokens=512,  # T5-XXL encoder
+    )
+    FLUX_2_KLEIN_9B = HuggingFaceImageSpec(
+        "black-forest-labs/FLUX.2-klein-9B",
+        pipeline_class="Flux2KleinPipeline",
+        img2img_pipeline_class="Flux2KleinPipeline",
+        img2img_uses_strength=False,
+        default_steps=4,
+        default_guidance=4.0,
+        default_width=1024,
+        default_height=1024,
+        max_prompt_tokens=512,  # T5-XXL encoder
+    )
 
 
 def _parse_model_string(s: str) -> HuggingFaceImageSpec:
@@ -286,7 +310,8 @@ class HuggingFaceImageClient(BaseImageClient):
             from .._images import _reference_image_to_pil
 
             call_kwargs["image"] = _reference_image_to_pil(reference_image)
-            call_kwargs["strength"] = strength if strength is not None else 0.75
+            if self.spec.img2img_uses_strength:
+                call_kwargs["strength"] = strength if strength is not None else 0.75
             # img2img pipelines derive output size from the reference; drop explicit dims
             call_kwargs.pop("width", None)
             call_kwargs.pop("height", None)

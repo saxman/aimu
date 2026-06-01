@@ -107,6 +107,7 @@ def _install_diffusers_stub():
     stub.StableDiffusionXLPipeline = _FakePipeline
     stub.StableDiffusion3Pipeline = _FakePipeline
     stub.FluxPipeline = _FakePipeline
+    stub.Flux2KleinPipeline = _FakePipeline
     for _img2img_name in [
         "StableDiffusionImg2ImgPipeline",
         "StableDiffusionXLImg2ImgPipeline",
@@ -906,3 +907,53 @@ def test_gemini_with_reference_image_path_input(fake_genai, tmp_path):
     contents = c.client.models.last_call_kwargs["contents"]
     assert isinstance(contents[0], _gt.Content)
     assert contents[0].parts[1].inline_data.mime_type == "image/png"
+
+
+# ===========================================================================
+# FLUX.2 Klein — catalog and img2img (no strength)
+# ===========================================================================
+
+
+def test_flux2_klein_4b_catalog_entry():
+    """FLUX.2 Klein 4B is in the catalog with the right pipeline class and defaults."""
+    spec = HuggingFaceImageModel.FLUX_2_KLEIN_4B.spec
+    assert spec.id == "black-forest-labs/FLUX.2-klein-4B"
+    assert spec.pipeline_class == "Flux2KleinPipeline"
+    assert spec.img2img_pipeline_class == "Flux2KleinPipeline"
+    assert spec.img2img_uses_strength is False
+    assert spec.default_steps == 4
+    assert spec.default_guidance == 4.0
+    assert spec.max_prompt_tokens == 512
+
+
+def test_flux2_klein_9b_catalog_entry():
+    """FLUX.2 Klein 9B is in the catalog with the right pipeline class and defaults."""
+    spec = HuggingFaceImageModel.FLUX_2_KLEIN_9B.spec
+    assert spec.id == "black-forest-labs/FLUX.2-klein-9B"
+    assert spec.pipeline_class == "Flux2KleinPipeline"
+    assert spec.img2img_uses_strength is False
+
+
+def test_flux2_klein_txt2img_generates():
+    """FLUX.2 Klein 4B can generate without a reference image."""
+    client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_2_KLEIN_4B)
+    img = client.generate("a cat")
+    assert isinstance(img, Image.Image)
+    kw = client.pipeline._last_call_kwargs
+    assert kw["num_inference_steps"] == 4
+    assert kw["guidance_scale"] == 4.0
+
+
+def test_flux2_klein_img2img_no_strength_in_call_kwargs():
+    """FLUX.2 Klein img2img passes image= but NOT strength= (unified pipeline)."""
+    from PIL import Image as _PIL
+
+    client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_2_KLEIN_4B)
+    client.generate("a cat", reference_image=_make_stub_image())
+
+    assert client._img2img_pipe is not None
+    kw = client._img2img_pipe._last_call_kwargs
+    assert isinstance(kw["image"], _PIL.Image)
+    assert "strength" not in kw
+    assert "width" not in kw
+    assert "height" not in kw

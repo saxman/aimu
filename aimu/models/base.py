@@ -154,6 +154,7 @@ class HuggingFaceImageSpec(ImageSpec):
 
     pipeline_class: str = "DiffusionPipeline"
     img2img_pipeline_class: Optional[str] = None
+    img2img_uses_strength: bool = True
     default_steps: int = 30
     default_guidance: float = 7.5
     default_width: int = 1024
