@@ -3264,6 +3264,7 @@
 <th>Pipeline class</th>
 <th style="text-align: center;">Default steps</th>
 <th style="text-align: center;">Default size</th>
+<th style="text-align: center;">img2img</th>
 </tr>
 </thead>
 <tbody>
@@ -3273,6 +3274,7 @@
 <td><code>StableDiffusionPipeline</code></td>
 <td style="text-align: center;">25</td>
 <td style="text-align: center;">512×512</td>
+<td style="text-align: center;">✓ (<code>strength=</code>)</td>
 </tr>
 <tr>
 <td><code>SDXL_BASE</code></td>
@@ -3280,6 +3282,7 @@
 <td><code>StableDiffusionXLPipeline</code></td>
 <td style="text-align: center;">30</td>
 <td style="text-align: center;">1024×1024</td>
+<td style="text-align: center;">✓ (<code>strength=</code>)</td>
 </tr>
 <tr>
 <td><code>SD_3_5_MEDIUM</code></td>
@@ -3287,6 +3290,7 @@
 <td><code>StableDiffusion3Pipeline</code></td>
 <td style="text-align: center;">28</td>
 <td style="text-align: center;">1024×1024</td>
+<td style="text-align: center;">✓ (<code>strength=</code>)</td>
 </tr>
 <tr>
 <td><code>FLUX_DEV</code></td>
@@ -3294,6 +3298,7 @@
 <td><code>FluxPipeline</code></td>
 <td style="text-align: center;">28</td>
 <td style="text-align: center;">1024×1024</td>
+<td style="text-align: center;">✓ (<code>strength=</code>)</td>
 </tr>
 <tr>
 <td><code>FLUX_SCHNELL</code></td>
@@ -3301,10 +3306,28 @@
 <td><code>FluxPipeline</code></td>
 <td style="text-align: center;">4</td>
 <td style="text-align: center;">1024×1024</td>
+<td style="text-align: center;">✓ (<code>strength=</code>)</td>
+</tr>
+<tr>
+<td><code>FLUX_2_KLEIN_4B</code></td>
+<td><code>black-forest-labs/FLUX.2-klein-4B</code></td>
+<td><code>Flux2KleinPipeline</code></td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">1024×1024</td>
+<td style="text-align: center;">✓ (unified)</td>
+</tr>
+<tr>
+<td><code>FLUX_2_KLEIN_9B</code></td>
+<td><code>black-forest-labs/FLUX.2-klein-9B</code></td>
+<td><code>Flux2KleinPipeline</code></td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">1024×1024</td>
+<td style="text-align: center;">✓ (unified)</td>
 </tr>
 </tbody>
 </table>
-<p>Spec defaults are starting points — pass <code>num_inference_steps=</code>, <code>guidance_scale=</code>, <code>width=</code>, <code>height=</code>, <code>seed=</code> to override per call. Power users can bypass the enum with a <code>"hf:&lt;repo_id&gt;"</code> string for any HuggingFace diffusers model (defaults to <code>DiffusionPipeline</code> auto-detect loader).</p>
+<p>The <strong>img2img</strong> column indicates <code>reference_image=</code> support. <code>strength=</code> models derive output from a noisy version of the reference (0 = identical, 1 = ignore it; default 0.75). "unified" models (<code>Flux2KleinPipeline</code>) condition on the reference directly — no <code>strength</code> parameter; <code>width</code>/<code>height</code> are derived from the reference.</p>
+<p>Spec defaults are starting points — pass <code>num_inference_steps=</code>, <code>guidance_scale=</code>, <code>width=</code>, <code>height=</code>, <code>seed=</code> to override per call. Power users can bypass the enum with a <code>"hf:&lt;repo_id&gt;"</code> string for any HuggingFace diffusers model (defaults to <code>DiffusionPipeline</code> auto-detect loader, <code>img2img_pipeline_class=None</code>).</p>
 <h3 id="google-gemini-geminiimagemodel">Google Gemini (<code>GeminiImageModel</code>)<a class="headerlink" href="#google-gemini-geminiimagemodel" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
