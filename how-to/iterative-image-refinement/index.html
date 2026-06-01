@@ -2661,14 +2661,14 @@
 <li><code>scripts/hotdog_loop.py</code> — <strong>Python directs the loop</strong> (a plain code-controlled <code>for</code> loop).</li>
 <li><code>scripts/hotdog_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
 <li><code>scripts/hotdog_evaluator.py</code> — <strong><code>EvaluatorOptimizer</code> directs the loop</strong> (the library workflow class, composing a generator + critic agent).</li>
-<li><code>scripts/hotdog_loop_climbing.py</code> — like the loop, but <strong>hill-climbs</strong>: keeps the best image and reverts when a step doesn't beat it.</li>
+<li><code>scripts/hotdog_climbing.py</code> — like the loop, but <strong>hill-climbs</strong>: keeps the best image and reverts when a step doesn't beat it.</li>
 <li><code>scripts/hotdog_anneal.py</code> — <strong>simulated annealing</strong>: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.</li>
 <li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by all of them.</li>
 </ul>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w">                 </span><span class="c1"># code-directed greedy walk</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w">                </span><span class="c1"># agent-directed greedy walk</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_evaluator.py<span class="w">            </span><span class="c1"># EvaluatorOptimizer workflow class</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_loop_climbing.py<span class="w">                </span><span class="c1"># hill-climb: keep best, revert when a step doesn&#39;t beat it</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_climbing.py<span class="w">                </span><span class="c1"># hill-climb: keep best, revert when a step doesn&#39;t beat it</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>scripts/hotdog_anneal.py<span class="w"> </span>--seed<span class="w"> </span><span class="m">7</span><span class="w">              </span><span class="c1"># simulated annealing: explore early, cool to greedy</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">   </span><span class="c1"># run until the critic says DONE</span>
 </span></code></pre></div>
@@ -2682,7 +2682,7 @@
 <p>All three produce the same artifacts and share every prompt and helper, so the diff between them is purely <em>who drives the loop</em>.</p>
 <h2 id="search-strategy-greedy-hill-climbing-simulated-annealing">Search strategy: greedy → hill-climbing → simulated annealing<a class="headerlink" href="#search-strategy-greedy-hill-climbing-simulated-annealing" title="Permanent link">&para;</a></h2>
 <p>The loop and agent scripts are <strong>greedy</strong>: each round they accept whatever prompt the critic proposes and move on — even if the new image scored <em>lower</em> than a previous one. That's simple and often fine, but the "best" image can be somewhere in the middle of the run rather than at the end.</p>
-<p><code>hotdog_loop_climbing.py</code> borrows the strategy from <a href="../tune-prompts/"><code>aimu.prompts</code></a> tuning — <strong>best-state caching + revert when a step doesn't beat the best</strong>:</p>
+<p><code>hotdog_climbing.py</code> borrows the strategy from <a href="../tune-prompts/"><code>aimu.prompts</code></a> tuning — <strong>best-state caching + revert when a step doesn't beat the best</strong>:</p>
 <ul>
 <li>Track the highest-scoring image so far.</li>
 <li>If a generation <strong>beats</strong> the best (strictly higher score), adopt it and refine from there.</li>
