@@ -52,6 +52,7 @@ from _hotdog_common import (
     collage_generated_images,
     evaluate_image,
     prompt_word_budget,
+    resolve_image_model,
     resolve_output_dir,
     write_summary,
 )
@@ -143,7 +144,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}\n")
 
-    image_client = aimu.image_client(args.image_model)
+    image_client = aimu.image_client(resolve_image_model(args.image_model))
     # Three separate client instances: generator brain, evaluator brain, and the vision
     # client used inside the tool (it calls reset(), which would clobber an agent's brain).
     gen_client = aimu.client(args.eval_model)

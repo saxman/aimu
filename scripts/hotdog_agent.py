@@ -29,6 +29,7 @@ from _hotdog_common import (
     collage_generated_images,
     evaluate_image,
     parse_evaluator_response,
+    resolve_image_model,
     resolve_output_dir,
     summarize_for_image,
     suppress_benign_clip_warning,
@@ -146,7 +147,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}\n")
 
-    image_client = aimu.image_client(args.image_model)
+    image_client = aimu.image_client(resolve_image_model(args.image_model))
     suppress_benign_clip_warning(image_client)
     # Two separate client instances: one for agent reasoning, one for vision eval inside the tool.
     agent_client = aimu.client(args.eval_model)

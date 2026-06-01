@@ -34,7 +34,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import aimu
 from aimu import image_client
-from aimu.models import HuggingFaceImageModel
 
 from _hotdog_common import (
     NEGATIVE_PROMPT,
@@ -44,6 +43,7 @@ from _hotdog_common import (
     collage_generated_images,
     evaluate_image,
     refine_image,
+    resolve_image_model,
     resolve_output_dir,
     summarize_for_image,
     suppress_benign_clip_warning,
@@ -84,7 +84,7 @@ def run(
 ) -> None:
     rng = random.Random(seed)
 
-    img_client = image_client(HuggingFaceImageModel[image_model_name])
+    img_client = image_client(resolve_image_model(image_model_name))
     eval_client = aimu.client(eval_model)
     suppress_benign_clip_warning(img_client)
 

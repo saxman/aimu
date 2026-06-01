@@ -38,6 +38,7 @@ from _hotdog_common import (
     collage_generated_images,
     evaluate_image,
     refine_image,
+    resolve_image_model,
     resolve_output_dir,
     summarize_for_image,
     suppress_benign_clip_warning,
@@ -57,7 +58,7 @@ def run_climb(
     max_iterations: int,
     patience: int,
 ) -> None:
-    image_client = aimu.image_client(image_model_name)
+    image_client = aimu.image_client(resolve_image_model(image_model_name))
     suppress_benign_clip_warning(image_client)
     eval_client = aimu.client(eval_model_id)
     if not eval_client.is_vision_model:
