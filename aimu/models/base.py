@@ -129,6 +129,11 @@ class ImageSpec:
 
     id: str
     max_prompt_tokens: Optional[int] = 77
+    # Whether the model's generation API accepts a separate negative prompt. False for
+    # guidance-distilled / conversational models (FLUX.2 Klein, Gemini Nano Banana) that
+    # take a single prose prompt; for those, BaseImageClient folds any caller-supplied
+    # negative prompt into the main prompt instead of passing it as a kwarg.
+    supports_negative_prompt: bool = True
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -177,6 +182,10 @@ class GeminiImageSpec(ImageSpec):
 
     # Cloud models take natural-language prompts with no CLIP-style token cap.
     max_prompt_tokens: Optional[int] = None
+    # Nano Banana (and the Gemini image family generally) take a single prose prompt;
+    # there is no negative-prompt parameter, so a caller-supplied one is folded into the
+    # prompt by BaseImageClient. Applies to enum members and ad-hoc "gemini:..." strings.
+    supports_negative_prompt: bool = False
     default_aspect_ratio: Optional[str] = None  # e.g. "1:1", "16:9"
     default_image_size: Optional[str] = None  # e.g. "1024x1024" (SDK-dependent)
     image_config_kwargs: Optional[dict] = field(default=None)
@@ -890,6 +899,14 @@ class BaseImageClient(ABC):
         """
         if num_images < 1:
             raise ValueError(f"num_images must be >= 1, got {num_images}")
+
+        if kwargs.get("negative_prompt") and not self.spec.supports_negative_prompt:
+            raise ValueError(
+                f"Image model {self.spec.id!r} has no negative-prompt support "
+                f"(spec.supports_negative_prompt is False). Omit negative_prompt, or fold the "
+                f"avoidance into the prompt as prose. Check spec.supports_negative_prompt to "
+                f"decide which to use."
+            )
 
         if stream:
             return self._generate_streamed(

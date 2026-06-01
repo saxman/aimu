@@ -104,6 +104,7 @@ class HuggingFaceImageModel(ImageModel):
         pipeline_class="Flux2KleinPipeline",
         img2img_pipeline_class="Flux2KleinPipeline",
         img2img_uses_strength=False,
+        supports_negative_prompt=False,  # Flux2KleinPipeline.__call__ has no negative_prompt param
         default_steps=4,
         default_guidance=4.0,
         default_width=1024,
@@ -115,6 +116,7 @@ class HuggingFaceImageModel(ImageModel):
         pipeline_class="Flux2KleinPipeline",
         img2img_pipeline_class="Flux2KleinPipeline",
         img2img_uses_strength=False,
+        supports_negative_prompt=False,  # Flux2KleinPipeline.__call__ has no negative_prompt param
         default_steps=4,
         default_guidance=4.0,
         default_width=1024,
@@ -295,8 +297,11 @@ class HuggingFaceImageClient(BaseImageClient):
             "num_images_per_prompt": num_images,
         }
 
+        # A caller-supplied negative_prompt for an unsupporting model is rejected up front by
+        # BaseImageClient.generate(); this guard additionally keeps a spec-level
+        # default_negative_prompt from reaching a pipeline (e.g. FLUX.2 Klein) that has no such param.
         effective_negative = negative_prompt if negative_prompt is not None else spec.default_negative_prompt
-        if effective_negative is not None:
+        if effective_negative is not None and spec.supports_negative_prompt:
             call_kwargs["negative_prompt"] = effective_negative
 
         if seed is not None:
