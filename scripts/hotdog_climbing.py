@@ -15,9 +15,9 @@ prompt over a dataset. Stops when the critic says DONE, after --patience consecu
 non-improvements, or at --max-iterations.
 
 Usage:
-    python scripts/hotdog_loop_climbing.py
-    python scripts/hotdog_loop_climbing.py --max-iterations 0 --patience 4
-    python scripts/hotdog_loop_climbing.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0
+    python scripts/hotdog_climbing.py
+    python scripts/hotdog_climbing.py --max-iterations 0 --patience 4
+    python scripts/hotdog_climbing.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0
 """
 
 from __future__ import annotations

@@ -3,7 +3,7 @@
 
 Code-controlled: Python directs the loop (a plain ``for`` loop over AIMU model/image
 clients); the LLMs only evaluate and evolve the prompt. The agent-driven counterpart is
-``hotdog_agent.py``; ``hotdog_loop_climbing.py`` adds best-state caching + revert-on-regression.
+``hotdog_agent.py``; ``hotdog_climbing.py`` adds best-state caching + revert-on-regression.
 Stops when the vision evaluator declares the hotdog cannot get hotter.
 
 Usage:

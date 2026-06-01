@@ -7,7 +7,7 @@ The full, runnable code lives in five scripts that share one helper module:
 - `scripts/hotdog_loop.py` — **Python directs the loop** (a plain code-controlled `for` loop).
 - `scripts/hotdog_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
 - `scripts/hotdog_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + critic agent).
-- `scripts/hotdog_loop_climbing.py` — like the loop, but **hill-climbs**: keeps the best image and reverts when a step doesn't beat it.
+- `scripts/hotdog_climbing.py` — like the loop, but **hill-climbs**: keeps the best image and reverts when a step doesn't beat it.
 - `scripts/hotdog_anneal.py` — **simulated annealing**: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.
 - `scripts/_hotdog_common.py` — shared prompts and helpers used by all of them.
 
@@ -15,7 +15,7 @@ The full, runnable code lives in five scripts that share one helper module:
 python scripts/hotdog_loop.py                 # code-directed greedy walk
 python scripts/hotdog_agent.py                # agent-directed greedy walk
 python scripts/hotdog_evaluator.py            # EvaluatorOptimizer workflow class
-python scripts/hotdog_loop_climbing.py                # hill-climb: keep best, revert when a step doesn't beat it
+python scripts/hotdog_climbing.py                # hill-climb: keep best, revert when a step doesn't beat it
 python scripts/hotdog_anneal.py --seed 7              # simulated annealing: explore early, cool to greedy
 python scripts/hotdog_agent.py --max-iterations 0   # run until the critic says DONE
 ```
@@ -34,7 +34,7 @@ All three produce the same artifacts and share every prompt and helper, so the d
 
 The loop and agent scripts are **greedy**: each round they accept whatever prompt the critic proposes and move on — even if the new image scored *lower* than a previous one. That's simple and often fine, but the "best" image can be somewhere in the middle of the run rather than at the end.
 
-`hotdog_loop_climbing.py` borrows the strategy from [`aimu.prompts`](tune-prompts.md) tuning — **best-state caching + revert when a step doesn't beat the best**:
+`hotdog_climbing.py` borrows the strategy from [`aimu.prompts`](tune-prompts.md) tuning — **best-state caching + revert when a step doesn't beat the best**:
 
 - Track the highest-scoring image so far.
 - If a generation **beats** the best (strictly higher score), adopt it and refine from there.

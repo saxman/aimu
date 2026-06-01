@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Simulated-annealing variant of the hotdog heating loop.
 
-`hotdog_loop_climbing.py` is a strict hill-climber: it only ever advances on a *higher*
+`hotdog_climbing.py` is a strict hill-climber: it only ever advances on a *higher*
 score and reverts otherwise. This script generalises that into **simulated annealing** — the
 climber is the ``T → 0`` limit of what's here. It keeps a ``current`` walk-state (distinct
 from the best-ever image) and, controlled by a falling *temperature*, will probabilistically
