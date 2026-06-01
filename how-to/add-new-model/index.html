@@ -904,6 +904,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#image-audio-and-speech-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image, audio, and speech models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#verify" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2403,6 +2425,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#image-audio-and-speech-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image, audio, and speech models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#verify" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2446,6 +2490,10 @@
 
 <h1 id="add-a-new-model">Add a new model<a class="headerlink" href="#add-a-new-model" title="Permanent link">&para;</a></h1>
 <p>To make a new model usable with <code>ModelClient</code>, add a member to that provider's <code>Model</code> enum. The member's value is a <code>ModelSpec</code> with the model id and capability flags.</p>
+<div class="admonition note">
+<p class="admonition-title">AIMU ships curated models only</p>
+<p>Every modality requires the model to be a member of its provider enum (or a hand-built spec — see <a href="#custom-models">Custom models</a>). Passing an arbitrary <code>"provider:some/unknown-repo"</code> string <strong>raises</strong> <code>ValueError</code>, rather than silently fabricating a spec with guessed capabilities. Capability flags (tools/thinking/vision, <code>pipeline_class</code>, <code>supports_negative_prompt</code>, voice/step defaults, …) can't be inferred reliably from a repo name, and a wrong guess causes hard-to-debug runtime failures. So the catalog is intentional: to use a new model, add it to the enum here.</p>
+</div>
 <h2 id="basic-case">Basic case<a class="headerlink" href="#basic-case" title="Permanent link">&para;</a></h2>
 <p>For most providers (<code>OllamaModel</code>, <code>AnthropicModel</code>, <code>OpenAIModel</code>, etc.) the enum value is a single <code>ModelSpec</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># aimu/models/anthropic/anthropic_client.py</span>
@@ -2482,15 +2530,60 @@
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="p">)</span>
 </span></code></pre></div>
 <p>Pick <code>ToolCallFormat.XML</code> / <code>JSON_OBJECT</code> / <code>JSON_ARRAY</code> / <code>BRACKETED</code> / <code>NA</code> based on how the base model emits tool calls. See existing entries in <code>aimu/models/hf/hf_client.py</code> for examples per model family.</p>
+<h2 id="image-audio-and-speech-models">Image, audio, and speech models<a class="headerlink" href="#image-audio-and-speech-models" title="Permanent link">&para;</a></h2>
+<p>The non-text modalities follow the same pattern with their own spec type and enum. Add a member to the provider enum in the relevant client module:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># aimu/models/hf_image/hf_image_client.py — diffusers text-to-image</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceImageModel</span><span class="p">(</span><span class="n">ImageModel</span><span class="p">):</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">SD_1_5</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span><span class="s2">&quot;runwayml/stable-diffusion-v1-5&quot;</span><span class="p">,</span> <span class="n">max_prompt_tokens</span><span class="o">=</span><span class="mi">77</span><span class="p">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">FLUX_2_KLEIN_4B</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="s2">&quot;black-forest-labs/FLUX.2-klein-4B&quot;</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">pipeline_class</span><span class="o">=</span><span class="s2">&quot;Flux2KleinPipeline&quot;</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="n">img2img_pipeline_class</span><span class="o">=</span><span class="s2">&quot;Flux2KleinPipeline&quot;</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="n">img2img_uses_strength</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>        <span class="c1"># unified pipeline conditions on the image directly</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="n">supports_negative_prompt</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>     <span class="c1"># Flux2KleinPipeline.__call__ has no negative_prompt param</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">default_steps</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="n">max_prompt_tokens</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>              <span class="c1"># T5-XXL encoder</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="p">)</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="c1"># aimu/models/gemini_image/gemini_image_client.py — Gemini Nano Banana (cloud)</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="k">class</span><span class="w"> </span><span class="nc">GeminiImageModel</span><span class="p">(</span><span class="n">ImageModel</span><span class="p">):</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">NANO_BANANA</span> <span class="o">=</span> <span class="n">GeminiImageSpec</span><span class="p">(</span><span class="s2">&quot;gemini-2.5-flash-image&quot;</span><span class="p">)</span>   <span class="c1"># supports_negative_prompt defaults False</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="c1"># aimu/models/hf_audio/hf_audio_client.py — music / sound generation</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceAudioModel</span><span class="p">(</span><span class="n">AudioModel</span><span class="p">):</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    <span class="n">MUSICGEN_SMALL</span> <span class="o">=</span> <span class="n">HuggingFaceAudioSpec</span><span class="p">(</span><span class="s2">&quot;facebook/musicgen-small&quot;</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">&quot;musicgen&quot;</span><span class="p">)</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="n">AUDIOLDM2</span> <span class="o">=</span> <span class="n">HuggingFaceAudioSpec</span><span class="p">(</span><span class="s2">&quot;cvssp/audioldm2&quot;</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">&quot;audioldm2&quot;</span><span class="p">,</span> <span class="n">default_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="c1"># aimu/models/hf_speech/hf_speech_client.py — text-to-speech</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceSpeechModel</span><span class="p">(</span><span class="n">SpeechModel</span><span class="p">):</span>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="n">BARK</span> <span class="o">=</span> <span class="n">HuggingFaceSpeechSpec</span><span class="p">(</span><span class="s2">&quot;suno/bark&quot;</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">&quot;bark&quot;</span><span class="p">,</span> <span class="n">default_voice</span><span class="o">=</span><span class="s2">&quot;v2/en_speaker_6&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Capability fields differ per modality — set the ones that matter for the model:</p>
+<ul>
+<li><strong><code>HuggingFaceImageSpec</code></strong>: <code>pipeline_class</code>, <code>img2img_pipeline_class</code>, <code>img2img_uses_strength</code>, <code>supports_negative_prompt</code>, <code>default_steps</code>/<code>default_guidance</code>/<code>default_width</code>/<code>default_height</code>, <code>default_negative_prompt</code>, <code>max_prompt_tokens</code>.</li>
+<li><strong><code>GeminiImageSpec</code></strong>: <code>supports_negative_prompt</code> (defaults <code>False</code>), <code>default_aspect_ratio</code>, <code>default_image_size</code>, <code>image_config_kwargs</code>.</li>
+<li><strong><code>HuggingFaceAudioSpec</code></strong>: <code>pipeline_type</code> (<code>"musicgen"</code> / <code>"audioldm2"</code> / <code>"stable_audio"</code>), <code>default_duration_s</code>, <code>default_steps</code>.</li>
+<li><strong><code>HuggingFaceSpeechSpec</code></strong> / <strong><code>OpenAISpeechSpec</code></strong>: <code>pipeline_type</code> (HF: <code>"tts_pipeline"</code> / <code>"speecht5"</code> / <code>"bark"</code>), <code>default_voice</code>, <code>default_speed</code>.</li>
+</ul>
+<p>Because these specs carry behaviour the runtime depends on (e.g. <code>pipeline_class</code>, <code>supports_negative_prompt</code>), the enum is the single source of truth — the string form (<code>"hf:&lt;repo&gt;"</code>, <code>"gemini:&lt;id&gt;"</code>) resolves to the <strong>same</strong> spec object as the enum member, and an unknown id raises.</p>
+<h2 id="custom-models">Custom models<a class="headerlink" href="#custom-models" title="Permanent link">&para;</a></h2>
+<p>For a one-off model not worth adding to the catalog, construct the spec yourself and pass the object (not a string) to the client — an explicit, deliberate escape hatch where you supply every capability flag:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageClient</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">HuggingFaceImageSpec</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">spec</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span><span class="s2">&quot;my-org/my-diffusion-model&quot;</span><span class="p">,</span> <span class="n">pipeline_class</span><span class="o">=</span><span class="s2">&quot;StableDiffusionPipeline&quot;</span><span class="p">)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">client</span> <span class="o">=</span> <span class="n">ImageClient</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>   <span class="c1"># accepted: you&#39;ve stated the capabilities explicitly</span>
+</span></code></pre></div>
+<p>If the model is genuinely best-of-class, prefer adding it to the enum so everyone benefits.</p>
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnthropicModel</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;claude-opus-5&quot;</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span><span class="o">.</span><span class="n">supports_tools</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span> <span class="ow">in</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">TOOL_MODELS</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnthropicModel</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;claude-opus-5&quot;</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span><span class="o">.</span><span class="n">supports_tools</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span> <span class="ow">in</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">TOOL_MODELS</span>
 </span></code></pre></div>
 <p>Then run the model-client tests against the new entry:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>anthropic<span class="w"> </span>--model<span class="o">=</span>CLAUDE_OPUS_5
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>anthropic<span class="w"> </span>--model<span class="o">=</span>CLAUDE_OPUS_5
 </span></code></pre></div>
 <p>The model client is auto-pulled (Ollama, HuggingFace) or hits the cloud API on first use.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
