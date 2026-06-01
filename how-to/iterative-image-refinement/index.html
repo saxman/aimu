@@ -1142,6 +1142,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Search strategy: greedy → hill-climbing → simulated annealing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-to-image-refining-in-image-space-not-prompt-space" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image-to-image: refining in image space, not prompt space
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2494,6 +2511,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Search strategy: greedy → hill-climbing → simulated annealing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-to-image-refining-in-image-space-not-prompt-space" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image-to-image: refining in image space, not prompt space
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2656,21 +2690,25 @@
 
 <h1 id="iterative-image-refinement">Iterative image refinement<a class="headerlink" href="#iterative-image-refinement" title="Permanent link">&para;</a></h1>
 <p>Build a <strong>generate → evaluate → refine</strong> loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — <em>"make a hotdog as visually hot as possible"</em> — that composes image generation, vision input, prompt chaining, and either an agent, a plain Python loop, or a library workflow class.</p>
-<p>The full, runnable code lives in five scripts that share one helper module:</p>
+<p>The full, runnable code lives in six scripts that share one helper module:</p>
 <ul>
 <li><code>scripts/hotdog_loop.py</code> — <strong>Python directs the loop</strong> (a plain code-controlled <code>for</code> loop).</li>
 <li><code>scripts/hotdog_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
 <li><code>scripts/hotdog_evaluator.py</code> — <strong><code>EvaluatorOptimizer</code> directs the loop</strong> (the library workflow class, composing a generator + critic agent).</li>
 <li><code>scripts/hotdog_climbing.py</code> — like the loop, but <strong>hill-climbs</strong>: keeps the best image and reverts when a step doesn't beat it.</li>
 <li><code>scripts/hotdog_anneal.py</code> — <strong>simulated annealing</strong>: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.</li>
+<li><code>scripts/hotdog_img2img.py</code> — <strong>image-to-image refinement</strong>: each iteration starts from the current best image rather than pure noise, combining hill-climbing with strength annealing (high <code>strength</code> early to explore, low <code>strength</code> late to polish).</li>
 <li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by all of them.</li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w">                 </span><span class="c1"># code-directed greedy walk</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w">                </span><span class="c1"># agent-directed greedy walk</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_evaluator.py<span class="w">            </span><span class="c1"># EvaluatorOptimizer workflow class</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_climbing.py<span class="w">                </span><span class="c1"># hill-climb: keep best, revert when a step doesn&#39;t beat it</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>scripts/hotdog_anneal.py<span class="w"> </span>--seed<span class="w"> </span><span class="m">7</span><span class="w">              </span><span class="c1"># simulated annealing: explore early, cool to greedy</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">   </span><span class="c1"># run until the critic says DONE</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w">                                        </span><span class="c1"># code-directed greedy walk</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w">                                       </span><span class="c1"># agent-directed greedy walk</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_evaluator.py<span class="w">                                   </span><span class="c1"># EvaluatorOptimizer workflow class</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_climbing.py<span class="w">                                    </span><span class="c1"># hill-climb: keep best, revert when a step doesn&#39;t beat it</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>scripts/hotdog_anneal.py<span class="w"> </span>--seed<span class="w"> </span><span class="m">7</span><span class="w">                             </span><span class="c1"># simulated annealing: explore early, cool to greedy</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">                    </span><span class="c1"># run until the critic says DONE</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>python<span class="w"> </span>scripts/hotdog_img2img.py<span class="w">                                     </span><span class="c1"># img2img hill-climbing + strength annealing</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python<span class="w"> </span>scripts/hotdog_img2img.py<span class="w"> </span>--image-model<span class="w"> </span>FLUX_2_KLEIN_4B<span class="w">      </span><span class="c1"># unified pipeline — no strength knob (warning printed)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>python<span class="w"> </span>scripts/hotdog_img2img.py<span class="w"> </span>--initial-strength<span class="w"> </span><span class="m">0</span>.85<span class="w"> </span>--final-strength<span class="w"> </span><span class="m">0</span>.2<span class="w"> </span>--patience<span class="w"> </span><span class="m">3</span>
 </span></code></pre></div>
 <h2 id="three-ways-to-run-the-same-loop">Three ways to run the same loop<a class="headerlink" href="#three-ways-to-run-the-same-loop" title="Permanent link">&para;</a></h2>
 <p>The same task is implemented three times on purpose — it's a concrete take on <a href="../../explanation/agents-vs-workflows/">agents vs workflows</a>:</p>
@@ -2699,6 +2737,16 @@
 <p>The same cooling schedule also drives the <strong>proposer's</strong> sampling temperature: the critic generates refinement ideas at a high LLM temperature while hot (diverse, exploratory) and a low one once cooled (conservative tweaks), via <code>_proposer_temperature</code>. Only proposals are annealed — the <strong>judge that assigns the score stays cold</strong>, since the score is the optimisation objective and must stay stable (annealing it would inject noise into the very signal you're climbing). This is the difference between annealing the <em>acceptance</em> and annealing the <em>proposal distribution</em> too; the script does both off one schedule.</p>
 <p>Annealing is worth reaching for when the climber gets stuck on a plateau, but mind the domain: the judge's coarse integer score means <code>Δ</code> is almost always <code>0</code> or <code>±1</code> (so temperature control is blunt), and each step is an expensive image generation, so runs are short — the practical win is local-optimum escape, not asymptotic convergence.</p>
 <p>Note the <em>opposite</em> direction (using prompt tuning to find a reusable image prompt across a dataset) is a different, also-valid use of the <code>Scorer</code> abstraction.</p>
+<h3 id="image-to-image-refining-in-image-space-not-prompt-space">Image-to-image: refining in image space, not prompt space<a class="headerlink" href="#image-to-image-refining-in-image-space-not-prompt-space" title="Permanent link">&para;</a></h3>
+<p>All five scripts above refine by updating the <em>prompt</em> and regenerating from pure noise — the image can change completely between rounds (different composition, different colours, different character). <code>hotdog_img2img.py</code> takes a different axis: it uses <a href="../generate-images/#image-to-image">image-to-image generation</a> so each round starts from the current best image rather than Gaussian noise.</p>
+<p>The <code>strength</code> parameter controls how far each round can stray from the reference:</p>
+<ul>
+<li><strong>High strength (≈0.8)</strong> — the reference is a loose constraint; large changes are possible. Used early in the run to explore: push lighting, texture, and heat intensity while preserving rough composition.</li>
+<li><strong>Low strength (≈0.3)</strong> — the reference is a tight constraint; only fine adjustments get through. Used late to polish what's already working without blowing up the composition.</li>
+</ul>
+<p>The script anneals <code>strength</code> <strong>linearly</strong> from <code>--initial-strength</code> to <code>--final-strength</code> over the run, and combines this with hill-climbing: it always refines from the <em>best</em> image seen so far, not just the most recent. A rejected round leaves the reference unchanged.</p>
+<p>Compared with the prompt-refinement scripts, img2img preserves things that are already good (framing, a specific sear pattern, a particular colour palette) at the cost of constraining the search: if the reference is pulling in the wrong direction, low strength slows the escape. The tradeoff is deliberate — "make this hotter, don't change the composition" vs "try a completely different take".</p>
+<p><strong>Models without a <code>strength</code> knob</strong> (e.g. <code>FLUX_2_KLEIN_4B</code>, which uses a unified <code>Flux2KleinPipeline</code> that conditions on the reference image directly): the script detects this via <code>spec.img2img_uses_strength</code> and prints a warning at startup. The annealing schedule is a no-op — all iterations condition at the model's fixed degree of influence — but hill-climbing in image space still applies.</p>
 <h2 id="the-pieces">The pieces<a class="headerlink" href="#the-pieces" title="Permanent link">&para;</a></h2>
 <h3 id="two-clients-a-generator-and-a-vision-critic">Two clients: a generator and a vision critic<a class="headerlink" href="#two-clients-a-generator-and-a-vision-critic" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
