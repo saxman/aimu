@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.1 (unreleased) — Image-to-image and FLUX.2 Klein
+## v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog
 
 ### Image generation
 
