@@ -2249,6 +2249,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v052-unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.5.2 (unreleased)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.5.2 (unreleased)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2261,7 +2289,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#image-generation" class="md-nav__link">
+  <a href="#image-generation_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Image generation
@@ -2344,7 +2372,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-generation_1" class="md-nav__link">
+  <a href="#image-generation_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Image generation
@@ -2548,6 +2576,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v052-unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.5.2 (unreleased)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.5.2 (unreleased)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2560,7 +2616,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#image-generation" class="md-nav__link">
+  <a href="#image-generation_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Image generation
@@ -2643,7 +2699,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-generation_1" class="md-nav__link">
+  <a href="#image-generation_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Image generation
@@ -2806,8 +2862,13 @@
 
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog">v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog<a class="headerlink" href="#v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog" title="Permanent link">&para;</a></h2>
+<h2 id="v052-unreleased">v0.5.2 (unreleased)<a class="headerlink" href="#v052-unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="image-generation">Image generation<a class="headerlink" href="#image-generation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Breaking</strong> Renamed <code>HuggingFaceImageModel.FLUX_DEV</code> → <code>FLUX_1_DEV</code> and <code>FLUX_SCHNELL</code> → <code>FLUX_1_SCHNELL</code> for naming consistency with the <code>FLUX_2_KLEIN_4B</code>/<code>FLUX_2_KLEIN_9B</code> members. The underlying model id strings (<code>black-forest-labs/FLUX.1-dev</code>, <code>black-forest-labs/FLUX.1-schnell</code>) are unchanged. Update enum references; <code>"hf:black-forest-labs/FLUX.1-dev"</code> string-form usage is unaffected.</li>
+</ul>
+<h2 id="v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog">v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog<a class="headerlink" href="#v051-2026-06-01-image-to-image-flux2-klein-and-curated-model-catalog" title="Permanent link">&para;</a></h2>
+<h3 id="image-generation_1">Image generation<a class="headerlink" href="#image-generation_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> Image-to-image (img2img) support: pass <code>reference_image=</code> to <code>BaseImageClient.generate()</code> (and all subclasses). Accepts a file path string, <code>pathlib.Path</code>, raw bytes, data URL, http(s) URL, or PIL Image. HuggingFace derives the img2img pipeline from the loaded txt2img pipeline via <code>from_pipe()</code> — shared weights, no extra VRAM. <code>strength=</code> (default <code>0.75</code>) controls deviation from the reference for FLUX.1-style pipelines. <code>width</code>/<code>height</code> are ignored; output size is derived from the reference image. Gemini passes the reference as inline PNG data in a multipart request, enabling image editing.</li>
 <li><strong>New</strong> <code>HuggingFaceImageModel.FLUX_2_KLEIN_4B</code> and <code>FLUX_2_KLEIN_9B</code> — FLUX.2 Klein by Black Forest Labs. 4-step distilled model with improved text rendering, better hand/face quality, and higher resolution support. Uses <code>Flux2KleinPipeline</code> (diffusers 0.37+), a unified pipeline that handles both txt2img and img2img natively (<code>image=</code> parameter, no <code>strength</code>). <code>img2img_uses_strength=False</code> on the spec distinguishes it from FLUX.1-style img2img.</li>
@@ -2854,7 +2915,7 @@
 <li><strong>New</strong> <code>SPEECH_GENERATING</code> <code>StreamChunk</code> phase + <code>StreamChunk.is_speech_progress()</code>; OpenAI byte-chunk streaming.</li>
 <li><strong>New</strong> Built-in <code>generate_speech</code> streaming tool + <code>make_speech_tool(client, voice=, speed=)</code>; <code>builtin.speech</code> subgroup.</li>
 </ul>
-<h3 id="image-generation_1">Image generation<a class="headerlink" href="#image-generation_1" title="Permanent link">&para;</a></h3>
+<h3 id="image-generation_2">Image generation<a class="headerlink" href="#image-generation_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> Google Gemini "Nano Banana" cloud provider (<code>GeminiImageClient</code>, <code>gemini-2.5-flash-image</code>) under the <code>[google]</code> extra, dispatched via <code>aimu.image_client("gemini:...")</code>.</li>
 <li><strong>New</strong> <code>aimu.image_client()</code> accepts ad-hoc <code>"hf:&lt;repo_id&gt;"</code> and <code>"gemini:&lt;id&gt;"</code> strings in addition to enum members.</li>
