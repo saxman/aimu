@@ -65,7 +65,10 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 ### Memory and persistence
 
-- `SemanticMemoryStore` (ChromaDB vector search), `DocumentStore` (path-keyed, drop-in compatible with the Claude memory tool API), `ConversationManager` (TinyDB chat history). All implement the same `MemoryStore` interface.
+- Multiple memory implementations that use the same `MemoryStore` interface and are interchangeable wherever one is accepted.
+- `SemanticMemoryStore` - ChromaDB vector search for semantic fact storage and retrieval.
+- `DocumentStore` - path-keyed document storage, drop-in compatible with the Claude memory tool API.
+- `ConversationManager` - TinyDB-backed chat history that persists across sessions. Integrates directly with any `ModelClient` via `client.messages`.
 
 ### Prompts and evaluation
 
@@ -166,9 +169,6 @@ img = client.generate("a cat in a sunlit garden")
 img = client.generate("add snow", reference_image="./cat.jpg")  # img2img
 ```
 
-> **Curated models, no arbitrary repos.** A `provider:model_id` string must name a model AIMU ships a spec for (the ids above are all curated). An unknown id raises rather than running with guessed capabilities — for a one-off custom model, build the provider spec and pass the object (`aimu.image_client(HuggingFaceImageSpec(...))`). This applies to every modality.
->
-> **Negative prompts** are accepted only by models whose spec sets `supports_negative_prompt`; prose models (FLUX.2 Klein, Nano Banana) raise if passed one — describe what to avoid in the prompt itself instead.
 
 **Audio generation.** Same `provider:model_id` shape, parallel factory:
 
@@ -285,6 +285,8 @@ python web/gradio_chatbot_basic.py             # basic Gradio demo app
 ## Design principles
 
 AIMU is small and stays small. Six principles shape the API: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
+
+A curated model catalog, capturing model capabilities and nuances, is part of that design: every `"provider:model_id"` string must name a model AIMU ships a spec for. An unknown id raises rather than running with guessed capabilities. To use a one-off custom model, build the spec and pass it directly (`aimu.image_client(HuggingFaceImageSpec(...))`).
 
 ## Contributing
 
