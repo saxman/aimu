@@ -39,6 +39,38 @@ len(store)                    # count
 store.delete("Paul has two cats")   # exact-string match; no-op if not present
 ```
 
+## Use as in-process agent tools
+
+`make_memory_tools(store)` wraps the store as three `@tool`-decorated functions — `store_memory`, `search_memories`, and `list_memories` — that an agent can call directly without a separate MCP server process:
+
+```python
+from aimu.memory import SemanticMemoryStore
+from aimu.tools.builtin import make_memory_tools
+from aimu.agents import Agent
+import aimu
+
+store = SemanticMemoryStore(persist_path="./memory_store")
+agent = Agent(
+    aimu.client("anthropic:claude-sonnet-4-6"),
+    system_message="Use store_memory to save facts the user shares, and search_memories before answering questions about them.",
+    tools=make_memory_tools(store),
+)
+
+agent.run("Remember that my preferred language is Python.")
+agent.run("What do you know about my programming preferences?")
+```
+
+Pass the result to `make_tools(..., memory_store=store)` to combine memory with the full built-in tool set:
+
+```python
+from aimu.tools.builtin import make_tools
+
+tools = make_tools(base_client, memory_store=store)
+agent = Agent(base_client, tools=tools)
+```
+
+The store is always explicit — there is no env-var singleton — because `persist_path` and collection name are meaningful choices. For cross-process or multi-agent memory, use the MCP server instead.
+
 ## Expose as MCP tools
 
 Run the bundled memory MCP server:

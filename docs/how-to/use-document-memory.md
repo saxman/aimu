@@ -48,6 +48,31 @@ store.search_full_text("inference")
 
 This lets you swap the two stores in code that only needs the common interface.
 
+## Use as in-process agent tools
+
+`make_memory_tools(store)` wraps the store as three `@tool`-decorated functions — `store_memory`, `search_memories`, and `list_memories` — that an agent can call directly without a separate MCP server process:
+
+```python
+from aimu.memory import DocumentStore
+from aimu.tools.builtin import make_memory_tools
+from aimu.agents import Agent
+import aimu
+
+store = DocumentStore(persist_path="./doc_store")
+agent = Agent(
+    aimu.client("anthropic:claude-sonnet-4-6"),
+    system_message="Use store_memory to save notes and search_memories to find them.",
+    tools=make_memory_tools(store),
+)
+
+agent.run("Save a note: the API deadline is June 15.")
+agent.run("When is the API deadline?")
+```
+
+`search_memories` on a `DocumentStore` does case-insensitive full-text search (the same as `search_full_text()`), while on a `SemanticMemoryStore` it does vector similarity search. The agent interface is identical for both.
+
+Pass the result to `make_tools(..., memory_store=store)` to combine memory with the full built-in tool set.
+
 ## Expose as MCP tools
 
 ```bash

@@ -341,6 +341,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - **`builtin.compute`** — `calculate`
   - **`builtin.misc`** — `echo`, `get_current_date_and_time`
   - **`builtin.ALL_TOOLS`** — flat list of every built-in (kept for back-compat)
+  - **`make_memory_tools(store)`** — factory that returns `[store_memory, search_memories, list_memories]` as `@tool`-decorated functions closing over the provided `MemoryStore` instance. No lazy singleton — the store is always explicit because `persist_path` and backend are meaningful choices. Pass the result directly to `Agent(client, tools=make_memory_tools(store))` or via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use `aimu.memory.mcp` / `aimu.memory.document_mcp` instead.
 
   Tool reference:
   - `echo(echo_string)`: Returns input string
@@ -781,7 +782,7 @@ Key files and their roles:
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_audio` generator tool + `make_audio_tool()` factory (parallel to image equivalents):
   - `generate_audio(prompt: str)` is a generator `@tool` yielding `AUDIO_GENERATING` chunks and returning the saved file path. Backed by a lazy `_audio_client` singleton; model via `AIMU_AUDIO_MODEL` env var (**required**; the tool raises if unset — no default is downloaded).
   - `make_audio_tool(client, *, duration_s=None)` — binds a fresh tool to a caller-supplied client.
-  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None)` — `audio_client` and `speech_client` kwargs replace their respective singletons when provided.
+  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None)` — `audio_client` and `speech_client` kwargs replace their respective singletons when provided; `memory_store` appends `make_memory_tools(store)` when set.
   - New subgroup `audio = [generate_audio]` (parallel to `image`); included in `ALL_TOOLS`.
 
 - **Async twin** — full mirror under `aimu.aio`:
@@ -835,7 +836,7 @@ Key files and their roles:
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_speech` generator tool + `make_speech_tool()` factory:
   - `generate_speech(text: str)` is a generator `@tool` yielding `SPEECH_GENERATING` chunks and returning the saved WAV path. Backed by a lazy `_speech_client` singleton; model via `AIMU_SPEECH_MODEL` env var (**required**; the tool raises if unset — no default is downloaded).
   - `make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[float] = None)` — binds a fresh tool to a caller-supplied client.
-  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None)` — `speech_client` kwarg replaces the default singleton when provided.
+  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None)` — `speech_client` kwarg replaces the default singleton when provided; `memory_store` appends `make_memory_tools(store)` when set.
   - Subgroup `speech = [generate_speech]` (parallel to `audio`, `image`); included in `ALL_TOOLS`.
 
 - **Async twin** — full mirror under `aimu.aio`:
@@ -935,7 +936,7 @@ aimu/
 │       └── openai_speech_client.py   # OpenAISpeechClient + OpenAISpeechModel
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
 │   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
-│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech subgroups (incl. lazy generate_image, generate_audio, generate_speech)
+│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech subgroups (incl. lazy generate_image, generate_audio, generate_speech) + make_memory_tools() factory
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping()
 │   ├── mcp_format.py    # mcp_tools_to_openai() — shared by sync and async MCPClient.get_tools()
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
@@ -1014,6 +1015,7 @@ tests/                   # Pytest test suite
 ├── test_speech_api.py         # Mock-only sync speech surface; exports _install_speech_stubs() for downstream files
 ├── test_speech_tools.py       # Mock-only built-in generate_speech tool + make_speech_tool
 ├── test_aio_speech_api.py     # Mock-only async speech surface + wrap refusal
+├── test_memory_tools.py       # Mock-only make_memory_tools factory + make_tools memory_store= integration
 ├── helpers_aio.py       # MockAsyncModelClient + live-backend dispatch for async tests
 ├── test_aio_models_api.py        # Mock-only async surface tests
 ├── test_aio_workflow_parallel.py # Verifies asyncio.TaskGroup overlap + sibling cancellation

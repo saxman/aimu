@@ -476,6 +476,7 @@ def make_tools(
     image_steps: Optional[int] = None,
     audio_steps: Optional[int] = None,
     speech_client=None,
+    memory_store=None,
 ):
     """Assemble the standard tool list for a chat client.
 
@@ -489,6 +490,8 @@ def make_tools(
       singleton with one bound to that client (honoring *audio_steps*).
     - If *speech_client* is provided, replaces the default ``generate_speech``
       singleton with one bound to that client.
+    - If *memory_store* is provided, appends ``store_memory``, ``search_memories``,
+      and ``list_memories`` tools bound to that store.
     """
     tools = list(ALL_TOOLS)
     if image_client is not None:
@@ -502,6 +505,8 @@ def make_tools(
     if speech_client is not None:
         bound_speech = make_speech_tool(speech_client)
         tools = [t for t in tools if t is not generate_speech] + [bound_speech]
+    if memory_store is not None:
+        tools.extend(make_memory_tools(memory_store))
     return tools
 
 
@@ -688,6 +693,67 @@ def make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[flo
         return final_result
 
     return generate_speech
+
+
+# ---- Memory (semantic or document store) ------------------------------------
+#
+# Memory tools require an explicit store instance — there is no lazy singleton
+# because persistence semantics (ephemeral vs. on-disk, semantic vs. document,
+# persist_path, collection name) are caller-controlled. Use make_memory_tools()
+# to get @tool-decorated functions that close over your store instance.
+
+
+def make_memory_tools(store):
+    """Build ``store_memory``, ``search_memories``, and ``list_memories`` tools bound to *store*.
+
+    *store* may be any :class:`aimu.memory.MemoryStore` implementation —
+    :class:`~aimu.memory.SemanticMemoryStore` (ChromaDB vector search),
+    :class:`~aimu.memory.DocumentStore` (path-keyed), or a custom subclass.
+
+    Unlike the image/audio/speech tools, there is no env-var singleton for memory
+    because the choice of store (ephemeral vs. persistent, which persist_path) is
+    meaningful and should be explicit. Construct the store, pass it here, and add
+    the returned list to the agent::
+
+        store = SemanticMemoryStore(persist_path="./.memory")
+        agent = Agent(client, tools=make_memory_tools(store) + builtin.web)
+
+    For cross-process or multi-agent memory, use the FastMCP servers in
+    ``aimu.memory.mcp`` / ``aimu.memory.document_mcp`` instead.
+    """
+
+    @tool
+    def store_memory(content: str) -> str:
+        """Store a piece of information in memory for later retrieval.
+
+        Args:
+            content: The information to remember (a fact, note, or observation).
+        """
+        store.store(content)
+        return "Stored."
+
+    @tool
+    def search_memories(query: str, n_results: int = 5) -> str:
+        """Search memory for information relevant to a query.
+
+        Args:
+            query: The topic or question to search for.
+            n_results: Maximum number of results to return (default 5).
+        """
+        results = store.search(query, n_results=n_results)
+        if not results:
+            return "No relevant memories found."
+        return "\n".join(f"- {r}" for r in results)
+
+    @tool
+    def list_memories() -> str:
+        """Return all stored memories."""
+        items = store.list_all()
+        if not items:
+            return "Memory is empty."
+        return "\n".join(f"- {item}" for item in items)
+
+    return [store_memory, search_memories, list_memories]
 
 
 # Curated subsets — pass one of these to ``tools=`` instead of importing every function.

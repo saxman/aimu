@@ -60,15 +60,16 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 - `@tool` on any plain Python function. Type hints + docstring become the spec.
 - `MCPClient` for cross-process FastMCP tools. Combine with `@tool` on the same agent.
-- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`. `builtin.make_tools(client, image_client=None, audio_client=None, speech_client=None)` assembles the full tool list with auto image/vision/audio/speech wiring.
+- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`. `builtin.make_tools(client, image_client=None, audio_client=None, speech_client=None, memory_store=None)` assembles the full tool list with auto image/vision/audio/speech/memory wiring.
 - Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
 
 ### Memory and persistence
 
-- Multiple memory implementations that use the same `MemoryStore` interface and are interchangeable wherever one is accepted.
+- `SemanticMemoryStore`, `DocumentStore`, and `ConversationManager` all implement the same `MemoryStore` interface and are interchangeable wherever one is accepted.
 - `SemanticMemoryStore` - ChromaDB vector search for semantic fact storage and retrieval.
 - `DocumentStore` - path-keyed document storage, drop-in compatible with the Claude memory tool API.
 - `ConversationManager` - TinyDB-backed chat history that persists across sessions. Integrates directly with any `ModelClient` via `client.messages`.
+- `make_memory_tools(store)` returns `store_memory`, `search_memories`, and `list_memories` as `@tool` functions for direct in-process agent use. Pass the result to `Agent(client, tools=...)` or include it via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use the FastMCP servers in `aimu.memory.mcp` / `aimu.memory.document_mcp`.
 
 ### Prompts and evaluation
 
@@ -206,6 +207,19 @@ from aimu.tools import builtin
 
 agent = Agent(aimu.client("anthropic:claude-sonnet-4-6"), tools=[builtin.generate_image])
 agent.run("Describe the scene in this photo, then generate a watercolor painting of it.", images=["photo.jpg"])
+```
+
+**Memory-capable agents.** `make_memory_tools(store)` gives any agent `store_memory`, `search_memories`, and `list_memories` as in-process tools. The store is always explicit — you control whether it's ephemeral or on-disk, and which backend it uses:
+
+```python
+from aimu.agents import Agent
+from aimu.memory import SemanticMemoryStore
+from aimu.tools.builtin import make_memory_tools
+
+store = SemanticMemoryStore(persist_path="./.memory")
+agent = Agent(aimu.client("anthropic:claude-sonnet-4-6"), tools=make_memory_tools(store))
+agent.run("Remember that the meeting is on Friday at 2pm.")
+agent.run("When is the meeting?")  # retrieves from memory
 ```
 
 **Async (opt-in).** Same names, one import away:
