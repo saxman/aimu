@@ -2261,6 +2261,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#image-generation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2588,6 +2599,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#image-generation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2863,6 +2885,11 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="v052-unreleased">v0.5.2 (unreleased)<a class="headerlink" href="#v052-unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="memory">Memory<a class="headerlink" href="#memory" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>New</strong> <code>make_memory_tools(store)</code> in <code>aimu.tools.builtin</code> — wraps any <code>MemoryStore</code> instance as three <code>@tool</code>-decorated functions (<code>store_memory</code>, <code>search_memories</code>, <code>list_memories</code>) for direct in-process agent use. Unlike the image/audio/speech built-in tools, there is no lazy singleton: the store is always explicit because persistence semantics (<code>persist_path</code>, backend, collection name) are meaningful caller choices. Works with <code>SemanticMemoryStore</code>, <code>DocumentStore</code>, or any <code>MemoryStore</code> subclass. For cross-process or multi-agent memory, the existing FastMCP servers (<code>aimu.memory.mcp</code> / <code>aimu.memory.document_mcp</code>) remain the recommended path.</li>
+<li><strong>New</strong> <code>builtin.make_tools(..., memory_store=None)</code> — new <code>memory_store=</code> kwarg appends <code>make_memory_tools(store)</code> to the assembled tool list when provided.</li>
+</ul>
 <h3 id="image-generation">Image generation<a class="headerlink" href="#image-generation" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Breaking</strong> Renamed <code>HuggingFaceImageModel.FLUX_DEV</code> → <code>FLUX_1_DEV</code> and <code>FLUX_SCHNELL</code> → <code>FLUX_1_SCHNELL</code> for naming consistency with the <code>FLUX_2_KLEIN_4B</code>/<code>FLUX_2_KLEIN_9B</code> members. The underlying model id strings (<code>black-forest-labs/FLUX.1-dev</code>, <code>black-forest-labs/FLUX.1-schnell</code>) are unchanged. Update enum references; <code>"hf:black-forest-labs/FLUX.1-dev"</code> string-form usage is unaffected.</li>
