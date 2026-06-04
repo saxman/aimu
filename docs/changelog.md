@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.6.0 (unreleased) — Output utilities, model weight caching, and experiment checkpointing
+## v0.6.0 (2026-06-04) — Output utilities, model weight caching, and experiment checkpointing
 
 ### Breaking changes
 
