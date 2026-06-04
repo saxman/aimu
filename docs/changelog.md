@@ -1,6 +1,11 @@
 # Changelog
 
-## v0.5.3 (unreleased)
+## v0.6.0 (unreleased) — Output utilities, model weight caching, and experiment checkpointing
+
+### Breaking changes
+
+- **Breaking** Renamed `HuggingFaceImageModel.FLUX_DEV` → `FLUX_1_DEV` and `FLUX_SCHNELL` → `FLUX_1_SCHNELL` for naming consistency with the `FLUX_2_KLEIN_4B`/`FLUX_2_KLEIN_9B` members. The underlying model id strings (`black-forest-labs/FLUX.1-dev`, `black-forest-labs/FLUX.1-schnell`) are unchanged. Update enum references; `"hf:black-forest-labs/FLUX.1-dev"` string-form usage is unaffected.
+- **Behavior change** `builtin.compute` now includes `execute_python` alongside `calculate`. If you were passing `tools=builtin.compute` and want to exclude the sandboxed REPL, switch to `tools=[builtin.calculate]` explicitly. `ALL_TOOLS` and `make_tools()` are unchanged (opt-in only via `python_sandbox=True`).
 
 ### Output utilities
 
@@ -18,24 +23,18 @@
 
 - **New** `execute_python(code)` built-in tool in `builtin.compute`. Executes sandboxed Python in a fresh namespace per call, captures stdout, and returns the last expression value. Allowed imports: `math`, `statistics`, `json`, `re`, `itertools`, `functools`, `datetime`, and `numpy`/`pandas`/`scipy`/`matplotlib` when installed. Filesystem (`open`, `os`, `pathlib`) and subprocess access are blocked. **Not included in `ALL_TOOLS`** — opt in via `tools=builtin.compute` or `make_tools(python_sandbox=True)`.
 - **New** `make_tools(..., python_sandbox=False)` — new `python_sandbox=` kwarg appends `execute_python` when `True`.
+- **New** `make_memory_tools(store)` in `aimu.tools.builtin` — wraps any `MemoryStore` instance as three `@tool`-decorated functions (`store_memory`, `search_memories`, `list_memories`) for direct in-process agent use. Unlike the image/audio/speech built-in tools, there is no lazy singleton: the store is always explicit because persistence semantics (`persist_path`, backend, collection name) are meaningful caller choices. Works with `SemanticMemoryStore`, `DocumentStore`, or any `MemoryStore` subclass. For cross-process or multi-agent memory, the existing FastMCP servers (`aimu.memory.mcp` / `aimu.memory.document_mcp`) remain the recommended path.
+- **New** `builtin.make_tools(..., memory_store=None)` — new `memory_store=` kwarg appends `make_memory_tools(store)` to the assembled tool list when provided.
 
 ### Agents and workflows
 
 - **New** `Agent.restore(messages)` — restore an agent from a saved `list[dict]` (OpenAI message format) for resuming after failure. Calls `model_client.reset()`, strips the leading system message to prevent duplication on the next `chat()`, and sets `model_client.messages`. The live partial state after a failed run is on `agent.model_client.messages` (not the post-run snapshot from `agent.messages`).
 - **New** `EvaluatorOptimizer.restore(messages)` — delegates to `generator.restore()`.
 - **New** `Chain.restore(messages, step=0)` — restores the specified step's agent client.
-- **New** `docs/how-to/using-llms-inside-tools.md` — how-to guide covering: the history pollution problem, `generate()` for stateless in-tool LLM calls, the save/restore checkpointing pattern, and `clear_hf_cache()` / `clear_llamacpp_cache()` for VRAM management.
 
-## v0.5.2 (unreleased)
+### Documentation
 
-### Memory
-
-- **New** `make_memory_tools(store)` in `aimu.tools.builtin` — wraps any `MemoryStore` instance as three `@tool`-decorated functions (`store_memory`, `search_memories`, `list_memories`) for direct in-process agent use. Unlike the image/audio/speech built-in tools, there is no lazy singleton: the store is always explicit because persistence semantics (`persist_path`, backend, collection name) are meaningful caller choices. Works with `SemanticMemoryStore`, `DocumentStore`, or any `MemoryStore` subclass. For cross-process or multi-agent memory, the existing FastMCP servers (`aimu.memory.mcp` / `aimu.memory.document_mcp`) remain the recommended path.
-- **New** `builtin.make_tools(..., memory_store=None)` — new `memory_store=` kwarg appends `make_memory_tools(store)` to the assembled tool list when provided.
-
-### Image generation
-
-- **Breaking** Renamed `HuggingFaceImageModel.FLUX_DEV` → `FLUX_1_DEV` and `FLUX_SCHNELL` → `FLUX_1_SCHNELL` for naming consistency with the `FLUX_2_KLEIN_4B`/`FLUX_2_KLEIN_9B` members. The underlying model id strings (`black-forest-labs/FLUX.1-dev`, `black-forest-labs/FLUX.1-schnell`) are unchanged. Update enum references; `"hf:black-forest-labs/FLUX.1-dev"` string-form usage is unaffected.
+- **New** `docs/how-to/using-llms-inside-tools.md` — covers the history pollution problem, `generate()` for stateless in-tool LLM calls, the HuggingFace weight caching model (including `clear_hf_cache()` / `clear_llamacpp_cache()`), and the save/restore checkpointing pattern with a full try/except example.
 
 ## v0.5.1 (2026-06-01) — Image-to-image, FLUX.2 Klein, and curated model catalog
 
