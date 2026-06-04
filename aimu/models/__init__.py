@@ -31,7 +31,7 @@ try:
     from .hf import HuggingFaceClient, HuggingFaceModel, ToolCallFormat
 
     HAS_HF = True
-except ImportError:
+except Exception:
     HAS_HF = False
     HuggingFaceClient = None
     HuggingFaceModel = None
@@ -41,7 +41,7 @@ try:
     from .ollama import OllamaClient, OllamaModel
 
     HAS_OLLAMA = True
-except ImportError:
+except Exception:
     HAS_OLLAMA = False
     OllamaClient = None
     OllamaModel = None
@@ -50,7 +50,7 @@ try:
     from .anthropic import AnthropicClient, AnthropicModel
 
     HAS_ANTHROPIC = True
-except ImportError:
+except Exception:
     HAS_ANTHROPIC = False
     AnthropicClient = None
     AnthropicModel = None
@@ -77,7 +77,7 @@ try:
     )
 
     HAS_OPENAI_COMPAT = True
-except ImportError:
+except Exception:
     HAS_OPENAI_COMPAT = False
     OpenAICompatClient = None
     OpenAIClient = None
@@ -101,7 +101,7 @@ try:
     from .llamacpp import LlamaCppClient, LlamaCppModel
 
     HAS_LLAMACPP = True
-except ImportError:
+except Exception:
     HAS_LLAMACPP = False
     LlamaCppClient = None
     LlamaCppModel = None
@@ -110,7 +110,7 @@ try:
     from .hf_image import HuggingFaceImageClient, HuggingFaceImageModel
 
     HAS_HF_IMAGE = True
-except ImportError:
+except Exception:
     HAS_HF_IMAGE = False
     HuggingFaceImageClient = None
     HuggingFaceImageModel = None
@@ -119,7 +119,7 @@ try:
     from .gemini_image import GeminiImageClient, GeminiImageModel
 
     HAS_GEMINI_IMAGE = True
-except ImportError:
+except Exception:
     HAS_GEMINI_IMAGE = False
     GeminiImageClient = None
     GeminiImageModel = None
@@ -128,7 +128,7 @@ try:
     from .hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
     HAS_HF_AUDIO = True
-except ImportError:
+except Exception:
     HAS_HF_AUDIO = False
     HuggingFaceAudioClient = None
     HuggingFaceAudioModel = None
@@ -137,7 +137,7 @@ try:
     from .hf_speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
 
     HAS_HF_SPEECH = True
-except ImportError:
+except Exception:
     HAS_HF_SPEECH = False
     HuggingFaceSpeechClient = None
     HuggingFaceSpeechModel = None
@@ -146,7 +146,7 @@ try:
     from .openai_speech import OpenAISpeechClient, OpenAISpeechModel
 
     HAS_OPENAI_SPEECH = True
-except ImportError:
+except Exception:
     HAS_OPENAI_SPEECH = False
     OpenAISpeechClient = None
     OpenAISpeechModel = None
