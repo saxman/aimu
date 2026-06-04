@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, Optional, Union
 
 # Hard import so ``HAS_HF_IMAGE`` in aimu/models/__init__.py accurately reflects
@@ -31,6 +32,13 @@ from .._hf_device import auto_place_pipeline, default_torch_dtype, move_to_devic
 from ..base import BaseImageClient, HuggingFaceImageSpec, ImageModel
 
 logger = logging.getLogger(__name__)
+
+_model_registry: dict[tuple, Any] = {}  # cache_key → loaded pipeline
+_registry_lock = threading.Lock()
+
+
+def _make_cache_key(spec_id: str, pipeline_class: str, model_kwargs: dict | None) -> tuple:
+    return (spec_id, pipeline_class, *sorted((k, str(v)) for k, v in (model_kwargs or {}).items()))
 
 
 # torch_dtype is intentionally not fixed here: it defaults per-device at load time
@@ -199,6 +207,7 @@ class HuggingFaceImageClient(BaseImageClient):
         self.spec = spec
         self._pipe: Any = None  # lazy
         self._img2img_pipe: Any = None  # lazy; loaded via from_pipe() on first img2img call
+        self._cache_key = _make_cache_key(spec.id, spec.pipeline_class, model_kwargs)
 
     def _load_pipeline(self) -> Any:
         """Resolve the pipeline class from the diffusers namespace and load weights."""
@@ -246,7 +255,12 @@ class HuggingFaceImageClient(BaseImageClient):
     def pipeline(self) -> Any:
         """The loaded ``diffusers`` pipeline. Triggers weight load on first access."""
         if self._pipe is None:
-            self._pipe = self._load_pipeline()
+            with _registry_lock:
+                if self._cache_key in _model_registry:
+                    self._pipe = _model_registry[self._cache_key]
+                else:
+                    self._pipe = self._load_pipeline()
+                    _model_registry[self._cache_key] = self._pipe
         return self._pipe
 
     def _get_img2img_pipeline(self) -> Any:
@@ -268,9 +282,7 @@ class HuggingFaceImageClient(BaseImageClient):
         try:
             img2img_cls = getattr(diffusers, self.spec.img2img_pipeline_class)
         except AttributeError as exc:
-            raise ValueError(
-                f"diffusers has no pipeline class {self.spec.img2img_pipeline_class!r}."
-            ) from exc
+            raise ValueError(f"diffusers has no pipeline class {self.spec.img2img_pipeline_class!r}.") from exc
         logger.info(
             "Loading img2img pipeline %s from loaded txt2img weights (from_pipe)",
             self.spec.img2img_pipeline_class,

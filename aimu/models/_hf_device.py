@@ -153,7 +153,9 @@ def auto_place_pipeline(pipe: Any) -> Any:
     if model_bytes == 0 or model_bytes * _MEMORY_MARGIN <= free:
         logger.info(
             "Auto-placement: pipeline (%.1f GiB) → cuda:%d (%.1f GiB free).",
-            model_bytes / _GIB, idx, free / _GIB,
+            model_bytes / _GIB,
+            idx,
+            free / _GIB,
         )
         return pipe.to(f"cuda:{idx}")
 
@@ -162,7 +164,8 @@ def auto_place_pipeline(pipe: Any) -> Any:
             "Auto-placement: pipeline (%.1f GiB) exceeds free VRAM on every GPU and "
             "`accelerate` is not installed for CPU offload; pinning to cuda:%d may OOM. "
             "Install accelerate, free GPU memory, or pass model_kwargs={'device': ...}.",
-            model_bytes / _GIB, idx,
+            model_bytes / _GIB,
+            idx,
         )
         return pipe.to(f"cuda:{idx}")
 
@@ -170,14 +173,18 @@ def auto_place_pipeline(pipe: Any) -> Any:
         logger.info(
             "Auto-placement: pipeline (%.1f GiB) too large for one GPU; model CPU offload "
             "on cuda:%d (largest component %.1f GiB, %.1f GiB free).",
-            model_bytes / _GIB, idx, largest / _GIB, free / _GIB,
+            model_bytes / _GIB,
+            idx,
+            largest / _GIB,
+            free / _GIB,
         )
         pipe.enable_model_cpu_offload(gpu_id=idx)
         return pipe
 
     logger.info(
         "Auto-placement: tight VRAM (%.1f GiB free on cuda:%d); sequential CPU offload.",
-        free / _GIB, idx,
+        free / _GIB,
+        idx,
     )
     pipe.enable_sequential_cpu_offload(gpu_id=idx)
     return pipe

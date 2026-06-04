@@ -45,6 +45,14 @@ from ..base import AudioModel, BaseAudioClient, HuggingFaceAudioSpec, StreamChun
 
 logger = logging.getLogger(__name__)
 
+_model_registry: dict[tuple, tuple] = {}  # cache_key → (pipe, processor)
+_registry_lock = threading.Lock()
+
+
+def _make_cache_key(spec_id: str, pipeline_type: str, model_kwargs: dict | None) -> tuple:
+    return (spec_id, pipeline_type, *sorted((k, str(v)) for k, v in (model_kwargs or {}).items()))
+
+
 # MusicGen generates at 50 tokens/second (all model sizes, 32 kHz output).
 _MUSICGEN_TOKENS_PER_SECOND = 50
 _MUSICGEN_SAMPLE_RATE = 32_000
@@ -153,6 +161,7 @@ class HuggingFaceAudioClient(BaseAudioClient):
         self.spec = spec
         self._pipe: Any = None  # lazy
         self._processor: Any = None  # lazy; used only by musicgen
+        self._cache_key = _make_cache_key(spec.id, spec.pipeline_type, model_kwargs)
 
     # ------------------------------------------------------------------
     # Lazy loaders
@@ -198,6 +207,10 @@ class HuggingFaceAudioClient(BaseAudioClient):
         """Trigger lazy weight loading if not already done."""
         if self._pipe is not None:
             return
+        with _registry_lock:
+            if self._cache_key in _model_registry:
+                self._pipe, self._processor = _model_registry[self._cache_key]
+                return
         ptype = self.spec.pipeline_type
         if ptype == "musicgen":
             self._processor, self._pipe = self._load_musicgen()
@@ -207,6 +220,8 @@ class HuggingFaceAudioClient(BaseAudioClient):
             self._pipe = self._load_diffusers_pipeline("StableAudioPipeline")
         else:
             raise ValueError(f"Unknown pipeline_type: {self.spec.pipeline_type!r}")
+        with _registry_lock:
+            _model_registry[self._cache_key] = (self._pipe, self._processor)
 
     @property
     def pipeline(self) -> Any:

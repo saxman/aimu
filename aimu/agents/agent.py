@@ -117,6 +117,38 @@ class Agent(Runner):
     def messages(self) -> MessageHistory:
         return {self.name: self._last_messages}
 
+    def restore(self, messages: list[dict]) -> None:
+        """Restore agent state from a saved message list for resuming after failure.
+
+        Saves the partial state from a failed run via ``agent.model_client.messages``
+        (the live list, not the post-run snapshot from ``agent.messages``), then call
+        this method before the next ``run()`` to resume from that point.
+
+        Handles the system-message duplication hazard: ``model_client.reset()``
+        unlocks and preserves the ``system_message`` attribute, and this method strips
+        the leading system message from *messages* (if present) so it is not
+        prepended twice on the next ``chat()`` call.
+
+        Example::
+
+            try:
+                result = agent.run(task)
+            except Exception:
+                import json
+                with open("checkpoint.json", "w") as f:
+                    json.dump(agent.model_client.messages, f)
+                raise
+
+            # On retry:
+            with open("checkpoint.json") as f:
+                saved = json.load(f)
+            agent.restore(saved)
+            result = agent.run(continuation_prompt)
+        """
+        self.model_client.reset()  # clears messages, unlocks system_message, keeps its value
+        stripped = [m for m in messages if m.get("role") != "system"]
+        self.model_client.messages = stripped
+
     def _last_turn_called_tools(self) -> bool:
         for msg in reversed(self.model_client.messages):
             if msg.get("role") == "user":

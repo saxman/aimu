@@ -40,6 +40,9 @@ if TYPE_CHECKING:
 from . import aio
 from .models import (
     HAS_GEMINI_IMAGE,
+    extract_tool_calls,
+    generate_json,
+    parse_json_response,
     HAS_HF_AUDIO,
     HAS_HF_IMAGE,
     HAS_HF_SPEECH,
@@ -288,6 +291,93 @@ def generate_speech(
     return c.generate(text, format=format, **kwargs)
 
 
+def clear_hf_cache(model: Any = None) -> None:
+    """Release cached HuggingFace model weights and free GPU memory.
+
+    All four HuggingFace modality clients (text, image, audio, speech) share
+    module-level weight registries so that multiple client instances for the
+    same model don't load weights twice. Call this when you are done with a
+    model to reclaim VRAM. Without calling this, weights remain in the registry
+    for the lifetime of the process even after all client instances are deleted.
+
+    If *model* is provided (any HuggingFace model enum member), only that
+    model's entry is cleared. Pass ``None`` to clear all cached models.
+
+    Example::
+
+        c1 = aimu.client("hf:Qwen/Qwen3-8B")
+        c2 = aimu.client("hf:Qwen/Qwen3-8B")
+        assert c1._hf_model is c2._hf_model  # shared weights
+
+        aimu.clear_hf_cache()  # free all HF weights
+    """
+    import gc
+    import importlib
+
+    suffixes = [
+        "models.hf.hf_client",
+        "models.hf_image.hf_image_client",
+        "models.hf_audio.hf_audio_client",
+        "models.hf_speech.hf_speech_client",
+    ]
+    for suffix in suffixes:
+        try:
+            mod = importlib.import_module(f"aimu.{suffix}")
+            registry = mod._model_registry
+            lock = mod._registry_lock
+            with lock:
+                if model is None:
+                    registry.clear()
+                elif hasattr(model, "value"):
+                    for key in [k for k in registry if k[0] == model.value]:
+                        del registry[key]
+        except (ImportError, AttributeError):
+            pass
+
+    gc.collect()
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        elif torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+    except ImportError:
+        pass
+
+
+def clear_llamacpp_cache(model: Any = None) -> None:
+    """Release cached llama-cpp-python model weights.
+
+    LlamaCppClient instances share a module-level registry so that multiple
+    instances with the same ``model_path`` and construction parameters don't
+    load the GGUF file twice. Call this to free the cached Llama instance.
+
+    If *model* is provided (a :class:`~aimu.models.llamacpp.LlamaCppModel`
+    member or path string), only that entry is cleared.
+    """
+    import gc
+    import importlib
+
+    try:
+        mod = importlib.import_module("aimu.models.llamacpp.llamacpp_client")
+        registry = mod._model_registry
+        lock = mod._registry_lock
+        with lock:
+            if model is None:
+                registry.clear()
+            elif isinstance(model, str):
+                for key in [k for k in registry if k[0] == model]:
+                    del registry[key]
+            elif hasattr(model, "value"):
+                for key in [k for k in registry if k[0] == model.value]:
+                    del registry[key]
+    except (ImportError, AttributeError):
+        pass
+
+    gc.collect()
+
+
 def image_client(model: Union[str, ImageModel, ImageSpec, None] = None, **kwargs: Any) -> ImageClient:
     """Construct an :class:`ImageClient` for text-to-image generation.
 
@@ -390,7 +480,12 @@ __all__ = [
     "audio_client",
     "available_speech_clients",
     "chat",
+    "clear_hf_cache",
+    "clear_llamacpp_cache",
     "client",
+    "extract_tool_calls",
+    "generate_json",
+    "parse_json_response",
     "generate_audio",
     "generate_image",
     "generate_speech",

@@ -356,3 +356,78 @@ def test_multiple_tool_calls_client_reused():
     client.call_tool("none_response", {})
 
     assert mcp_client == client.client
+
+
+# ---------------------------------------------------------------------------
+# execute_python
+# ---------------------------------------------------------------------------
+
+
+def test_execute_python_stdout():
+    result = builtin.execute_python('print("hello world")')
+    assert "hello world" in result
+
+
+def test_execute_python_last_expression():
+    result = builtin.execute_python("2 + 2")
+    assert "4" in result
+
+
+def test_execute_python_stdout_and_expression():
+    result = builtin.execute_python('print("x =", 5)\n5 * 5')
+    assert "x = 5" in result
+    assert "25" in result
+
+
+def test_execute_python_uses_math_module():
+    result = builtin.execute_python("import math\nmath.sqrt(16)")
+    assert "4.0" in result
+
+
+def test_execute_python_blocks_os_import():
+    result = builtin.execute_python("import os")
+    assert "Error" in result or "not available" in result or "ImportError" in result
+
+
+def test_execute_python_blocks_open():
+    result = builtin.execute_python("open('/etc/passwd')")
+    assert "Error" in result or "NameError" in result
+
+
+def test_execute_python_syntax_error():
+    result = builtin.execute_python("def bad syntax")
+    assert "SyntaxError" in result
+
+
+def test_execute_python_runtime_error():
+    result = builtin.execute_python("1 / 0")
+    assert "Error" in result
+
+
+def test_execute_python_no_output_returns_sentinel():
+    result = builtin.execute_python("x = 5")
+    assert result == "(no output)"
+
+
+def test_execute_python_is_in_compute_subgroup():
+    assert builtin.execute_python in builtin.compute
+
+
+def test_execute_python_not_in_all_tools():
+    assert builtin.execute_python not in builtin.ALL_TOOLS
+
+
+def test_make_tools_python_sandbox_kwarg():
+    from unittest.mock import MagicMock
+    client = MagicMock()
+    client.model.supports_vision = False
+    tools = builtin.make_tools(client, python_sandbox=True)
+    assert builtin.execute_python in tools
+
+
+def test_make_tools_python_sandbox_false_by_default():
+    from unittest.mock import MagicMock
+    client = MagicMock()
+    client.model.supports_vision = False
+    tools = builtin.make_tools(client)
+    assert builtin.execute_python not in tools

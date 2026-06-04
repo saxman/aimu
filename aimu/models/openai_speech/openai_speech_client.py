@@ -72,8 +72,7 @@ class OpenAISpeechClient(BaseSpeechClient):
                 provider, _, model_id = model.partition(":")
                 if provider != "openai":
                     raise ValueError(
-                        f"Only 'openai:' provider is supported for OpenAISpeechClient. "
-                        f"Got provider: {provider!r}"
+                        f"Only 'openai:' provider is supported for OpenAISpeechClient. Got provider: {provider!r}"
                     )
                 # Resolve to a known enum member; arbitrary ids are not supported via string.
                 for member in OpenAISpeechModel:

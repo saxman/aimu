@@ -1,4 +1,5 @@
 # Always available
+from ._json import extract_tool_calls, generate_json, parse_json_response
 from .audio_client import AudioClient, resolve_audio_model_string
 from .base import (
     AudioModel,
@@ -152,6 +153,9 @@ except ImportError:
 
 # Expose what's available
 __all__ = [
+    "extract_tool_calls",
+    "generate_json",
+    "parse_json_response",
     "AudioClient",
     "AudioModel",
     "AudioSpec",

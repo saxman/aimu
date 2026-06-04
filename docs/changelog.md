@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.5.3 (unreleased)
+
+### Output utilities
+
+- **New** `aimu.parse_json_response(text, schema=None)` — extract JSON from any LLM response string using three extraction strategies (raw parse, fenced code block, `{…}` substring). Pass a dataclass class or Pydantic v2 `BaseModel` as `schema` to coerce the parsed dict into a typed object. Raises `ValueError` on all-strategy failure with the first 200 characters of the response included. Exported from `aimu.models._json`, `aimu.models`, and top-level `aimu`.
+- **New** `aimu.generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)` — call `client.generate()` and parse the result as JSON, retrying up to `retries` times on parse failure. Convenience wrapper around `parse_json_response`.
+- **New** `aimu.extract_tool_calls(messages)` — convert an OpenAI-format message list (e.g. `agent.model_client.messages`) into a flat `list[dict]` of `{iteration, tool, arguments, result}` records. Handles both `arguments` and `parameters` key names for cross-model compatibility. Replaces manual reconstruction boilerplate common in agentic scripts.
+
+### Model weight caching
+
+- **New** All four in-process HuggingFace clients (`HuggingFaceClient`, `HuggingFaceImageClient`, `HuggingFaceAudioClient`, `HuggingFaceSpeechClient`) now maintain a module-level weight registry keyed on `(spec.id, *sorted_model_kwargs)`. A second client instance with the same model and construction kwargs reuses already-loaded weights rather than calling `from_pretrained()` again. The text client checks on construction; the lazy-loading modality clients check on first load. `LlamaCppClient` has the same pattern with key `(model_path, n_ctx, n_gpu_layers, chat_format)`.
+- **New** `aimu.clear_hf_cache(model=None)` — evict HuggingFace weight entries from all four modality registries and call `gc.collect()` + `cuda.empty_cache()`. Pass a model enum member to clear just that model; pass `None` to clear all.
+- **New** `aimu.clear_llamacpp_cache(model=None)` — same for `LlamaCppClient`.
+
+### Tools
+
+- **New** `execute_python(code)` built-in tool in `builtin.compute`. Executes sandboxed Python in a fresh namespace per call, captures stdout, and returns the last expression value. Allowed imports: `math`, `statistics`, `json`, `re`, `itertools`, `functools`, `datetime`, and `numpy`/`pandas`/`scipy`/`matplotlib` when installed. Filesystem (`open`, `os`, `pathlib`) and subprocess access are blocked. **Not included in `ALL_TOOLS`** — opt in via `tools=builtin.compute` or `make_tools(python_sandbox=True)`.
+- **New** `make_tools(..., python_sandbox=False)` — new `python_sandbox=` kwarg appends `execute_python` when `True`.
+
+### Agents and workflows
+
+- **New** `Agent.restore(messages)` — restore an agent from a saved `list[dict]` (OpenAI message format) for resuming after failure. Calls `model_client.reset()`, strips the leading system message to prevent duplication on the next `chat()`, and sets `model_client.messages`. The live partial state after a failed run is on `agent.model_client.messages` (not the post-run snapshot from `agent.messages`).
+- **New** `EvaluatorOptimizer.restore(messages)` — delegates to `generator.restore()`.
+- **New** `Chain.restore(messages, step=0)` — restores the specified step's agent client.
+- **New** `docs/how-to/using-llms-inside-tools.md` — how-to guide covering: the history pollution problem, `generate()` for stateless in-tool LLM calls, the save/restore checkpointing pattern, and `clear_hf_cache()` / `clear_llamacpp_cache()` for VRAM management.
+
 ## v0.5.2 (unreleased)
 
 ### Memory

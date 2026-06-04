@@ -157,6 +157,11 @@ python web/gradio_chatbot_basic.py                   # Gradio variant
   - `aimu.client(model=None, *, system=None, **provider_kwargs)` — one-line constructor that returns a fully configured `ModelClient`. Use this for multi-turn chats.
   - **Default model resolution (when `model` is omitted)** — `client()` / `chat()` / `agent()` resolve a text default via `aimu.models._defaults.resolve_default_text_model()`: (1) the `AIMU_LANGUAGE_MODEL` env var (a `"provider:model_id"` string, read after `load_dotenv()`); else (2) an *already-available* local model — a running Ollama server (`ollama.list()`), a cached HuggingFace model (`huggingface_hub.scan_cache_dir()`, download-free), or a running local OpenAI-compat server probed at its default base_url (`models.list()`) — each restricted to ids matching a provider `Model` enum so capabilities are known, preferring tool-capable, logged at WARNING; else (3) a `ValueError` naming the remedies. A cloud provider is **never** auto-selected and weights are **never** downloaded implicitly. The async `aio.client()` reuses the same resolver with `include_hf_cache=False` (an `hf:` default would need an explicit sync-client wrap). The `ModelClient` factory itself still requires an explicit model — the default magic lives only at the ergonomic `aimu.*` layer.
   - `aimu.resolve_model_string(s)` — parses a `"provider:model_id"` string and returns the matching `Model` enum member. Raises `ValueError` with the list of valid ids on miss.
+  - `aimu.parse_json_response(text, schema=None)` — parse JSON from an LLM response string using three extraction strategies (raw parse, fenced block, `{…}` substring). Pass a dataclass class or Pydantic v2 `BaseModel` as `schema` to coerce into a typed object. Raises `ValueError` on failure.
+  - `aimu.generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)` — call `client.generate()` and parse the result as JSON, retrying on parse failure. Convenience wrapper around `parse_json_response`.
+  - `aimu.extract_tool_calls(messages)` — extract tool call/result pairs from an OpenAI-format message list (e.g. `agent.model_client.messages`). Returns `list[dict]` with keys `iteration`, `tool`, `arguments`, `result`. Replaces the manual reconstruction boilerplate common in agentic scripts.
+  - `aimu.clear_hf_cache(model=None)` — release cached HuggingFace model weights across all modalities (text, image, audio, speech) and free GPU memory. Pass a model enum member to clear just that model; pass `None` to clear all. See HuggingFace client sections for caching details.
+  - `aimu.clear_llamacpp_cache(model=None)` — same for LlamaCpp.
   - Re-exports: `BaseModelClient`, `Model`, `ModelClient`, `ModelSpec`, `StreamChunk`, `StreamingContentType`.
   - `aimu.aio` — async submodule. Imported by default (one-line `from . import aio`) so users can `from aimu import aio` without a separate install. See "Async Surface" below.
 
@@ -206,6 +211,7 @@ async def main():
 
 - **[aimu/models/_chat_state.py](aimu/models/_chat_state.py)** — `_ChatStateMixin` provides `system_message` lifecycle (setter + lock), `reset()`, `_append_user_turn()`, `_collect_python_tool_specs()`, and the capability properties (`is_thinking_model`, etc.). Both `BaseModelClient` and `AsyncBaseModelClient` inherit it. No state mechanics are duplicated.
 - **[aimu/models/_streaming.py](aimu/models/_streaming.py)** — `resolve_include()`, `filter_chunks()` (sync), `afilter_chunks()` (async).
+- **[aimu/models/_json.py](aimu/models/_json.py)** — `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. Utilities for getting structured data out of model responses. Exported from `aimu.models` and top-level `aimu`.
 - **[aimu/tools/mcp_format.py](aimu/tools/mcp_format.py)** — `mcp_tools_to_openai(tool_specs)` shared by sync `MCPClient.get_tools()` and async `aio.MCPClient.get_tools()`.
 - Provider format adapters (`_openai_messages_to_anthropic`, `_openai_tools_to_anthropic`, `_adapt_messages_for_ollama`, `_split_thinking`, `_ThinkingParser`, `_build_user_content_blocks`) are pure data transforms — reused by async providers via composition, no duplication.
 
@@ -304,6 +310,10 @@ The codebase uses an abstract base class pattern for model clients:
   - `THINKING_MODELS`: members where `supports_thinking=True`
   - `VISION_MODELS`: members where `supports_vision=True`
 
+- **HuggingFace model weight caching**: All four in-process HuggingFace clients (`HuggingFaceClient`, `HuggingFaceImageClient`, `HuggingFaceAudioClient`, `HuggingFaceSpeechClient`) maintain a module-level `_model_registry` dict keyed on `(spec.id, *sorted_model_kwargs)`. A second client instance with the same model and kwargs reuses already-loaded weights rather than calling `from_pretrained()` again. For the eager-loading text client, the cache is checked in `__init__`; for the lazy-loading modality clients, it is checked in their respective `_load_pipeline()` / `_ensure_loaded()` methods. Use `aimu.clear_hf_cache(model=None)` to evict entries and free VRAM. `LlamaCppClient` has the same pattern with cache key `(model_path, n_ctx, n_gpu_layers, chat_format)` and `aimu.clear_llamacpp_cache()`. **Note**: creating clients with different `model_kwargs` (e.g. different `device_map`) produces separate cache entries and loads weights independently.
+
+- **`aimu/models/_json.py`** — utilities for processing model output: `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. All three are exported from `aimu.models` and re-exported from top-level `aimu`. See Top-Level API section for details.
+
 - **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK. `model_client.py` performs the same guarded imports independently to avoid a circular import with `__init__.py`. The `aimu/evals/` package uses the same guarded-import pattern with `HAS_DEEPEVAL`.
 
 ### Tool Integration
@@ -338,7 +348,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: built-in general-purpose tools, each decorated with `@tool` for direct in-process use. Pass an entire subgroup with `tools=builtin.web + [my_tool]`:
   - **`builtin.web`** — `get_weather`, `get_webpage`, `search`, `wikipedia`
   - **`builtin.fs`** — `list_directory`, `read_file`
-  - **`builtin.compute`** — `calculate`
+  - **`builtin.compute`** — `calculate`, `execute_python` (sandboxed Python REPL — see below)
   - **`builtin.misc`** — `echo`, `get_current_date_and_time`
   - **`builtin.ALL_TOOLS`** — flat list of every built-in (kept for back-compat)
   - **`make_memory_tools(store)`** — factory that returns `[store_memory, search_memories, list_memories]` as `@tool`-decorated functions closing over the provided `MemoryStore` instance. No lazy singleton — the store is always explicit because `persist_path` and backend are meaningful choices. Pass the result directly to `Agent(client, tools=make_memory_tools(store))` or via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use `aimu.memory.mcp` / `aimu.memory.document_mcp` instead.
@@ -348,6 +358,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `get_current_date_and_time()`: Returns ISO format datetime
   - `get_weather(location)`: Current weather via Open-Meteo API (city name or coordinates)
   - `calculate(expression)`: Safe arithmetic expression evaluator
+  - `execute_python(code)`: Sandboxed Python REPL. Executes `code` in a fresh `exec()` namespace per call; captures stdout and returns the last expression value. Allowed imports: `math`, `statistics`, `json`, `re`, `itertools`, `functools`, `datetime`, and `numpy`/`pandas`/`scipy`/`matplotlib` when installed. Filesystem (`open`, `os`, `pathlib`) and subprocess access are blocked. **Not in `ALL_TOOLS` by default** — opt in via `tools=builtin.compute` or `make_tools(..., python_sandbox=True)`.
   - `get_webpage(url)`: Fetches page and returns visible text with HTML stripped
   - `search(query, num_results)`: Web search via SearXNG (`SEARXNG_BASE_URL` env var)
   - `wikipedia(query)`: Wikipedia article summary
@@ -458,6 +469,7 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
   - `as_model_client() -> BaseModelClient`: returns a `BaseModelClient` view (internal `_AgenticView`) whose `chat()` runs the full agent loop. Use this to drop an agent into an API that expects a model client; for direct use call `run()` instead.
   - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` call; stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages.
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`).
+  - `restore(messages)`: Restore agent state from a saved `list[dict]` (OpenAI message format) for resuming after failure. Calls `model_client.reset()` (clears messages, unlocks `system_message`, preserves its value), strips the leading system message from *messages* to prevent duplication on the next `chat()`, then sets `model_client.messages`. The live partial state after a failed run is in `agent.model_client.messages` (not the post-run snapshot from `agent.messages`). See `docs/how-to/using-llms-inside-tools.md` for the full save/restore pattern.
 
 - **[aimu/agents/skill_agent.py](aimu/agents/skill_agent.py)**: `SkillAgent(Agent)`: adds skill discovery and injection
   - Extends `Agent` with a `skill_manager: SkillManager` field (defaults to `SkillManager()` for auto-discovery)
@@ -782,7 +794,7 @@ Key files and their roles:
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_audio` generator tool + `make_audio_tool()` factory (parallel to image equivalents):
   - `generate_audio(prompt: str)` is a generator `@tool` yielding `AUDIO_GENERATING` chunks and returning the saved file path. Backed by a lazy `_audio_client` singleton; model via `AIMU_AUDIO_MODEL` env var (**required**; the tool raises if unset — no default is downloaded).
   - `make_audio_tool(client, *, duration_s=None)` — binds a fresh tool to a caller-supplied client.
-  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None)` — `audio_client` and `speech_client` kwargs replace their respective singletons when provided; `memory_store` appends `make_memory_tools(store)` when set.
+  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None, python_sandbox=False)` — `audio_client` and `speech_client` kwargs replace their respective singletons when provided; `memory_store` appends `make_memory_tools(store)` when set; `python_sandbox=True` appends `execute_python`.
   - New subgroup `audio = [generate_audio]` (parallel to `image`); included in `ALL_TOOLS`.
 
 - **Async twin** — full mirror under `aimu.aio`:
@@ -900,6 +912,7 @@ aimu/
 │   ├── model_client.py  # ModelClient factory/wrapper + resolve_model_string
 │   ├── _chat_state.py   # _ChatStateMixin — system_message/reset/append shared by sync and async base classes
 │   ├── _streaming.py    # resolve_include, filter_chunks, afilter_chunks — shared stream helpers
+│   ├── _json.py         # parse_json_response, generate_json, extract_tool_calls — model output utilities
 │   ├── _defaults.py     # Default-model resolution when model= omitted (AIMU_LANGUAGE_MODEL + local Ollama/HF-cache/OpenAI-compat probes; modality env-var resolver)
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── _images.py       # Shared vision utilities (_normalize_image, per-provider adapters)

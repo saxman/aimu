@@ -403,10 +403,7 @@ class BaseSpeechClient(ABC):
         from ._audio_output import encode_audio
 
         results = self._generate(text, voice=resolved_voice, speed=resolved_speed, num_audio=num_audio, **kwargs)
-        encoded = [
-            encode_audio(audio, sr, format=format, prompt=text, output_dir=output_dir)
-            for sr, audio in results
-        ]
+        encoded = [encode_audio(audio, sr, format=format, prompt=text, output_dir=output_dir) for sr, audio in results]
         return encoded[0] if num_audio == 1 else encoded
 
     def _generate_streamed(
@@ -991,9 +988,7 @@ class BaseAudioClient(ABC):
         self.model_kwargs = model_kwargs
 
     @abstractmethod
-    def _generate(
-        self, prompt: str, *, duration_s: float, num_audio: int = 1, **kwargs: Any
-    ) -> list:
+    def _generate(self, prompt: str, *, duration_s: float, num_audio: int = 1, **kwargs: Any) -> list:
         """Provider-specific generation. Returns list of ``(sample_rate, np.ndarray)``."""
 
     def generate(
@@ -1049,8 +1044,7 @@ class BaseAudioClient(ABC):
             **kwargs,
         )
         encoded = [
-            encode_audio(audio, sr, format=format, prompt=prompt, output_dir=output_dir)
-            for sr, audio in results
+            encode_audio(audio, sr, format=format, prompt=prompt, output_dir=output_dir) for sr, audio in results
         ]
         return encoded[0] if num_audio == 1 else encoded
 
