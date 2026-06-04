@@ -1719,6 +1719,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.agents.Agent.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.agents.Agent.as_model_client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1847,6 +1858,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.agents.Chain.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.agents.Chain.from_config" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1962,6 +1984,17 @@
   
     <nav class="md-nav" aria-label="EvaluatorOptimizer">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.agents.EvaluatorOptimizer.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#aimu.agents.EvaluatorOptimizer.run" class="md-nav__link">
@@ -2821,6 +2854,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.agents.Agent.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.agents.Agent.as_model_client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2949,6 +2993,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.agents.Chain.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.agents.Chain.from_config" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3064,6 +3119,17 @@
   
     <nav class="md-nav" aria-label="EvaluatorOptimizer">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.agents.EvaluatorOptimizer.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#aimu.agents.EvaluatorOptimizer.run" class="md-nav__link">
@@ -3368,6 +3434,48 @@ print(agent.run(&quot;How many r&#39;s in strawberry?&quot;))
     <div class="doc doc-contents ">
 
         <p>Run the agentic loop. <code>images</code> attach only to the initial turn.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.agents.Agent.restore" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">restore</span>
+
+
+<a href="#aimu.agents.Agent.restore" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Restore agent state from a saved message list for resuming after failure.</p>
+<p>Saves the partial state from a failed run via <code>agent.model_client.messages</code>
+(the live list, not the post-run snapshot from <code>agent.messages</code>), then call
+this method before the next <code>run()</code> to resume from that point.</p>
+<p>Handles the system-message duplication hazard: <code>model_client.reset()</code>
+unlocks and preserves the <code>system_message</code> attribute, and this method strips
+the leading system message from <em>messages</em> (if present) so it is not
+prepended twice on the next <code>chat()</code> call.</p>
+<p>Example::</p>
+<div class="language-text highlight"><pre><span></span><code>try:
+    result = agent.run(task)
+except Exception:
+    import json
+    with open(&quot;checkpoint.json&quot;, &quot;w&quot;) as f:
+        json.dump(agent.model_client.messages, f)
+    raise
+
+# On retry:
+with open(&quot;checkpoint.json&quot;) as f:
+    saved = json.load(f)
+agent.restore(saved)
+result = agent.run(continuation_prompt)
+</code></pre></div>
 
 
     </div>
@@ -3743,6 +3851,29 @@ clears the shared client's history and applies its own system_message.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="aimu.agents.Chain.restore" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">restore</span>
+
+
+<a href="#aimu.agents.Chain.restore" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Restore a chain step's state from a saved message list.</p>
+<p><em>step</em> selects which step's agent to restore (default 0, the first step).
+Subsequent steps start fresh on the next <code>run()</code>. See
+:meth:<code>Agent.restore</code> for the full save/restore pattern.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="aimu.agents.Chain.from_config" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">from_config</span>
 
@@ -4090,6 +4221,28 @@ result = eo.run(&quot;Explain gradient descent.&quot;)
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.agents.EvaluatorOptimizer.restore" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">restore</span>
+
+
+<a href="#aimu.agents.EvaluatorOptimizer.restore" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Restore the generator's state from a saved message list.</p>
+<p>The evaluator starts fresh on the next round. See :meth:<code>Agent.restore</code>
+for the full save/restore pattern and system-message handling details.</p>
+
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 
