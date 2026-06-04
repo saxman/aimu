@@ -419,6 +419,7 @@ def test_execute_python_not_in_all_tools():
 
 def test_make_tools_python_sandbox_kwarg():
     from unittest.mock import MagicMock
+
     client = MagicMock()
     client.model.supports_vision = False
     tools = builtin.make_tools(client, python_sandbox=True)
@@ -427,6 +428,7 @@ def test_make_tools_python_sandbox_kwarg():
 
 def test_make_tools_python_sandbox_false_by_default():
     from unittest.mock import MagicMock
+
     client = MagicMock()
     client.model.supports_vision = False
     tools = builtin.make_tools(client)

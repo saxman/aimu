@@ -197,7 +197,7 @@ def main() -> None:
         choices=["greedy", "climbing"],
         default="greedy",
         help="greedy: always accept the evaluator's suggestion. "
-             "climbing: keep the best image and revert on non-improvement. Default: greedy",
+        "climbing: keep the best image and revert on non-improvement. Default: greedy",
     )
     parser.add_argument(
         "--patience",

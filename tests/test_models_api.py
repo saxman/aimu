@@ -526,9 +526,7 @@ def test_extract_tool_calls_parameters_key_normalized():
     messages = [
         {
             "role": "assistant",
-            "tool_calls": [
-                {"id": "t1", "function": {"name": "fn", "parameters": '{"n": 5}'}}
-            ],
+            "tool_calls": [{"id": "t1", "function": {"name": "fn", "parameters": '{"n": 5}'}}],
         },
         {"role": "tool", "tool_call_id": "t1", "content": "done"},
     ]

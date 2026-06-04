@@ -212,7 +212,10 @@ async def test_async_hf_speech_generate_stream(monkeypatch):
 
     sync = HuggingFaceSpeechClient(HuggingFaceSpeechModel.MMS_TTS_ENG)
     expected_chunks = [
-        StreamChunk(StreamingContentType.SPEECH_GENERATING, {"chunk_index": 1, "total_chunks": 1, "final": True, "result": "/tmp/out.wav"}),
+        StreamChunk(
+            StreamingContentType.SPEECH_GENERATING,
+            {"chunk_index": 1, "total_chunks": 1, "final": True, "result": "/tmp/out.wav"},
+        ),
     ]
 
     def fake_generate_stream(text, **kwargs):
@@ -231,7 +234,10 @@ async def test_async_openai_speech_generate_stream(monkeypatch):
 
     sync = OpenAISpeechClient(OpenAISpeechModel.TTS_1)
     expected_chunks = [
-        StreamChunk(StreamingContentType.SPEECH_GENERATING, {"chunk_index": 1, "total_chunks": None, "final": True, "result": "/tmp/out.wav"}),
+        StreamChunk(
+            StreamingContentType.SPEECH_GENERATING,
+            {"chunk_index": 1, "total_chunks": None, "final": True, "result": "/tmp/out.wav"},
+        ),
     ]
 
     def fake_generate_stream(text, **kwargs):
