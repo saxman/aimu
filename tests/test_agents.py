@@ -520,3 +520,77 @@ def test_agent_forwards_image_generating_chunks_from_streaming_tool():
     assert len(text_chunks) == 1
     assert text_chunks[0].content == "Done!"
     assert text_chunks[0].iteration == 1
+
+
+# ---------------------------------------------------------------------------
+# Per-run tools= override on Agent.run()
+# ---------------------------------------------------------------------------
+
+
+class _ToolsRecordingClient(MockModelClient):
+    """Records the value of ``self.tools`` seen on each ``_chat`` call during a run."""
+
+    def __init__(self, responses):
+        super().__init__(responses)
+        self.tools_per_call = []
+
+    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+        self.tools_per_call.append(list(self.tools))
+        return super()._chat(user_message, generate_kwargs, use_tools, stream, images=images)
+
+
+def test_agent_run_tools_override_applied_each_loop_call():
+    base_tool, override_tool = object(), object()
+    client = _ToolsRecordingClient(["tool", "after", "done"])  # one tool round → 2 chat() calls
+    agent = Agent(client, name="t", tools=[base_tool])
+
+    agent.run("task", tools=[override_tool])
+
+    # Both the initial and continuation chat() calls saw the override.
+    assert client.tools_per_call == [[override_tool], [override_tool]]
+
+
+def test_agent_run_tools_override_restored_to_configured_after_run():
+    base_tool, override_tool = object(), object()
+    client = MockModelClient(["done"])
+    agent = Agent(client, name="t", tools=[base_tool])
+
+    agent.run("task", tools=[override_tool])
+
+    # _prepare_run set client.tools to the agent's configured tools; the per-call
+    # override is restored, so the agent's tools remain in place afterward.
+    assert client.tools == [base_tool]
+
+
+def test_agent_run_tools_none_uses_configured_tools():
+    base_tool = object()
+    client = _ToolsRecordingClient(["done"])
+    agent = Agent(client, name="t", tools=[base_tool])
+
+    agent.run("task")  # no override
+
+    assert client.tools_per_call == [[base_tool]]
+
+
+def test_agent_run_tools_empty_disables_for_run_only():
+    base_tool = object()
+    client = _ToolsRecordingClient(["done"])
+    agent = Agent(client, name="t", tools=[base_tool])
+
+    agent.run("task", tools=[])
+
+    assert client.tools_per_call == [[]]  # disabled during the run...
+    assert client.tools == [base_tool]  # ...restored to configured tools after
+
+
+def test_agent_run_streamed_tools_override_applied():
+    override_tool = object()
+    client = _ToolsRecordingClient(["tool", "after", "done"])
+    agent = Agent(client, name="t", tools=[object()])
+
+    list(agent.run("task", stream=True, tools=[override_tool]))
+
+    # Every recorded chat() call (the mock re-dispatches internally when streaming)
+    # saw the override; the point is the override is live across the whole stream.
+    assert client.tools_per_call and all(seen == [override_tool] for seen in client.tools_per_call)
+    assert client.tools[0] is not override_tool  # restored to configured tools

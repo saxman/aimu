@@ -110,3 +110,54 @@ async def test_concurrent_tool_calls_overlap():
     assert elapsed < 0.9, f"expected concurrent (<0.9s), got {elapsed:.2f}s"
     tool_msgs = [m for m in client.messages if m.get("role") == "tool"]
     assert {m["content"] for m in tool_msgs} == {"done-a", "done-b"}
+
+
+# ---------------------------------------------------------------------------
+# Per-run tools= override on async Agent.run()
+# ---------------------------------------------------------------------------
+
+
+class _AsyncToolsRecordingClient(MockAsyncModelClient):
+    """Records ``self.tools`` seen on each ``_chat`` call during an async run."""
+
+    def __init__(self, responses):
+        super().__init__(responses)
+        self.tools_per_call = []
+
+    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+        self.tools_per_call.append(list(self.tools))
+        return await super()._chat(user_message, generate_kwargs, use_tools, stream, images=images)
+
+
+async def test_async_agent_run_tools_override_applied_each_loop_call():
+    base_tool, override_tool = object(), object()
+    client = _AsyncToolsRecordingClient(["tool", "after", "done"])
+    agent = Agent(client, name="t", tools=[base_tool])
+
+    await agent.run("task", tools=[override_tool])
+
+    assert client.tools_per_call == [[override_tool], [override_tool]]
+    assert client.tools == [base_tool]  # restored to configured tools
+
+
+async def test_async_agent_run_tools_none_uses_configured():
+    base_tool = object()
+    client = _AsyncToolsRecordingClient(["done"])
+    agent = Agent(client, name="t", tools=[base_tool])
+
+    await agent.run("task")
+
+    assert client.tools_per_call == [[base_tool]]
+
+
+async def test_async_agent_run_streamed_tools_override_applied():
+    override_tool = object()
+    client = _AsyncToolsRecordingClient(["tool", "after", "done"])
+    agent = Agent(client, name="t", tools=[object()])
+
+    stream = await agent.run("task", stream=True, tools=[override_tool])
+    async for _ in stream:
+        pass
+
+    assert client.tools_per_call and all(seen == [override_tool] for seen in client.tools_per_call)
+    assert client.tools[0] is not override_tool  # restored to configured tools

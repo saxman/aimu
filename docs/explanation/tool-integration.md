@@ -59,6 +59,26 @@ if self.model.supports_tools and use_tools:
 
 Note the order: MCP tools first, then Python `@tool` functions. The model sees both groups as a flat list, picks whichever it wants.
 
+## Per-call tool override
+
+`self.tools` is the client's *configured* set of Python tools. Sometimes you want a different set for a single call without mutating that state — a quick lookup that should only see `search`, a turn where tools should be off entirely. Both `chat()` and `Agent.run()` take a `tools=` keyword for exactly this:
+
+```python
+client.tools = [search, calculate]      # configured set
+
+client.chat("normal question")           # sees search + calculate
+client.chat("just look this up", tools=[search])  # sees only search, this call
+client.chat("answer from memory", tools=[])       # no Python tools, this call
+
+agent = Agent(client, tools=[search, calculate])
+agent.run("research task")               # uses configured tools
+agent.run("quick lookup", tools=[search])  # override for the whole run (every loop turn)
+```
+
+`tools=None` (the default) uses the configured `self.tools` — unchanged behaviour. Any other value, *including `[]`* to disable Python tools, replaces them for the duration of that call and is restored afterward. `mcp_client` is never touched, so MCP tools stay available regardless. On an `Agent`, the override applies to every `chat()` in the agentic loop (the initial turn and all continuations), then the agent's configured tools are back in place.
+
+Mechanically it's a scoped swap of `self.tools` that covers both request-spec building and dispatch (both read `self.tools`). Like `self.messages`, it isn't safe across *concurrent* `chat()` calls on a shared client — which matches the existing single-conversation contract.
+
 ## Dispatch order
 
 When the model returns a tool call, `_handle_tool_calls()` resolves the name in this order:

@@ -116,16 +116,46 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         stream: bool = False,
         images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
+        tools: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         """Multi-turn async chat with persistent message history.
 
-        Args mirror the sync :meth:`BaseModelClient.chat`. Streaming returns an
+        Args mirror the sync :meth:`BaseModelClient.chat`, including the per-call
+        ``tools`` override (``None`` uses ``self.tools``; any other value replaces the
+        Python ``@tool`` callables for this call only). Streaming returns an
         ``AsyncIterator[StreamChunk]`` — consume with ``async for``.
         """
-        result = await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images)
-        if stream and include is not None:
-            return afilter_chunks(result, resolve_include(include))
-        return result
+        if tools is None:
+            result = await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images)
+            if stream and include is not None:
+                return afilter_chunks(result, resolve_include(include))
+            return result
+
+        if stream:
+            return self._chat_with_tools_streamed(user_message, generate_kwargs, use_tools, images, include, tools)
+        with self._tools_override(tools):
+            return await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images)
+
+    async def _chat_with_tools_streamed(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        use_tools: bool,
+        images: Optional[list],
+        include: Optional[Iterable[Union[str, StreamingContentType]]],
+        tools: list,
+    ) -> AsyncIterator[StreamChunk]:
+        """Async streaming chat with a per-call ``tools`` override.
+
+        The override must stay active while the stream is consumed (tool dispatch reads
+        ``self.tools``), so the swap wraps the ``async for`` rather than just ``_chat``.
+        """
+        with self._tools_override(tools):
+            result = await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images)
+            if include is not None:
+                result = afilter_chunks(result, resolve_include(include))
+            async for chunk in result:
+                yield chunk
 
     @abstractmethod
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:

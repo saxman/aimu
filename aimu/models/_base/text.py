@@ -170,6 +170,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         stream: bool = False,
         images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
+        tools: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         """Multi-turn chat with persistent message history.
 
@@ -187,11 +188,43 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 (THINKING, TOOL_CALLING, GENERATING, DONE). Has no effect when ``stream=False``.
                 Values may be :class:`StreamingContentType` members or their string equivalents
                 (``"thinking"``, ``"tool_calling"``, ``"generating"``, ``"done"``).
+            tools: Optional per-call override of the Python ``@tool`` callables. ``None``
+                (default) uses the client's configured ``self.tools``; any other value
+                (including ``[]`` to disable Python tools for this call) replaces them for
+                this call only and is restored afterwards. ``mcp_client`` is unaffected.
+                Ignored when ``use_tools=False``.
         """
-        result = self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images)
-        if stream and include is not None:
-            return self._filter_chunks(result, self._resolve_include(include))
-        return result
+        if tools is None:
+            result = self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images)
+            if stream and include is not None:
+                return self._filter_chunks(result, self._resolve_include(include))
+            return result
+
+        if stream:
+            return self._chat_with_tools_streamed(user_message, generate_kwargs, use_tools, images, include, tools)
+        with self._tools_override(tools):
+            return self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images)
+
+    def _chat_with_tools_streamed(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        use_tools: bool,
+        images: Optional[list],
+        include: Optional[Iterable[Union[str, StreamingContentType]]],
+        tools: list,
+    ) -> Iterator[StreamChunk]:
+        """Streaming chat with a per-call ``tools`` override.
+
+        The override must stay active while the stream is consumed (the provider only
+        executes the generator on iteration, and tool dispatch reads ``self.tools``), so
+        the swap wraps the ``yield from`` rather than just the ``_chat`` call.
+        """
+        with self._tools_override(tools):
+            result = self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images)
+            if include is not None:
+                result = self._filter_chunks(result, self._resolve_include(include))
+            yield from result
 
     @abstractmethod
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:

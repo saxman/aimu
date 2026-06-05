@@ -92,6 +92,22 @@ client.mcp_client = MCPClient(server=my_mcp_server)
 agent = Agent(client, tools=[letter_counter])   # both routes active
 ```
 
+## Override tools for a single call
+
+`tools=` on the constructor / `client.tools` sets the *configured* tools. To use a different set for just one call — without mutating that state — pass `tools=` to `chat()` or `Agent.run()`:
+
+```python
+client.tools = [search, calculate]
+
+client.chat("just look this up", tools=[search])  # only search, this call
+client.chat("answer from memory", tools=[])       # no Python tools, this call
+
+agent = Agent(client, tools=[search, calculate])
+agent.run("quick lookup", tools=[search])          # override for the whole run
+```
+
+`tools=None` (default) uses the configured tools. Any other value — including `[]` to disable Python tools — replaces them for that call only and is restored afterward; `mcp_client` is unaffected. On `Agent.run()` the override applies to every turn of the agentic loop.
+
 ## Built-in tools
 
 `aimu.tools.builtin` ships ready-made tools grouped by domain. Pass a group directly:

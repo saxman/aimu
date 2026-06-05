@@ -6,6 +6,10 @@
 
 - **Breaking** `system_message` is no longer immutable after the first `chat()`. The setter is now always live: assigning it mid-conversation rewrites the `{"role": "system"}` entry in `messages` in place (re-conditioning the model on the new prompt while preserving history), inserts one if absent, or removes it on `None`. Before the first chat it still just seeds the value. The previous behaviour raised `RuntimeError`; code that caught that error to gate a `reset()` can now assign directly. To change the prompt *and* drop history, use `reset(system_message="new")`. Two consequences are accepted by design: the transcript becomes counterfactual (prior assistant turns predate the new prompt), and there is no longer a guard against silently re-conditioning a `ModelClient` shared by another agent's in-flight conversation — don't share a live-conversation client across agents that each set `system_message`. The `_system_message_locked` flag has been removed. See [System message lifecycle](explanation/system-message-lifecycle.md).
 
+### Tools
+
+- **New** Per-call tool override: `chat(..., tools=None)` and `Agent.run(..., tools=None)` (both sync and `aimu.aio`) accept a `tools=` list that replaces the client's configured `self.tools` for a single call/run, restored afterward. `tools=None` (default) keeps the existing behaviour; `tools=[]` disables Python tools for the call. `mcp_client` is never touched. On an `Agent`, the override applies to every turn of the agentic loop. Implemented as a scoped `self.tools` swap (`_ChatStateMixin._tools_override`) covering both request-spec building and dispatch; the agent threads it through each loop `chat()` call so no new agent state is introduced. Not safe across concurrent `chat()` calls on a shared client — same contract as `self.messages`. Not added to the `Runner` ABC / workflow classes.
+
 ### Fixes
 
 - **Fix** `SkillAgent` skill injection no longer wipes conversation history when applied to an already-used client. It previously called `reset()` to unlock the setter (clearing `messages`); it now assigns `system_message` directly, which swaps the system entry in place.

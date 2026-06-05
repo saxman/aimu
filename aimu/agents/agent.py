@@ -77,18 +77,25 @@ class Agent(Runner):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        tools: Optional[list[Callable]] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        """Run the agentic loop. ``images`` attach only to the initial turn."""
+        """Run the agentic loop. ``images`` attach only to the initial turn.
+
+        ``tools`` is a per-run override of the agent's configured ``self.tools``: ``None``
+        (default) uses them, any other value (including ``[]`` to disable Python tools for
+        this run) replaces them for every ``chat()`` call in the loop and is restored
+        afterward. ``model_client.mcp_client`` is unaffected.
+        """
         if stream:
-            return self._run_streamed(task, generate_kwargs, images=images)
+            return self._run_streamed(task, generate_kwargs, images=images, tools=tools)
         self._prepare_run()
-        response = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images)
+        response = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
 
         for _ in range(self.max_iterations - 1):
             if not self._last_turn_called_tools():
                 break
             logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
-            response = self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs)
+            response = self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools)
 
         self._last_messages = list(self.model_client.messages)
         return response
@@ -98,16 +105,21 @@ class Agent(Runner):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         images: Optional[list] = None,
+        tools: Optional[list[Callable]] = None,
     ) -> Iterator[StreamChunk]:
         self._prepare_run()
         iteration = 0
-        for chunk in self.model_client.chat(task, generate_kwargs=generate_kwargs, stream=True, images=images):
+        for chunk in self.model_client.chat(
+            task, generate_kwargs=generate_kwargs, stream=True, images=images, tools=tools
+        ):
             yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
 
         iteration += 1
         while self._last_turn_called_tools() and iteration < self.max_iterations:
             logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-            for chunk in self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True):
+            for chunk in self.model_client.chat(
+                self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
+            ):
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
             iteration += 1
 

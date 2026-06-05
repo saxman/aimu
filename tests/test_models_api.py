@@ -223,6 +223,101 @@ def test_streaming_tool_rejected_by_non_streaming_dispatch():
 
 
 # ---------------------------------------------------------------------------
+# Per-call tools= override on chat()
+# ---------------------------------------------------------------------------
+
+
+class _ToolsRecordingClient(MockModelClient):
+    """MockModelClient that records the value of ``self.tools`` seen inside ``_chat``.
+
+    Both spec-building (``_collect_python_tool_specs``) and dispatch (``_call_plain_tool``)
+    read ``self.tools``, so observing it inside ``_chat`` is a faithful proxy for what the
+    override exposes to the whole call.
+    """
+
+    def __init__(self, responses):
+        super().__init__(responses)
+        self.tools_seen = None
+
+    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+        self.tools_seen = list(self.tools)
+        return super()._chat(user_message, generate_kwargs, use_tools, stream, images=images)
+
+
+def test_chat_tools_override_applied_during_call():
+    base_tool = object()
+    override_tool = object()
+    client = _ToolsRecordingClient(["ok"])
+    client.tools = [base_tool]
+
+    client.chat("hi", tools=[override_tool])
+
+    assert client.tools_seen == [override_tool]
+
+
+def test_chat_tools_override_restored_after_call():
+    base_tool = object()
+    client = _ToolsRecordingClient(["ok"])
+    client.tools = [base_tool]
+
+    client.chat("hi", tools=[object()])
+
+    assert client.tools == [base_tool]
+
+
+def test_chat_tools_none_is_noop_uses_client_tools():
+    base_tool = object()
+    client = _ToolsRecordingClient(["ok"])
+    client.tools = [base_tool]
+
+    client.chat("hi")  # tools omitted
+
+    assert client.tools_seen == [base_tool]
+    assert client.tools == [base_tool]
+
+
+def test_chat_tools_empty_list_disables_python_tools_for_call():
+    base_tool = object()
+    client = _ToolsRecordingClient(["ok"])
+    client.tools = [base_tool]
+
+    client.chat("hi", tools=[])
+
+    assert client.tools_seen == []  # override active...
+    assert client.tools == [base_tool]  # ...and restored
+
+
+def test_chat_tools_override_restored_on_exception():
+    base_tool = object()
+
+    class _Boom(_ToolsRecordingClient):
+        def _chat(self, *a, **k):
+            raise RuntimeError("boom")
+
+    client = _Boom(["ok"])
+    client.tools = [base_tool]
+
+    with pytest.raises(RuntimeError, match="boom"):
+        client.chat("hi", tools=[object()])
+
+    assert client.tools == [base_tool]
+
+
+def test_chat_tools_override_applies_across_streamed_consumption():
+    """The override must stay live while the stream is consumed, not just at call time."""
+    override_tool = object()
+    client = _ToolsRecordingClient(["ok"])
+    client.tools = [object()]
+
+    stream = client.chat("hi", stream=True, tools=[override_tool])
+    # _chat (where tools_seen is recorded) runs lazily on iteration.
+    assert client.tools_seen is None
+    list(stream)
+    assert client.tools_seen == [override_tool]
+    assert len(client.tools) == 1 and client.tools[0] is not override_tool  # restored
+
+
+# ---------------------------------------------------------------------------
 # system_message swap mid-conversation + reset()
 # ---------------------------------------------------------------------------
 

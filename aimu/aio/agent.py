@@ -94,18 +94,25 @@ class Agent(AsyncRunner):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        tools: Optional[list[Callable]] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        """Run the async agentic loop. ``images`` attach only to the initial turn."""
+        """Run the async agentic loop. ``images`` attach only to the initial turn.
+
+        ``tools`` is a per-run override of the agent's configured ``self.tools`` — see the
+        sync :meth:`aimu.agents.Agent.run` for semantics.
+        """
         if stream:
-            return self._run_streamed(task, generate_kwargs, images=images)
+            return self._run_streamed(task, generate_kwargs, images=images, tools=tools)
         self._prepare_run()
-        response = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images)
+        response = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
 
         for _ in range(self.max_iterations - 1):
             if not self._last_turn_called_tools():
                 break
             logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
-            response = await self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs)
+            response = await self.model_client.chat(
+                self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools
+            )
 
         self._last_messages = list(self.model_client.messages)
         return response
@@ -115,10 +122,13 @@ class Agent(AsyncRunner):
         task: str,
         generate_kwargs: Optional[dict[str, Any]] = None,
         images: Optional[list] = None,
+        tools: Optional[list[Callable]] = None,
     ) -> AsyncIterator[StreamChunk]:
         self._prepare_run()
         iteration = 0
-        first_stream = await self.model_client.chat(task, generate_kwargs=generate_kwargs, stream=True, images=images)
+        first_stream = await self.model_client.chat(
+            task, generate_kwargs=generate_kwargs, stream=True, images=images, tools=tools
+        )
         async for chunk in first_stream:
             yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
 
@@ -126,7 +136,7 @@ class Agent(AsyncRunner):
         while self._last_turn_called_tools() and iteration < self.max_iterations:
             logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
             next_stream = await self.model_client.chat(
-                self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True
+                self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
             )
             async for chunk in next_stream:
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)

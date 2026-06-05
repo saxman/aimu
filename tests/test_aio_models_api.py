@@ -195,3 +195,55 @@ async def test_async_generate_images_rejected_for_non_vision_model():
 
     with pytest.raises(ValueError, match="does not support vision input"):
         await client.generate("describe this", images=[_DATA_URL])
+
+
+# ---------------------------------------------------------------------------
+# Per-call tools= override on async chat()
+# ---------------------------------------------------------------------------
+
+
+class _AsyncToolsRecordingClient(MockAsyncModelClient):
+    """Records ``self.tools`` seen inside ``_chat`` — proxy for what the override exposes."""
+
+    def __init__(self, responses):
+        super().__init__(responses)
+        self.tools_seen = None
+
+    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+        self.tools_seen = list(self.tools)
+        return await super()._chat(user_message, generate_kwargs, use_tools, stream, images=images)
+
+
+async def test_async_chat_tools_override_applied_and_restored():
+    base_tool, override_tool = object(), object()
+    client = _AsyncToolsRecordingClient(["ok"])
+    client.tools = [base_tool]
+
+    await client.chat("hi", tools=[override_tool])
+
+    assert client.tools_seen == [override_tool]
+    assert client.tools == [base_tool]
+
+
+async def test_async_chat_tools_none_is_noop():
+    base_tool = object()
+    client = _AsyncToolsRecordingClient(["ok"])
+    client.tools = [base_tool]
+
+    await client.chat("hi")
+
+    assert client.tools_seen == [base_tool]
+    assert client.tools == [base_tool]
+
+
+async def test_async_chat_tools_override_applies_across_streamed_consumption():
+    override_tool = object()
+    client = _AsyncToolsRecordingClient(["ok"])
+    client.tools = [object()]
+
+    stream = await client.chat("hi", stream=True, tools=[override_tool])
+    assert client.tools_seen is None  # lazy — not yet consumed
+    async for _ in stream:
+        pass
+    assert client.tools_seen == [override_tool]
+    assert len(client.tools) == 1 and client.tools[0] is not override_tool  # restored

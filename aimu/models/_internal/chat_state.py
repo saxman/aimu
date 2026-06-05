@@ -7,7 +7,8 @@ Subclasses provide the underlying attributes via their own ``__init__``.
 
 from __future__ import annotations
 
-from typing import Optional
+from contextlib import contextmanager
+from typing import Iterator, Optional
 
 
 class _ChatStateMixin:
@@ -101,6 +102,30 @@ class _ChatStateMixin:
             self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
         else:
             self.messages.append({"role": "user", "content": user_message})
+
+    @contextmanager
+    def _tools_override(self, tools: Optional[list]) -> Iterator[None]:
+        """Temporarily replace ``self.tools`` for the span of a single ``chat()`` call.
+
+        ``tools=None`` is a no-op — the client's configured ``self.tools`` are used.
+        Any other value (including ``[]`` to disable Python tools for one call) replaces
+        the registered ``@tool`` callables for the duration of the call and is restored
+        afterwards. ``mcp_client`` is untouched, so MCP tools remain available. The swap
+        covers both request-spec building (``_collect_python_tool_specs``) and dispatch
+        (``_call_plain_tool``), since both read ``self.tools``.
+
+        Not safe across concurrent ``chat()`` calls on a shared client — but neither is
+        ``self.messages``, so this matches the existing single-conversation contract.
+        """
+        if tools is None:
+            yield
+            return
+        saved = self.tools
+        self.tools = list(tools)
+        try:
+            yield
+        finally:
+            self.tools = saved
 
     def _collect_python_tool_specs(self) -> list[dict]:
         """Collect ``__tool_spec__`` dicts from every registered Python tool callable.
