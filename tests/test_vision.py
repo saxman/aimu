@@ -48,7 +48,7 @@ class _VisionMockClient(MockModelClient):
         super().__init__(responses)
         self.model.supports_vision = True
 
-    def chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    def chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, tools=None):
         # Run the real _chat_setup so we exercise the image-block normalization,
         # then fall back to MockModelClient's canned-response behavior.
         if images:
@@ -323,7 +323,7 @@ def test_simple_agent_only_attaches_images_to_first_turn():
     captured: list[dict] = []
     real_chat = inner.chat
 
-    def tracking_chat(user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    def tracking_chat(user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, tools=None):
         captured.append({"user_message": user_message, "images": images})
         return real_chat(user_message, generate_kwargs, use_tools, stream, images)
 

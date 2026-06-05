@@ -132,7 +132,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             tool_calls = [
                 {"name": tc.function.name, "arguments": tc.function.arguments} for tc in response["message"].tool_calls
             ]
-            await self._handle_tool_calls(tool_calls, tools)
+            await self._handle_tool_calls(tool_calls)
 
             if response["message"].thinking:
                 self.messages[-1 - len(tool_calls)]["thinking"] = response["message"].thinking
@@ -184,7 +184,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             ]
 
             msgs_before = len(self.messages)
-            async for chunk in self._handle_tool_calls_streamed(tool_calls, tools):
+            async for chunk in self._handle_tool_calls_streamed(tool_calls):
                 yield chunk
 
             if thinking:

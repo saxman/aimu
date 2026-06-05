@@ -9,7 +9,6 @@ message-history append, image-block normalization) are inherited from the shared
 from __future__ import annotations
 
 import asyncio
-import inspect
 import logging
 import random
 import string
@@ -38,7 +37,6 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
     _system_message: Optional[str]
     default_generate_kwargs: dict
     messages: list[dict]
-    mcp_client: Optional[Any]
     last_thinking: str | None
 
     @abstractmethod
@@ -48,7 +46,6 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         self._system_message = system_message
         self.default_generate_kwargs = {}
         self.messages = []
-        self.mcp_client = None
         self.tools: list = []
         self.last_thinking = ""
         self.concurrent_tool_calls = False
@@ -168,19 +165,13 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         use_tools: bool = True,
         images: Optional[list] = None,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-        """Async equivalent of the sync ``_chat_setup``. The only async point is the
-        MCP ``get_tools()`` call when an async ``mcp_client`` is attached."""
+        """Async equivalent of the sync ``_chat_setup``."""
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         self._append_user_turn(user_message, images)
 
         tools: list[dict] = []
         if self.model.supports_tools and use_tools:
-            if self.mcp_client:
-                mcp_tools = self.mcp_client.get_tools()
-                if inspect.iscoroutine(mcp_tools):
-                    mcp_tools = await mcp_tools
-                tools.extend(mcp_tools)
             tools.extend(self._collect_python_tool_specs())
 
         return generate_kwargs, tools
@@ -207,11 +198,13 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             }
         )
 
-    async def _call_plain_tool(self, tc: dict, tc_id: str, tools: list) -> dict:
+    async def _call_plain_tool(self, tc: dict, tc_id: str) -> dict:
         """Dispatch a single non-streaming tool call. Returns the tool message dict.
 
         Awaits async tools directly; routes sync tools through ``asyncio.to_thread``.
-        Generator (streaming) tools are rejected here.
+        Every tool — in-process ``@tool`` functions and MCP tools alike — lives in
+        ``self.tools`` as a callable (MCP tools are wrapped by ``aio.MCPClient.as_tools()``),
+        so dispatch is a single by-name lookup. Generator (streaming) tools are rejected here.
         """
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
         fn = python_tools_by_name.get(tc["name"])
@@ -233,28 +226,6 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                 logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
             return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
 
-        for tool in tools:
-            if tool["type"] == "function" and tool["function"]["name"] == tc["name"]:
-                if self.mcp_client is None:
-                    raise ValueError(
-                        "MCP client not initialized. Please initialize and assign an MCP client before using MCP tools."
-                    )
-                try:
-                    tool_response = self.mcp_client.call_tool(tool["function"]["name"], tc["arguments"])
-                    if inspect.iscoroutine(tool_response):
-                        tool_response = await tool_response
-                    response_content = tool_response if isinstance(tool_response, list) else tool_response.content
-                    content = ""
-                    for part in response_content:
-                        if part.type == "text":
-                            content += part.text
-                        else:
-                            logger.debug("Skipping unsupported tool response part type: %s", part.type)
-                except Exception as exc:
-                    content = f"Tool '{tc['name']}' raised an error: {exc}"
-                    logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
-                return {"role": "tool", "name": tool["function"]["name"], "content": content, "tool_call_id": tc_id}
-
         return {
             "role": "tool",
             "name": tc["name"],
@@ -262,7 +233,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             "tool_call_id": tc_id,
         }
 
-    async def _handle_tool_calls(self, tool_calls: list[dict], tools: list) -> None:
+    async def _handle_tool_calls(self, tool_calls: list[dict]) -> None:
         """Non-streaming async tool dispatch — used by non-streaming ``_chat`` paths.
 
         Streaming (generator) tools are rejected; call ``chat(stream=True)`` to
@@ -273,14 +244,14 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
 
         if self.concurrent_tool_calls and len(prepared) > 1:
             async with asyncio.TaskGroup() as tg:
-                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id, tools)) for tc, tc_id in prepared]
+                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id)) for tc, tc_id in prepared]
             results = [t.result() for t in tasks]
         else:
-            results = [await self._call_plain_tool(tc, tc_id, tools) for tc, tc_id in prepared]
+            results = [await self._call_plain_tool(tc, tc_id) for tc, tc_id in prepared]
 
         self.messages.extend(results)
 
-    async def _handle_tool_calls_streamed(self, tool_calls: list[dict], tools: list) -> AsyncIterator[StreamChunk]:
+    async def _handle_tool_calls_streamed(self, tool_calls: list[dict]) -> AsyncIterator[StreamChunk]:
         """Async streaming tool dispatch — used by streaming ``_chat`` paths.
 
         Mirrors :meth:`BaseModelClient._handle_tool_calls_streamed` on the sync
@@ -312,7 +283,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
 
         if self.concurrent_tool_calls and len(prepared) > 1 and not has_streaming_tool:
             async with asyncio.TaskGroup() as tg:
-                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id, tools)) for tc, tc_id in prepared]
+                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id)) for tc, tc_id in prepared]
             results = [t.result() for t in tasks]
             for (tc, _tc_id), result_msg in zip(prepared, results):
                 self.messages.append(result_msg)
@@ -370,7 +341,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                     logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
                 result_msg = {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
             else:
-                result_msg = await self._call_plain_tool(tc, tc_id, tools)
+                result_msg = await self._call_plain_tool(tc, tc_id)
 
             self.messages.append(result_msg)
             yield StreamChunk(

@@ -207,7 +207,7 @@ async def test_chat_with_tools(async_model_client):
 
     mcp = await MCPClient.connect(server=mcp_server)
     try:
-        async_model_client.mcp_client = mcp
+        async_model_client.tools = await mcp.as_tools()
 
         response = await async_model_client.chat("What is the temperature in Paris?")
 
@@ -236,7 +236,7 @@ async def test_chat_streamed_with_tools(async_model_client):
 
     mcp = await MCPClient.connect(server=mcp_server)
     try:
-        async_model_client.mcp_client = mcp
+        async_model_client.tools = await mcp.as_tools()
 
         content = ""
         async for chunk in await async_model_client.chat("What is the temperature in Paris?", stream=True):

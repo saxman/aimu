@@ -85,7 +85,7 @@ sync_client = aimu.client(HuggingFaceModel.LLAMA_70B)   # loads weights once
 async_client = aio.client(sync_client)                   # wraps; shares weights
 ```
 
-State (`messages`, `system_message`, `tools`, `mcp_client`) is shared with the wrapped sync client. There is conceptually one client; the async wrapper just adds an awaitable interface.
+State (`messages`, `system_message`, `tools`) is shared with the wrapped sync client. There is conceptually one client; the async wrapper just adds an awaitable interface.
 
 **Why:** HF transformer models routinely weigh 10–100 GB. LlamaCpp GGUF files are similar. Twin construction would double the memory footprint and likely OOM the host. Even if memory were free, the GIL and the underlying CUDA stream serialize execution — there's no coroutine concurrency to gain from two "client" instances. Making the resource share explicit follows [failures are apparent](design-principles.md#6-failures-are-apparent): if you construct two clients, the second one tells you why that won't work.
 

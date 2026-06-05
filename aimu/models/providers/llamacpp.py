@@ -173,7 +173,7 @@ class LlamaCppClient(BaseModelClient):
                 {"name": tc["function"]["name"], "arguments": json.loads(tc["function"]["arguments"])}
                 for tc in msg["tool_calls"]
             ]
-            self._handle_tool_calls(tool_calls, tools)
+            self._handle_tool_calls(tool_calls)
 
             response = self._llm.create_chat_completion(
                 messages=self.messages,
@@ -238,7 +238,7 @@ class LlamaCppClient(BaseModelClient):
         # Tool call path: dispatch calls (yields IMAGE_GENERATING + TOOL_CALLING chunks
         # via streaming-tool support in the base), then stream second response.
         tool_calls = [{"name": tc["name"], "arguments": json.loads(tc["arguments"])} for tc in tool_calls_acc.values()]
-        yield from self._handle_tool_calls_streamed(tool_calls, tools)
+        yield from self._handle_tool_calls_streamed(tool_calls)
 
         stream2 = self._llm.create_chat_completion(
             messages=self.messages,

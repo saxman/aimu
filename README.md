@@ -60,7 +60,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 - `@tool` on any plain Python function. Type hints + docstring become the spec.
 - Per-call tool override: pass `tools=` to `client.chat()` or `Agent.run()` to swap the tool set for one call (or `tools=[]` to disable), without mutating the client's configured tools.
-- `MCPClient` for cross-process FastMCP tools. Combine with `@tool` on the same agent.
+- `MCPClient` for cross-process FastMCP tools. `mcp.as_tools()` turns a server's tools into `@tool`-style callables you add to `tools=` — one registry, mix freely with `@tool` functions (`tools=builtin.web + mcp.as_tools()`).
 - Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`. `builtin.make_tools(client, ..., python_sandbox=False)` assembles the full tool list with optional wiring for image/vision/audio/speech/memory/sandbox.
 - `execute_python` sandboxed Python REPL in `builtin.compute`: run code, capture stdout and last expression. Opt-in only (`tools=builtin.compute` or `make_tools(python_sandbox=True)`).
 - Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).

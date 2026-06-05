@@ -184,14 +184,6 @@ class AsyncModelClient(AsyncBaseModelClient):
         self._client.messages = value
 
     @property
-    def mcp_client(self) -> Any:
-        return self._client.mcp_client
-
-    @mcp_client.setter
-    def mcp_client(self, value: Any) -> None:
-        self._client.mcp_client = value
-
-    @property
     def tools(self) -> list:
         return self._client.tools
 

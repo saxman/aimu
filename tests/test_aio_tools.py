@@ -77,6 +77,22 @@ async def test_async_mcp_client_lifecycle():
         await mcp.aclose()
 
 
+async def test_async_mcp_client_as_tools():
+    """as_tools() returns async @tool-style callables that await cross-process dispatch."""
+    mcp = await MCPClient.connect(server=_build_test_server())
+    try:
+        tools = await mcp.as_tools()
+        by_name = {fn.__name__: fn for fn in tools}
+        assert {"add", "greet"} <= set(by_name)
+        greet = by_name["greet"]
+        assert greet.__tool_is_async__ is True
+        assert greet.__tool_is_streaming__ is False
+        assert greet.__tool_spec__["function"]["name"] == "greet"
+        assert "Hello, world!" in await greet(name="world")
+    finally:
+        await mcp.aclose()
+
+
 async def test_async_mcp_client_rejects_two_sources():
     from aimu.tools.client import MCPConnectionError
 

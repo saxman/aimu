@@ -81,15 +81,15 @@ def lookup(name: Optional[str] = None) -> str:
 
 ## Combine with MCP tools
 
-`tools=` (in-process) and `model_client.mcp_client` (cross-process) coexist. Python `@tool` functions take precedence over MCP tools with the same name:
+In-process `@tool` functions and cross-process MCP tools both end up as callables in one `tools` list — `MCPClient.as_tools()` turns a server's tools into callables you concatenate. On a name collision the **last** entry wins, so append a local tool after the MCP tools to shadow one:
 
 ```python
 from aimu.tools import MCPClient
 
 client = aimu.client("ollama:qwen3.5:9b")
-client.mcp_client = MCPClient(server=my_mcp_server)
+mcp = MCPClient(server=my_mcp_server)
 
-agent = Agent(client, tools=[letter_counter])   # both routes active
+agent = Agent(client, tools=mcp.as_tools() + [letter_counter])   # both routes, one list
 ```
 
 ## Override tools for a single call
@@ -106,7 +106,7 @@ agent = Agent(client, tools=[search, calculate])
 agent.run("quick lookup", tools=[search])          # override for the whole run
 ```
 
-`tools=None` (default) uses the configured tools. Any other value — including `[]` to disable Python tools — replaces them for that call only and is restored afterward; `mcp_client` is unaffected. On `Agent.run()` the override applies to every turn of the agentic loop.
+`tools=None` (default) uses the configured tools. Any other value — including `[]` to disable tools — replaces them for that call only and is restored afterward (MCP tools, being callables in `tools` via `as_tools()`, are included in the swap). On `Agent.run()` the override applies to every turn of the agentic loop.
 
 ## Built-in tools
 

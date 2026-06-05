@@ -61,7 +61,6 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         self._system_message = None
         self.default_generate_kwargs = {}
         self.messages = []
-        self.mcp_client = None
         self.tools = []
         self.last_thinking = ""
         self.concurrent_tool_calls = False

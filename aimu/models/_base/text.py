@@ -85,7 +85,6 @@ class BaseModelClient(_ChatStateMixin, ABC):
     _system_message: Optional[str]
     default_generate_kwargs: dict
     messages: list[dict]
-    mcp_client: Optional[Any]  # Avoid circular imports by not referencing MCPClient directly
     last_thinking: str | None
 
     @abstractmethod
@@ -95,7 +94,6 @@ class BaseModelClient(_ChatStateMixin, ABC):
         self._system_message = system_message
         self.default_generate_kwargs = {}
         self.messages = []
-        self.mcp_client = None
         self.tools: list = []
         self.last_thinking = ""
         self.concurrent_tool_calls = False
@@ -191,7 +189,8 @@ class BaseModelClient(_ChatStateMixin, ABC):
             tools: Optional per-call override of the Python ``@tool`` callables. ``None``
                 (default) uses the client's configured ``self.tools``; any other value
                 (including ``[]`` to disable Python tools for this call) replaces them for
-                this call only and is restored afterwards. ``mcp_client`` is unaffected.
+                this call only and is restored afterwards (MCP tools, being callables in
+                ``self.tools`` via ``MCPClient.as_tools()``, are included in the swap).
                 Ignored when ``use_tools=False``.
         """
         if tools is None:
@@ -258,8 +257,6 @@ class BaseModelClient(_ChatStateMixin, ABC):
 
         tools: list[dict] = []
         if self.model.supports_tools and use_tools:
-            if self.mcp_client:
-                tools.extend(self.mcp_client.get_tools())
             tools.extend(self._collect_python_tool_specs())
 
         return generate_kwargs, tools
@@ -291,8 +288,13 @@ class BaseModelClient(_ChatStateMixin, ABC):
             }
         )
 
-    def _call_plain_tool(self, tc: dict, tc_id: str, tools: list) -> dict:
-        """Dispatch a single non-streaming tool call. Returns the tool message dict."""
+    def _call_plain_tool(self, tc: dict, tc_id: str) -> dict:
+        """Dispatch a single non-streaming tool call. Returns the tool message dict.
+
+        Every tool — in-process ``@tool`` functions and MCP tools alike — lives in
+        ``self.tools`` as a callable (MCP tools are wrapped by ``MCPClient.as_tools()``),
+        so dispatch is a single by-name lookup.
+        """
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
         fn = python_tools_by_name.get(tc["name"])
         if fn is not None:
@@ -316,26 +318,6 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
             return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
 
-        for tool in tools:
-            if tool["type"] == "function" and tool["function"]["name"] == tc["name"]:
-                if self.mcp_client is None:
-                    raise ValueError(
-                        "MCP client not initialized. Please initialize and assign an MCP client before using MCP tools."
-                    )
-                try:
-                    tool_response = self.mcp_client.call_tool(tool["function"]["name"], tc["arguments"])
-                    response_content = tool_response if isinstance(tool_response, list) else tool_response.content
-                    content = ""
-                    for part in response_content:
-                        if part.type == "text":
-                            content += part.text
-                        else:
-                            logger.debug("Skipping unsupported tool response part type: %s", part.type)
-                except Exception as exc:
-                    content = f"Tool '{tc['name']}' raised an error: {exc}"
-                    logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
-                return {"role": "tool", "name": tool["function"]["name"], "content": content, "tool_call_id": tc_id}
-
         return {
             "role": "tool",
             "name": tc["name"],
@@ -343,7 +325,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
             "tool_call_id": tc_id,
         }
 
-    def _handle_tool_calls(self, tool_calls: list[dict], tools: list) -> None:
+    def _handle_tool_calls(self, tool_calls: list[dict]) -> None:
         """Non-streaming tool dispatch — used by non-streaming ``_chat`` paths.
 
         Streaming (generator) tools are rejected here; call ``chat(stream=True)``
@@ -356,14 +338,14 @@ class BaseModelClient(_ChatStateMixin, ABC):
             from concurrent.futures import ThreadPoolExecutor
 
             with ThreadPoolExecutor() as executor:
-                futures = [executor.submit(self._call_plain_tool, tc, tc_id, tools) for tc, tc_id in prepared]
+                futures = [executor.submit(self._call_plain_tool, tc, tc_id) for tc, tc_id in prepared]
                 results = [f.result() for f in futures]
         else:
-            results = [self._call_plain_tool(tc, tc_id, tools) for tc, tc_id in prepared]
+            results = [self._call_plain_tool(tc, tc_id) for tc, tc_id in prepared]
 
         self.messages.extend(results)
 
-    def _handle_tool_calls_streamed(self, tool_calls: list[dict], tools: list) -> Iterator[StreamChunk]:
+    def _handle_tool_calls_streamed(self, tool_calls: list[dict]) -> Iterator[StreamChunk]:
         """Streaming tool dispatch — generator version used by streaming ``_chat``.
 
         For each tool call, yields zero-or-more in-flight :class:`StreamChunk` objects
@@ -394,7 +376,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
             from concurrent.futures import ThreadPoolExecutor
 
             with ThreadPoolExecutor() as executor:
-                futures = [executor.submit(self._call_plain_tool, tc, tc_id, tools) for tc, tc_id in prepared]
+                futures = [executor.submit(self._call_plain_tool, tc, tc_id) for tc, tc_id in prepared]
                 results = [f.result() for f in futures]
             for (tc, tc_id), result_msg in zip(prepared, results):
                 self.messages.append(result_msg)
@@ -439,7 +421,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
                     logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
                 result_msg = {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
             else:
-                result_msg = self._call_plain_tool(tc, tc_id, tools)
+                result_msg = self._call_plain_tool(tc, tc_id)
 
             self.messages.append(result_msg)
             yield StreamChunk(

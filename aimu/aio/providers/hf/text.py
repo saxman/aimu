@@ -8,9 +8,9 @@ and pass it in::
     sync_client = aimu.client(HuggingFaceModel.LLAMA_70B)
     async_client = aio.client(sync_client)
 
-State (``messages``, ``system_message``, ``tools``, ``mcp_client``) is shared with
-the wrapped sync client — there's conceptually one client; the async version just
-adds an awaitable interface.
+State (``messages``, ``system_message``, ``tools``) is shared with the wrapped sync
+client — there's conceptually one client; the async version just adds an awaitable
+interface.
 """
 
 from __future__ import annotations
@@ -61,14 +61,6 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
     @messages.setter
     def messages(self, value: list[dict]) -> None:
         self._sync.messages = value
-
-    @property
-    def mcp_client(self) -> Any:
-        return self._sync.mcp_client
-
-    @mcp_client.setter
-    def mcp_client(self, value: Any) -> None:
-        self._sync.mcp_client = value
 
     @property
     def tools(self) -> list:

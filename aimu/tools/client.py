@@ -93,3 +93,39 @@ class MCPClient:
         from .mcp_format import mcp_tools_to_openai
 
         return mcp_tools_to_openai(self.list_tools())
+
+    def as_tools(self) -> list:
+        """Return this server's tools as ``@tool``-style callables.
+
+        Each callable closes over this client, invokes :meth:`call_tool` cross-process,
+        and returns the result's text content as a string. The callables carry
+        ``__tool_spec__`` (OpenAI format), ``__tool_is_async__ = False``, and
+        ``__tool_is_streaming__ = False``, so they drop straight into ``client.tools`` or
+        ``Agent(tools=...)`` and dispatch through the same path as ``@tool`` functions —
+        no ``model_client.mcp_client`` reference needed::
+
+            mcp = MCPClient(server=my_server)
+            client.tools = builtin.web + mcp.as_tools()
+
+        The tool list is a snapshot taken now (one ``list_tools()`` round-trip); call
+        ``as_tools()`` again to pick up server-side changes. Keep a reference to this
+        ``MCPClient`` (or to the returned callables, which hold one) for the lifetime of
+        the connection.
+        """
+        from .mcp_format import mcp_content_to_text
+
+        def _make(spec: dict):
+            name = spec["function"]["name"]
+
+            def _call(**kwargs):
+                return mcp_content_to_text(self.call_tool(name, kwargs))
+
+            _call.__name__ = name
+            _call.__qualname__ = name
+            _call.__doc__ = spec["function"].get("description") or name
+            _call.__tool_spec__ = spec
+            _call.__tool_is_async__ = False
+            _call.__tool_is_streaming__ = False
+            return _call
+
+        return [_make(spec) for spec in self.get_tools()]

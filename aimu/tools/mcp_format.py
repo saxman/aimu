@@ -17,3 +17,16 @@ def mcp_tools_to_openai(tool_specs: list) -> list[dict]:
         }
         for t in tool_specs
     ]
+
+
+def mcp_content_to_text(tool_response) -> str:
+    """Flatten a FastMCP ``call_tool`` result into a plain string.
+
+    Accepts either a result object with a ``.content`` list or a bare list of content
+    parts. Concatenates the text of every ``type == "text"`` part; non-text parts are
+    skipped. Shared by the sync and async ``MCPClient.as_tools()`` wrappers so cross-process
+    tool results look like any other ``@tool`` return value (a string) to the dispatch loop.
+    """
+    content = tool_response.content if hasattr(tool_response, "content") else tool_response
+    parts = content if isinstance(content, list) else [content]
+    return "".join(part.text for part in parts if getattr(part, "type", None) == "text")

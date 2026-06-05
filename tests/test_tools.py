@@ -78,6 +78,28 @@ def test_mcp_client_with_server():
     assert _response_text(response) == "test again"
 
 
+def test_mcp_client_as_tools():
+    """as_tools() returns @tool-style callables that dispatch cross-process and carry specs."""
+    mcp = FastMCP("TestTools")
+
+    @mcp.tool()
+    def shout(text: str) -> str:
+        """Uppercase the text."""
+        return text.upper()
+
+    client = MCPClient(server=mcp)
+    tools = client.as_tools()
+
+    assert len(tools) == 1
+    fn = tools[0]
+    assert fn.__name__ == "shout"
+    assert fn.__tool_is_async__ is False
+    assert fn.__tool_is_streaming__ is False
+    assert fn.__tool_spec__["function"]["name"] == "shout"
+    # Calling the wrapper invokes the tool cross-process and returns plain text.
+    assert fn(text="hi") == "HI"
+
+
 def test_none_type_tool_response():
     mcp = FastMCP("TestTools")
 

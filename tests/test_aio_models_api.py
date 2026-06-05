@@ -118,7 +118,7 @@ async def test_async_streaming_tool_yields_forward_through_dispatch():
     client.tools = [slow_tool]
     tc = [{"name": "slow_tool", "arguments": {"x": "input"}}]
 
-    chunks = [c async for c in client._handle_tool_calls_streamed(tc, tools=[])]
+    chunks = [c async for c in client._handle_tool_calls_streamed(tc)]
 
     # 2 progress chunks + 1 final TOOL_CALLING chunk.
     progress = [c for c in chunks if c.phase != StreamingContentType.TOOL_CALLING]
@@ -145,7 +145,7 @@ async def test_sync_streaming_tool_in_async_context():
     client.tools = [sync_streamer]
     tc = [{"name": "sync_streamer", "arguments": {"x": "y"}}]
 
-    chunks = [c async for c in client._handle_tool_calls_streamed(tc, tools=[])]
+    chunks = [c async for c in client._handle_tool_calls_streamed(tc)]
     tool_calls = [c for c in chunks if c.phase == StreamingContentType.TOOL_CALLING]
     assert tool_calls[0].content["response"] == "sync:y"
 
@@ -163,7 +163,7 @@ async def test_async_plain_tool_still_works_via_streamed_dispatch():
     client.tools = [echo]
     tc = [{"name": "echo", "arguments": {"x": "hi"}}]
 
-    chunks = [c async for c in client._handle_tool_calls_streamed(tc, tools=[])]
+    chunks = [c async for c in client._handle_tool_calls_streamed(tc)]
     assert len(chunks) == 1
     assert chunks[0].phase == StreamingContentType.TOOL_CALLING
     assert chunks[0].content["response"] == "HI"

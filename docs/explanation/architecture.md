@@ -38,12 +38,11 @@ class BaseModelClient(ABC):
     model: Model
     messages: list[dict]
     system_message: str | None
-    tools: list[Callable]
-    mcp_client: MCPClient | None
+    tools: list[Callable]   # @tool functions and/or MCPClient.as_tools() callables
     last_thinking: str
 
     def chat(user_message, generate_kwargs=None, use_tools=True,
-             stream=False, images=None, include=None) -> str | Iterator[StreamChunk]
+             stream=False, images=None, include=None, tools=None) -> str | Iterator[StreamChunk]
     def generate(prompt, ...) -> str | Iterator[StreamChunk]
     def reset(system_message="__keep__") -> None
 ```
@@ -143,12 +142,12 @@ The `agent` and `iteration` fields are populated by agents/workflows and default
 
 ## Tool integration: `@tool` and `MCPClient`
 
-Two routes, both end up in the same place — a list of OpenAI-format tool specs that the base client sends to the model:
+Two routes, both end up as callables in one registry — `client.tools` — from which the base client builds the OpenAI-format spec list it sends to the model:
 
 - **`@tool` decorator** runs in-process. The decorator inspects the signature at decoration time and attaches a spec to `func.__tool_spec__`. The model client looks up tools by `__name__` and dispatches via direct function call.
-- **`MCPClient`** wraps a FastMCP server. The model client calls `mcp_client.get_tools()` to fetch the spec list and `mcp_client.call_tool(name, args)` to dispatch.
+- **`MCPClient.as_tools()`** wraps a FastMCP server's tools as callables (each closes over the client and calls `call_tool(name, args)` cross-process), carrying `__tool_spec__` just like a `@tool` function. Add them to `client.tools`.
 
-Both can be active on the same client. Python tools take precedence on name collision. See [Tool integration](tool-integration.md) for when to pick which.
+Both kinds coexist in the same list and dispatch through one by-name lookup; on a name collision the last entry wins. See [Tool integration](tool-integration.md) for when to pick which.
 
 ## What lives where
 

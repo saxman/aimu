@@ -31,33 +31,33 @@ Dispatch is a direct function call. No serialization, no transport, no separate 
 
 ### Cross-process: `MCPClient`
 
-For tools that run elsewhere — a subprocess, a shared server, a remote machine — wrap them with `MCPClient`:
+For tools that run elsewhere — a subprocess, a shared server, a remote machine — wrap them with `MCPClient`, then call `.as_tools()` to turn the server's tools into callables and add them to `client.tools`:
 
 ```python
 from aimu.tools import MCPClient
 
-model_client.mcp_client = MCPClient({
+mcp = MCPClient({
     "mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}},
 })
+model_client.tools = mcp.as_tools()        # or: builtin.web + mcp.as_tools()
 ```
 
-Arguments and results cross the process boundary as JSON via the [Model Context Protocol](https://modelcontextprotocol.io/). Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.
+Each callable returned by `as_tools()` closes over the client, invokes `call_tool()` cross-process, and returns the result's text — but to the model client it looks like any other `@tool`. Arguments and results cross the process boundary as JSON via the [Model Context Protocol](https://modelcontextprotocol.io/). Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.
+
+Keep a reference to the `MCPClient` (the `as_tools()` callables hold one, so the connection stays alive) for its lifetime — and to call `.ping()` or refresh the tool list. The list `as_tools()` returns is a snapshot; call it again to pick up server-side changes.
 
 ## How they coexist
 
-Both routes can be active on the same client. The base class assembles the request `tools` list in `_chat_setup()`:
+There is only one tool registry: `client.tools`. Both routes produce plain callables that live there — `@tool` functions directly, MCP tools via `as_tools()`. The base class assembles the request `tools` list in `_chat_setup()` from that one place:
 
 ```python
-# from aimu/models/base.py
+# from aimu/models/_base/text.py
 tools = []
 if self.model.supports_tools and use_tools:
-    if self.mcp_client:
-        tools.extend(self.mcp_client.get_tools())
-    for fn in self.tools:
-        tools.append(fn.__tool_spec__)
+    tools.extend(self._collect_python_tool_specs())   # __tool_spec__ from every callable in self.tools
 ```
 
-Note the order: MCP tools first, then Python `@tool` functions. The model sees both groups as a flat list, picks whichever it wants.
+The model sees one flat list and picks whichever it wants. There's no separate MCP reference on the client and no second assembly path.
 
 ## Per-call tool override
 
@@ -75,19 +75,18 @@ agent.run("research task")               # uses configured tools
 agent.run("quick lookup", tools=[search])  # override for the whole run (every loop turn)
 ```
 
-`tools=None` (the default) uses the configured `self.tools` — unchanged behaviour. Any other value, *including `[]`* to disable Python tools, replaces them for the duration of that call and is restored afterward. `mcp_client` is never touched, so MCP tools stay available regardless. On an `Agent`, the override applies to every `chat()` in the agentic loop (the initial turn and all continuations), then the agent's configured tools are back in place.
+`tools=None` (the default) uses the configured `self.tools` — unchanged behaviour. Any other value, *including `[]`* to disable tools, replaces them for the duration of that call and is restored afterward. Since MCP tools also live in `self.tools` (via `as_tools()`), the override covers them too. On an `Agent`, the override applies to every `chat()` in the agentic loop (the initial turn and all continuations), then the agent's configured tools are back in place.
 
 Mechanically it's a scoped swap of `self.tools` that covers both request-spec building and dispatch (both read `self.tools`). Like `self.messages`, it isn't safe across *concurrent* `chat()` calls on a shared client — which matches the existing single-conversation contract.
 
-## Dispatch order
+## Dispatch
 
-When the model returns a tool call, `_handle_tool_calls()` resolves the name in this order:
+When the model returns a tool call, `_call_plain_tool()` resolves the name against one lookup table built from the single registry, `{fn.__name__: fn for fn in self.tools}`:
 
-1. **Python `@tool` functions first.** A lookup table `{fn.__name__: fn for fn in self.tools}` is built; if the called name matches, it's invoked in-process.
-2. **MCP tools second.** If no Python tool matches, the request goes to `self.mcp_client.call_tool(...)`.
-3. **Otherwise, a "tool not found" message is appended.** The model sees this and can decide what to do.
+1. **Match → invoke the callable in-process.** For a `@tool` function that's a direct call; for an `as_tools()` wrapper it's a cross-process `call_tool()` behind the same calling convention.
+2. **No match → a "tool not found" message is appended.** The model sees this and can decide what to do.
 
-So Python `@tool` wins on name collision. This is intentional — if you've defined a local override of an MCP tool, you almost certainly want the local version.
+Because it's one dict keyed by name, a **name collision resolves to the last entry in the list**. So to shadow an MCP tool with a local Python implementation, append the Python tool after `mcp.as_tools()`: `tools = mcp.as_tools() + [my_override]`.
 
 ## The single source of truth
 
@@ -109,7 +108,7 @@ There is no second copy. If you add a new built-in tool, it appears on both rout
 | You want sandboxing or process isolation | **`MCPClient`** |
 | Conflicting dependencies (e.g. your tool needs PyTorch but your agent shouldn't) | **`MCPClient`** to an isolated subprocess |
 
-If you can't decide, start with `@tool`. Switching to `MCPClient` later is a one-line change: lift the function to a separate file, run it as an MCP server, set `model_client.mcp_client`.
+If you can't decide, start with `@tool`. Switching to `MCPClient` later is a small change: lift the function to a separate file, run it as an MCP server, and swap `tools=[fn]` for `tools=mcp.as_tools()`.
 
 ## Failure modes that are now loud
 

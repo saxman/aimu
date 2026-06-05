@@ -9,7 +9,7 @@ The model_client fixture is available for integration tests:
 
 import threading
 from typing import Iterable
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -179,12 +179,18 @@ def test_as_model_client_messages_delegated():
     assert view.messages is client.messages
 
 
-def test_as_model_client_mcp_client_delegated():
+def test_as_model_client_tools_delegated():
+    from aimu.tools import tool
+
+    @tool
+    def noop() -> str:
+        """No-op."""
+        return "ok"
+
     client = MockModelClient(["hi"])
     view = Agent(client).as_model_client()
-    mock_mcp = object()
-    view.mcp_client = mock_mcp
-    assert client.mcp_client is mock_mcp
+    view.tools = [noop]
+    assert client.tools == [noop]
 
 
 def test_as_model_client_system_message_delegated():
@@ -217,86 +223,79 @@ def test_internal_agentic_view_rejects_workflow():
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_mcp(response_text: str = "result"):
-    mock_mcp = MagicMock()
-    response = MagicMock()
-    response.content = [MagicMock(type="text", text=response_text)]
-    mock_mcp.call_tool.return_value = response
-    return mock_mcp
-
-
 def test_handle_tool_calls_sequential_by_default():
-    client = MockModelClient([])
-    client.mcp_client = _make_mock_mcp()
+    from aimu.tools import tool
 
     call_order = []
 
-    def record_call(name, args):
-        call_order.append(name)
-        response = MagicMock()
-        response.content = [MagicMock(type="text", text=name)]
-        return response
+    @tool
+    def tool_a() -> str:
+        """Tool A."""
+        call_order.append("tool_a")
+        return "tool_a"
 
-    client.mcp_client.call_tool.side_effect = record_call
+    @tool
+    def tool_b() -> str:
+        """Tool B."""
+        call_order.append("tool_b")
+        return "tool_b"
 
-    tools = [
-        {"type": "function", "function": {"name": "tool_a"}},
-        {"type": "function", "function": {"name": "tool_b"}},
-    ]
+    client = MockModelClient([])
+    client.tools = [tool_a, tool_b]
     tool_calls = [{"name": "tool_a", "arguments": {}}, {"name": "tool_b", "arguments": {}}]
-    client._handle_tool_calls(tool_calls, tools)
+    client._handle_tool_calls(tool_calls)
 
     assert call_order == ["tool_a", "tool_b"]
 
 
 def test_handle_tool_calls_concurrent_runs_in_parallel():
-    client = MockModelClient([])
-    client.concurrent_tool_calls = True
-    client.mcp_client = _make_mock_mcp()
+    from aimu.tools import tool
 
     barrier = threading.Barrier(2, timeout=2.0)
 
-    def gated_call(name, args):
+    @tool
+    def tool_a() -> str:
+        """Tool A."""
         barrier.wait()
-        response = MagicMock()
-        response.content = [MagicMock(type="text", text=name)]
-        return response
+        return "tool_a"
 
-    client.mcp_client.call_tool.side_effect = gated_call
+    @tool
+    def tool_b() -> str:
+        """Tool B."""
+        barrier.wait()
+        return "tool_b"
 
-    tools = [
-        {"type": "function", "function": {"name": "tool_a"}},
-        {"type": "function", "function": {"name": "tool_b"}},
-    ]
+    client = MockModelClient([])
+    client.concurrent_tool_calls = True
+    client.tools = [tool_a, tool_b]
     tool_calls = [{"name": "tool_a", "arguments": {}}, {"name": "tool_b", "arguments": {}}]
-    client._handle_tool_calls(tool_calls, tools)
+    client._handle_tool_calls(tool_calls)
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
     assert len(tool_messages) == 2
 
 
 def test_handle_tool_calls_concurrent_results_in_original_order():
+    import time
+
+    from aimu.tools import tool
+
+    @tool
+    def tool_a() -> str:
+        """Tool A (slow)."""
+        time.sleep(0.05)
+        return "tool_a"
+
+    @tool
+    def tool_b() -> str:
+        """Tool B."""
+        return "tool_b"
+
     client = MockModelClient([])
     client.concurrent_tool_calls = True
-    client.mcp_client = _make_mock_mcp()
-
-    def slow_first(name, args):
-        import time
-
-        if name == "tool_a":
-            time.sleep(0.05)
-        response = MagicMock()
-        response.content = [MagicMock(type="text", text=name)]
-        return response
-
-    client.mcp_client.call_tool.side_effect = slow_first
-
-    tools = [
-        {"type": "function", "function": {"name": "tool_a"}},
-        {"type": "function", "function": {"name": "tool_b"}},
-    ]
+    client.tools = [tool_a, tool_b]
     tool_calls = [{"name": "tool_a", "arguments": {}}, {"name": "tool_b", "arguments": {}}]
-    client._handle_tool_calls(tool_calls, tools)
+    client._handle_tool_calls(tool_calls)
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
     assert tool_messages[0]["name"] == "tool_a"

@@ -164,7 +164,6 @@ def test_agent_python_tool_dispatched():
 
     client._handle_tool_calls(
         [{"name": "record", "arguments": {"value": "hello"}}],
-        tools=[record.__tool_spec__],
     )
 
     assert calls == ["hello"]
@@ -206,26 +205,31 @@ def test_python_tool_spec_appears_in_chat_setup_tools():
     assert "my_tool" in spec_names
 
 
-def test_python_tool_takes_precedence_over_mcp():
-    """When a name matches both a Python tool and an MCP tool, the Python one wins."""
+def test_duplicate_tool_name_last_in_list_wins():
+    """All tools (Python @tool + MCP via as_tools()) live in self.tools as callables, and
+    dispatch builds {fn.__name__: fn}. On a name collision the last entry in the list wins —
+    so to override an MCP tool with a local Python one, append the Python tool after it."""
 
     @tool
-    def shared(value: str) -> str:
-        """Python implementation."""
-        return f"python:{value}"
+    def first(value: str) -> str:
+        """First implementation."""
+        return f"first:{value}"
+
+    @tool
+    def second(value: str) -> str:
+        """Second implementation."""
+        return f"second:{value}"
+
+    # Force a name collision: both callables answer to "shared".
+    first.__name__ = "shared"
+    second.__name__ = "shared"
 
     client = MockModelClient([])
-    client.tools = [shared]
-    # Simulate an MCP tool with the same name; if dispatch hit MCP it would fail (no mcp_client set).
-    mcp_spec = {"type": "function", "function": {"name": "shared", "description": "MCP"}}
-
-    client._handle_tool_calls(
-        [{"name": "shared", "arguments": {"value": "x"}}],
-        tools=[mcp_spec],
-    )
+    client.tools = [first, second]
+    client._handle_tool_calls([{"name": "shared", "arguments": {"value": "x"}}])
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
-    assert tool_messages[0]["content"] == "python:x"
+    assert tool_messages[0]["content"] == "second:x"  # last in list wins
 
 
 def test_python_tool_exception_recorded_as_error_text():
@@ -241,7 +245,6 @@ def test_python_tool_exception_recorded_as_error_text():
 
     client._handle_tool_calls(
         [{"name": "broken", "arguments": {"x": "ignored"}}],
-        tools=[broken.__tool_spec__],
     )
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]

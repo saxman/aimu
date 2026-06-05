@@ -33,10 +33,10 @@ class _MockBaseModelClient(BaseModelClient):
         self._system_message = None
         self.default_generate_kwargs = {}
         self.messages = []
-        self.mcp_client = None
+        self.tools = []
         self.last_thinking = ""
 
-    def chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False):
+    def chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, tools=None):
         if stream:
             return self._chat_streamed(user_message)
         self.messages.append({"role": "user", "content": user_message})
@@ -248,7 +248,7 @@ def test_agent_setup_skills_injects_catalog(tmp_path):
 
     client = MagicMock()
     client.system_message = "Be helpful."
-    client.mcp_client = None
+    client.tools = []
 
     manager = SkillManager(skill_dirs=[str(tmp_path)])
     agent = SkillAgent(model_client=client, skill_manager=manager)
@@ -259,8 +259,8 @@ def test_agent_setup_skills_injects_catalog(tmp_path):
     assert "activate_skill" in client.system_message
 
 
-def test_agent_setup_skills_attaches_mcp_client(tmp_path):
-    """_setup_skills() creates and attaches an MCPClient to the model client."""
+def test_agent_setup_skills_adds_tools(tmp_path):
+    """_setup_skills() adds the skills server's tools (incl. activate_skill) to model_client.tools."""
     from unittest.mock import MagicMock
     from aimu.agents.skill_agent import SkillAgent
 
@@ -268,13 +268,13 @@ def test_agent_setup_skills_attaches_mcp_client(tmp_path):
 
     client = MagicMock()
     client.system_message = None
-    client.mcp_client = None
+    client.tools = []
 
     manager = SkillManager(skill_dirs=[str(tmp_path)])
     agent = SkillAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
 
-    assert client.mcp_client is not None
+    assert "activate_skill" in [fn.__name__ for fn in client.tools]
 
 
 def test_agent_setup_skills_no_op_when_no_skills(tmp_path):
@@ -284,18 +284,18 @@ def test_agent_setup_skills_no_op_when_no_skills(tmp_path):
 
     client = MagicMock()
     client.system_message = "Original."
-    client.mcp_client = None
+    client.tools = []
 
     manager = SkillManager(skill_dirs=[str(tmp_path)])
     agent = SkillAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
 
-    # No skills found; mcp_client must not have been set
-    assert client.mcp_client is None
+    # No skills found; no tools added
+    assert client.tools == []
 
 
 def test_agent_setup_skills_runs_only_once(tmp_path):
-    """_setup_skills() is idempotent: calling it twice doesn't duplicate catalog."""
+    """_setup_skills() is idempotent: calling it twice doesn't duplicate catalog or tools."""
     from unittest.mock import MagicMock
     from aimu.agents.skill_agent import SkillAgent
 
@@ -303,14 +303,16 @@ def test_agent_setup_skills_runs_only_once(tmp_path):
 
     client = MagicMock()
     client.system_message = ""
-    client.mcp_client = None
+    client.tools = []
 
     manager = SkillManager(skill_dirs=[str(tmp_path)])
     agent = SkillAgent(model_client=client, skill_manager=manager)
 
     agent._setup_skills()
-    agent._setup_skills()  # second call; should be a no-op
+    tools_after_first = list(client.tools)
+    agent._setup_skills()  # second call; should be a no-op for catalog + tools
     assert agent._skills_setup_done is True
+    assert [fn.__name__ for fn in client.tools] == [fn.__name__ for fn in tools_after_first]
 
 
 def test_agent_from_config_with_skill_dirs(tmp_path):

@@ -1,6 +1,6 @@
 # Use MCP tools
 
-For tools that live in a separate process — or to share a tool catalogue across many agents — wrap a [FastMCP 2.0](https://gofastmcp.com) server with `MCPClient` and attach it to your model client.
+For tools that live in a separate process — or to share a tool catalogue across many agents — wrap a [FastMCP 2.0](https://gofastmcp.com) server with `MCPClient`, then call `.as_tools()` to add its tools to your model client's `tools` list.
 
 ## Connect to a tool server
 
@@ -16,9 +16,11 @@ mcp_client = MCPClient({
 mcp_client.ping()  # raises MCPConnectionError if dead
 
 client = aimu.client("ollama:qwen3.5:9b")
-client.mcp_client = mcp_client
+client.tools = mcp_client.as_tools()   # MCP tools become @tool-style callables
 client.chat("Use the mytools to do something.")
 ```
+
+`as_tools()` does one `list_tools()` round-trip and returns a callable per server tool, each carrying its `__tool_spec__`. They dispatch through the same path as in-process `@tool` functions, so MCP and Python tools are interchangeable from the client's point of view. Keep the `MCPClient` reference (or the callables, which hold one) alive for the connection's lifetime; call `as_tools()` again to refresh after the server's tool set changes.
 
 `MCPClient` requires *exactly one* of:
 
@@ -55,11 +57,10 @@ mcp_client = MCPClient({
 
 ## Combine with in-process tools
 
-Both routes work on the same client. Python `@tool` functions take precedence over MCP tools with the same name:
+Both routes produce callables for the one `tools` list — concatenate them. On a name collision the **last** entry wins, so append a local override after the MCP tools to shadow one:
 
 ```python
-client.mcp_client = mcp_client       # cross-process
-client.tools = [my_local_tool]       # in-process; wins on name collision
+client.tools = mcp_client.as_tools() + [my_local_tool]   # my_local_tool shadows a same-named MCP tool
 ```
 
 ## Loud failures

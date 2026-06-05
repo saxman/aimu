@@ -585,7 +585,7 @@ class HuggingFaceClient(BaseModelClient):
         if tool_calls:
             logger.debug("[tool_call] parsed: %s", tool_calls)
             msgs_before = len(self.messages)
-            self._handle_tool_calls(tool_calls, tools)
+            self._handle_tool_calls(tool_calls)
 
             if self.last_thinking is not None:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
@@ -633,7 +633,7 @@ class HuggingFaceClient(BaseModelClient):
             tool_calls = prefix.parse(response)
             if tool_calls:
                 logger.debug("[tool_call] parsed: %s", tool_calls)
-                yield from self._handle_tool_calls_streamed(tool_calls, tools)
+                yield from self._handle_tool_calls_streamed(tool_calls)
 
                 if self.last_thinking is not None:
                     self.messages[msgs_before]["thinking"] = self.last_thinking
@@ -677,7 +677,7 @@ class HuggingFaceClient(BaseModelClient):
         if self._parsed_tool_calls:
             logger.debug("[tool_call] parsed: %s", self._parsed_tool_calls)
             msgs_before = len(self.messages)
-            yield from self._handle_tool_calls_streamed(self._parsed_tool_calls, tools)
+            yield from self._handle_tool_calls_streamed(self._parsed_tool_calls)
 
             if self.last_thinking is not None:
                 self.messages[msgs_before]["thinking"] = self.last_thinking

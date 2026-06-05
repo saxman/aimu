@@ -92,6 +92,38 @@ class MCPClient:
         """Return tools in OpenAI function-calling format."""
         return mcp_tools_to_openai(await self.list_tools())
 
+    async def as_tools(self) -> list:
+        """Return this server's tools as async ``@tool``-style callables.
+
+        Async mirror of :meth:`aimu.tools.MCPClient.as_tools`. Each callable is an
+        ``async def`` that awaits :meth:`call_tool` and returns the result's text content;
+        it carries ``__tool_spec__``, ``__tool_is_async__ = True``, and
+        ``__tool_is_streaming__ = False``, so it drops into ``client.tools`` /
+        ``aio.Agent(tools=...)`` and the async dispatcher awaits it directly::
+
+            mcp = await aio.MCPClient.connect(server=my_server)
+            agent = aio.Agent(client, tools=await mcp.as_tools())
+
+        The list is a snapshot (one ``list_tools()`` round-trip); call again to refresh.
+        """
+        from aimu.tools.mcp_format import mcp_content_to_text
+
+        def _make(spec: dict):
+            name = spec["function"]["name"]
+
+            async def _call(**kwargs):
+                return mcp_content_to_text(await self.call_tool(name, kwargs))
+
+            _call.__name__ = name
+            _call.__qualname__ = name
+            _call.__doc__ = spec["function"].get("description") or name
+            _call.__tool_spec__ = spec
+            _call.__tool_is_async__ = True
+            _call.__tool_is_streaming__ = False
+            return _call
+
+        return [_make(spec) for spec in await self.get_tools()]
+
     async def aclose(self) -> None:
         """Close the underlying connection. Idempotent."""
         if self._client is not None:

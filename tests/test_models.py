@@ -170,7 +170,7 @@ def test_chat_with_tools(model_client):
         return 27.0
 
     mcp_client = MCPClient(server=mcp)
-    model_client.mcp_client = mcp_client
+    model_client.tools = mcp_client.as_tools()
 
     response = model_client.chat("What is the temperature in Paris?")
 
@@ -261,7 +261,7 @@ def test_chat_streamed_with_tools(model_client):
         return 27.0
 
     mcp_client = MCPClient(server=mcp)
-    model_client.mcp_client = mcp_client
+    model_client.tools = mcp_client.as_tools()
 
     response = model_client.chat("What is the temperature in Paris?", stream=True)
 

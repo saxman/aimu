@@ -311,7 +311,7 @@ class AnthropicClient(BaseModelClient):
         if tool_use_blocks:
             tool_calls = [{"name": b.name, "arguments": b.input} for b in tool_use_blocks]
             msgs_before = len(self.messages)
-            self._handle_tool_calls(tool_calls, tools)
+            self._handle_tool_calls(tool_calls)
             self._patch_tool_ids(msgs_before, tool_use_blocks)
 
             # Store thinking from first call in the tool-call assistant message
@@ -403,7 +403,7 @@ class AnthropicClient(BaseModelClient):
 
         tool_calls = [{"name": b.name, "arguments": b.input} for b in parsed_blocks]
         msgs_before = len(self.messages)
-        yield from self._handle_tool_calls_streamed(tool_calls, tools)
+        yield from self._handle_tool_calls_streamed(tool_calls)
         self._patch_tool_ids(msgs_before, parsed_blocks)
 
         # Store thinking from first stream pass in the tool-call assistant message

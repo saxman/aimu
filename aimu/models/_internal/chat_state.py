@@ -108,11 +108,12 @@ class _ChatStateMixin:
         """Temporarily replace ``self.tools`` for the span of a single ``chat()`` call.
 
         ``tools=None`` is a no-op — the client's configured ``self.tools`` are used.
-        Any other value (including ``[]`` to disable Python tools for one call) replaces
-        the registered ``@tool`` callables for the duration of the call and is restored
-        afterwards. ``mcp_client`` is untouched, so MCP tools remain available. The swap
-        covers both request-spec building (``_collect_python_tool_specs``) and dispatch
-        (``_call_plain_tool``), since both read ``self.tools``.
+        Any other value (including ``[]`` to disable tools for one call) replaces the
+        registered tool callables for the duration of the call and is restored afterwards.
+        Since MCP tools also live in ``self.tools`` (via ``MCPClient.as_tools()``), the
+        override covers them too. The swap covers both request-spec building
+        (``_collect_python_tool_specs``) and dispatch (``_call_plain_tool``), since both
+        read ``self.tools``.
 
         Not safe across concurrent ``chat()`` calls on a shared client — but neither is
         ``self.messages``, so this matches the existing single-conversation contract.

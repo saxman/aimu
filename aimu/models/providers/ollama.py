@@ -183,7 +183,7 @@ class OllamaClient(BaseModelClient):
                     }
                 )
 
-            self._handle_tool_calls(tool_calls, tools)
+            self._handle_tool_calls(tool_calls)
 
             if response["message"].thinking:
                 self.messages[-1 - len(tool_calls)]["thinking"] = response["message"].thinking
@@ -239,7 +239,7 @@ class OllamaClient(BaseModelClient):
             ]
 
             msgs_before = len(self.messages)
-            yield from self._handle_tool_calls_streamed(tool_calls, tools)
+            yield from self._handle_tool_calls_streamed(tool_calls)
 
             if thinking:
                 self.messages[msgs_before]["thinking"] = thinking

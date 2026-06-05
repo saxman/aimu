@@ -60,7 +60,6 @@ async def test_sync_basemodelclient_rejects_async_tool():
     with pytest.raises(ValueError, match="async function"):
         client._handle_tool_calls(
             [{"name": "async_tool", "arguments": {"x": "hi"}}],
-            [async_tool.__tool_spec__],
         )
 
 
@@ -77,7 +76,6 @@ async def test_async_handle_tool_calls_awaits_async_tool():
     # Drive the dispatch directly so we don't need to mock a tool-calling model response.
     await client._handle_tool_calls(
         [{"name": "doubler", "arguments": {"n": "5"}}],
-        [doubler.__tool_spec__],
     )
     # After dispatch: assistant tool_calls msg, then tool result msg.
     tool_msg = client.messages[-1]
@@ -104,7 +102,6 @@ async def test_concurrent_tool_calls_overlap():
             {"name": "slow_tool", "arguments": {"n": "a"}},
             {"name": "slow_tool", "arguments": {"n": "b"}},
         ],
-        [slow_tool.__tool_spec__],
     )
     elapsed = time.perf_counter() - t0
     assert elapsed < 0.9, f"expected concurrent (<0.9s), got {elapsed:.2f}s"

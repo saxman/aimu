@@ -39,14 +39,6 @@ class _AgenticView(BaseModelClient):
         self._inner_client.messages = value
 
     @property
-    def mcp_client(self):
-        return self._inner_client.mcp_client
-
-    @mcp_client.setter
-    def mcp_client(self, value) -> None:
-        self._inner_client.mcp_client = value
-
-    @property
     def tools(self) -> list:
         return self._inner_client.tools
 

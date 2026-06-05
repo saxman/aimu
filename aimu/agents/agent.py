@@ -24,10 +24,10 @@ class Agent(Runner):
     ``model_client.messages`` in reverse for a ``"tool"`` role message after the last
     ``"user"`` role — if found, the agent sends ``continuation_prompt`` and loops.
 
-    Tools may be supplied two ways and combined:
-
-    * ``tools=[fn1, fn2]`` — Python functions decorated with ``@aimu.tools.tool``.
-    * ``model_client.mcp_client = MCPClient(...)`` — a FastMCP-backed tool server.
+    Tools are plain callables in ``tools=``: functions decorated with
+    ``@aimu.tools.tool`` for in-process tools, and/or ``MCPClient(...).as_tools()`` for
+    cross-process FastMCP tools (each MCP tool becomes a callable). Mix them freely in
+    one list — ``tools=builtin.web + mcp.as_tools()``.
 
     When ``system_message`` is set or ``reset_messages_on_run`` is True, the agent
     clears ``model_client.messages`` and re-applies ``system_message`` before every
@@ -84,7 +84,7 @@ class Agent(Runner):
         ``tools`` is a per-run override of the agent's configured ``self.tools``: ``None``
         (default) uses them, any other value (including ``[]`` to disable Python tools for
         this run) replaces them for every ``chat()`` call in the loop and is restored
-        afterward. ``model_client.mcp_client`` is unaffected.
+        afterward.
         """
         if stream:
             return self._run_streamed(task, generate_kwargs, images=images, tools=tools)

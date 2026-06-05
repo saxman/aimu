@@ -148,7 +148,7 @@ def test_streaming_tool_yields_forward_through_dispatch():
     client.tools = [slow_tool]
     tc = [{"name": "slow_tool", "arguments": {"x": "input"}}]
 
-    chunks = list(client._handle_tool_calls_streamed(tc, tools=[]))
+    chunks = list(client._handle_tool_calls_streamed(tc))
 
     # Two progress chunks + one final TOOL_CALLING chunk.
     progress = [c for c in chunks if c.phase == StreamingContentType.GENERATING]
@@ -178,7 +178,7 @@ def test_streaming_tool_result_falls_back_to_last_chunk_result_key():
     client.tools = [streamer]
     tc = [{"name": "streamer", "arguments": {"prompt": "hi"}}]
 
-    chunks = list(client._handle_tool_calls_streamed(tc, tools=[]))
+    chunks = list(client._handle_tool_calls_streamed(tc))
     tool_calls = [c for c in chunks if c.phase == StreamingContentType.TOOL_CALLING]
     assert len(tool_calls) == 1
     assert tool_calls[0].content["response"] == "/tmp/x.png"
@@ -197,7 +197,7 @@ def test_plain_tool_still_works_via_streamed_dispatch():
     client.tools = [echo]
     tc = [{"name": "echo", "arguments": {"x": "hi"}}]
 
-    chunks = list(client._handle_tool_calls_streamed(tc, tools=[]))
+    chunks = list(client._handle_tool_calls_streamed(tc))
     assert len(chunks) == 1  # only TOOL_CALLING, no progress chunks
     assert chunks[0].phase == StreamingContentType.TOOL_CALLING
     assert chunks[0].content["response"] == "HI"
@@ -219,7 +219,7 @@ def test_streaming_tool_rejected_by_non_streaming_dispatch():
     # _handle_tool_calls dispatches per-tool via _call_plain_tool which raises
     # ValueError with a clear actionable message ("Failures are apparent" principle).
     with pytest.raises(ValueError, match=r"streaming.*stream=True"):
-        client._handle_tool_calls(tc, tools=[])
+        client._handle_tool_calls(tc)
 
 
 # ---------------------------------------------------------------------------

@@ -163,7 +163,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         if tool_use_blocks:
             tool_calls = [{"name": b.name, "arguments": b.input} for b in tool_use_blocks]
             msgs_before = len(self.messages)
-            await self._handle_tool_calls(tool_calls, tools)
+            await self._handle_tool_calls(tool_calls)
             self._patch_tool_ids(msgs_before, tool_use_blocks)
 
             if self.last_thinking:
@@ -247,7 +247,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
         tool_calls = [{"name": b.name, "arguments": b.input} for b in parsed_blocks]
         msgs_before = len(self.messages)
-        async for chunk in self._handle_tool_calls_streamed(tool_calls, tools):
+        async for chunk in self._handle_tool_calls_streamed(tool_calls):
             yield chunk
         self._patch_tool_ids(msgs_before, parsed_blocks)
 

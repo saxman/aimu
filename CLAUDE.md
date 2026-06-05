@@ -197,7 +197,7 @@ async def main():
   - `hf.py` — `AsyncHuggingFaceClient` wraps a sync `HuggingFaceClient`; see "In-process providers".
   - `llamacpp.py` — `AsyncLlamaCppClient` wraps a sync `LlamaCppClient`; see "In-process providers".
 - **[aimu/aio/agent.py](aimu/aio/agent.py)** — `AsyncRunner` ABC + async `Agent`. Same loop semantics as sync; streaming returns `AsyncIterator[StreamChunk]`.
-- **[aimu/aio/skill_agent.py](aimu/aio/skill_agent.py)** — async `SkillAgent`. `_setup_skills_async()` constructs an `aio.MCPClient` for skill discovery.
+- **[aimu/aio/skill_agent.py](aimu/aio/skill_agent.py)** — async `SkillAgent`. `_setup_skills_async()` constructs an `aio.MCPClient` for skill discovery and adds `await mcp.as_tools()` to `model_client.tools`. It reimplements the streamed loop (rather than delegating to `Agent._run_streamed`) so `_prepare_run` runs once, before skills are added.
 - **[aimu/aio/agentic_client.py](aimu/aio/agentic_client.py)** — internal `_AsyncAgenticView` for `Agent.as_model_client()`.
 - **[aimu/aio/orchestrator_agent.py](aimu/aio/orchestrator_agent.py)** — async `OrchestratorAgent` + `assemble()`. Worker dispatch wrappers are `async def`; tool dispatch awaits them under `asyncio.TaskGroup` when `concurrent_tool_calls=True`.
 - **[aimu/aio/workflows/](aimu/aio/workflows/)** — async workflow patterns:
@@ -212,7 +212,7 @@ async def main():
 - **[aimu/models/_internal/chat_state.py](aimu/models/_internal/chat_state.py)** — `_ChatStateMixin` provides `system_message` lifecycle (always-live setter that swaps the in-history system entry), `reset()`, `_append_user_turn()`, `_collect_python_tool_specs()`, and the capability properties (`is_thinking_model`, etc.). Both `BaseModelClient` and `AsyncBaseModelClient` inherit it. No state mechanics are duplicated.
 - **[aimu/models/_internal/streaming.py](aimu/models/_internal/streaming.py)** — `resolve_include()`, `filter_chunks()` (sync), `afilter_chunks()` (async).
 - **[aimu/models/_internal/json.py](aimu/models/_internal/json.py)** — `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. Utilities for getting structured data out of model responses. Exported from `aimu.models` and top-level `aimu`.
-- **[aimu/tools/mcp_format.py](aimu/tools/mcp_format.py)** — `mcp_tools_to_openai(tool_specs)` shared by sync `MCPClient.get_tools()` and async `aio.MCPClient.get_tools()`.
+- **[aimu/tools/mcp_format.py](aimu/tools/mcp_format.py)** — `mcp_tools_to_openai(tool_specs)` (spec conversion) and `mcp_content_to_text(tool_response)` (flatten a `call_tool` result to a string), shared by sync `MCPClient` and async `aio.MCPClient` (`get_tools()` / `as_tools()`).
 - Provider format adapters (`_openai_messages_to_anthropic`, `_openai_tools_to_anthropic`, `_adapt_messages_for_ollama`, `_split_thinking`, `_ThinkingParser`, `_build_user_content_blocks`) are pure data transforms — reused by async providers via composition, no duplication.
 
 **`@tool` decorator and async tools**:
@@ -238,13 +238,13 @@ async_client = aio.client(sync_client)                  # wraps; shares state
 # aio.client(HuggingFaceModel.LLAMA_70B)  # ValueError pointing at the pattern above
 ```
 
-State (`messages`, `system_message`, `tools`, `mcp_client`) is shared with the wrapped sync client — there is conceptually one client; the async version just exposes an awaitable interface. For in-process providers, "async" buys event-loop integration (handler doesn't block on inference) but *not* coroutine-level concurrency (the GIL and CUDA stream serialize execution).
+State (`messages`, `system_message`, `tools`) is shared with the wrapped sync client — there is conceptually one client; the async version just exposes an awaitable interface. For in-process providers, "async" buys event-loop integration (handler doesn't block on inference) but *not* coroutine-level concurrency (the GIL and CUDA stream serialize execution).
 
 **MCP integration**:
 
 - The sync `aimu.tools.MCPClient` (anyio portal wrapper) is **kept first-class** — no deprecation. It exists so sync users can use MCP tools without writing async code.
 - The async `aimu.aio.MCPClient` is a thin parallel using FastMCP's `Client` directly. Same construction signature (`config=`/`server=`/`file=`); use `await MCPClient.connect(...)` to construct + connect.
-- Both `MCPClient.get_tools()` implementations delegate to `aimu.tools.mcp_format.mcp_tools_to_openai()`.
+- Both `MCPClient.get_tools()` implementations delegate to `aimu.tools.mcp_format.mcp_tools_to_openai()`; `as_tools()` (sync + async) builds callables over those specs and shares `mcp_content_to_text()`.
 
 **Design decisions reference**: [docs/explanation/async-design.md](docs/explanation/async-design.md) records the seven decisions (API shape, scope, runtime, MCP, streaming asymmetry, `@tool` detection, in-process wrapping) with rationale and rejected alternatives. Mirror future async-related architectural decisions there.
 
@@ -257,14 +257,14 @@ The codebase uses an abstract base class pattern for model clients:
   - `generate(prompt, generate_kwargs, stream=False, images=None, include=None)`: Single-turn stateless generation. Concrete clients implement `_generate()`; the public `generate()` is provided by the base. Accepts `images=` for one-shot vision (same forms as `chat`) **without** touching `self.messages` — the base validates vision support (raises `ValueError` for non-vision models) and each provider's `_generate()` builds the image-bearing request locally. This is the stateless path for vision Q&A; no `reset()` dance required.
   - `images=` (vision-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, http(s) URLs, or `data:image/...` URLs. Available on both `chat()` (stateful) and `generate()` (stateless).
   - `include=` (streaming only): optional iterable of `StreamingContentType` values (or their string equivalents `"thinking"`, `"tool_calling"`, `"generating"`, `"done"`) selecting which phases to yield. Defaults to all phases.
-  - `tools=` (per-call override): `None` (default) uses the client's configured `self.tools`; any other value — including `[]` to disable Python tools for the call — replaces them for that single call and is restored afterward (`mcp_client` is untouched). Implemented as a scoped swap of `self.tools` via `_ChatStateMixin._tools_override` (covers both request-spec building and dispatch, since both read `self.tools`); the streaming path wraps stream *consumption* so the override stays live across lazy iteration. Not safe across concurrent `chat()` calls on a shared client — same contract as `self.messages`. `ModelClient`/`AsyncModelClient` need no special handling: `tools` is a delegating property, so the swap propagates to the inner client. Threaded through `Agent.run(tools=...)` (see below).
+  - `tools=` (per-call override): `None` (default) uses the client's configured `self.tools`; any other value — including `[]` to disable tools for the call — replaces them for that single call and is restored afterward (MCP tools live in `self.tools` via `as_tools()`, so they are included in the swap). Implemented as a scoped swap of `self.tools` via `_ChatStateMixin._tools_override` (covers both request-spec building and dispatch, since both read `self.tools`); the streaming path wraps stream *consumption* so the override stays live across lazy iteration. Not safe across concurrent `chat()` calls on a shared client — same contract as `self.messages`. `ModelClient`/`AsyncModelClient` need no special handling: `tools` is a delegating property, so the swap propagates to the inner client. Threaded through `Agent.run(tools=...)` (see below).
   - `reset(system_message="__keep__")`: clears the conversation history. Default keeps the existing system message; pass `None` to clear it or a new string to replace it.
   - `_chat_setup()`: Prepares messages and tools before a chat call; normalizes `images=` into OpenAI-format `image_url` content blocks.
   - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions).
   - `is_thinking_model` / `is_tool_using_model` / `is_vision_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools` / `model.supports_vision`.
   - `system_message` property: the setter is always live. Assigning it mid-conversation rewrites the system entry in `self.messages` in place (re-conditioning the model on the new prompt while preserving history); before the first `chat()` it just seeds the value. See "Message History Management" below for the re-condition semantics and the shared-client caveat.
   - Message history stored in `self.messages` (OpenAI-style format; user messages with images are content-block lists).
-  - Optional `mcp_client` attribute for MCP tool integration.
+  - MCP tools integrate by adding `MCPClient(...).as_tools()` callables to `self.tools` — there is no separate `mcp_client` attribute (one tool registry).
   - `concurrent_tool_calls: bool = False` — when `True`, multiple tool calls returned in a single model response execute concurrently via `ThreadPoolExecutor`; results are always appended in original order.
 
 - **Supporting types in base.py**:
@@ -321,7 +321,7 @@ The codebase uses an abstract base class pattern for model clients:
 
 AIMU supports two tool registration routes that can be combined on the same client:
 
-- **`@tool` decorator** ([aimu/tools/decorator.py](aimu/tools/decorator.py)): mark any plain Python function as a tool. The decorator inspects the signature and docstring at decoration time and attaches an OpenAI-format spec at `func.__tool_spec__`. Hand decorated functions to an agent via `Agent(client, tools=[fn1, fn2])` (or set `client.tools = [fn1, fn2]` directly). Type-to-JSON mapping covers `str`/`int`/`float`/`bool`/`list`/`dict` plus subscripted generics (`list[str]`, `dict[str, int]`) and `Optional[T]` / `T | None`. The first paragraph of the docstring becomes the tool description; required vs. optional args are derived from default values. Python tools dispatch in-process and take precedence over MCP tools of the same name.
+- **`@tool` decorator** ([aimu/tools/decorator.py](aimu/tools/decorator.py)): mark any plain Python function as a tool. The decorator inspects the signature and docstring at decoration time and attaches an OpenAI-format spec at `func.__tool_spec__`. Hand decorated functions to an agent via `Agent(client, tools=[fn1, fn2])` (or set `client.tools = [fn1, fn2]` directly). Type-to-JSON mapping covers `str`/`int`/`float`/`bool`/`list`/`dict` plus subscripted generics (`list[str]`, `dict[str, int]`) and `Optional[T]` / `T | None`. The first paragraph of the docstring becomes the tool description; required vs. optional args are derived from default values. All tools (in-process `@tool` and MCP `as_tools()` callables) live in `self.tools`; dispatch is one by-name lookup and a name collision resolves to the last entry in the list.
 
   **Validation (raises `ToolSignatureError`):**
   - `*args` / `**kwargs` (variadic parameters) — declare each argument explicitly
@@ -342,9 +342,10 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - Constructor requires *exactly one* of `config=`, `server=`, or `file=`. Wrong count or connection failure raises `MCPConnectionError` with the original exception chained.
   - `ping()`: verifies the connection is alive (calls `list_tools()`); raises `MCPConnectionError` if dead.
   - `get_tools()`: Returns tools in OpenAI function calling format
+  - `as_tools()`: Returns the server's tools as `@tool`-style callables (each closes over the client, calls `call_tool()` cross-process, returns the result's text via `mcp_content_to_text()`, and carries `__tool_spec__` + `__tool_is_async__=False` + `__tool_is_streaming__=False`). This is the integration path: `client.tools = mcp.as_tools()` (or `builtin.web + mcp.as_tools()`). Snapshot — call again to refresh; keep the `MCPClient` (or the callables, which hold a ref) alive for the connection.
   - `call_tool()`: Synchronous tool execution; wraps backend errors in `MCPConnectionError`
   - `list_tools()`: Returns available tool names
-  - Integrates with ModelClient via `model_client.mcp_client` attribute
+  - **No `model_client.mcp_client` attribute** — MCP tools integrate by becoming callables in `model_client.tools` via `as_tools()`, dispatched through the same path as `@tool` functions. There is one tool registry.
 
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: built-in general-purpose tools, each decorated with `@tool` for direct in-process use. Pass an entire subgroup with `tools=builtin.web + [my_tool]`:
   - **`builtin.web`** — `get_weather`, `get_webpage`, `search`, `wikipedia`
@@ -369,9 +370,9 @@ AIMU supports two tool registration routes that can be combined on the same clie
 - **[aimu/tools/mcp.py](aimu/tools/mcp.py)**: thin FastMCP server that registers `builtin.ALL_TOOLS` for cross-process use. Run standalone: `python -m aimu.tools.mcp`. Single source of truth — the same callables back both routes.
 
 - **Tool Calling Flow**:
-  1. If model supports tools, `_chat_setup` builds the request `tools` list by combining `mcp_client.get_tools()` (if set) with `__tool_spec__` from every callable in `self.tools`
+  1. If model supports tools, `_chat_setup` builds the request `tools` list from `__tool_spec__` of every callable in `self.tools` (both `@tool` functions and `as_tools()` wrappers — there is no separate MCP path)
   2. Model returns tool calls in response
-  3. `_handle_tool_calls()` dispatches each call: Python `@tool` functions first (looked up by `__name__`), then MCP tools, then a "not found" tool message
+  3. `_call_plain_tool()` dispatches each call via one by-name lookup `{fn.__name__: fn for fn in self.tools}`: a match is invoked in-process (a `@tool` directly, an `as_tools()` wrapper cross-process behind the same calling convention); a miss appends a "not found" tool message. Name collision resolves to the **last** entry in `self.tools` (list order), so append a local tool after `mcp.as_tools()` to shadow one.
   4. Tool results added to message history with role "tool"
   5. Model called again with tool results to generate final response
 
@@ -465,7 +466,7 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
   - Constructor: `Agent(model_client, system_message=None, name=None, tools=None, max_iterations=10, continuation_prompt=..., reset_messages_on_run=False)`. `system_message` is the second positional argument. `name` is optional — auto-derived from `id(agent)` as `"agent-{hex}"` when unset.
   - Wraps any `BaseModelClient`; runs `chat()` in a loop until no tools are called.
   - Stop condition: scans `model_client.messages` in reverse; if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again.
-  - `tools: list[Callable]` field accepts Python functions decorated with `@aimu.tools.tool`; `_prepare_run()` copies them to `model_client.tools` before each run. Combine freely with `model_client.mcp_client` for cross-process tools.
+  - `tools: list[Callable]` field accepts Python functions decorated with `@aimu.tools.tool`; `_prepare_run()` copies them to `model_client.tools` before each run. Combine freely with `MCPClient(...).as_tools()` for cross-process tools (just concatenate into the `tools` list).
   - `run(task, generate_kwargs, stream=False, images=None, tools=None)`: returns final response string or `Iterator[StreamChunk]`. Streamed chunks carry `agent` (the agent name) and `iteration` (loop index) fields. `tools=` is a per-run override of the agent's configured `self.tools`: `None` uses them; any other value (including `[]` to disable Python tools) replaces them for the run. Implemented by threading `tools=` into every `model_client.chat()` call in the loop (initial turn + continuations), so it reuses the self-restoring `chat()` override rather than adding state — `_prepare_run()` is unchanged and there is no leak (after the run, `model_client.tools` reflects the agent's configured tools). Not added to the `Runner` ABC or workflow classes (they compose sub-runners and have no single tool list); `_AgenticView` is intentionally not wired up because its loop's `_prepare_run()` would clobber a view-level swap.
   - `as_model_client() -> BaseModelClient`: returns a `BaseModelClient` view (internal `_AgenticView`) whose `chat()` runs the full agent loop. Use this to drop an agent into an API that expects a model client; for direct use call `run()` instead.
   - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` call; stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages.
@@ -474,7 +475,7 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
 
 - **[aimu/agents/skill_agent.py](aimu/agents/skill_agent.py)**: `SkillAgent(Agent)`: adds skill discovery and injection
   - Extends `Agent` with a `skill_manager: SkillManager` field (defaults to `SkillManager()` for auto-discovery)
-  - On first `run()` (or after a message reset), `_setup_skills()` appends the skill catalog to the system message and attaches a skills MCPClient; the model can call `activate_skill` for the full body, or call any script-derived `{skill}__{script}` tool directly (the catalog now lists those tool names inline).
+  - On first `run()` (or after a message reset), `_setup_skills()` appends the skill catalog to the system message and adds the skills server's tools (via `MCPClient(server=...).as_tools()`, built once and cached on `_skills_tools`) to `model_client.tools`; the model can call `activate_skill` for the full body, or call any script-derived `{skill}__{script}` tool directly (the catalog lists those tool names inline). The skills tools are re-appended (deduped by name) every run, since the parent `_prepare_run()` resets `model_client.tools` to the agent's configured `self.tools`.
   - `_prepare_run()` resets the `_skills_setup_done` flag when messages are cleared, so skills are re-injected on each fresh run
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`); omit `skill_dirs` to auto-discover
 
@@ -617,7 +618,7 @@ These are *implementation* patterns — the *how*. The *why* lives in the "Desig
 
 1. **Single public construction path**: `ModelClient` is the factory. Provider clients are still importable but no longer the recommended public surface. The top-level `aimu.client()` and `aimu.chat()` wrap `ModelClient` for one-line use.
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed. `HAS_*` flags expose installation state; missing optional deps don't break the import of the package.
-3. **Tool Calling Abstraction**: The base class handles tool calls uniformly across providers. Concrete clients implement `_chat` / `_generate`; the public `chat` / `generate` wrap them with the `include` filter. Python `@tool` functions take precedence over MCP tools of the same name; both routes can be active on the same client.
+3. **Tool Calling Abstraction**: The base class handles tool calls uniformly across providers. Concrete clients implement `_chat` / `_generate`; the public `chat` / `generate` wrap them with the `include` filter. `@tool` functions and `MCPClient.as_tools()` callables share one `self.tools` registry and dispatch through one by-name lookup (last entry wins on name collision).
 4. **Streaming chunk type**: All clients support streaming via `chat(..., stream=True)`, `generate(..., stream=True)`, and image clients via `generate(..., stream=True)`. They yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, IMAGE_GENERATING, DONE); see the `StreamChunk` entry above for content shapes per phase. Streaming tools (generator functions decorated with `@tool`) yield their own chunks that flow through the agent's stream — see "Streaming tools" below. Use `chunk.is_text()` / `chunk.is_tool_call()` / `chunk.is_image_progress()` to dispatch on phase.
 5. **Model Capability Flags**: `supports_tools`, `supports_thinking`, and `supports_vision` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access. `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` classproperties are derived automatically.
 
@@ -955,8 +956,8 @@ aimu/
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
 │   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
 │   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech subgroups (incl. lazy generate_image, generate_audio, generate_speech) + make_memory_tools() factory
-│   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping()
-│   ├── mcp_format.py    # mcp_tools_to_openai() — shared by sync and async MCPClient.get_tools()
+│   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping() + .as_tools()
+│   ├── mcp_format.py    # mcp_tools_to_openai() + mcp_content_to_text() — shared by sync & async MCPClient (get_tools/as_tools)
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
 ├── agents/              # Agents and workflow patterns (single Runner ABC)
 │   ├── base.py          # Runner ABC + MessageHistory + decision-tree docstring

@@ -119,8 +119,7 @@ async def main():
     mcp = await aio.MCPClient.connect(server=my_fastmcp_server)
     try:
         c = aio.client("anthropic:claude-sonnet-4-6")
-        c.mcp_client = mcp
-        agent = aio.Agent(c)
+        agent = aio.Agent(c, tools=await mcp.as_tools())   # async @tool-style callables
         reply = await agent.run("Use the MCP tools to ...")
     finally:
         await mcp.aclose()
@@ -141,7 +140,7 @@ sync_client = aimu.client(HuggingFaceModel.QWEN_3_8B)   # loads weights once
 async_client = aio.client(sync_client)                   # wraps; shares weights
 ```
 
-State (`messages`, `system_message`, `tools`, `mcp_client`) is shared with the wrapped sync client. There's conceptually one client; the async wrapper just adds an awaitable interface.
+State (`messages`, `system_message`, `tools`) is shared with the wrapped sync client. There's conceptually one client; the async wrapper just adds an awaitable interface.
 
 Calling `aio.client(HuggingFaceModel.X)` directly raises a `ValueError` pointing you at the pattern above.
 
