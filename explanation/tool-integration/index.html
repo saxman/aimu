@@ -2301,10 +2301,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#dispatch-order" class="md-nav__link">
+  <a href="#per-call-tool-override" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Dispatch order
+        Per-call tool override
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dispatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dispatch
       
     </span>
   </a>
@@ -2541,10 +2552,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#dispatch-order" class="md-nav__link">
+  <a href="#per-call-tool-override" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Dispatch order
+        Per-call tool override
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dispatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dispatch
       
     </span>
   </a>
@@ -2646,33 +2668,45 @@
 </span></code></pre></div>
 <p>Dispatch is a direct function call. No serialization, no transport, no separate process. Best when you own the code, the dependencies are already in your agent's environment, and you want minimal overhead.</p>
 <h3 id="cross-process-mcpclient">Cross-process: <code>MCPClient</code><a class="headerlink" href="#cross-process-mcpclient" title="Permanent link">&para;</a></h3>
-<p>For tools that run elsewhere — a subprocess, a shared server, a remote machine — wrap them with <code>MCPClient</code>:</p>
+<p>For tools that run elsewhere — a subprocess, a shared server, a remote machine — wrap them with <code>MCPClient</code>, then call <code>.as_tools()</code> to turn the server's tools into callables and add them to <code>client.tools</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">model_client</span><span class="o">.</span><span class="n">mcp_client</span> <span class="o">=</span> <span class="n">MCPClient</span><span class="p">({</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">mcp</span> <span class="o">=</span> <span class="n">MCPClient</span><span class="p">({</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;mytools&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;tools.py&quot;</span><span class="p">]}},</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">})</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">model_client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="n">mcp</span><span class="o">.</span><span class="n">as_tools</span><span class="p">()</span>        <span class="c1"># or: builtin.web + mcp.as_tools()</span>
 </span></code></pre></div>
-<p>Arguments and results cross the process boundary as JSON via the <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>. Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.</p>
+<p>Each callable returned by <code>as_tools()</code> closes over the client, invokes <code>call_tool()</code> cross-process, and returns the result's text — but to the model client it looks like any other <code>@tool</code>. Arguments and results cross the process boundary as JSON via the <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>. Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.</p>
+<p>Keep a reference to the <code>MCPClient</code> (the <code>as_tools()</code> callables hold one, so the connection stays alive) for its lifetime — and to call <code>.ping()</code> or refresh the tool list. The list <code>as_tools()</code> returns is a snapshot; call it again to pick up server-side changes.</p>
 <h2 id="how-they-coexist">How they coexist<a class="headerlink" href="#how-they-coexist" title="Permanent link">&para;</a></h2>
-<p>Both routes can be active on the same client. The base class assembles the request <code>tools</code> list in <code>_chat_setup()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># from aimu/models/base.py</span>
+<p>There is only one tool registry: <code>client.tools</code>. Both routes produce plain callables that live there — <code>@tool</code> functions directly, MCP tools via <code>as_tools()</code>. The base class assembles the request <code>tools</code> list in <code>_chat_setup()</code> from that one place:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># from aimu/models/_base/text.py</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">tools</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">supports_tools</span> <span class="ow">and</span> <span class="n">use_tools</span><span class="p">:</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mcp_client</span><span class="p">:</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="n">tools</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mcp_client</span><span class="o">.</span><span class="n">get_tools</span><span class="p">())</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="n">tools</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fn</span><span class="o">.</span><span class="n">__tool_spec__</span><span class="p">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">tools</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_collect_python_tool_specs</span><span class="p">())</span>   <span class="c1"># __tool_spec__ from every callable in self.tools</span>
 </span></code></pre></div>
-<p>Note the order: MCP tools first, then Python <code>@tool</code> functions. The model sees both groups as a flat list, picks whichever it wants.</p>
-<h2 id="dispatch-order">Dispatch order<a class="headerlink" href="#dispatch-order" title="Permanent link">&para;</a></h2>
-<p>When the model returns a tool call, <code>_handle_tool_calls()</code> resolves the name in this order:</p>
+<p>The model sees one flat list and picks whichever it wants. There's no separate MCP reference on the client and no second assembly path.</p>
+<h2 id="per-call-tool-override">Per-call tool override<a class="headerlink" href="#per-call-tool-override" title="Permanent link">&para;</a></h2>
+<p><code>self.tools</code> is the client's <em>configured</em> set of Python tools. Sometimes you want a different set for a single call without mutating that state — a quick lookup that should only see <code>search</code>, a turn where tools should be off entirely. Both <code>chat()</code> and <code>Agent.run()</code> take a <code>tools=</code> keyword for exactly this:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">search</span><span class="p">,</span> <span class="n">calculate</span><span class="p">]</span>      <span class="c1"># configured set</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;normal question&quot;</span><span class="p">)</span>           <span class="c1"># sees search + calculate</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;just look this up&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">search</span><span class="p">])</span>  <span class="c1"># sees only search, this call</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;answer from memory&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[])</span>       <span class="c1"># no Python tools, this call</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">search</span><span class="p">,</span> <span class="n">calculate</span><span class="p">])</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;research task&quot;</span><span class="p">)</span>               <span class="c1"># uses configured tools</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;quick lookup&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">search</span><span class="p">])</span>  <span class="c1"># override for the whole run (every loop turn)</span>
+</span></code></pre></div>
+<p><code>tools=None</code> (the default) uses the configured <code>self.tools</code> — unchanged behaviour. Any other value, <em>including <code>[]</code></em> to disable tools, replaces them for the duration of that call and is restored afterward. Since MCP tools also live in <code>self.tools</code> (via <code>as_tools()</code>), the override covers them too. On an <code>Agent</code>, the override applies to every <code>chat()</code> in the agentic loop (the initial turn and all continuations), then the agent's configured tools are back in place.</p>
+<p>Mechanically it's a scoped swap of <code>self.tools</code> that covers both request-spec building and dispatch (both read <code>self.tools</code>). Like <code>self.messages</code>, it isn't safe across <em>concurrent</em> <code>chat()</code> calls on a shared client — which matches the existing single-conversation contract.</p>
+<h2 id="dispatch">Dispatch<a class="headerlink" href="#dispatch" title="Permanent link">&para;</a></h2>
+<p>When the model returns a tool call, <code>_call_plain_tool()</code> resolves the name against one lookup table built from the single registry, <code>{fn.__name__: fn for fn in self.tools}</code>:</p>
 <ol>
-<li><strong>Python <code>@tool</code> functions first.</strong> A lookup table <code>{fn.__name__: fn for fn in self.tools}</code> is built; if the called name matches, it's invoked in-process.</li>
-<li><strong>MCP tools second.</strong> If no Python tool matches, the request goes to <code>self.mcp_client.call_tool(...)</code>.</li>
-<li><strong>Otherwise, a "tool not found" message is appended.</strong> The model sees this and can decide what to do.</li>
+<li><strong>Match → invoke the callable in-process.</strong> For a <code>@tool</code> function that's a direct call; for an <code>as_tools()</code> wrapper it's a cross-process <code>call_tool()</code> behind the same calling convention.</li>
+<li><strong>No match → a "tool not found" message is appended.</strong> The model sees this and can decide what to do.</li>
 </ol>
-<p>So Python <code>@tool</code> wins on name collision. This is intentional — if you've defined a local override of an MCP tool, you almost certainly want the local version.</p>
+<p>Because it's one dict keyed by name, a <strong>name collision resolves to the last entry in the list</strong>. So to shadow an MCP tool with a local Python implementation, append the Python tool after <code>mcp.as_tools()</code>: <code>tools = mcp.as_tools() + [my_override]</code>.</p>
 <h2 id="the-single-source-of-truth">The single source of truth<a class="headerlink" href="#the-single-source-of-truth" title="Permanent link">&para;</a></h2>
 <p><code>aimu.tools.builtin</code> defines every built-in tool exactly once, as a <code>@tool</code>-decorated Python function. The same callables back both routes:</p>
 <ul>
@@ -2715,7 +2749,7 @@
 </tr>
 </tbody>
 </table>
-<p>If you can't decide, start with <code>@tool</code>. Switching to <code>MCPClient</code> later is a one-line change: lift the function to a separate file, run it as an MCP server, set <code>model_client.mcp_client</code>.</p>
+<p>If you can't decide, start with <code>@tool</code>. Switching to <code>MCPClient</code> later is a small change: lift the function to a separate file, run it as an MCP server, and swap <code>tools=[fn]</code> for <code>tools=mcp.as_tools()</code>.</p>
 <h2 id="failure-modes-that-are-now-loud">Failure modes that are now loud<a class="headerlink" href="#failure-modes-that-are-now-loud" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Bad <code>@tool</code> signature</strong> — <code>ToolSignatureError</code> raised at decoration time. Variadic params (<code>*args</code> / <code>**kwargs</code>) and required params without type hints are the two cases.</li>
@@ -2729,18 +2763,18 @@
 <li>On the <strong>sync</strong> surface, async tools raise at dispatch (loud, immediate).</li>
 <li>On the <strong>async</strong> surface, async tools are awaited directly, and sync (CPU-bound) tools are routed through <code>asyncio.to_thread</code> so the event loop stays free.</li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nd">@tool</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fetch a URL.&quot;&quot;&quot;</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="o">...</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nd">@tool</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Trim and lowercase.&quot;&quot;&quot;</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="o">...</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1"># Both work on aio.Agent — async awaited, sync runs in a worker thread</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">fetch</span><span class="p">,</span> <span class="n">normalize</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nd">@tool</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fetch a URL.&quot;&quot;&quot;</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="o">...</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nd">@tool</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Trim and lowercase.&quot;&quot;&quot;</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="o">...</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># Both work on aio.Agent — async awaited, sync runs in a worker thread</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">fetch</span><span class="p">,</span> <span class="n">normalize</span><span class="p">])</span>
 </span></code></pre></div>
 <p><code>concurrent_tool_calls=True</code> on the async surface uses <code>asyncio.TaskGroup</code> (structured concurrency, sibling cancellation on first failure) instead of <code>ThreadPoolExecutor</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

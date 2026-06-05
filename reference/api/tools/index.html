@@ -1778,6 +1778,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.tools.MCPClient.as_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        as_tools
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2639,6 +2650,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.tools.MCPClient.as_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        as_tools
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2926,6 +2948,39 @@ re-raised as :class:<code>MCPConnectionError</code> with the original exception 
         <p>Verify the connection is alive by listing tools. Returns the tool list.</p>
 <p>Raises :class:<code>MCPConnectionError</code> if the connection has been closed or the
 server is unreachable.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.tools.MCPClient.as_tools" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">as_tools</span>
+
+
+<a href="#aimu.tools.MCPClient.as_tools" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">as_tools</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return this server's tools as <code>@tool</code>-style callables.</p>
+<p>Each callable closes over this client, invokes :meth:<code>call_tool</code> cross-process,
+and returns the result's text content as a string. The callables carry
+<code>__tool_spec__</code> (OpenAI format), <code>__tool_is_async__ = False</code>, and
+<code>__tool_is_streaming__ = False</code>, so they drop straight into <code>client.tools</code> or
+<code>Agent(tools=...)</code> and dispatch through the same path as <code>@tool</code> functions —
+no <code>model_client.mcp_client</code> reference needed::</p>
+<div class="language-text highlight"><pre><span></span><code>mcp = MCPClient(server=my_server)
+client.tools = builtin.web + mcp.as_tools()
+</code></pre></div>
+<p>The tool list is a snapshot taken now (one <code>list_tools()</code> round-trip); call
+<code>as_tools()</code> again to pick up server-side changes. Keep a reference to this
+<code>MCPClient</code> (or to the returned callables, which hold one) for the lifetime of
+the connection.</p>
 
 
     </div>

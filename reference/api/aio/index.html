@@ -1967,6 +1967,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.aio.MCPClient.as_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        as_tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.aio.MCPClient.aclose" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3074,6 +3085,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.aio.MCPClient.as_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        as_tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.aio.MCPClient.aclose" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3414,12 +3436,14 @@ print(await agent.run(&quot;Fetch example.com&quot;))
   </span>
 
 <a href="#aimu.aio.Agent.run" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="n">StreamChunk</span><span class="p">]]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="n">StreamChunk</span><span class="p">]]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Run the async agentic loop. <code>images</code> attach only to the initial turn.</p>
+<p><code>tools</code> is a per-run override of the agent's configured <code>self.tools</code> — see the
+sync :meth:<code>aimu.agents.Agent.run</code> for semantics.</p>
 
 
     </div>
@@ -3484,8 +3508,9 @@ print(await agent.run(&quot;Fetch example.com&quot;))
 
         <p>Async :class:<code>Agent</code> with filesystem-discovered skill injection.</p>
 <p>On first run (or after a message reset) the SkillAgent appends the skill catalog
-to its system message and attaches an async skills :class:<code>MCPClient</code> so the
-model can call <code>activate_skill</code> to load full skill instructions on demand.</p>
+to its system message and adds the async skills server's tools (via
+<code>aio.MCPClient.as_tools()</code>) to <code>model_client.tools</code> so the model can call
+<code>activate_skill</code> to load full skill instructions on demand.</p>
 
 
 
@@ -4037,6 +4062,39 @@ finally:
     <div class="doc doc-contents ">
 
         <p>Return tools in OpenAI function-calling format.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.aio.MCPClient.as_tools" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">as_tools</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#aimu.aio.MCPClient.as_tools" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">as_tools</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return this server's tools as async <code>@tool</code>-style callables.</p>
+<p>Async mirror of :meth:<code>aimu.tools.MCPClient.as_tools</code>. Each callable is an
+<code>async def</code> that awaits :meth:<code>call_tool</code> and returns the result's text content;
+it carries <code>__tool_spec__</code>, <code>__tool_is_async__ = True</code>, and
+<code>__tool_is_streaming__ = False</code>, so it drops into <code>client.tools</code> /
+<code>aio.Agent(tools=...)</code> and the async dispatcher awaits it directly::</p>
+<div class="language-text highlight"><pre><span></span><code>mcp = await aio.MCPClient.connect(server=my_server)
+agent = aio.Agent(client, tools=await mcp.as_tools())
+</code></pre></div>
+<p>The list is a snapshot (one <code>list_tools()</code> round-trip); call again to refresh.</p>
 
 
     </div>

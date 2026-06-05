@@ -3436,11 +3436,10 @@ returned dict points at the last step's messages.</p>
 invoking tools, or <code>max_iterations</code> is reached. The stop condition scans
 <code>model_client.messages</code> in reverse for a <code>"tool"</code> role message after the last
 <code>"user"</code> role — if found, the agent sends <code>continuation_prompt</code> and loops.</p>
-<p>Tools may be supplied two ways and combined:</p>
-<ul>
-<li><code>tools=[fn1, fn2]</code> — Python functions decorated with <code>@aimu.tools.tool</code>.</li>
-<li><code>model_client.mcp_client = MCPClient(...)</code> — a FastMCP-backed tool server.</li>
-</ul>
+<p>Tools are plain callables in <code>tools=</code>: functions decorated with
+<code>@aimu.tools.tool</code> for in-process tools, and/or <code>MCPClient(...).as_tools()</code> for
+cross-process FastMCP tools (each MCP tool becomes a callable). Mix them freely in
+one list — <code>tools=builtin.web + mcp.as_tools()</code>.</p>
 <p>When <code>system_message</code> is set or <code>reset_messages_on_run</code> is True, the agent
 clears <code>model_client.messages</code> and re-applies <code>system_message</code> before every
 run. This isolates state when a client is shared (e.g. inside a :class:<code>Chain</code>).</p>
@@ -3488,12 +3487,16 @@ print(agent.run(&quot;How many r&#39;s in strawberry?&quot;))
 
 
 <a href="#aimu.agents.Agent.run" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">StreamChunk</span><span class="p">]]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">StreamChunk</span><span class="p">]]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Run the agentic loop. <code>images</code> attach only to the initial turn.</p>
+<p><code>tools</code> is a per-run override of the agent's configured <code>self.tools</code>: <code>None</code>
+(default) uses them, any other value (including <code>[]</code> to disable Python tools for
+this run) replaces them for every <code>chat()</code> call in the loop and is restored
+afterward.</p>
 
 
     </div>
@@ -3628,8 +3631,9 @@ until the model stops calling tools. Use this only where an API expects a
 
         <p>An :class:<code>Agent</code> extended with filesystem-discovered skill injection.</p>
 <p>On first run (or after a message reset) the SkillAgent appends the skill catalog
-to its system message and attaches a skills MCPClient so the model can call
-<code>activate_skill</code> to load full skill instructions before proceeding.</p>
+to its system message and adds the skills server's tools (via <code>MCPClient.as_tools()</code>)
+to <code>model_client.tools</code> so the model can call <code>activate_skill</code> to load full skill
+instructions before proceeding.</p>
 <p>By default a fresh :class:<code>SkillManager</code> is created, scanning the standard search
 paths (<code>.agents/skills/</code>, <code>.claude/skills/</code>, <code>~/.agents/skills/</code>,
 <code>~/.claude/skills/</code>). Pass an explicit <code>SkillManager</code> to override.</p>

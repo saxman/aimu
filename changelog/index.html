@@ -2332,6 +2332,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fixes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2393,7 +2404,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tools" class="md-nav__link">
+  <a href="#tools_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Tools
@@ -2620,7 +2631,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tools_1" class="md-nav__link">
+  <a href="#tools_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Tools
@@ -2753,6 +2764,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fixes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2814,7 +2836,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tools" class="md-nav__link">
+  <a href="#tools_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Tools
@@ -3041,7 +3063,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tools_1" class="md-nav__link">
+  <a href="#tools_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Tools
@@ -3113,7 +3135,13 @@
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>Breaking</strong> Removed the <code>model_client.mcp_client</code> attribute. MCP tools now integrate through the single <code>model_client.tools</code> registry: call <code>MCPClient(...).as_tools()</code> (sync) or <code>await aio.MCPClient.connect(...).as_tools()</code> (async) to turn a server's tools into <code>@tool</code>-style callables, then add them to <code>tools</code> (constructor <code>Agent(tools=...)</code>, <code>client.tools = ...</code>, or the per-call <code>chat(tools=...)</code> / <code>run(tools=...)</code> override). Migration: replace <code>client.mcp_client = mcp</code> with <code>client.tools = mcp.as_tools()</code> (concatenate with <code>@tool</code> functions as needed, e.g. <code>builtin.web + mcp.as_tools()</code>). Two consequences: dispatch is now one by-name lookup over <code>tools</code>, so on a name collision the <strong>last</strong> entry wins (previously Python <code>@tool</code> always beat a same-named MCP tool — to preserve that, append the Python tool <em>after</em> <code>mcp.as_tools()</code>); and <code>MCPClient.get_tools()</code> is no longer called on every <code>chat()</code> (the tool list is snapshotted by <code>as_tools()</code>), so call <code>as_tools()</code> again to pick up server-side tool changes. <code>SkillAgent</code> and the internal dispatch (<code>_handle_tool_calls(tool_calls)</code>, <code>_call_plain_tool(tc, tc_id)</code> — both lost their <code>tools</code> parameter) were updated accordingly. The <code>MCPClient</code> class, its <code>get_tools()</code> / <code>call_tool()</code> / <code>ping()</code>, and the <code>aio.MCPClient</code> parallel are unchanged.</li>
 <li><strong>Breaking</strong> <code>system_message</code> is no longer immutable after the first <code>chat()</code>. The setter is now always live: assigning it mid-conversation rewrites the <code>{"role": "system"}</code> entry in <code>messages</code> in place (re-conditioning the model on the new prompt while preserving history), inserts one if absent, or removes it on <code>None</code>. Before the first chat it still just seeds the value. The previous behaviour raised <code>RuntimeError</code>; code that caught that error to gate a <code>reset()</code> can now assign directly. To change the prompt <em>and</em> drop history, use <code>reset(system_message="new")</code>. Two consequences are accepted by design: the transcript becomes counterfactual (prior assistant turns predate the new prompt), and there is no longer a guard against silently re-conditioning a <code>ModelClient</code> shared by another agent's in-flight conversation — don't share a live-conversation client across agents that each set <code>system_message</code>. The <code>_system_message_locked</code> flag has been removed. See <a href="../explanation/system-message-lifecycle/">System message lifecycle</a>.</li>
+</ul>
+<h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>New</strong> <code>MCPClient.as_tools()</code> (sync) and <code>aio.MCPClient.as_tools()</code> (async) return a server's tools as <code>@tool</code>-style callables, each closing over the client, invoking <code>call_tool()</code> cross-process, and carrying <code>__tool_spec__</code> / <code>__tool_is_async__</code> / <code>__tool_is_streaming__</code>. Drop them straight into <code>tools</code> (<code>client.tools = mcp.as_tools()</code>, <code>Agent(tools=builtin.web + mcp.as_tools())</code>). This unifies MCP and in-process tools onto the single <code>self.tools</code> registry and one dispatch path — see the breaking-change note above for the migration from <code>model_client.mcp_client</code>. New shared helper <code>aimu.tools.mcp_format.mcp_content_to_text(tool_response)</code> flattens a <code>call_tool</code> result to a string.</li>
+<li><strong>New</strong> Per-call tool override: <code>chat(..., tools=None)</code> and <code>Agent.run(..., tools=None)</code> (both sync and <code>aimu.aio</code>) accept a <code>tools=</code> list that replaces the client's configured <code>self.tools</code> for a single call/run, restored afterward. <code>tools=None</code> (default) keeps the existing behaviour; <code>tools=[]</code> disables tools for the call (MCP tools, being callables in <code>self.tools</code> via <code>as_tools()</code>, are included in the swap). On an <code>Agent</code>, the override applies to every turn of the agentic loop. Implemented as a scoped <code>self.tools</code> swap (<code>_ChatStateMixin._tools_override</code>) covering both request-spec building and dispatch; the agent threads it through each loop <code>chat()</code> call so no new agent state is introduced. Not safe across concurrent <code>chat()</code> calls on a shared client — same contract as <code>self.messages</code>. Not added to the <code>Runner</code> ABC / workflow classes.</li>
 </ul>
 <h3 id="fixes">Fixes<a class="headerlink" href="#fixes" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3137,7 +3165,7 @@
 <li><strong>New</strong> <code>aimu.clear_hf_cache(model=None)</code> — evict HuggingFace weight entries from all four modality registries and call <code>gc.collect()</code> + <code>cuda.empty_cache()</code>. Pass a model enum member to clear just that model; pass <code>None</code> to clear all.</li>
 <li><strong>New</strong> <code>aimu.clear_llamacpp_cache(model=None)</code> — same for <code>LlamaCppClient</code>.</li>
 </ul>
-<h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
+<h3 id="tools_1">Tools<a class="headerlink" href="#tools_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>execute_python(code)</code> built-in tool in <code>builtin.compute</code>. Executes sandboxed Python in a fresh namespace per call, captures stdout, and returns the last expression value. Allowed imports: <code>math</code>, <code>statistics</code>, <code>json</code>, <code>re</code>, <code>itertools</code>, <code>functools</code>, <code>datetime</code>, and <code>numpy</code>/<code>pandas</code>/<code>scipy</code>/<code>matplotlib</code> when installed. Filesystem (<code>open</code>, <code>os</code>, <code>pathlib</code>) and subprocess access are blocked. <strong>Not included in <code>ALL_TOOLS</code></strong> — opt in via <code>tools=builtin.compute</code> or <code>make_tools(python_sandbox=True)</code>.</li>
 <li><strong>New</strong> <code>make_tools(..., python_sandbox=False)</code> — new <code>python_sandbox=</code> kwarg appends <code>execute_python</code> when <code>True</code>.</li>
@@ -3255,7 +3283,7 @@
 <li><strong>Breaking</strong> <code>BaseAgent</code> and <code>Workflow</code> ABCs removed. All concrete agents and workflows inherit directly from <code>Runner</code>. The agent-vs-workflow split survives as a conceptual category in the docs.</li>
 <li><strong>Breaking</strong> <code>AgentChunk</code> and <code>ChainChunk</code> collapsed into <code>StreamChunk</code> — no back-compat aliases. <code>chunk.agent_name → chunk.agent</code>; <code>chunk.step → chunk.iteration</code>.</li>
 </ul>
-<h3 id="tools_1">Tools<a class="headerlink" href="#tools_1" title="Permanent link">&para;</a></h3>
+<h3 id="tools_2">Tools<a class="headerlink" href="#tools_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>@tool</code> raises <code>ToolSignatureError</code> at decoration time on unsupported signatures (<code>*args</code>/<code>**kwargs</code>, params with no type hint and no default).</li>
 <li><strong>New</strong> <code>Optional[T]</code> and <code>T | None</code> unwrap to the inner type in tool specs.</li>
