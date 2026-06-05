@@ -17,15 +17,27 @@ from helpers_aio import MockAsyncModelClient
 # ---------------------------------------------------------------------------
 
 
-async def test_system_message_locks_after_first_chat():
+async def test_system_message_settable_mid_conversation():
     client = MockAsyncModelClient(["hello"])
     client.system_message = "v1"
     await client.chat("hi")
-    with pytest.raises(RuntimeError, match="immutable"):
-        client.system_message = "v2"
+    # Reassigning mid-conversation now swaps in place rather than raising.
+    client.system_message = "v2"
+    assert client.system_message == "v2"
 
 
-async def test_reset_unlocks_system_message():
+async def test_system_message_swap_rewrites_history_entry_in_place():
+    client = MockAsyncModelClient([])
+    client.messages = [
+        {"role": "system", "content": "old persona"},
+        {"role": "user", "content": "hello"},
+    ]
+    client.system_message = "new persona"
+    assert client.messages[0] == {"role": "system", "content": "new persona"}
+    assert client.messages[1] == {"role": "user", "content": "hello"}
+
+
+async def test_reset_then_system_message_settable():
     client = MockAsyncModelClient(["hello", "world"])
     client.system_message = "v1"
     await client.chat("hi")

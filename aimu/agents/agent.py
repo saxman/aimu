@@ -125,8 +125,8 @@ class Agent(Runner):
         this method before the next ``run()`` to resume from that point.
 
         Handles the system-message duplication hazard: ``model_client.reset()``
-        unlocks and preserves the ``system_message`` attribute, and this method strips
-        the leading system message from *messages* (if present) so it is not
+        clears history and preserves the ``system_message`` attribute, and this method
+        strips the leading system message from *messages* (if present) so it is not
         prepended twice on the next ``chat()`` call.
 
         Example::
@@ -145,7 +145,7 @@ class Agent(Runner):
             agent.restore(saved)
             result = agent.run(continuation_prompt)
         """
-        self.model_client.reset()  # clears messages, unlocks system_message, keeps its value
+        self.model_client.reset()  # clears messages, keeps system_message value
         stripped = [m for m in messages if m.get("role") != "system"]
         self.model_client.messages = stripped
 

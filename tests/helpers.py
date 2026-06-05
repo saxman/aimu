@@ -78,7 +78,6 @@ class MockModelClient(BaseModelClient):
         self.model.supports_thinking = False
         self.model_kwargs = None
         self._system_message = None
-        self._system_message_locked = False
         self.default_generate_kwargs = {}
         self.messages = []
         self.mcp_client = None
@@ -101,8 +100,6 @@ class MockModelClient(BaseModelClient):
             self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
         else:
             self.messages.append({"role": "user", "content": user_message})
-        # First user message locks system_message (matches BaseModelClient._chat_setup).
-        self._system_message_locked = True
         response = self._responses[self._call_count]
         self._call_count += 1
 

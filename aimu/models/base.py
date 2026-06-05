@@ -486,7 +486,6 @@ class BaseModelClient(_ChatStateMixin, ABC):
     model: Model
     model_kwargs: Optional[dict]
     _system_message: Optional[str]
-    _system_message_locked: bool
     default_generate_kwargs: dict
     messages: list[dict]
     mcp_client: Optional[Any]  # Avoid circular imports by not referencing MCPClient directly
@@ -497,7 +496,6 @@ class BaseModelClient(_ChatStateMixin, ABC):
         self.model = model
         self.model_kwargs = model_kwargs
         self._system_message = system_message
-        self._system_message_locked = False
         self.default_generate_kwargs = {}
         self.messages = []
         self.mcp_client = None

@@ -50,14 +50,13 @@ def test_restore_without_system_message_in_saved():
     assert len(agent.model_client.messages) == 2
 
 
-def test_restore_clears_lock_so_system_message_settable():
+def test_restore_leaves_system_message_settable():
     client = MockModelClient([])
     agent = Agent(client, system_message="Original", name="a")
-    # Simulate lock from a prior run
-    client._system_message_locked = True
     agent.restore(_messages_with_system(system="Original"))
-    # reset() is called inside restore(), which clears the lock
-    assert not client._system_message_locked
+    # After restore, system_message can be reassigned (no immutability lock).
+    client.system_message = "Updated"
+    assert client.system_message == "Updated"
 
 
 def test_restore_empty_messages():

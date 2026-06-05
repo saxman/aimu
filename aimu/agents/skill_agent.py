@@ -53,13 +53,10 @@ class SkillAgent(Agent):
             "\n\n" + catalog + "\n\nWhen a task matches a skill's description, call `activate_skill` "
             "with the skill name to load its full instructions before proceeding."
         )
-        # Skill injection happens before the first chat(), so system_message is still
-        # mutable via the public setter. (_prepare_run resets the lock when a
-        # system_message is configured on the agent.)
+        # Append the skill catalog to the active system prompt. Assigning system_message
+        # rewrites the in-history system entry in place when a conversation is already
+        # underway (preserving history), or seeds it before the first chat().
         new_system = (self.model_client.system_message or "") + instructions
-        # Unlock before reassigning, in case the client was used previously.
-        if getattr(self.model_client, "_system_message_locked", False):
-            self.model_client.reset()
         self.model_client.system_message = new_system
 
         if self._skills_mcp_client is None:

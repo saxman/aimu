@@ -3,7 +3,7 @@
 * ``resolve_model_string`` parses ``"provider:model_id"``.
 * ``ModelSpec`` migration preserves capability flags + ``.value`` semantics.
 * ``StreamChunk`` defaults + ``is_text()`` / ``is_tool_call()`` helpers.
-* ``system_message`` is immutable after the first chat; ``reset()`` unlocks it.
+* ``system_message`` swaps the in-history system entry mid-conversation; ``reset()`` clears history.
 * ``include=`` stream filter selects phases.
 * ``parse_json_response`` / ``generate_json`` / ``extract_tool_calls`` utilities.
 * HuggingFace model weight caching (mock-only).
@@ -223,19 +223,56 @@ def test_streaming_tool_rejected_by_non_streaming_dispatch():
 
 
 # ---------------------------------------------------------------------------
-# system_message immutability + reset()
+# system_message swap mid-conversation + reset()
 # ---------------------------------------------------------------------------
 
 
-def test_system_message_locks_after_first_chat():
+def test_system_message_settable_mid_conversation():
     client = MockModelClient(["hello"])
     client.system_message = "v1"
     client.chat("hi")
-    with pytest.raises(RuntimeError, match="immutable"):
-        client.system_message = "v2"
+    # Reassigning mid-conversation now swaps in place rather than raising.
+    client.system_message = "v2"
+    assert client.system_message == "v2"
 
 
-def test_reset_unlocks_system_message():
+def test_system_message_swap_rewrites_history_entry_in_place():
+    client = MockModelClient([])
+    client.messages = [
+        {"role": "system", "content": "old persona"},
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+    ]
+    client.system_message = "new persona"
+    assert client.messages[0] == {"role": "system", "content": "new persona"}
+    # Conversation history is preserved — only the system entry changed.
+    assert len(client.messages) == 3
+    assert client.messages[1:] == [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+    ]
+
+
+def test_system_message_swap_inserts_when_history_has_no_system_entry():
+    client = MockModelClient([])
+    client.messages = [{"role": "user", "content": "hello"}]
+    client.system_message = "added persona"
+    assert client.messages[0] == {"role": "system", "content": "added persona"}
+    assert len(client.messages) == 2
+
+
+def test_system_message_set_none_removes_history_entry():
+    client = MockModelClient([])
+    client.messages = [
+        {"role": "system", "content": "persona"},
+        {"role": "user", "content": "hello"},
+    ]
+    client.system_message = None
+    assert client.system_message is None
+    assert client.messages == [{"role": "user", "content": "hello"}]
+
+
+def test_reset_then_system_message_settable():
     client = MockModelClient(["hello", "world"])
     client.system_message = "v1"
     client.chat("hi")

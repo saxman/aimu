@@ -17,7 +17,6 @@ class _ChatStateMixin:
       - ``model``: a :class:`Model` enum member (for capability flags)
       - ``messages``: list of OpenAI-format message dicts
       - ``_system_message``: ``str | None``
-      - ``_system_message_locked``: ``bool``
       - ``last_thinking``: ``str | None``
       - ``tools``: list of ``@tool``-decorated callables
     """
@@ -28,11 +27,16 @@ class _ChatStateMixin:
 
     @system_message.setter
     def system_message(self, message: Optional[str]) -> None:
-        if self._system_message_locked:
-            raise RuntimeError(
-                "system_message is immutable after the conversation starts. "
-                "Call client.reset() to clear messages, then assign a new system_message."
-            )
+        """Set the active system prompt.
+
+        Assigning ``system_message`` mid-conversation rewrites the system entry in
+        ``self.messages`` in place (or inserts/removes it), so the change takes effect on
+        the next request while the conversation history is preserved. The model is
+        re-conditioned on the new prompt for every subsequent turn; prior assistant turns
+        remain in the transcript even though they predate the new prompt. Before the first
+        chat (``messages`` empty) this just seeds the value, which is injected on the first
+        ``chat()`` call.
+        """
         self._system_message = message
         if self.messages:
             if self.messages[0]["role"] == "system":
@@ -44,13 +48,12 @@ class _ChatStateMixin:
                 self.messages.insert(0, {"role": "system", "content": message})
 
     def reset(self, system_message: Optional[str] = "__keep__") -> None:
-        """Clear the conversation history and unlock ``system_message``.
+        """Clear the conversation history.
 
         Default keeps the existing ``system_message``. Pass ``None`` to clear it or a
         new string to replace it.
         """
         self.messages = []
-        self._system_message_locked = False
         if system_message != "__keep__":
             self._system_message = system_message
         self.last_thinking = ""
@@ -87,7 +90,6 @@ class _ChatStateMixin:
         """Append the system message (if first turn) and the user turn to ``self.messages``.
 
         Normalises images into OpenAI-format content blocks for vision-capable models.
-        Locks ``system_message`` against further mutation.
         """
         if len(self.messages) == 0 and self._system_message:
             self.messages.append({"role": "system", "content": self._system_message})
@@ -99,8 +101,6 @@ class _ChatStateMixin:
             self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
         else:
             self.messages.append({"role": "user", "content": user_message})
-
-        self._system_message_locked = True
 
     def _collect_python_tool_specs(self) -> list[dict]:
         """Collect ``__tool_spec__`` dicts from every registered Python tool callable.

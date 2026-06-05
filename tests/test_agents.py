@@ -462,7 +462,6 @@ def test_agent_forwards_image_generating_chunks_from_streaming_tool():
 
             def _gen():
                 self.messages.append({"role": "user", "content": user_message})
-                self._system_message_locked = True
                 self._calls += 1
                 if self._calls == 1:
                     # First call: emit image-gen progress + tool call.

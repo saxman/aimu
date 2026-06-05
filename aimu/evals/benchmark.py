@@ -171,7 +171,7 @@ class Benchmark:
         for i in tqdm(range(len(df)), desc=f"benchmarking {name}"):
             row = df.iloc[i]
             # Reset each row so an agentic view runs a fresh agent loop.
-            # reset() preserves system_message and unlocks it for the next chat().
+            # reset() clears history and preserves system_message for the next chat().
             client.reset()
             user_message = self.prompt.format(content=row.content)
             output = client.chat(user_message, self.generate_kwargs)
