@@ -3488,8 +3488,8 @@ print(agent.run(&quot;How many r&#39;s in strawberry?&quot;))
 (the live list, not the post-run snapshot from <code>agent.messages</code>), then call
 this method before the next <code>run()</code> to resume from that point.</p>
 <p>Handles the system-message duplication hazard: <code>model_client.reset()</code>
-unlocks and preserves the <code>system_message</code> attribute, and this method strips
-the leading system message from <em>messages</em> (if present) so it is not
+clears history and preserves the <code>system_message</code> attribute, and this method
+strips the leading system message from <em>messages</em> (if present) so it is not
 prepended twice on the next <code>chat()</code> call.</p>
 <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code>try:
