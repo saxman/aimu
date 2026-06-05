@@ -10,7 +10,7 @@ To make a new model usable with `ModelClient`, add a member to that provider's `
 For most providers (`OllamaModel`, `AnthropicModel`, `OpenAIModel`, etc.) the enum value is a single `ModelSpec`:
 
 ```python
-# aimu/models/anthropic/anthropic_client.py
+# aimu/models/providers/anthropic.py
 from ..base import Model, ModelSpec
 
 class AnthropicModel(Model):
@@ -41,7 +41,7 @@ QWEN_3_8B = ModelSpec(
 `HuggingFaceModel` carries extra positional values for the tool-call response format and a thinking-template flag:
 
 ```python
-# aimu/models/hf/hf_client.py
+# aimu/models/providers/hf/text.py
 class HuggingFaceModel(Model):
     QWEN_3_8B = (
         ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True),
@@ -54,14 +54,14 @@ class HuggingFaceModel(Model):
     )
 ```
 
-Pick `ToolCallFormat.XML` / `JSON_OBJECT` / `JSON_ARRAY` / `BRACKETED` / `NA` based on how the base model emits tool calls. See existing entries in `aimu/models/hf/hf_client.py` for examples per model family.
+Pick `ToolCallFormat.XML` / `JSON_OBJECT` / `JSON_ARRAY` / `BRACKETED` / `NA` based on how the base model emits tool calls. See existing entries in `aimu/models/providers/hf/text.py` for examples per model family.
 
 ## Image, audio, and speech models
 
 The non-text modalities follow the same pattern with their own spec type and enum. Add a member to the provider enum in the relevant client module:
 
 ```python
-# aimu/models/hf_image/hf_image_client.py — diffusers text-to-image
+# aimu/models/providers/hf/image.py — diffusers text-to-image
 class HuggingFaceImageModel(ImageModel):
     SD_1_5 = HuggingFaceImageSpec("runwayml/stable-diffusion-v1-5", max_prompt_tokens=77)
     FLUX_2_KLEIN_4B = HuggingFaceImageSpec(
@@ -74,16 +74,16 @@ class HuggingFaceImageModel(ImageModel):
         max_prompt_tokens=512,              # T5-XXL encoder
     )
 
-# aimu/models/gemini_image/gemini_image_client.py — Gemini Nano Banana (cloud)
+# aimu/models/providers/gemini/image.py — Gemini Nano Banana (cloud)
 class GeminiImageModel(ImageModel):
     NANO_BANANA = GeminiImageSpec("gemini-2.5-flash-image")   # supports_negative_prompt defaults False
 
-# aimu/models/hf_audio/hf_audio_client.py — music / sound generation
+# aimu/models/providers/hf/audio.py — music / sound generation
 class HuggingFaceAudioModel(AudioModel):
     MUSICGEN_SMALL = HuggingFaceAudioSpec("facebook/musicgen-small", pipeline_type="musicgen")
     AUDIOLDM2 = HuggingFaceAudioSpec("cvssp/audioldm2", pipeline_type="audioldm2", default_steps=200)
 
-# aimu/models/hf_speech/hf_speech_client.py — text-to-speech
+# aimu/models/providers/hf/speech.py — text-to-speech
 class HuggingFaceSpeechModel(SpeechModel):
     BARK = HuggingFaceSpeechSpec("suno/bark", pipeline_type="bark", default_voice="v2/en_speaker_6")
 ```

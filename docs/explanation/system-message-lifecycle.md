@@ -23,7 +23,7 @@ Changing a chat's persona mid-conversation is the motivating use case: the model
 
 ## `messages` is the source of truth
 
-The active system prompt the model sees at request time is the system entry **inside `messages`** — not `self._system_message`. `_system_message` is only a seed, consulted once (when `messages` is empty) to populate that entry on the first chat. This holds across every provider: the OpenAI-compatible and Ollama clients send the message list as-is, and the Anthropic client scans the list for the `role == "system"` entry and lifts it into its top-level `system=` param. So rewriting that one entry — which is exactly what the setter does — is the correct, provider-portable way to change the active prompt. See [`aimu/models/_chat_state.py`](https://github.com/saxman/aimu/blob/main/aimu/models/_chat_state.py).
+The active system prompt the model sees at request time is the system entry **inside `messages`** — not `self._system_message`. `_system_message` is only a seed, consulted once (when `messages` is empty) to populate that entry on the first chat. This holds across every provider: the OpenAI-compatible and Ollama clients send the message list as-is, and the Anthropic client scans the list for the `role == "system"` entry and lifts it into its top-level `system=` param. So rewriting that one entry — which is exactly what the setter does — is the correct, provider-portable way to change the active prompt. See [`aimu/models/_internal/chat_state.py`](https://github.com/saxman/aimu/blob/main/aimu/models/_internal/chat_state.py).
 
 ## The deliberate tradeoffs
 

@@ -155,7 +155,7 @@ python web/gradio_chatbot_basic.py                   # Gradio variant
 - **[aimu/__init__.py](aimu/__init__.py)** exposes the small public surface most users start from:
   - `aimu.chat(user_message, *, model=None, system=None, generate_kwargs=None, stream=False, images=None, include=None)` — one-shot chat: builds a fresh client, sends one message, returns the response (or a `StreamChunk` iterator when `stream=True`).
   - `aimu.client(model=None, *, system=None, **provider_kwargs)` — one-line constructor that returns a fully configured `ModelClient`. Use this for multi-turn chats.
-  - **Default model resolution (when `model` is omitted)** — `client()` / `chat()` / `agent()` resolve a text default via `aimu.models._defaults.resolve_default_text_model()`: (1) the `AIMU_LANGUAGE_MODEL` env var (a `"provider:model_id"` string, read after `load_dotenv()`); else (2) an *already-available* local model — a running Ollama server (`ollama.list()`), a cached HuggingFace model (`huggingface_hub.scan_cache_dir()`, download-free), or a running local OpenAI-compat server probed at its default base_url (`models.list()`) — each restricted to ids matching a provider `Model` enum so capabilities are known, preferring tool-capable, logged at WARNING; else (3) a `ValueError` naming the remedies. A cloud provider is **never** auto-selected and weights are **never** downloaded implicitly. The async `aio.client()` reuses the same resolver with `include_hf_cache=False` (an `hf:` default would need an explicit sync-client wrap). The `ModelClient` factory itself still requires an explicit model — the default magic lives only at the ergonomic `aimu.*` layer.
+  - **Default model resolution (when `model` is omitted)** — `client()` / `chat()` / `agent()` resolve a text default via `aimu.models._internal.model_defaults.resolve_default_text_model()`: (1) the `AIMU_LANGUAGE_MODEL` env var (a `"provider:model_id"` string, read after `load_dotenv()`); else (2) an *already-available* local model — a running Ollama server (`ollama.list()`), a cached HuggingFace model (`huggingface_hub.scan_cache_dir()`, download-free), or a running local OpenAI-compat server probed at its default base_url (`models.list()`) — each restricted to ids matching a provider `Model` enum so capabilities are known, preferring tool-capable, logged at WARNING; else (3) a `ValueError` naming the remedies. A cloud provider is **never** auto-selected and weights are **never** downloaded implicitly. The async `aio.client()` reuses the same resolver with `include_hf_cache=False` (an `hf:` default would need an explicit sync-client wrap). The `ModelClient` factory itself still requires an explicit model — the default magic lives only at the ergonomic `aimu.*` layer.
   - `aimu.resolve_model_string(s)` — parses a `"provider:model_id"` string and returns the matching `Model` enum member. Raises `ValueError` with the list of valid ids on miss.
   - `aimu.parse_json_response(text, schema=None)` — parse JSON from an LLM response string using three extraction strategies (raw parse, fenced block, `{…}` substring). Pass a dataclass class or Pydantic v2 `BaseModel` as `schema` to coerce into a typed object. Raises `ValueError` on failure.
   - `aimu.generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)` — call `client.generate()` and parse the result as JSON, retrying on parse failure. Convenience wrapper around `parse_json_response`.
@@ -209,9 +209,9 @@ async def main():
 
 **Shared infrastructure** (used by both sync and async surfaces, no duplication):
 
-- **[aimu/models/_chat_state.py](aimu/models/_chat_state.py)** — `_ChatStateMixin` provides `system_message` lifecycle (always-live setter that swaps the in-history system entry), `reset()`, `_append_user_turn()`, `_collect_python_tool_specs()`, and the capability properties (`is_thinking_model`, etc.). Both `BaseModelClient` and `AsyncBaseModelClient` inherit it. No state mechanics are duplicated.
-- **[aimu/models/_streaming.py](aimu/models/_streaming.py)** — `resolve_include()`, `filter_chunks()` (sync), `afilter_chunks()` (async).
-- **[aimu/models/_json.py](aimu/models/_json.py)** — `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. Utilities for getting structured data out of model responses. Exported from `aimu.models` and top-level `aimu`.
+- **[aimu/models/_internal/chat_state.py](aimu/models/_internal/chat_state.py)** — `_ChatStateMixin` provides `system_message` lifecycle (always-live setter that swaps the in-history system entry), `reset()`, `_append_user_turn()`, `_collect_python_tool_specs()`, and the capability properties (`is_thinking_model`, etc.). Both `BaseModelClient` and `AsyncBaseModelClient` inherit it. No state mechanics are duplicated.
+- **[aimu/models/_internal/streaming.py](aimu/models/_internal/streaming.py)** — `resolve_include()`, `filter_chunks()` (sync), `afilter_chunks()` (async).
+- **[aimu/models/_internal/json.py](aimu/models/_internal/json.py)** — `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. Utilities for getting structured data out of model responses. Exported from `aimu.models` and top-level `aimu`.
 - **[aimu/tools/mcp_format.py](aimu/tools/mcp_format.py)** — `mcp_tools_to_openai(tool_specs)` shared by sync `MCPClient.get_tools()` and async `aio.MCPClient.get_tools()`.
 - Provider format adapters (`_openai_messages_to_anthropic`, `_openai_tools_to_anthropic`, `_adapt_messages_for_ollama`, `_split_thinking`, `_ThinkingParser`, `_build_user_content_blocks`) are pure data transforms — reused by async providers via composition, no duplication.
 
@@ -312,7 +312,7 @@ The codebase uses an abstract base class pattern for model clients:
 
 - **HuggingFace model weight caching**: All four in-process HuggingFace clients (`HuggingFaceClient`, `HuggingFaceImageClient`, `HuggingFaceAudioClient`, `HuggingFaceSpeechClient`) maintain a module-level `_model_registry` dict keyed on `(spec.id, *sorted_model_kwargs)`. A second client instance with the same model and kwargs reuses already-loaded weights rather than calling `from_pretrained()` again. For the eager-loading text client, the cache is checked in `__init__`; for the lazy-loading modality clients, it is checked in their respective `_load_pipeline()` / `_ensure_loaded()` methods. Use `aimu.clear_hf_cache(model=None)` to evict entries and free VRAM. `LlamaCppClient` has the same pattern with cache key `(model_path, n_ctx, n_gpu_layers, chat_format)` and `aimu.clear_llamacpp_cache()`. **Note**: creating clients with different `model_kwargs` (e.g. different `device_map`) produces separate cache entries and loads weights independently.
 
-- **`aimu/models/_json.py`** — utilities for processing model output: `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. All three are exported from `aimu.models` and re-exported from top-level `aimu`. See Top-Level API section for details.
+- **`aimu/models/_internal/json.py`** — utilities for processing model output: `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. All three are exported from `aimu.models` and re-exported from top-level `aimu`. See Top-Level API section for details.
 
 - **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK. `model_client.py` performs the same guarded imports independently to avoid a circular import with `__init__.py`. The `aimu/evals/` package uses the same guarded-import pattern with `HAS_DEEPEVAL`.
 
@@ -644,7 +644,7 @@ When adding new models to a client:
 ### Message History Management
 
 - System message is automatically prepended to `messages` on the first `chat()` call if `system_message` is set.
-- `system_message` is **mutable at any time** — the setter is always live. Before the first `chat()` it seeds the value (injected on the first call). Mid-conversation, assigning it **swaps the `{"role": "system"}` entry in `messages` in place** (rewriting it, inserting one if absent, or removing it on `None`), so the change takes effect on the next request. The model is re-conditioned on the new prompt for every subsequent turn — useful for changing a chat's persona mid-conversation — while the conversation history is preserved. This means the active system prompt is always the system entry in `messages`; `self._system_message` is only a seed consulted once when `messages` is empty (see `aimu/models/_chat_state.py`). Note the deliberate tradeoff: prior assistant turns remain in the transcript even though they were generated under the old prompt (a counterfactual but seamless record), and there is no longer a guard against silently re-conditioning a `ModelClient` shared by another agent's in-flight conversation — don't share a live-conversation client across agents that each set `system_message`. To change the prompt *and* drop history, use `reset(system_message="new")` instead.
+- `system_message` is **mutable at any time** — the setter is always live. Before the first `chat()` it seeds the value (injected on the first call). Mid-conversation, assigning it **swaps the `{"role": "system"}` entry in `messages` in place** (rewriting it, inserting one if absent, or removing it on `None`), so the change takes effect on the next request. The model is re-conditioned on the new prompt for every subsequent turn — useful for changing a chat's persona mid-conversation — while the conversation history is preserved. This means the active system prompt is always the system entry in `messages`; `self._system_message` is only a seed consulted once when `messages` is empty (see `aimu/models/_internal/chat_state.py`). Note the deliberate tradeoff: prior assistant turns remain in the transcript even though they were generated under the old prompt (a counterfactual but seamless record), and there is no longer a guard against silently re-conditioning a `ModelClient` shared by another agent's in-flight conversation — don't share a live-conversation client across agents that each set `system_message`. To change the prompt *and* drop history, use `reset(system_message="new")` instead.
 - Message history persists across `chat()` calls on the same client instance.
 - Use `ConversationManager` to persist conversations across sessions.
 
@@ -660,7 +660,7 @@ Models with `supports_thinking=True` support extended reasoning:
 
 Models with `supports_vision=True` accept images alongside the user prompt:
 - Pass `images=[...]` to `chat()` (stateful, persisted in `self.messages`) **or** to `generate()` (stateless single-turn, not persisted). Each item may be a file path string, `pathlib.Path`, raw `bytes`, an `http(s)://` URL, or a `data:image/...;base64,...` URL
-- Internally normalized to OpenAI-format content blocks (`{"type": "image_url", "image_url": {"url": ...}}`); for `chat()` these live in `self.messages`, for `generate()` they're built into a one-off request message and discarded. Helpers live in [aimu/models/_images.py](aimu/models/_images.py) (`_normalize_image`, `_build_user_content_blocks`, plus per-provider adapters)
+- Internally normalized to OpenAI-format content blocks (`{"type": "image_url", "image_url": {"url": ...}}`); for `chat()` these live in `self.messages`, for `generate()` they're built into a one-off request message and discarded. Helpers live in [aimu/models/_internal/image_input.py](aimu/models/_internal/image_input.py) (`_normalize_image`, `_build_user_content_blocks`, plus per-provider adapters)
 - Vision support is validated once at the public layer: `_ChatStateMixin._require_vision()` raises `ValueError` for a non-vision model — called from `_append_user_turn()` (the `chat` path) and from `BaseModelClient.generate()` / `AsyncBaseModelClient.generate()` (the `generate` path)
 - Per-provider adaptation is shared between `chat` and `generate`: `generate(images=...)` reuses the same pure adapters (`_build_user_content_blocks`, `_openai_blocks_to_anthropic`, `_ollama_split_message` via `OllamaClient._extract_ollama_images`, HF's `_extract_pil_images` template path) rather than duplicating per-provider request building
 - Per-provider adaptation happens at request time without mutating `self.messages`:
@@ -676,7 +676,7 @@ Models with `supports_vision=True` accept images alongside the user prompt:
 
 - `OpenAICompatClient` uses the `openai` Python SDK with a configurable `base_url`; works with any server that speaks the OpenAI REST API
 - Service-specific subclasses each define their own `Model` enum with service-appropriate model IDs and a default `base_url`
-- Thinking model support uses `<think>...</think>` tag parsing (via `_split_thinking` and `_ThinkingParser` in [aimu/models/_thinking.py](aimu/models/_thinking.py)) since OpenAI-compat endpoints embed thinking in content rather than a dedicated field; `LlamaCppClient` uses the same shared utilities
+- Thinking model support uses `<think>...</think>` tag parsing (via `_split_thinking` and `_ThinkingParser` in [aimu/models/providers/_thinking.py](aimu/models/providers/_thinking.py)) since OpenAI-compat endpoints embed thinking in content rather than a dedicated field; `LlamaCppClient` uses the same shared utilities
 - Pass `tools=openai.NOT_GIVEN` (not `tools=[]`) when no tools are available; some local servers reject an empty tools array
 - Model ID format varies by service: LM Studio uses loaded model keys, Ollama uses `name:tag` format, HF Transformers Serve, vLLM, and SGLang use HuggingFace repo paths (e.g. `Qwen/Qwen3-8B`); llama-server uses GGUF filenames (the model field is ignored server-side, so these are capability-lookup only)
 - Test with `pytest tests/test_models.py --client=lmstudio_openai` (or `ollama_openai`, `hf_openai`, `vllm_openai`, `llamaserver_openai`, `sglang_openai`)
@@ -705,7 +705,7 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
   - `BaseImageClient(ABC)` (sibling to `BaseModelClient`): concrete `generate(prompt, *, num_images, format, output_dir, stream, preview_every, reference_image=None, **kwargs)` does `num_images` validation + format conversion via `encode_image()`. `reference_image` accepts the same input forms as vision input (path string, `pathlib.Path`, raw bytes, data URL, http(s) URL, or PIL Image); when set, the call becomes image-to-image. Subclasses implement `_generate(prompt, *, num_images, reference_image=None, **kwargs) -> list[Image]` returning PIL images.
 - **[aimu/models/image_client.py](aimu/models/image_client.py)** — `ImageClient` factory (sibling to `ModelClient`) + `resolve_image_model_string()`. Accepts a provider enum / spec / `"provider:id"` string; dispatches to the right concrete client. String-form (`"hf:<repo>"`, `"gemini:<id_or_alias>"`) supports ad-hoc model ids not in the enums, by routing on the prefix before falling back to enum lookup.
 
-- **[aimu/models/_image_output.py](aimu/models/_image_output.py)**: `encode_image(image, format, *, prompt="", output_dir=None)` is the shared format-conversion helper. Sibling to `_images.py` (which decodes images for vision *input*); this one encodes images for diffusion *output*.
+- **[aimu/models/_internal/image_output.py](aimu/models/_internal/image_output.py)**: `encode_image(image, format, *, prompt="", output_dir=None)` is the shared format-conversion helper. Sibling to `image_input.py` (which decodes images for vision *input*); this one encodes images for diffusion *output*.
   - `format="pil"` → return PIL Image unchanged.
   - `format="bytes"` → PNG-encoded bytes.
   - `format="data_url"` → `data:image/png;base64,...`.
@@ -770,7 +770,7 @@ Key files and their roles:
   - `AudioSpec` (id-only base, parallel to `ImageSpec`), `HuggingFaceAudioSpec(AudioSpec)` (adds `pipeline_type`, `default_duration_s`, `default_steps`), `AudioModel(Enum)` base, `BaseAudioClient(ABC)`.
   - `BaseAudioClient.generate(prompt, *, duration_s, num_inference_steps, num_audio, format, output_dir, seed, stream)` — validates args, dispatches to `_generate()` or `_generate_streamed()`, encodes output via `encode_audio()`.
 
-- **[aimu/models/_audio_output.py](aimu/models/_audio_output.py)** — `encode_audio(audio, sample_rate, format, *, prompt, output_dir)` (parallel to `_image_output.py`):
+- **[aimu/models/_internal/audio_output.py](aimu/models/_internal/audio_output.py)** — `encode_audio(audio, sample_rate, format, *, prompt, output_dir)` (parallel to `image_output.py`):
   - `"numpy"` → `(sample_rate, audio)` unchanged.
   - `"bytes"` → WAV bytes via `soundfile.write` into `BytesIO`.
   - `"data_url"` → `data:audio/wav;base64,...`.
@@ -924,22 +924,23 @@ aimu/
 │   ├── image_client.py  # ImageClient factory + resolve_image_model_string
 │   ├── audio_client.py  # AudioClient factory + resolve_audio_model_string
 │   ├── speech_client.py # SpeechClient factory + resolve_speech_model_string
-│   ├── _chat_state.py   # _ChatStateMixin — system_message/reset/append shared by sync and async base classes
-│   ├── _streaming.py    # resolve_include, filter_chunks, afilter_chunks — shared stream helpers
-│   ├── _json.py         # parse_json_response, generate_json, extract_tool_calls — model output utilities
-│   ├── _defaults.py     # Default-model resolution when model= omitted (AIMU_LANGUAGE_MODEL + local Ollama/HF-cache/OpenAI-compat probes; modality env-var resolver)
-│   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
-│   ├── _images.py       # Shared vision utilities (_normalize_image, per-provider adapters)
-│   ├── _image_output.py # encode_image() — shared image-output format conversion
-│   ├── _audio_output.py # encode_audio() — shared audio-output format conversion (WAV via soundfile); reused by speech
-│   ├── _hf_device.py    # Shared GPU-placement helpers for in-process HF clients: device hint, cuda/mps fallback, memory-aware auto_place_pipeline() (free-VRAM-driven pin/offload)
+│   ├── _internal/       # Private cross-cutting helpers (never re-exported)
+│   │   ├── chat_state.py    # _ChatStateMixin — system_message/reset/append (shared sync+async)
+│   │   ├── streaming.py     # resolve_include, filter_chunks, afilter_chunks — stream helpers
+│   │   ├── json.py          # parse_json_response, generate_json, extract_tool_calls
+│   │   ├── model_defaults.py # default-model resolution when model= omitted (env + local probes)
+│   │   ├── image_input.py   # vision-input normalization (_normalize_image, per-provider adapters)
+│   │   ├── image_output.py  # encode_image() — diffusion-output format conversion
+│   │   └── audio_output.py  # encode_audio() — audio/speech-output conversion (WAV); reused by speech
 │   └── providers/       # Concrete provider clients, one module per provider
 │       ├── anthropic.py     # AnthropicClient + AnthropicModel
 │       ├── ollama.py        # OllamaClient + OllamaModel (native API)
 │       ├── llamacpp.py      # LlamaCppClient + LlamaCppModel (requires llamacpp extra)
 │       ├── openai_compat.py # OpenAICompatClient base + local-server subclasses
 │       │                    #   (LMStudio/OllamaOpenAI/HFOpenAI/VLLM/LlamaServer/SGLang) (requires openai package)
+│       ├── _thinking.py     # _split_thinking / _ThinkingParser — used by llamacpp + openai_compat
 │       ├── hf/              # HuggingFace in-process clients, by modality
+│       │   ├── _device.py       # GPU-placement helpers (HF-only): device hint, cuda/mps fallback, memory-aware auto_place_pipeline()
 │       │   ├── text.py          # HuggingFaceClient, HuggingFaceModel, ToolCallFormat
 │       │   ├── image.py         # HuggingFaceImageClient + HuggingFaceImageModel (image extra)
 │       │   ├── audio.py         # HuggingFaceAudioClient + HuggingFaceAudioModel (MusicGen/AudioLDM2/StableAudio; hf extra)
