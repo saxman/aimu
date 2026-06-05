@@ -8,7 +8,7 @@ Read these when you want to know *why* the API looks the way it does, not just h
 - **[Design principles](design-principles.md)** — what AIMU deliberately *doesn't* do, and why (the line that separates AIMU from LangChain / LangGraph / Strands / PydanticAI).
 - **[Agents vs workflows](agents-vs-workflows.md)** — Anthropic's taxonomy and when to pick which.
 - **[StreamChunk model](streamchunk-model.md)** — why one chunk type instead of three.
-- **[System message lifecycle](system-message-lifecycle.md)** — mutable, then locked at first chat, then unlocked by `reset()`.
+- **[System message lifecycle](system-message-lifecycle.md)** — seeded before the first chat, then swapped in place mid-conversation; `reset()` clears history.
 - **[Tool integration](tool-integration.md)** — `@tool` vs MCP, dispatch order, when to pick which route.
 - **[Async design](async-design.md)** — why `aimu.aio` is a submodule (not method suffixes or smart routing), why `asyncio.TaskGroup`, and why in-process providers wrap an existing sync client.
 

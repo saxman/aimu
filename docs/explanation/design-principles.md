@@ -34,7 +34,7 @@ Common operations have one obvious, ergonomic entry point that takes minimal cer
 
 ## 6. Failures are apparent
 
-Errors raise at the layer where the cause is actionable, with messages that name the problem. `@tool` signature problems raise at decoration time, not at the first model call. Malformed `SKILL.md` files raise on discovery, not silently skipped. Dead MCP connections raise on construction, not on the first tool call. Mutating a locked `system_message` raises at the assignment, with a message pointing at `client.reset()`. The library does not silently fall back, and it does not wrap an error in a way that hides the original cause.
+Errors raise at the layer where the cause is actionable, with messages that name the problem. `@tool` signature problems raise at decoration time, not at the first model call. Malformed `SKILL.md` files raise on discovery, not silently skipped. Dead MCP connections raise on construction, not on the first tool call. The library does not silently fall back, and it does not wrap an error in a way that hides the original cause.
 
 *How this cashes out:* `ToolSignatureError`, `SkillLoadError`, `SkillNotFoundError`, `MCPConnectionError`, and the `system_message` `RuntimeError` each name a specific failure mode. Each message tells the caller what to do next. Each chained exception preserves the original cause via `raise ... from exc`, so the traceback always points at the root.
 

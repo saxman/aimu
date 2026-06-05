@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- **Breaking** `system_message` is no longer immutable after the first `chat()`. The setter is now always live: assigning it mid-conversation rewrites the `{"role": "system"}` entry in `messages` in place (re-conditioning the model on the new prompt while preserving history), inserts one if absent, or removes it on `None`. Before the first chat it still just seeds the value. The previous behaviour raised `RuntimeError`; code that caught that error to gate a `reset()` can now assign directly. To change the prompt *and* drop history, use `reset(system_message="new")`. Two consequences are accepted by design: the transcript becomes counterfactual (prior assistant turns predate the new prompt), and there is no longer a guard against silently re-conditioning a `ModelClient` shared by another agent's in-flight conversation — don't share a live-conversation client across agents that each set `system_message`. The `_system_message_locked` flag has been removed. See [System message lifecycle](explanation/system-message-lifecycle.md).
+
+### Fixes
+
+- **Fix** `SkillAgent` skill injection no longer wipes conversation history when applied to an already-used client. It previously called `reset()` to unlock the setter (clearing `messages`); it now assigns `system_message` directly, which swaps the system entry in place.
+
 ## v0.6.0 (2026-06-04) — Output utilities, model weight caching, and experiment checkpointing
 
 ### Breaking changes

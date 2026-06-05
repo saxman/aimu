@@ -1,40 +1,40 @@
 # System message lifecycle
 
-`system_message` is a small attribute that controls a lot of behaviour. This page explains its three-state lifecycle, the failure mode that motivated the lock, and why `reset()` exists.
+`system_message` is a small attribute that controls a lot of behaviour. This page explains how it behaves before and during a conversation, why assigning it mid-conversation re-conditions the model in place, and why `reset()` still exists.
 
-## Three states
+## Two phases, one always-live setter
 
-| State | Trigger | Behaviour of the setter |
+There is no lock. The setter works at any time; what it *does* depends on whether a conversation has started.
+
+| Phase | Trigger | Behaviour of the setter |
 |---|---|---|
-| **Mutable** | Fresh client, no chat sent yet | Assignment works; mutates `_system_message` and updates the system role in `messages` if present. |
-| **Locked** | After the first `chat()` call | Assignment raises `RuntimeError`. |
-| **Unlocked** | After `client.reset()` | Back to mutable. |
+| **Seed** | Fresh client, no chat sent yet (`messages` empty) | Stores `_system_message`. It is prepended to `messages` on the first `chat()`. |
+| **Swap** | A conversation is underway (`messages` non-empty) | Rewrites the `{"role": "system"}` entry in `messages` in place — replacing its content, inserting one at index 0 if absent, or removing it when set to `None`. |
 
 ```python
-client = aimu.client("ollama:qwen3.5:9b", system="v1")
-client.chat("Hi")                          # state transitions from Mutable to Locked
+client = aimu.client("ollama:qwen3.5:9b", system="You are terse.")
+client.chat("Hi")                          # seed prepended to messages
 
-client.system_message = "v2"               # ❌ RuntimeError
-client.reset()                              # state goes back to Mutable
-client.system_message = "v2"               # ✅ works
+client.system_message = "You are a pirate." # swaps messages[0] in place
+client.chat("Tell me about the sea")        # model now answers in the new persona, with history intact
 ```
 
-## The bug this prevents
+Changing a chat's persona mid-conversation is the motivating use case: the model is re-conditioned on the new prompt for every subsequent turn while the full conversation history is preserved.
 
-Before the lock, `client.system_message = "..."` after some chats had run did one of two things depending on the existing message history:
+## `messages` is the source of truth
 
-- If a `{"role": "system"}` message was at the start of `messages`, the setter mutated that message in place — silently changing the model's instructions mid-conversation, with no indication in the message trail.
-- If no system message existed yet, the setter inserted a `system` message at the start, changing the meaning of the existing conversation.
+The active system prompt the model sees at request time is the system entry **inside `messages`** — not `self._system_message`. `_system_message` is only a seed, consulted once (when `messages` is empty) to populate that entry on the first chat. This holds across every provider: the OpenAI-compatible and Ollama clients send the message list as-is, and the Anthropic client scans the list for the `role == "system"` entry and lifts it into its top-level `system=` param. So rewriting that one entry — which is exactly what the setter does — is the correct, provider-portable way to change the active prompt. See [`aimu/models/_chat_state.py`](https://github.com/saxman/aimu/blob/main/aimu/models/_chat_state.py).
 
-Both behaviours are surprising and hard to debug. The lock turns the silent failure into a `RuntimeError` with an actionable message:
+## The deliberate tradeoffs
 
-> system_message is immutable after the conversation starts. Call client.reset() to clear messages, then assign a new system_message.
+Allowing mid-conversation mutation has two consequences, both accepted on purpose:
 
-## Why `reset()` instead of allowing mutation
+- **The transcript becomes counterfactual.** Prior assistant turns were generated under the *old* prompt but now sit beneath the new system entry. For a persona swap this is the intended, seamless behaviour; if you need an honest record of where the switch happened, append a steering user turn instead, or `reset()` to start fresh.
+- **No guard against silent cross-agent mutation.** Earlier versions raised `RuntimeError` if you reassigned `system_message` after a conversation started, which incidentally caught the case of one agent mutating a `ModelClient` whose conversation another agent owns. That guard is gone. Don't share a single live-conversation client across agents that each set `system_message` — give each agent its own client (as the prebuilt orchestrator agents do, one `ModelClient(model_client.model)` per worker).
 
-The convention is: the system message is part of the *contract* with the model. If you want to change the contract, you should also clear the chat history — otherwise the prior turns happened under different instructions and reasoning about the trajectory becomes harder.
+## `reset()` — change the prompt *and* drop history
 
-`reset()` enforces this by always clearing `messages` along with unlocking the lock:
+When you want a clean slate rather than a seamless swap, `reset()` clears `messages`:
 
 ```python
 client.reset()                       # clears messages, preserves system_message (default)
@@ -56,21 +56,11 @@ def _prepare_run(self) -> None:
         self.model_client.tools = list(self.tools)
 ```
 
-This is why `Chain.from_client(client, [prompt1, prompt2])` works even though all three steps share one client: each step's `Agent` resets at the start of its turn and applies its own `system_message`. After the reset the lock is back to mutable until the next chat.
+This is why `Chain.from_client(client, [prompt1, prompt2])` works even though all steps share one client: each step's `Agent` resets at the start of its turn and applies its own `system_message`.
+
+`SkillAgent` relies on the swap directly — it appends the discovered skill catalog to the active system prompt by assigning `system_message`, which rewrites the in-history entry without wiping the conversation.
 
 Same story for `Benchmark`: it calls `client.reset()` between rows so each row starts with a clean conversation but the same role.
-
-## Implementation
-
-The lock is a private boolean:
-
-```python
-class BaseModelClient(ABC):
-    _system_message: str | None
-    _system_message_locked: bool      # False after construction; True after first chat
-```
-
-The setter checks the flag and either mutates `_system_message` or raises. `_chat_setup()` (called by every concrete `_chat()`) sets the flag to `True` after appending the first user message. `reset()` sets it back to `False`.
 
 ## See also
 

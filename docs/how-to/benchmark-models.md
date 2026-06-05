@@ -81,7 +81,7 @@ Swap `LLMJudgeScorer` for `DeepEvalScorer([metric, ...])`. See [Integrate DeepEv
 For each client, the harness:
 
 1. Snapshots `client.messages` so the run is reversible.
-2. For every row: calls `client.reset()` (preserves `system_message`, unlocks the lock), then `client.chat(prompt.format(content=row.content))`.
+2. For every row: calls `client.reset()` (clears history, preserves `system_message`), then `client.chat(prompt.format(content=row.content))`.
 3. Scores the output via `scorer.score(row_with_output)`.
 4. Restores the original `messages` in a `try/finally` so a failure mid-client doesn't leak state.
 

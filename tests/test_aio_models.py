@@ -193,7 +193,7 @@ async def test_generate_streamed_exclude_thinking(async_model_client):
 
 
 async def test_chat_with_tools(async_model_client):
-    # reset() clears messages AND unlocks system_message in one call.
+    # reset() clears messages and sets the system_message in one call.
     async_model_client.reset(
         system_message="You are a helpful assistant that uses tools to answer questions from the user."
     )
