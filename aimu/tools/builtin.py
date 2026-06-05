@@ -6,9 +6,15 @@ so that the tools are available either in-process (``Agent(client, tools=[get_we
 or cross-process (``python -m aimu.tools.mcp``).
 """
 
+import ast
+import builtins as _builtins_module
+import contextlib
 import datetime
+import importlib
+import io
 import os
 import re
+import traceback
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Optional
@@ -124,6 +130,80 @@ def calculate(expression: str) -> str:
         return str(eval(expression, {"__builtins__": {}}))
     except Exception as e:
         return f"Error: {e}"
+
+
+# Modules allowed inside the execute_python sandbox.
+_SANDBOX_ALLOWLIST = frozenset(
+    ["math", "statistics", "json", "re", "itertools", "functools", "datetime", "numpy", "pandas", "scipy", "matplotlib"]
+)
+
+# Restricted builtins: copy all stdlib builtins, then block dangerous ones.
+_SANDBOX_BUILTINS = {
+    k: v for k, v in vars(_builtins_module).items() if k not in ("open", "breakpoint", "input", "__import__")
+}
+
+
+@tool
+def execute_python(code: str) -> str:
+    """Execute Python code in a sandboxed environment and return the output.
+
+    Captures stdout and the value of the last expression. Imports are limited
+    to: math, statistics, json, re, itertools, functools, datetime, and
+    numpy/pandas/scipy/matplotlib when installed. File system and subprocess
+    access are not available.
+
+    Args:
+        code: Python code to execute.
+    """
+    # Pre-load allowed modules for direct use in the namespace.
+    namespace = {}
+    for mod_name in _SANDBOX_ALLOWLIST:
+        try:
+            namespace[mod_name] = importlib.import_module(mod_name)
+        except ImportError:
+            pass
+
+    _real_import = _builtins_module.__import__
+
+    def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name.split(".")[0] not in _SANDBOX_ALLOWLIST:
+            raise ImportError(f"'{name}' is not available in the sandbox")
+        return _real_import(name, globals, locals, fromlist, level)
+
+    sandbox_builtins = {**_SANDBOX_BUILTINS, "__import__": _restricted_import}
+    namespace["__builtins__"] = sandbox_builtins
+    namespace["_result"] = None
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as exc:
+        return f"SyntaxError: {exc}"
+
+    # If the last statement is an expression, compile preamble + last separately
+    # so we can eval() the expression and capture its value without AST mutation.
+    stdout_buf = io.StringIO()
+    result = None
+    try:
+        with contextlib.redirect_stdout(stdout_buf):
+            if tree.body and isinstance(tree.body[-1], ast.Expr):
+                preamble = ast.Module(body=tree.body[:-1], type_ignores=[])
+                ast.fix_missing_locations(preamble)
+                expr = ast.Expression(body=tree.body[-1].value)
+                ast.fix_missing_locations(expr)
+                exec(compile(preamble, "<sandbox>", "exec"), namespace)  # noqa: S102
+                result = eval(compile(expr, "<sandbox>", "eval"), namespace)  # noqa: S307
+            else:
+                exec(compile(tree, "<sandbox>", "exec"), namespace)  # noqa: S102
+    except Exception:
+        return f"Error:\n{traceback.format_exc()}"
+
+    parts = []
+    stdout = stdout_buf.getvalue()
+    if stdout:
+        parts.append(stdout.rstrip())
+    if result is not None:
+        parts.append(repr(result))
+    return "\n".join(parts) if parts else "(no output)"
 
 
 class _TextExtractor(HTMLParser):
@@ -477,6 +557,7 @@ def make_tools(
     audio_steps: Optional[int] = None,
     speech_client=None,
     memory_store=None,
+    python_sandbox: bool = False,
 ):
     """Assemble the standard tool list for a chat client.
 
@@ -492,6 +573,9 @@ def make_tools(
       singleton with one bound to that client.
     - If *memory_store* is provided, appends ``store_memory``, ``search_memories``,
       and ``list_memories`` tools bound to that store.
+    - If *python_sandbox* is ``True``, appends :func:`execute_python` so the
+      agent can run sandboxed Python code. Not included by default because code
+      execution carries higher risk than other built-in tools.
     """
     tools = list(ALL_TOOLS)
     if image_client is not None:
@@ -507,6 +591,8 @@ def make_tools(
         tools = [t for t in tools if t is not generate_speech] + [bound_speech]
     if memory_store is not None:
         tools.extend(make_memory_tools(memory_store))
+    if python_sandbox:
+        tools.append(execute_python)
     return tools
 
 
@@ -759,10 +845,13 @@ def make_memory_tools(store):
 # Curated subsets — pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_webpage, web_search, wikipedia]
 fs = [list_directory, read_file]
-compute = [calculate]
+compute = [calculate, execute_python]
 misc = [echo, get_current_date_and_time]
 image = [generate_image]
 audio = [generate_audio]
 speech = [generate_speech]
 
-ALL_TOOLS = [*misc, get_weather, *compute, get_webpage, web_search, wikipedia, *fs, *image, *audio, *speech]
+# execute_python is in the compute subgroup for discoverability but intentionally
+# excluded from ALL_TOOLS — code execution is higher-risk than other builtins.
+# Opt in explicitly via ``tools=builtin.compute`` or ``make_tools(python_sandbox=True)``.
+ALL_TOOLS = [*misc, get_weather, calculate, get_webpage, web_search, wikipedia, *fs, *image, *audio, *speech]

@@ -32,6 +32,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, Optional, Union
 
 # Hard import so HAS_HF_SPEECH in aimu/models/__init__.py accurately reflects
@@ -43,6 +44,16 @@ from .._hf_device import move_to_device, pop_device_hint, resolve_device
 from ..base import BaseSpeechClient, HuggingFaceSpeechSpec, SpeechModel
 
 logger = logging.getLogger(__name__)
+
+# Cache tuple stores (pipe, processor, vocoder, default_speaker_embedding).
+# vocoder and default_speaker_embedding are None for non-speecht5 pipeline types.
+_model_registry: dict[tuple, tuple] = {}
+_registry_lock = threading.Lock()
+
+
+def _make_cache_key(spec_id: str, pipeline_type: str, model_kwargs: dict | None) -> tuple:
+    return (spec_id, pipeline_type, *sorted((k, str(v)) for k, v in (model_kwargs or {}).items()))
+
 
 _BARK_SAMPLE_RATE = 24_000
 _SPEECHT5_SAMPLE_RATE = 16_000
@@ -93,9 +104,7 @@ def _parse_model_string(s: str) -> HuggingFaceSpeechSpec:
         )
     provider, repo_id = s.split(":", 1)
     if provider != "hf":
-        raise ValueError(
-            f"Only 'hf:' provider is supported for HuggingFaceSpeechClient. Got provider: {provider!r}"
-        )
+        raise ValueError(f"Only 'hf:' provider is supported for HuggingFaceSpeechClient. Got provider: {provider!r}")
     if not repo_id:
         raise ValueError(f"Empty model id after 'hf:': {s!r}")
 
@@ -143,11 +152,12 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
             )
         super().__init__(model=model, model_kwargs=model_kwargs)
         self.spec = spec
-        self._pipe: Any = None          # lazy
-        self._processor: Any = None     # lazy; used by speecht5 and bark
-        self._vocoder: Any = None       # lazy; used by speecht5
+        self._pipe: Any = None  # lazy
+        self._processor: Any = None  # lazy; used by speecht5 and bark
+        self._vocoder: Any = None  # lazy; used by speecht5
         self._default_speaker_embedding: Any = None  # lazy; used by speecht5
         self._xvectors_cache: Any = None  # lazy; used by speecht5 for non-default voices
+        self._cache_key = _make_cache_key(spec.id, spec.pipeline_type, model_kwargs)
 
     # ------------------------------------------------------------------
     # Lazy loaders
@@ -186,10 +196,9 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
 
         # Load default speaker embedding from CMU Arctic xvectors dataset.
         from datasets import load_dataset
+
         xvectors = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
-        default_embedding = torch.tensor(
-            xvectors[_SPEECHT5_DEFAULT_SPEAKER_IDX]["xvector"]
-        ).unsqueeze(0).to(device)
+        default_embedding = torch.tensor(xvectors[_SPEECHT5_DEFAULT_SPEAKER_IDX]["xvector"]).unsqueeze(0).to(device)
 
         return processor, model, vocoder, default_embedding
 
@@ -209,6 +218,12 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
     def _ensure_loaded(self) -> None:
         if self._pipe is not None:
             return
+        with _registry_lock:
+            if self._cache_key in _model_registry:
+                self._pipe, self._processor, self._vocoder, self._default_speaker_embedding = _model_registry[
+                    self._cache_key
+                ]
+                return
         ptype = self.spec.pipeline_type
         if ptype == "tts_pipeline":
             self._pipe = self._load_tts_pipeline()
@@ -218,6 +233,13 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
             self._processor, self._pipe = self._load_bark()
         else:
             raise ValueError(f"Unknown pipeline_type: {ptype!r}")
+        with _registry_lock:
+            _model_registry[self._cache_key] = (
+                self._pipe,
+                self._processor,
+                self._vocoder,
+                self._default_speaker_embedding,
+            )
 
     @property
     def pipeline(self) -> Any:
@@ -258,13 +280,10 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
                 idx = int(voice)
                 if self._xvectors_cache is None:
                     from datasets import load_dataset
-                    self._xvectors_cache = load_dataset(
-                        "Matthijs/cmu-arctic-xvectors", split="validation"
-                    )
+
+                    self._xvectors_cache = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
                 device = next(self._pipe.parameters()).device
-                speaker_embedding = torch.tensor(
-                    self._xvectors_cache[idx]["xvector"]
-                ).unsqueeze(0).to(device)
+                speaker_embedding = torch.tensor(self._xvectors_cache[idx]["xvector"]).unsqueeze(0).to(device)
             except (ValueError, IndexError):
                 logger.warning("Invalid SpeechT5 voice index %r — using default embedding.", voice)
                 speaker_embedding = self._default_speaker_embedding
@@ -297,10 +316,7 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
                 import torch
 
                 device = next(self._pipe.parameters()).device
-                inputs = {
-                    k: v.to(device) if isinstance(v, torch.Tensor) else v
-                    for k, v in inputs.items()
-                }
+                inputs = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
             except (ImportError, StopIteration):
                 pass
             speech_values = self._pipe.generate(**inputs, do_sample=True)

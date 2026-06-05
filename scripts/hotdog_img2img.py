@@ -110,7 +110,7 @@ def run(
     print(f"Output      : {output_dir}\n")
 
     prompt = _DEFAULT_PROMPT
-    best: dict | None = None        # best["score"], best["path"], best["prompt"]
+    best: dict | None = None  # best["score"], best["path"], best["prompt"]
     reference_path: str | None = None
     rejected: list[str] = []
     stale = 0
@@ -206,9 +206,7 @@ def run(
                 raw_next = refine_image(eval_client, best["path"], rejected=rejected)
 
             if use_summarizer:
-                prompt = summarize_for_image(
-                    eval_client, raw_next, max_prompt_tokens, avoid=neg_plan.summarizer_avoid
-                )
+                prompt = summarize_for_image(eval_client, raw_next, max_prompt_tokens, avoid=neg_plan.summarizer_avoid)
                 record["summarized_prompt"] = prompt
             else:
                 prompt = raw_next
@@ -220,9 +218,7 @@ def run(
             image_model=image_model_name,
             eval_model=eval_model,
             summarizer_instruction=(
-                build_summarizer_prompt(max_prompt_tokens, avoid=neg_plan.summarizer_avoid)
-                if use_summarizer
-                else None
+                build_summarizer_prompt(max_prompt_tokens, avoid=neg_plan.summarizer_avoid) if use_summarizer else None
             ),
             neg_plan=neg_plan,
         )
@@ -245,7 +241,7 @@ def main() -> None:
         default=_DEFAULT_INITIAL_STRENGTH,
         metavar="F",
         help=f"Starting img2img strength (0–1). Higher = bigger changes from reference. "
-             f"Default: {_DEFAULT_INITIAL_STRENGTH}",
+        f"Default: {_DEFAULT_INITIAL_STRENGTH}",
     )
     parser.add_argument(
         "--final-strength",

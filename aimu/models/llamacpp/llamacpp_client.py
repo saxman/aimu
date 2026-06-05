@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from typing import Iterator, Optional, Any, Union
 
 from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
@@ -7,6 +8,13 @@ from .._images import _build_user_content_blocks
 from .._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
+
+_model_registry: dict[tuple, Any] = {}  # cache_key → Llama instance
+_registry_lock = threading.Lock()
+
+
+def _make_cache_key(model_path: str, n_ctx: int, n_gpu_layers: int, chat_format: str | None) -> tuple:
+    return (model_path, n_ctx, n_gpu_layers, str(chat_format))
 
 
 class LlamaCppModel(Model):
@@ -42,6 +50,12 @@ class LlamaCppClient(BaseModelClient):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
 
+        self._cache_key = _make_cache_key(model_path, n_ctx, n_gpu_layers, chat_format)
+        with _registry_lock:
+            if self._cache_key in _model_registry:
+                self._llm = _model_registry[self._cache_key]
+                return
+
         from llama_cpp import Llama
 
         self._llm = Llama(
@@ -52,6 +66,8 @@ class LlamaCppClient(BaseModelClient):
             chat_handler=chat_handler,
             verbose=verbose,
         )
+        with _registry_lock:
+            _model_registry[self._cache_key] = self._llm
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

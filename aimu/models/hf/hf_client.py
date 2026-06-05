@@ -13,6 +13,7 @@ from transformers import BitsAndBytesConfig
 import gc
 import pprint
 import logging
+import threading
 from typing import Iterator, Optional, Any, Union
 from enum import Enum
 import json
@@ -21,6 +22,17 @@ import itertools
 
 logger = logging.getLogger(__name__)
 log.set_verbosity_error()
+
+# Module-level registry so multiple HuggingFaceClient instances with the same
+# model share weights rather than loading them independently. Each value is a
+# tuple of (model, tokenizer, processor, uses_processor_parse_response).
+_model_registry: dict[tuple, tuple] = {}
+_registry_lock = threading.Lock()
+
+
+def _make_cache_key(spec_id: str, model_kwargs: dict | None) -> tuple:
+    return (spec_id, *sorted((k, str(v)) for k, v in (model_kwargs or {}).items()))
+
 
 DEFAULT_GENERATE_KWARGS = {
     "max_new_tokens": 1024,
@@ -250,6 +262,13 @@ class HuggingFaceClient(BaseModelClient):
         # same parsing path as non-processor models.
         self._uses_processor_parse_response = False
 
+        self._cache_key = _make_cache_key(model.value, model_kwargs)
+        with _registry_lock:
+            if self._cache_key in _model_registry:
+                cached = _model_registry[self._cache_key]
+                self._hf_model, self._hf_tokenizer, self._hf_processor, self._uses_processor_parse_response = cached
+                return
+
         if model == self.MODELS.MAGISTRAL_SMALL:
             self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
 
@@ -279,11 +298,26 @@ class HuggingFaceClient(BaseModelClient):
             self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value)
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
 
+        with _registry_lock:
+            _model_registry[self._cache_key] = (
+                self._hf_model,
+                self._hf_tokenizer,
+                self._hf_processor,
+                self._uses_processor_parse_response,
+            )
+
     def __del__(self):
-        del self._hf_model
-        del self._hf_tokenizer
-        if self._hf_processor is not None:
-            del self._hf_processor
+        # If the registry still holds a reference, deleting this client's attributes
+        # won't free the weights — skip the gc/cache flush too.
+        cache_key = getattr(self, "_cache_key", None)
+        if cache_key is not None and cache_key in _model_registry:
+            return
+
+        for attr in ("_hf_model", "_hf_tokenizer", "_hf_processor"):
+            try:
+                delattr(self, attr)
+            except AttributeError:
+                pass
 
         gc.collect()
 

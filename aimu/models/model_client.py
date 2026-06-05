@@ -10,7 +10,7 @@ try:
     from .ollama import OllamaClient, OllamaModel
 
     _HAS_OLLAMA = True
-except ImportError:
+except Exception:
     _HAS_OLLAMA = False
     OllamaClient = None  # type: ignore[assignment,misc]
     OllamaModel = None  # type: ignore[assignment,misc]
@@ -19,7 +19,7 @@ try:
     from .hf import HuggingFaceClient, HuggingFaceModel
 
     _HAS_HF = True
-except ImportError:
+except Exception:
     _HAS_HF = False
     HuggingFaceClient = None  # type: ignore[assignment,misc]
     HuggingFaceModel = None  # type: ignore[assignment,misc]
@@ -28,7 +28,7 @@ try:
     from .anthropic import AnthropicClient, AnthropicModel
 
     _HAS_ANTHROPIC = True
-except ImportError:
+except Exception:
     _HAS_ANTHROPIC = False
     AnthropicClient = None  # type: ignore[assignment,misc]
     AnthropicModel = None  # type: ignore[assignment,misc]
@@ -54,7 +54,7 @@ try:
     )
 
     _HAS_OPENAI_COMPAT = True
-except ImportError:
+except Exception:
     _HAS_OPENAI_COMPAT = False
     OpenAIClient = GeminiClient = LMStudioOpenAIClient = OllamaOpenAIClient = None  # type: ignore[assignment,misc]
     HFOpenAIClient = VLLMOpenAIClient = LlamaServerOpenAIClient = SGLangOpenAIClient = None  # type: ignore[assignment,misc]
@@ -65,7 +65,7 @@ try:
     from .llamacpp import LlamaCppClient, LlamaCppModel
 
     _HAS_LLAMACPP = True
-except ImportError:
+except Exception:
     _HAS_LLAMACPP = False
     LlamaCppClient = None  # type: ignore[assignment,misc]
     LlamaCppModel = None  # type: ignore[assignment,misc]

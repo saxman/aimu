@@ -98,9 +98,7 @@ def make_tools(image_client, vision_client, output_dir: Path, records: list[dict
         """Generate a hotdog image from a short text prompt and save it locally. Returns the saved file path."""
         i = len(records) + 1
         image_prompt = build_image_prompt(prompt) + neg_plan.prompt_suffix
-        raw_path = image_client.generate(
-            image_prompt, format="path", output_dir=output_dir, **neg_plan.generate_kwargs
-        )
+        raw_path = image_client.generate(image_prompt, format="path", output_dir=output_dir, **neg_plan.generate_kwargs)
         dest = output_dir / f"{i:02d}.png"
         Path(raw_path).rename(dest)
         records.append(

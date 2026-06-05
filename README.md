@@ -60,7 +60,8 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 - `@tool` on any plain Python function. Type hints + docstring become the spec.
 - `MCPClient` for cross-process FastMCP tools. Combine with `@tool` on the same agent.
-- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`. `builtin.make_tools(client, image_client=None, audio_client=None, speech_client=None, memory_store=None)` assembles the full tool list with auto image/vision/audio/speech/memory wiring.
+- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`. `builtin.make_tools(client, ..., python_sandbox=False)` assembles the full tool list with optional wiring for image/vision/audio/speech/memory/sandbox.
+- `execute_python` sandboxed Python REPL in `builtin.compute`: run code, capture stdout and last expression. Opt-in only (`tools=builtin.compute` or `make_tools(python_sandbox=True)`).
 - Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
 
 ### Memory and persistence
@@ -70,6 +71,14 @@ Composition happens by passing objects to constructors. Conversation state is a 
 - `DocumentStore` - path-keyed document storage, drop-in compatible with the Claude memory tool API.
 - `ConversationManager` - TinyDB-backed chat history that persists across sessions. Integrates directly with any `ModelClient` via `client.messages`.
 - `make_memory_tools(store)` returns `store_memory`, `search_memories`, and `list_memories` as `@tool` functions for direct in-process agent use. Pass the result to `Agent(client, tools=...)` or include it via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use the FastMCP servers in `aimu.memory.mcp` / `aimu.memory.document_mcp`.
+
+### Output utilities
+
+- `parse_json_response(text, schema=None)` — extract JSON from any LLM response string (raw, fenced block, or `{…}` substring). Pass a dataclass or Pydantic v2 model to coerce into a typed object.
+- `generate_json(client, prompt, schema=None, *, retries=2)` — generate then parse in one call, retrying automatically on malformed output.
+- `extract_tool_calls(messages)` — turn an OpenAI-format message list into a clean `list[dict]` of `{iteration, tool, arguments, result}` records. Works on `agent.model_client.messages` or any `client.messages`.
+- `runner.restore(messages)` — restore an `Agent`, `EvaluatorOptimizer`, or `Chain` from a saved message list for resuming after failure. Handles the system-message de-duplication automatically.
+- HuggingFace model weight caching — all four modality clients (text, image, audio, speech) share a module-level registry; a second instance for the same model reuses weights. Call `aimu.clear_hf_cache()` to free VRAM. Same pattern for `LlamaCppClient` via `aimu.clear_llamacpp_cache()`.
 
 ### Prompts and evaluation
 

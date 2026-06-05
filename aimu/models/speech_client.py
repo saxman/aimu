@@ -63,17 +63,14 @@ def resolve_speech_model_string(model_str: str) -> SpeechModel:
     registry = _provider_registry()
     if provider not in registry:
         raise ValueError(
-            f"Unknown speech provider {provider!r}. Available providers (with installed deps): "
-            f"{sorted(registry)}"
+            f"Unknown speech provider {provider!r}. Available providers (with installed deps): {sorted(registry)}"
         )
     model_enum, _ = registry[provider]
     for member in model_enum:
         if member.value == model_id:
             return member
     available = sorted(m.value for m in model_enum)
-    raise ValueError(
-        f"Provider {provider!r} has no speech model id {model_id!r}. Available: {available}"
-    )
+    raise ValueError(f"Provider {provider!r} has no speech model id {model_id!r}. Available: {available}")
 
 
 class SpeechClient:
@@ -114,9 +111,7 @@ class SpeechClient:
                     )
                 self._client = OpenAISpeechClient(model, model_kwargs=model_kwargs)
                 return
-            raise ValueError(
-                f"Unknown speech provider {provider!r}. Available: {sorted(_provider_registry())}"
-            )
+            raise ValueError(f"Unknown speech provider {provider!r}. Available: {sorted(_provider_registry())}")
 
         if isinstance(model, SpeechSpec) and not isinstance(model, SpeechModel):
             raise TypeError(

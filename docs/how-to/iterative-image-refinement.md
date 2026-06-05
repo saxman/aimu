@@ -2,23 +2,24 @@
 
 Build a **generate → evaluate → refine** loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — *"make a hotdog as visually hot as possible"* — that composes image generation, vision input, prompt chaining, and either an agent, a plain Python loop, or a library workflow class.
 
-The full, runnable code lives in six scripts that share one helper module:
+The full, runnable code lives in five scripts that share one helper module:
 
-- `scripts/hotdog_loop.py` — **Python directs the loop** (a plain code-controlled `for` loop).
+- `scripts/hotdog_loop.py` — **Python directs the loop**. Two strategies via `--strategy`:
+  - `greedy` (default) — always accept the evaluator's suggestion and move on.
+  - `climbing` — keep the best image and revert on non-improvement (`--patience` controls the stop condition).
 - `scripts/hotdog_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
 - `scripts/hotdog_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + critic agent).
-- `scripts/hotdog_climbing.py` — like the loop, but **hill-climbs**: keeps the best image and reverts when a step doesn't beat it.
 - `scripts/hotdog_anneal.py` — **simulated annealing**: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.
 - `scripts/hotdog_img2img.py` — **image-to-image refinement**: each iteration starts from the current best image rather than pure noise, combining hill-climbing with strength annealing (high `strength` early to explore, low `strength` late to polish).
 - `scripts/_hotdog_common.py` — shared prompts and helpers used by all of them.
 
 ```bash
-python scripts/hotdog_loop.py                                        # code-directed greedy walk
+python scripts/hotdog_loop.py                                        # greedy walk (default)
+python scripts/hotdog_loop.py --strategy climbing --patience 4       # hill-climb: keep best, revert on regression
+python scripts/hotdog_loop.py --max-iterations 0                     # run until the critic says DONE
 python scripts/hotdog_agent.py                                       # agent-directed greedy walk
 python scripts/hotdog_evaluator.py                                   # EvaluatorOptimizer workflow class
-python scripts/hotdog_climbing.py                                    # hill-climb: keep best, revert when a step doesn't beat it
 python scripts/hotdog_anneal.py --seed 7                             # simulated annealing: explore early, cool to greedy
-python scripts/hotdog_agent.py --max-iterations 0                    # run until the critic says DONE
 python scripts/hotdog_img2img.py                                     # img2img hill-climbing + strength annealing
 python scripts/hotdog_img2img.py --image-model FLUX_2_KLEIN_4B      # unified pipeline — no strength knob (warning printed)
 python scripts/hotdog_img2img.py --initial-strength 0.85 --final-strength 0.2 --patience 3
@@ -28,7 +29,7 @@ python scripts/hotdog_img2img.py --initial-strength 0.85 --final-strength 0.2 --
 
 The same task is implemented three times on purpose — it's a concrete take on [agents vs workflows](../explanation/agents-vs-workflows.md):
 
-- **Code-directed** (`hotdog_loop.py`): you write the `for` loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility.
+- **Code-directed** (`hotdog_loop.py`): you write the `for` loop. Flow is explicit and deterministic — easiest to read, debug, and bound. Reach for this when the control flow is fixed and you want full visibility. Supports `--strategy greedy` (always accept) and `--strategy climbing` (keep best, revert on regression) — the two differ only in their acceptance policy.
 - **Agent-directed** (`hotdog_agent.py`): you hand an [`Agent`](../reference/api/agents.md) three tools (`generate_hotdog_image`, `evaluate_hotness`, `summarize_description`) and let its tool-calling loop decide when to call what. Reach for this when you want the model to own the control flow, or as a stepping stone to more open-ended behaviour.
 - **Workflow-class** (`hotdog_evaluator.py`): you express the loop with [`EvaluatorOptimizer`](../reference/api/agents.md), the library's generate → evaluate → revise workflow, by composing a generator agent and a critic agent. Reach for this when your task already matches a named pattern and you'd rather configure it than hand-write the loop.
 
@@ -36,9 +37,9 @@ All three produce the same artifacts and share every prompt and helper, so the d
 
 ## Search strategy: greedy → hill-climbing → simulated annealing
 
-The loop and agent scripts are **greedy**: each round they accept whatever prompt the critic proposes and move on — even if the new image scored *lower* than a previous one. That's simple and often fine, but the "best" image can be somewhere in the middle of the run rather than at the end.
+`--strategy greedy` (the default) and the agent script are **greedy**: each round they accept whatever prompt the critic proposes and move on — even if the new image scored *lower* than a previous one. That's simple and often fine, but the "best" image can be somewhere in the middle of the run rather than at the end.
 
-`hotdog_climbing.py` borrows the strategy from [`aimu.prompts`](tune-prompts.md) tuning — **best-state caching + revert when a step doesn't beat the best**:
+`--strategy climbing` borrows the strategy from [`aimu.prompts`](tune-prompts.md) tuning — **best-state caching + revert when a step doesn't beat the best**:
 
 - Track the highest-scoring image so far.
 - If a generation **beats** the best (strictly higher score), adopt it and refine from there.

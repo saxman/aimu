@@ -50,6 +50,14 @@ class EvaluatorOptimizer(Runner):
         result.update(self.evaluator.messages)
         return result
 
+    def restore(self, messages: list[dict]) -> None:
+        """Restore the generator's state from a saved message list.
+
+        The evaluator starts fresh on the next round. See :meth:`Agent.restore`
+        for the full save/restore pattern and system-message handling details.
+        """
+        self.generator.restore(messages)
+
     def run(
         self,
         task: str,
