@@ -2317,7 +2317,7 @@
 <li><strong><a href="design-principles/">Design principles</a></strong> — what AIMU deliberately <em>doesn't</em> do, and why (the line that separates AIMU from LangChain / LangGraph / Strands / PydanticAI).</li>
 <li><strong><a href="agents-vs-workflows/">Agents vs workflows</a></strong> — Anthropic's taxonomy and when to pick which.</li>
 <li><strong><a href="streamchunk-model/">StreamChunk model</a></strong> — why one chunk type instead of three.</li>
-<li><strong><a href="system-message-lifecycle/">System message lifecycle</a></strong> — mutable, then locked at first chat, then unlocked by <code>reset()</code>.</li>
+<li><strong><a href="system-message-lifecycle/">System message lifecycle</a></strong> — seeded before the first chat, then swapped in place mid-conversation; <code>reset()</code> clears history.</li>
 <li><strong><a href="tool-integration/">Tool integration</a></strong> — <code>@tool</code> vs MCP, dispatch order, when to pick which route.</li>
 <li><strong><a href="async-design/">Async design</a></strong> — why <code>aimu.aio</code> is a submodule (not method suffixes or smart routing), why <code>asyncio.TaskGroup</code>, and why in-process providers wrap an existing sync client.</li>
 </ul>

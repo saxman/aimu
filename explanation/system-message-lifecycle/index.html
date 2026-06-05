@@ -2193,10 +2193,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#three-states" class="md-nav__link">
+  <a href="#two-phases-one-always-live-setter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Three states
+        Two phases, one always-live setter
       
     </span>
   </a>
@@ -2204,10 +2204,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-bug-this-prevents" class="md-nav__link">
+  <a href="#messages-is-the-source-of-truth" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The bug this prevents
+        messages is the source of truth
       
     </span>
   </a>
@@ -2215,10 +2215,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-reset-instead-of-allowing-mutation" class="md-nav__link">
+  <a href="#the-deliberate-tradeoffs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why reset() instead of allowing mutation
+        The deliberate tradeoffs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reset-change-the-prompt-and-drop-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reset() — change the prompt and drop history
       
     </span>
   </a>
@@ -2230,17 +2241,6 @@
     <span class="md-ellipsis">
       
         How agents and workflows interact with this
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#implementation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Implementation
       
     </span>
   </a>
@@ -2411,10 +2411,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#three-states" class="md-nav__link">
+  <a href="#two-phases-one-always-live-setter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Three states
+        Two phases, one always-live setter
       
     </span>
   </a>
@@ -2422,10 +2422,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-bug-this-prevents" class="md-nav__link">
+  <a href="#messages-is-the-source-of-truth" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The bug this prevents
+        messages is the source of truth
       
     </span>
   </a>
@@ -2433,10 +2433,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-reset-instead-of-allowing-mutation" class="md-nav__link">
+  <a href="#the-deliberate-tradeoffs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why reset() instead of allowing mutation
+        The deliberate tradeoffs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reset-change-the-prompt-and-drop-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reset() — change the prompt and drop history
       
     </span>
   </a>
@@ -2448,17 +2459,6 @@
     <span class="md-ellipsis">
       
         How agents and workflows interact with this
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#implementation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Implementation
       
     </span>
   </a>
@@ -2497,54 +2497,47 @@
 
 
 <h1 id="system-message-lifecycle">System message lifecycle<a class="headerlink" href="#system-message-lifecycle" title="Permanent link">&para;</a></h1>
-<p><code>system_message</code> is a small attribute that controls a lot of behaviour. This page explains its three-state lifecycle, the failure mode that motivated the lock, and why <code>reset()</code> exists.</p>
-<h2 id="three-states">Three states<a class="headerlink" href="#three-states" title="Permanent link">&para;</a></h2>
+<p><code>system_message</code> is a small attribute that controls a lot of behaviour. This page explains how it behaves before and during a conversation, why assigning it mid-conversation re-conditions the model in place, and why <code>reset()</code> still exists.</p>
+<h2 id="two-phases-one-always-live-setter">Two phases, one always-live setter<a class="headerlink" href="#two-phases-one-always-live-setter" title="Permanent link">&para;</a></h2>
+<p>There is no lock. The setter works at any time; what it <em>does</em> depends on whether a conversation has started.</p>
 <table>
 <thead>
 <tr>
-<th>State</th>
+<th>Phase</th>
 <th>Trigger</th>
 <th>Behaviour of the setter</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Mutable</strong></td>
-<td>Fresh client, no chat sent yet</td>
-<td>Assignment works; mutates <code>_system_message</code> and updates the system role in <code>messages</code> if present.</td>
+<td><strong>Seed</strong></td>
+<td>Fresh client, no chat sent yet (<code>messages</code> empty)</td>
+<td>Stores <code>_system_message</code>. It is prepended to <code>messages</code> on the first <code>chat()</code>.</td>
 </tr>
 <tr>
-<td><strong>Locked</strong></td>
-<td>After the first <code>chat()</code> call</td>
-<td>Assignment raises <code>RuntimeError</code>.</td>
-</tr>
-<tr>
-<td><strong>Unlocked</strong></td>
-<td>After <code>client.reset()</code></td>
-<td>Back to mutable.</td>
+<td><strong>Swap</strong></td>
+<td>A conversation is underway (<code>messages</code> non-empty)</td>
+<td>Rewrites the <code>{"role": "system"}</code> entry in <code>messages</code> in place — replacing its content, inserting one at index 0 if absent, or removing it when set to <code>None</code>.</td>
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s2">&quot;v1&quot;</span><span class="p">)</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Hi&quot;</span><span class="p">)</span>                          <span class="c1"># state transitions from Mutable to Locked</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s2">&quot;You are terse.&quot;</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Hi&quot;</span><span class="p">)</span>                          <span class="c1"># seed prepended to messages</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">client</span><span class="o">.</span><span class="n">system_message</span> <span class="o">=</span> <span class="s2">&quot;v2&quot;</span>               <span class="c1"># ❌ RuntimeError</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>                              <span class="c1"># state goes back to Mutable</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">client</span><span class="o">.</span><span class="n">system_message</span> <span class="o">=</span> <span class="s2">&quot;v2&quot;</span>               <span class="c1"># ✅ works</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">client</span><span class="o">.</span><span class="n">system_message</span> <span class="o">=</span> <span class="s2">&quot;You are a pirate.&quot;</span> <span class="c1"># swaps messages[0] in place</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Tell me about the sea&quot;</span><span class="p">)</span>        <span class="c1"># model now answers in the new persona, with history intact</span>
 </span></code></pre></div>
-<h2 id="the-bug-this-prevents">The bug this prevents<a class="headerlink" href="#the-bug-this-prevents" title="Permanent link">&para;</a></h2>
-<p>Before the lock, <code>client.system_message = "..."</code> after some chats had run did one of two things depending on the existing message history:</p>
+<p>Changing a chat's persona mid-conversation is the motivating use case: the model is re-conditioned on the new prompt for every subsequent turn while the full conversation history is preserved.</p>
+<h2 id="messages-is-the-source-of-truth"><code>messages</code> is the source of truth<a class="headerlink" href="#messages-is-the-source-of-truth" title="Permanent link">&para;</a></h2>
+<p>The active system prompt the model sees at request time is the system entry <strong>inside <code>messages</code></strong> — not <code>self._system_message</code>. <code>_system_message</code> is only a seed, consulted once (when <code>messages</code> is empty) to populate that entry on the first chat. This holds across every provider: the OpenAI-compatible and Ollama clients send the message list as-is, and the Anthropic client scans the list for the <code>role == "system"</code> entry and lifts it into its top-level <code>system=</code> param. So rewriting that one entry — which is exactly what the setter does — is the correct, provider-portable way to change the active prompt. See <a href="https://github.com/saxman/aimu/blob/main/aimu/models/_chat_state.py"><code>aimu/models/_chat_state.py</code></a>.</p>
+<h2 id="the-deliberate-tradeoffs">The deliberate tradeoffs<a class="headerlink" href="#the-deliberate-tradeoffs" title="Permanent link">&para;</a></h2>
+<p>Allowing mid-conversation mutation has two consequences, both accepted on purpose:</p>
 <ul>
-<li>If a <code>{"role": "system"}</code> message was at the start of <code>messages</code>, the setter mutated that message in place — silently changing the model's instructions mid-conversation, with no indication in the message trail.</li>
-<li>If no system message existed yet, the setter inserted a <code>system</code> message at the start, changing the meaning of the existing conversation.</li>
+<li><strong>The transcript becomes counterfactual.</strong> Prior assistant turns were generated under the <em>old</em> prompt but now sit beneath the new system entry. For a persona swap this is the intended, seamless behaviour; if you need an honest record of where the switch happened, append a steering user turn instead, or <code>reset()</code> to start fresh.</li>
+<li><strong>No guard against silent cross-agent mutation.</strong> Earlier versions raised <code>RuntimeError</code> if you reassigned <code>system_message</code> after a conversation started, which incidentally caught the case of one agent mutating a <code>ModelClient</code> whose conversation another agent owns. That guard is gone. Don't share a single live-conversation client across agents that each set <code>system_message</code> — give each agent its own client (as the prebuilt orchestrator agents do, one <code>ModelClient(model_client.model)</code> per worker).</li>
 </ul>
-<p>Both behaviours are surprising and hard to debug. The lock turns the silent failure into a <code>RuntimeError</code> with an actionable message:</p>
-<blockquote>
-<p>system_message is immutable after the conversation starts. Call client.reset() to clear messages, then assign a new system_message.</p>
-</blockquote>
-<h2 id="why-reset-instead-of-allowing-mutation">Why <code>reset()</code> instead of allowing mutation<a class="headerlink" href="#why-reset-instead-of-allowing-mutation" title="Permanent link">&para;</a></h2>
-<p>The convention is: the system message is part of the <em>contract</em> with the model. If you want to change the contract, you should also clear the chat history — otherwise the prior turns happened under different instructions and reasoning about the trajectory becomes harder.</p>
-<p><code>reset()</code> enforces this by always clearing <code>messages</code> along with unlocking the lock:</p>
+<h2 id="reset-change-the-prompt-and-drop-history"><code>reset()</code> — change the prompt <em>and</em> drop history<a class="headerlink" href="#reset-change-the-prompt-and-drop-history" title="Permanent link">&para;</a></h2>
+<p>When you want a clean slate rather than a seamless swap, <code>reset()</code> clears <code>messages</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>                       <span class="c1"># clears messages, preserves system_message (default)</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">system_message</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>    <span class="c1"># clears messages and clears system_message</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">system_message</span><span class="o">=</span><span class="s2">&quot;new&quot;</span><span class="p">)</span>   <span class="c1"># clears messages and replaces system_message</span>
@@ -2558,15 +2551,9 @@
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">)</span>
 </span></code></pre></div>
-<p>This is why <code>Chain.from_client(client, [prompt1, prompt2])</code> works even though all three steps share one client: each step's <code>Agent</code> resets at the start of its turn and applies its own <code>system_message</code>. After the reset the lock is back to mutable until the next chat.</p>
+<p>This is why <code>Chain.from_client(client, [prompt1, prompt2])</code> works even though all steps share one client: each step's <code>Agent</code> resets at the start of its turn and applies its own <code>system_message</code>.</p>
+<p><code>SkillAgent</code> relies on the swap directly — it appends the discovered skill catalog to the active system prompt by assigning <code>system_message</code>, which rewrites the in-history entry without wiping the conversation.</p>
 <p>Same story for <code>Benchmark</code>: it calls <code>client.reset()</code> between rows so each row starts with a clean conversation but the same role.</p>
-<h2 id="implementation">Implementation<a class="headerlink" href="#implementation" title="Permanent link">&para;</a></h2>
-<p>The lock is a private boolean:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">BaseModelClient</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">_system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">_system_message_locked</span><span class="p">:</span> <span class="nb">bool</span>      <span class="c1"># False after construction; True after first chat</span>
-</span></code></pre></div>
-<p>The setter checks the flag and either mutates <code>_system_message</code> or raises. <code>_chat_setup()</code> (called by every concrete <code>_chat()</code>) sets the flag to <code>True</code> after appending the first user message. <code>reset()</code> sets it back to <code>False</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../how-to/switch-providers/">How-to: switch providers</a> — <code>system="..."</code> at construction time</li>

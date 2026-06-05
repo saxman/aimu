@@ -2581,7 +2581,7 @@
 <p>For each client, the harness:</p>
 <ol>
 <li>Snapshots <code>client.messages</code> so the run is reversible.</li>
-<li>For every row: calls <code>client.reset()</code> (preserves <code>system_message</code>, unlocks the lock), then <code>client.chat(prompt.format(content=row.content))</code>.</li>
+<li>For every row: calls <code>client.reset()</code> (clears history, preserves <code>system_message</code>), then <code>client.chat(prompt.format(content=row.content))</code>.</li>
 <li>Scores the output via <code>scorer.score(row_with_output)</code>.</li>
 <li>Restores the original <code>messages</code> in a <code>try/finally</code> so a failure mid-client doesn't leak state.</li>
 </ol>
