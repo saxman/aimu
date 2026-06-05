@@ -8,6 +8,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 
 - [Switch providers](switch-providers.md) — change backends without changing call sites
 - [Add a new model](add-new-model.md) — register a model enum member
+- [Add or update a provider](add-new-provider.md) — write a provider client and wire it into the factory
 - [Stream output](stream-output.md) — `stream=True`, phase filtering, helpers
 - [Use async (`aio`)](use-async.md) — embed AIMU in async apps; `asyncio.TaskGroup`-backed `Parallel`
 - [Handle vision input](handle-vision.md) — pass images via `images=`

@@ -74,9 +74,9 @@ mkdocs build --strict
 
 ## Adding a new provider
 
-Briefly: subclass `BaseModelClient`, implement `_chat`, `_generate`, and `_update_generate_kwargs`. Define a `Model` enum subclass listing supported models with `ModelSpec(...)` values. Add isinstance dispatch in `ModelClient.__init__` and a registry entry in `_provider_registry()` so model strings work. Add the provider's `Model` import to `aimu/models/__init__.py` guarded by a `HAS_*` flag for the optional dependency.
+Write a client module under `aimu/models/providers/` (a flat `providers/<name>.py`, or a `providers/<name>/<modality>.py` subpackage only if the provider ships several standalone modality clients), subclass `BaseModelClient` (or `OpenAICompatClient` for OpenAI-compatible endpoints), wire it into the `ModelClient` factory and `_provider_registry()`, export it from `aimu/models/__init__.py` under a `HAS_*` flag, and mirror it on the async surface.
 
-See an existing provider (e.g. `AnthropicClient`) for the full pattern.
+See [how-to: add or update a provider](how-to/add-new-provider.md) for the full step-by-step, and an existing provider (e.g. `providers/anthropic.py`) for the pattern.
 
 ## Adding a new model to an existing provider
 
