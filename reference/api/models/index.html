@@ -691,6 +691,8 @@
       
         
       
+        
+      
     
     
     
@@ -816,6 +818,34 @@
     
   
     Add a new model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/add-new-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add or update a provider
   
 
     
@@ -3114,7 +3144,7 @@ ModelClient(LMStudioOpenAIModel.LLAMA_3_2_3B, base_url=&quot;http://myserver:123
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="aimu.models._chat_state._ChatStateMixin">_ChatStateMixin</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
+              Bases: <code><span title="aimu.models._internal.chat_state._ChatStateMixin">_ChatStateMixin</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
 
 
 
@@ -3243,7 +3273,7 @@ this does not touch <code>self.messages</code> — the call stays single-turn an
                 <code>include</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Iterable">Iterable</span>[<span title="typing.Union">Union</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="aimu.models.StreamingContentType (aimu.models.base.StreamingContentType)" href="#aimu.models.StreamingContentType">StreamingContentType</a>]]]</code>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Iterable">Iterable</span>[<span title="typing.Union">Union</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="aimu.models.StreamingContentType (aimu.models._base.shared.StreamingContentType)" href="#aimu.models.StreamingContentType">StreamingContentType</a>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3378,7 +3408,7 @@ does not support vision. Only used on the initial user turn.</p>
                 <code>include</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Iterable">Iterable</span>[<span title="typing.Union">Union</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="aimu.models.StreamingContentType (aimu.models.base.StreamingContentType)" href="#aimu.models.StreamingContentType">StreamingContentType</a>]]]</code>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Iterable">Iterable</span>[<span title="typing.Union">Union</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="aimu.models.StreamingContentType (aimu.models._base.shared.StreamingContentType)" href="#aimu.models.StreamingContentType">StreamingContentType</a>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3955,7 +3985,7 @@ Anthropic API format happens at call time.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.openai_compat.openai_compat_client.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.providers.openai_compat.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
 
 
 
@@ -4005,7 +4035,7 @@ Anthropic API format happens at call time.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.openai_compat.openai_compat_client.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.providers.openai_compat.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
 
 
 
@@ -4055,7 +4085,7 @@ Anthropic API format happens at call time.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.openai_compat.openai_compat_client.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.providers.openai_compat.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
 
 
 
@@ -4102,7 +4132,7 @@ Anthropic API format happens at call time.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.openai_compat.openai_compat_client.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.providers.openai_compat.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
 
 
 
@@ -4149,7 +4179,7 @@ Anthropic API format happens at call time.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.openai_compat.openai_compat_client.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.providers.openai_compat.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
 
 
 
@@ -4196,7 +4226,7 @@ Anthropic API format happens at call time.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.openai_compat.openai_compat_client.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.providers.openai_compat.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
 
 
 
@@ -4243,7 +4273,7 @@ Anthropic API format happens at call time.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.openai_compat.openai_compat_client.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.providers.openai_compat.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
 
 
 
@@ -4297,7 +4327,7 @@ Anthropic API format happens at call time.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.openai_compat.openai_compat_client.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.providers.openai_compat.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
 
 
 

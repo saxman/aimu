@@ -691,6 +691,8 @@
       
         
       
+        
+      
     
     
     
@@ -816,6 +818,34 @@
     
   
     Add a new model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/add-new-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add or update a provider
   
 
     
@@ -2529,7 +2559,7 @@
 </span></code></pre></div>
 <p>Changing a chat's persona mid-conversation is the motivating use case: the model is re-conditioned on the new prompt for every subsequent turn while the full conversation history is preserved.</p>
 <h2 id="messages-is-the-source-of-truth"><code>messages</code> is the source of truth<a class="headerlink" href="#messages-is-the-source-of-truth" title="Permanent link">&para;</a></h2>
-<p>The active system prompt the model sees at request time is the system entry <strong>inside <code>messages</code></strong> — not <code>self._system_message</code>. <code>_system_message</code> is only a seed, consulted once (when <code>messages</code> is empty) to populate that entry on the first chat. This holds across every provider: the OpenAI-compatible and Ollama clients send the message list as-is, and the Anthropic client scans the list for the <code>role == "system"</code> entry and lifts it into its top-level <code>system=</code> param. So rewriting that one entry — which is exactly what the setter does — is the correct, provider-portable way to change the active prompt. See <a href="https://github.com/saxman/aimu/blob/main/aimu/models/_chat_state.py"><code>aimu/models/_chat_state.py</code></a>.</p>
+<p>The active system prompt the model sees at request time is the system entry <strong>inside <code>messages</code></strong> — not <code>self._system_message</code>. <code>_system_message</code> is only a seed, consulted once (when <code>messages</code> is empty) to populate that entry on the first chat. This holds across every provider: the OpenAI-compatible and Ollama clients send the message list as-is, and the Anthropic client scans the list for the <code>role == "system"</code> entry and lifts it into its top-level <code>system=</code> param. So rewriting that one entry — which is exactly what the setter does — is the correct, provider-portable way to change the active prompt. See <a href="https://github.com/saxman/aimu/blob/main/aimu/models/_internal/chat_state.py"><code>aimu/models/_internal/chat_state.py</code></a>.</p>
 <h2 id="the-deliberate-tradeoffs">The deliberate tradeoffs<a class="headerlink" href="#the-deliberate-tradeoffs" title="Permanent link">&para;</a></h2>
 <p>Allowing mid-conversation mutation has two consequences, both accepted on purpose:</p>
 <ul>
