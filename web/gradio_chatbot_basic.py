@@ -61,7 +61,7 @@ def respond(message, history, client, manager):
     manager.update_conversation(client.messages)
 
 
-from aimu.models.ollama import OllamaClient, OllamaModel  # noqa: E402
+from aimu.models import OllamaClient, OllamaModel  # noqa: E402
 
 _default_cls = OllamaClient
 _default_model = OllamaModel.QWEN_3_5_9B

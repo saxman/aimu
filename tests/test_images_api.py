@@ -45,7 +45,7 @@ def _install_diffusers_stub():
     """Install a fake ``diffusers`` module so HF image tests don't need real weights.
 
     Also rebinds the ``diffusers`` name inside any already-loaded
-    ``aimu.models.hf_image.hf_image_client`` module — when the real ``diffusers``
+    ``aimu.models.providers.hf.image`` module — when the real ``diffusers``
     is installed and gets imported first (e.g. by an earlier test importing
     ``aimu``), the stub in ``sys.modules`` doesn't reach the module's local binding.
     """
@@ -118,7 +118,7 @@ def _install_diffusers_stub():
     sys.modules["diffusers"] = stub
 
     # Rebind the name inside the HF image client module if it's already loaded.
-    hf_mod = sys.modules.get("aimu.models.hf_image.hf_image_client")
+    hf_mod = sys.modules.get("aimu.models.providers.hf.image")
     if hf_mod is not None:
         hf_mod.diffusers = stub
 
@@ -131,10 +131,10 @@ import importlib  # noqa: E402
 import aimu.models  # noqa: E402
 
 if not aimu.models.HAS_HF_IMAGE:
-    aimu.models.hf_image = importlib.import_module("aimu.models.hf_image")
+    aimu.models.providers.hf.image = importlib.import_module("aimu.models.providers.hf.image")
     aimu.models.HAS_HF_IMAGE = True
-    aimu.models.HuggingFaceImageClient = aimu.models.hf_image.HuggingFaceImageClient
-    aimu.models.HuggingFaceImageModel = aimu.models.hf_image.HuggingFaceImageModel
+    aimu.models.HuggingFaceImageClient = aimu.models.providers.hf.image.HuggingFaceImageClient
+    aimu.models.HuggingFaceImageModel = aimu.models.providers.hf.image.HuggingFaceImageModel
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +151,7 @@ from aimu.models import (  # noqa: E402
 )
 from aimu.models._image_output import encode_image  # noqa: E402
 from aimu.models.base import GeminiImageSpec  # noqa: E402
-from aimu.models.gemini_image import gemini_image_client as _gic_mod  # noqa: E402
+from aimu.models.providers.gemini import image as _gic_mod  # noqa: E402
 
 
 # ===========================================================================

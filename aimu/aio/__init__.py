@@ -54,27 +54,27 @@ from .workflows.evaluator import EvaluatorOptimizer
 from .workflows.plan_execute_evaluator import PlanExecuteEvaluator
 
 try:
-    from .providers.hf_audio import AsyncHuggingFaceAudioClient
+    from .providers.hf.audio import AsyncHuggingFaceAudioClient
 except Exception:
     AsyncHuggingFaceAudioClient = None  # type: ignore[assignment,misc]
 
 try:
-    from .providers.hf_image import AsyncHuggingFaceImageClient
+    from .providers.hf.image import AsyncHuggingFaceImageClient
 except Exception:
     AsyncHuggingFaceImageClient = None  # type: ignore[assignment,misc]
 
 try:
-    from .providers.gemini_image import AsyncGeminiImageClient
+    from .providers.gemini.image import AsyncGeminiImageClient
 except Exception:
     AsyncGeminiImageClient = None  # type: ignore[assignment,misc]
 
 try:
-    from .providers.hf_speech import AsyncHuggingFaceSpeechClient
+    from .providers.hf.speech import AsyncHuggingFaceSpeechClient
 except Exception:
     AsyncHuggingFaceSpeechClient = None  # type: ignore[assignment,misc]
 
 try:
-    from .providers.openai_speech import AsyncOpenAISpeechClient
+    from .providers.openai.speech import AsyncOpenAISpeechClient
 except Exception:
     AsyncOpenAISpeechClient = None  # type: ignore[assignment,misc]
 

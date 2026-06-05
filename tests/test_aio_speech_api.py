@@ -22,16 +22,16 @@ _install_speech_stubs()
 import aimu.models  # noqa: E402
 
 if not aimu.models.HAS_HF_SPEECH:
-    aimu.models.hf_speech = importlib.import_module("aimu.models.hf_speech")
+    aimu.models.providers.hf.speech = importlib.import_module("aimu.models.providers.hf.speech")
     aimu.models.HAS_HF_SPEECH = True
-    aimu.models.HuggingFaceSpeechClient = aimu.models.hf_speech.HuggingFaceSpeechClient
-    aimu.models.HuggingFaceSpeechModel = aimu.models.hf_speech.HuggingFaceSpeechModel
+    aimu.models.HuggingFaceSpeechClient = aimu.models.providers.hf.speech.HuggingFaceSpeechClient
+    aimu.models.HuggingFaceSpeechModel = aimu.models.providers.hf.speech.HuggingFaceSpeechModel
 
 if not aimu.models.HAS_OPENAI_SPEECH:
-    aimu.models.openai_speech = importlib.import_module("aimu.models.openai_speech")
+    aimu.models.providers.openai.speech = importlib.import_module("aimu.models.providers.openai.speech")
     aimu.models.HAS_OPENAI_SPEECH = True
-    aimu.models.OpenAISpeechClient = aimu.models.openai_speech.OpenAISpeechClient
-    aimu.models.OpenAISpeechModel = aimu.models.openai_speech.OpenAISpeechModel
+    aimu.models.OpenAISpeechClient = aimu.models.providers.openai.speech.OpenAISpeechClient
+    aimu.models.OpenAISpeechModel = aimu.models.providers.openai.speech.OpenAISpeechModel
 
 import aimu  # noqa: E402
 
@@ -46,10 +46,10 @@ import aimu.aio.speech as _aio_speech  # noqa: E402
 
 importlib.reload(_aio_speech)
 
-from aimu.aio.providers.hf_speech import AsyncHuggingFaceSpeechClient  # noqa: E402
-from aimu.aio.providers.openai_speech import AsyncOpenAISpeechClient  # noqa: E402
-from aimu.models.hf_speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel  # noqa: E402
-from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel  # noqa: E402
+from aimu.aio.providers.hf.speech import AsyncHuggingFaceSpeechClient  # noqa: E402
+from aimu.aio.providers.openai.speech import AsyncOpenAISpeechClient  # noqa: E402
+from aimu.models.providers.hf.speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel  # noqa: E402
+from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

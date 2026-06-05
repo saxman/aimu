@@ -16,10 +16,10 @@ import importlib  # noqa: E402
 import aimu.models  # noqa: E402
 
 if not aimu.models.HAS_HF_IMAGE:
-    aimu.models.hf_image = importlib.import_module("aimu.models.hf_image")
+    aimu.models.providers.hf.image = importlib.import_module("aimu.models.providers.hf.image")
     aimu.models.HAS_HF_IMAGE = True
-    aimu.models.HuggingFaceImageClient = aimu.models.hf_image.HuggingFaceImageClient
-    aimu.models.HuggingFaceImageModel = aimu.models.hf_image.HuggingFaceImageModel
+    aimu.models.HuggingFaceImageClient = aimu.models.providers.hf.image.HuggingFaceImageClient
+    aimu.models.HuggingFaceImageModel = aimu.models.providers.hf.image.HuggingFaceImageModel
 
 import aimu  # noqa: E402
 
@@ -76,7 +76,7 @@ def test_lazy_singleton_constructed_once(monkeypatch):
 
         model_str = model or os.environ.get("AIMU_IMAGE_MODEL")
         constructed.append(model_str)
-        from aimu.models.hf_image import HuggingFaceImageClient
+        from aimu.models.providers.hf.image import HuggingFaceImageClient
 
         return HuggingFaceImageClient(model_str)
 
@@ -112,7 +112,7 @@ def test_singleton_raises_when_env_unset(monkeypatch):
 def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
     """Calling generate_image() yields IMAGE_GENERATING chunks and `return`s the final path."""
     from aimu.models.base import StreamChunk, StreamingContentType
-    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+    from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
     final_path = f"{tmp_path}/fake.png"
 
@@ -150,7 +150,7 @@ def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
 
 
 def test_make_image_tool_returns_new_streaming_tool_bound_to_supplied_client():
-    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+    from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
     client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_1_SCHNELL)
     bound_tool = builtin.make_image_tool(client)
@@ -164,7 +164,7 @@ def test_make_image_tool_returns_new_streaming_tool_bound_to_supplied_client():
 def test_make_image_tool_threads_preview_every_through(monkeypatch, tmp_path):
     """make_image_tool(preview_every=N) should pass N to client.generate(stream=True)."""
     from aimu.models.base import StreamChunk, StreamingContentType
-    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+    from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
     captured: dict = {}
 
@@ -186,7 +186,7 @@ def test_make_image_tool_threads_preview_every_through(monkeypatch, tmp_path):
 
 def test_make_image_tool_uses_its_client_not_singleton(monkeypatch, tmp_path):
     from aimu.models.base import StreamChunk, StreamingContentType
-    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+    from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
     # Singleton should remain untouched; the bound tool should call its own client.
     sentinel = "singleton-should-not-be-touched"
@@ -325,7 +325,7 @@ def test_make_tools_no_image_client_no_vision():
 
 def test_make_tools_with_image_client_replaces_generate_image():
     """When an image client is supplied, the default generate_image singleton is replaced."""
-    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+    from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
     client = _fake_vision_chat_client(supports_vision=False)
     image_client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_1_SCHNELL)
@@ -348,7 +348,7 @@ def test_make_tools_with_vision_client_appends_describe_image():
 
 def test_make_tools_with_both_applies_both_transformations():
     """Image client + vision client: generate_image replaced AND describe_image appended."""
-    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+    from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
     client = _fake_vision_chat_client(supports_vision=True)
     image_client = HuggingFaceImageClient(HuggingFaceImageModel.FLUX_1_SCHNELL)

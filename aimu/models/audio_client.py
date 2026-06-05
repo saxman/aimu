@@ -19,7 +19,7 @@ from .base import AudioModel, AudioSpec, BaseAudioClient
 # --- Optional provider imports ---
 
 try:
-    from .hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+    from .providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
     _HAS_HF_AUDIO = True
 except ImportError:

@@ -183,15 +183,24 @@ def resolve_model_params(config, default_params=None) -> list:
 
     Args:
         config:         pytest config object (from metafunc.config).
-        default_params: Params to use when --client=all. Pass ``["mock"]`` for
-                        files that want a mock by default; pass ``None`` to get
-                        the full cross-client model list (test_models.py).
+        default_params: Params to use when --client is omitted or 'all'. Pass
+                        ``["mock"]`` for files that want a mock by default; pass
+                        ``None`` for live files (test_models.py) that should skip
+                        when no client is selected and run the full cross-client
+                        matrix only when ``--client=all`` is explicit.
 
     Returns:
         List of model enum values or sentinel strings.
     """
-    client_type = config.getoption("--client", "all").lower()
+    client_option = config.getoption("--client", None)
     model = config.getoption("--model", "all")
+
+    # No --client selected: live files (default_params is None) skip; files that
+    # want a mock by default still get it. Matches the image/audio/speech suites.
+    if client_option is None:
+        return default_params if default_params is not None else []
+
+    client_type = client_option.lower()
 
     if client_type == "all":
         if default_params is not None:

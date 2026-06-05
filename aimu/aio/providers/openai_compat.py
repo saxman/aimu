@@ -1,15 +1,16 @@
-"""Async OpenAI-compatible clients.
+"""Async OpenAI-compatible clients: the base plus local-inference-server subclasses.
 
 One base ``AsyncOpenAICompatClient`` that uses ``openai.AsyncOpenAI``, plus thin
-subclasses for each service (OpenAI cloud, Gemini, LM Studio, Ollama-OpenAI, etc.)
-that supply the right base URL / API key. Mirrors ``aimu.models.openai_compat``.
+subclasses for each *local* server (LM Studio, Ollama-OpenAI, vLLM, HF-Serve,
+llama-server, SGLang) that supply the right base URL. Mirrors
+``aimu.models.providers.openai_compat``. The cloud-brand clients live in their own
+subpackages: ``aimu.aio.providers.openai`` and ``aimu.aio.providers.gemini``.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any, AsyncIterator, Optional, Union
 
 import openai
@@ -17,14 +18,14 @@ import openai
 from aimu.models._images import _build_user_content_blocks
 from aimu.models._thinking import _ThinkingParser, _split_thinking
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
-from aimu.models.openai_compat.gemini_client import GeminiModel
-from aimu.models.openai_compat.hf_openai_client import HFOpenAIModel
-from aimu.models.openai_compat.llamaserver_openai_client import LlamaServerOpenAIModel
-from aimu.models.openai_compat.lmstudio_openai_client import LMStudioOpenAIModel
-from aimu.models.openai_compat.ollama_openai_client import OllamaOpenAIModel
-from aimu.models.openai_compat.openai_client import OpenAIModel
-from aimu.models.openai_compat.sglang_openai_client import SGLangOpenAIModel
-from aimu.models.openai_compat.vllm_openai_client import VLLMOpenAIModel
+from aimu.models.providers.openai_compat import (
+    HFOpenAIModel,
+    LlamaServerOpenAIModel,
+    LMStudioOpenAIModel,
+    OllamaOpenAIModel,
+    SGLangOpenAIModel,
+    VLLMOpenAIModel,
+)
 
 from .._base import AsyncBaseModelClient
 
@@ -234,67 +235,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         self.messages.append({"role": "assistant", "content": full_content})
 
 
-# --- Service-specific subclasses ---
-
-
-class AsyncOpenAIClient(AsyncOpenAICompatClient):
-    """OpenAI cloud API."""
-
-    MODELS = OpenAIModel
-
-    def __init__(
-        self,
-        model: OpenAIModel,
-        base_url: str = "https://api.openai.com/v1",
-        api_key: Optional[str] = None,
-        system_message: Optional[str] = None,
-        model_kwargs: Optional[dict] = None,
-    ):
-        from dotenv import load_dotenv
-
-        load_dotenv()
-        super().__init__(
-            model=model,
-            base_url=base_url,
-            api_key=api_key or os.environ.get("OPENAI_API_KEY", "not-needed"),
-            system_message=system_message,
-            model_kwargs=model_kwargs,
-        )
-
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        kwargs = super()._update_generate_kwargs(generate_kwargs)
-        # o-series models: rename max_tokens, force temperature=1.
-        model_id = self.model.value
-        if any(model_id.startswith(prefix) for prefix in ("o1", "o3", "o4")):
-            if "max_tokens" in kwargs:
-                kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
-            kwargs["temperature"] = 1
-        return kwargs
-
-
-class AsyncGeminiClient(AsyncOpenAICompatClient):
-    """Google Gemini via OpenAI-compatible endpoint."""
-
-    MODELS = GeminiModel
-
-    def __init__(
-        self,
-        model: GeminiModel,
-        base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/",
-        api_key: Optional[str] = None,
-        system_message: Optional[str] = None,
-        model_kwargs: Optional[dict] = None,
-    ):
-        from dotenv import load_dotenv
-
-        load_dotenv()
-        super().__init__(
-            model=model,
-            base_url=base_url,
-            api_key=api_key or os.environ.get("GOOGLE_API_KEY", "not-needed"),
-            system_message=system_message,
-            model_kwargs=model_kwargs,
-        )
+# --- Local-server subclasses (cloud OpenAI / Gemini live in their own subpackages) ---
 
 
 class AsyncLMStudioOpenAIClient(AsyncOpenAICompatClient):

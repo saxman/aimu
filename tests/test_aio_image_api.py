@@ -21,10 +21,10 @@ import importlib  # noqa: E402
 import aimu.models  # noqa: E402
 
 if not aimu.models.HAS_HF_IMAGE:
-    aimu.models.hf_image = importlib.import_module("aimu.models.hf_image")
+    aimu.models.providers.hf.image = importlib.import_module("aimu.models.providers.hf.image")
     aimu.models.HAS_HF_IMAGE = True
-    aimu.models.HuggingFaceImageClient = aimu.models.hf_image.HuggingFaceImageClient
-    aimu.models.HuggingFaceImageModel = aimu.models.hf_image.HuggingFaceImageModel
+    aimu.models.HuggingFaceImageClient = aimu.models.providers.hf.image.HuggingFaceImageClient
+    aimu.models.HuggingFaceImageModel = aimu.models.providers.hf.image.HuggingFaceImageModel
 
 import aimu  # noqa: E402
 
@@ -38,8 +38,8 @@ import aimu.aio.image as _aio_image  # noqa: E402
 
 importlib.reload(_aio_image)
 
-from aimu.aio.providers.hf_image import AsyncHuggingFaceImageClient  # noqa: E402
-from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel  # noqa: E402
+from aimu.aio.providers.hf.image import AsyncHuggingFaceImageClient  # noqa: E402
+from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -143,8 +143,8 @@ def test_make_async_image_tool_wraps_sync_client():
 def test_aio_image_client_wraps_sync_gemini(monkeypatch):
     """aio.image_client should accept a sync GeminiImageClient and wrap it."""
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
-    from aimu.aio.providers.gemini_image import AsyncGeminiImageClient
-    from aimu.models.gemini_image import GeminiImageClient, GeminiImageModel
+    from aimu.aio.providers.gemini.image import AsyncGeminiImageClient
+    from aimu.models.providers.gemini.image import GeminiImageClient, GeminiImageModel
 
     sync = GeminiImageClient(GeminiImageModel.NANO_BANANA)
     async_client = _aio_image.image_client(sync)
@@ -154,7 +154,7 @@ def test_aio_image_client_wraps_sync_gemini(monkeypatch):
 
 def test_aio_image_client_refuses_gemini_enum(monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
-    from aimu.models.gemini_image import GeminiImageModel
+    from aimu.models.providers.gemini.image import GeminiImageModel
 
     with pytest.raises(ValueError, match=r"sync_client = aimu\.image_client"):
         _aio_image.image_client(GeminiImageModel.NANO_BANANA)

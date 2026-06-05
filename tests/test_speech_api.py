@@ -31,7 +31,7 @@ def _install_speech_stubs(monkeypatch=None, force=False):
     the wrong stub in ``sys.modules``. Pass ``force=True`` (from the autouse fixture below) to
     overwrite whatever is present; pass ``monkeypatch`` so the override is scoped to one test and
     restored afterwards (no cross-file pollution). Called once at import time with neither argument
-    purely so module-level ``from aimu.models.hf_speech import ...`` can import (it hard-imports
+    purely so module-level ``from aimu.models.providers.hf.speech import ...`` can import (it hard-imports
     ``soundfile``)."""
 
     def _set(name, mod):
@@ -215,7 +215,7 @@ def _install_speech_stubs(monkeypatch=None, force=False):
         _set("openai._client", _make_stub_module("openai._client"))
 
 
-# Permanent install so module-level ``from aimu.models.hf_speech import ...`` can import at
+# Permanent install so module-level ``from aimu.models.providers.hf.speech import ...`` can import at
 # collection time (hf_speech_client hard-imports soundfile).
 _install_speech_stubs()
 
@@ -404,7 +404,7 @@ import aimu.models  # noqa: E402
 def _register_hf_speech():
     if getattr(aimu.models, "HAS_HF_SPEECH", False):
         return
-    mod = importlib.import_module("aimu.models.hf_speech")
+    mod = importlib.import_module("aimu.models.providers.hf.speech")
     aimu.models.HAS_HF_SPEECH = True
     aimu.models.HuggingFaceSpeechClient = mod.HuggingFaceSpeechClient
     aimu.models.HuggingFaceSpeechModel = mod.HuggingFaceSpeechModel
@@ -412,7 +412,7 @@ def _register_hf_speech():
 
 _register_hf_speech()
 
-from aimu.models.hf_speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel  # noqa: E402
+from aimu.models.providers.hf.speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel  # noqa: E402
 
 
 def test_hf_speech_model_enum_values():
@@ -538,7 +538,7 @@ def _register_openai_speech():
     if getattr(aimu.models, "HAS_OPENAI_SPEECH", False):
         return
     # Piggyback on HAS_OPENAI_COMPAT — openai SDK already present
-    mod = importlib.import_module("aimu.models.openai_speech")
+    mod = importlib.import_module("aimu.models.providers.openai.speech")
     aimu.models.OpenAISpeechClient = mod.OpenAISpeechClient
     aimu.models.OpenAISpeechModel = mod.OpenAISpeechModel
     aimu.models.HAS_OPENAI_SPEECH = True
@@ -546,7 +546,7 @@ def _register_openai_speech():
 
 _register_openai_speech()
 
-from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel  # noqa: E402
+from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel  # noqa: E402
 
 
 def test_openai_speech_model_enum_values():

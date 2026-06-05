@@ -11,10 +11,11 @@ def pytest_addoption(parser):
     parser.addoption(
         "--client",
         action="store",
-        default="all",
+        default=None,
         help=(
             "Client type to test: 'ollama', 'hf'/'huggingface', "
-            "'openai', 'anthropic', 'gemini', or 'all' (default: all)"
+            "'openai', 'anthropic', 'gemini', or 'all'. Omitted (default) skips "
+            "live model tests; pass 'all' for the full cross-provider matrix."
         ),
     )
 

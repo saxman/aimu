@@ -176,7 +176,7 @@ def test_openai_blocks_to_anthropic_http_url():
 
 def test_anthropic_client_message_conversion_with_images():
     pytest.importorskip("anthropic")
-    from aimu.models.anthropic.anthropic_client import AnthropicClient
+    from aimu.models.providers.anthropic import AnthropicClient
 
     client = AnthropicClient.__new__(AnthropicClient)
     messages = [

@@ -285,21 +285,21 @@ The codebase uses an abstract base class pattern for model clients:
   - Usage: `ModelClient(OllamaModel.QWEN_3_8B)`, `ModelClient("anthropic:claude-sonnet-4-6")`, `ModelClient(LlamaCppModel.QWEN_3_8B, model_path="/path/to/model.gguf")`.
   - Exports a helper `resolve_model_string(s)` that performs the string lookup independently.
 
-- **Model Implementations**:
-  - [aimu/models/ollama/ollama_client.py](aimu/models/ollama/ollama_client.py): `OllamaClient` for local Ollama models (native API)
-  - [aimu/models/hf/hf_client.py](aimu/models/hf/hf_client.py): `HuggingFaceClient` for local Transformers models
-  - [aimu/models/anthropic/anthropic_client.py](aimu/models/anthropic/anthropic_client.py): `AnthropicClient` for Anthropic Claude models (native `anthropic` SDK)
-  - [aimu/models/openai_compat/](aimu/models/openai_compat/): All `openai`-SDK clients (require `openai_compat` extra):
+- **Model Implementations** (all concrete clients live under [aimu/models/providers/](aimu/models/providers/); see "Provider layout" below):
+  - [aimu/models/providers/ollama.py](aimu/models/providers/ollama.py): `OllamaClient` for local Ollama models (native API)
+  - [aimu/models/providers/hf/text.py](aimu/models/providers/hf/text.py): `HuggingFaceClient` for local Transformers models
+  - [aimu/models/providers/anthropic.py](aimu/models/providers/anthropic.py): `AnthropicClient` for Anthropic Claude models (native `anthropic` SDK)
+  - [aimu/models/providers/openai_compat.py](aimu/models/providers/openai_compat.py): the generic OpenAI-compatible base plus the **local-server** subclasses (require `openai_compat` extra):
     - `OpenAICompatClient`: generic base for any OpenAI-compatible server
-    - `OpenAIClient`: [OpenAI](https://platform.openai.com/) cloud API (GPT-4o, GPT-4.1, o-series); reads `OPENAI_API_KEY`
-    - `GeminiClient`: [Google Gemini](https://ai.google.dev/) via Google's OpenAI-compat endpoint; reads `GOOGLE_API_KEY`
     - `LMStudioOpenAIClient`: [LM Studio](https://lmstudio.ai/) (default: `localhost:1234`)
     - `OllamaOpenAIClient`: Ollama OpenAI-compat endpoint (default: `localhost:11434`)
     - `HFOpenAIClient`: HuggingFace Transformers Serve (default: `localhost:8000`)
     - `VLLMOpenAIClient`: vLLM (default: `localhost:8000`)
     - `LlamaServerOpenAIClient`: llama.cpp llama-server (default: `localhost:8080`)
     - `SGLangOpenAIClient`: SGLang (default: `localhost:30000`)
-  - [aimu/models/llamacpp/llamacpp_client.py](aimu/models/llamacpp/llamacpp_client.py): `LlamaCppClient` for local GGUF models via llama-cpp-python (requires `llamacpp` extra):
+  - [aimu/models/providers/openai/text.py](aimu/models/providers/openai/text.py): `OpenAIClient` — [OpenAI](https://platform.openai.com/) cloud API (GPT-4o, GPT-4.1, o-series); reads `OPENAI_API_KEY`. Subclasses `OpenAICompatClient`.
+  - [aimu/models/providers/gemini/text.py](aimu/models/providers/gemini/text.py): `GeminiClient` — [Google Gemini](https://ai.google.dev/) via Google's OpenAI-compat endpoint; reads `GOOGLE_API_KEY`. Subclasses `OpenAICompatClient`.
+  - [aimu/models/providers/llamacpp.py](aimu/models/providers/llamacpp.py): `LlamaCppClient` for local GGUF models via llama-cpp-python (requires `llamacpp` extra):
     - Loads GGUF files in-process; no external service required
     - Constructor takes `model_path` (GGUF file path) plus `n_ctx`, `n_gpu_layers`, `chat_format`, `verbose`
     - GPU offloading via `n_gpu_layers=-1` (all layers); `n_gpu_layers=0` for CPU-only
@@ -712,7 +712,7 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
   - `format="path"` → save to `output_dir or paths.output/"images"`, filename `{YYYYMMDD-HHMMSS}-{sha1(prompt+ts)[:8]}.png`; mkdir parents on demand.
   - Unknown format raises `ValueError`.
 
-- **[aimu/models/hf_image/hf_image_client.py](aimu/models/hf_image/hf_image_client.py)**: `HuggingFaceImageClient` + `HuggingFaceImageModel` enum.
+- **[aimu/models/providers/hf/image.py](aimu/models/providers/hf/image.py)**: `HuggingFaceImageClient` + `HuggingFaceImageModel` enum.
   - `HuggingFaceImageModel` catalog: `SD_1_5`, `SDXL_BASE`, `SD_3_5_MEDIUM`, `FLUX_1_DEV`, `FLUX_1_SCHNELL`, `FLUX_2_KLEIN_4B`, `FLUX_2_KLEIN_9B`. Each member's value is a `HuggingFaceImageSpec`. The two Klein models use `Flux2KleinPipeline` (diffusers 0.37+), which is a unified pipeline: the same class handles txt2img (`image=None`) and img2img (`image=<PIL>`). Klein sets `img2img_uses_strength=False` because it conditions on the reference image directly rather than blending via a noise `strength` scalar.
   - `HuggingFaceImageClient(model, model_kwargs=None)` accepts a `HuggingFaceImageModel` member, a `HuggingFaceImageSpec`, or a `"hf:<repo_id>"` string (for ad-hoc HF models not in the enum; defaults to `DiffusionPipeline` auto-detect loader).
   - Lazy pipeline load on first `generate()` call: `pipeline_cls = getattr(diffusers, spec.pipeline_class); self._pipe = pipeline_cls.from_pretrained(spec.id, **kwargs)`. Placement is **memory-aware and automatic** via `_hf_device.auto_place_pipeline()`: it measures the loaded pipeline's size and each GPU's *free* memory (`torch.cuda.mem_get_info`, so other processes like a local LLM server are accounted for), then picks the cheapest fit — pin to the freest GPU → `enable_model_cpu_offload` (largest component fits) → `enable_sequential_cpu_offload` (always fits). Falls back to CUDA/MPS/CPU with no CUDA or missing `accelerate` (offload needs it). Override with `model_kwargs={"device": "cuda:1"}` (pin) or `model_kwargs={"device_map": ...}` (hand to diffusers/accelerate). `torch_dtype` also defaults per-device via `_hf_device.default_torch_dtype()` (bf16 on CUDA, fp16 on MPS, fp32 on CPU) unless the caller sets it — avoids `"auto"` silently resolving to fp32 (which doubles VRAM).
@@ -741,7 +741,7 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
   - **[aimu/aio/tools/builtin.py](aimu/aio/tools/builtin.py)**: async `@tool async def generate_image(prompt: str) -> str` using its own lazy `AsyncHuggingFaceImageClient` singleton; `make_async_image_tool(client)` accepts either a sync `HuggingFaceImageClient` or an existing `AsyncHuggingFaceImageClient`. Re-exports the rest of `aimu.tools.builtin` so async agents get a complete namespace.
 
 - **Cloud image provider — Google Nano Banana (`gemini-2.5-flash-image`)**:
-  - **[aimu/models/gemini_image/gemini_image_client.py](aimu/models/gemini_image/gemini_image_client.py)**: `GeminiImageClient` + `GeminiImageModel` enum (`NANO_BANANA`, `NANO_BANANA_PREVIEW`). Lives in the same package as `HuggingFaceImageClient` because the surface (`aimu.image_client()` / `aimu.generate_image()`) is shared.
+  - **[aimu/models/providers/gemini/image.py](aimu/models/providers/gemini/image.py)**: `GeminiImageClient` + `GeminiImageModel` enum (`NANO_BANANA`, `NANO_BANANA_PREVIEW`). Sits next to the Gemini text client in `aimu/models/providers/gemini/`; both share the `aimu.image_client()` / `aimu.generate_image()` (image) and `aimu.client()` (text) surfaces.
   - **[aimu/models/base.py](aimu/models/base.py)**: `GeminiImageSpec` sits next to `HuggingFaceImageSpec`. Disjoint fields — cloud API has no `pipeline_class`, `default_steps`, or `default_guidance`. Carries `id`, `default_aspect_ratio`, `default_image_size`, `image_config_kwargs`. Hashed and equal by `id` only.
   - Uses `google.genai.Client().models.generate_content(model=..., contents=..., config=GenerateContentConfig(response_modalities=[Modality.IMAGE], image_config=ImageConfig(...)))`. Without a reference image, `contents=[prompt]` (bare string). With `reference_image`, `contents` becomes a `genai_types.Content` with two parts (text + `inlineData` PNG blob), enabling image editing. The response's first inline-data part is decoded to a PIL image; `encode_image()` handles the format conversion (`pil`/`bytes`/`path`/`data_url`) — same helper diffusers uses, no duplication.
   - Auth: reads `GOOGLE_API_KEY` from env (or `.env` via `python-dotenv`), or accepts `api_key=` in `model_kwargs`. Raises `RuntimeError` with a clear hint if neither is set.
@@ -776,7 +776,7 @@ Key files and their roles:
   - `"data_url"` → `data:audio/wav;base64,...`.
   - `"path"` → saves WAV to `paths.output/"audio"/{timestamp}-{hash}.wav`, returns path string.
 
-- **[aimu/models/hf_audio/hf_audio_client.py](aimu/models/hf_audio/hf_audio_client.py)** — `HuggingFaceAudioClient` + `HuggingFaceAudioModel` enum:
+- **[aimu/models/providers/hf/audio.py](aimu/models/providers/hf/audio.py)** — `HuggingFaceAudioClient` + `HuggingFaceAudioModel` enum:
   - Lazy pipeline load (same pattern as `HuggingFaceImageClient`). Auto-detects CUDA/MPS via the shared `_hf_device.py` helpers; `model_kwargs={"device": "cuda:1"}` targets a specific GPU. No sharding default — audio models are small enough for one card.
   - Constructor accepts `HuggingFaceAudioModel` member, `HuggingFaceAudioSpec`, or `"hf:<repo_id>"` string (pipeline type inferred from known repo prefixes, defaulting to `"musicgen"`).
   - Three loader methods dispatched by `spec.pipeline_type`: `_load_musicgen()` (transformers `AutoProcessor` + `MusicgenForConditionalGeneration`), `_load_audioldm2()` (diffusers `AudioLDM2Pipeline`), `_load_stable_audio()` (diffusers `StableAudioPipeline`).
@@ -825,7 +825,7 @@ Key files and their roles:
   - `SpeechModel(Enum)` base — `__init__` sets `_value_ = spec.id` and stores `self.spec`.
   - `BaseSpeechClient(ABC)`: concrete `generate(text, *, voice, speed, num_audio, format, output_dir, stream)` validates args, resolves voice/speed from spec defaults, delegates to abstract `_generate()`, encodes output via `encode_audio()`.
 
-- **[aimu/models/hf_speech/hf_speech_client.py](aimu/models/hf_speech/hf_speech_client.py)** — `HuggingFaceSpeechClient` + `HuggingFaceSpeechModel` enum:
+- **[aimu/models/providers/hf/speech.py](aimu/models/providers/hf/speech.py)** — `HuggingFaceSpeechClient` + `HuggingFaceSpeechModel` enum:
   - `HuggingFaceSpeechModel` members: `MMS_TTS_ENG` (`facebook/mms-tts-eng`, `tts_pipeline`), `SPEECHT5` (`microsoft/speecht5_tts`, `speecht5`), `BARK` (`suno/bark`, `bark`).
   - Lazy pipeline load on first `generate()` call; auto-moves to CUDA/MPS via the shared `_hf_device.py` helpers. `model_kwargs={"device": "cuda:1"}` targets a specific GPU (no sharding default — TTS models are small). The SpeechT5/BARK loaders move to the accelerator by default; the MMS-TTS `pipeline` stays on CPU unless a `device` hint is given.
   - Constructor accepts `HuggingFaceSpeechModel` member, `HuggingFaceSpeechSpec`, or `"hf:<repo_id>"` string (pipeline type inferred from known repo prefixes).
@@ -833,7 +833,7 @@ Key files and their roles:
   - SpeechT5 voice selection: `voice=None` uses the pre-loaded default embedding (CMU Arctic index 7306); `voice="N"` loads index N from the xvectors dataset (cached on the client after first lookup). Sample rate: 16 kHz.
   - `import soundfile` is a hard module-load import so `HAS_HF_SPEECH` accurately reflects installed state.
 
-- **[aimu/models/openai_speech/openai_speech_client.py](aimu/models/openai_speech/openai_speech_client.py)** — `OpenAISpeechClient` + `OpenAISpeechModel` enum:
+- **[aimu/models/providers/openai/speech.py](aimu/models/providers/openai/speech.py)** — `OpenAISpeechClient` + `OpenAISpeechModel` enum:
   - `OpenAISpeechModel` members: `TTS_1` (`tts-1`), `TTS_1_HD` (`tts-1-hd`).
   - Auth via `OPENAI_API_KEY` env var. Uses `openai.audio.speech.create()` with `response_format="pcm"` (raw 24 kHz 16-bit PCM), decoded to `float32` via `np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0`.
   - Streaming via `client.audio.with_streaming_response.speech.create(...)` — yields HTTP byte chunks as `SPEECH_GENERATING` progress chunks with `total_chunks=None`.
@@ -866,9 +866,9 @@ Key files and their roles:
 
 ### Cloud Provider Client Notes
 
-- **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/openai_compat/openai_client.py](aimu/models/openai_compat/openai_client.py).
+- **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/providers/openai/text.py](aimu/models/providers/openai/text.py).
 - **`AnthropicClient`** (`aimu[anthropic]`): full implementation using the native `anthropic` SDK; reads `ANTHROPIC_API_KEY`. `self.messages` is always stored in OpenAI format; conversion to Anthropic format (`_openai_messages_to_anthropic`) and tool format conversion (`_openai_tools_to_anthropic`) happen at call time. After `_handle_tool_calls()` assigns random IDs, `_patch_tool_ids()` replaces them with Anthropic's original `tool_use` block IDs so that tool results are correctly matched. Thinking is native (`thinking={"type": "enabled", "budget_tokens": N}`), not `<think>` tag parsing.
-- **`GeminiClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://generativelanguage.googleapis.com/v1beta/openai/`; reads `GOOGLE_API_KEY`. Gemini 2.5 thinking models emit `<think>` tags on this endpoint, so `_ThinkingParser` works as-is. Lives in [aimu/models/openai_compat/gemini_client.py](aimu/models/openai_compat/gemini_client.py).
+- **`GeminiClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://generativelanguage.googleapis.com/v1beta/openai/`; reads `GOOGLE_API_KEY`. Gemini 2.5 thinking models emit `<think>` tags on this endpoint, so `_ThinkingParser` works as-is. Lives in [aimu/models/providers/gemini/text.py](aimu/models/providers/gemini/text.py).
 - Test with `pytest tests/test_models.py --client=openai` (or `anthropic`, `gemini`)
 
 ## Project Structure
@@ -885,17 +885,22 @@ aimu/
 │   ├── skill_agent.py   # async SkillAgent
 │   ├── agentic_client.py # internal _AsyncAgenticView for Agent.as_model_client()
 │   ├── orchestrator_agent.py # async OrchestratorAgent + assemble()
-│   ├── providers/       # Async provider clients
+│   ├── providers/       # Async provider clients (mirrors aimu/models/providers/)
 │   │   ├── anthropic.py      # AsyncAnthropicClient (anthropic.AsyncAnthropic)
-│   │   ├── openai_compat.py  # AsyncOpenAICompatClient + service-specific subclasses
+│   │   ├── openai_compat.py  # AsyncOpenAICompatClient base + local-server subclasses
 │   │   ├── ollama.py         # AsyncOllamaClient (ollama.AsyncClient)
-│   │   ├── hf.py             # AsyncHuggingFaceClient (wraps sync HuggingFaceClient — Decision 7)
 │   │   ├── llamacpp.py       # AsyncLlamaCppClient (wraps sync LlamaCppClient — Decision 7)
-│   │   ├── hf_image.py       # AsyncHuggingFaceImageClient (wraps sync HuggingFaceImageClient)
-│   │   ├── gemini_image.py   # AsyncGeminiImageClient (wraps sync GeminiImageClient)
-│   │   ├── hf_audio.py       # AsyncHuggingFaceAudioClient (wraps sync HuggingFaceAudioClient)
-│   │   ├── hf_speech.py      # AsyncHuggingFaceSpeechClient (wraps sync HuggingFaceSpeechClient)
-│   │   └── openai_speech.py  # AsyncOpenAISpeechClient (wraps sync OpenAISpeechClient)
+│   │   ├── hf/               # HuggingFace async clients (wrap sync — Decision 7)
+│   │   │   ├── text.py           # AsyncHuggingFaceClient
+│   │   │   ├── image.py          # AsyncHuggingFaceImageClient
+│   │   │   ├── audio.py          # AsyncHuggingFaceAudioClient
+│   │   │   └── speech.py         # AsyncHuggingFaceSpeechClient
+│   │   ├── openai/           # OpenAI cloud async clients
+│   │   │   ├── text.py           # AsyncOpenAIClient (subclasses AsyncOpenAICompatClient)
+│   │   │   └── speech.py         # AsyncOpenAISpeechClient (wraps sync OpenAISpeechClient)
+│   │   └── gemini/          # Google Gemini async clients
+│   │       ├── text.py           # AsyncGeminiClient (subclasses AsyncOpenAICompatClient)
+│   │       └── image.py          # AsyncGeminiImageClient (wraps sync GeminiImageClient)
 │   ├── image.py         # AsyncImageClient factory + aio.image_client() / aio.generate_image()
 │   ├── audio.py         # AsyncAudioClient factory + aio.audio_client() / aio.generate_audio()
 │   ├── speech.py        # AsyncSpeechClient factory + aio.speech_client() / aio.generate_speech()
@@ -908,45 +913,43 @@ aimu/
 │       ├── evaluator.py
 │       └── plan_execute_evaluator.py
 ├── models/              # Model client implementations
-│   ├── base.py          # Abstract bases — text: BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType; image: BaseImageClient, ImageModel, ImageSpec (+ HuggingFaceImageSpec, GeminiImageSpec); audio: BaseAudioClient, AudioModel, AudioSpec (+ HuggingFaceAudioSpec); speech: BaseSpeechClient, SpeechModel, SpeechSpec (+ HuggingFaceSpeechSpec, OpenAISpeechSpec)
+│   ├── base.py          # Re-export hub for the per-modality base types (back-compat import location)
+│   ├── _base/           # Per-modality base types, split out of base.py
+│   │   ├── shared.py        # StreamChunk, StreamingContentType, classproperty (cross-modality)
+│   │   ├── text.py          # ModelSpec, Model, BaseModelClient
+│   │   ├── image.py         # ImageSpec (+ HuggingFaceImageSpec, GeminiImageSpec), ImageModel, BaseImageClient
+│   │   ├── audio.py         # AudioSpec (+ HuggingFaceAudioSpec), AudioModel, BaseAudioClient
+│   │   └── speech.py        # SpeechSpec (+ HuggingFaceSpeechSpec, OpenAISpeechSpec), SpeechModel, BaseSpeechClient
 │   ├── model_client.py  # ModelClient factory/wrapper + resolve_model_string
+│   ├── image_client.py  # ImageClient factory + resolve_image_model_string
+│   ├── audio_client.py  # AudioClient factory + resolve_audio_model_string
+│   ├── speech_client.py # SpeechClient factory + resolve_speech_model_string
 │   ├── _chat_state.py   # _ChatStateMixin — system_message/reset/append shared by sync and async base classes
 │   ├── _streaming.py    # resolve_include, filter_chunks, afilter_chunks — shared stream helpers
 │   ├── _json.py         # parse_json_response, generate_json, extract_tool_calls — model output utilities
 │   ├── _defaults.py     # Default-model resolution when model= omitted (AIMU_LANGUAGE_MODEL + local Ollama/HF-cache/OpenAI-compat probes; modality env-var resolver)
 │   ├── _thinking.py     # Shared thinking utilities (_split_thinking, _ThinkingParser)
 │   ├── _images.py       # Shared vision utilities (_normalize_image, per-provider adapters)
-│   ├── _hf_device.py    # Shared GPU-placement helpers for in-process HF clients: device hint, cuda/mps fallback, memory-aware auto_place_pipeline() (free-VRAM-driven pin/offload)
-│   ├── ollama/          # Ollama client (OllamaClient, OllamaModel)
-│   ├── hf/              # Hugging Face client (HuggingFaceClient, HuggingFaceModel, ToolCallFormat)
-│   ├── anthropic/       # Anthropic Claude client (AnthropicClient, AnthropicModel)
-│   ├── openai_compat/   # OpenAI-compatible clients (requires openai package)
-│   │   ├── openai_compat_client.py      # OpenAICompatClient base
-│   │   ├── lmstudio_openai_client.py    # LMStudioOpenAIClient + LMStudioOpenAIModel
-│   │   ├── ollama_openai_client.py      # OllamaOpenAIClient + OllamaOpenAIModel
-│   │   ├── hf_openai_client.py          # HFOpenAIClient + HFOpenAIModel
-│   │   ├── vllm_openai_client.py        # VLLMOpenAIClient + VLLMOpenAIModel
-│   │   ├── openai_client.py             # OpenAIClient + OpenAIModel (OpenAI GPT/o-series)
-│   │   ├── gemini_client.py             # GeminiClient + GeminiModel (Google Gemini)
-│   │   ├── llamaserver_openai_client.py # LlamaServerOpenAIClient + LlamaServerOpenAIModel
-│   │   └── sglang_openai_client.py      # SGLangOpenAIClient + SGLangOpenAIModel
-│   ├── llamacpp/        # llama-cpp-python client (requires llamacpp package)
-│   │   └── llamacpp_client.py        # LlamaCppClient + LlamaCppModel
-│   ├── image_client.py  # ImageClient factory + resolve_image_model_string
 │   ├── _image_output.py # encode_image() — shared image-output format conversion
-│   ├── hf_image/        # HuggingFace diffusers text-to-image (requires image extra)
-│   │   └── hf_image_client.py        # HuggingFaceImageClient + HuggingFaceImageModel
-│   ├── gemini_image/    # Google Gemini image (Nano Banana; requires image extra)
-│   │   └── gemini_image_client.py    # GeminiImageClient + GeminiImageModel
-│   ├── audio_client.py  # AudioClient factory + resolve_audio_model_string
 │   ├── _audio_output.py # encode_audio() — shared audio-output format conversion (WAV via soundfile); reused by speech
-│   ├── hf_audio/        # HuggingFace audio generation (MusicGen/AudioLDM2/StableAudio; requires hf extra)
-│   │   └── hf_audio_client.py        # HuggingFaceAudioClient + HuggingFaceAudioModel
-│   ├── speech_client.py # SpeechClient factory + resolve_speech_model_string
-│   ├── hf_speech/       # HuggingFace TTS (MMS-TTS, BARK; requires hf extra)
-│   │   └── hf_speech_client.py       # HuggingFaceSpeechClient + HuggingFaceSpeechModel
-│   └── openai_speech/   # OpenAI TTS (tts-1, tts-1-hd; requires openai_compat extra)
-│       └── openai_speech_client.py   # OpenAISpeechClient + OpenAISpeechModel
+│   ├── _hf_device.py    # Shared GPU-placement helpers for in-process HF clients: device hint, cuda/mps fallback, memory-aware auto_place_pipeline() (free-VRAM-driven pin/offload)
+│   └── providers/       # Concrete provider clients, one module per provider
+│       ├── anthropic.py     # AnthropicClient + AnthropicModel
+│       ├── ollama.py        # OllamaClient + OllamaModel (native API)
+│       ├── llamacpp.py      # LlamaCppClient + LlamaCppModel (requires llamacpp extra)
+│       ├── openai_compat.py # OpenAICompatClient base + local-server subclasses
+│       │                    #   (LMStudio/OllamaOpenAI/HFOpenAI/VLLM/LlamaServer/SGLang) (requires openai package)
+│       ├── hf/              # HuggingFace in-process clients, by modality
+│       │   ├── text.py          # HuggingFaceClient, HuggingFaceModel, ToolCallFormat
+│       │   ├── image.py         # HuggingFaceImageClient + HuggingFaceImageModel (image extra)
+│       │   ├── audio.py         # HuggingFaceAudioClient + HuggingFaceAudioModel (MusicGen/AudioLDM2/StableAudio; hf extra)
+│       │   └── speech.py        # HuggingFaceSpeechClient + HuggingFaceSpeechModel (MMS-TTS, BARK; hf extra)
+│       ├── openai/          # OpenAI cloud clients
+│       │   ├── text.py          # OpenAIClient + OpenAIModel (GPT/o-series; subclasses OpenAICompatClient)
+│       │   └── speech.py        # OpenAISpeechClient + OpenAISpeechModel (tts-1, tts-1-hd; openai_compat extra)
+│       └── gemini/          # Google Gemini clients
+│           ├── text.py          # GeminiClient + GeminiModel (subclasses OpenAICompatClient)
+│           └── image.py         # GeminiImageClient + GeminiImageModel (Nano Banana; image extra)
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
 │   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
 │   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech subgroups (incl. lazy generate_image, generate_audio, generate_speech) + make_memory_tools() factory

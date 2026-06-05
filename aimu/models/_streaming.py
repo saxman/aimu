@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import AsyncIterator, Iterable, Iterator, Union
 
-from .base import StreamChunk, StreamingContentType
+from ._base.shared import StreamChunk, StreamingContentType
 
 
 def resolve_include(include: Iterable[Union[str, StreamingContentType]]) -> set[StreamingContentType]:

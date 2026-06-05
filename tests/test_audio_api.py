@@ -27,7 +27,7 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
-# Stubs — must be installed before aimu.models.hf_audio is imported
+# Stubs — must be installed before aimu.models.providers.hf.audio is imported
 # ---------------------------------------------------------------------------
 
 
@@ -238,11 +238,11 @@ import aimu.models  # noqa: E402
 # HAS_HF_AUDIO / HuggingFaceAudioClient references that were captured as False/None
 # when other test files imported aimu.models earlier (before our stubs were installed).
 if not aimu.models.HAS_HF_AUDIO:
-    _hf_audio_mod = importlib.import_module("aimu.models.hf_audio")
+    _hf_audio_mod = importlib.import_module("aimu.models.providers.hf.audio")
     aimu.models.HAS_HF_AUDIO = True
     aimu.models.HuggingFaceAudioClient = _hf_audio_mod.HuggingFaceAudioClient
     aimu.models.HuggingFaceAudioModel = _hf_audio_mod.HuggingFaceAudioModel
-    aimu.models.hf_audio = _hf_audio_mod
+    aimu.models.providers.hf.audio = _hf_audio_mod
 
 # Patch the audio_client module's own _HAS_HF_AUDIO flag (set at its import time).
 # This is necessary when aimu.models was imported before our stubs were ready.

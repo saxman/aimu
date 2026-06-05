@@ -591,7 +591,7 @@ def test_extract_tool_calls_missing_result_returns_empty_string():
 
 
 def test_hf_client_cache_key_includes_model_kwargs():
-    from aimu.models.hf.hf_client import _make_cache_key
+    from aimu.models.providers.hf.text import _make_cache_key
 
     k1 = _make_cache_key("model/id", {"device_map": "auto"})
     k2 = _make_cache_key("model/id", {"device_map": "cuda:0"})
@@ -599,7 +599,7 @@ def test_hf_client_cache_key_includes_model_kwargs():
 
 
 def test_hf_client_cache_key_same_kwargs_same_key():
-    from aimu.models.hf.hf_client import _make_cache_key
+    from aimu.models.providers.hf.text import _make_cache_key
 
     k1 = _make_cache_key("model/id", {"device_map": "auto", "torch_dtype": "auto"})
     k2 = _make_cache_key("model/id", {"torch_dtype": "auto", "device_map": "auto"})
@@ -607,7 +607,7 @@ def test_hf_client_cache_key_same_kwargs_same_key():
 
 
 def test_hf_image_cache_key_includes_pipeline_class():
-    from aimu.models.hf_image.hf_image_client import _make_cache_key
+    from aimu.models.providers.hf.image import _make_cache_key
 
     k1 = _make_cache_key("repo/id", "FluxPipeline", {})
     k2 = _make_cache_key("repo/id", "DiffusionPipeline", {})
@@ -616,7 +616,7 @@ def test_hf_image_cache_key_includes_pipeline_class():
 
 def test_clear_hf_cache_clears_registry():
     import aimu
-    from aimu.models.hf.hf_client import _model_registry, _registry_lock
+    from aimu.models.providers.hf.text import _model_registry, _registry_lock
 
     fake_key = ("fake-model-id",)
     with _registry_lock:
@@ -630,7 +630,7 @@ def test_clear_hf_cache_clears_registry():
 
 def test_clear_llamacpp_cache_clears_registry():
     import aimu
-    from aimu.models.llamacpp.llamacpp_client import _model_registry, _registry_lock
+    from aimu.models.providers.llamacpp import _model_registry, _registry_lock
 
     fake_key = ("/path/to/model.gguf", 4096, -1, "None")
     with _registry_lock:

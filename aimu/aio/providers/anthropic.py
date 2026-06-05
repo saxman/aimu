@@ -1,6 +1,6 @@
 """Async Anthropic client.
 
-Mirrors ``aimu.models.anthropic.anthropic_client.AnthropicClient`` using
+Mirrors ``aimu.models.providers.anthropic.AnthropicClient`` using
 ``anthropic.AsyncAnthropic``. Reuses the sync client's pure format adapters
 (message/tool/id conversion) via composition — they don't touch I/O.
 """
@@ -16,8 +16,8 @@ from typing import Any, AsyncIterator, Optional, Union
 import anthropic
 from dotenv import load_dotenv
 
-from aimu.models.anthropic.anthropic_client import AnthropicClient as _SyncAnthropicClient
-from aimu.models.anthropic.anthropic_client import AnthropicModel
+from aimu.models.providers.anthropic import AnthropicClient as _SyncAnthropicClient
+from aimu.models.providers.anthropic import AnthropicModel
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 
 from .._base import AsyncBaseModelClient

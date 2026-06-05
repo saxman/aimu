@@ -9,7 +9,7 @@ import ollama
 
 from aimu.models._images import _adapt_messages_for_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
-from aimu.models.ollama.ollama_client import OllamaClient, OllamaModel
+from aimu.models.providers.ollama import OllamaClient, OllamaModel
 
 from .._base import AsyncBaseModelClient
 

@@ -315,10 +315,10 @@ def clear_hf_cache(model: Any = None) -> None:
     import importlib
 
     suffixes = [
-        "models.hf.hf_client",
-        "models.hf_image.hf_image_client",
-        "models.hf_audio.hf_audio_client",
-        "models.hf_speech.hf_speech_client",
+        "models.providers.hf.text",
+        "models.providers.hf.image",
+        "models.providers.hf.audio",
+        "models.providers.hf.speech",
     ]
     for suffix in suffixes:
         try:
@@ -353,14 +353,14 @@ def clear_llamacpp_cache(model: Any = None) -> None:
     instances with the same ``model_path`` and construction parameters don't
     load the GGUF file twice. Call this to free the cached Llama instance.
 
-    If *model* is provided (a :class:`~aimu.models.llamacpp.LlamaCppModel`
+    If *model* is provided (a :class:`~aimu.models.providers.llamacpp.LlamaCppModel`
     member or path string), only that entry is cleared.
     """
     import gc
     import importlib
 
     try:
-        mod = importlib.import_module("aimu.models.llamacpp.llamacpp_client")
+        mod = importlib.import_module("aimu.models.providers.llamacpp")
         registry = mod._model_registry
         lock = mod._registry_lock
         with lock:

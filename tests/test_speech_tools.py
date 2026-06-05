@@ -70,7 +70,7 @@ def test_lazy_singleton_constructed_once(monkeypatch):
         import os
 
         constructed.append(model or os.environ.get("AIMU_SPEECH_MODEL"))
-        from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel
+        from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
         return OpenAISpeechClient(OpenAISpeechModel.TTS_1)
 
@@ -104,7 +104,7 @@ def test_singleton_raises_when_env_unset(monkeypatch):
 
 def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
     from aimu.models.base import StreamChunk, StreamingContentType
-    from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel
+    from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
     final_path = str(tmp_path / "fake.wav")
 
@@ -144,7 +144,7 @@ def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
 
 
 def test_make_speech_tool_returns_new_streaming_tool():
-    from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel
+    from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
     client = OpenAISpeechClient(OpenAISpeechModel.TTS_1)
     bound_tool = builtin.make_speech_tool(client)
@@ -156,7 +156,7 @@ def test_make_speech_tool_returns_new_streaming_tool():
 
 def test_make_speech_tool_uses_its_client_not_singleton(monkeypatch, tmp_path):
     from aimu.models.base import StreamChunk, StreamingContentType
-    from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel
+    from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
     monkeypatch.setattr(builtin, "_speech_client", "singleton-sentinel")
 
@@ -177,7 +177,7 @@ def test_make_speech_tool_uses_its_client_not_singleton(monkeypatch, tmp_path):
 
 def test_make_speech_tool_threads_voice_and_speed(monkeypatch, tmp_path):
     from aimu.models.base import StreamChunk, StreamingContentType
-    from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel
+    from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
     received = {}
     final_path = str(tmp_path / "voice.wav")
@@ -213,7 +213,7 @@ def _fake_base_client(supports_vision=False):
 
 
 def test_make_tools_with_speech_client_replaces_generate_speech():
-    from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel
+    from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
     base_client = _fake_base_client()
     speech_client = OpenAISpeechClient(OpenAISpeechModel.TTS_1)

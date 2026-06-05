@@ -52,7 +52,7 @@ def _provider_kwargs(client: BaseAudioClient) -> dict:
     MusicGen: 3s is enough for a smoke test (default is 10s).
     AudioLDM2 / Stable Audio: reduce inference steps to 10.
     """
-    from aimu.models.hf_audio import HuggingFaceAudioClient
+    from aimu.models.providers.hf.audio import HuggingFaceAudioClient
 
     if not isinstance(client, HuggingFaceAudioClient):
         return {}
@@ -131,7 +131,7 @@ def test_generate_num_audio_returns_list(audio_client):
 
 def test_musicgen_seed_reproducible(audio_client):
     """Same seed → similar output length. MusicGen only."""
-    from aimu.models.hf_audio import HuggingFaceAudioClient
+    from aimu.models.providers.hf.audio import HuggingFaceAudioClient
 
     if not isinstance(audio_client, HuggingFaceAudioClient):
         pytest.skip("Seed test only applies to HuggingFace audio")
@@ -148,7 +148,7 @@ def test_musicgen_seed_reproducible(audio_client):
 
 def test_diffusers_num_inference_steps(audio_client):
     """num_inference_steps parameter accepted by AudioLDM2 / Stable Audio."""
-    from aimu.models.hf_audio import HuggingFaceAudioClient
+    from aimu.models.providers.hf.audio import HuggingFaceAudioClient
 
     if not isinstance(audio_client, HuggingFaceAudioClient):
         pytest.skip("num_inference_steps only applies to HuggingFace audio")

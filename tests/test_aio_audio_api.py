@@ -22,10 +22,10 @@ import importlib  # noqa: E402
 import aimu.models  # noqa: E402
 
 if not aimu.models.HAS_HF_AUDIO:
-    aimu.models.hf_audio = importlib.import_module("aimu.models.hf_audio")
+    aimu.models.providers.hf.audio = importlib.import_module("aimu.models.providers.hf.audio")
     aimu.models.HAS_HF_AUDIO = True
-    aimu.models.HuggingFaceAudioClient = aimu.models.hf_audio.HuggingFaceAudioClient
-    aimu.models.HuggingFaceAudioModel = aimu.models.hf_audio.HuggingFaceAudioModel
+    aimu.models.HuggingFaceAudioClient = aimu.models.providers.hf.audio.HuggingFaceAudioClient
+    aimu.models.HuggingFaceAudioModel = aimu.models.providers.hf.audio.HuggingFaceAudioModel
 
 import aimu  # noqa: E402
 
@@ -39,8 +39,8 @@ import aimu.aio.audio as _aio_audio  # noqa: E402
 
 importlib.reload(_aio_audio)
 
-from aimu.aio.providers.hf_audio import AsyncHuggingFaceAudioClient  # noqa: E402
-from aimu.models.hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel  # noqa: E402
+from aimu.aio.providers.hf.audio import AsyncHuggingFaceAudioClient  # noqa: E402
+from aimu.models.providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ import asyncio
 from typing import Any, AsyncIterator, Optional, Union
 
 from aimu.models.base import Model, StreamChunk, classproperty
-from aimu.models.llamacpp.llamacpp_client import LlamaCppClient, LlamaCppModel
+from aimu.models.providers.llamacpp import LlamaCppClient, LlamaCppModel
 
 from .._base import AsyncBaseModelClient
 

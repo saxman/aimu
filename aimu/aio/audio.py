@@ -18,9 +18,9 @@ from typing import Any, Optional
 
 try:
     from aimu.models.base import AudioModel, AudioSpec, HuggingFaceAudioSpec
-    from aimu.models.hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+    from aimu.models.providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
-    from .providers.hf_audio import AsyncHuggingFaceAudioClient
+    from .providers.hf.audio import AsyncHuggingFaceAudioClient
 
     _HAS_HF_AUDIO = True
 except ImportError:

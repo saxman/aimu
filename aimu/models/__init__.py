@@ -28,7 +28,7 @@ from .speech_client import SpeechClient, resolve_speech_model_string
 
 # Optional imports with graceful fallbacks
 try:
-    from .hf import HuggingFaceClient, HuggingFaceModel, ToolCallFormat
+    from .providers.hf.text import HuggingFaceClient, HuggingFaceModel, ToolCallFormat
 
     HAS_HF = True
 except Exception:
@@ -38,7 +38,7 @@ except Exception:
     ToolCallFormat = None
 
 try:
-    from .ollama import OllamaClient, OllamaModel
+    from .providers.ollama import OllamaClient, OllamaModel
 
     HAS_OLLAMA = True
 except Exception:
@@ -47,7 +47,7 @@ except Exception:
     OllamaModel = None
 
 try:
-    from .anthropic import AnthropicClient, AnthropicModel
+    from .providers.anthropic import AnthropicClient, AnthropicModel
 
     HAS_ANTHROPIC = True
 except Exception:
@@ -56,24 +56,22 @@ except Exception:
     AnthropicModel = None
 
 try:
-    from .openai_compat import (
-        OpenAICompatClient,
-        OpenAIClient,
-        OpenAIModel,
-        GeminiClient,
-        GeminiModel,
+    from .providers.gemini.text import GeminiClient, GeminiModel
+    from .providers.openai.text import OpenAIClient, OpenAIModel
+    from .providers.openai_compat import (
+        HFOpenAIClient,
+        HFOpenAIModel,
+        LlamaServerOpenAIClient,
+        LlamaServerOpenAIModel,
         LMStudioOpenAIClient,
         LMStudioOpenAIModel,
         OllamaOpenAIClient,
         OllamaOpenAIModel,
-        HFOpenAIClient,
-        HFOpenAIModel,
-        VLLMOpenAIClient,
-        VLLMOpenAIModel,
-        LlamaServerOpenAIClient,
-        LlamaServerOpenAIModel,
+        OpenAICompatClient,
         SGLangOpenAIClient,
         SGLangOpenAIModel,
+        VLLMOpenAIClient,
+        VLLMOpenAIModel,
     )
 
     HAS_OPENAI_COMPAT = True
@@ -98,7 +96,7 @@ except Exception:
     SGLangOpenAIModel = None
 
 try:
-    from .llamacpp import LlamaCppClient, LlamaCppModel
+    from .providers.llamacpp import LlamaCppClient, LlamaCppModel
 
     HAS_LLAMACPP = True
 except Exception:
@@ -107,7 +105,7 @@ except Exception:
     LlamaCppModel = None
 
 try:
-    from .hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+    from .providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
     HAS_HF_IMAGE = True
 except Exception:
@@ -116,7 +114,7 @@ except Exception:
     HuggingFaceImageModel = None
 
 try:
-    from .gemini_image import GeminiImageClient, GeminiImageModel
+    from .providers.gemini.image import GeminiImageClient, GeminiImageModel
 
     HAS_GEMINI_IMAGE = True
 except Exception:
@@ -125,7 +123,7 @@ except Exception:
     GeminiImageModel = None
 
 try:
-    from .hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+    from .providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
     HAS_HF_AUDIO = True
 except Exception:
@@ -134,7 +132,7 @@ except Exception:
     HuggingFaceAudioModel = None
 
 try:
-    from .hf_speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
+    from .providers.hf.speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
 
     HAS_HF_SPEECH = True
 except Exception:
@@ -143,7 +141,7 @@ except Exception:
     HuggingFaceSpeechModel = None
 
 try:
-    from .openai_speech import OpenAISpeechClient, OpenAISpeechModel
+    from .providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
     HAS_OPENAI_SPEECH = True
 except Exception:

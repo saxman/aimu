@@ -19,9 +19,9 @@ from typing import Any, Optional
 
 try:
     from aimu.models.base import HuggingFaceImageSpec, ImageModel, ImageSpec
-    from aimu.models.hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+    from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
-    from .providers.hf_image import AsyncHuggingFaceImageClient
+    from .providers.hf.image import AsyncHuggingFaceImageClient
 
     _HAS_HF_IMAGE = True
 except ImportError:
@@ -35,9 +35,9 @@ except ImportError:
 
 try:
     from aimu.models.base import GeminiImageSpec
-    from aimu.models.gemini_image import GeminiImageClient, GeminiImageModel
+    from aimu.models.providers.gemini.image import GeminiImageClient, GeminiImageModel
 
-    from .providers.gemini_image import AsyncGeminiImageClient
+    from .providers.gemini.image import AsyncGeminiImageClient
 
     _HAS_GEMINI_IMAGE = True
 except ImportError:

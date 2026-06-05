@@ -162,10 +162,16 @@ def resolve_async_model_params(config, default_params=None) -> list:
     Mirrors :func:`helpers.resolve_model_params` but defaults to async-supported
     providers only when ``--client=all``. For now, ``all`` means Ollama (since
     it's the easiest to validate locally); other providers can be added when
-    we want to broaden the live-test footprint.
+    we want to broaden the live-test footprint. Omitting ``--client`` skips live
+    files and leaves mock-default files on their mock params.
     """
-    client_type = config.getoption("--client", "all").lower()
+    client_option = config.getoption("--client", None)
     model = config.getoption("--model", "all")
+
+    if client_option is None:
+        return default_params if default_params is not None else []
+
+    client_type = client_option.lower()
 
     if client_type == "all":
         if default_params is not None:
@@ -188,7 +194,7 @@ def create_real_async_model_client(request):
     (HF, LlamaCpp) the async client is built by wrapping a fresh sync client
     (Decision 7 — see docs/explanation/async-design.md).
     """
-    from aimu.models.ollama import OllamaModel
+    from aimu.models.providers.ollama import OllamaModel
 
     model = request.param
 
@@ -234,7 +240,7 @@ def create_real_async_model_client(request):
 
         client = AsyncVLLMOpenAIClient(model, system_message="You are a helpful assistant.")
     elif model in HuggingFaceClient.MODELS:
-        from aimu.aio.providers.hf import AsyncHuggingFaceClient
+        from aimu.aio.providers.hf.text import AsyncHuggingFaceClient
 
         sync_client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
         client = AsyncHuggingFaceClient(sync_client)

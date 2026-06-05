@@ -17,9 +17,9 @@ from typing import Any
 
 try:
     from aimu.models.base import HuggingFaceSpeechSpec, SpeechModel, SpeechSpec
-    from aimu.models.hf_speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
+    from aimu.models.providers.hf.speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
 
-    from .providers.hf_speech import AsyncHuggingFaceSpeechClient
+    from .providers.hf.speech import AsyncHuggingFaceSpeechClient
 
     _HAS_HF_SPEECH = True
 except ImportError:
@@ -33,9 +33,9 @@ except ImportError:
 
 try:
     from aimu.models.base import OpenAISpeechSpec
-    from aimu.models.openai_speech import OpenAISpeechClient, OpenAISpeechModel
+    from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
-    from .providers.openai_speech import AsyncOpenAISpeechClient
+    from .providers.openai.speech import AsyncOpenAISpeechClient
 
     _HAS_OPENAI_SPEECH = True
 except ImportError:

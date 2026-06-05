@@ -19,7 +19,7 @@ from .base import BaseSpeechClient, SpeechModel, SpeechSpec
 # --- Optional provider imports ---
 
 try:
-    from .hf_speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
+    from .providers.hf.speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
 
     _HAS_HF_SPEECH = True
 except ImportError:
@@ -28,7 +28,7 @@ except ImportError:
     HuggingFaceSpeechModel = None  # type: ignore[assignment,misc]
 
 try:
-    from .openai_speech import OpenAISpeechClient, OpenAISpeechModel
+    from .providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
     _HAS_OPENAI_SPEECH = True
 except ImportError:

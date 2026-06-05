@@ -19,7 +19,7 @@ from .base import BaseImageClient, ImageModel, ImageSpec
 # --- Optional provider imports ---
 
 try:
-    from .hf_image import HuggingFaceImageClient, HuggingFaceImageModel
+    from .providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
     _HAS_HF_IMAGE = True
 except ImportError:
@@ -28,7 +28,7 @@ except ImportError:
     HuggingFaceImageModel = None  # type: ignore[assignment,misc]
 
 try:
-    from .gemini_image import GeminiImageClient, GeminiImageModel
+    from .providers.gemini.image import GeminiImageClient, GeminiImageModel
 
     _HAS_GEMINI_IMAGE = True
 except ImportError:

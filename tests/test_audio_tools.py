@@ -16,10 +16,10 @@ import importlib  # noqa: E402
 import aimu.models  # noqa: E402
 
 if not aimu.models.HAS_HF_AUDIO:
-    aimu.models.hf_audio = importlib.import_module("aimu.models.hf_audio")
+    aimu.models.providers.hf.audio = importlib.import_module("aimu.models.providers.hf.audio")
     aimu.models.HAS_HF_AUDIO = True
-    aimu.models.HuggingFaceAudioClient = aimu.models.hf_audio.HuggingFaceAudioClient
-    aimu.models.HuggingFaceAudioModel = aimu.models.hf_audio.HuggingFaceAudioModel
+    aimu.models.HuggingFaceAudioClient = aimu.models.providers.hf.audio.HuggingFaceAudioClient
+    aimu.models.HuggingFaceAudioModel = aimu.models.providers.hf.audio.HuggingFaceAudioModel
 
 import aimu  # noqa: E402
 
@@ -76,7 +76,7 @@ def test_lazy_singleton_constructed_once(monkeypatch):
 
         model_str = model or os.environ.get("AIMU_AUDIO_MODEL")
         constructed.append(model_str)
-        from aimu.models.hf_audio import HuggingFaceAudioClient
+        from aimu.models.providers.hf.audio import HuggingFaceAudioClient
 
         return HuggingFaceAudioClient(model_str)
 
@@ -112,7 +112,7 @@ def test_singleton_raises_when_env_unset(monkeypatch):
 def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
     """Calling generate_audio() yields AUDIO_GENERATING chunks and returns the final path."""
     from aimu.models.base import StreamChunk, StreamingContentType
-    from aimu.models.hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+    from aimu.models.providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
     final_path = str(tmp_path / "fake.wav")
 
@@ -149,7 +149,7 @@ def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
 
 
 def test_make_audio_tool_returns_new_streaming_tool_bound_to_supplied_client():
-    from aimu.models.hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+    from aimu.models.providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
     client = HuggingFaceAudioClient(HuggingFaceAudioModel.MUSICGEN_SMALL)
     bound_tool = builtin.make_audio_tool(client)
@@ -163,7 +163,7 @@ def test_make_audio_tool_returns_new_streaming_tool_bound_to_supplied_client():
 def test_make_audio_tool_threads_duration_s_through(monkeypatch, tmp_path):
     """make_audio_tool(duration_s=N) should pass N to client.generate(...)."""
     from aimu.models.base import StreamChunk, StreamingContentType
-    from aimu.models.hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+    from aimu.models.providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
     captured: dict = {}
 
@@ -184,7 +184,7 @@ def test_make_audio_tool_threads_duration_s_through(monkeypatch, tmp_path):
 
 def test_make_audio_tool_uses_its_client_not_singleton(monkeypatch, tmp_path):
     from aimu.models.base import StreamChunk, StreamingContentType
-    from aimu.models.hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+    from aimu.models.providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
     sentinel = "singleton-should-not-be-touched"
     monkeypatch.setattr(builtin, "_audio_client", sentinel)
@@ -222,7 +222,7 @@ def _fake_base_client(supports_vision=False):
 
 def test_make_tools_with_audio_client_replaces_generate_audio():
     """When an audio client is supplied, the default generate_audio singleton is replaced."""
-    from aimu.models.hf_audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+    from aimu.models.providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
     base_client = _fake_base_client()
     audio_client = HuggingFaceAudioClient(HuggingFaceAudioModel.MUSICGEN_SMALL)

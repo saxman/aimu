@@ -7,7 +7,7 @@ from .base import BaseModelClient, Model, ModelSpec, StreamChunk
 # --- Optional provider imports ---
 
 try:
-    from .ollama import OllamaClient, OllamaModel
+    from .providers.ollama import OllamaClient, OllamaModel
 
     _HAS_OLLAMA = True
 except Exception:
@@ -16,7 +16,7 @@ except Exception:
     OllamaModel = None  # type: ignore[assignment,misc]
 
 try:
-    from .hf import HuggingFaceClient, HuggingFaceModel
+    from .providers.hf.text import HuggingFaceClient, HuggingFaceModel
 
     _HAS_HF = True
 except Exception:
@@ -25,7 +25,7 @@ except Exception:
     HuggingFaceModel = None  # type: ignore[assignment,misc]
 
 try:
-    from .anthropic import AnthropicClient, AnthropicModel
+    from .providers.anthropic import AnthropicClient, AnthropicModel
 
     _HAS_ANTHROPIC = True
 except Exception:
@@ -34,23 +34,21 @@ except Exception:
     AnthropicModel = None  # type: ignore[assignment,misc]
 
 try:
-    from .openai_compat import (
-        OpenAIClient,
-        OpenAIModel,
-        GeminiClient,
-        GeminiModel,
+    from .providers.gemini.text import GeminiClient, GeminiModel
+    from .providers.openai.text import OpenAIClient, OpenAIModel
+    from .providers.openai_compat import (
+        HFOpenAIClient,
+        HFOpenAIModel,
+        LlamaServerOpenAIClient,
+        LlamaServerOpenAIModel,
         LMStudioOpenAIClient,
         LMStudioOpenAIModel,
         OllamaOpenAIClient,
         OllamaOpenAIModel,
-        HFOpenAIClient,
-        HFOpenAIModel,
-        VLLMOpenAIClient,
-        VLLMOpenAIModel,
-        LlamaServerOpenAIClient,
-        LlamaServerOpenAIModel,
         SGLangOpenAIClient,
         SGLangOpenAIModel,
+        VLLMOpenAIClient,
+        VLLMOpenAIModel,
     )
 
     _HAS_OPENAI_COMPAT = True
@@ -62,7 +60,7 @@ except Exception:
     HFOpenAIModel = VLLMOpenAIModel = LlamaServerOpenAIModel = SGLangOpenAIModel = None  # type: ignore[assignment,misc]
 
 try:
-    from .llamacpp import LlamaCppClient, LlamaCppModel
+    from .providers.llamacpp import LlamaCppClient, LlamaCppModel
 
     _HAS_LLAMACPP = True
 except Exception:

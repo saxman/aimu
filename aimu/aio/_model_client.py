@@ -17,7 +17,7 @@ from ._base import AsyncBaseModelClient
 # --- Optional provider imports (mirror the sync registry) ---
 
 try:
-    from aimu.models.ollama import OllamaModel
+    from aimu.models.providers.ollama import OllamaModel
 
     from .providers.ollama import AsyncOllamaClient
 
@@ -28,9 +28,9 @@ except Exception:
     OllamaModel = None  # type: ignore[assignment,misc]
 
 try:
-    from aimu.models.hf import HuggingFaceClient, HuggingFaceModel
+    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
 
-    from .providers.hf import AsyncHuggingFaceClient
+    from .providers.hf.text import AsyncHuggingFaceClient
 
     _HAS_HF = True
 except Exception:
@@ -40,7 +40,7 @@ except Exception:
     HuggingFaceModel = None  # type: ignore[assignment,misc]
 
 try:
-    from aimu.models.anthropic import AnthropicModel
+    from aimu.models.providers.anthropic import AnthropicModel
 
     from .providers.anthropic import AsyncAnthropicClient
 
@@ -51,24 +51,24 @@ except Exception:
     AnthropicModel = None  # type: ignore[assignment,misc]
 
 try:
-    from aimu.models.openai_compat import (
-        GeminiModel,
+    from aimu.models.providers.gemini.text import GeminiModel
+    from aimu.models.providers.openai.text import OpenAIModel
+    from aimu.models.providers.openai_compat import (
         HFOpenAIModel,
-        LMStudioOpenAIModel,
         LlamaServerOpenAIModel,
+        LMStudioOpenAIModel,
         OllamaOpenAIModel,
-        OpenAIModel,
         SGLangOpenAIModel,
         VLLMOpenAIModel,
     )
 
+    from .providers.gemini.text import AsyncGeminiClient
+    from .providers.openai.text import AsyncOpenAIClient
     from .providers.openai_compat import (
-        AsyncGeminiClient,
         AsyncHFOpenAIClient,
-        AsyncLMStudioOpenAIClient,
         AsyncLlamaServerOpenAIClient,
+        AsyncLMStudioOpenAIClient,
         AsyncOllamaOpenAIClient,
-        AsyncOpenAIClient,
         AsyncSGLangOpenAIClient,
         AsyncVLLMOpenAIClient,
     )
@@ -82,7 +82,7 @@ except Exception:
     HFOpenAIModel = VLLMOpenAIModel = LlamaServerOpenAIModel = SGLangOpenAIModel = None  # type: ignore[assignment,misc]
 
 try:
-    from aimu.models.llamacpp import LlamaCppClient, LlamaCppModel
+    from aimu.models.providers.llamacpp import LlamaCppClient, LlamaCppModel
 
     from .providers.llamacpp import AsyncLlamaCppClient
 

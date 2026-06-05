@@ -59,7 +59,7 @@ def _provider_kwargs(client: BaseImageClient) -> dict:
     ``generate_content`` infers size and has no step concept, so an empty dict
     is correct there.
     """
-    from aimu.models.hf_image import HuggingFaceImageClient
+    from aimu.models.providers.hf.image import HuggingFaceImageClient
 
     if isinstance(client, HuggingFaceImageClient):
         return {"width": 256, "height": 256, "num_inference_steps": 4}
@@ -130,7 +130,7 @@ def test_generate_num_images_returns_list(image_client):
 
 def test_hf_seed_reproducible(image_client):
     """Same seed → same bytes. HuggingFace diffusers only — Gemini has no seed API."""
-    from aimu.models.hf_image import HuggingFaceImageClient
+    from aimu.models.providers.hf.image import HuggingFaceImageClient
 
     if not isinstance(image_client, HuggingFaceImageClient):
         pytest.skip("Seed reproducibility only applies to HuggingFace diffusers")
@@ -148,7 +148,7 @@ def test_gemini_aspect_ratio_accepted(image_client):
     HuggingFace ignores aspect_ratio — its API takes explicit width/height — so
     this test is Gemini-only.
     """
-    from aimu.models.gemini_image import GeminiImageClient
+    from aimu.models.providers.gemini.image import GeminiImageClient
 
     if not isinstance(image_client, GeminiImageClient):
         pytest.skip("aspect_ratio is a Gemini-only knob")
