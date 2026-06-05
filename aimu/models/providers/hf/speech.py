@@ -40,7 +40,7 @@ from typing import Any, Optional, Union
 # since torch/transformers are pulled via the [hf] extra.
 import soundfile  # noqa: F401
 
-from ..._hf_device import move_to_device, pop_device_hint, resolve_device
+from ._device import move_to_device, pop_device_hint, resolve_device
 from ...base import BaseSpeechClient, HuggingFaceSpeechSpec, SpeechModel
 
 logger = logging.getLogger(__name__)

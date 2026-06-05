@@ -8,7 +8,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from ..base import BaseModelClient, Model, ModelSpec, StreamingContentType, StreamChunk, classproperty
-from .._images import _build_user_content_blocks, _openai_blocks_to_anthropic
+from .._internal.image_input import _build_user_content_blocks, _openai_blocks_to_anthropic
 
 logger = logging.getLogger(__name__)
 

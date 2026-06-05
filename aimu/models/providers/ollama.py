@@ -1,5 +1,5 @@
 from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
-from .._images import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
+from .._internal.image_input import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
 
 import ollama
 import logging

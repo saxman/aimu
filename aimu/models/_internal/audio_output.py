@@ -1,6 +1,6 @@
 """Audio output encoding for audio-generation clients.
 
-Sibling to :mod:`aimu.models._image_output` (which encodes images for diffusion output);
+Sibling to :mod:`aimu.models._internal.image_output` (which encodes images for diffusion output);
 this module encodes ``(sample_rate, np.ndarray)`` pairs produced by audio pipelines into
 one of ``"numpy"`` / ``"path"`` / ``"bytes"`` / ``"data_url"``.
 

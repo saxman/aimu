@@ -75,7 +75,7 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
         if images:
-            from aimu.models._images import _build_user_content_blocks
+            from aimu.models._internal.image_input import _build_user_content_blocks
 
             self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
         else:

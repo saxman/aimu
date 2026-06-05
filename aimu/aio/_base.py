@@ -16,8 +16,8 @@ import string
 from abc import ABC, abstractmethod
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
-from aimu.models._chat_state import _ChatStateMixin
-from aimu.models._streaming import afilter_chunks, resolve_include
+from aimu.models._internal.chat_state import _ChatStateMixin
+from aimu.models._internal.streaming import afilter_chunks, resolve_include
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 
 logger = logging.getLogger(__name__)

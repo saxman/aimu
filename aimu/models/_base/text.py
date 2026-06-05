@@ -65,9 +65,9 @@ class Model(Enum):
 
 # Pure helpers; imported here so the existing public surface continues to work and
 # the async surface can reuse the same logic.
-from .._chat_state import _ChatStateMixin  # noqa: E402
-from .._streaming import filter_chunks as _filter_chunks_fn  # noqa: E402
-from .._streaming import resolve_include as _resolve_include_fn  # noqa: E402
+from .._internal.chat_state import _ChatStateMixin  # noqa: E402
+from .._internal.streaming import filter_chunks as _filter_chunks_fn  # noqa: E402
+from .._internal.streaming import resolve_include as _resolve_include_fn  # noqa: E402
 
 
 class BaseModelClient(_ChatStateMixin, ABC):

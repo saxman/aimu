@@ -9,7 +9,7 @@ Auth: reads ``OPENAI_API_KEY`` from env (same as :class:`OpenAIClient`).
 Output standardisation: ``response_format="pcm"`` requests raw 16-bit signed
 integers at 24 kHz. The client decodes them to float32 numpy via
 ``np.frombuffer(..., dtype=np.int16) / 32768.0`` and passes the result through
-:func:`aimu.models._audio_output.encode_audio` -- the same helper used by every
+:func:`aimu.models._internal.audio_output.encode_audio` -- the same helper used by every
 other audio/speech client.
 
 Usage::
@@ -159,7 +159,7 @@ class OpenAISpeechClient(BaseSpeechClient):
         """
         import numpy as np
 
-        from ..._audio_output import encode_audio
+        from ..._internal.audio_output import encode_audio
 
         resolved_voice = voice or self.spec.default_voice
         resolved_speed = float(speed) if speed is not None else self.spec.default_speed

@@ -148,7 +148,7 @@ async def generate_speech(
         )
 
     if model is None:
-        from aimu.models._defaults import SPEECH_MODEL_ENV, resolve_default_modality_model
+        from aimu.models._internal.model_defaults import SPEECH_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(SPEECH_MODEL_ENV)
 

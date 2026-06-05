@@ -96,7 +96,7 @@ class _ChatStateMixin:
 
         if images:
             self._require_vision()
-            from ._images import _build_user_content_blocks
+            from .image_input import _build_user_content_blocks
 
             self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
         else:

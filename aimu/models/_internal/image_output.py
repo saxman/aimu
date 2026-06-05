@@ -1,6 +1,6 @@
 """Image output encoding for diffusion clients.
 
-Sibling to :mod:`aimu.models._images` (which decodes images for vision *input*);
+Sibling to :mod:`aimu.models._internal.image_input` (which decodes images for vision *input*);
 this module encodes images for diffusion *output*. The split is directional: input
 helpers turn arbitrary user-supplied images into the canonical OpenAI ``image_url``
 block; output helpers turn PIL Images produced by a diffusion pipeline into one of

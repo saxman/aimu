@@ -15,8 +15,8 @@ from typing import Any, AsyncIterator, Optional, Union
 
 import openai
 
-from aimu.models._images import _build_user_content_blocks
-from aimu.models._thinking import _ThinkingParser, _split_thinking
+from aimu.models._internal.image_input import _build_user_content_blocks
+from aimu.models.providers._thinking import _ThinkingParser, _split_thinking
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.openai_compat import (
     HFOpenAIModel,

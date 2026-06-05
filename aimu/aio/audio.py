@@ -122,7 +122,7 @@ async def generate_audio(
         raise ImportError("Audio support requires the [hf] extra: pip install -e '.[hf]'")
 
     if model is None:
-        from aimu.models._defaults import AUDIO_MODEL_ENV, resolve_default_modality_model
+        from aimu.models._internal.model_defaults import AUDIO_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(AUDIO_MODEL_ENV)
 

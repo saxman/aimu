@@ -40,7 +40,7 @@ from typing import Any, Optional, Union
 # torch/transformers/diffusers are pulled via the [hf] extra.
 import soundfile  # noqa: F401
 
-from ..._hf_device import move_to_device, pop_device_hint
+from ._device import move_to_device, pop_device_hint
 from ...base import AudioModel, BaseAudioClient, HuggingFaceAudioSpec, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
@@ -380,7 +380,7 @@ class HuggingFaceAudioClient(BaseAudioClient):
         step via ``callback_on_step_end``, then final chunks carrying encoded results.
         No intermediate audio decoding — intermediate chunks carry step progress only.
         """
-        from ..._audio_output import encode_audio
+        from ..._internal.audio_output import encode_audio
 
         ptype = self.spec.pipeline_type
 

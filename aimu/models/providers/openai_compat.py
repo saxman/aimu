@@ -18,8 +18,8 @@ from typing import Any, Iterator, Optional, Union
 import openai
 
 from ..base import BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType, classproperty
-from .._images import _build_user_content_blocks
-from .._thinking import _ThinkingParser, _split_thinking
+from .._internal.image_input import _build_user_content_blocks
+from ._thinking import _ThinkingParser, _split_thinking
 
 logger = logging.getLogger(__name__)
 

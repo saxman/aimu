@@ -2,7 +2,7 @@
 
 Text-to-speech (TTS) only. Disjoint from audio generation (which is duration-based);
 TTS converts literal text to spoken audio. Only ``StreamChunk`` / ``StreamingContentType``
-are shared. Output encoding reuses :func:`aimu.models._audio_output.encode_audio`.
+are shared. Output encoding reuses :func:`aimu.models._internal.audio_output.encode_audio`.
 """
 
 from abc import ABC, abstractmethod
@@ -82,7 +82,7 @@ class BaseSpeechClient(ABC):
     Parallel to :class:`BaseAudioClient` for the speech modality. Subclasses
     implement :meth:`_generate` returning a list of ``(sample_rate, np.ndarray)``
     tuples; the public :meth:`generate` wraps that with format conversion via
-    :func:`aimu.models._audio_output.encode_audio` so every speech client offers
+    :func:`aimu.models._internal.audio_output.encode_audio` so every speech client offers
     the same ``format="numpy"|"path"|"bytes"|"data_url"`` surface.
 
     Voice and speed are speech-specific parameters absent from audio generation.
@@ -155,7 +155,7 @@ class BaseSpeechClient(ABC):
                 **kwargs,
             )
 
-        from .._audio_output import encode_audio
+        from .._internal.audio_output import encode_audio
 
         results = self._generate(text, voice=resolved_voice, speed=resolved_speed, num_audio=num_audio, **kwargs)
         encoded = [encode_audio(audio, sr, format=format, prompt=text, output_dir=output_dir) for sr, audio in results]
@@ -179,7 +179,7 @@ class BaseSpeechClient(ABC):
         ``final=False`` and ``result=None``; the terminal chunk carries ``final=True``
         and the encoded output.
         """
-        from .._audio_output import encode_audio
+        from .._internal.audio_output import encode_audio
 
         results = self._generate(text, voice=voice, speed=speed, num_audio=num_audio, **kwargs)
         for i, (sr, audio) in enumerate(results, start=1):

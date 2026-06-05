@@ -3,7 +3,7 @@
 Parallel to :mod:`tests/test_models_api.py` for the image modality. Covers:
 
 * Shared infrastructure: :class:`ImageSpec` equality (via subclasses),
-  :func:`aimu.models._image_output.encode_image` format matrix.
+  :func:`aimu.models._internal.image_output.encode_image` format matrix.
 * HuggingFace provider: ``HuggingFaceImageClient`` construction, ``"hf:..."``
   string parsing, lazy pipeline load, per-call kwargs threading,
   ``seed`` plumbing, unknown-pipeline error path. ``diffusers`` is stubbed
@@ -149,7 +149,7 @@ from aimu.models import (  # noqa: E402
     HuggingFaceImageModel,
     HuggingFaceImageSpec,
 )
-from aimu.models._image_output import encode_image  # noqa: E402
+from aimu.models._internal.image_output import encode_image  # noqa: E402
 from aimu.models.base import GeminiImageSpec  # noqa: E402
 from aimu.models.providers.gemini import image as _gic_mod  # noqa: E402
 
@@ -208,7 +208,7 @@ def test_auto_place_pipeline_tiers(monkeypatch):
     import torch
     import torch.nn as nn
 
-    import aimu.models._hf_device as hd
+    import aimu.models.providers.hf._device as hd
 
     class _Comp(nn.Module):
         def __init__(self, nbytes):

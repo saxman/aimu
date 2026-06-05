@@ -72,7 +72,7 @@ class BaseAudioClient(ABC):
     Parallel to :class:`BaseImageClient` for audio modality. Subclasses implement
     :meth:`_generate` returning a list of ``(sample_rate, np.ndarray)`` tuples; the
     public :meth:`generate` wraps that with format conversion via
-    :func:`aimu.models._audio_output.encode_audio` so every audio client offers the
+    :func:`aimu.models._internal.audio_output.encode_audio` so every audio client offers the
     same ``format="numpy"|"path"|"bytes"|"data_url"`` surface.
 
     ``"numpy"`` is the native format (parallel to ``"pil"`` for images); the others
@@ -133,7 +133,7 @@ class BaseAudioClient(ABC):
                 **kwargs,
             )
 
-        from .._audio_output import encode_audio
+        from .._internal.audio_output import encode_audio
 
         results = self._generate(
             prompt,
@@ -167,7 +167,7 @@ class BaseAudioClient(ABC):
         ``result=None``; the terminal chunk per clip carries ``final=True`` and the
         encoded output.
         """
-        from .._audio_output import encode_audio
+        from .._internal.audio_output import encode_audio
 
         results = self._generate(
             prompt,

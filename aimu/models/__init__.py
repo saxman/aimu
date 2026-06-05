@@ -1,5 +1,5 @@
 # Always available
-from ._json import extract_tool_calls, generate_json, parse_json_response
+from ._internal.json import extract_tool_calls, generate_json, parse_json_response
 from .audio_client import AudioClient, resolve_audio_model_string
 from .base import (
     AudioModel,

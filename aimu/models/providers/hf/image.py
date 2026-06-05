@@ -28,7 +28,7 @@ from typing import Any, Optional, Union
 # loader. Pipeline weights are still loaded lazily inside ``_load_pipeline``.
 import diffusers  # noqa: F401  # used dynamically via getattr in _load_pipeline
 
-from ..._hf_device import auto_place_pipeline, default_torch_dtype, move_to_device, pop_device_hint
+from ._device import auto_place_pipeline, default_torch_dtype, move_to_device, pop_device_hint
 from ...base import BaseImageClient, HuggingFaceImageSpec, ImageModel
 
 logger = logging.getLogger(__name__)
@@ -175,7 +175,7 @@ class HuggingFaceImageClient(BaseImageClient):
     loaded pipeline's size and the *free* memory on each visible GPU (so it accounts
     for other processes, e.g. a local LLM server), then picks the cheapest strategy
     that fits — pin to the freest GPU, else model CPU offload, else sequential CPU
-    offload (see :func:`aimu.models._hf_device.auto_place_pipeline`). Override it:
+    offload (see :func:`aimu.models.providers.hf._device.auto_place_pipeline`). Override it:
 
     - ``model_kwargs={"device": "cuda:1"}`` — pin the whole pipeline to one GPU.
     - ``model_kwargs={"device_map": "balanced"}`` — hand placement to diffusers/
@@ -338,7 +338,7 @@ class HuggingFaceImageClient(BaseImageClient):
             call_kwargs["generator"] = generator
 
         if reference_image is not None:
-            from ..._images import _reference_image_to_pil
+            from ..._internal.image_input import _reference_image_to_pil
 
             call_kwargs["image"] = _reference_image_to_pil(reference_image)
             if self.spec.img2img_uses_strength:
@@ -437,7 +437,7 @@ class HuggingFaceImageClient(BaseImageClient):
         import threading
 
         # Local imports keep the module light.
-        from ..._image_output import encode_image
+        from ..._internal.image_output import encode_image
         from ...base import StreamChunk, StreamingContentType
 
         call_kwargs = self._build_call_kwargs(

@@ -113,7 +113,7 @@ class BaseImageClient(ABC):
     Parallel to :class:`BaseModelClient` for image modality. Subclasses implement
     :meth:`_generate` returning a list of PIL Images; the public :meth:`generate`
     wraps that with the shared format-conversion helper
-    (:func:`aimu.models._image_output.encode_image`) so every image client offers
+    (:func:`aimu.models._internal.image_output.encode_image`) so every image client offers
     the same ``format="pil"|"path"|"bytes"|"data_url"`` surface.
     """
 
@@ -158,7 +158,7 @@ class BaseImageClient(ABC):
 
         Subclasses define the provider-specific ``**kwargs``. The base handles
         ``num_images`` validation, format conversion via
-        :func:`aimu.models._image_output.encode_image`, and the single-image-vs-list
+        :func:`aimu.models._internal.image_output.encode_image`, and the single-image-vs-list
         return convention.
 
         When ``stream=True``, returns an iterator of :class:`StreamChunk` objects with
@@ -199,7 +199,7 @@ class BaseImageClient(ABC):
                 **kwargs,
             )
 
-        from .._image_output import encode_image  # local import keeps base.py light
+        from .._internal.image_output import encode_image  # local import keeps base.py light
 
         images = self._generate(prompt, num_images=num_images, reference_image=reference_image, **kwargs)
         encoded = [encode_image(img, format=format, prompt=prompt, output_dir=output_dir) for img in images]
@@ -225,7 +225,7 @@ class BaseImageClient(ABC):
         ``preview_every`` is accepted but ignored at this default level — the base
         has no notion of intermediate steps. Subclasses honour it.
         """
-        from .._image_output import encode_image  # local import keeps base.py light
+        from .._internal.image_output import encode_image  # local import keeps base.py light
 
         del preview_every  # unused at the default level; provider overrides honour it
 

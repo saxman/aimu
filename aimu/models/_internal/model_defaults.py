@@ -62,7 +62,7 @@ def _pick(members: list, installed: set[str]):
 def _ollama_installed_text_models() -> Optional[str]:
     """Pick an enum-matching model already installed on a running Ollama server."""
     try:
-        from . import HAS_OLLAMA, OllamaModel
+        from .. import HAS_OLLAMA, OllamaModel
 
         if not HAS_OLLAMA:
             return None
@@ -88,7 +88,7 @@ def _ollama_installed_text_models() -> Optional[str]:
 def _hf_cached_text_models() -> Optional[str]:
     """Pick an enum-matching HuggingFace model already in the local cache (no download)."""
     try:
-        from . import HAS_HF, HuggingFaceModel
+        from .. import HAS_HF, HuggingFaceModel
 
         if not HAS_HF:
             return None
@@ -105,13 +105,13 @@ def _hf_cached_text_models() -> Optional[str]:
 def _openai_compat_served_text_models() -> Optional[str]:
     """Pick an enum-matching model served by a running local OpenAI-compat server."""
     try:
-        from . import HAS_OPENAI_COMPAT
+        from .. import HAS_OPENAI_COMPAT
 
         if not HAS_OPENAI_COMPAT:
             return None
         import openai
 
-        from . import (  # noqa: F401 — imported for getattr lookup below
+        from .. import (  # noqa: F401 — imported for getattr lookup below
             HFOpenAIModel,
             LlamaServerOpenAIModel,
             LMStudioOpenAIModel,
@@ -148,7 +148,7 @@ def resolve_default_text_model(*, include_hf_cache: bool = True) -> str:
     Ollama and local OpenAI-compatible servers.
     """
     _load_dotenv()
-    from .model_client import resolve_model_string
+    from ..model_client import resolve_model_string
 
     env_val = os.environ.get(LANGUAGE_MODEL_ENV)
     if env_val:
@@ -171,7 +171,7 @@ def resolve_default_text_model(*, include_hf_cache: bool = True) -> str:
             )
             return picked
 
-    from . import available_text_clients
+    from .. import available_text_clients
 
     providers = [c.__name__ for c in available_text_clients()]
     raise ValueError(

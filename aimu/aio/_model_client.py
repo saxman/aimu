@@ -269,7 +269,7 @@ def client(
     OpenAI-compatible servers (an ``hf:`` default would need an explicit sync-client wrap).
     """
     if model is None:
-        from aimu.models._defaults import resolve_default_text_model
+        from aimu.models._internal.model_defaults import resolve_default_text_model
 
         model = resolve_default_text_model(include_hf_cache=False)
     if system is not None:

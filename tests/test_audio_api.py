@@ -3,7 +3,7 @@
 Parallel to :mod:`tests/test_images_api.py` for the audio modality. Covers:
 
 * Shared infrastructure: :class:`HuggingFaceAudioSpec` equality,
-  :func:`aimu.models._audio_output.encode_audio` format matrix.
+  :func:`aimu.models._internal.audio_output.encode_audio` format matrix.
 * HuggingFace provider: ``HuggingFaceAudioClient`` construction, ``"hf:..."``
   string parsing, pipeline_type inference, lazy load, per-call kwarg threading,
   seed plumbing, streaming (MusicGen single-final; diffusers step-callback).
@@ -264,7 +264,7 @@ aimu.HuggingFaceAudioClient = aimu.models.HuggingFaceAudioClient
 aimu.HuggingFaceAudioModel = aimu.models.HuggingFaceAudioModel
 
 from aimu.models import HuggingFaceAudioClient, HuggingFaceAudioModel, HuggingFaceAudioSpec  # noqa: E402
-from aimu.models._audio_output import encode_audio  # noqa: E402
+from aimu.models._internal.audio_output import encode_audio  # noqa: E402
 from aimu.models.base import StreamingContentType  # noqa: E402
 
 

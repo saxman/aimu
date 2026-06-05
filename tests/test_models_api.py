@@ -429,27 +429,27 @@ def test_generate_without_images_stays_plain_string():
 
 
 def test_parse_json_raw():
-    from aimu.models._json import parse_json_response
+    from aimu.models._internal.json import parse_json_response
 
     assert parse_json_response('{"a": 1}') == {"a": 1}
 
 
 def test_parse_json_fenced_block():
-    from aimu.models._json import parse_json_response
+    from aimu.models._internal.json import parse_json_response
 
     text = 'Here is the result:\n```json\n{"x": 42}\n```'
     assert parse_json_response(text) == {"x": 42}
 
 
 def test_parse_json_brace_substring():
-    from aimu.models._json import parse_json_response
+    from aimu.models._internal.json import parse_json_response
 
     text = 'The answer is {"key": "value"} as shown.'
     assert parse_json_response(text) == {"key": "value"}
 
 
 def test_parse_json_raises_on_failure():
-    from aimu.models._json import parse_json_response
+    from aimu.models._internal.json import parse_json_response
 
     with pytest.raises(ValueError, match="Could not parse JSON"):
         parse_json_response("no json here at all")
@@ -457,7 +457,7 @@ def test_parse_json_raises_on_failure():
 
 def test_parse_json_dataclass_schema():
     import dataclasses
-    from aimu.models._json import parse_json_response
+    from aimu.models._internal.json import parse_json_response
 
     @dataclasses.dataclass
     class Point:
@@ -476,7 +476,7 @@ def test_parse_json_dataclass_schema():
 
 
 def test_generate_json_parses_on_first_attempt():
-    from aimu.models._json import generate_json
+    from aimu.models._internal.json import generate_json
 
     client = MockModelClient(['{"score": 9}'])
     result = generate_json(client, "Rate this on a scale of 1-10 as JSON.")
@@ -484,7 +484,7 @@ def test_generate_json_parses_on_first_attempt():
 
 
 def test_generate_json_retries_on_bad_output():
-    from aimu.models._json import generate_json
+    from aimu.models._internal.json import generate_json
 
     client = MockModelClient(["not json", '{"ok": true}'])
     result = generate_json(client, "Return JSON.", retries=2)
@@ -492,7 +492,7 @@ def test_generate_json_retries_on_bad_output():
 
 
 def test_generate_json_raises_after_exhausted_retries():
-    from aimu.models._json import generate_json
+    from aimu.models._internal.json import generate_json
 
     client = MockModelClient(["bad", "also bad", "still bad"])
     with pytest.raises(ValueError, match="Failed to parse JSON"):
@@ -505,13 +505,13 @@ def test_generate_json_raises_after_exhausted_retries():
 
 
 def test_extract_tool_calls_empty():
-    from aimu.models._json import extract_tool_calls
+    from aimu.models._internal.json import extract_tool_calls
 
     assert extract_tool_calls([]) == []
 
 
 def test_extract_tool_calls_single():
-    from aimu.models._json import extract_tool_calls
+    from aimu.models._internal.json import extract_tool_calls
 
     messages = [
         {"role": "user", "content": "Search for cats"},
@@ -532,7 +532,7 @@ def test_extract_tool_calls_single():
 
 
 def test_extract_tool_calls_multiple_iterations():
-    from aimu.models._json import extract_tool_calls
+    from aimu.models._internal.json import extract_tool_calls
 
     messages = [
         {"role": "user", "content": "Start"},
@@ -558,7 +558,7 @@ def test_extract_tool_calls_multiple_iterations():
 
 def test_extract_tool_calls_parameters_key_normalized():
     """Some models use 'parameters' instead of 'arguments'."""
-    from aimu.models._json import extract_tool_calls
+    from aimu.models._internal.json import extract_tool_calls
 
     messages = [
         {
@@ -572,7 +572,7 @@ def test_extract_tool_calls_parameters_key_normalized():
 
 
 def test_extract_tool_calls_missing_result_returns_empty_string():
-    from aimu.models._json import extract_tool_calls
+    from aimu.models._internal.json import extract_tool_calls
 
     messages = [
         {

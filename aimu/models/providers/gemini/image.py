@@ -142,7 +142,7 @@ class GeminiImageClient(BaseImageClient):
             image_config=image_config,
         )
         if reference_image is not None:
-            from ..._images import _reference_image_to_pil
+            from ..._internal.image_input import _reference_image_to_pil
 
             pil = _reference_image_to_pil(reference_image)
             buf = BytesIO()
@@ -221,7 +221,7 @@ class GeminiImageClient(BaseImageClient):
         del preview_every  # not applicable for cloud-API providers
 
         # Local imports keep base.py light and avoid circular import paths.
-        from ..._image_output import encode_image
+        from ..._internal.image_output import encode_image
         from ...base import StreamChunk, StreamingContentType
 
         image_config = self._build_image_config(aspect_ratio, image_size)

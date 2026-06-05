@@ -7,7 +7,7 @@ from typing import AsyncIterator, Optional, Union
 
 import ollama
 
-from aimu.models._images import _adapt_messages_for_ollama
+from aimu.models._internal.image_input import _adapt_messages_for_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.ollama import OllamaClient, OllamaModel
 

@@ -150,7 +150,7 @@ async def generate_image(
         )
 
     if model is None:
-        from aimu.models._defaults import IMAGE_MODEL_ENV, resolve_default_modality_model
+        from aimu.models._internal.model_defaults import IMAGE_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(IMAGE_MODEL_ENV)
 

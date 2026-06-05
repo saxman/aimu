@@ -1,6 +1,6 @@
 """Mock-only tests for default-model resolution (no backend / network required).
 
-Covers ``aimu.models._defaults`` (the text/modality resolvers and the local probes)
+Covers ``aimu.models._internal.model_defaults`` (the text/modality resolvers and the local probes)
 and the omitted-``model`` wiring on the top-level ``aimu.*`` entry points.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from aimu.models import _defaults
+from aimu.models._internal import model_defaults as _defaults
 
 
 class _FakeMember:
@@ -122,7 +122,7 @@ def test_client_omitted_model_invokes_text_resolver(monkeypatch):
         called["yes"] = True
         raise RuntimeError("resolver invoked")
 
-    monkeypatch.setattr("aimu.models._defaults.resolve_default_text_model", sentinel)
+    monkeypatch.setattr("aimu.models._internal.model_defaults.resolve_default_text_model", sentinel)
     with pytest.raises(RuntimeError, match="resolver invoked"):
         aimu.client()
     assert called.get("yes")
@@ -135,6 +135,6 @@ def test_image_client_omitted_model_invokes_modality_resolver(monkeypatch):
         assert env_var == "AIMU_IMAGE_MODEL"
         raise RuntimeError("modality resolver invoked")
 
-    monkeypatch.setattr("aimu.models._defaults.resolve_default_modality_model", sentinel)
+    monkeypatch.setattr("aimu.models._internal.model_defaults.resolve_default_modality_model", sentinel)
     with pytest.raises(RuntimeError, match="modality resolver invoked"):
         aimu.image_client()

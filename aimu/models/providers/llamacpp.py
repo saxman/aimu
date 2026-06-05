@@ -4,8 +4,8 @@ import threading
 from typing import Iterator, Optional, Any, Union
 
 from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
-from .._images import _build_user_content_blocks
-from .._thinking import _split_thinking, _ThinkingParser
+from .._internal.image_input import _build_user_content_blocks
+from ._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,9 @@
 from ...base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
-from ..._images import _build_user_content_blocks, _extract_pil_images, _replace_image_url_with_image_placeholder
+from ..._internal.image_input import (
+    _build_user_content_blocks,
+    _extract_pil_images,
+    _replace_image_url_with_image_placeholder,
+)
 
 import torch
 from transformers import AutoTokenizer

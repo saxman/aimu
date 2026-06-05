@@ -15,7 +15,7 @@ import pytest
 
 from aimu.agents.agent import Agent
 from aimu.models import BaseModelClient
-from aimu.models._images import (
+from aimu.models._internal.image_input import (
     _adapt_messages_for_ollama,
     _build_user_content_blocks,
     _decode_image_url_to_pil,

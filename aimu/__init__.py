@@ -105,7 +105,7 @@ def client(model: Union[str, Model, None] = None, *, system: Optional[str] = Non
     client constructor, use :class:`ModelClient` directly.
     """
     if model is None:
-        from .models._defaults import resolve_default_text_model
+        from .models._internal.model_defaults import resolve_default_text_model
 
         model = resolve_default_text_model()
     if system is not None:
@@ -206,7 +206,7 @@ def audio_client(model: Union[str, AudioModel, AudioSpec, None] = None, **kwargs
             "pip install -e '.[hf]'"
         )
     if model is None:
-        from .models._defaults import AUDIO_MODEL_ENV, resolve_default_modality_model
+        from .models._internal.model_defaults import AUDIO_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(AUDIO_MODEL_ENV)
     return AudioClient(model, model_kwargs=kwargs or None)
@@ -264,7 +264,7 @@ def speech_client(model: Union[str, SpeechModel, SpeechSpec, None] = None, **kwa
         client = aimu.speech_client(aimu.HuggingFaceSpeechModel.MMS_TTS_ENG)
     """
     if model is None:
-        from .models._defaults import SPEECH_MODEL_ENV, resolve_default_modality_model
+        from .models._internal.model_defaults import SPEECH_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(SPEECH_MODEL_ENV)
     return SpeechClient(model, model_kwargs=kwargs or None)
@@ -396,7 +396,7 @@ def image_client(model: Union[str, ImageModel, ImageSpec, None] = None, **kwargs
         client = aimu.image_client("gemini:nano-banana")
     """
     if model is None:
-        from .models._defaults import IMAGE_MODEL_ENV, resolve_default_modality_model
+        from .models._internal.model_defaults import IMAGE_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(IMAGE_MODEL_ENV)
     return ImageClient(model, model_kwargs=kwargs or None)
