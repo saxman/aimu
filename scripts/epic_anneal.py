@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Simulated-annealing variant of the epic-sentence refinement loop.
 
-`epic_climbing.py` is a strict hill-climber: it only advances on a *higher* score and reverts
-otherwise. This script generalises that into **simulated annealing** — the climber is the
+``epic_loop.py --strategy climbing`` is a strict hill-climber: it only advances on a *higher*
+score and reverts otherwise. This script generalises that into **simulated annealing** — the climber is the
 ``T → 0`` limit of what's here. It keeps a ``current`` walk-state (distinct from the best-ever
 sentence) and, controlled by a falling *temperature*, will probabilistically accept a *worse*
 sentence to escape a local optimum, cooling into greedy behaviour over time.

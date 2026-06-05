@@ -4,33 +4,32 @@ Build a **generate → judge → refine** loop over *text*: a model writes a sen
 
 The worked example: *"take a mundane sentence and make it as **epic** as possible."* Starting from `A man walks to the store to buy a carton of milk.`, each round rewrites it into a grander, more mythic register while it stays **one grammatical sentence about the same errand**. A judge scores epicness 1–10 against an "epic ceiling," gates on fidelity (still one sentence about the same event, else 1/10), and emits `DONE` or `CONTINUE: <a grander rewrite direction>`.
 
-The full, runnable code lives in five scripts that share one helper module:
+The full, runnable code lives in four scripts that share one helper module:
 
-- `scripts/epic_loop.py` — **Python directs the loop** (a plain code-controlled `for` loop).
+- `scripts/epic_loop.py` — **Python directs the loop** (a plain code-controlled `for` loop). A `--strategy` flag selects the search: `greedy` (default — accept every step) or `climbing` (hill-climb — keep the best sentence, revert when a step doesn't beat it). Greedy is the climber with "always accept, never revert," so the two share one loop.
 - `scripts/epic_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
 - `scripts/epic_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + judge agent).
-- `scripts/epic_climbing.py` — like the loop, but **hill-climbs**: keeps the best sentence and reverts when a step doesn't beat it.
 - `scripts/epic_anneal.py` — **simulated annealing**: generalises the climber — accepts worse sentences early (high temperature) to escape local optima, cooling to greedy.
 - `scripts/_epic_common.py` — shared prompts and helpers used by all of them.
 
 ```bash
-python scripts/epic_loop.py                                              # code-directed greedy walk
+python scripts/epic_loop.py                                            # code-directed greedy walk (default)
+python scripts/epic_loop.py --strategy climbing                           # hill-climb: keep best, revert on regression
 python scripts/epic_agent.py                                             # agent-directed greedy walk
 python scripts/epic_evaluator.py                                         # EvaluatorOptimizer workflow class
-python scripts/epic_climbing.py                                          # hill-climb: keep best, revert on regression
 python scripts/epic_anneal.py --seed 7                                   # simulated annealing: explore early, cool to greedy
-python scripts/epic_loop.py --seed-sentence "She parks the car."         # any mundane seed sentence
+python scripts/epic_loop.py --seed-sentence "She parks the car."       # any mundane seed sentence
 python scripts/epic_agent.py --max-iterations 0                          # run until the judge says DONE
 python scripts/epic_loop.py --gen-model ollama:qwen3:8b --judge-model anthropic:claude-sonnet-4-6
 ```
 
-Every script produces a `summary.txt` trace; the two search scripts also write `best.txt`.
+Every script produces a `summary.txt` trace; `--strategy climbing` and `epic_anneal.py` also write `best.txt`.
 
 ## Why a text twin of the hotdog scripts?
 
 The [hotdog scripts](iterative-image-refinement.md) teach the same control-flow lesson, but each one carries image-specific scaffolding — a diffusers pipeline, a vision evaluator, a token-budget summarizer, a negative prompt, a collage. That machinery is valuable to see *once*, but it obscures the orchestration lesson and forces a GPU and the `[hf]` extra on anyone who just wants to compare **who drives the loop** and **which search strategy** wins.
 
-The epic family strips all of it away. The artifact is a string, the "generator" and "judge" are plain text `generate()` calls, and there is no encoder budget or negative prompt to manage. What's left in each script is *only* the orchestration and search — so the diff between `epic_loop.py` and `epic_agent.py` is purely the loop driver, and the diff between `epic_loop.py`, `epic_climbing.py`, and `epic_anneal.py` is purely the acceptance rule. The mapping back to hotdog is one-to-one:
+The epic family strips all of it away. The artifact is a string, the "generator" and "judge" are plain text `generate()` calls, and there is no encoder budget or negative prompt to manage. What's left in each script is *only* the orchestration and search — so the diff between `epic_loop.py` and `epic_agent.py` is purely the loop driver, and the diff between `epic_loop.py`'s two strategies and `epic_anneal.py` is purely the acceptance rule. The mapping back to hotdog is one-to-one:
 
 | hotdog (image) | epic (text) |
 |---|---|
@@ -52,9 +51,9 @@ All three share every prompt and helper in `_epic_common.py`, so the difference 
 
 ## Search strategy: greedy → hill-climbing → simulated annealing
 
-The loop and agent scripts are **greedy**: each round they accept whatever rewrite the judge's directive produces and move on — even if the new sentence scored *lower* than a previous one.
+`epic_loop.py` defaults to **greedy** (and the agent script is greedy too): each round it accepts whatever rewrite the judge's directive produces and moves on — even if the new sentence scored *lower* than a previous one.
 
-`epic_climbing.py` borrows the strategy from [`aimu.prompts`](tune-prompts.md) tuning — **best-state caching + revert when a step doesn't beat the best**. Track the highest-scoring sentence; if a generation beats it, adopt it and refine from there; if it doesn't (a lower score *or* a tie), discard it, revert to the best, and ask the judge for a *different* refinement (passing the directions that already failed so it explores elsewhere). Stop on `DONE`, after `--patience` consecutive non-improvements, or at `--max-iterations`. The winner is written to `best.txt`.
+`epic_loop.py --strategy climbing` borrows the strategy from [`aimu.prompts`](tune-prompts.md) tuning — **best-state caching + revert when a step doesn't beat the best**. Track the highest-scoring sentence; if a generation beats it, adopt it and refine from there; if it doesn't (a lower score *or* a tie), discard it, revert to the best, and ask the judge for a *different* refinement (passing the directions that already failed so it explores elsewhere). Stop on `DONE`, after `--patience` consecutive non-improvements, or at `--max-iterations`. The winner is written to `best.txt`. Because greedy *is* this loop with "always accept, never revert," both strategies live in the one script and differ only in the acceptance rule.
 
 `epic_anneal.py` **generalises the climber into simulated annealing** — the climber is annealing's `T → 0` limit. It keeps a `current` walk-state (distinct from the best-ever) and accepts the next sentence by the Metropolis rule, where `Δ = new_score − current_score`:
 
