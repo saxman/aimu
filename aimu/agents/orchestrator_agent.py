@@ -44,15 +44,20 @@ class OrchestratorAgent(Runner, ABC):
         system_message: str,
         tools: list[Callable],
         concurrent_tool_calls: bool = False,
+        final_answer_prompt: Optional[str] = None,
     ) -> None:
         """Wire up the orchestrator's inner :class:`Agent`.
 
         Call at the end of the subclass ``__init__``, after every ``@tool`` dispatch
-        function is defined.
+        function is defined. ``final_answer_prompt`` (opt-in) is forwarded to the inner
+        :class:`Agent` to guarantee a final answer if the orchestrator exhausts its
+        iterations while still dispatching to workers — see :class:`Agent`.
         """
         model_client.tools = list(tools)
         model_client.concurrent_tool_calls = concurrent_tool_calls
-        self._orchestrator = Agent(model_client, name=name, system_message=system_message)
+        self._orchestrator = Agent(
+            model_client, name=name, system_message=system_message, final_answer_prompt=final_answer_prompt
+        )
 
     @classmethod
     def assemble(
@@ -63,6 +68,7 @@ class OrchestratorAgent(Runner, ABC):
         workers: list[Agent],
         name: str = "orchestrator",
         concurrent_tool_calls: bool = True,
+        final_answer_prompt: Optional[str] = None,
     ) -> "OrchestratorAgent":
         """Build a ready-to-run orchestrator from a list of worker agents.
 
@@ -91,6 +97,7 @@ class OrchestratorAgent(Runner, ABC):
             system_message=system_message,
             tools=tool_fns,
             concurrent_tool_calls=concurrent_tool_calls,
+            final_answer_prompt=final_answer_prompt,
         )
         return instance
 

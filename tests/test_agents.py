@@ -16,9 +16,71 @@ import pytest
 from aimu.agents import Agent, Chain, OrchestratorAgent, Runner
 from aimu.agents.prebuilt import ResearchReportAgent
 from aimu.models import BaseModelClient, StreamChunk, StreamingContentType
+from aimu.tools import tool
 from helpers import MockModelClient, create_real_model_client, resolve_model_params
 
 _MOCK = "mock"
+
+
+@tool
+def _dummy_tool(x: str) -> str:
+    """A no-op tool used only to give an agent a non-empty tool list."""
+    return x
+
+
+class _LoopingToolClient(BaseModelClient):
+    """A client that calls a tool on every turn while tools are available, and only
+    produces a final answer once tools are disabled (the ``tools=[]`` per-call override).
+
+    Used to exercise ``Agent.final_answer_prompt``: the agent loops until it hits
+    ``max_iterations`` with a tool call pending, then the forced wrap-up turn (tools
+    disabled) makes this client return ``final_text``. ``tools_seen`` records the value of
+    ``self.tools`` on each ``_chat`` call so a test can assert the wrap-up turn had no tools.
+    """
+
+    def __init__(self, final_text: str = "FORCED SUMMARY"):
+        from unittest.mock import MagicMock
+
+        self.model = MagicMock()
+        self.model.supports_tools = True
+        self.model.supports_thinking = False
+        self.model_kwargs = None
+        self._system_message = None
+        self.default_generate_kwargs = {}
+        self.messages = []
+        self.tools = []
+        self.last_thinking = ""
+        self.concurrent_tool_calls = False
+        self._streaming_content_type = StreamingContentType.DONE
+        self.final_text = final_text
+        self.tools_seen: list[list] = []
+
+    def _update_generate_kwargs(self, generate_kwargs=None):
+        return generate_kwargs or {}
+
+    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+        if stream:
+            return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
+        self.messages.append({"role": "user", "content": user_message})
+        self.tools_seen.append(list(self.tools))
+        if self.tools:  # tools available -> emit a tool round, never finish on its own
+            self.messages.append(
+                {"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "t", "arguments": {}}, "id": "x"}]}
+            )
+            self.messages.append({"role": "tool", "name": "t", "content": "result", "tool_call_id": "x"})
+            self.messages.append({"role": "assistant", "content": ""})
+            return ""
+        self.messages.append({"role": "assistant", "content": self.final_text})  # tools disabled -> wrap up
+        return self.final_text
+
+    def _chat_streamed(self, user_message, generate_kwargs=None, use_tools=True, images=None):
+        text = self._chat(user_message, generate_kwargs, use_tools)
+        self._streaming_content_type = StreamingContentType.GENERATING
+        yield StreamChunk(StreamingContentType.GENERATING, text)
+        self._streaming_content_type = StreamingContentType.DONE
+
+    def _generate(self, prompt, generate_kwargs=None, stream=False, images=None):
+        return self._chat(prompt, generate_kwargs)
 
 
 def pytest_generate_tests(metafunc):
@@ -593,3 +655,70 @@ def test_agent_run_streamed_tools_override_applied():
     # saw the override; the point is the override is live across the whole stream.
     assert client.tools_per_call and all(seen == [override_tool] for seen in client.tools_per_call)
     assert client.tools[0] is not override_tool  # restored to configured tools
+
+
+# ---------------------------------------------------------------------------
+# Agent final_answer_prompt (forced wrap-up at max_iterations)
+# ---------------------------------------------------------------------------
+
+
+def test_agent_final_answer_prompt_forces_wrap_up_at_cap():
+    client = _LoopingToolClient(final_text="FORCED SUMMARY")
+    agent = Agent(
+        client, name="capper", tools=[_dummy_tool], max_iterations=3,
+        final_answer_prompt="Stop using tools and answer now.",
+    )
+    result = agent.run("gather forever")
+
+    assert result == "FORCED SUMMARY"
+    # The wrap-up turn ran with tools disabled; every prior turn had tools available.
+    assert client.tools_seen[-1] == []
+    assert all(seen for seen in client.tools_seen[:-1])
+    # Exactly one wrap-up turn (only the last call had tools disabled).
+    assert sum(1 for seen in client.tools_seen if seen == []) == 1
+    # The final answer is in the post-run snapshot, and the wrap-up prompt was sent.
+    assert agent.messages["capper"][-1]["content"] == "FORCED SUMMARY"
+    assert any(m["content"] == "Stop using tools and answer now." for m in client.messages if m["role"] == "user")
+
+
+def test_agent_without_final_answer_prompt_returns_last_turn_at_cap():
+    client = _LoopingToolClient(final_text="FORCED SUMMARY")
+    agent = Agent(client, name="capper", tools=[_dummy_tool], max_iterations=3)
+    result = agent.run("gather forever")
+
+    # No wrap-up: returns whatever the last (tool-only) turn produced, and tools were
+    # never disabled — this is the empty-output failure the feature fixes.
+    assert result == ""
+    assert all(seen for seen in client.tools_seen)
+
+
+def test_agent_final_answer_prompt_not_triggered_on_natural_finish():
+    client = MockModelClient(["done"])
+    agent = Agent(client, name="natural", final_answer_prompt="WRAP UP NOW")
+    result = agent.run("task")
+
+    assert result == "done"
+    assert client._call_count == 1  # no extra forced turn
+    assert "WRAP UP NOW" not in [m["content"] for m in client.messages if m["role"] == "user"]
+
+
+def test_agent_streamed_final_answer_prompt_forces_wrap_up():
+    client = _LoopingToolClient(final_text="STREAMED SUMMARY")
+    agent = Agent(
+        client, name="scap", tools=[_dummy_tool], max_iterations=3,
+        final_answer_prompt="Stop using tools and answer now.",
+    )
+    chunks = list(agent.run("gather", stream=True))
+
+    generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING and c.content]
+    assert any(c.content == "STREAMED SUMMARY" for c in generating)
+    assert client.tools_seen[-1] == []  # wrap-up turn had tools disabled
+
+
+def test_orchestrator_assemble_threads_final_answer_prompt():
+    worker = Agent(MockModelClient(["worker out"]), name="w", system_message="Do work.")
+    orch = OrchestratorAgent.assemble(
+        MockModelClient(["hi"]), "Coordinate.", workers=[worker],
+        final_answer_prompt="Summarize now.",
+    )
+    assert orch._orchestrator.final_answer_prompt == "Summarize now."

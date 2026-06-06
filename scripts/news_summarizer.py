@@ -73,6 +73,13 @@ GENERATE_KWARGS = {"max_tokens": 8192}
 # cut off mid-gather.
 MAX_ITERATIONS = 100
 
+# If a tool-using agent still hits the iteration cap, this forces one final tools-disabled
+# turn so we always get a summary instead of an empty result (see Agent.final_answer_prompt).
+FINAL_ANSWER_PROMPT = (
+    "You have reached the limit on tool use. Do not call any more tools. Using only the "
+    "articles you have already gathered and confirmed, write the final news summary now."
+)
+
 SYSTEM = (
     "You are a news summarizer specializing in AI technical developments. "
     "Summarize concisely and always include a publication date and source link for every article. "
@@ -186,6 +193,7 @@ def build_agent(model: str, fmt: str) -> Agent:
         name="news-agent",
         tools=TOOLS,
         max_iterations=MAX_ITERATIONS,
+        final_answer_prompt=FINAL_ANSWER_PROMPT,
     )
 
 
@@ -294,6 +302,7 @@ def build_orchestrator(model: str, fmt: str) -> OrchestratorAgent:
         ),
         workers=[searcher, summarizer],
         name="news-orchestrator",
+        final_answer_prompt=FINAL_ANSWER_PROMPT,
     )
 
 

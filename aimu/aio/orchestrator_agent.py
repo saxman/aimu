@@ -33,10 +33,13 @@ class OrchestratorAgent(AsyncRunner, ABC):
         system_message: str,
         tools: list[Callable],
         concurrent_tool_calls: bool = False,
+        final_answer_prompt: Optional[str] = None,
     ) -> None:
         model_client.tools = list(tools)
         model_client.concurrent_tool_calls = concurrent_tool_calls
-        self._orchestrator = Agent(model_client, name=name, system_message=system_message)
+        self._orchestrator = Agent(
+            model_client, name=name, system_message=system_message, final_answer_prompt=final_answer_prompt
+        )
 
     @classmethod
     def assemble(
@@ -47,6 +50,7 @@ class OrchestratorAgent(AsyncRunner, ABC):
         workers: list[Agent],
         name: str = "orchestrator",
         concurrent_tool_calls: bool = True,
+        final_answer_prompt: Optional[str] = None,
     ) -> "OrchestratorAgent":
         """Build a ready-to-run async orchestrator from a list of worker agents."""
         from aimu.tools.decorator import tool
@@ -62,6 +66,7 @@ class OrchestratorAgent(AsyncRunner, ABC):
             system_message=system_message,
             tools=tool_fns,
             concurrent_tool_calls=concurrent_tool_calls,
+            final_answer_prompt=final_answer_prompt,
         )
         return instance
 

@@ -33,6 +33,14 @@ class Agent(Runner):
     clears ``model_client.messages`` and re-applies ``system_message`` before every
     run. This isolates state when a client is shared (e.g. inside a :class:`Chain`).
 
+    ``final_answer_prompt`` (opt-in, default ``None``) guarantees a final answer when the
+    loop exhausts ``max_iterations`` while the model is still calling tools — instead of
+    returning whatever the last (possibly tool-only) turn produced, the agent sends this
+    prompt once with tools disabled, forcing the model to synthesize an answer from the
+    context it has gathered. This wrap-up turn is *not* counted against ``max_iterations``
+    (the cap bounds tool-using turns; this is the guaranteed finish). It fires only on the
+    cap-with-pending-tools path; a natural finish (a turn with no tool calls) is unaffected.
+
     Quick start::
 
         from aimu.tools import tool
@@ -56,6 +64,7 @@ class Agent(Runner):
     max_iterations: int = 10
     continuation_prompt: str = field(default=DEFAULT_CONTINUATION_PROMPT)
     reset_messages_on_run: bool = False
+    final_answer_prompt: Optional[str] = None
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -97,6 +106,10 @@ class Agent(Runner):
             logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
             response = self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools)
 
+        if self.final_answer_prompt is not None and self._last_turn_called_tools():
+            logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+            response = self.model_client.chat(self.final_answer_prompt, generate_kwargs=generate_kwargs, tools=[])
+
         self._last_messages = list(self.model_client.messages)
         return response
 
@@ -119,6 +132,14 @@ class Agent(Runner):
             logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
             for chunk in self.model_client.chat(
                 self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
+            ):
+                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
+            iteration += 1
+
+        if self.final_answer_prompt is not None and self._last_turn_called_tools():
+            logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+            for chunk in self.model_client.chat(
+                self.final_answer_prompt, generate_kwargs=generate_kwargs, stream=True, tools=[]
             ):
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
             iteration += 1
@@ -185,7 +206,7 @@ class Agent(Runner):
         """Create an Agent from a plain dict config.
 
         Recognised keys: ``name``, ``system_message``, ``max_iterations``,
-        ``continuation_prompt``.
+        ``continuation_prompt``, ``final_answer_prompt``.
         """
         sm = config.get("system_message")
         return cls(
@@ -194,4 +215,5 @@ class Agent(Runner):
             name=config.get("name"),
             max_iterations=config.get("max_iterations", 10),
             continuation_prompt=config.get("continuation_prompt", DEFAULT_CONTINUATION_PROMPT),
+            final_answer_prompt=config.get("final_answer_prompt"),
         )

@@ -8,6 +8,7 @@ import time
 import pytest
 
 from aimu.aio import Agent
+from aimu.models import StreamingContentType
 from aimu.tools import tool
 from helpers_aio import MockAsyncModelClient
 
@@ -158,3 +159,79 @@ async def test_async_agent_run_streamed_tools_override_applied():
 
     assert client.tools_per_call and all(seen == [override_tool] for seen in client.tools_per_call)
     assert client.tools[0] is not override_tool  # restored to configured tools
+
+
+# ---------------------------------------------------------------------------
+# Async Agent final_answer_prompt (forced wrap-up at max_iterations)
+# ---------------------------------------------------------------------------
+
+
+@tool
+def _dummy_async_tool(x: str) -> str:
+    """A no-op tool used only to give an agent a non-empty tool list."""
+    return x
+
+
+class _AsyncLoopingToolClient(MockAsyncModelClient):
+    """Async mirror of ``test_agents._LoopingToolClient``: calls a tool every turn while
+    tools are available, and only produces a final answer once tools are disabled."""
+
+    def __init__(self, final_text: str = "FORCED SUMMARY"):
+        super().__init__([])
+        self.final_text = final_text
+        self.tools_seen: list[list] = []
+
+    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+        if stream:
+            return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
+        self.messages.append({"role": "user", "content": user_message})
+        self.tools_seen.append(list(self.tools))
+        if self.tools:
+            self.messages.append(
+                {"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "t", "arguments": {}}, "id": "x"}]}
+            )
+            self.messages.append({"role": "tool", "name": "t", "content": "result", "tool_call_id": "x"})
+            self.messages.append({"role": "assistant", "content": ""})
+            return ""
+        self.messages.append({"role": "assistant", "content": self.final_text})
+        return self.final_text
+
+
+async def test_async_agent_final_answer_prompt_forces_wrap_up_at_cap():
+    client = _AsyncLoopingToolClient(final_text="FORCED SUMMARY")
+    agent = Agent(
+        client, name="capper", tools=[_dummy_async_tool], max_iterations=3,
+        final_answer_prompt="Stop using tools and answer now.",
+    )
+    result = await agent.run("gather forever")
+
+    assert result == "FORCED SUMMARY"
+    assert client.tools_seen[-1] == []
+    assert all(seen for seen in client.tools_seen[:-1])
+    assert sum(1 for seen in client.tools_seen if seen == []) == 1
+
+
+async def test_async_agent_final_answer_prompt_not_triggered_on_natural_finish():
+    client = MockAsyncModelClient(["done"])
+    agent = Agent(client, name="natural", final_answer_prompt="WRAP UP NOW")
+    result = await agent.run("task")
+
+    assert result == "done"
+    assert client._call_count == 1
+    assert "WRAP UP NOW" not in [m["content"] for m in client.messages if m["role"] == "user"]
+
+
+async def test_async_agent_streamed_final_answer_prompt_forces_wrap_up():
+    client = _AsyncLoopingToolClient(final_text="STREAMED SUMMARY")
+    agent = Agent(
+        client, name="scap", tools=[_dummy_async_tool], max_iterations=3,
+        final_answer_prompt="Stop using tools and answer now.",
+    )
+    chunks = []
+    stream = await agent.run("gather", stream=True)
+    async for c in stream:
+        chunks.append(c)
+
+    generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING and c.content]
+    assert any(c.content == "STREAMED SUMMARY" for c in generating)
+    assert client.tools_seen[-1] == []

@@ -76,6 +76,7 @@ class Agent(AsyncRunner):
     max_iterations: int = 10
     continuation_prompt: str = field(default=DEFAULT_CONTINUATION_PROMPT)
     reset_messages_on_run: bool = False
+    final_answer_prompt: Optional[str] = None
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -114,6 +115,10 @@ class Agent(AsyncRunner):
                 self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools
             )
 
+        if self.final_answer_prompt is not None and self._last_turn_called_tools():
+            logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+            response = await self.model_client.chat(self.final_answer_prompt, generate_kwargs=generate_kwargs, tools=[])
+
         self._last_messages = list(self.model_client.messages)
         return response
 
@@ -139,6 +144,15 @@ class Agent(AsyncRunner):
                 self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
             )
             async for chunk in next_stream:
+                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
+            iteration += 1
+
+        if self.final_answer_prompt is not None and self._last_turn_called_tools():
+            logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+            final_stream = await self.model_client.chat(
+                self.final_answer_prompt, generate_kwargs=generate_kwargs, stream=True, tools=[]
+            )
+            async for chunk in final_stream:
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
             iteration += 1
 
@@ -174,4 +188,5 @@ class Agent(AsyncRunner):
             name=config.get("name"),
             max_iterations=config.get("max_iterations", 10),
             continuation_prompt=config.get("continuation_prompt", DEFAULT_CONTINUATION_PROMPT),
+            final_answer_prompt=config.get("final_answer_prompt"),
         )
