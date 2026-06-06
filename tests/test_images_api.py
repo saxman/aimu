@@ -171,10 +171,7 @@ def test_resolve_image_model_enum_bare_name_unique():
 
 
 def test_resolve_image_model_enum_delegates_provider_id_string():
-    assert (
-        resolve_image_model_enum("hf:stabilityai/stable-diffusion-3.5-medium")
-        is HuggingFaceImageModel.SD_3_5_MEDIUM
-    )
+    assert resolve_image_model_enum("hf:stabilityai/stable-diffusion-3.5-medium") is HuggingFaceImageModel.SD_3_5_MEDIUM
 
 
 def test_resolve_image_model_enum_unknown_name_raises():
