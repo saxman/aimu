@@ -288,7 +288,7 @@ def get_webpage(url: str) -> str:
 
 
 @tool
-def web_search(query: str, num_results: int = 5, time_range: str = "") -> str:
+def web_search(query: str, num_results: int = 5, time_range: str = "", categories: str = "") -> str:
     """Search the web using a SearXNG instance and return the top results.
 
     Each result includes its publication date when the search engine reports one
@@ -299,6 +299,9 @@ def web_search(query: str, num_results: int = 5, time_range: str = "") -> str:
         num_results: Number of results to return (default 5).
         time_range: Optional recency filter, one of "day", "week", "month", or "year".
             Use "day" to restrict results to roughly the last 24 hours (best for fresh news).
+        categories: Optional SearXNG category filter, e.g. "news" to restrict to news
+            engines (which report publication dates far more reliably than general web
+            engines). Comma-separated for multiple, e.g. "news,science".
 
     Set SEARXNG_BASE_URL env var to point to your SearXNG instance (or a .env file)
     (default: http://localhost:8080).
@@ -306,6 +309,8 @@ def web_search(query: str, num_results: int = 5, time_range: str = "") -> str:
     params = {"q": query, "format": "json"}
     if time_range:
         params["time_range"] = time_range
+    if categories:
+        params["categories"] = categories
     try:
         response = requests.get(
             f"{SEARXNG_BASE_URL}/search",
