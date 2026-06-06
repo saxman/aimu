@@ -1623,6 +1623,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.available_text_models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        available_text_models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.chat" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1638,6 +1649,39 @@
     <span class="md-ellipsis">
       
         client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.resolve_default_text_model_enum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_default_text_model_enum
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.resolve_image_model_enum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_image_model_enum
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.resolve_model_enum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_model_enum
       
     </span>
   </a>
@@ -2464,6 +2508,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.available_text_models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        available_text_models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.chat" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2479,6 +2534,39 @@
     <span class="md-ellipsis">
       
         client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.resolve_default_text_model_enum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_default_text_model_enum
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.resolve_image_model_enum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_image_model_enum
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.resolve_model_enum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_model_enum
       
     </span>
   </a>
@@ -2621,6 +2709,35 @@ print(agent.run(&quot;How many r&#39;s in strawberry?&quot;))
 <div class="doc doc-object doc-function">
 
 
+<h3 id="aimu.available_text_models" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">available_text_models</span>
+
+
+<a href="#aimu.available_text_models" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">available_text_models</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">include_hf_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return locally <em>available</em> text models as provider <code>Model</code> enum members.</p>
+<p>Discovery is download-free and cloud-free — it reports only what is loadable right
+now: models on a running Ollama server, models in the local HuggingFace cache, and
+models served by a reachable local OpenAI-compatible server. Order is provider
+priority (Ollama → HuggingFace cache → local servers), then enum-definition order
+within each provider.</p>
+<p><code>include_hf_cache=False</code> skips the HuggingFace cache probe (the async surface cannot
+wrap an <code>hf:</code> in-process client directly).</p>
+<p>See :func:<code>resolve_default_text_model_enum</code> for the single auto-pick, and
+:func:<code>aimu.resolve_model_enum</code> to resolve a <em>named</em> model to an enum member.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="aimu.chat" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">chat</span>
 
@@ -2674,6 +2791,97 @@ auto-selected and weights are never downloaded implicitly; if nothing resolves a
 <code>ValueError</code> is raised naming the remedies.</p>
 <p>Use this as the one-line construction helper. For full control over the provider
 client constructor, use :class:<code>ModelClient</code> directly.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.resolve_default_text_model_enum" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">resolve_default_text_model_enum</span>
+
+
+<a href="#aimu.resolve_default_text_model_enum" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">resolve_default_text_model_enum</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">include_hf_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;Model&#39;</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Like :func:<code>resolve_default_text_model</code>, but return the <code>Model</code> enum member.</p>
+<p>Order: <code>AIMU_LANGUAGE_MODEL</code> (parsed via :func:<code>resolve_model_string</code>) → the first
+locally available model (tool-capable preferred; see :func:<code>available_text_models</code>) →
+<code>ValueError</code>. Never selects a cloud provider and never downloads weights.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.resolve_image_model_enum" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">resolve_image_model_enum</span>
+
+
+<a href="#aimu.resolve_image_model_enum" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">resolve_image_model_enum</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ImageModel</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ImageModel</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Resolve an image model to an <code>ImageModel</code> enum member.</p>
+<p>Accepts, in order:</p>
+<ul>
+<li>an <code>ImageModel</code> enum member (returned unchanged);</li>
+<li>a <code>"provider:model_id"</code> string (delegates to :func:<code>resolve_image_model_string</code>);</li>
+<li>a bare enum-member <em>name</em> (e.g. <code>"FLUX_2_KLEIN_4B"</code> / <code>"NANO_BANANA"</code>), looked
+  up across every installed image-provider enum.</li>
+</ul>
+<p>A bare name present in more than one provider's enum is <strong>ambiguous</strong> and raises
+<code>ValueError</code> — pass an explicit <code>"provider:model_id"</code> string to disambiguate.
+Parallel to :func:<code>aimu.resolve_model_enum</code> for the text modality.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.resolve_model_enum" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">resolve_model_enum</span>
+
+
+<a href="#aimu.resolve_model_enum" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">resolve_model_enum</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Model</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Model</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Resolve a text model to a <code>Model</code> enum member.</p>
+<p>Accepts, in order:</p>
+<ul>
+<li>a <code>Model</code> enum member (returned unchanged);</li>
+<li>a <code>"provider:model_id"</code> string (delegates to :func:<code>resolve_model_string</code>);</li>
+<li>a bare enum-member <em>name</em> (e.g. <code>"QWEN_3_8B"</code>), looked up across every installed
+  provider's <code>Model</code> enum.</li>
+</ul>
+<p>A bare name that ships under more than one provider's enum (common for text — the same
+id is offered by many providers) is <strong>ambiguous</strong>. Rather than blindly picking the
+highest-priority provider, ambiguity is resolved the way the omitted-<code>model</code> default is:
+prefer a provider where the model is <em>actually available locally</em> (running Ollama →
+cached HuggingFace → reachable local OpenAI-compat server, tool-capable first), logged at
+WARNING. If the ambiguous name is not available under any provider, a <code>ValueError</code> is
+raised listing the <code>"provider:model_id"</code> options — picking a provider for a model that
+isn't even loadable would be a blind guess. This availability tiebreaker only runs on the
+ambiguous path; enum / <code>"provider:model_id"</code> / unambiguous-name inputs do no I/O.</p>
+<p>Parallel to :func:<code>aimu.resolve_image_model_enum</code> for the image modality (which has no
+local-availability notion, so it always raises on the rare ambiguity).</p>
 
 
     </div>

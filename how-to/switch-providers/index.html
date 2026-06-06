@@ -841,6 +841,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resolve-a-name-string-or-enum-uniformly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolve a name, string, or enum uniformly
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-whatever-model-is-already-available-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use whatever model is already available locally
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#provider-keys" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2463,6 +2485,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resolve-a-name-string-or-enum-uniformly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolve a name, string, or enum uniformly
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-whatever-model-is-already-available-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use whatever model is already available locally
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#provider-keys" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2544,6 +2588,32 @@
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">ModelClient</span><span class="p">(</span><span class="n">OllamaModel</span><span class="o">.</span><span class="n">QWEN_3_5_9B</span><span class="p">)</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">ModelClient</span><span class="p">(</span><span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_SONNET_4_6</span><span class="p">)</span>
 </span></code></pre></div>
+<h2 id="resolve-a-name-string-or-enum-uniformly">Resolve a name, string, or enum uniformly<a class="headerlink" href="#resolve-a-name-string-or-enum-uniformly" title="Permanent link">&para;</a></h2>
+<p>When you accept a model from a CLI flag or config and don't know which form it'll arrive in, <code>resolve_model_enum</code> (text) and <code>resolve_image_model_enum</code> (image) normalise all three to an enum member:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnthropicModel</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_model_enum</span><span class="p">(</span><span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_SONNET_4_6</span><span class="p">)</span>   <span class="c1"># enum member → returned unchanged</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_model_enum</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>      <span class="c1"># &quot;provider:model_id&quot; string</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_model_enum</span><span class="p">(</span><span class="s2">&quot;CLAUDE_SONNET_4_6&quot;</span><span class="p">)</span>                <span class="c1"># bare enum-member name</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_image_model_enum</span><span class="p">(</span><span class="s2">&quot;FLUX_2_KLEIN_4B&quot;</span><span class="p">)</span>           <span class="c1"># same, for image models</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_image_model_enum</span><span class="p">(</span><span class="s2">&quot;gemini:nano-banana&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Pass the result straight to <code>aimu.client(...)</code> / <code>aimu.image_client(...)</code> (both also accept an enum member):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_model_enum</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">))</span>
+</span></code></pre></div>
+<p>A <strong>bare text name is often ambiguous</strong> — the same id ships under several providers (e.g. <code>QWEN_3_8B</code> is an Ollama, HuggingFace, and OpenAI-compat model). <code>resolve_model_enum</code> resolves the tie by preferring a provider where the model is <em>already available locally</em> (running Ollama → cached HuggingFace → reachable local server, tool-capable first), logging the choice at <code>WARNING</code>. If it isn't available anywhere, it raises <code>ValueError</code> listing the <code>"provider:model_id"</code> options — so pin the provider with the string form when you need a specific one. (<code>resolve_image_model_enum</code> has no local-availability notion and raises on the rare ambiguity.)</p>
+<h2 id="use-whatever-model-is-already-available-locally">Use whatever model is already available locally<a class="headerlink" href="#use-whatever-model-is-already-available-locally" title="Permanent link">&para;</a></h2>
+<p>Omit <code>model=</code> entirely and AIMU resolves a default: the <code>AIMU_LANGUAGE_MODEL</code> env var if set, otherwise the first <em>already-available</em> local model (running Ollama → cached HuggingFace → reachable local OpenAI-compat server, tool-capable preferred). A cloud provider is never auto-selected and weights are never downloaded.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">()</span>                          <span class="c1"># auto-resolved default (logs the pick at WARNING)</span>
+</span></code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AIMU_LANGUAGE_MODEL</span><span class="o">=</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="w">  </span><span class="c1"># pin the default deterministically</span>
+</span></code></pre></div>
+<p>To inspect or choose among what's available instead of taking the auto-pick:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">available_text_models</span><span class="p">()</span>            <span class="c1"># list[Model] — locally loadable models, provider-priority order</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_default_text_model_enum</span><span class="p">()</span>  <span class="c1"># the single auto-pick, as an enum member</span>
+</span></code></pre></div>
 <h2 id="provider-keys">Provider keys<a class="headerlink" href="#provider-keys" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2618,30 +2688,30 @@
 </table>
 <p>See the <a href="../../reference/provider-matrix/">provider matrix</a> for full details.</p>
 <h2 id="check-what-the-provider-supports">Check what the provider supports<a class="headerlink" href="#check-what-the-provider-supports" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">client</span><span class="o">.</span><span class="n">is_tool_using_model</span>    <span class="c1"># True</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">client</span><span class="o">.</span><span class="n">is_thinking_model</span>      <span class="c1"># True</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">client</span><span class="o">.</span><span class="n">is_vision_model</span>        <span class="c1"># False</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">client</span><span class="o">.</span><span class="n">is_tool_using_model</span>    <span class="c1"># True</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">client</span><span class="o">.</span><span class="n">is_thinking_model</span>      <span class="c1"># True</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">client</span><span class="o">.</span><span class="n">is_vision_model</span>        <span class="c1"># False</span>
 </span></code></pre></div>
 <h2 id="pass-provider-specific-kwargs">Pass provider-specific kwargs<a class="headerlink" href="#pass-provider-specific-kwargs" title="Permanent link">&para;</a></h2>
 <p>Extra kwargs are forwarded to the underlying client constructor:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Ollama: keep the model warm for 5 minutes</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">,</span> <span class="n">model_keep_alive_seconds</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># llama.cpp: load a local GGUF file</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;llamacpp:qwen3-8b&quot;</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="s2">&quot;/path/to/qwen3-8b.gguf&quot;</span><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># LM Studio: point at a non-default host</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;lmstudio:qwen3.5-9b&quot;</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;http://myserver:1234/v1&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Ollama: keep the model warm for 5 minutes</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">,</span> <span class="n">model_keep_alive_seconds</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># llama.cpp: load a local GGUF file</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;llamacpp:qwen3-8b&quot;</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="s2">&quot;/path/to/qwen3-8b.gguf&quot;</span><span class="p">)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># LM Studio: point at a non-default host</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;lmstudio:qwen3.5-9b&quot;</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;http://myserver:1234/v1&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Each provider client's constructor signature is in the <a href="../../reference/api/models/">API reference</a>.</p>
 <h2 id="failure-modes">Failure modes<a class="headerlink" href="#failure-modes" title="Permanent link">&para;</a></h2>
 <p><code>aimu.client("foo:bar")</code> raises <code>ValueError</code> listing the available providers if the prefix is unknown, and raises with the available model ids if the prefix is valid but the id isn't:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;foo:bar&quot;</span><span class="p">)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Unknown</span> <span class="n">provider</span> <span class="s1">&#39;foo&#39;</span><span class="o">.</span> <span class="n">Available</span> <span class="n">providers</span> <span class="p">(</span><span class="k">with</span> <span class="n">installed</span> <span class="n">deps</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;anthropic&#39;</span><span class="p">,</span> <span class="s1">&#39;ollama&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-nonsense&quot;</span><span class="p">)</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Provider</span> <span class="s1">&#39;anthropic&#39;</span> <span class="n">has</span> <span class="n">no</span> <span class="n">model</span> <span class="nb">id</span> <span class="s1">&#39;claude-nonsense&#39;</span><span class="o">.</span> <span class="n">Available</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;claude-haiku-4-5&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-6&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-sonnet-4-6&#39;</span><span class="p">]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;foo:bar&quot;</span><span class="p">)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Unknown</span> <span class="n">provider</span> <span class="s1">&#39;foo&#39;</span><span class="o">.</span> <span class="n">Available</span> <span class="n">providers</span> <span class="p">(</span><span class="k">with</span> <span class="n">installed</span> <span class="n">deps</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;anthropic&#39;</span><span class="p">,</span> <span class="s1">&#39;ollama&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-nonsense&quot;</span><span class="p">)</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Provider</span> <span class="s1">&#39;anthropic&#39;</span> <span class="n">has</span> <span class="n">no</span> <span class="n">model</span> <span class="nb">id</span> <span class="s1">&#39;claude-nonsense&#39;</span><span class="o">.</span> <span class="n">Available</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;claude-haiku-4-5&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-6&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-sonnet-4-6&#39;</span><span class="p">]</span>
 </span></code></pre></div>
 
 
