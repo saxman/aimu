@@ -17,8 +17,12 @@ Usage::
 
     python scripts/news_summarizer.py --method agent
     python scripts/news_summarizer.py --method chain --model ollama:qwen3.5:9b
-    python scripts/news_summarizer.py --method chain --format markdown --output digest.md
+    python scripts/news_summarizer.py --method parallel --output-dir ./my-run
     python scripts/news_summarizer.py --list
+
+Each run writes a Markdown ``summary.md`` and a ``trace.json`` into a timestamped folder
+under ``output/news/<timestamp>/`` (like the hotdog and epic scripts), unless overridden
+with ``--output-dir`` / ``--trace``.
 
 Web search relies on a reachable SearXNG instance (``SEARXNG_BASE_URL``); the model must
 support tool calling.
@@ -27,6 +31,7 @@ support tool calling.
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import aimu
@@ -177,6 +182,19 @@ def run_with_progress(
 
 def _note(message: str) -> None:
     print(message, file=sys.stderr)
+
+
+def resolve_output_dir(output_dir: str | None) -> Path:
+    """Resolve the run's output directory, defaulting to output/news/<timestamp>/.
+
+    Mirrors the convention used by the hotdog and epic scripts so every run lands in a
+    self-contained, timestamped folder under the shared output directory.
+    """
+    if output_dir:
+        return Path(output_dir)
+    from aimu import paths as aimu_paths
+
+    return aimu_paths.output / "news" / datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
 # --------------------------------------------------------------------------------------
@@ -343,19 +361,19 @@ def main() -> None:
     parser.add_argument(
         "--format",
         choices=["text", "markdown"],
-        default="text",
-        help="Output format the model is asked to write in: plain text or Markdown (default: text).",
+        default="markdown",
+        help="Output format the model is asked to write in: plain text or Markdown (default: markdown).",
     )
     parser.add_argument(
-        "--output",
-        metavar="FILE",
-        help="Write the result to FILE instead of stdout (progress still goes to stderr).",
+        "--output-dir",
+        metavar="DIR",
+        default=None,
+        help="Directory for the run's artifacts (default: output/news/<timestamp>/).",
     )
     parser.add_argument(
         "--trace",
         metavar="FILE",
-        help="Write the full message trace (per-agent conversation, incl. tool calls) "
-        "to FILE as JSON after the run.",
+        help="Write the message trace to FILE instead of <output-dir>/trace.json.",
     )
     parser.add_argument(
         "--list",
@@ -382,26 +400,25 @@ def main() -> None:
     if not result.strip():
         _note(
             "\nWarning: the run produced no final summary — the agent likely exhausted its "
-            "iterations on tool calls without writing an answer (check the trace with --trace). "
+            "iterations on tool calls without writing an answer (inspect trace.json below). "
             "Try a different --method or --model."
         )
 
-    if args.trace:
-        # runner.messages is a {agent_name: [messages]} dict in OpenAI format, merged
-        # across every agent/step in the pattern (default=str guards any stray objects).
-        Path(args.trace).write_text(json.dumps(runner.messages, indent=2, default=str), encoding="utf-8")
-        _note(f"Wrote message trace to {args.trace}")
+    # Each run lands in a self-contained, timestamped folder under output/news/ (like the
+    # hotdog and epic scripts). The agent was instructed to write in the requested format
+    # (see FORMAT_DIRECTIVE), so the result is already plain text or Markdown.
+    output_dir = resolve_output_dir(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    # The agent was instructed to write in the requested format (see FORMAT_DIRECTIVE),
-    # so the result is already plain text or Markdown — no post-processing needed.
-    if args.output:
-        Path(args.output).write_text(result, encoding="utf-8")
-        _note(f"\nWrote {args.format} output to {args.output}")
-    elif args.format == "text":
-        print("\n" + "=" * 70)
-        print(result)
-    else:  # markdown — emit raw for clean redirection to a file
-        print(result)
+    summary_path = output_dir / ("summary.md" if args.format == "markdown" else "summary.txt")
+    summary_path.write_text(result, encoding="utf-8")
+    _note(f"\nWrote {args.format} summary to {summary_path}")
+
+    # runner.messages is a {agent_name: [messages]} dict in OpenAI format, merged across
+    # every agent/step in the pattern (default=str guards any stray objects).
+    trace_path = Path(args.trace) if args.trace else output_dir / "trace.json"
+    trace_path.write_text(json.dumps(runner.messages, indent=2, default=str), encoding="utf-8")
+    _note(f"Wrote message trace to {trace_path}")
 
 
 if __name__ == "__main__":
