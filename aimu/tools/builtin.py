@@ -233,9 +233,39 @@ class _TextExtractor(HTMLParser):
         return re.sub(r"\s+", " ", text).strip()
 
 
+# Publication timestamps hide in machine-readable HTML that _TextExtractor strips out
+# (<head>/<meta>) or in attributes it ignores (<time datetime>). These patterns recover
+# them in priority order: <meta> tags (either attribute ordering), JSON-LD datePublished,
+# then <time>. The matched value is usually ISO 8601.
+_META_DATE_KEYS = r"article:published_time|datePublished|pubdate|publishdate|date|dc\.date|sailthru\.date"
+_PUBLISH_DATE_PATTERNS = [
+    rf'<meta[^>]+(?:property|name)=["\'](?:{_META_DATE_KEYS})["\'][^>]*\bcontent=["\']([^"\']+)["\']',
+    rf'<meta[^>]+\bcontent=["\']([^"\']+)["\'][^>]*(?:property|name)=["\'](?:{_META_DATE_KEYS})["\']',
+    r'"datePublished"\s*:\s*"([^"]+)"',
+    r'<time[^>]+datetime=["\']([^"\']+)["\']',
+]
+
+
+def _extract_publish_date(html: str) -> str:
+    """Best-effort publication timestamp from raw article HTML.
+
+    Checks <meta> tags, JSON-LD ``datePublished``, and ``<time datetime=...>`` in
+    priority order. Returns the raw date string (usually ISO 8601) or "" if none found.
+    """
+    for pattern in _PUBLISH_DATE_PATTERNS:
+        match = re.search(pattern, html, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
 @tool
 def get_webpage(url: str) -> str:
     """Fetches a web page and returns its visible text content with HTML stripped.
+
+    When the page exposes a publication timestamp (in <meta> tags, JSON-LD, or a
+    <time> element), it is prepended as a "Published:" line so the date isn't lost
+    when the HTML is stripped.
 
     Args:
         url: The URL of the page to retrieve.
@@ -250,26 +280,36 @@ def get_webpage(url: str) -> str:
     except requests.RequestException as e:
         return f"Error fetching page: {e}"
 
+    published = _extract_publish_date(response.text)
     extractor = _TextExtractor()
     extractor.feed(response.text)
-    return extractor.get_text()
+    text = extractor.get_text()
+    return f"Published: {published}\n\n{text}" if published else text
 
 
 @tool
-def web_search(query: str, num_results: int = 5) -> str:
+def web_search(query: str, num_results: int = 5, time_range: str = "") -> str:
     """Search the web using a SearXNG instance and return the top results.
+
+    Each result includes its publication date when the search engine reports one
+    (shown as a "Published:" line) — useful for judging how recent an article is.
 
     Args:
         query: The search query string.
         num_results: Number of results to return (default 5).
+        time_range: Optional recency filter, one of "day", "week", "month", or "year".
+            Use "day" to restrict results to roughly the last 24 hours (best for fresh news).
 
     Set SEARXNG_BASE_URL env var to point to your SearXNG instance (or a .env file)
     (default: http://localhost:8080).
     """
+    params = {"q": query, "format": "json"}
+    if time_range:
+        params["time_range"] = time_range
     try:
         response = requests.get(
             f"{SEARXNG_BASE_URL}/search",
-            params={"q": query, "format": "json"},
+            params=params,
             timeout=10,
         )
         response.raise_for_status()
@@ -286,7 +326,9 @@ def web_search(query: str, num_results: int = 5) -> str:
         title = r.get("title", "No title")
         url = r.get("url", "")
         snippet = r.get("content", "")
-        lines.append(f"{i}. {title}\n   {url}\n   {snippet}")
+        published = r.get("publishedDate") or ""
+        date_line = f"\n   Published: {published}" if published else ""
+        lines.append(f"{i}. {title}\n   {url}{date_line}\n   {snippet}")
     return "\n\n".join(lines)
 
 
