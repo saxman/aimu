@@ -20,6 +20,7 @@ class OllamaModel(Model):
     QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)
     # Google
     GEMMA_4_E4B = ModelSpec("gemma4:e4b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
+    GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
     GEMMA_4_26B = ModelSpec("gemma4:26b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
     GEMMA_4_31B = ModelSpec("gemma4:31b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
     GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True)

@@ -25,6 +25,7 @@ class LlamaCppModel(Model):
     QWEN_3_8B = ModelSpec("qwen3-8b", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-7b", thinking=True)
     PHI_4_MINI = ModelSpec("phi-4-mini", tools=True)
+    GEMMA_4_12B = ModelSpec("gemma-4-12b", tools=True)
 
 
 class LlamaCppClient(BaseModelClient):

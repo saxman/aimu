@@ -252,6 +252,7 @@ class OllamaOpenAIModel(Model):
     QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True)
     DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True)
     GEMMA_3_12B = ModelSpec("gemma3:12b")
+    GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True)
 
 
 class OllamaOpenAIClient(OpenAICompatClient):
@@ -273,6 +274,7 @@ class LMStudioOpenAIModel(Model):
     QWEN_3_8B = ModelSpec("qwen3-8b", tools=True, thinking=True)
     QWEN_3_5_9B = ModelSpec("qwen3.5-9b", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-distill-qwen-7b", thinking=True)
+    GEMMA_4_12B = ModelSpec("gemma-4-12b-it", tools=True)
 
 
 class LMStudioOpenAIClient(OpenAICompatClient):
@@ -295,6 +297,7 @@ class VLLMOpenAIModel(Model):
     QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
     GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True)
+    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True)
 
 
 class VLLMOpenAIClient(OpenAICompatClient):
@@ -317,6 +320,7 @@ class HFOpenAIModel(Model):
     QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
     GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True)
+    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True)
 
 
 class HFOpenAIClient(OpenAICompatClient):
@@ -341,6 +345,7 @@ class LlamaServerOpenAIModel(Model):
     QWEN_3_8B = ModelSpec("qwen3-8b.gguf", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-distill-qwen-7b.gguf", thinking=True)
     GEMMA_3_12B = ModelSpec("gemma-3-12b-it.gguf", tools=True)
+    GEMMA_4_12B = ModelSpec("gemma-4-12b-it.gguf", tools=True)
 
 
 class LlamaServerOpenAIClient(OpenAICompatClient):
@@ -369,6 +374,7 @@ class SGLangOpenAIModel(Model):
     QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
     GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True)
+    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True)
 
 
 class SGLangOpenAIClient(OpenAICompatClient):
