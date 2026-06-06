@@ -123,12 +123,12 @@ for chunk in client.chat("Tell me a story", stream=True, include=["generating"])
     print(chunk.content, end="", flush=True)
 ```
 
-**Tools for models and agents.** `@tool` works on any plain function:
+**Tools for models and agents.** `@aimu.tool` works on any plain function:
 
 ```python
-from aimu.tools import tool
+import aimu
 
-@tool
+@aimu.tool
 def letter_counter(word: str, letter: str) -> int:
     """Count occurrences of a letter in a word."""
     return word.lower().count(letter.lower())

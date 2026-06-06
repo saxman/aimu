@@ -63,9 +63,9 @@ The agent's loop dispatched `calculate("17 * 23")` and reported the result.
 Now declare a tool the built-ins don't cover:
 
 ```python
-from aimu.tools import tool
+import aimu
 
-@tool
+@aimu.tool
 def letter_counter(word: str, letter: str) -> int:
     """Count occurrences of a letter in a word."""
     return word.lower().count(letter.lower())

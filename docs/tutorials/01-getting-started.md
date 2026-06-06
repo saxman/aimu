@@ -102,15 +102,15 @@ So far we've called `chat()` directly. An `Agent` adds a tool-using loop on top 
 First, declare a tool:
 
 ```python
-from aimu.tools import tool
+import aimu
 
-@tool
+@aimu.tool
 def letter_counter(word: str, letter: str) -> int:
     """Count occurrences of a letter in a word."""
     return word.lower().count(letter.lower())
 ```
 
-The `@tool` decorator inspects the signature and docstring to build a tool spec for the model. The function itself is unchanged.
+The `@aimu.tool` decorator inspects the signature and docstring to build a tool spec for the model. The function itself is unchanged.
 
 Then wrap a client in an `Agent`:
 

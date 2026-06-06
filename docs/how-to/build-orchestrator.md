@@ -40,9 +40,9 @@ Each worker becomes a callable `@tool` named after the worker's `name` (sanitise
 When you need custom tool names, multi-argument tools, or pre/post-processing:
 
 ```python
+import aimu
 from aimu.agents import Agent, OrchestratorAgent
 from aimu.models import ModelClient
-from aimu.tools import tool
 
 class CodeReviewAgent(OrchestratorAgent):
     def __init__(self, model_client):
@@ -51,12 +51,12 @@ class CodeReviewAgent(OrchestratorAgent):
         perf     = Agent(ModelClient(model_client.model),
                          "Find performance issues. Be specific.", name="perf")
 
-        @tool
+        @aimu.tool
         def review_security(code: str) -> str:
             """Review the given code for security vulnerabilities."""
             return security.run(code)
 
-        @tool
+        @aimu.tool
         def review_performance(code: str) -> str:
             """Review the given code for performance issues."""
             return perf.run(code)

@@ -41,7 +41,9 @@ def tool(func: Callable) -> Callable:
 
     Usage::
 
-        @tool
+        import aimu
+
+        @aimu.tool
         def letter_counter(word: str, letter: str) -> int:
             \"\"\"Count occurrences of a letter in a word.\"\"\"
             return word.lower().count(letter.lower())
@@ -89,7 +91,7 @@ def _build_spec(func: Callable) -> dict:
     for name, param in sig.parameters.items():
         if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
             raise ToolSignatureError(
-                f"@tool: function '{func.__name__}' uses variadic parameter '*{name}'. "
+                f"@aimu.tool: function '{func.__name__}' uses variadic parameter '*{name}'. "
                 "Declare each argument explicitly — variadic args cannot be described as JSON Schema."
             )
         annotation = hints.get(name, param.annotation)
@@ -97,7 +99,7 @@ def _build_spec(func: Callable) -> dict:
         has_annotation = annotation is not inspect.Parameter.empty and annotation is not None
         if not has_annotation and not has_default:
             raise ToolSignatureError(
-                f"@tool: parameter '{name}' on '{func.__name__}' has no type hint and no default. "
+                f"@aimu.tool: parameter '{name}' on '{func.__name__}' has no type hint and no default. "
                 "Add a type hint (e.g. `name: str`) or a default value."
             )
         properties[name] = {"type": _json_type_for(annotation) if has_annotation else "string"}

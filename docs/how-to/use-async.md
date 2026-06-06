@@ -52,20 +52,20 @@ async for chunk in stream:
 
 ## Agents with async tools
 
-The `@tool` decorator auto-detects `async def` and tags the function. The async surface awaits async tools and routes sync (CPU-bound) tools through `asyncio.to_thread` so the event loop stays free.
+The `@aimu.tool` decorator auto-detects `async def` and tags the function. The async surface awaits async tools and routes sync (CPU-bound) tools through `asyncio.to_thread` so the event loop stays free.
 
 ```python
 import httpx
+import aimu
 from aimu import aio
-from aimu.tools import tool
 
-@tool
+@aimu.tool
 async def fetch(url: str) -> str:
     """Fetch the contents of a URL."""
     async with httpx.AsyncClient() as c:
         return (await c.get(url)).text[:500]
 
-@tool
+@aimu.tool
 def normalize(text: str) -> str:
     """Strip whitespace and lower-case the input."""
     return text.strip().lower()
@@ -75,7 +75,7 @@ agent = aio.Agent(client, "Use the tools.", tools=[fetch, normalize])
 reply = await agent.run("Fetch example.com and normalize the title.")
 ```
 
-The same `@tool` function can be used on either surface — the sync surface rejects async tools with a clear error, and the async surface accepts both.
+The same `@aimu.tool` function can be used on either surface — the sync surface rejects async tools with a clear error, and the async surface accepts both.
 
 ## Parallel — the headline win
 

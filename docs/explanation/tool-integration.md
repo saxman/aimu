@@ -9,9 +9,9 @@ AIMU exposes tools to a model in two ways. They look different but end up in the
 Decorate a Python function:
 
 ```python
-from aimu.tools import tool
+import aimu
 
-@tool
+@aimu.tool
 def letter_counter(word: str, letter: str) -> int:
     """Count occurrences of a letter in a word."""
     return word.lower().count(letter.lower())
@@ -125,12 +125,12 @@ If you can't decide, start with `@tool`. Switching to `MCPClient` later is a sma
 - On the **async** surface, async tools are awaited directly, and sync (CPU-bound) tools are routed through `asyncio.to_thread` so the event loop stays free.
 
 ```python
-@tool
+@aimu.tool
 async def fetch(url: str) -> str:
     """Fetch a URL."""
     ...
 
-@tool
+@aimu.tool
 def normalize(text: str) -> str:
     """Trim and lowercase."""
     ...

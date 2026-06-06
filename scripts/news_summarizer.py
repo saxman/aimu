@@ -36,12 +36,12 @@ from pathlib import Path
 
 import aimu
 from aimu.agents import Agent, Chain, OrchestratorAgent, Parallel
-from aimu.tools import builtin, tool
+from aimu.tools import builtin
 
 DEFAULT_MODEL = "ollama:qwen3.5:9b"
 
 
-@tool
+@aimu.tool
 def search_recent_news(query: str, num_results: int = 8) -> str:
     """Search recent news articles for a query and return the top results.
 

@@ -90,6 +90,7 @@ from .models import (
     resolve_model_string,
     resolve_speech_model_string,
 )
+from .tools import tool
 
 
 def client(model: Union[str, Model, None] = None, *, system: Optional[str] = None, **kwargs: Any) -> ModelClient:
@@ -174,9 +175,9 @@ def agent(
 
     Example::
 
-        from aimu.tools import tool
+        import aimu
 
-        @tool
+        @aimu.tool
         def letter_counter(word: str, letter: str) -> int:
             \"\"\"Count occurrences of a letter in a word.\"\"\"
             return word.lower().count(letter.lower())
@@ -503,4 +504,5 @@ __all__ = [
     "resolve_model_string",
     "resolve_speech_model_string",
     "speech_client",
+    "tool",
 ]

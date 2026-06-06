@@ -1,15 +1,14 @@
 # Add a custom tool
 
-Decorate any Python function with `@tool`. The decorator inspects the signature and docstring at decoration time and attaches an OpenAI-format spec to `func.__tool_spec__`. The function itself is unchanged and remains directly callable.
+Decorate any Python function with `@aimu.tool`. The decorator inspects the signature and docstring at decoration time and attaches an OpenAI-format spec to `func.__tool_spec__`. The function itself is unchanged and remains directly callable.
 
 ## Minimal example
 
 ```python
-from aimu.tools import tool
-from aimu.agents import Agent
 import aimu
+from aimu.agents import Agent
 
-@tool
+@aimu.tool
 def letter_counter(word: str, letter: str) -> int:
     """Count occurrences of a letter in a word."""
     return word.lower().count(letter.lower())
@@ -44,15 +43,15 @@ The first paragraph of the docstring becomes the tool description.
 ## Errors you'll see
 
 ```python
-@tool
+@aimu.tool
 def bad(*args):              # ❌ variadic
     return args
-# ToolSignatureError: @tool: function 'bad' uses variadic parameter '*args'...
+# ToolSignatureError: @aimu.tool: function 'bad' uses variadic parameter '*args'...
 
-@tool
+@aimu.tool
 def bad(x):                  # ❌ no hint, no default
     return x
-# ToolSignatureError: @tool: parameter 'x' on 'bad' has no type hint and no default...
+# ToolSignatureError: @aimu.tool: parameter 'x' on 'bad' has no type hint and no default...
 ```
 
 ## Optional arguments
@@ -60,7 +59,7 @@ def bad(x):                  # ❌ no hint, no default
 A parameter with a default value is optional in the generated spec:
 
 ```python
-@tool
+@aimu.tool
 def search(query: str, num_results: int = 5) -> str:
     """Search for a query."""
     ...
@@ -73,7 +72,7 @@ The model can call `search(query="...")` without `num_results`.
 ```python
 from typing import Optional
 
-@tool
+@aimu.tool
 def lookup(name: Optional[str] = None) -> str:
     """Look up a record by name."""
     ...
@@ -133,10 +132,10 @@ See the [`aimu.tools` API reference](../reference/api/tools.md) for the full lis
 For long-running tools, make the function a generator and yield `StreamChunk` objects during execution. The agent's `Agent.run(stream=True)` forwards each yielded chunk through its own stream so callers see progress live — no side channels, no callbacks.
 
 ```python
+import aimu
 from aimu.models import StreamChunk, StreamingContentType
-from aimu.tools import tool
 
-@tool
+@aimu.tool
 def long_search(query: str):
     """Search the web with live progress updates."""
     yield StreamChunk(StreamingContentType.GENERATING, f"Searching {query!r}...")
@@ -148,7 +147,7 @@ def long_search(query: str):
 
 Three rules cover the contract:
 
-1. **The decorator detects it automatically.** `@tool` sets `func.__tool_is_streaming__ = True` when the function is a generator (`inspect.isgeneratorfunction`) or async generator (`inspect.isasyncgenfunction`). No opt-in flag.
+1. **The decorator detects it automatically.** `@aimu.tool` sets `func.__tool_is_streaming__ = True` when the function is a generator (`inspect.isgeneratorfunction`) or async generator (`inspect.isasyncgenfunction`). No opt-in flag.
 2. **Yield any phase that fits.** `GENERATING` for text progress, `IMAGE_GENERATING` for image-gen progress, future custom phases as needed. The agent forwards each chunk untouched (it only adds the `agent` and `iteration` metadata fields).
 3. **The result comes from one of three places** — in priority order: the generator's `return` value (sync only — `StopIteration.value`); the last yielded chunk's `content["result"]` if it's a dict with that key (matches the `IMAGE_GENERATING` final-chunk convention); or `str(last_chunk.content)`.
 

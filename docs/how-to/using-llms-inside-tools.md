@@ -2,7 +2,7 @@
 
 ## The history pollution problem
 
-`BaseModelClient` accumulates conversation history in `self.messages`. When a `@tool`
+`BaseModelClient` accumulates conversation history in `self.messages`. When an `@aimu.tool`
 function needs to make its own LLM call, sharing the agent's client would:
 
 1. Give the tool call the agent's full conversation as context (usually wrong).
@@ -14,7 +14,7 @@ function needs to make its own LLM call, sharing the agent's client would:
 ```python
 eval_client = aimu.client("ollama:qwen3:8b", system="You are a concise evaluator.")
 
-@tool
+@aimu.tool
 def evaluate_result(text: str) -> str:
     """Score a result on a scale of 1-10."""
     # generate() is stateless — no history pollution, no second client needed
