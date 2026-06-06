@@ -169,6 +169,15 @@ class HuggingFaceModel(Model):
         ),
         ToolCallFormat.NA,
     )
+    GEMMA_4_12B = (
+        ModelSpec(
+            "google/gemma-4-12b-it",
+            tools=True,
+            vision=True,
+            generation_kwargs={"temperature": 1.0, "top_p": 0.95, "top_k": 64},
+        ),
+        ToolCallFormat.NA,
+    )
     GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", vision=True)
 
     # OpenAI
