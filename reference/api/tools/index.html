@@ -3183,6 +3183,9 @@ the connection.</p>
     <div class="doc doc-contents first">
 
         <p>Fetches a web page and returns its visible text content with HTML stripped.</p>
+<p>When the page exposes a publication timestamp (in <meta> tags, JSON-LD, or a
+<time> element), it is prepended as a "Published:" line so the date isn't lost
+when the HTML is stripped.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3228,12 +3231,14 @@ the connection.</p>
 
 
 <a href="#aimu.tools.builtin.web_search" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">web_search</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">num_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">web_search</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">num_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">time_range</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">categories</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
         <p>Search the web using a SearXNG instance and return the top results.</p>
+<p>Each result includes its publication date when the search engine reports one
+(shown as a "Published:" line) — useful for judging how recent an article is.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3277,6 +3282,41 @@ the connection.</p>
             </td>
             <td>
                   <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_range</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional recency filter, one of "day", "week", "month", or "year".
+Use "day" to restrict results to roughly the last 24 hours (best for fresh news).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>categories</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional SearXNG category filter, e.g. "news" to restrict to news
+engines (which report publication dates far more reliably than general web
+engines). Comma-separated for multiple, e.g. "news,science".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;&#39;</code>
             </td>
           </tr>
       </tbody>
