@@ -22,8 +22,14 @@ from .base import (
     StreamChunk,
     StreamingContentType,
 )
-from .image_client import ImageClient, resolve_image_model_string
-from .model_client import ModelClient, resolve_model_string
+from .image_client import ImageClient, resolve_image_model_enum, resolve_image_model_string
+from .model_client import (
+    ModelClient,
+    available_text_models,
+    resolve_default_text_model_enum,
+    resolve_model_enum,
+    resolve_model_string,
+)
 from .speech_client import SpeechClient, resolve_speech_model_string
 
 # Optional imports with graceful fallbacks
@@ -181,8 +187,12 @@ __all__ = [
     "available_image_clients",
     "available_speech_clients",
     "available_text_clients",
+    "available_text_models",
     "resolve_audio_model_string",
+    "resolve_default_text_model_enum",
+    "resolve_image_model_enum",
     "resolve_image_model_string",
+    "resolve_model_enum",
     "resolve_model_string",
     "resolve_speech_model_string",
 ]

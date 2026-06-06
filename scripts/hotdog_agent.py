@@ -29,7 +29,6 @@ from _hotdog_common import (
     evaluate_image,
     negative_prompt_plan,
     parse_evaluator_response,
-    resolve_image_model,
     resolve_output_dir,
     summarize_for_image,
     suppress_benign_clip_warning,
@@ -151,11 +150,12 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}\n")
 
-    image_client = aimu.image_client(resolve_image_model(args.image_model))
+    image_client = aimu.image_client(aimu.resolve_image_model_enum(args.image_model))
     suppress_benign_clip_warning(image_client)
     # Two separate client instances: one for agent reasoning, one for vision eval inside the tool.
-    agent_client = aimu.client(args.eval_model)
-    eval_client = aimu.client(args.eval_model)
+    eval_model = aimu.resolve_model_enum(args.eval_model)
+    agent_client = aimu.client(eval_model)
+    eval_client = aimu.client(eval_model)
     if not eval_client.is_vision_model:
         raise ValueError(f"Eval model {args.eval_model!r} does not support vision.")
 

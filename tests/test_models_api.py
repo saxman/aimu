@@ -52,6 +52,115 @@ def test_resolve_model_string_requires_colon():
         resolve_model_string("just-an-id")
 
 
+# ---------------------------------------------------------------------------
+# resolve_model_enum — enum passthrough / string / bare name / ambiguity
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_model_enum_passes_through_member():
+    from aimu.models import HAS_ANTHROPIC, AnthropicModel, resolve_model_enum
+
+    if not HAS_ANTHROPIC:
+        pytest.skip("anthropic not installed")
+    member = AnthropicModel.CLAUDE_SONNET_4_6
+    assert resolve_model_enum(member) is member
+
+
+def test_resolve_model_enum_delegates_provider_id_string():
+    from aimu.models import HAS_ANTHROPIC, AnthropicModel, resolve_model_enum
+
+    if not HAS_ANTHROPIC:
+        pytest.skip("anthropic not installed")
+    assert resolve_model_enum("anthropic:claude-sonnet-4-6") is AnthropicModel.CLAUDE_SONNET_4_6
+
+
+def test_resolve_model_enum_bare_name_unique(monkeypatch):
+    """A bare name present in exactly one provider enum resolves to that member."""
+    from enum import Enum
+
+    import aimu.models.model_client as mc
+
+    class FakeEnum(Enum):
+        ONLY = "only-id"
+
+    monkeypatch.setattr(mc, "_provider_registry", lambda: {"fake": (FakeEnum, object())})
+    assert mc.resolve_model_enum("ONLY") is FakeEnum.ONLY
+
+
+def test_resolve_model_enum_bare_name_ambiguous_unavailable_raises(monkeypatch):
+    """An ambiguous bare name that isn't available under any provider raises."""
+    from enum import Enum
+
+    import aimu.models.model_client as mc
+
+    class EnumA(Enum):
+        SHARED = "a-id"
+
+    class EnumB(Enum):
+        SHARED = "b-id"
+
+    monkeypatch.setattr(mc, "_provider_registry", lambda: {"a": (EnumA, object()), "b": (EnumB, object())})
+    monkeypatch.setattr(mc, "available_text_models", lambda: [])  # nothing loadable locally
+    with pytest.raises(ValueError, match="ambiguous"):
+        mc.resolve_model_enum("SHARED")
+
+
+def test_resolve_model_enum_ambiguous_resolved_by_local_availability(monkeypatch):
+    """An ambiguous bare name resolves to the provider where it's locally available."""
+    from enum import Enum
+
+    import aimu.models.model_client as mc
+
+    class EnumA(Enum):
+        SHARED = "a-id"
+
+    class EnumB(Enum):
+        SHARED = "b-id"
+
+    monkeypatch.setattr(mc, "_provider_registry", lambda: {"a": (EnumA, object()), "b": (EnumB, object())})
+    # Only EnumB.SHARED is locally available → it wins, no raise.
+    monkeypatch.setattr(mc, "available_text_models", lambda: [EnumB.SHARED])
+    assert mc.resolve_model_enum("SHARED") is EnumB.SHARED
+
+
+def test_resolve_model_enum_ambiguous_prefers_tool_capable(monkeypatch):
+    """Among locally-available ambiguous matches, tool-capable wins (default-resolver order)."""
+    from enum import Enum
+
+    import aimu.models.model_client as mc
+
+    class EnumA(Enum):
+        SHARED = "a-id"
+
+    class EnumB(Enum):
+        SHARED = "b-id"
+
+    class _FakeAvail:
+        def __init__(self, tools):
+            self.name = "SHARED"
+            self.supports_tools = tools
+
+    plain, tooly = _FakeAvail(False), _FakeAvail(True)
+    monkeypatch.setattr(mc, "_provider_registry", lambda: {"a": (EnumA, object()), "b": (EnumB, object())})
+    # Plain availability order lists the non-tool member first; tool-preference picks ``tooly``.
+    monkeypatch.setattr(mc, "available_text_models", lambda: [plain, tooly])
+    assert mc.resolve_model_enum("SHARED") is tooly
+
+
+def test_resolve_model_enum_unknown_name_raises():
+    from aimu.models import resolve_model_enum
+
+    with pytest.raises(ValueError, match="Unknown model name"):
+        resolve_model_enum("definitely-not-a-model")
+
+
+def test_resolve_model_enum_rejects_bad_type():
+    from aimu.models import resolve_model_enum
+
+    with pytest.raises(TypeError):
+        resolve_model_enum(123)
+
+
 def test_modelspec_holds_capabilities():
     spec = ModelSpec("x", tools=True, thinking=True, vision=False)
     assert spec.id == "x"

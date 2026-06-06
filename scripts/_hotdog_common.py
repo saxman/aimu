@@ -11,48 +11,6 @@ from typing import NamedTuple
 from aimu.models import HuggingFaceImageModel
 
 
-def _image_model_enums() -> list[tuple[str, type]]:
-    """Every installed image-provider ImageModel enum as ``(provider_prefix, enum)``.
-
-    HuggingFace is always present (the package hard-imports it above); Gemini is
-    added only when the [google] extra is installed."""
-    enums: list[tuple[str, type]] = [("hf", HuggingFaceImageModel)]
-    try:
-        from aimu.models import GeminiImageModel
-
-        enums.append(("gemini", GeminiImageModel))
-    except ImportError:
-        pass
-    return enums
-
-
-def resolve_image_model(model):
-    """Normalize an ``--image-model`` value into something ``aimu.image_client()`` accepts.
-
-    Pass-through for ImageModel enum members and ``'provider:model_id'`` strings —
-    the factory handles both. A bare member name (e.g. ``'FLUX_2_KLEIN_4B'`` or
-    ``'NANO_BANANA'``) is looked up across every installed image-provider enum,
-    matching the ``--image-model`` help text's "or enum member" promise.
-
-    A bare name that exists in more than one provider's enum is **ambiguous** and
-    raises ``ValueError`` rather than silently picking one — pass the explicit
-    ``'provider:model_id'`` string to disambiguate."""
-    if not isinstance(model, str) or ":" in model:
-        return model
-    matches = [(prefix, enum_cls[model]) for prefix, enum_cls in _image_model_enums() if model in enum_cls.__members__]
-    if len(matches) == 1:
-        return matches[0][1]
-    if not matches:
-        available = sorted({name for _, enum_cls in _image_model_enums() for name in enum_cls.__members__})
-        raise ValueError(f"Unknown image model {model!r}. Pass a 'provider:model_id' string or one of: {available}")
-    options = ", ".join(f"{prefix}:{member.value}" for prefix, member in matches)
-    providers = ", ".join(prefix for prefix, _ in matches)
-    raise ValueError(
-        f"Image model name {model!r} is ambiguous across providers ({providers}). "
-        f"Disambiguate with a 'provider:model_id' string, e.g. one of: {options}"
-    )
-
-
 EVALUATOR_PROMPT = """\
 You are evaluating how visually "hot" this hotdog image is, and you are an
 EXTREMELY conservative, hard-to-impress judge.

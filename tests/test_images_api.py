@@ -148,6 +148,7 @@ from aimu.models import (  # noqa: E402
     HuggingFaceImageClient,
     HuggingFaceImageModel,
     HuggingFaceImageSpec,
+    resolve_image_model_enum,
 )
 from aimu.models._internal.image_output import encode_image  # noqa: E402
 from aimu.models.base import GeminiImageSpec  # noqa: E402
@@ -157,6 +158,33 @@ from aimu.models.providers.gemini import image as _gic_mod  # noqa: E402
 # ===========================================================================
 # Shared infrastructure
 # ===========================================================================
+
+
+def test_resolve_image_model_enum_passes_through_member():
+    member = HuggingFaceImageModel.SD_1_5
+    assert resolve_image_model_enum(member) is member
+
+
+def test_resolve_image_model_enum_bare_name_unique():
+    """A bare member name in exactly one image-provider enum resolves to it."""
+    assert resolve_image_model_enum("FLUX_2_KLEIN_4B") is HuggingFaceImageModel.FLUX_2_KLEIN_4B
+
+
+def test_resolve_image_model_enum_delegates_provider_id_string():
+    assert (
+        resolve_image_model_enum("hf:stabilityai/stable-diffusion-3.5-medium")
+        is HuggingFaceImageModel.SD_3_5_MEDIUM
+    )
+
+
+def test_resolve_image_model_enum_unknown_name_raises():
+    with pytest.raises(ValueError, match="Unknown image model name"):
+        resolve_image_model_enum("NOT_A_REAL_IMAGE_MODEL")
+
+
+def test_resolve_image_model_enum_rejects_bad_type():
+    with pytest.raises(TypeError):
+        resolve_image_model_enum(123)
 
 
 def test_hf_spec_equality_by_id():

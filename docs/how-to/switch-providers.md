@@ -26,6 +26,49 @@ client = ModelClient(OllamaModel.QWEN_3_5_9B)
 client = ModelClient(AnthropicModel.CLAUDE_SONNET_4_6)
 ```
 
+## Resolve a name, string, or enum uniformly
+
+When you accept a model from a CLI flag or config and don't know which form it'll arrive in, `resolve_model_enum` (text) and `resolve_image_model_enum` (image) normalise all three to an enum member:
+
+```python
+import aimu
+from aimu.models import AnthropicModel
+
+aimu.resolve_model_enum(AnthropicModel.CLAUDE_SONNET_4_6)   # enum member → returned unchanged
+aimu.resolve_model_enum("anthropic:claude-sonnet-4-6")      # "provider:model_id" string
+aimu.resolve_model_enum("CLAUDE_SONNET_4_6")                # bare enum-member name
+
+aimu.resolve_image_model_enum("FLUX_2_KLEIN_4B")           # same, for image models
+aimu.resolve_image_model_enum("gemini:nano-banana")
+```
+
+Pass the result straight to `aimu.client(...)` / `aimu.image_client(...)` (both also accept an enum member):
+
+```python
+client = aimu.client(aimu.resolve_model_enum(args.model))
+```
+
+A **bare text name is often ambiguous** — the same id ships under several providers (e.g. `QWEN_3_8B` is an Ollama, HuggingFace, and OpenAI-compat model). `resolve_model_enum` resolves the tie by preferring a provider where the model is *already available locally* (running Ollama → cached HuggingFace → reachable local server, tool-capable first), logging the choice at `WARNING`. If it isn't available anywhere, it raises `ValueError` listing the `"provider:model_id"` options — so pin the provider with the string form when you need a specific one. (`resolve_image_model_enum` has no local-availability notion and raises on the rare ambiguity.)
+
+## Use whatever model is already available locally
+
+Omit `model=` entirely and AIMU resolves a default: the `AIMU_LANGUAGE_MODEL` env var if set, otherwise the first *already-available* local model (running Ollama → cached HuggingFace → reachable local OpenAI-compat server, tool-capable preferred). A cloud provider is never auto-selected and weights are never downloaded.
+
+```python
+client = aimu.client()                          # auto-resolved default (logs the pick at WARNING)
+```
+
+```bash
+export AIMU_LANGUAGE_MODEL="ollama:qwen3.5:9b"  # pin the default deterministically
+```
+
+To inspect or choose among what's available instead of taking the auto-pick:
+
+```python
+aimu.available_text_models()            # list[Model] — locally loadable models, provider-priority order
+aimu.resolve_default_text_model_enum()  # the single auto-pick, as an enum member
+```
+
 ## Provider keys
 
 | Provider key | Extra | API key env var |

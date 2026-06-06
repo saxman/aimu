@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
+from typing import TYPE_CHECKING, NoReturn, Optional
+
+if TYPE_CHECKING:
+    from ..base import Model
 
 log = logging.getLogger(__name__)
 
@@ -49,23 +52,45 @@ def _load_dotenv() -> None:
         pass
 
 
-def _pick(members: list, installed: set[str]):
-    """Return the first enum member (priority order) whose ``.value`` is installed,
-    preferring tool-capable members. ``None`` when nothing matches."""
-    matches = [m for m in members if m.value in installed]
-    if not matches:
+def _first(members: list) -> Optional["Model"]:
+    """First member, preferring tool-capable ones. ``None`` for an empty list."""
+    if not members:
         return None
-    tool_capable = [m for m in matches if getattr(m, "supports_tools", False)]
-    return (tool_capable or matches)[0]
+    return next((m for m in members if getattr(m, "supports_tools", False)), members[0])
 
 
-def _ollama_installed_text_models() -> Optional[str]:
-    """Pick an enum-matching model already installed on a running Ollama server."""
+def _pick(members: list, installed: set[str]):
+    """Filter ``members`` to those whose ``.value`` is installed, then prefer tool-capable.
+
+    Retained as the selection primitive for the single-default string probes below.
+    """
+    return _first([m for m in members if m.value in installed])
+
+
+def _provider_prefix(member: "Model") -> str:
+    """Provider key (e.g. ``"lmstudio"``) for a text ``Model`` enum member.
+
+    Inverse of :func:`aimu.models.model_client._provider_registry`. Lets the OpenAI-compat
+    probe label a member that may have come from any of several probed servers.
+    """
+    from ..model_client import _provider_registry
+
+    for prefix, (enum_cls, _client) in _provider_registry().items():
+        if isinstance(member, enum_cls):
+            return prefix
+    raise ValueError(f"No installed provider matches model enum {member!r}")
+
+
+# --- Raw local-availability scans (return all matching enum members; no selection) -----
+
+
+def _ollama_members() -> list:
+    """Every ``OllamaModel`` enum member installed on a running Ollama server."""
     try:
         from .. import HAS_OLLAMA, OllamaModel
 
         if not HAS_OLLAMA:
-            return None
+            return []
         import ollama
 
         resp = ollama.list()
@@ -79,50 +104,42 @@ def _ollama_installed_text_models() -> Optional[str]:
                 name = entry.get("model") or entry.get("name")
             if name:
                 names.add(name)
-        member = _pick(list(OllamaModel), names)
-        return f"ollama:{member.value}" if member else None
-    except Exception:  # server down, lib quirk, etc. — fall through to the next probe
-        return None
+        return [m for m in OllamaModel if m.value in names]
+    except Exception:  # server down, lib quirk, etc.
+        return []
 
 
-def _hf_cached_text_models() -> Optional[str]:
-    """Pick an enum-matching HuggingFace model already in the local cache (no download)."""
+def _hf_cached_members() -> list:
+    """Every ``HuggingFaceModel`` enum member already in the local cache (no download)."""
     try:
         from .. import HAS_HF, HuggingFaceModel
 
         if not HAS_HF:
-            return None
+            return []
         from huggingface_hub import scan_cache_dir
 
         info = scan_cache_dir()
         cached = {repo.repo_id for repo in info.repos if getattr(repo, "repo_type", "model") == "model"}
-        member = _pick(list(HuggingFaceModel), cached)
-        return f"hf:{member.value}" if member else None
+        return [m for m in HuggingFaceModel if m.value in cached]
     except Exception:
-        return None
+        return []
 
 
-def _openai_compat_served_text_models() -> Optional[str]:
-    """Pick an enum-matching model served by a running local OpenAI-compat server."""
+def _openai_compat_members() -> list:
+    """Every enum member served by a reachable local OpenAI-compat server (across all probes)."""
     try:
         from .. import HAS_OPENAI_COMPAT
 
         if not HAS_OPENAI_COMPAT:
-            return None
+            return []
         import openai
 
-        from .. import (  # noqa: F401 — imported for getattr lookup below
-            HFOpenAIModel,
-            LlamaServerOpenAIModel,
-            LMStudioOpenAIModel,
-            SGLangOpenAIModel,
-            VLLMOpenAIModel,
-        )
         import aimu.models as models_pkg
     except Exception:
-        return None
+        return []
 
-    for provider, base_url, enum_name in _OPENAI_COMPAT_PROBES:
+    members: list = []
+    for _provider, base_url, enum_name in _OPENAI_COMPAT_PROBES:
         enum = getattr(models_pkg, enum_name, None)
         if enum is None:
             continue
@@ -131,10 +148,64 @@ def _openai_compat_served_text_models() -> Optional[str]:
             served = {m.id for m in probe.models.list().data}
         except Exception:  # connection refused / not running — skip
             continue
-        member = _pick(list(enum), served)
-        if member:
-            return f"{provider}:{member.value}"
-    return None
+        members.extend(m for m in enum if m.value in served)
+    return members
+
+
+# --- Single-default string probes (the public-default selection path) ------------------
+
+
+def _ollama_installed_text_models() -> Optional[str]:
+    """Pick an enum-matching model already installed on a running Ollama server."""
+    member = _first(_ollama_members())
+    return f"ollama:{member.value}" if member else None
+
+
+def _hf_cached_text_models() -> Optional[str]:
+    """Pick an enum-matching HuggingFace model already in the local cache (no download)."""
+    member = _first(_hf_cached_members())
+    return f"hf:{member.value}" if member else None
+
+
+def _openai_compat_served_text_models() -> Optional[str]:
+    """Pick an enum-matching model served by a running local OpenAI-compat server."""
+    member = _first(_openai_compat_members())
+    return f"{_provider_prefix(member)}:{member.value}" if member else None
+
+
+def available_text_models(*, include_hf_cache: bool = True) -> list:
+    """Return locally *available* text models as provider ``Model`` enum members.
+
+    Discovery is download-free and cloud-free — it reports only what is loadable right
+    now: models on a running Ollama server, models in the local HuggingFace cache, and
+    models served by a reachable local OpenAI-compatible server. Order is provider
+    priority (Ollama → HuggingFace cache → local servers), then enum-definition order
+    within each provider.
+
+    ``include_hf_cache=False`` skips the HuggingFace cache probe (the async surface cannot
+    wrap an ``hf:`` in-process client directly).
+
+    See :func:`resolve_default_text_model_enum` for the single auto-pick, and
+    :func:`aimu.resolve_model_enum` to resolve a *named* model to an enum member.
+    """
+    members = list(_ollama_members())
+    if include_hf_cache:
+        members += _hf_cached_members()
+    members += _openai_compat_members()
+    return members
+
+
+def _raise_no_default() -> NoReturn:
+    from .. import available_text_clients
+
+    providers = [c.__name__ for c in available_text_clients()]
+    raise ValueError(
+        "No model specified and no default could be resolved. "
+        f"Set {LANGUAGE_MODEL_ENV}='provider:model_id', pass model=... explicitly, "
+        "or install/start a local provider (a running Ollama server, a cached HuggingFace model, "
+        "or a local OpenAI-compatible server). "
+        f"Installed text providers: {providers or 'none'}."
+    )
 
 
 def resolve_default_text_model(*, include_hf_cache: bool = True) -> str:
@@ -171,16 +242,34 @@ def resolve_default_text_model(*, include_hf_cache: bool = True) -> str:
             )
             return picked
 
-    from .. import available_text_clients
+    _raise_no_default()
 
-    providers = [c.__name__ for c in available_text_clients()]
-    raise ValueError(
-        "No model specified and no default could be resolved. "
-        f"Set {LANGUAGE_MODEL_ENV}='provider:model_id', pass model=... explicitly, "
-        "or install/start a local provider (a running Ollama server, a cached HuggingFace model, "
-        "or a local OpenAI-compatible server). "
-        f"Installed text providers: {providers or 'none'}."
-    )
+
+def resolve_default_text_model_enum(*, include_hf_cache: bool = True) -> "Model":
+    """Like :func:`resolve_default_text_model`, but return the ``Model`` enum member.
+
+    Order: ``AIMU_LANGUAGE_MODEL`` (parsed via :func:`resolve_model_string`) → the first
+    locally available model (tool-capable preferred; see :func:`available_text_models`) →
+    ``ValueError``. Never selects a cloud provider and never downloads weights.
+    """
+    _load_dotenv()
+    from ..model_client import resolve_model_string
+
+    env_val = os.environ.get(LANGUAGE_MODEL_ENV)
+    if env_val:
+        return resolve_model_string(env_val)
+
+    member = _first(available_text_models(include_hf_cache=include_hf_cache))
+    if member is not None:
+        log.warning(
+            "aimu: no model specified; auto-selected %r via local discovery. "
+            "Set %s='provider:model_id' to pin a default.",
+            member,
+            LANGUAGE_MODEL_ENV,
+        )
+        return member
+
+    _raise_no_default()
 
 
 def resolve_default_modality_model(env_var: str) -> str:

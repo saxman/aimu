@@ -43,7 +43,6 @@ from _hotdog_common import (
     evaluate_image,
     negative_prompt_plan,
     refine_image,
-    resolve_image_model,
     resolve_output_dir,
     summarize_for_image,
     suppress_benign_clip_warning,
@@ -84,8 +83,8 @@ def run(
 ) -> None:
     rng = random.Random(seed)
 
-    img_client = image_client(resolve_image_model(image_model_name))
-    eval_client = aimu.client(eval_model)
+    img_client = image_client(aimu.resolve_image_model_enum(image_model_name))
+    eval_client = aimu.client(aimu.resolve_model_enum(eval_model))
     suppress_benign_clip_warning(img_client)
 
     neg_plan = negative_prompt_plan(img_client)

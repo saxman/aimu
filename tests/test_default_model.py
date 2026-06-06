@@ -96,6 +96,47 @@ def test_text_nothing_resolves_raises(monkeypatch):
         _defaults.resolve_default_text_model()
 
 
+# --- available_text_models / resolve_default_text_model_enum (enum discovery) ---------
+
+
+def test_available_text_models_concatenates_in_priority_order(monkeypatch):
+    ollama = [_FakeMember("o", True)]
+    hf = [_FakeMember("h", False)]
+    servers = [_FakeMember("s", True)]
+    monkeypatch.setattr(_defaults, "_ollama_members", lambda: ollama)
+    monkeypatch.setattr(_defaults, "_hf_cached_members", lambda: hf)
+    monkeypatch.setattr(_defaults, "_openai_compat_members", lambda: servers)
+    assert _defaults.available_text_models() == ollama + hf + servers
+
+
+def test_available_text_models_skips_hf_cache_when_disabled(monkeypatch):
+    monkeypatch.setattr(_defaults, "_ollama_members", lambda: [])
+    monkeypatch.setattr(_defaults, "_hf_cached_members", lambda: pytest.fail("HF cache must be skipped"))
+    monkeypatch.setattr(_defaults, "_openai_compat_members", lambda: [_FakeMember("s", False)])
+    assert [m.value for m in _defaults.available_text_models(include_hf_cache=False)] == ["s"]
+
+
+def test_default_enum_env_var_takes_precedence(monkeypatch):
+    sentinel = object()
+    monkeypatch.setenv("AIMU_LANGUAGE_MODEL", "fake:model")
+    monkeypatch.setattr("aimu.models.model_client.resolve_model_string", lambda s: sentinel)
+    assert _defaults.resolve_default_text_model_enum() is sentinel
+
+
+def test_default_enum_prefers_tool_capable_member(monkeypatch):
+    monkeypatch.delenv("AIMU_LANGUAGE_MODEL", raising=False)
+    plain, tooly = _FakeMember("plain", False), _FakeMember("tooly", True)
+    monkeypatch.setattr(_defaults, "available_text_models", lambda **_: [plain, tooly])
+    assert _defaults.resolve_default_text_model_enum() is tooly
+
+
+def test_default_enum_nothing_resolves_raises(monkeypatch):
+    monkeypatch.delenv("AIMU_LANGUAGE_MODEL", raising=False)
+    monkeypatch.setattr(_defaults, "available_text_models", lambda **_: [])
+    with pytest.raises(ValueError, match="AIMU_LANGUAGE_MODEL"):
+        _defaults.resolve_default_text_model_enum()
+
+
 # --- resolve_default_modality_model ---------------------------------------------------
 
 

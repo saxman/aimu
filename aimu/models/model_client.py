@@ -1,8 +1,20 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Iterator, Optional, Union
 
 from .base import BaseModelClient, Model, ModelSpec, StreamChunk
+from ._internal.model_defaults import available_text_models, resolve_default_text_model_enum
+
+log = logging.getLogger(__name__)
+
+__all__ = [
+    "ModelClient",
+    "available_text_models",
+    "resolve_default_text_model_enum",
+    "resolve_model_enum",
+    "resolve_model_string",
+]
 
 # --- Optional provider imports ---
 
@@ -124,6 +136,68 @@ def resolve_model_string(model_str: str) -> Model:
             return member
     available = sorted(m.value for m in model_enum)
     raise ValueError(f"Provider {provider!r} has no model id {model_id!r}. Available: {available}")
+
+
+def resolve_model_enum(model: Union[Model, str]) -> Model:
+    """Resolve a text model to a ``Model`` enum member.
+
+    Accepts, in order:
+
+    - a ``Model`` enum member (returned unchanged);
+    - a ``"provider:model_id"`` string (delegates to :func:`resolve_model_string`);
+    - a bare enum-member *name* (e.g. ``"QWEN_3_8B"``), looked up across every installed
+      provider's ``Model`` enum.
+
+    A bare name that ships under more than one provider's enum (common for text — the same
+    id is offered by many providers) is **ambiguous**. Rather than blindly picking the
+    highest-priority provider, ambiguity is resolved the way the omitted-``model`` default is:
+    prefer a provider where the model is *actually available locally* (running Ollama →
+    cached HuggingFace → reachable local OpenAI-compat server, tool-capable first), logged at
+    WARNING. If the ambiguous name is not available under any provider, a ``ValueError`` is
+    raised listing the ``"provider:model_id"`` options — picking a provider for a model that
+    isn't even loadable would be a blind guess. This availability tiebreaker only runs on the
+    ambiguous path; enum / ``"provider:model_id"`` / unambiguous-name inputs do no I/O.
+
+    Parallel to :func:`aimu.resolve_image_model_enum` for the image modality (which has no
+    local-availability notion, so it always raises on the rare ambiguity).
+    """
+    if isinstance(model, Model):
+        return model
+    if not isinstance(model, str):
+        raise TypeError(f"Expected a Model enum member or a string, got {type(model).__name__}.")
+    if ":" in model:
+        return resolve_model_string(model)
+
+    registry = _provider_registry()
+    matches = [
+        (prefix, enum_cls[model]) for prefix, (enum_cls, _client) in registry.items() if model in enum_cls.__members__
+    ]
+    if len(matches) == 1:
+        return matches[0][1]
+    if not matches:
+        names = sorted({name for _, (enum_cls, _client) in registry.items() for name in enum_cls.__members__})
+        raise ValueError(f"Unknown model name {model!r}. Pass a 'provider:model_id' string or one of: {names}")
+
+    # Ambiguous bare name: disambiguate by local availability (same probe order as the
+    # omitted-model default), tool-capable first. ``available_text_models()`` already returns
+    # members in provider-priority order; the I/O happens only here, on the ambiguous path.
+    available = [m for m in available_text_models() if m.name == model]
+    if available:
+        picked = next((m for m in available if getattr(m, "supports_tools", False)), available[0])
+        log.warning(
+            "aimu: bare model name %r is ambiguous across providers; resolved to %r (locally available). "
+            "Pass a 'provider:model_id' string to pin a specific provider.",
+            model,
+            picked,
+        )
+        return picked
+
+    providers = ", ".join(prefix for prefix, _ in matches)
+    options = ", ".join(f"{prefix}:{member.value}" for prefix, member in matches)
+    raise ValueError(
+        f"Model name {model!r} is ambiguous across providers ({providers}) and is not available "
+        f"locally under any of them. Disambiguate with a 'provider:model_id' string, e.g. one of: {options}"
+    )
 
 
 class ModelClient(BaseModelClient):

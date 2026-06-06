@@ -83,6 +83,46 @@ def resolve_image_model_string(model_str: str) -> ImageModel:
     raise ValueError(f"Provider {provider!r} has no image model id {model_id!r}. Available: {available}")
 
 
+def resolve_image_model_enum(model: Union[ImageModel, str]) -> ImageModel:
+    """Resolve an image model to an ``ImageModel`` enum member.
+
+    Accepts, in order:
+
+    - an ``ImageModel`` enum member (returned unchanged);
+    - a ``"provider:model_id"`` string (delegates to :func:`resolve_image_model_string`);
+    - a bare enum-member *name* (e.g. ``"FLUX_2_KLEIN_4B"`` / ``"NANO_BANANA"``), looked
+      up across every installed image-provider enum.
+
+    A bare name present in more than one provider's enum is **ambiguous** and raises
+    ``ValueError`` — pass an explicit ``"provider:model_id"`` string to disambiguate.
+    Parallel to :func:`aimu.resolve_model_enum` for the text modality.
+    """
+    if isinstance(model, ImageModel):
+        return model
+    if not isinstance(model, str):
+        raise TypeError(f"Expected an ImageModel enum member or a string, got {type(model).__name__}.")
+    if ":" in model:
+        return resolve_image_model_string(model)
+
+    registry = _provider_registry()
+    matches = [
+        (prefix, enum_cls[model]) for prefix, (enum_cls, _client) in registry.items() if model in enum_cls.__members__
+    ]
+    if len(matches) == 1:
+        return matches[0][1]
+    if not matches:
+        available = sorted({name for _, (enum_cls, _client) in registry.items() for name in enum_cls.__members__})
+        raise ValueError(
+            f"Unknown image model name {model!r}. Pass a 'provider:model_id' string or one of: {available}"
+        )
+    providers = ", ".join(prefix for prefix, _ in matches)
+    options = ", ".join(f"{prefix}:{member.value}" for prefix, member in matches)
+    raise ValueError(
+        f"Image model name {model!r} is ambiguous across providers ({providers}). "
+        f"Disambiguate with a 'provider:model_id' string, e.g. one of: {options}"
+    )
+
+
 class ImageClient:
     """Public factory for image-generation provider clients.
 
