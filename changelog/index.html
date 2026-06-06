@@ -2354,6 +2354,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#agents-and-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agents and workflows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fixes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2426,7 +2437,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents-and-workflows" class="md-nav__link">
+  <a href="#agents-and-workflows_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents and workflows
@@ -2797,6 +2808,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#agents-and-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agents and workflows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fixes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2869,7 +2891,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents-and-workflows" class="md-nav__link">
+  <a href="#agents-and-workflows_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents and workflows
@@ -3164,11 +3186,17 @@
 <ul>
 <li><strong>New</strong> <code>aimu.resolve_model_enum(model)</code> and <code>aimu.resolve_image_model_enum(model)</code> — resolve a model to its <code>Model</code> / <code>ImageModel</code> enum member from any of three input forms: an enum member (returned unchanged), a <code>"provider:model_id"</code> string (delegates to <code>resolve_model_string</code> / <code>resolve_image_model_string</code>), or a <strong>bare enum-member name</strong> (e.g. <code>"QWEN_3_8B"</code>, <code>"FLUX_2_KLEIN_4B"</code>, <code>"NANO_BANANA"</code>) looked up across every installed provider enum. Useful for CLIs/scripts that accept "enum, name, or string" uniformly. For text, an ambiguous bare name (the same id ships under many providers) is disambiguated the way the omitted-<code>model</code> default is — prefer a provider where the model is <em>actually available locally</em> (running Ollama → cached HuggingFace → reachable local OpenAI-compat server, tool-capable first), logged at WARNING; if it isn't available under any provider, <code>ValueError</code> lists the <code>"provider:model_id"</code> options. This availability probe runs only on the ambiguous path. <code>resolve_image_model_enum</code> has no local-availability notion (image catalogs don't collide) and raises on the rare ambiguity. Exported from <code>aimu.models</code> and top-level <code>aimu</code>.</li>
 <li><strong>New</strong> <code>aimu.available_text_models(*, include_hf_cache=True)</code> — discovery: return locally <em>available</em> text models as <code>Model</code> enum members (running Ollama → cached HuggingFace → reachable local OpenAI-compat servers), in provider-priority order. Download-free and cloud-free. <code>aimu.resolve_default_text_model_enum(*, include_hf_cache=True)</code> returns the single auto-pick (env var → first available, tool-capable preferred) as an enum member — the enum-returning twin of the internal default resolver that backs <code>client()</code>/<code>chat()</code>/<code>agent()</code> when <code>model=</code> is omitted.</li>
+<li><strong>New</strong> Gemma 4 12B added to every provider that can run it: <code>OllamaModel.GEMMA_4_12B</code> (<code>gemma4:12b</code>, tools/thinking/vision, with the shared Gemma sampling kwargs), <code>HuggingFaceModel.GEMMA_4_12B</code> (the instruction-tuned <code>google/gemma-4-12b-it</code>, tools/vision, processor <code>parse_response</code> path), and a <code>GEMMA_4_12B</code> member on every OpenAI-compat server enum (<code>OllamaOpenAIModel</code>, <code>LMStudioOpenAIModel</code>, <code>VLLMOpenAIModel</code>, <code>HFOpenAIModel</code>, <code>LlamaServerOpenAIModel</code>, <code>SGLangOpenAIModel</code>) plus <code>LlamaCppModel</code>. The server/llama.cpp entries are <code>tools=True</code>, matching the established <code>GEMMA_3_12B</code> convention for those catalogs. Resolvable via the usual <code>"provider:model_id"</code> strings (e.g. <code>"ollama:gemma4:12b"</code>, <code>"hf:google/gemma-4-12b-it"</code>, <code>"vllm:google/gemma-4-12b-it"</code>).</li>
 </ul>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>New</strong> The <code>tool</code> decorator is re-exported at the top level as <code>aimu.tool</code>. <code>@aimu.tool</code> is now the single recommended/documented form across the README, tutorials, how-tos, and notebook examples — it's namespaced, so it can't be silently shadowed by another library's same-named <code>tool</code> decorator (LangChain, smolagents, etc.). <code>from aimu.tools import tool</code> remains valid and unchanged (same object); it's the natural form for code already inside <code>aimu.tools</code>. The <code>ToolSignatureError</code> message prefix is now <code>@aimu.tool:</code> to match. No behaviour change to decoration or dispatch.</li>
 <li><strong>New</strong> <code>MCPClient.as_tools()</code> (sync) and <code>aio.MCPClient.as_tools()</code> (async) return a server's tools as <code>@tool</code>-style callables, each closing over the client, invoking <code>call_tool()</code> cross-process, and carrying <code>__tool_spec__</code> / <code>__tool_is_async__</code> / <code>__tool_is_streaming__</code>. Drop them straight into <code>tools</code> (<code>client.tools = mcp.as_tools()</code>, <code>Agent(tools=builtin.web + mcp.as_tools())</code>). This unifies MCP and in-process tools onto the single <code>self.tools</code> registry and one dispatch path — see the breaking-change note above for the migration from <code>model_client.mcp_client</code>. New shared helper <code>aimu.tools.mcp_format.mcp_content_to_text(tool_response)</code> flattens a <code>call_tool</code> result to a string.</li>
 <li><strong>New</strong> Per-call tool override: <code>chat(..., tools=None)</code> and <code>Agent.run(..., tools=None)</code> (both sync and <code>aimu.aio</code>) accept a <code>tools=</code> list that replaces the client's configured <code>self.tools</code> for a single call/run, restored afterward. <code>tools=None</code> (default) keeps the existing behaviour; <code>tools=[]</code> disables tools for the call (MCP tools, being callables in <code>self.tools</code> via <code>as_tools()</code>, are included in the swap). On an <code>Agent</code>, the override applies to every turn of the agentic loop. Implemented as a scoped <code>self.tools</code> swap (<code>_ChatStateMixin._tools_override</code>) covering both request-spec building and dispatch; the agent threads it through each loop <code>chat()</code> call so no new agent state is introduced. Not safe across concurrent <code>chat()</code> calls on a shared client — same contract as <code>self.messages</code>. Not added to the <code>Runner</code> ABC / workflow classes.</li>
+</ul>
+<h3 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>New</strong> <code>Agent.final_answer_prompt</code> (opt-in, default <code>None</code>; sync and <code>aimu.aio</code>) — guarantees a final answer when the agentic loop exhausts <code>max_iterations</code> while the model is still calling tools. Instead of returning whatever the last (possibly tool-only) turn produced — an empty or stub result — the agent sends this prompt once with tools disabled (<code>chat(..., tools=[])</code>), forcing the model to synthesize an answer from the context it has gathered. The trigger is the post-loop <code>_last_turn_called_tools()</code> check (no new counter); it fires only on the cap-with-pending-tools path (a natural finish — a turn with no tool calls — is unaffected) and the wrap-up turn is <strong>not</strong> counted against <code>max_iterations</code>. <code>OrchestratorAgent._init_orchestrator()</code> and <code>OrchestratorAgent.assemble(..., final_answer_prompt=...)</code> (sync + <code>aio</code>) forward it to the inner orchestrator agent, and it is accepted as a <code>from_config</code> key. Leaving it <code>None</code> preserves prior behaviour exactly.</li>
 </ul>
 <h3 id="fixes">Fixes<a class="headerlink" href="#fixes" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3199,7 +3227,7 @@
 <li><strong>New</strong> <code>make_memory_tools(store)</code> in <code>aimu.tools.builtin</code> — wraps any <code>MemoryStore</code> instance as three <code>@tool</code>-decorated functions (<code>store_memory</code>, <code>search_memories</code>, <code>list_memories</code>) for direct in-process agent use. Unlike the image/audio/speech built-in tools, there is no lazy singleton: the store is always explicit because persistence semantics (<code>persist_path</code>, backend, collection name) are meaningful caller choices. Works with <code>SemanticMemoryStore</code>, <code>DocumentStore</code>, or any <code>MemoryStore</code> subclass. For cross-process or multi-agent memory, the existing FastMCP servers (<code>aimu.memory.mcp</code> / <code>aimu.memory.document_mcp</code>) remain the recommended path.</li>
 <li><strong>New</strong> <code>builtin.make_tools(..., memory_store=None)</code> — new <code>memory_store=</code> kwarg appends <code>make_memory_tools(store)</code> to the assembled tool list when provided.</li>
 </ul>
-<h3 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h3>
+<h3 id="agents-and-workflows_1">Agents and workflows<a class="headerlink" href="#agents-and-workflows_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>Agent.restore(messages)</code> — restore an agent from a saved <code>list[dict]</code> (OpenAI message format) for resuming after failure. Calls <code>model_client.reset()</code>, strips the leading system message to prevent duplication on the next <code>chat()</code>, and sets <code>model_client.messages</code>. The live partial state after a failed run is on <code>agent.model_client.messages</code> (not the post-run snapshot from <code>agent.messages</code>).</li>
 <li><strong>New</strong> <code>EvaluatorOptimizer.restore(messages)</code> — delegates to <code>generator.restore()</code>.</li>

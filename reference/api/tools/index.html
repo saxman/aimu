@@ -2844,7 +2844,9 @@ canonical tool result. The decorator sets discriminator attributes:</p>
 <li><code>func.__tool_is_streaming__</code> — True for generator functions (sync or async).</li>
 </ul>
 <p>Usage::</p>
-<div class="language-text highlight"><pre><span></span><code>@tool
+<div class="language-text highlight"><pre><span></span><code>import aimu
+
+@aimu.tool
 def letter_counter(word: str, letter: str) -&gt; int:
     &quot;&quot;&quot;Count occurrences of a letter in a word.&quot;&quot;&quot;
     return word.lower().count(letter.lower())

@@ -2690,9 +2690,9 @@ control (<code>mcp_client</code>, <code>max_iterations</code>, <code>name</code>
 <p><code>**kwargs</code> are forwarded to :class:<code>~aimu.agents.Agent</code> (e.g.
 <code>max_iterations=5</code>, <code>name="my-agent"</code>).</p>
 <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>from aimu.tools import tool
+<div class="language-text highlight"><pre><span></span><code>import aimu
 
-@tool
+@aimu.tool
 def letter_counter(word: str, letter: str) -&gt; int:
     &quot;&quot;&quot;Count occurrences of a letter in a word.&quot;&quot;&quot;
     return word.lower().count(letter.lower())
