@@ -188,7 +188,10 @@ class _AsyncLoopingToolClient(MockAsyncModelClient):
         self.tools_seen.append(list(self.tools))
         if self.tools:
             self.messages.append(
-                {"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "t", "arguments": {}}, "id": "x"}]}
+                {
+                    "role": "assistant",
+                    "tool_calls": [{"type": "function", "function": {"name": "t", "arguments": {}}, "id": "x"}],
+                }
             )
             self.messages.append({"role": "tool", "name": "t", "content": "result", "tool_call_id": "x"})
             self.messages.append({"role": "assistant", "content": ""})
@@ -200,7 +203,10 @@ class _AsyncLoopingToolClient(MockAsyncModelClient):
 async def test_async_agent_final_answer_prompt_forces_wrap_up_at_cap():
     client = _AsyncLoopingToolClient(final_text="FORCED SUMMARY")
     agent = Agent(
-        client, name="capper", tools=[_dummy_async_tool], max_iterations=3,
+        client,
+        name="capper",
+        tools=[_dummy_async_tool],
+        max_iterations=3,
         final_answer_prompt="Stop using tools and answer now.",
     )
     result = await agent.run("gather forever")
@@ -224,7 +230,10 @@ async def test_async_agent_final_answer_prompt_not_triggered_on_natural_finish()
 async def test_async_agent_streamed_final_answer_prompt_forces_wrap_up():
     client = _AsyncLoopingToolClient(final_text="STREAMED SUMMARY")
     agent = Agent(
-        client, name="scap", tools=[_dummy_async_tool], max_iterations=3,
+        client,
+        name="scap",
+        tools=[_dummy_async_tool],
+        max_iterations=3,
         final_answer_prompt="Stop using tools and answer now.",
     )
     chunks = []

@@ -131,13 +131,11 @@ def _fmt_args(args: object) -> str:
         text = str(value).replace("\n", " ")
         if len(text) > 100:
             text = text[:97] + "..."
-        parts.append(f"{key}=\"{text}\"")
+        parts.append(f'{key}="{text}"')
     return ", ".join(parts)
 
 
-def run_with_progress(
-    runner, task: str, *, combine: str = "last_step", generate_kwargs: dict | None = None
-) -> str:
+def run_with_progress(runner, task: str, *, combine: str = "last_step", generate_kwargs: dict | None = None) -> str:
     """Stream a Runner, print simple live progress, and return its final text.
 
     Progress is intentionally minimal: one line per tool call, and a quiet note the first
@@ -315,8 +313,7 @@ def build_orchestrator(model: str, fmt: str) -> OrchestratorAgent:
         system_message=(
             "You coordinate AI-news summarization. First call 'searcher' to gather recent "
             "articles, then call 'summarizer' to condense them. Produce a final dated digest "
-            "with a source link for every item. Only include articles from the last 24 hours."
-            + FORMAT_DIRECTIVE[fmt]
+            "with a source link for every item. Only include articles from the last 24 hours." + FORMAT_DIRECTIVE[fmt]
         ),
         workers=[searcher, summarizer],
         name="news-orchestrator",
@@ -393,9 +390,7 @@ def main() -> None:
     runner = METHODS[args.method](args.model, args.format)
     _note("Working...\n")
 
-    result = run_with_progress(
-        runner, TASK, combine=RESULT_COMBINE[args.method], generate_kwargs=GENERATE_KWARGS
-    )
+    result = run_with_progress(runner, TASK, combine=RESULT_COMBINE[args.method], generate_kwargs=GENERATE_KWARGS)
 
     if not result.strip():
         _note(

@@ -65,7 +65,10 @@ class _LoopingToolClient(BaseModelClient):
         self.tools_seen.append(list(self.tools))
         if self.tools:  # tools available -> emit a tool round, never finish on its own
             self.messages.append(
-                {"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "t", "arguments": {}}, "id": "x"}]}
+                {
+                    "role": "assistant",
+                    "tool_calls": [{"type": "function", "function": {"name": "t", "arguments": {}}, "id": "x"}],
+                }
             )
             self.messages.append({"role": "tool", "name": "t", "content": "result", "tool_call_id": "x"})
             self.messages.append({"role": "assistant", "content": ""})
@@ -665,7 +668,10 @@ def test_agent_run_streamed_tools_override_applied():
 def test_agent_final_answer_prompt_forces_wrap_up_at_cap():
     client = _LoopingToolClient(final_text="FORCED SUMMARY")
     agent = Agent(
-        client, name="capper", tools=[_dummy_tool], max_iterations=3,
+        client,
+        name="capper",
+        tools=[_dummy_tool],
+        max_iterations=3,
         final_answer_prompt="Stop using tools and answer now.",
     )
     result = agent.run("gather forever")
@@ -705,7 +711,10 @@ def test_agent_final_answer_prompt_not_triggered_on_natural_finish():
 def test_agent_streamed_final_answer_prompt_forces_wrap_up():
     client = _LoopingToolClient(final_text="STREAMED SUMMARY")
     agent = Agent(
-        client, name="scap", tools=[_dummy_tool], max_iterations=3,
+        client,
+        name="scap",
+        tools=[_dummy_tool],
+        max_iterations=3,
         final_answer_prompt="Stop using tools and answer now.",
     )
     chunks = list(agent.run("gather", stream=True))
@@ -718,7 +727,9 @@ def test_agent_streamed_final_answer_prompt_forces_wrap_up():
 def test_orchestrator_assemble_threads_final_answer_prompt():
     worker = Agent(MockModelClient(["worker out"]), name="w", system_message="Do work.")
     orch = OrchestratorAgent.assemble(
-        MockModelClient(["hi"]), "Coordinate.", workers=[worker],
+        MockModelClient(["hi"]),
+        "Coordinate.",
+        workers=[worker],
         final_answer_prompt="Summarize now.",
     )
     assert orch._orchestrator.final_answer_prompt == "Summarize now."
