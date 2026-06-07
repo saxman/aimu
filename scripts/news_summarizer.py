@@ -22,7 +22,7 @@ Usage::
 
 Each run writes a Markdown ``summary.md`` and a ``trace.json`` into a timestamped folder
 under ``output/news/<timestamp>/`` (like the hotdog and epic scripts), unless overridden
-with ``--output-dir`` / ``--trace``.
+with ``--output-dir``.
 
 Web search relies on a reachable SearXNG instance (``SEARXNG_BASE_URL``); the model must
 support tool calling.
@@ -368,11 +368,6 @@ def main() -> None:
         help="Directory for the run's artifacts (default: output/news/<timestamp>/).",
     )
     parser.add_argument(
-        "--trace",
-        metavar="FILE",
-        help="Write the message trace to FILE instead of <output-dir>/trace.json.",
-    )
-    parser.add_argument(
         "--list",
         action="store_true",
         help="List the available methods and exit.",
@@ -411,7 +406,7 @@ def main() -> None:
 
     # runner.messages is a {agent_name: [messages]} dict in OpenAI format, merged across
     # every agent/step in the pattern (default=str guards any stray objects).
-    trace_path = Path(args.trace) if args.trace else output_dir / "trace.json"
+    trace_path = output_dir / "trace.json"
     trace_path.write_text(json.dumps(runner.messages, indent=2, default=str), encoding="utf-8")
     _note(f"Wrote message trace to {trace_path}")
 
