@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.7.0 (2026-06-08) — MCP tool unification, model resolvers, and agent improvements
 
 ### Breaking changes
 
