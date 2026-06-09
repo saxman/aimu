@@ -236,3 +236,145 @@ def test_openai_client_unknown_string_raises(monkeypatch):
 
     with pytest.raises(ValueError, match="Unknown"):
         mod.OpenAITranscriptionClient("openai:gpt-4-turbo")
+
+
+# ---------------------------------------------------------------------------
+# HuggingFace provider
+# ---------------------------------------------------------------------------
+
+
+def _install_hf_transcription_stubs(monkeypatch):
+    """Stub soundfile and transformers for HF transcription tests."""
+    import sys
+    from unittest.mock import MagicMock
+    import numpy as np
+
+    fake_sf = MagicMock()
+    fake_sf._aimu_stub = True
+    fake_sf.read.return_value = (np.zeros(16000, dtype="float32"), 16000)
+    monkeypatch.setitem(sys.modules, "soundfile", fake_sf)
+
+    fake_tf = MagicMock()
+    _pipe_output = {"text": "hello world"}
+
+    def _fake_pipeline(task, model, **kwargs):
+        pipe = MagicMock()
+        pipe.return_value = _pipe_output
+        return pipe
+
+    fake_tf.pipeline.side_effect = _fake_pipeline
+    monkeypatch.setitem(sys.modules, "transformers", fake_tf)
+    return fake_tf
+
+
+def test_hf_transcription_model_members():
+    pytest.importorskip("soundfile")
+    pytest.importorskip("transformers")
+    from aimu.models.providers.hf.transcription import HuggingFaceTranscriptionModel
+    names = {m.name for m in HuggingFaceTranscriptionModel}
+    assert "WHISPER_TINY" in names
+    assert "WHISPER_LARGE_V3" in names
+    assert "DISTIL_WHISPER_LARGE_V3" in names
+
+
+def test_hf_transcription_model_supports_timestamps():
+    pytest.importorskip("soundfile")
+    pytest.importorskip("transformers")
+    from aimu.models.providers.hf.transcription import HuggingFaceTranscriptionModel
+    assert HuggingFaceTranscriptionModel.WHISPER_LARGE_V3.spec.supports_timestamps is True
+
+
+def test_hf_client_transcribe_text_format(monkeypatch):
+    _install_hf_transcription_stubs(monkeypatch)
+    from importlib import reload
+    import aimu.models.providers.hf.transcription as mod
+    reload(mod)
+
+    client = mod.HuggingFaceTranscriptionClient(mod.HuggingFaceTranscriptionModel.WHISPER_TINY)
+    result = client.transcribe(b"\x52\x49\x46\x46" + b"\x00" * 40)
+    assert result == "hello world"
+
+
+def test_hf_client_transcribe_json_format(monkeypatch):
+    _install_hf_transcription_stubs(monkeypatch)
+    from importlib import reload
+    import aimu.models.providers.hf.transcription as mod
+    reload(mod)
+
+    client = mod.HuggingFaceTranscriptionClient(mod.HuggingFaceTranscriptionModel.WHISPER_TINY)
+    result = client.transcribe(b"\x00" * 4, response_format="json")
+    assert result == {"text": "hello world"}
+
+
+def test_hf_client_transcribe_verbose_json_format(monkeypatch):
+    import sys
+    from unittest.mock import MagicMock
+    import numpy as np
+
+    fake_sf = MagicMock()
+    fake_sf._aimu_stub = True
+    fake_sf.read.return_value = (np.zeros(16000, dtype="float32"), 16000)
+    monkeypatch.setitem(sys.modules, "soundfile", fake_sf)
+
+    fake_tf = MagicMock()
+    _chunks_output = {
+        "text": "hello world",
+        "chunks": [
+            {"text": "hello", "timestamp": [0.0, 0.5]},
+            {"text": " world", "timestamp": [0.5, 1.0]},
+        ],
+    }
+
+    def _fake_pipeline(task, model, **kwargs):
+        pipe = MagicMock()
+        pipe.return_value = _chunks_output
+        return pipe
+
+    fake_tf.pipeline.side_effect = _fake_pipeline
+    monkeypatch.setitem(sys.modules, "transformers", fake_tf)
+
+    from importlib import reload
+    import aimu.models.providers.hf.transcription as mod
+    reload(mod)
+
+    client = mod.HuggingFaceTranscriptionClient(mod.HuggingFaceTranscriptionModel.WHISPER_TINY)
+    result = client.transcribe(b"\x00" * 4, response_format="verbose_json")
+    assert isinstance(result, dict)
+    assert result["text"] == "hello world"
+    assert len(result["segments"]) == 2
+    assert result["segments"][0]["start"] == 0.0
+    assert result["segments"][0]["end"] == 0.5
+
+
+def test_hf_client_passes_language_to_pipeline(monkeypatch):
+    import sys
+    from unittest.mock import MagicMock
+    import numpy as np
+
+    fake_sf = MagicMock()
+    fake_sf._aimu_stub = True
+    fake_sf.read.return_value = (np.zeros(16000, dtype="float32"), 16000)
+    monkeypatch.setitem(sys.modules, "soundfile", fake_sf)
+
+    captured_kwargs = {}
+
+    fake_tf = MagicMock()
+
+    def _fake_pipeline(task, model, **kwargs):
+        pipe = MagicMock()
+        def _call(inputs, **kw):
+            captured_kwargs.update(kw)
+            return {"text": "bonjour"}
+        pipe.side_effect = _call
+        return pipe
+
+    fake_tf.pipeline.side_effect = _fake_pipeline
+    monkeypatch.setitem(sys.modules, "transformers", fake_tf)
+
+    from importlib import reload
+    import aimu.models.providers.hf.transcription as mod
+    reload(mod)
+
+    client = mod.HuggingFaceTranscriptionClient(mod.HuggingFaceTranscriptionModel.WHISPER_TINY)
+    client.transcribe(b"\x00" * 4, language="fr")
+    assert captured_kwargs.get("generate_kwargs", {}).get("language") == "fr"
