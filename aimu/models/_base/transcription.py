@@ -8,7 +8,10 @@ models/_internal/audio_input.py.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Optional
+
+
+_VALID_RESPONSE_FORMATS = ("text", "json", "verbose_json")
 
 
 @dataclass
@@ -71,19 +74,11 @@ class BaseTranscriptionClient(ABC):
     """Abstract base for speech-to-text (ASR/STT) provider clients.
 
     Parallel to :class:`BaseSpeechClient` for the transcription modality.
-    Subclasses implement :meth:`_transcribe`; the public :meth:`transcribe`
-    validates the ``response_format`` and ``supports_timestamps`` constraint
-    before delegating.
+    Subclasses implement ``_transcribe()`` returning ``str`` or ``dict``.
+    The public ``transcribe()`` validates arguments and delegates.
 
-    response_format:
-      ``"text"`` (default): plain string transcript
-      ``"json"``: ``{"text": "..."}`` dict
-      ``"verbose_json"``: dict with text, segments, language, duration
-                          (requires ``supports_timestamps=True`` on spec)
-
-    .. note::
-        ``BaseTranscriptionClient`` is the STT base only. Text-to-speech uses
-        the separate :class:`BaseSpeechClient`.
+    ``BaseTranscriptionClient`` is the STT base only. Text-to-speech uses
+    the separate :class:`BaseSpeechClient`.
     """
 
     model: Any
@@ -103,7 +98,7 @@ class BaseTranscriptionClient(ABC):
         response_format: str = "text",
         prompt: Optional[str] = None,
         temperature: Optional[float] = None,
-    ) -> Union[str, dict]:
+    ) -> str | dict:
         """Provider-specific transcription."""
 
     def transcribe(
@@ -114,7 +109,7 @@ class BaseTranscriptionClient(ABC):
         response_format: str = "text",
         prompt: Optional[str] = None,
         temperature: Optional[float] = None,
-    ) -> Union[str, dict]:
+    ) -> str | dict:
         """Transcribe an audio clip to text.
 
         ``audio`` accepts: file path (str or pathlib.Path), raw bytes (WAV assumed),
@@ -125,9 +120,8 @@ class BaseTranscriptionClient(ABC):
           ``"json"`` -> ``{"text": "..."}``
           ``"verbose_json"`` -> ``{"text": "...", "segments": [...], "language": "...", "duration": float}``
         """
-        valid_formats = {"text", "json", "verbose_json"}
-        if response_format not in valid_formats:
-            raise ValueError(f"response_format must be one of {sorted(valid_formats)}, got {response_format!r}")
+        if response_format not in _VALID_RESPONSE_FORMATS:
+            raise ValueError(f"response_format must be one of {list(_VALID_RESPONSE_FORMATS)}, got {response_format!r}")
         if response_format == "verbose_json" and not self.spec.supports_timestamps:
             raise ValueError(
                 f"Model {self.spec.id!r} does not support timestamps "
