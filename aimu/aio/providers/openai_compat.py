@@ -15,6 +15,7 @@ from typing import Any, AsyncIterator, Optional, Union
 
 import openai
 
+from aimu.models._internal.audio_input import _build_audio_content_blocks
 from aimu.models._internal.image_input import _build_user_content_blocks
 from aimu.models.providers._thinking import _ThinkingParser, _split_thinking
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
@@ -66,6 +67,10 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_vision]
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_audio]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         if not generate_kwargs:
             return self.default_generate_kwargs.copy()
@@ -95,13 +100,19 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, images=images)
+            return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
 
-        content_in = _build_user_content_blocks(prompt, images) if images else prompt
+        if audio:
+            content_in = _build_audio_content_blocks(prompt, audio)
+        elif images:
+            content_in = _build_user_content_blocks(prompt, images)
+        else:
+            content_in = prompt
         response = await self._client.chat.completions.create(
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
@@ -120,8 +131,14 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         prompt: str,
         generate_kwargs: dict[str, Any],
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
-        content_in = _build_user_content_blocks(prompt, images) if images else prompt
+        if audio:
+            content_in = _build_audio_content_blocks(prompt, audio)
+        elif images:
+            content_in = _build_user_content_blocks(prompt, images)
+        else:
+            content_in = prompt
         stream = await self._client.chat.completions.create(
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
@@ -138,8 +155,9 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        generate_kwargs, tools = await self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
+        generate_kwargs, tools = await self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)

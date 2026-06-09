@@ -80,7 +80,11 @@ def _build_user_content_blocks(text: str, images: list[ImageInput]) -> list[dict
 
 
 def _openai_blocks_to_anthropic(blocks: list[dict]) -> list[dict]:
-    """Convert an OpenAI-format content block list to Anthropic content blocks."""
+    """Convert an OpenAI-format content block list to Anthropic content blocks.
+
+    Handles ``image_url`` (vision) and ``input_audio`` (audio input) blocks alongside
+    plain ``text`` blocks. All other block types are passed through unchanged.
+    """
     out: list[dict] = []
     for block in blocks:
         btype = block.get("type")
@@ -98,6 +102,18 @@ def _openai_blocks_to_anthropic(blocks: list[dict]) -> list[dict]:
                 )
             else:
                 out.append({"type": "image", "source": {"type": "url", "url": url}})
+        elif btype == "input_audio":
+            ia = block["input_audio"]
+            out.append(
+                {
+                    "type": "audio",
+                    "source": {
+                        "type": "base64",
+                        "media_type": f"audio/{ia['format']}",
+                        "data": ia["data"],
+                    },
+                }
+            )
         else:
             out.append(block)
     return out

@@ -18,7 +18,7 @@ class OllamaModel(Model):
     QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True)
     QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True)
     QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)
-    # Google
+    # Google — these weights support audio; add audio=True once Ollama API exposes audio input
     GEMMA_4_E4B = ModelSpec("gemma4:e4b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
     GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
     GEMMA_4_26B = ModelSpec("gemma4:26b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
@@ -70,6 +70,10 @@ class OllamaClient(BaseModelClient):
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_vision]
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_audio]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
         if not generate_kwargs:
             generate_kwargs = self.default_generate_kwargs
@@ -85,6 +89,7 @@ class OllamaClient(BaseModelClient):
         generate_kwargs: Optional[dict] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         gen_images = self._extract_ollama_images(images)
@@ -157,8 +162,9 @@ class OllamaClient(BaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)

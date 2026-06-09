@@ -58,7 +58,7 @@ class _LoopingToolClient(BaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
         self.messages.append({"role": "user", "content": user_message})
@@ -82,7 +82,7 @@ class _LoopingToolClient(BaseModelClient):
         yield StreamChunk(StreamingContentType.GENERATING, text)
         self._streaming_content_type = StreamingContentType.DONE
 
-    def _generate(self, prompt, generate_kwargs=None, stream=False, images=None):
+    def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
         return self._chat(prompt, generate_kwargs)
 
 
@@ -520,7 +520,7 @@ def test_agent_forwards_image_generating_chunks_from_streaming_tool():
             super().__init__(*args, **kwargs)
             self._calls = 0
 
-        def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+        def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
             if not stream:
                 return super()._chat(user_message, generate_kwargs, use_tools, stream, images)
 
@@ -598,9 +598,9 @@ class _ToolsRecordingClient(MockModelClient):
         super().__init__(responses)
         self.tools_per_call = []
 
-    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
         self.tools_per_call.append(list(self.tools))
-        return super()._chat(user_message, generate_kwargs, use_tools, stream, images=images)
+        return super()._chat(user_message, generate_kwargs, use_tools, stream, images=images, audio=audio)
 
 
 def test_agent_run_tools_override_applied_each_loop_call():

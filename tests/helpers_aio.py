@@ -57,6 +57,7 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         self.model.supports_tools = True
         self.model.supports_thinking = False
         self.model.supports_vision = False
+        self.model.supports_audio = False
         self.model_kwargs = None
         self._system_message = None
         self.default_generate_kwargs = {}
@@ -70,10 +71,14 @@ class MockAsyncModelClient(AsyncBaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
-        if images:
+        if audio:
+            from aimu.models._internal.audio_input import _build_audio_content_blocks
+
+            self.messages.append({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
+        elif images:
             from aimu.models._internal.image_input import _build_user_content_blocks
 
             self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
@@ -103,7 +108,7 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         response = await self._chat(user_message, generate_kwargs, use_tools, images=images)
         yield StreamChunk(StreamingContentType.GENERATING, response)
 
-    async def _generate(self, prompt, generate_kwargs=None, stream=False, images=None):
+    async def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs)
         return await self._chat(prompt, generate_kwargs, images=images)

@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased — Audio input for text models
+
+### Models
+
+- **New** `audio: bool = False` field on `ModelSpec`. Audio-capable text models expose `supports_audio` on their enum members, `is_audio_model` on their client instances, and an `AUDIO_MODELS` classproperty (parallel to `TOOL_MODELS`, `THINKING_MODELS`, `VISION_MODELS`).
+- **New** Audio-capable models added to the catalog: `OpenAIModel` GPT-4o, GPT-4o-mini, GPT-4.1, GPT-4.1-mini, GPT-4.1-nano; `GeminiModel` 2.0 Flash, 2.0 Flash Lite, 2.5 Pro, 2.5 Flash; `HuggingFaceModel.GEMMA_4_E4B`, `GEMMA_4_12B`, `NEMOTRON_H_8B`. Ollama models remain `audio=False` with inline comments noting where the underlying weights support audio (upgrade path once the Ollama API adds audio input).
+
+### `ModelClient.chat()` and `ModelClient.generate()`
+
+- **New** `audio=` parameter on both `chat()` (stateful — turn persists in `self.messages`) and `generate()` (stateless one-shot — no history touched). Accepts any mix of: file path strings, `pathlib.Path`, raw bytes (WAV assumed), `https://` URLs (fetched eagerly), and `data:audio/...;base64,...` data URLs. Supported format strings: `wav`, `mp3`, `ogg`, `flac`, `m4a`, `webm` — inferred from file extension or MIME type.
+- **New** Passing `audio=` to a model with `supports_audio=False` raises `ValueError` before any API call.
+- **New** `images=` and `audio=` are mutually exclusive per turn; passing both raises `ValueError`.
+- Internally normalised to OpenAI `input_audio` content blocks (`{"type": "input_audio", "input_audio": {"data": "<b64>", "format": "wav"}}`). Provider adaptation happens at request time: OpenAI/Gemini/OpenAI-compat pass through; Anthropic converts to `{"type": "audio", "source": {"type": "base64", ...}}`; HuggingFace decodes to float32 numpy arrays via `soundfile` and passes them to the `AutoProcessor`; Ollama raises with a clear message (API does not yet support audio).
+- Mirrored on the async surface (`aimu.aio`): same signature on `aio.chat()` and `aio.generate()`.
+
+### Documentation
+
+- **New** `docs/how-to/handle-audio-input.md` — accepted input forms, model selection, stateful vs. stateless, async surface, per-provider adaptation.
+- **New** `notebooks/18 - Audio Input.ipynb` — capability flags, all input forms, multiple clips per turn, stateful/stateless split, multi-turn conversations, capability check, mutual-exclusion demo, Gemini and HuggingFace sections, async surface.
+
+---
+
 ## v0.7.0 (2026-06-08) — MCP tool unification, model resolvers, and agent improvements
 
 ### Breaking changes

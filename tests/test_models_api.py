@@ -348,9 +348,9 @@ class _ToolsRecordingClient(MockModelClient):
         super().__init__(responses)
         self.tools_seen = None
 
-    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
         self.tools_seen = list(self.tools)
-        return super()._chat(user_message, generate_kwargs, use_tools, stream, images=images)
+        return super()._chat(user_message, generate_kwargs, use_tools, stream, images=images, audio=audio)
 
 
 def test_chat_tools_override_applied_during_call():
@@ -510,7 +510,7 @@ def test_chat_stream_include_filters_phases():
     """include=['generating'] drops THINKING and TOOL_CALLING chunks."""
 
     class _MultiPhaseClient(MockModelClient):
-        def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+        def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
             if not stream:
                 return super()._chat(user_message, generate_kwargs, use_tools, stream, images)
 
@@ -529,7 +529,7 @@ def test_chat_stream_include_filters_phases():
 
 def test_chat_stream_include_thinking_only():
     class _MultiPhaseClient(MockModelClient):
-        def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+        def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
             if not stream:
                 return super()._chat(user_message, generate_kwargs, use_tools, stream, images)
 

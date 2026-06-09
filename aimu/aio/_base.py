@@ -62,6 +62,10 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         raise NotImplementedError
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
+        raise NotImplementedError
+
     @abstractmethod
     async def _generate(
         self,
@@ -69,6 +73,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         """Provider-specific async generate implementation. Use :meth:`generate`."""
         pass
@@ -81,6 +86,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         """Provider-specific async chat implementation. Use :meth:`chat`."""
         pass
@@ -92,15 +98,21 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         stream: bool = False,
         images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         """Single-turn, stateless async generation. See sync :meth:`BaseModelClient.generate`.
 
-        ``images`` accepts the same forms as :meth:`chat` and raises ``ValueError`` for
-        non-vision models; the call stays stateless (does not touch ``self.messages``).
+        ``images`` / ``audio`` accept the same forms as :meth:`chat` and raise ``ValueError``
+        for models that don't support the respective modality. The call stays stateless
+        (does not touch ``self.messages``). Passing both raises ``ValueError``.
         """
+        if images and audio:
+            raise ValueError("Pass either images= or audio= per call, not both.")
         if images:
             self._require_vision()
-        result = await self._generate(prompt, generate_kwargs, stream=stream, images=images)
+        if audio:
+            self._require_audio()
+        result = await self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
         if stream and include is not None:
             return afilter_chunks(result, resolve_include(include))
         return result
@@ -114,6 +126,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         tools: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         """Multi-turn async chat with persistent message history.
 
@@ -123,15 +136,15 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         ``AsyncIterator[StreamChunk]`` — consume with ``async for``.
         """
         if tools is None:
-            result = await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images)
+            result = await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio)
             if stream and include is not None:
                 return afilter_chunks(result, resolve_include(include))
             return result
 
         if stream:
-            return self._chat_with_tools_streamed(user_message, generate_kwargs, use_tools, images, include, tools)
+            return self._chat_with_tools_streamed(user_message, generate_kwargs, use_tools, images, include, tools, audio=audio)
         with self._tools_override(tools):
-            return await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images)
+            return await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio)
 
     async def _chat_with_tools_streamed(
         self,
@@ -141,6 +154,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         images: Optional[list],
         include: Optional[Iterable[Union[str, StreamingContentType]]],
         tools: list,
+        audio: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
         """Async streaming chat with a per-call ``tools`` override.
 
@@ -148,7 +162,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         ``self.tools``), so the swap wraps the ``async for`` rather than just ``_chat``.
         """
         with self._tools_override(tools):
-            result = await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images)
+            result = await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio)
             if include is not None:
                 result = afilter_chunks(result, resolve_include(include))
             async for chunk in result:
@@ -164,11 +178,12 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """Async equivalent of the sync ``_chat_setup``."""
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        self._append_user_turn(user_message, images)
+        self._append_user_turn(user_message, images, audio=audio)
 
         tools: list[dict] = []
         if self.model.supports_tools and use_tools:

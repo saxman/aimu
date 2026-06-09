@@ -122,7 +122,7 @@ class _AsyncToolsRecordingClient(MockAsyncModelClient):
         super().__init__(responses)
         self.tools_per_call = []
 
-    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
         self.tools_per_call.append(list(self.tools))
         return await super()._chat(user_message, generate_kwargs, use_tools, stream, images=images)
 
@@ -181,7 +181,7 @@ class _AsyncLoopingToolClient(MockAsyncModelClient):
         self.final_text = final_text
         self.tools_seen: list[list] = []
 
-    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
         self.messages.append({"role": "user", "content": user_message})

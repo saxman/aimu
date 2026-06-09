@@ -52,6 +52,10 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_vision]
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_audio]
+
     # --- Share state with the wrapped sync client ---
 
     @property
@@ -108,10 +112,13 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         if stream:
-            return self._stream_via_thread(self._sync._generate(prompt, generate_kwargs, stream=True, images=images))
-        return await asyncio.to_thread(self._sync._generate, prompt, generate_kwargs, False, images)
+            return self._stream_via_thread(
+                self._sync._generate(prompt, generate_kwargs, stream=True, images=images, audio=audio)
+            )
+        return await asyncio.to_thread(self._sync._generate, prompt, generate_kwargs, False, images, audio)
 
     async def _chat(
         self,
@@ -120,12 +127,13 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         if stream:
             return self._stream_via_thread(
-                self._sync._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images)
+                self._sync._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio)
             )
-        return await asyncio.to_thread(self._sync._chat, user_message, generate_kwargs, use_tools, False, images)
+        return await asyncio.to_thread(self._sync._chat, user_message, generate_kwargs, use_tools, False, images, audio)
 
     async def _stream_via_thread(self, sync_iterator) -> AsyncIterator[StreamChunk]:
         """Yield from a sync iterator by hopping each ``next()`` to a worker thread.

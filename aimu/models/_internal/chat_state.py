@@ -76,6 +76,10 @@ class _ChatStateMixin:
     def is_vision_model(self) -> bool:
         return self.model.supports_vision
 
+    @property
+    def is_audio_model(self) -> bool:
+        return self.model.supports_audio
+
     def _require_vision(self) -> None:
         """Raise ``ValueError`` if the model lacks vision support.
 
@@ -87,19 +91,37 @@ class _ChatStateMixin:
                 f"Model {self.model.name} does not support vision input. Use a model with supports_vision=True."
             )
 
-    def _append_user_turn(self, user_message: str, images: Optional[list] = None) -> None:
+    def _require_audio(self) -> None:
+        """Raise ``ValueError`` if the model lacks audio input support."""
+        if not self.model.supports_audio:
+            raise ValueError(
+                f"Model {self.model.name} does not support audio input. Use a model with supports_audio=True."
+            )
+
+    def _append_user_turn(self, user_message: str, images: Optional[list] = None, audio: Optional[list] = None) -> None:
         """Append the system message (if first turn) and the user turn to ``self.messages``.
 
-        Normalises images into OpenAI-format content blocks for vision-capable models.
+        Normalises images or audio into OpenAI-format content blocks. ``images`` and
+        ``audio`` are mutually exclusive per turn.
         """
         if len(self.messages) == 0 and self._system_message:
             self.messages.append({"role": "system", "content": self._system_message})
+
+        if images and audio:
+            raise ValueError(
+                "images= and audio= are mutually exclusive per turn. Pass one or the other, not both."
+            )
 
         if images:
             self._require_vision()
             from .image_input import _build_user_content_blocks
 
             self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
+        elif audio:
+            self._require_audio()
+            from .audio_input import _build_audio_content_blocks
+
+            self.messages.append({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
         else:
             self.messages.append({"role": "user", "content": user_message})
 

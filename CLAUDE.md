@@ -255,15 +255,16 @@ State (`messages`, `system_message`, `tools`) is shared with the wrapped sync cl
 The codebase uses an abstract base class pattern for model clients:
 
 - **[aimu/models/base.py](aimu/models/base.py)**: Defines `BaseModelClient` abstract base class with:
-  - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None, include=None, tools=None)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`. Concrete clients implement `_chat()`; the public `chat()` is provided by the base and applies the `include` stream filter.
-  - `generate(prompt, generate_kwargs, stream=False, images=None, include=None)`: Single-turn stateless generation. Concrete clients implement `_generate()`; the public `generate()` is provided by the base. Accepts `images=` for one-shot vision (same forms as `chat`) **without** touching `self.messages` — the base validates vision support (raises `ValueError` for non-vision models) and each provider's `_generate()` builds the image-bearing request locally. This is the stateless path for vision Q&A; no `reset()` dance required.
+  - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None, include=None, tools=None, audio=None)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`. Concrete clients implement `_chat()`; the public `chat()` is provided by the base and applies the `include` stream filter.
+  - `generate(prompt, generate_kwargs, stream=False, images=None, include=None, audio=None)`: Single-turn stateless generation. Concrete clients implement `_generate()`; the public `generate()` is provided by the base. Accepts `images=` for one-shot vision or `audio=` for one-shot audio input (same forms as `chat`) **without** touching `self.messages`. The base validates the respective capability flag (raises `ValueError` for non-vision / non-audio models). Passing both `images=` and `audio=` raises `ValueError`.
   - `images=` (vision-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, http(s) URLs, or `data:image/...` URLs. Available on both `chat()` (stateful) and `generate()` (stateless).
+  - `audio=` (audio-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, `https://` URLs (fetched eagerly — `input_audio` has no remote-URL field), or `data:audio/...;base64,...` URLs. Stored in `self.messages` as OpenAI `input_audio` content blocks. Available on both `chat()` and `generate()`. Mutually exclusive with `images=` per turn.
   - `include=` (streaming only): optional iterable of `StreamingContentType` values (or their string equivalents `"thinking"`, `"tool_calling"`, `"generating"`, `"done"`) selecting which phases to yield. Defaults to all phases.
   - `tools=` (per-call override): `None` (default) uses the client's configured `self.tools`; any other value — including `[]` to disable tools for the call — replaces them for that single call and is restored afterward (MCP tools live in `self.tools` via `as_tools()`, so they are included in the swap). Implemented as a scoped swap of `self.tools` via `_ChatStateMixin._tools_override` (covers both request-spec building and dispatch, since both read `self.tools`); the streaming path wraps stream *consumption* so the override stays live across lazy iteration. Not safe across concurrent `chat()` calls on a shared client — same contract as `self.messages`. `ModelClient`/`AsyncModelClient` need no special handling: `tools` is a delegating property, so the swap propagates to the inner client. Threaded through `Agent.run(tools=...)` (see below).
   - `reset(system_message="__keep__")`: clears the conversation history. Default keeps the existing system message; pass `None` to clear it or a new string to replace it.
-  - `_chat_setup()`: Prepares messages and tools before a chat call; normalizes `images=` into OpenAI-format `image_url` content blocks.
+  - `_chat_setup()`: Prepares messages and tools before a chat call; normalizes `images=` into OpenAI-format `image_url` content blocks, or `audio=` into OpenAI-format `input_audio` content blocks.
   - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions).
-  - `is_thinking_model` / `is_tool_using_model` / `is_vision_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools` / `model.supports_vision`.
+  - `is_thinking_model` / `is_tool_using_model` / `is_vision_model` / `is_audio_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools` / `model.supports_vision` / `model.supports_audio`.
   - `system_message` property: the setter is always live. Assigning it mid-conversation rewrites the system entry in `self.messages` in place (re-conditioning the model on the new prompt while preserving history); before the first `chat()` it just seeds the value. See "Message History Management" below for the re-condition semantics and the shared-client caveat.
   - Message history stored in `self.messages` (OpenAI-style format; user messages with images are content-block lists).
   - MCP tools integrate by adding `MCPClient(...).as_tools()` callables to `self.tools` — there is no separate `mcp_client` attribute (one tool registry).
@@ -277,8 +278,8 @@ The codebase uses an abstract base class pattern for model clients:
     - `dict {"step", "total_steps", "image", "final", "result"}` for `IMAGE_GENERATING` — emitted by image clients during denoising (HF diffusers per step; Gemini coarse start/done). ``image`` is an optional ``PIL.Image`` (None unless ``preview_every`` opted in); ``final=True`` marks the terminal chunk per image; ``result`` carries the encoded output (path / bytes / data-url per ``format=``) on the final chunk.
 
     Helpers `is_text()` / `is_tool_call()` / `is_image_progress()` dispatch on phase.
-  - `ModelSpec`: frozen dataclass with `id: str`, `tools: bool`, `thinking: bool`, `vision: bool`, `generation_kwargs: dict | None`. Equality and hash use `id` only, so it can hold a dict and still be used as an enum value. Each `Model` enum member's value is a `ModelSpec`.
-  - `Model(Enum)`: base enum. Each member's value is a `ModelSpec`. Members expose `.value` (the id string), `.spec` (the `ModelSpec`), `.supports_tools`, `.supports_thinking`, `.supports_vision`, `.generation_kwargs`.
+  - `ModelSpec`: frozen dataclass with `id: str`, `tools: bool`, `thinking: bool`, `vision: bool`, `audio: bool`, `generation_kwargs: dict | None`. Equality and hash use `id` only, so it can hold a dict and still be used as an enum value. Each `Model` enum member's value is a `ModelSpec`.
+  - `Model(Enum)`: base enum. Each member's value is a `ModelSpec`. Members expose `.value` (the id string), `.spec` (the `ModelSpec`), `.supports_tools`, `.supports_thinking`, `.supports_vision`, `.supports_audio`, `.generation_kwargs`.
 
 - **[aimu/models/model_client.py](aimu/models/model_client.py)**: `ModelClient(BaseModelClient)` factory/wrapper class:
   - Single public construction path. Accepts a `Model` enum member or a `"provider:model_id"` string.
@@ -312,6 +313,7 @@ The codebase uses an abstract base class pattern for model clients:
   - `TOOL_MODELS`: members where `supports_tools=True`
   - `THINKING_MODELS`: members where `supports_thinking=True`
   - `VISION_MODELS`: members where `supports_vision=True`
+  - `AUDIO_MODELS`: members where `supports_audio=True`
 
 - **HuggingFace model weight caching**: All four in-process HuggingFace clients (`HuggingFaceClient`, `HuggingFaceImageClient`, `HuggingFaceAudioClient`, `HuggingFaceSpeechClient`) maintain a module-level `_model_registry` dict keyed on `(spec.id, *sorted_model_kwargs)`. A second client instance with the same model and kwargs reuses already-loaded weights rather than calling `from_pretrained()` again. For the eager-loading text client, the cache is checked in `__init__`; for the lazy-loading modality clients, it is checked in their respective `_load_pipeline()` / `_ensure_loaded()` methods. Use `aimu.clear_hf_cache(model=None)` to evict entries and free VRAM. `LlamaCppClient` has the same pattern with cache key `(model_path, n_ctx, n_gpu_layers, chat_format)` and `aimu.clear_llamacpp_cache()`. **Note**: creating clients with different `model_kwargs` (e.g. different `device_map`) produces separate cache entries and loads weights independently.
 
@@ -624,7 +626,7 @@ These are *implementation* patterns — the *how*. The *why* lives in the "Desig
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed. `HAS_*` flags expose installation state; missing optional deps don't break the import of the package.
 3. **Tool Calling Abstraction**: The base class handles tool calls uniformly across providers. Concrete clients implement `_chat` / `_generate`; the public `chat` / `generate` wrap them with the `include` filter. `@tool` functions and `MCPClient.as_tools()` callables share one `self.tools` registry and dispatch through one by-name lookup (last entry wins on name collision).
 4. **Streaming chunk type**: All clients support streaming via `chat(..., stream=True)`, `generate(..., stream=True)`, and image clients via `generate(..., stream=True)`. They yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, IMAGE_GENERATING, DONE); see the `StreamChunk` entry above for content shapes per phase. Streaming tools (generator functions decorated with `@tool`) yield their own chunks that flow through the agent's stream — see "Streaming tools" below. Use `chunk.is_text()` / `chunk.is_tool_call()` / `chunk.is_image_progress()` to dispatch on phase.
-5. **Model Capability Flags**: `supports_tools`, `supports_thinking`, and `supports_vision` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access. `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` classproperties are derived automatically.
+5. **Model Capability Flags**: `supports_tools`, `supports_thinking`, `supports_vision`, and `supports_audio` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access. `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` / `AUDIO_MODELS` classproperties are derived automatically.
 
 ## Important Implementation Notes
 
@@ -633,8 +635,8 @@ These are *implementation* patterns — the *how*. The *why* lives in the "Desig
 **Curated-catalog policy (all modalities).** AIMU ships specs for best-of-class models only. A model must be a member of its provider enum (or a hand-built spec object passed explicitly). Passing an arbitrary `"provider:some/unknown-repo"` string **raises `ValueError`** — the clients never fabricate a spec with guessed capabilities, because a wrong guess (`pipeline_class`, `supports_negative_prompt`, tool/thinking/vision flags, voice/step defaults) causes hard-to-debug runtime failures. The string form resolves to the *same* spec object as the enum member; unknown ids raise. This is enforced in each provider's `_parse_model_string` (text's `resolve_model_string` was always strict). See [docs/how-to/add-new-model.md](docs/how-to/add-new-model.md).
 
 When adding new models to a client:
-1. Add an enum member to the client's `Model` class with a `ModelSpec(id, tools=..., thinking=..., vision=..., generation_kwargs=...)` value. Example: `QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)`.
-2. `TOOL_MODELS`, `THINKING_MODELS`, and `VISION_MODELS` lists are derived automatically from the capability flags; no manual update needed.
+1. Add an enum member to the client's `Model` class with a `ModelSpec(id, tools=..., thinking=..., vision=..., audio=..., generation_kwargs=...)` value. Example: `QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)`.
+2. `TOOL_MODELS`, `THINKING_MODELS`, `VISION_MODELS`, and `AUDIO_MODELS` lists are derived automatically from the capability flags; no manual update needed.
 3. For HuggingFace models, the enum value is a tuple `(ModelSpec(...), ToolCallFormat.XXX[, think_opener_in_prompt])` because HF carries provider-specific extras alongside the spec.
 4. Test with `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`
 
@@ -677,6 +679,23 @@ Models with `supports_vision=True` accept images alongside the user prompt:
   - `LlamaCppClient`: pass-through; vision requires loading an `mmproj` projector via the new `chat_handler=` constructor kwarg (e.g. `Llava15ChatHandler(clip_model_path=...)`)
 - Capability flag: each `ModelSpec` accepts `vision: bool` (default `False`). `BaseModelClient.is_vision_model` and `VISION_MODELS` classproperty mirror the thinking/tools equivalents
 - `images=` is also threaded through `Agent.run()` (only the initial task turn carries images; continuation prompts are text-only), through `Agent.as_model_client().chat()`, and through workflow `Runner.run()` overrides (`Chain` forwards to step 0, `Router` forwards to the dispatched handler, `Parallel` forwards to every worker, `EvaluatorOptimizer` forwards only to the initial generator turn)
+
+### Audio Input
+
+`audio=` on `chat()` and `generate()` is the parallel surface for audio-capable text models (same stateful/stateless split as vision). Stored internally as OpenAI `input_audio` content blocks — the canonical format for audio in OpenAI message format.
+
+- Pass `audio=[...]` to `chat()` (stateful, persisted in `self.messages`) or `generate()` (stateless single-turn, not persisted). Each item may be a file path string, `pathlib.Path`, raw `bytes`, an `https://` URL (fetched eagerly — `input_audio` has no remote-URL field), or a `data:audio/...;base64,...` URL. Accepted format strings: `wav`, `mp3`, `ogg`, `flac`, `m4a`, `webm`.
+- `images=` and `audio=` are mutually exclusive per turn. Passing both raises `ValueError` at the public layer.
+- Audio support is validated once at the public layer: `_ChatStateMixin._require_audio()` raises `ValueError` for non-audio models — called from `_append_user_turn()` (the `chat` path) and from `BaseModelClient.generate()` (the `generate` path).
+- Normalization lives in `aimu/models/_internal/audio_input.py` (mirrors `image_input.py`): `_normalize_audio()`, `_build_audio_content_blocks()`, `_extract_audio_arrays()` (HuggingFace processor path), `_replace_audio_with_placeholder()`.
+- Per-provider adaptation at request time:
+  - `OpenAICompatClient` (and subclasses, including OpenAI and Gemini): pass-through (`input_audio` is already OpenAI format)
+  - `AnthropicClient`: `_openai_blocks_to_anthropic()` in `image_input.py` converts `input_audio` blocks to Anthropic `{"type": "audio", "source": {"type": "base64", "media_type": "audio/<fmt>", "data": "..."}}` format
+  - `HuggingFaceClient`: `_extract_audio_arrays()` decodes blocks to float32 numpy arrays; `_replace_audio_with_placeholder()` rewrites them to `{"type": "audio"}` placeholders for the chat template; arrays passed as `audio=`/`sampling_rate=16000` to the processor
+  - `OllamaClient`: all models have `audio=False`; `_require_audio()` raises before any Ollama-specific code runs
+- Capability flag: `ModelSpec` accepts `audio: bool = False`. `BaseModelClient.is_audio_model` and `AUDIO_MODELS` classproperty mirror the vision equivalents.
+- Audio-capable text models: OpenAI GPT-4o/4.1 series, Gemini 2.0/2.5, HuggingFace Gemma 4 E4B/12B, Nemotron-H-8B.
+- `soundfile` (already in the `[hf]` extra) is used only for the HuggingFace extraction path; all other providers decode client-side or pass through base64 directly.
 
 ### OpenAICompatClient Notes
 

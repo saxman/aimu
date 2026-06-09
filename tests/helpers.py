@@ -90,13 +90,17 @@ class MockModelClient(BaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None):
+    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
         if images:
             from aimu.models._internal.image_input import _build_user_content_blocks
 
             self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
+        elif audio:
+            from aimu.models._internal.audio_input import _build_audio_content_blocks
+
+            self.messages.append({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
         else:
             self.messages.append({"role": "user", "content": user_message})
         response = self._responses[self._call_count]
@@ -125,7 +129,7 @@ class MockModelClient(BaseModelClient):
         yield StreamChunk(StreamingContentType.GENERATING, response)
         self._streaming_content_type = StreamingContentType.DONE
 
-    def _generate(self, prompt, generate_kwargs=None, stream=False, images=None):
+    def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs)
         return self._chat(prompt, generate_kwargs, images=images)

@@ -68,6 +68,7 @@ class _AsyncAgenticView(AsyncBaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         if stream:
             return await self._agent.run(user_message, generate_kwargs=generate_kwargs, stream=True, images=images)
@@ -79,8 +80,9 @@ class _AsyncAgenticView(AsyncBaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        return await self._inner_client._generate(prompt, generate_kwargs, stream=stream, images=images)
+        return await self._inner_client._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         return self._inner_client._update_generate_kwargs(generate_kwargs)

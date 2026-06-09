@@ -158,6 +158,16 @@ client.chat("What's in this image?", images=["./cat.jpg"])      # multi-turn, ke
 client.generate("Caption this image.", images=["./cat.jpg"])    # one-shot, no history
 ```
 
+**Audio input.** Pass audio clips to any audio-capable text model via `audio=`. Same stateful/stateless split as vision:
+
+```python
+client = aimu.client("openai:gpt-4o")
+client.chat("Transcribe this clip.", audio=["./interview.wav"])  # multi-turn, keeps history
+client.generate("What language is spoken here?", audio=["./clip.mp3"])  # one-shot, no history
+```
+
+Accepted forms: file path (`str` or `pathlib.Path`), raw `bytes`, `data:audio/...;base64,...` URL, or `https://` URL (fetched eagerly). Supported providers: OpenAI (GPT-4o, GPT-4.1 series), Gemini (2.0/2.5), HuggingFace Gemma 4 / Nemotron-H-8B.
+
 **Image generation.** Same `provider:model_id` shape, parallel factory. Pass `reference_image=` for image-to-image:
 
 ```python
@@ -290,6 +300,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [15 - Image Generation](notebooks/15%20-%20Image%20Generation.ipynb) | `aimu.image_client()` / `aimu.generate_image()` with HuggingFace `diffusers` and Google Nano Banana, plus the built-in `generate_image` agent tool |
 | [16 - Audio Generation](notebooks/16%20-%20Audio%20Generation.ipynb) | `aimu.audio_client()` / `aimu.generate_audio()` with MusicGen, AudioLDM2, and Stable Audio Open, plus streaming and the built-in `generate_audio` agent tool |
 | [17 - Speech](notebooks/17%20-%20Speech.ipynb) | TTS with HuggingFace (SpeechT5, MMS-TTS, BARK) and OpenAI (tts-1/tts-1-hd); `generate_speech` agent tool; Streamlit live narration; STT placeholder |
+| [18 - Audio Input](notebooks/18%20-%20Audio%20Input.ipynb) | Audio input via `audio=` on `chat()` and `generate()`; model selection; accepted formats; async surface |
 
 ## Web apps
 

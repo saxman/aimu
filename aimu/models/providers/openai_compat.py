@@ -18,6 +18,7 @@ from typing import Any, Iterator, Optional, Union
 import openai
 
 from ..base import BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType, classproperty
+from .._internal.audio_input import _build_audio_content_blocks
 from .._internal.image_input import _build_user_content_blocks
 from ._thinking import _ThinkingParser, _split_thinking
 
@@ -56,6 +57,10 @@ class OpenAICompatClient(BaseModelClient):
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_vision]
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_audio]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         if not generate_kwargs:
             return self.default_generate_kwargs.copy()
@@ -87,13 +92,19 @@ class OpenAICompatClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, images=images)
+            return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
 
-        content_in = _build_user_content_blocks(prompt, images) if images else prompt
+        if images:
+            content_in = _build_user_content_blocks(prompt, images)
+        elif audio:
+            content_in = _build_audio_content_blocks(prompt, audio)
+        else:
+            content_in = prompt
         response = self._client.chat.completions.create(
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
@@ -113,8 +124,14 @@ class OpenAICompatClient(BaseModelClient):
         prompt: str,
         generate_kwargs: dict[str, Any],
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
-        content_in = _build_user_content_blocks(prompt, images) if images else prompt
+        if images:
+            content_in = _build_user_content_blocks(prompt, images)
+        elif audio:
+            content_in = _build_audio_content_blocks(prompt, audio)
+        else:
+            content_in = prompt
         stream = self._client.chat.completions.create(
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
@@ -130,8 +147,9 @@ class OpenAICompatClient(BaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)

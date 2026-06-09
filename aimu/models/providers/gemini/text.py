@@ -11,13 +11,14 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 
 class GeminiModel(Model):
-    GEMINI_2_0_FLASH = ModelSpec("gemini-2.0-flash", tools=True, vision=True)
-    GEMINI_2_0_FLASH_LITE = ModelSpec("gemini-2.0-flash-lite", tools=True, vision=True)
+    # Gemini 2.x supports audio input; 1.5 does not
+    GEMINI_2_0_FLASH = ModelSpec("gemini-2.0-flash", tools=True, vision=True, audio=True)
+    GEMINI_2_0_FLASH_LITE = ModelSpec("gemini-2.0-flash-lite", tools=True, vision=True, audio=True)
     GEMINI_1_5_PRO = ModelSpec("gemini-1.5-pro", tools=True, vision=True)
     GEMINI_1_5_FLASH = ModelSpec("gemini-1.5-flash", tools=True, vision=True)
     # Thinking models expose reasoning via <think>...</think> tags on this endpoint
-    GEMINI_2_5_PRO = ModelSpec("gemini-2.5-pro", tools=True, thinking=True, vision=True)
-    GEMINI_2_5_FLASH = ModelSpec("gemini-2.5-flash", tools=True, thinking=True, vision=True)
+    GEMINI_2_5_PRO = ModelSpec("gemini-2.5-pro", tools=True, thinking=True, vision=True, audio=True)
+    GEMINI_2_5_FLASH = ModelSpec("gemini-2.5-flash", tools=True, thinking=True, vision=True, audio=True)
 
 
 class GeminiClient(OpenAICompatClient):

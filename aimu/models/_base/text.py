@@ -34,6 +34,7 @@ class ModelSpec:
     tools: bool = False
     thinking: bool = False
     vision: bool = False
+    audio: bool = False
     generation_kwargs: Optional[dict] = field(default=None)
 
     def __hash__(self) -> int:
@@ -60,6 +61,7 @@ class Model(Enum):
         self.supports_tools = spec.tools
         self.supports_thinking = spec.thinking
         self.supports_vision = spec.vision
+        self.supports_audio = spec.audio
         self.generation_kwargs = dict(spec.generation_kwargs or {})
 
 
@@ -110,6 +112,10 @@ class BaseModelClient(_ChatStateMixin, ABC):
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         raise NotImplementedError
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
+        raise NotImplementedError
+
     @abstractmethod
     def _generate(
         self,
@@ -117,6 +123,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         """Provider-specific generate implementation. Use :meth:`generate`."""
         pass
@@ -129,6 +136,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         """Provider-specific chat implementation. Use :meth:`chat`."""
         pass
@@ -140,6 +148,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         stream: bool = False,
         images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         """Single-turn, stateless generation. See :meth:`chat` for the ``include`` filter semantics.
 
@@ -152,10 +161,19 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 Raises ``ValueError`` if the model does not support vision. Unlike :meth:`chat`,
                 this does not touch ``self.messages`` — the call stays single-turn and stateless.
             include: Optional iterable of stream phases to yield. Has no effect when ``stream=False``.
+            audio: Optional list of audio clips for audio-capable models. Each entry may be a
+                file path (str or ``pathlib.Path``), raw ``bytes``, a ``data:audio/...;base64,...``
+                URL, or an http(s) URL (fetched eagerly). Raises ``ValueError`` if the model does
+                not support audio input. Like ``images``, this does not touch ``self.messages``.
+                ``images`` and ``audio`` are mutually exclusive.
         """
+        if images and audio:
+            raise ValueError("images= and audio= are mutually exclusive. Pass one or the other, not both.")
         if images:
             self._require_vision()
-        result = self._generate(prompt, generate_kwargs, stream=stream, images=images)
+        if audio:
+            self._require_audio()
+        result = self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
         if stream and include is not None:
             return self._filter_chunks(result, self._resolve_include(include))
         return result
@@ -169,6 +187,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         tools: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         """Multi-turn chat with persistent message history.
 
@@ -192,17 +211,21 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 this call only and is restored afterwards (MCP tools, being callables in
                 ``self.tools`` via ``MCPClient.as_tools()``, are included in the swap).
                 Ignored when ``use_tools=False``.
+            audio: Optional list of audio clips for audio-capable models. Same accepted forms
+                as :meth:`generate`. Raises ``ValueError`` if the model does not support audio
+                input. Audio blocks persist in ``self.messages`` for multi-turn context.
+                ``images`` and ``audio`` are mutually exclusive per turn.
         """
         if tools is None:
-            result = self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images)
+            result = self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio)
             if stream and include is not None:
                 return self._filter_chunks(result, self._resolve_include(include))
             return result
 
         if stream:
-            return self._chat_with_tools_streamed(user_message, generate_kwargs, use_tools, images, include, tools)
+            return self._chat_with_tools_streamed(user_message, generate_kwargs, use_tools, images, include, tools, audio=audio)
         with self._tools_override(tools):
-            return self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images)
+            return self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio)
 
     def _chat_with_tools_streamed(
         self,
@@ -212,6 +235,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         images: Optional[list],
         include: Optional[Iterable[Union[str, StreamingContentType]]],
         tools: list,
+        audio: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
         """Streaming chat with a per-call ``tools`` override.
 
@@ -220,7 +244,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         the swap wraps the ``yield from`` rather than just the ``_chat`` call.
         """
         with self._tools_override(tools):
-            result = self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images)
+            result = self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio)
             if include is not None:
                 result = self._filter_chunks(result, self._resolve_include(include))
             yield from result
@@ -250,10 +274,11 @@ class BaseModelClient(_ChatStateMixin, ABC):
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        self._append_user_turn(user_message, images)
+        self._append_user_turn(user_message, images, audio)
 
         tools: list[dict] = []
         if self.model.supports_tools and use_tools:

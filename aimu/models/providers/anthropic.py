@@ -65,6 +65,10 @@ class AnthropicClient(BaseModelClient):
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_vision]
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_audio]
+
     # ------------------------------------------------------------------ #
     # generate_kwargs helpers                                              #
     # ------------------------------------------------------------------ #
@@ -218,16 +222,17 @@ class AnthropicClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, images=images)
+            return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
 
         response = self._client.messages.create(
             model=self.model.value,
-            messages=[{"role": "user", "content": self._generate_content(prompt, images)}],
+            messages=[{"role": "user", "content": self._generate_content(prompt, images, audio)}],
             **generate_kwargs,
         )
         logger.debug("Anthropic raw response: %s", response)
@@ -242,23 +247,32 @@ class AnthropicClient(BaseModelClient):
         return content
 
     @staticmethod
-    def _generate_content(prompt: str, images: Optional[list]):
-        """Build the single-turn user content: plain string, or Anthropic image blocks when images are passed."""
-        if not images:
-            return prompt
-        return _openai_blocks_to_anthropic(_build_user_content_blocks(prompt, images))
+    def _generate_content(prompt: str, images: Optional[list], audio: Optional[list] = None):
+        """Build the single-turn user content for stateless generate.
+
+        Returns a plain string for text-only, or an Anthropic-format content block list
+        when images or audio are provided. ``images`` and ``audio`` are mutually exclusive
+        (validated upstream by ``BaseModelClient.generate()``).
+        """
+        if images:
+            return _openai_blocks_to_anthropic(_build_user_content_blocks(prompt, images))
+        if audio:
+            from .._internal.audio_input import _build_audio_content_blocks
+            return _openai_blocks_to_anthropic(_build_audio_content_blocks(prompt, audio))
+        return prompt
 
     def _generate_streamed(
         self,
         prompt: str,
         generate_kwargs: dict[str, Any],
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
         self.last_thinking = ""
 
         with self._client.messages.stream(
             model=self.model.value,
-            messages=[{"role": "user", "content": self._generate_content(prompt, images)}],
+            messages=[{"role": "user", "content": self._generate_content(prompt, images, audio)}],
             **generate_kwargs,
         ) as stream:
             for event in stream:
@@ -277,8 +291,9 @@ class AnthropicClient(BaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:

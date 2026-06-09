@@ -66,6 +66,10 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_vision]
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_audio]
+
     # Pure helpers reused from sync client — no I/O involved.
     _update_generate_kwargs = _SyncAnthropicClient._update_generate_kwargs
     _thinking_kwargs = _SyncAnthropicClient._thinking_kwargs
@@ -79,16 +83,17 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, images=images)
+            return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
 
         response = await self._client.messages.create(
             model=self.model.value,
-            messages=[{"role": "user", "content": _SyncAnthropicClient._generate_content(prompt, images)}],
+            messages=[{"role": "user", "content": _SyncAnthropicClient._generate_content(prompt, images, audio=audio)}],
             **generate_kwargs,
         )
 
@@ -106,12 +111,13 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         prompt: str,
         generate_kwargs: dict[str, Any],
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
         self.last_thinking = ""
 
         async with self._client.messages.stream(
             model=self.model.value,
-            messages=[{"role": "user", "content": _SyncAnthropicClient._generate_content(prompt, images)}],
+            messages=[{"role": "user", "content": _SyncAnthropicClient._generate_content(prompt, images, audio=audio)}],
             **generate_kwargs,
         ) as stream:
             async for event in stream:
@@ -130,8 +136,9 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        generate_kwargs, tools = await self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
+        generate_kwargs, tools = await self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:

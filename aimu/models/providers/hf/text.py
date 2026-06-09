@@ -1,4 +1,5 @@
 from ...base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
+from ..._internal.audio_input import _extract_audio_arrays, _replace_audio_with_placeholder
 from ..._internal.image_input import (
     _build_user_content_blocks,
     _extract_pil_images,
@@ -159,12 +160,13 @@ class HuggingFaceModel(Model):
         ToolCallFormat.XML,
     )
 
-    # Google
+    # Google — Gemma 4 supports vision and audio input (natively multimodal)
     GEMMA_4_E4B = (
         ModelSpec(
             "google/gemma-4-E4B-it",
             tools=True,
             vision=True,
+            audio=True,
             generation_kwargs={"temperature": 1.0, "top_p": 0.95, "top_k": 64},
         ),
         ToolCallFormat.NA,
@@ -174,11 +176,22 @@ class HuggingFaceModel(Model):
             "google/gemma-4-12b-it",
             tools=True,
             vision=True,
+            audio=True,
             generation_kwargs={"temperature": 1.0, "top_p": 0.95, "top_k": 64},
         ),
         ToolCallFormat.NA,
     )
     GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", vision=True)
+
+    # NVIDIA — Nemotron-H is the multimodal Hybrid series (Mamba + Transformer)
+    NEMOTRON_H_8B = (
+        ModelSpec(
+            "nvidia/Nemotron-H-8B-Instruct-HF",
+            tools=True,
+            audio=True,
+        ),
+        ToolCallFormat.XML,
+    )
 
     # OpenAI
     GPT_OSS_20B = (
@@ -353,6 +366,10 @@ class HuggingFaceClient(BaseModelClient):
     def VISION_MODELS(cls) -> list[Model]:
         return [m for m in cls.MODELS if m.supports_vision]
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:
+        return [m for m in cls.MODELS if m.supports_audio]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         if not generate_kwargs:
             kwargs = self.model.generate_kwargs.copy()
@@ -378,7 +395,9 @@ class HuggingFaceClient(BaseModelClient):
     ) -> Any:
         if self._hf_processor is not None:
             pil_images = _extract_pil_images(messages) if self.model.supports_vision else []
+            audio_arrays = _extract_audio_arrays(messages) if self.model.supports_audio else []
             template_messages = _replace_image_url_with_image_placeholder(messages) if pil_images else messages
+            template_messages = _replace_audio_with_placeholder(template_messages) if audio_arrays else template_messages
             text = self._hf_processor.apply_chat_template(
                 template_messages,
                 tools=tools if self.model.supports_tools else None,
@@ -389,6 +408,9 @@ class HuggingFaceClient(BaseModelClient):
             processor_kwargs = {"text": text, "return_tensors": "pt"}
             if pil_images:
                 processor_kwargs["images"] = pil_images
+            if audio_arrays:
+                processor_kwargs["audio"] = audio_arrays
+                processor_kwargs["sampling_rate"] = 16000
             return self._hf_processor(**processor_kwargs).to(self._hf_model.device)
         if self.model == self.MODELS.MAGISTRAL_SMALL:
             # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
@@ -542,12 +564,19 @@ class HuggingFaceClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        # Vision flows through the same content-block message the chat path builds; the
-        # processor branch in _apply_chat_template decodes image_url blocks via _extract_pil_images.
-        content = _build_user_content_blocks(prompt, images) if images else prompt
+        # Vision and audio flow through the content-block message; the processor branch in
+        # _apply_chat_template extracts PIL images and audio arrays before templating.
+        if images:
+            content = _build_user_content_blocks(prompt, images)
+        elif audio:
+            from ..._internal.audio_input import _build_audio_content_blocks
+            content = _build_audio_content_blocks(prompt, audio)
+        else:
+            content = prompt
         messages = [{"role": "user", "content": content}]
 
         if stream:
@@ -578,8 +607,9 @@ class HuggingFaceClient(BaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
+        generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)

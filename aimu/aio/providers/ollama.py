@@ -48,6 +48,10 @@ class AsyncOllamaClient(AsyncBaseModelClient):
     def VISION_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_vision]
 
+    @classproperty
+    def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_audio]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:
         if not generate_kwargs:
             generate_kwargs = self.default_generate_kwargs
@@ -61,6 +65,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         generate_kwargs: Optional[dict] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         gen_images = OllamaClient._extract_ollama_images(images)
@@ -113,8 +118,9 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        generate_kwargs, tools = await self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
+        generate_kwargs, tools = await self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
