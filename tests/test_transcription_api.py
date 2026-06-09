@@ -92,3 +92,147 @@ def _make_base_client(supports_timestamps=True):
             return "hello world" if response_format == "text" else {"text": "hello world"}
 
     return _FakeClient()
+
+
+# ---------------------------------------------------------------------------
+# OpenAI provider
+# ---------------------------------------------------------------------------
+
+
+def _make_fake_openai():
+    """Return a stub openai module and a call log."""
+    import sys
+    from unittest.mock import MagicMock
+
+    fake_openai = MagicMock()
+    fake_openai.__version__ = "1.0.0"
+    call_log = []
+
+    def _create(**kwargs):
+        call_log.append(kwargs)
+        fmt = kwargs.get("response_format", "text")
+        if fmt == "text":
+            return "hello world"
+        obj = MagicMock()
+        obj.text = "hello world"
+        if fmt == "json":
+            obj.model_dump.return_value = {"text": "hello world"}
+        else:  # verbose_json
+            obj.model_dump.return_value = {
+                "text": "hello world",
+                "language": "en",
+                "duration": 2.5,
+                "segments": [{"id": 0, "start": 0.0, "end": 2.5, "text": "hello world"}],
+            }
+        return obj
+
+    fake_openai.OpenAI.return_value.audio.transcriptions.create.side_effect = _create
+    return fake_openai, call_log
+
+
+def test_openai_transcription_model_members():
+    pytest.importorskip("openai")
+    from aimu.models.providers.openai.transcription import OpenAITranscriptionModel
+    names = {m.name for m in OpenAITranscriptionModel}
+    assert "WHISPER_1" in names
+    assert "GPT_4O_TRANSCRIBE" in names
+    assert "GPT_4O_MINI_TRANSCRIBE" in names
+
+
+def test_openai_transcription_model_supports_timestamps():
+    pytest.importorskip("openai")
+    from aimu.models.providers.openai.transcription import OpenAITranscriptionModel
+    assert OpenAITranscriptionModel.WHISPER_1.spec.supports_timestamps is True
+    assert OpenAITranscriptionModel.GPT_4O_TRANSCRIBE.spec.supports_timestamps is True
+
+
+def test_openai_client_transcribe_text_format(monkeypatch):
+    import sys
+    fake_openai, call_log = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.providers.openai.transcription as mod
+    reload(mod)
+
+    client = mod.OpenAITranscriptionClient(mod.OpenAITranscriptionModel.WHISPER_1)
+    result = client.transcribe(b"\x52\x49\x46\x46" + b"\x00" * 40)
+    assert result == "hello world"
+    assert call_log[-1]["model"] == "whisper-1"
+    assert call_log[-1]["response_format"] == "text"
+
+
+def test_openai_client_transcribe_verbose_json(monkeypatch):
+    import sys
+    fake_openai, call_log = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.providers.openai.transcription as mod
+    reload(mod)
+
+    client = mod.OpenAITranscriptionClient(mod.OpenAITranscriptionModel.WHISPER_1)
+    result = client.transcribe(b"\x52\x49\x46\x46" + b"\x00" * 40, response_format="verbose_json")
+    assert isinstance(result, dict)
+    assert "text" in result
+    assert "segments" in result
+
+
+def test_openai_client_passes_language(monkeypatch):
+    import sys
+    fake_openai, call_log = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.providers.openai.transcription as mod
+    reload(mod)
+
+    client = mod.OpenAITranscriptionClient(mod.OpenAITranscriptionModel.WHISPER_1)
+    client.transcribe(b"\x52\x49\x46\x46" + b"\x00" * 40, language="fr")
+    assert call_log[-1].get("language") == "fr"
+
+
+def test_openai_client_omits_language_when_none(monkeypatch):
+    import sys
+    fake_openai, call_log = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.providers.openai.transcription as mod
+    reload(mod)
+
+    client = mod.OpenAITranscriptionClient(mod.OpenAITranscriptionModel.WHISPER_1)
+    client.transcribe(b"\x52\x49\x46\x46" + b"\x00" * 40)
+    assert "language" not in call_log[-1]
+
+
+def test_openai_client_string_construction(monkeypatch):
+    import sys
+    fake_openai, _ = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.providers.openai.transcription as mod
+    reload(mod)
+
+    client = mod.OpenAITranscriptionClient("openai:whisper-1")
+    assert client.spec.id == "whisper-1"
+
+
+def test_openai_client_unknown_string_raises(monkeypatch):
+    import sys
+    fake_openai, _ = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.providers.openai.transcription as mod
+    reload(mod)
+
+    with pytest.raises(ValueError, match="Unknown"):
+        mod.OpenAITranscriptionClient("openai:gpt-4-turbo")
