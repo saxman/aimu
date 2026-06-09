@@ -14,7 +14,7 @@ from __future__ import annotations
 import base64
 import io
 import os
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 
@@ -39,7 +39,7 @@ class OpenAITranscriptionClient(BaseTranscriptionClient):
 
     def __init__(
         self,
-        model: Union[OpenAITranscriptionModel, OpenAITranscriptionSpec, str],
+        model: "OpenAITranscriptionModel | OpenAITranscriptionSpec | str",
         model_kwargs: Optional[dict] = None,
     ):
         if isinstance(model, str):
