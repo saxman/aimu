@@ -14,7 +14,7 @@ import base64
 import io
 import logging
 import threading
-from typing import Any, Optional, Union
+from typing import Any
 
 # Hard import so HAS_HF_TRANSCRIPTION in aimu/models/__init__.py accurately reflects
 # whether the required deps are installed.
@@ -107,8 +107,8 @@ class HuggingFaceTranscriptionClient(BaseTranscriptionClient):
 
     def __init__(
         self,
-        model: Union[HuggingFaceTranscriptionModel, HuggingFaceTranscriptionSpec, str],
-        model_kwargs: Optional[dict] = None,
+        model: "HuggingFaceTranscriptionModel | HuggingFaceTranscriptionSpec | str",
+        model_kwargs: dict | None = None,
     ):
         if isinstance(model, str):
             spec = _parse_model_string(model)
@@ -166,10 +166,10 @@ class HuggingFaceTranscriptionClient(BaseTranscriptionClient):
         self,
         audio: Any,
         *,
-        language: Optional[str] = None,
+        language: str | None = None,
         response_format: str = "text",
-        prompt: Optional[str] = None,
-        temperature: Optional[float] = None,
+        prompt: str | None = None,
+        temperature: float | None = None,
     ) -> str | dict:
         import soundfile as sf
 
