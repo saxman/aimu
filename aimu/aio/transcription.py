@@ -46,13 +46,21 @@ def _refuse(model: Any) -> None:
 
 
 def _is_hf_transcription_client(obj: Any) -> bool:
-    """Check by class name to survive monkeypatched module reloads in tests."""
-    return type(obj).__name__ == "HuggingFaceTranscriptionClient"
+    try:
+        from aimu.models.providers.hf.transcription import HuggingFaceTranscriptionClient as _Cls
+
+        return isinstance(obj, _Cls)
+    except ImportError:
+        return False
 
 
 def _is_openai_transcription_client(obj: Any) -> bool:
-    """Check by class name to survive monkeypatched module reloads in tests."""
-    return type(obj).__name__ == "OpenAITranscriptionClient"
+    try:
+        from aimu.models.providers.openai.transcription import OpenAITranscriptionClient as _Cls
+
+        return isinstance(obj, _Cls)
+    except ImportError:
+        return False
 
 
 class AsyncTranscriptionClient:
