@@ -898,7 +898,62 @@ image = [generate_image]
 audio = [generate_audio]
 speech = [generate_speech]
 
+# ---------------------------------------------------------------------------
+# Transcription (speech-to-text)
+# ---------------------------------------------------------------------------
+
+# Lazy singleton for the built-in transcription tool. Populated on first call
+# via AIMU_TRANSCRIPTION_MODEL. Not created at import time so that importing
+# aimu.tools.builtin does not pull torch/transformers into sys.modules.
+_transcription_client = None
+
+
+@tool
+def transcribe_audio(audio_path: str) -> str:
+    """Transcribe speech from an audio file to text.
+
+    audio_path is a local file path (wav, mp3, ogg, flac, m4a, webm).
+    Returns the transcribed text as a plain string.
+
+    Args:
+        audio_path: Path to the audio file to transcribe.
+    """
+    global _transcription_client
+    if _transcription_client is None:
+        import aimu
+
+        _transcription_client = aimu.transcription_client()
+    return _transcription_client.transcribe(audio_path)
+
+
+def make_transcription_tool(client):
+    """Return a ``transcribe_audio`` tool bound to *client*.
+
+    Use this when you want to control which transcription model the agent uses
+    rather than relying on the ``AIMU_TRANSCRIPTION_MODEL`` singleton.
+
+    Example::
+
+        from aimu.models import TranscriptionClient, OpenAITranscriptionModel
+        tc = TranscriptionClient(OpenAITranscriptionModel.WHISPER_1)
+        agent = Agent(text_client, tools=[make_transcription_tool(tc)])
+    """
+
+    @tool
+    def transcribe_audio(audio_path: str) -> str:
+        """Transcribe speech from an audio file to text.
+
+        Args:
+            audio_path: Path to the audio file to transcribe.
+        """
+        return client.transcribe(audio_path)
+
+    return transcribe_audio
+
+
+transcription = [transcribe_audio]
+
 # execute_python is in the compute subgroup for discoverability but intentionally
 # excluded from ALL_TOOLS — code execution is higher-risk than other builtins.
 # Opt in explicitly via ``tools=builtin.compute`` or ``make_tools(python_sandbox=True)``.
-ALL_TOOLS = [*misc, get_weather, calculate, get_webpage, web_search, wikipedia, *fs, *image, *audio, *speech]
+ALL_TOOLS = [*misc, get_weather, calculate, get_webpage, web_search, wikipedia, *fs, *image, *audio, *speech, *transcription]

@@ -543,3 +543,35 @@ async def test_aio_transcription_client_convenience(monkeypatch):
     from aimu.aio import transcription_client
     async_client = transcription_client(sync_client)
     assert hasattr(async_client, "transcribe")
+
+
+# ---------------------------------------------------------------------------
+# Built-in transcribe_audio tool
+# ---------------------------------------------------------------------------
+
+
+def test_transcribe_audio_tool_spec():
+    from aimu.tools import builtin
+    assert hasattr(builtin, "transcription")
+    tool = next(t for t in builtin.transcription if t.__name__ == "transcribe_audio")
+    spec = tool.__tool_spec__
+    assert spec["function"]["name"] == "transcribe_audio"
+    assert "audio_path" in spec["function"]["parameters"]["properties"]
+    assert tool.__tool_is_streaming__ is False
+
+
+def test_make_transcription_tool_returns_bound_tool():
+    class _MockTranscriptionClient:
+        def transcribe(self, audio, **kwargs):
+            return "hello world"
+
+    from aimu.tools.builtin import make_transcription_tool
+    tool = make_transcription_tool(_MockTranscriptionClient())
+    assert callable(tool)
+    assert tool.__tool_spec__["function"]["name"] == "transcribe_audio"
+
+
+def test_transcribe_audio_tool_in_all_tools():
+    from aimu.tools import builtin
+    names = {t.__name__ for t in builtin.ALL_TOOLS}
+    assert "transcribe_audio" in names
