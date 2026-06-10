@@ -43,11 +43,12 @@ Composition happens by passing objects to constructors. Conversation state is a 
 - For audio (music and sound): HuggingFace with MusicGen small/medium/large (32 kHz), AudioLDM2 (16 kHz), and Stable Audio Open (44.1 kHz stereo).
 - Drop image and audio generation into any chat agent via the built-in `generate_image` and `generate_audio` tools.
 
-### Speech
+### Speech and transcription
 
 - `aimu.speech_client()` / `aimu.generate_speech()` for text-to-speech. HuggingFace locally (SpeechT5, MMS-TTS, BARK); OpenAI (`tts-1`, `tts-1-hd`) in the cloud.
 - Drop TTS into any agent via the built-in `generate_speech` tool; bind a specific voice with `make_speech_tool(client, voice=...)`.
-- Speech-to-text (transcription) is planned as a parallel `aimu.transcription_client()` surface.
+- `aimu.transcription_client()` / `aimu.transcribe()` for speech-to-text. OpenAI (whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe) in the cloud; HuggingFace Whisper family locally. Pass `response_format="verbose_json"` for timed segments.
+- Drop transcription into any agent via the built-in `transcribe_audio` tool; bind a specific client with `make_transcription_tool(client)`.
 
 ### Agents and workflows
 
@@ -61,7 +62,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 - `@tool` on any plain Python function. Type hints + docstring become the spec.
 - Per-call tool override: pass `tools=` to `client.chat()` or `Agent.run()` to swap the tool set for one call (or `tools=[]` to disable), without mutating the client's configured tools.
 - `MCPClient` for cross-process FastMCP tools. `mcp.as_tools()` turns a server's tools into `@tool`-style callables you add to `tools=` — one registry, mix freely with `@tool` functions (`tools=builtin.web + mcp.as_tools()`).
-- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`. `builtin.make_tools(client, ..., python_sandbox=False)` assembles the full tool list with optional wiring for image/vision/audio/speech/memory/sandbox.
+- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`, `builtin.transcription`. `builtin.make_tools(client, ..., python_sandbox=False)` assembles the full tool list with optional wiring for image/vision/audio/speech/transcription/memory/sandbox.
 - `execute_python` sandboxed Python REPL in `builtin.compute`: run code, capture stdout and last expression. Opt-in only (`tools=builtin.compute` or `make_tools(python_sandbox=True)`).
 - Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
 
@@ -114,7 +115,7 @@ reply = aimu.chat("Hello")                # uses AIMU_LANGUAGE_MODEL or a discov
 client = aimu.client(system="Be brief.")  # same resolution
 ```
 
-Image, audio, and speech read `AIMU_IMAGE_MODEL` / `AIMU_AUDIO_MODEL` / `AIMU_SPEECH_MODEL` respectively.
+Image, audio, speech, and transcription read `AIMU_IMAGE_MODEL` / `AIMU_AUDIO_MODEL` / `AIMU_SPEECH_MODEL` / `AIMU_TRANSCRIPTION_MODEL` respectively.
 
 **Streaming with phase filtering.** Drop unwanted phases (thinking, tool calls) with `include=`:
 
@@ -219,6 +220,16 @@ client = aimu.speech_client("openai:tts-1-hd")
 path = client.generate("Good morning.", voice="nova", format="path")
 ```
 
+**Speech-to-text (transcription).** Parallel to TTS:
+
+```python
+import aimu
+
+text = aimu.transcribe("./clip.wav", model="openai:whisper-1")
+client = aimu.transcription_client("hf:openai/whisper-tiny")  # local
+text = client.transcribe("./clip.wav")
+```
+
 **Vision and image generation together.** A vision-capable agent with `generate_image` as a tool can perceive and create in the same run:
 
 ```python
@@ -266,7 +277,7 @@ asyncio.run(main())
 pip install aimu[all]
 ```
 
-Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
+Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech and transcription STT), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
 
 ## Documentation
 
@@ -301,6 +312,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [16 - Audio Generation](notebooks/16%20-%20Audio%20Generation.ipynb) | `aimu.audio_client()` / `aimu.generate_audio()` with MusicGen, AudioLDM2, and Stable Audio Open, plus streaming and the built-in `generate_audio` agent tool |
 | [17 - Speech](notebooks/17%20-%20Speech.ipynb) | TTS with HuggingFace (SpeechT5, MMS-TTS, BARK) and OpenAI (tts-1/tts-1-hd); `generate_speech` agent tool; Streamlit live narration; STT placeholder |
 | [18 - Audio Input](notebooks/18%20-%20Audio%20Input.ipynb) | Audio input via `audio=` on `chat()` and `generate()`; model selection; accepted formats; async surface |
+| [19 - Transcription](notebooks/19%20-%20Transcription.ipynb) | Speech-to-text via `transcription_client()` / `transcribe()`; OpenAI and HuggingFace providers; timestamps; async surface |
 
 ## Web apps
 

@@ -835,7 +835,7 @@ Key files and their roles:
 
 ### Speech Generation
 
-AIMU supports text-to-speech (TTS) generation as a **parallel surface** to the text, image, and audio clients. The hierarchy mirrors audio: one base ABC (`BaseSpeechClient`), one factory class (`SpeechClient`), per-provider concrete clients. Speech is distinct from audio — audio generates music and sounds from a descriptive prompt; speech converts literal text to spoken audio. `BaseSpeechClient` is scoped to TTS only; future STT will use `BaseTranscriptionClient`.
+AIMU supports text-to-speech (TTS) generation as a **parallel surface** to the text, image, and audio clients. The hierarchy mirrors audio: one base ABC (`BaseSpeechClient`), one factory class (`SpeechClient`), per-provider concrete clients. Speech is distinct from audio — audio generates music and sounds from a descriptive prompt; speech converts literal text to spoken audio. `BaseSpeechClient` is scoped to TTS only; STT uses `BaseTranscriptionClient` (see "Transcription (Speech-to-Text)" below).
 
 Two providers ship: **HuggingFace** for local generation (MMS-TTS, BARK), **OpenAI** for cloud TTS (tts-1, tts-1-hd). Both reuse `encode_audio()` for output — no new encoder needed.
 
@@ -889,6 +889,56 @@ Key files and their roles:
   - `tests/test_aio_speech_api.py` (mock-only): wrap refusal, state sharing, async generate, streaming path.
   - `tests/test_speech.py` (live, opt-in): `--speech-client` / `--speech-model` CLI flags; cross-model tests (path output, format matrix); model-specific tests (voice param, speed param). Skipped when `--speech-client` is omitted.
 
+### Transcription (Speech-to-Text)
+
+AIMU supports speech-to-text (STT) as a **parallel surface** to TTS (`BaseSpeechClient`). The hierarchy follows the same pattern: one base ABC (`BaseTranscriptionClient`), one factory class (`TranscriptionClient`), per-provider concrete clients. This surface is disjoint from the `audio=` parameter on text models, which handles audio analysis/QA by audio-capable chat models (GPT-4o, Gemini, etc.); the transcription surface uses dedicated ASR models (the Whisper family, gpt-4o-transcribe) optimised for accurate transcription.
+
+Two providers ship: **OpenAI** for cloud ASR (whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe), **HuggingFace** for local ASR (Whisper tiny/base/small/medium/large-v3, distil-whisper/distil-large-v3).
+
+Key files and their roles:
+
+- **[aimu/models/base.py](aimu/models/base.py)** — extended with transcription base types:
+  - `TranscriptionSpec` dataclass with `id`, `default_language`, `supports_timestamps`, `supports_translation`; id-only `__hash__` and `__eq__`.
+  - `HuggingFaceTranscriptionSpec(TranscriptionSpec)` with `@dataclass(eq=False)` (no additional fields in the first catalog).
+  - `OpenAITranscriptionSpec(TranscriptionSpec)` with `@dataclass(eq=False)`.
+  - `TranscriptionModel(Enum)` base — `__init__` sets `_value_ = spec.id` and stores `self.spec`.
+  - `BaseTranscriptionClient(ABC)`: concrete `transcribe(audio, *, language, response_format, prompt, temperature) -> str | dict` validates args, normalises `audio` input (same forms as `audio=` on `chat()` — file path, raw bytes, `https://` URL, `data:audio/...` URL), delegates to abstract `_transcribe()`.
+  - `response_format` options: `"text"` (default, plain string), `"json"` (dict with `text` key), `"verbose_json"` (dict with `text`, `segments` start/end/text, `language`, `duration`). `"verbose_json"` requires `supports_timestamps=True` on the spec.
+
+- **[aimu/models/providers/openai/transcription.py](aimu/models/providers/openai/transcription.py)** — `OpenAITranscriptionClient` + `OpenAITranscriptionModel` enum:
+  - `OpenAITranscriptionModel` members: `WHISPER_1` (`whisper-1`, timestamps+translation), `GPT_4O_TRANSCRIBE` (`gpt-4o-transcribe`, timestamps only), `GPT_4O_MINI_TRANSCRIBE` (`gpt-4o-mini-transcribe`, timestamps only).
+  - Auth via `OPENAI_API_KEY` env var. Uses `openai.audio.transcriptions.create()` from the same `openai` SDK as `OpenAICompatClient`.
+
+- **[aimu/models/providers/hf/transcription.py](aimu/models/providers/hf/transcription.py)** — `HuggingFaceTranscriptionClient` + `HuggingFaceTranscriptionModel` enum:
+  - `HuggingFaceTranscriptionModel` members: `WHISPER_TINY` (`openai/whisper-tiny`), `WHISPER_BASE` (`openai/whisper-base`), `WHISPER_SMALL` (`openai/whisper-small`), `WHISPER_MEDIUM` (`openai/whisper-medium`), `WHISPER_LARGE_V3` (`openai/whisper-large-v3`), `DISTIL_WHISPER_LARGE_V3` (`distil-whisper/distil-large-v3`). All have `supports_timestamps=True, supports_translation=True`.
+  - Lazy pipeline load on first `transcribe()` call via `transformers.pipeline("automatic-speech-recognition", ...)`; auto-moves to CUDA/MPS via the shared `_hf_device.py` helpers.
+  - Module-level weight caching via `_model_registry` keyed on `(spec.id, *sorted_model_kwargs)` — same pattern as all other HF clients.
+
+- **[aimu/models/transcription_client.py](aimu/models/transcription_client.py)** — `TranscriptionClient` factory + `resolve_transcription_model_string()` (parallel to `speech_client.py`). Accepts model enum / spec / `"provider:model_id"` string; dispatches on `"hf:"` or `"openai:"` prefix.
+
+- **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points:
+  - `aimu.transcription_client(model=None, **kwargs)` — one-line constructor; reads `AIMU_TRANSCRIPTION_MODEL` env var when `model=` is omitted.
+  - `aimu.transcribe(audio, *, model=None, **kwargs)` — one-shot.
+  - Both raise `ImportError` with install hint when neither `HAS_HF_TRANSCRIPTION` nor `HAS_OPENAI_TRANSCRIPTION` is True.
+
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `transcribe_audio` tool + `make_transcription_tool()` factory:
+  - `transcribe_audio(audio_path: str) -> str` is a `@tool`-decorated function returning the transcribed text. Backed by a lazy `_transcription_client` singleton; model via `AIMU_TRANSCRIPTION_MODEL` env var (**required**; the tool raises if unset — no default is downloaded).
+  - `make_transcription_tool(client)` — binds a fresh tool to a caller-supplied client.
+  - Subgroup `transcription = [transcribe_audio]` (parallel to `audio`, `speech`, `image`); included in `ALL_TOOLS`.
+
+- **Async twin** — full mirror under `aimu.aio`:
+  - `AsyncTranscriptionClient` wraps a sync `BaseTranscriptionClient` via `asyncio.to_thread`. Properties delegate to the wrapped sync client; no second weight load.
+  - `aio.transcription_client(sync_client)` factory refuses direct enum/string construction with a pointer to the wrap pattern (same as every other aio modality).
+  - `await aio.transcribe(audio, *, model, ...)` one-shot (same signature as sync `aimu.transcribe()` plus `await`).
+
+- **Optional dep flags**: `HAS_HF_TRANSCRIPTION` (guarded `transformers` import in `hf/transcription.py`), `HAS_OPENAI_TRANSCRIPTION` (guarded `openai` import in `openai/transcription.py`). Both set independently so a partial install works.
+
+- **Tests**:
+  - `tests/test_transcription_api.py` (mock-only): stubs `transformers` and `openai` in `sys.modules`. Covers spec equality, accepted audio forms, `HuggingFaceTranscriptionClient` construction + lazy load + weight caching + `verbose_json` path, `OpenAITranscriptionClient` construction + language threading + `response_format` options, `TranscriptionClient` factory dispatch, top-level `aimu.transcription_client()` / `aimu.transcribe()`.
+  - `tests/test_transcription_tools.py` (mock-only): `transcribe_audio.__tool_spec__` shape, singleton lifecycle, `AIMU_TRANSCRIPTION_MODEL` env var, `make_transcription_tool` factory.
+  - `tests/test_aio_transcription_api.py` (mock-only): wrap refusal, state sharing, async transcribe.
+  - `tests/test_transcription.py` (live, opt-in): `--transcription-client` / `--transcription-model` CLI flags; cross-model tests (text output, `verbose_json`, language hint). Skipped when `--transcription-client` is omitted.
+
 ### Cloud Provider Client Notes
 
 - **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/providers/openai/text.py](aimu/models/providers/openai/text.py).
@@ -919,18 +969,21 @@ aimu/
 │   │   │   ├── text.py           # AsyncHuggingFaceClient
 │   │   │   ├── image.py          # AsyncHuggingFaceImageClient
 │   │   │   ├── audio.py          # AsyncHuggingFaceAudioClient
-│   │   │   └── speech.py         # AsyncHuggingFaceSpeechClient
+│   │   │   ├── speech.py         # AsyncHuggingFaceSpeechClient
+│   │   │   └── transcription.py  # AsyncHuggingFaceTranscriptionClient (wraps sync)
 │   │   ├── openai/           # OpenAI cloud async clients
 │   │   │   ├── text.py           # AsyncOpenAIClient (subclasses AsyncOpenAICompatClient)
-│   │   │   └── speech.py         # AsyncOpenAISpeechClient (wraps sync OpenAISpeechClient)
+│   │   │   ├── speech.py         # AsyncOpenAISpeechClient (wraps sync OpenAISpeechClient)
+│   │   │   └── transcription.py  # AsyncOpenAITranscriptionClient (wraps sync OpenAITranscriptionClient)
 │   │   └── gemini/          # Google Gemini async clients
 │   │       ├── text.py           # AsyncGeminiClient (subclasses AsyncOpenAICompatClient)
 │   │       └── image.py          # AsyncGeminiImageClient (wraps sync GeminiImageClient)
 │   ├── image.py         # AsyncImageClient factory + aio.image_client() / aio.generate_image()
 │   ├── audio.py         # AsyncAudioClient factory + aio.audio_client() / aio.generate_audio()
 │   ├── speech.py        # AsyncSpeechClient factory + aio.speech_client() / aio.generate_speech()
+│   ├── transcription.py # AsyncTranscriptionClient factory + aio.transcription_client() / aio.transcribe()
 │   ├── tools/           # Async tools (mirrors aimu.tools)
-│   │   └── builtin.py        # Async generate_image + re-exports of sync built-ins (incl. generate_audio, generate_speech)
+│   │   └── builtin.py        # Async generate_image + re-exports of sync built-ins (incl. generate_audio, generate_speech, transcribe_audio)
 │   └── workflows/       # Async workflow patterns (asyncio.TaskGroup for Parallel)
 │       ├── chain.py
 │       ├── router.py
@@ -949,6 +1002,7 @@ aimu/
 │   ├── image_client.py  # ImageClient factory + resolve_image_model_string + resolve_image_model_enum
 │   ├── audio_client.py  # AudioClient factory + resolve_audio_model_string
 │   ├── speech_client.py # SpeechClient factory + resolve_speech_model_string
+│   ├── transcription_client.py # TranscriptionClient factory + resolve_transcription_model_string
 │   ├── _internal/       # Private cross-cutting helpers (never re-exported)
 │   │   ├── chat_state.py    # _ChatStateMixin — system_message/reset/append (shared sync+async)
 │   │   ├── streaming.py     # resolve_include, filter_chunks, afilter_chunks — stream helpers
@@ -969,16 +1023,18 @@ aimu/
 │       │   ├── text.py          # HuggingFaceClient, HuggingFaceModel, ToolCallFormat
 │       │   ├── image.py         # HuggingFaceImageClient + HuggingFaceImageModel (image extra)
 │       │   ├── audio.py         # HuggingFaceAudioClient + HuggingFaceAudioModel (MusicGen/AudioLDM2/StableAudio; hf extra)
-│       │   └── speech.py        # HuggingFaceSpeechClient + HuggingFaceSpeechModel (MMS-TTS, BARK; hf extra)
+│       │   ├── speech.py        # HuggingFaceSpeechClient + HuggingFaceSpeechModel (MMS-TTS, BARK; hf extra)
+│       │   └── transcription.py # HuggingFaceTranscriptionClient + HuggingFaceTranscriptionModel (Whisper family; hf extra)
 │       ├── openai/          # OpenAI cloud clients
 │       │   ├── text.py          # OpenAIClient + OpenAIModel (GPT/o-series; subclasses OpenAICompatClient)
-│       │   └── speech.py        # OpenAISpeechClient + OpenAISpeechModel (tts-1, tts-1-hd; openai_compat extra)
+│       │   ├── speech.py        # OpenAISpeechClient + OpenAISpeechModel (tts-1, tts-1-hd; openai_compat extra)
+│       │   └── transcription.py # OpenAITranscriptionClient + OpenAITranscriptionModel (whisper-1, gpt-4o-transcribe; openai_compat extra)
 │       └── gemini/          # Google Gemini clients
 │           ├── text.py          # GeminiClient + GeminiModel (subclasses OpenAICompatClient)
 │           └── image.py         # GeminiImageClient + GeminiImageModel (Nano Banana; image extra)
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
 │   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
-│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech subgroups (incl. lazy generate_image, generate_audio, generate_speech) + make_memory_tools() factory
+│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech/transcription subgroups (incl. lazy generate_image, generate_audio, generate_speech, transcribe_audio) + make_memory_tools() factory
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping() + .as_tools()
 │   ├── mcp_format.py    # mcp_tools_to_openai() + mcp_content_to_text() — shared by sync & async MCPClient (get_tools/as_tools)
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
@@ -1057,6 +1113,9 @@ tests/                   # Pytest test suite
 ├── test_speech_api.py         # Mock-only sync speech surface; exports _install_speech_stubs() for downstream files
 ├── test_speech_tools.py       # Mock-only built-in generate_speech tool + make_speech_tool
 ├── test_aio_speech_api.py     # Mock-only async speech surface + wrap refusal
+├── test_transcription_api.py  # Mock-only sync transcription surface
+├── test_transcription_tools.py # Mock-only built-in transcribe_audio tool + make_transcription_tool
+├── test_aio_transcription_api.py # Mock-only async transcription surface + wrap refusal
 ├── test_memory_tools.py       # Mock-only make_memory_tools factory + make_tools memory_store= integration
 ├── helpers_aio.py       # MockAsyncModelClient + live-backend dispatch for async tests
 ├── test_aio_models_api.py        # Mock-only async surface tests
