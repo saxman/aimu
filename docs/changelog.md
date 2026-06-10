@@ -1,20 +1,5 @@
 # Changelog
 
-## Unreleased — Transcription (speech-to-text)
-
-### Transcription (speech-to-text)
-
-- **New** `aimu.transcription_client()` / `aimu.transcribe()` + `TranscriptionClient` factory + `BaseTranscriptionClient` ABC — a dedicated speech-to-text surface, parallel to TTS (`BaseSpeechClient`). Disjoint from the `audio=` parameter on text models, which handles audio analysis/QA by audio-capable chat models; this surface uses dedicated ASR models (Whisper family, gpt-4o-transcribe) optimised for transcription.
-- **New** `OpenAITranscriptionClient` + `OpenAITranscriptionModel` — cloud ASR backed by `openai.audio.transcriptions.create()`. Models: `WHISPER_1`, `GPT_4O_TRANSCRIBE`, `GPT_4O_MINI_TRANSCRIBE`. Auth via `OPENAI_API_KEY`. Uses the same `openai` SDK already required by the `[openai_compat]` extra.
-- **New** `HuggingFaceTranscriptionClient` + `HuggingFaceTranscriptionModel` — local ASR backed by `transformers.pipeline("automatic-speech-recognition")`. Models: `WHISPER_TINY`, `WHISPER_BASE`, `WHISPER_SMALL`, `WHISPER_MEDIUM`, `WHISPER_LARGE_V3`, `DISTIL_WHISPER_LARGE_V3`. Weight caching via module-level registry (same pattern as other HF clients).
-- **New** `transcribe(audio, language=None, response_format="text", prompt=None, temperature=None) -> str | dict`. Accepted audio forms: file path, raw bytes, `https://` URL, `data:audio/...` URL -- same set as `audio=` on `chat()`. `response_format="verbose_json"` returns a dict with `text`, `segments` (start/end/text), `language`, `duration`. `response_format` defaults to `"text"` (plain string).
-- **New** `AIMU_TRANSCRIPTION_MODEL` env var -- sets the default model for `aimu.transcription_client()` and `aimu.transcribe()` when `model=` is omitted.
-- **New** Async mirror under `aimu.aio`: `AsyncTranscriptionClient`, `aio.transcription_client(sync_client)`, `await aio.transcribe(audio, *, model, ...)`. Wraps sync via `asyncio.to_thread` (Decision 7 -- same as every other aio modality).
-- **New** Built-in `transcribe_audio(audio_path: str) -> str` `@tool` in `aimu.tools.builtin`; `builtin.transcription` subgroup; included in `ALL_TOOLS`. Backed by a lazy `_transcription_client` singleton via `AIMU_TRANSCRIPTION_MODEL`. `make_transcription_tool(client)` binds a fresh tool to a caller-supplied client.
-- **New** `docs/how-to/transcribe-audio.md` and `notebooks/19 - Transcription.ipynb`.
-
----
-
 ## Unreleased — Audio input for text models
 
 ### Models
@@ -34,6 +19,17 @@
 
 - **New** `docs/how-to/handle-audio-input.md` — accepted input forms, model selection, stateful vs. stateless, async surface, per-provider adaptation.
 - **New** `notebooks/18 - Audio Input.ipynb` — capability flags, all input forms, multiple clips per turn, stateful/stateless split, multi-turn conversations, capability check, mutual-exclusion demo, Gemini and HuggingFace sections, async surface.
+
+### Transcription (speech-to-text)
+
+- **New** `aimu.transcription_client()` / `aimu.transcribe()` + `TranscriptionClient` factory + `BaseTranscriptionClient` ABC — a dedicated speech-to-text surface, parallel to TTS (`BaseSpeechClient`). Disjoint from the `audio=` parameter on text models, which handles audio analysis/QA by audio-capable chat models; this surface uses dedicated ASR models (Whisper family, gpt-4o-transcribe) optimised for transcription.
+- **New** `OpenAITranscriptionClient` + `OpenAITranscriptionModel` — cloud ASR backed by `openai.audio.transcriptions.create()`. Models: `WHISPER_1`, `GPT_4O_TRANSCRIBE`, `GPT_4O_MINI_TRANSCRIBE`. Auth via `OPENAI_API_KEY`. Uses the same `openai` SDK already required by the `[openai_compat]` extra.
+- **New** `HuggingFaceTranscriptionClient` + `HuggingFaceTranscriptionModel` — local ASR backed by `transformers.pipeline("automatic-speech-recognition")`. Models: `WHISPER_TINY`, `WHISPER_BASE`, `WHISPER_SMALL`, `WHISPER_MEDIUM`, `WHISPER_LARGE_V3`, `DISTIL_WHISPER_LARGE_V3`. Weight caching via module-level registry (same pattern as other HF clients).
+- **New** `transcribe(audio, language=None, response_format="text", prompt=None, temperature=None) -> str | dict`. Accepted audio forms: file path, raw bytes, `https://` URL, `data:audio/...` URL — same set as `audio=` on `chat()`. `response_format="verbose_json"` returns a dict with `text`, `segments` (start/end/text), `language`, `duration`. `response_format` defaults to `"text"` (plain string).
+- **New** `AIMU_TRANSCRIPTION_MODEL` env var — sets the default model for `aimu.transcription_client()` and `aimu.transcribe()` when `model=` is omitted.
+- **New** Async mirror under `aimu.aio`: `AsyncTranscriptionClient`, `aio.transcription_client(sync_client)`, `await aio.transcribe(audio, *, model, ...)`. Wraps sync via `asyncio.to_thread` (Decision 7 — same as every other aio modality).
+- **New** Built-in `transcribe_audio(audio_path: str) -> str` `@tool` in `aimu.tools.builtin`; `builtin.transcription` subgroup; included in `ALL_TOOLS`. Backed by a lazy `_transcription_client` singleton via `AIMU_TRANSCRIPTION_MODEL`. `make_transcription_tool(client)` binds a fresh tool to a caller-supplied client.
+- **New** `docs/how-to/transcribe-audio.md` and `notebooks/19 - Transcription.ipynb`.
 
 ---
 
