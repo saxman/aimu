@@ -29,6 +29,7 @@ LANGUAGE_MODEL_ENV = "AIMU_LANGUAGE_MODEL"
 IMAGE_MODEL_ENV = "AIMU_IMAGE_MODEL"
 AUDIO_MODEL_ENV = "AIMU_AUDIO_MODEL"
 SPEECH_MODEL_ENV = "AIMU_SPEECH_MODEL"
+TRANSCRIPTION_MODEL_ENV = "AIMU_TRANSCRIPTION_MODEL"
 
 # Local OpenAI-compatible servers to probe at their default base_urls.
 # (provider key matching aimu.models.model_client._provider_registry, base_url, Model enum attr).

@@ -378,3 +378,62 @@ def test_hf_client_passes_language_to_pipeline(monkeypatch):
     client = mod.HuggingFaceTranscriptionClient(mod.HuggingFaceTranscriptionModel.WHISPER_TINY)
     client.transcribe(b"\x00" * 4, language="fr")
     assert captured_kwargs.get("generate_kwargs", {}).get("language") == "fr"
+
+
+# ---------------------------------------------------------------------------
+# TranscriptionClient factory
+# ---------------------------------------------------------------------------
+
+
+def test_transcription_client_factory_with_openai_enum(monkeypatch):
+    import sys
+    fake_openai, _ = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.providers.openai.transcription as op_mod
+    reload(op_mod)
+    import aimu.models.transcription_client as tc_mod
+    reload(tc_mod)
+
+    client = tc_mod.TranscriptionClient(op_mod.OpenAITranscriptionModel.WHISPER_1)
+    assert hasattr(client, "transcribe")
+
+
+def test_transcription_client_factory_with_openai_string(monkeypatch):
+    import sys
+    fake_openai, _ = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.transcription_client as tc_mod
+    reload(tc_mod)
+
+    client = tc_mod.TranscriptionClient("openai:whisper-1")
+    assert client.spec.id == "whisper-1"
+
+
+def test_resolve_transcription_model_string_openai(monkeypatch):
+    import sys
+    fake_openai, _ = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+
+    from importlib import reload
+    import aimu.models.transcription_client as tc_mod
+    reload(tc_mod)
+
+    member = tc_mod.resolve_transcription_model_string("openai:whisper-1")
+    assert member.value == "whisper-1"
+
+
+def test_resolve_transcription_model_string_unknown_provider():
+    from aimu.models.transcription_client import resolve_transcription_model_string
+    with pytest.raises(ValueError, match="Unknown"):
+        resolve_transcription_model_string("anthropic:whisper-1")
+
+
+def test_transcription_model_env_constant():
+    from aimu.models._internal.model_defaults import TRANSCRIPTION_MODEL_ENV
+    assert TRANSCRIPTION_MODEL_ENV == "AIMU_TRANSCRIPTION_MODEL"

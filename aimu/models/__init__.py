@@ -8,19 +8,24 @@ from .base import (
     BaseImageClient,
     BaseModelClient,
     BaseSpeechClient,
+    BaseTranscriptionClient,
     GeminiImageSpec,
     HuggingFaceAudioSpec,
     HuggingFaceImageSpec,
     HuggingFaceSpeechSpec,
+    HuggingFaceTranscriptionSpec,
     ImageModel,
     ImageSpec,
     Model,
     ModelSpec,
     OpenAISpeechSpec,
+    OpenAITranscriptionSpec,
     SpeechModel,
     SpeechSpec,
     StreamChunk,
     StreamingContentType,
+    TranscriptionModel,
+    TranscriptionSpec,
 )
 from .image_client import ImageClient, resolve_image_model_enum, resolve_image_model_string
 from .model_client import (
@@ -31,6 +36,7 @@ from .model_client import (
     resolve_model_string,
 )
 from .speech_client import SpeechClient, resolve_speech_model_string
+from .transcription_client import TranscriptionClient, resolve_transcription_model_string
 
 # Optional imports with graceful fallbacks
 try:
@@ -155,6 +161,24 @@ except Exception:
     OpenAISpeechClient = None
     OpenAISpeechModel = None
 
+try:
+    from .providers.hf.transcription import HuggingFaceTranscriptionClient, HuggingFaceTranscriptionModel
+
+    HAS_HF_TRANSCRIPTION = True
+except Exception:
+    HAS_HF_TRANSCRIPTION = False
+    HuggingFaceTranscriptionClient = None
+    HuggingFaceTranscriptionModel = None
+
+try:
+    from .providers.openai.transcription import OpenAITranscriptionClient, OpenAITranscriptionModel
+
+    HAS_OPENAI_TRANSCRIPTION = True
+except Exception:
+    HAS_OPENAI_TRANSCRIPTION = False
+    OpenAITranscriptionClient = None
+    OpenAITranscriptionModel = None
+
 # Expose what's available
 __all__ = [
     "extract_tool_calls",
@@ -195,6 +219,14 @@ __all__ = [
     "resolve_model_enum",
     "resolve_model_string",
     "resolve_speech_model_string",
+    "BaseTranscriptionClient",
+    "HuggingFaceTranscriptionSpec",
+    "OpenAITranscriptionSpec",
+    "TranscriptionClient",
+    "TranscriptionModel",
+    "TranscriptionSpec",
+    "available_transcription_clients",
+    "resolve_transcription_model_string",
 ]
 if HAS_HF:
     __all__.extend(["HuggingFaceClient", "HuggingFaceModel", "ToolCallFormat"])
@@ -236,6 +268,10 @@ if HAS_HF_SPEECH:
     __all__.extend(["HuggingFaceSpeechClient", "HuggingFaceSpeechModel"])
 if HAS_OPENAI_SPEECH:
     __all__.extend(["OpenAISpeechClient", "OpenAISpeechModel"])
+if HAS_HF_TRANSCRIPTION:
+    __all__.extend(["HuggingFaceTranscriptionClient", "HuggingFaceTranscriptionModel"])
+if HAS_OPENAI_TRANSCRIPTION:
+    __all__.extend(["OpenAITranscriptionClient", "OpenAITranscriptionModel"])
 
 
 def available_text_clients() -> list[type[BaseModelClient]]:
@@ -290,4 +326,14 @@ def available_speech_clients() -> list:
         clients.append(OpenAISpeechClient)
     if HAS_HF_SPEECH:
         clients.append(HuggingFaceSpeechClient)
+    return clients
+
+
+def available_transcription_clients() -> list:
+    """Return client classes for all installed transcription (ASR/STT) providers, in display order."""
+    clients = []
+    if HAS_OPENAI_TRANSCRIPTION:
+        clients.append(OpenAITranscriptionClient)
+    if HAS_HF_TRANSCRIPTION:
+        clients.append(HuggingFaceTranscriptionClient)
     return clients
