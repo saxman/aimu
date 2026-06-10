@@ -14,7 +14,7 @@ Mirrors the speech-side dispatch (:class:`aimu.models.SpeechClient`,
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from .base import BaseTranscriptionClient, TranscriptionModel, TranscriptionSpec
 
@@ -97,7 +97,7 @@ class TranscriptionClient:
     """
 
     def __init__(
-        self, model: TranscriptionModel | TranscriptionSpec | str, model_kwargs: Optional[dict] = None
+        self, model: TranscriptionModel | TranscriptionSpec | str, model_kwargs: dict | None = None
     ) -> None:
         if isinstance(model, str):
             if ":" not in model:
@@ -160,7 +160,7 @@ class TranscriptionClient:
         return self._client.spec
 
     @property
-    def model_kwargs(self) -> Optional[dict]:
+    def model_kwargs(self) -> dict | None:
         return self._client.model_kwargs
 
     def transcribe(self, audio: Any, **kwargs: Any) -> Any:

@@ -225,7 +225,6 @@ __all__ = [
     "TranscriptionClient",
     "TranscriptionModel",
     "TranscriptionSpec",
-    "available_transcription_clients",
     "resolve_transcription_model_string",
 ]
 if HAS_HF:
@@ -326,14 +325,4 @@ def available_speech_clients() -> list:
         clients.append(OpenAISpeechClient)
     if HAS_HF_SPEECH:
         clients.append(HuggingFaceSpeechClient)
-    return clients
-
-
-def available_transcription_clients() -> list:
-    """Return client classes for all installed transcription (ASR/STT) providers, in display order."""
-    clients = []
-    if HAS_OPENAI_TRANSCRIPTION:
-        clients.append(OpenAITranscriptionClient)
-    if HAS_HF_TRANSCRIPTION:
-        clients.append(HuggingFaceTranscriptionClient)
     return clients
