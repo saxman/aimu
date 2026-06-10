@@ -101,7 +101,6 @@ def _make_base_client(supports_timestamps=True):
 
 def _make_fake_openai():
     """Return a stub openai module and a call log."""
-    import sys
     from unittest.mock import MagicMock
 
     fake_openai = MagicMock()
