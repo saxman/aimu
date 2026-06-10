@@ -45,6 +45,7 @@ from .agent import Agent, AsyncRunner
 from .audio import AsyncAudioClient, audio_client, generate_audio
 from .image import AsyncImageClient, generate_image, image_client
 from .speech import AsyncSpeechClient, speech_client, generate_speech
+from .transcription import AsyncTranscriptionClient, transcription_client, transcribe
 from .skill_agent import SkillAgent
 from .orchestrator_agent import OrchestratorAgent
 from .workflows.chain import Chain
@@ -78,6 +79,16 @@ try:
 except Exception:
     AsyncOpenAISpeechClient = None  # type: ignore[assignment,misc]
 
+try:
+    from .providers.hf.transcription import AsyncHuggingFaceTranscriptionClient
+except Exception:
+    AsyncHuggingFaceTranscriptionClient = None  # type: ignore[assignment,misc]
+
+try:
+    from .providers.openai_transcription import AsyncOpenAITranscriptionClient
+except Exception:
+    AsyncOpenAITranscriptionClient = None  # type: ignore[assignment,misc]
+
 __all__ = [
     "Agent",
     "AsyncAudioClient",
@@ -87,9 +98,12 @@ __all__ = [
     "AsyncHuggingFaceSpeechClient",
     "AsyncImageClient",
     "AsyncModelClient",
+    "AsyncHuggingFaceTranscriptionClient",
     "AsyncOpenAISpeechClient",
+    "AsyncOpenAITranscriptionClient",
     "AsyncRunner",
     "AsyncSpeechClient",
+    "AsyncTranscriptionClient",
     "Chain",
     "EvaluatorOptimizer",
     "MCPClient",
@@ -106,4 +120,6 @@ __all__ = [
     "generate_speech",
     "image_client",
     "speech_client",
+    "transcribe",
+    "transcription_client",
 ]

@@ -493,3 +493,53 @@ def test_aimu_transcription_client_raises_without_model_and_env(monkeypatch):
     import aimu
     with pytest.raises(ValueError, match="AIMU_TRANSCRIPTION_MODEL"):
         aimu.transcription_client()
+
+
+# ---------------------------------------------------------------------------
+# Async surface
+# ---------------------------------------------------------------------------
+
+
+def test_async_transcription_client_wrap_refusal():
+    """aio.transcription_client() refuses non-sync-client inputs."""
+    from aimu.aio.transcription import AsyncTranscriptionClient
+    from aimu.models._base.transcription import TranscriptionSpec
+
+    spec = TranscriptionSpec("test-model")
+    with pytest.raises((ValueError, TypeError)):
+        AsyncTranscriptionClient(spec)
+
+
+async def test_async_transcription_client_wraps_openai(monkeypatch):
+    import sys
+    fake_openai, call_log = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.providers.openai.transcription as op_mod
+    reload(op_mod)
+
+    sync_client = op_mod.OpenAITranscriptionClient(op_mod.OpenAITranscriptionModel.WHISPER_1)
+
+    from aimu.aio.transcription import AsyncTranscriptionClient
+    async_client = AsyncTranscriptionClient(sync_client)
+    result = await async_client.transcribe(b"\x52\x49\x46\x46" + b"\x00" * 40)
+    assert result == "hello world"
+
+
+async def test_aio_transcription_client_convenience(monkeypatch):
+    import sys
+    fake_openai, _ = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    from importlib import reload
+    import aimu.models.providers.openai.transcription as op_mod
+    reload(op_mod)
+
+    sync_client = op_mod.OpenAITranscriptionClient(op_mod.OpenAITranscriptionModel.WHISPER_1)
+
+    from aimu.aio import transcription_client
+    async_client = transcription_client(sync_client)
+    assert hasattr(async_client, "transcribe")
