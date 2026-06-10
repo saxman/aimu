@@ -80,6 +80,9 @@ from .models import (
     SpeechSpec,
     StreamChunk,
     StreamingContentType,
+    TranscriptionClient,
+    TranscriptionModel,
+    TranscriptionSpec,
     available_speech_clients,
     available_text_models,
     resolve_audio_model_string,
@@ -89,6 +92,7 @@ from .models import (
     resolve_model_enum,
     resolve_model_string,
     resolve_speech_model_string,
+    resolve_transcription_model_string,
 )
 from .tools import tool
 
@@ -296,6 +300,41 @@ def generate_speech(
     return c.generate(text, format=format, **kwargs)
 
 
+def transcription_client(
+    model: Union[str, "TranscriptionModel", "TranscriptionSpec", None] = None,
+    **kwargs: Any,
+) -> "TranscriptionClient":
+    """Construct a :class:`TranscriptionClient` for speech-to-text (ASR) transcription.
+
+    ``model`` accepts a ``TranscriptionModel`` enum member, a ``"provider:model_id"``
+    string (e.g. ``"openai:whisper-1"``, ``"hf:openai/whisper-large-v3"``), or a
+    :class:`TranscriptionSpec`.
+
+    When ``model`` is omitted, the ``AIMU_TRANSCRIPTION_MODEL`` env var is used; if
+    it is unset a ``ValueError`` is raised (no model is downloaded implicitly).
+    """
+    if model is None:
+        from .models._internal.model_defaults import (
+            TRANSCRIPTION_MODEL_ENV,
+            resolve_default_modality_model,
+        )
+
+        model = resolve_default_modality_model(TRANSCRIPTION_MODEL_ENV)
+    return TranscriptionClient(model, model_kwargs=kwargs or None)
+
+
+def transcribe(audio: Any, *, model: Union[str, "TranscriptionModel", "TranscriptionSpec", None] = None, **kwargs: Any) -> str:
+    """One-shot transcription -- builds a fresh client and transcribes one audio clip.
+
+    ``audio`` accepts a file path, raw bytes, an ``https://`` URL, or a
+    ``data:audio/...;base64,...`` URL (same forms as ``audio=`` on :func:`chat`).
+
+    ``model`` may be a ``"provider:model_id"`` string, a ``TranscriptionModel`` enum
+    member, or omitted (reads ``AIMU_TRANSCRIPTION_MODEL`` env var).
+    """
+    return transcription_client(model).transcribe(audio, **kwargs)
+
+
 def clear_hf_cache(model: Any = None) -> None:
     """Release cached HuggingFace model weights and free GPU memory.
 
@@ -480,6 +519,9 @@ __all__ = [
     "SpeechSpec",
     "StreamChunk",
     "StreamingContentType",
+    "TranscriptionClient",
+    "TranscriptionModel",
+    "TranscriptionSpec",
     "agent",
     "aio",
     "audio_client",
@@ -503,6 +545,9 @@ __all__ = [
     "resolve_model_enum",
     "resolve_model_string",
     "resolve_speech_model_string",
+    "resolve_transcription_model_string",
     "speech_client",
     "tool",
+    "transcribe",
+    "transcription_client",
 ]

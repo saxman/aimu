@@ -437,3 +437,59 @@ def test_resolve_transcription_model_string_unknown_provider():
 def test_transcription_model_env_constant():
     from aimu.models._internal.model_defaults import TRANSCRIPTION_MODEL_ENV
     assert TRANSCRIPTION_MODEL_ENV == "AIMU_TRANSCRIPTION_MODEL"
+
+
+# ---------------------------------------------------------------------------
+# Top-level aimu.transcription_client / aimu.transcribe
+# ---------------------------------------------------------------------------
+
+
+def test_aimu_transcription_client_constructs_openai(monkeypatch):
+    import sys
+    fake_openai, _ = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    import aimu
+    from importlib import reload
+    reload(aimu)
+
+    client = aimu.transcription_client("openai:whisper-1")
+    assert client.spec.id == "whisper-1"
+
+
+def test_aimu_transcribe_one_shot(monkeypatch):
+    import sys
+    fake_openai, call_log = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    import aimu
+    from importlib import reload
+    reload(aimu)
+
+    result = aimu.transcribe(b"\x52\x49\x46\x46" + b"\x00" * 40, model="openai:whisper-1")
+    assert isinstance(result, str)
+
+
+def test_aimu_transcription_model_env_var(monkeypatch):
+    import sys
+    fake_openai, _ = _make_fake_openai()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("AIMU_TRANSCRIPTION_MODEL", "openai:whisper-1")
+
+    import aimu
+    from importlib import reload
+    reload(aimu)
+
+    client = aimu.transcription_client()
+    assert client.spec.id == "whisper-1"
+
+
+def test_aimu_transcription_client_raises_without_model_and_env(monkeypatch):
+    monkeypatch.delenv("AIMU_TRANSCRIPTION_MODEL", raising=False)
+
+    import aimu
+    with pytest.raises(ValueError, match="AIMU_TRANSCRIPTION_MODEL"):
+        aimu.transcription_client()
