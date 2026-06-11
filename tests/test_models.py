@@ -5,7 +5,6 @@ Usage:
 - Run all tests with all models: pytest tests/test_models.py
 - Run tests with only Ollama models: pytest tests/test_models.py --client=ollama
 - Run tests with only HuggingFace models: pytest tests/test_models.py --client=hf
-- Run tests with only Aisuite models: pytest tests/test_models.py --client=aisuite
 - Run tests with only OpenAI-compatible models: pytest tests/test_models.py --client=openai_compat
 - Run tests with only LM Studio models: pytest tests/test_models.py --client=lmstudio_openai
 - Run tests with only Ollama OpenAI models: pytest tests/test_models.py --client=ollama_openai
@@ -19,6 +18,19 @@ from fastmcp import FastMCP
 from helpers import create_real_model_client, resolve_model_params
 from aimu.models import BaseModelClient, StreamingContentType, StreamChunk
 from aimu.tools.client import MCPClient
+
+
+# A multi-step reasoning prompt used by the thinking tests. It reliably elicits thinking
+# from both forced-thinking models (budget_tokens always thinks) and adaptive models
+# (Anthropic Opus 4.7+/Fable 5), which only think when they judge a task non-trivial and so
+# skip thinking on a factual prompt like "capital of France". The thinking tests assert
+# thinking emission, not answer correctness (that is covered by test_generate/test_chat),
+# so the computed result is intentionally not checked -- keeping the tests robust across
+# smaller local thinking models that may not compute it exactly.
+_THINKING_PROMPT = (
+    "Compute the sum of all integers from 1 to 200 that are divisible by 7. "
+    "Show your work, then state the final total."
+)
 
 
 def pytest_generate_tests(metafunc):
@@ -189,13 +201,17 @@ def test_chat_with_tools(model_client):
         is_gpt_oss = model_client.model.name.startswith("GPT_OSS")
         is_magistral = model_client.model.name.startswith("MAGISTRAL")
         is_smollm = model_client.model.name.startswith("SMOLLM")
+        # Adaptive-thinking models (Anthropic Opus 4.7+/Fable 5) decide per request whether
+        # to think and skip it on a simple tool prompt like this, so thinking isn't guaranteed.
+        style = getattr(model_client.model, "thinking_style", None)
+        is_adaptive = style is not None and style.name == "ADAPTIVE"
 
         # these models do not consistently include thinking in the final response
-        if not is_gemma and not is_gpt_oss and not is_magistral and not is_smollm:
+        if not (is_gemma or is_gpt_oss or is_magistral or is_smollm or is_adaptive):
             assert "thinking" in model_client.messages[-1]
 
         # these models do not consistently include thinking in the tool call response
-        if not is_gemma and not is_magistral and not is_smollm:
+        if not (is_gemma or is_magistral or is_smollm or is_adaptive):
             assert "thinking" in model_client.messages[-3]
 
 
@@ -209,7 +225,7 @@ def test_generate_streamed_thinking(model_client):
 
     content = ""
     thinking = ""
-    for chunk in model_client.generate("What is the capital of France?", stream=True):
+    for chunk in model_client.generate(_THINKING_PROMPT, stream=True):
         if chunk.phase == StreamingContentType.THINKING:
             thinking += chunk.content
         elif chunk.phase == StreamingContentType.GENERATING:
@@ -217,7 +233,7 @@ def test_generate_streamed_thinking(model_client):
 
     assert model_client.last_thinking, "last_thinking should be populated for thinking models"
     assert thinking, "thinking chunks should be yielded for thinking models"
-    assert "Paris" in content
+    assert content, "generation should produce non-empty output"
 
 
 def test_generate_streamed_exclude_thinking(model_client):
@@ -231,7 +247,7 @@ def test_generate_streamed_exclude_thinking(model_client):
     content = ""
     thinking = ""
     stream = model_client.generate(
-        "What is the capital of France?",
+        _THINKING_PROMPT,
         stream=True,
         include=["generating", "tool_calling", "done"],
     )
@@ -243,7 +259,7 @@ def test_generate_streamed_exclude_thinking(model_client):
 
     assert not thinking, "thinking chunks should not be yielded when THINKING excluded"
     assert model_client.last_thinking, "last_thinking should still be populated even when THINKING filtered"
-    assert "Paris" in content
+    assert content, "generation should produce non-empty output"
 
 
 def test_chat_streamed_with_tools(model_client):
@@ -285,11 +301,15 @@ def test_chat_streamed_with_tools(model_client):
         is_gpt_oss = model_client.model.name.startswith("GPT_OSS")
         is_magistral = model_client.model.name.startswith("MAGISTRAL")
         is_smollm = model_client.model.name.startswith("SMOLLM")
+        # Adaptive-thinking models (Anthropic Opus 4.7+/Fable 5) decide per request whether
+        # to think and skip it on a simple tool prompt like this, so thinking isn't guaranteed.
+        style = getattr(model_client.model, "thinking_style", None)
+        is_adaptive = style is not None and style.name == "ADAPTIVE"
 
         # these models do not consistently include thinking in the final response
-        if not is_gemma and not is_gpt_oss and not is_magistral and not is_smollm:
+        if not (is_gemma or is_gpt_oss or is_magistral or is_smollm or is_adaptive):
             assert "thinking" in model_client.messages[-1]
 
         # these models do not consistently include thinking in the tool call response
-        if not is_gemma and not is_magistral and not is_smollm:
+        if not (is_gemma or is_magistral or is_smollm or is_adaptive):
             assert "thinking" in model_client.messages[-3]

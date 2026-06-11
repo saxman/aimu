@@ -14,9 +14,11 @@ import pytest
 from aimu.models import (
     HAS_ANTHROPIC,
     HAS_GEMINI_IMAGE,
+    HAS_HF,
     HAS_HF_AUDIO,
     HAS_HF_IMAGE,
     HAS_LLAMACPP,
+    HAS_OLLAMA,
     HAS_OPENAI_COMPAT,
     HuggingFaceClient,
     LlamaCppClient,
@@ -208,39 +210,38 @@ def resolve_model_params(config, default_params=None) -> list:
     if client_type == "all":
         if default_params is not None:
             return default_params
+        # Build the list of installed clients once; reused for both the
+        # full-matrix and named-model-search branches below.
+        clients = []
+        if HAS_OLLAMA:
+            clients.append(OllamaClient)
+        if HAS_HF:
+            clients.append(HuggingFaceClient)
+        if HAS_ANTHROPIC:
+            clients.append(AnthropicClient)
+        if HAS_OPENAI_COMPAT:
+            clients.extend(
+                [
+                    OpenAIClient,
+                    GeminiClient,
+                    LMStudioOpenAIClient,
+                    OllamaOpenAIClient,
+                    HFOpenAIClient,
+                    VLLMOpenAIClient,
+                ]
+            )
+
         # Full cross-client list (test_models.py behaviour)
         if model == "all":
-            params = (
-                list(OllamaClient.MODELS)
-                + list(HuggingFaceClient.MODELS)
-                + (list(AnthropicClient.MODELS) if HAS_ANTHROPIC else [])
-                + list(LMStudioOpenAIClient.MODELS)
-                + list(OllamaOpenAIClient.MODELS)
-                + list(HFOpenAIClient.MODELS)
-                + list(VLLMOpenAIClient.MODELS)
-            )
-            if HAS_OPENAI_COMPAT:
-                params += list(OpenAIClient.MODELS) + list(GeminiClient.MODELS)
+            params = []
+            for client in clients:
+                params += list(client.MODELS)
             if HAS_LLAMACPP:
                 params += list(LlamaCppModel)
             return params
         # Search for named model across all clients
-        extra_clients = []
-        if HAS_ANTHROPIC:
-            extra_clients.append(AnthropicClient)
-        if HAS_OPENAI_COMPAT:
-            extra_clients.extend([OpenAIClient, GeminiClient])
-
         params = []
-        for client in (
-            OllamaClient,
-            HuggingFaceClient,
-            *extra_clients,
-            LMStudioOpenAIClient,
-            OllamaOpenAIClient,
-            HFOpenAIClient,
-            VLLMOpenAIClient,
-        ):
+        for client in clients:
             if model in client.MODELS:
                 params.append(client.MODELS[model])
         return params
@@ -261,10 +262,10 @@ def create_real_model_client(request) -> Iterator[BaseModelClient]:
     """
     model = request.param
 
-    if model in OllamaClient.MODELS:
+    if HAS_OLLAMA and model in OllamaClient.MODELS:
         time.sleep(2)  # give Ollama time to free memory from the prior model
         client = OllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
-    elif model in HuggingFaceClient.MODELS:
+    elif HAS_HF and model in HuggingFaceClient.MODELS:
         client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
     elif HAS_ANTHROPIC and model in AnthropicClient.MODELS:
         client = AnthropicClient(model, system_message="You are a helpful assistant.")
@@ -272,13 +273,13 @@ def create_real_model_client(request) -> Iterator[BaseModelClient]:
         client = OpenAIClient(model, system_message="You are a helpful assistant.")
     elif HAS_OPENAI_COMPAT and model in GeminiClient.MODELS:
         client = GeminiClient(model, system_message="You are a helpful assistant.")
-    elif model in LMStudioOpenAIClient.MODELS:
+    elif HAS_OPENAI_COMPAT and model in LMStudioOpenAIClient.MODELS:
         client = LMStudioOpenAIClient(model, system_message="You are a helpful assistant.")
-    elif model in OllamaOpenAIClient.MODELS:
+    elif HAS_OPENAI_COMPAT and model in OllamaOpenAIClient.MODELS:
         client = OllamaOpenAIClient(model, system_message="You are a helpful assistant.")
-    elif model in HFOpenAIClient.MODELS:
+    elif HAS_OPENAI_COMPAT and model in HFOpenAIClient.MODELS:
         client = HFOpenAIClient(model, system_message="You are a helpful assistant.")
-    elif model in VLLMOpenAIClient.MODELS:
+    elif HAS_OPENAI_COMPAT and model in VLLMOpenAIClient.MODELS:
         client = VLLMOpenAIClient(model, system_message="You are a helpful assistant.")
     elif HAS_LLAMACPP and model in LlamaCppModel:
         model_path = request.config.getoption("--model-path")

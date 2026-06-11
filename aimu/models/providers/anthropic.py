@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from enum import Enum
 from types import SimpleNamespace
 from typing import Any, Iterator, Optional, Union
 
@@ -12,15 +13,47 @@ from .._internal.image_input import _build_user_content_blocks, _openai_blocks_t
 
 logger = logging.getLogger(__name__)
 
-# Default thinking budget in tokens (must be < max_tokens)
+# Default thinking budget in tokens (must be < max_tokens); used by the ENABLED style only.
 _DEFAULT_THINKING_BUDGET = 8000
 _THINKING_MAX_TOKENS_FLOOR = _DEFAULT_THINKING_BUDGET + 1024
+# Adaptive thinking shares max_tokens with the answer, so give it room to avoid truncation.
+_ADAPTIVE_THINKING_MAX_TOKENS_FLOOR = 4096
+
+
+class ThinkingStyle(Enum):
+    """How a model's thinking parameter is expressed in the Anthropic Messages API.
+
+    ENABLED  -> ``{"type": "enabled", "budget_tokens": N}``; the model always thinks up
+                to the budget. Used by Opus <= 4.6, Sonnet 4.6, and Haiku 4.5.
+    ADAPTIVE -> ``{"type": "adaptive", "display": "summarized"}``; the model decides per
+                request whether and how much to think (it may not think at all on simple
+                prompts). Required by Opus 4.7+ and Fable 5 -- the ENABLED form returns a
+                400 on those models, which also reject temperature/top_p/top_k. ``display``
+                defaults to ``"omitted"`` (empty thinking text), so we request ``"summarized"``
+                to surface thinking as StreamChunks.
+    """
+
+    ENABLED = "enabled"
+    ADAPTIVE = "adaptive"
 
 
 class AnthropicModel(Model):
-    CLAUDE_SONNET_4_6 = ModelSpec("claude-sonnet-4-6", tools=True, thinking=True, vision=True)
+    """Anthropic Claude model catalog.
+
+    Each member's value is a ``ModelSpec`` or a ``(ModelSpec, ThinkingStyle)`` tuple
+    (the style defaults to ``ENABLED`` when omitted). See :class:`ThinkingStyle`.
+    """
+
+    def __init__(self, spec: ModelSpec, thinking_style: ThinkingStyle = ThinkingStyle.ENABLED):
+        super().__init__(spec)
+        self.thinking_style = thinking_style
+
+    CLAUDE_FABLE_5 = (ModelSpec("claude-fable-5", tools=True, thinking=True, vision=True), ThinkingStyle.ADAPTIVE)
+    CLAUDE_OPUS_4_8 = (ModelSpec("claude-opus-4-8", tools=True, thinking=True, vision=True), ThinkingStyle.ADAPTIVE)
+    CLAUDE_OPUS_4_7 = (ModelSpec("claude-opus-4-7", tools=True, thinking=True, vision=True), ThinkingStyle.ADAPTIVE)
     CLAUDE_OPUS_4_6 = ModelSpec("claude-opus-4-6", tools=True, thinking=True, vision=True)
-    CLAUDE_HAIKU_4_5 = ModelSpec("claude-haiku-4-5", tools=True, vision=True)
+    CLAUDE_SONNET_4_6 = ModelSpec("claude-sonnet-4-6", tools=True, thinking=True, vision=True)
+    CLAUDE_HAIKU_4_5 = ModelSpec("claude-haiku-4-5", tools=True, thinking=True, vision=True)
 
 
 class AnthropicClient(BaseModelClient):
@@ -96,6 +129,19 @@ class AnthropicClient(BaseModelClient):
         if not self.is_thinking_model:
             return generate_kwargs
         kwargs = generate_kwargs.copy()
+        style = getattr(self.model, "thinking_style", ThinkingStyle.ENABLED)
+
+        if style is ThinkingStyle.ADAPTIVE:
+            # Adaptive models reject budget_tokens and all sampling params; the model
+            # decides whether to think. Give thinking room within the shared max_tokens.
+            kwargs.pop("thinking_budget_tokens", None)
+            for key in ("temperature", "top_p", "top_k"):
+                kwargs.pop(key, None)
+            if kwargs.get("max_tokens", 0) < _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR:
+                kwargs["max_tokens"] = _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR
+            kwargs["thinking"] = {"type": "adaptive", "display": "summarized"}
+            return kwargs
+
         budget = kwargs.pop("thinking_budget_tokens", _DEFAULT_THINKING_BUDGET)
         # max_tokens must exceed the thinking budget
         if kwargs.get("max_tokens", 0) <= budget:
@@ -123,7 +169,10 @@ class AnthropicClient(BaseModelClient):
           run of tool results     → single {"role": "user", "content": [{"type": "tool_result", ...}]}
         """
         system_str = ""
-        ant_messages = []
+        # Each entry is (role, content_blocks). Built as block lists so empty turns can be
+        # dropped and adjacent same-role turns merged before returning (Anthropic rejects
+        # empty text blocks and requires alternating roles).
+        turns: list[tuple[str, list]] = []
         i = 0
 
         while i < len(messages):
@@ -137,18 +186,20 @@ class AnthropicClient(BaseModelClient):
             elif role == "user":
                 content = msg["content"]
                 if isinstance(content, list):
-                    content = _openai_blocks_to_anthropic(content)
-                ant_messages.append({"role": "user", "content": content})
+                    blocks = _openai_blocks_to_anthropic(content)
+                else:
+                    blocks = [{"type": "text", "text": content}] if content else []
+                turns.append(("user", blocks))
                 i += 1
 
             elif role == "assistant":
                 if "tool_calls" in msg:
-                    content_blocks = []
+                    blocks = []
                     for tc in msg["tool_calls"]:
                         args = tc["function"]["arguments"]
                         if isinstance(args, str):
                             args = json.loads(args)
-                        content_blocks.append(
+                        blocks.append(
                             {
                                 "type": "tool_use",
                                 "id": tc["id"],
@@ -156,15 +207,12 @@ class AnthropicClient(BaseModelClient):
                                 "input": args,
                             }
                         )
-                    ant_messages.append({"role": "assistant", "content": content_blocks})
+                    turns.append(("assistant", blocks))
                 else:
+                    # Drop empty/whitespace-only assistant turns: they carry no content and
+                    # would serialize to an empty text block the API rejects.
                     text = msg.get("content") or ""
-                    ant_messages.append(
-                        {
-                            "role": "assistant",
-                            "content": [{"type": "text", "text": text}],
-                        }
-                    )
+                    turns.append(("assistant", [{"type": "text", "text": text}] if text.strip() else []))
                 i += 1
 
             elif role == "tool":
@@ -180,10 +228,19 @@ class AnthropicClient(BaseModelClient):
                         }
                     )
                     i += 1
-                ant_messages.append({"role": "user", "content": tool_results})
+                turns.append(("user", tool_results))
 
             else:
                 i += 1  # skip unknown roles
+
+        ant_messages: list[dict] = []
+        for role, blocks in turns:
+            if not blocks:
+                continue
+            if ant_messages and ant_messages[-1]["role"] == role:
+                ant_messages[-1]["content"].extend(blocks)
+            else:
+                ant_messages.append({"role": role, "content": list(blocks)})
 
         return system_str, ant_messages
 

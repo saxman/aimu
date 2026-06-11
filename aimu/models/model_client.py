@@ -324,8 +324,11 @@ class ModelClient(BaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        return self._client._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images)
+        return self._client._chat(
+            user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
+        )
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         return self._client._update_generate_kwargs(generate_kwargs)
