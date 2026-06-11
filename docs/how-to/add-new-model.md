@@ -21,6 +21,8 @@ class AnthropicModel(Model):
 
 That's it. The model id (`"claude-opus-5"`) is what gets sent to the provider; the capability flags drive `is_tool_using_model`, `is_thinking_model`, `is_vision_model`, and the derived `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` classproperties.
 
+A bare `ModelSpec` defaults the Anthropic reasoning request to `ThinkingStyle.ENABLED` (`budget_tokens`). New Claude reasoning models (Opus 4.7+ and Fable 5) require the adaptive request shape and **400 on the `enabled` form** — define those with a `ThinkingStyle.ADAPTIVE` extra (see [Anthropic provider-specific extras](#anthropic-provider-specific-extras) below).
+
 ## With custom generation kwargs
 
 Some models work best with specific sampling parameters:
@@ -55,6 +57,22 @@ class HuggingFaceModel(Model):
 ```
 
 Pick `ToolCallFormat.XML` / `JSON_OBJECT` / `JSON_ARRAY` / `BRACKETED` / `NA` based on how the base model emits tool calls. See existing entries in `aimu/models/providers/hf/text.py` for examples per model family.
+
+## Anthropic provider-specific extras
+
+`AnthropicModel` carries an optional `ThinkingStyle` extra that selects how the `thinking` request is built. Omit it (bare `ModelSpec`) for `ENABLED`/budget-style models; pass `ThinkingStyle.ADAPTIVE` for models that require adaptive thinking:
+
+```python
+# aimu/models/providers/anthropic.py
+class AnthropicModel(Model):
+    # Adaptive: thinking={"type": "adaptive", "display": "summarized"}; sampling params dropped.
+    # Required by Opus 4.7+ and Fable 5 (the enabled form 400s here).
+    CLAUDE_OPUS_4_8 = (ModelSpec("claude-opus-4-8", tools=True, thinking=True, vision=True), ThinkingStyle.ADAPTIVE)
+    # Enabled (default): thinking={"type": "enabled", "budget_tokens": N}; the model always thinks.
+    CLAUDE_HAIKU_4_5 = ModelSpec("claude-haiku-4-5", tools=True, thinking=True, vision=True)
+```
+
+Rule of thumb: Opus 4.7 and later, and Fable 5, are adaptive-only; Opus 4.6, Sonnet 4.6, and Haiku 4.5 use the budget form. Confirm a new model's support with the Models API (`client.models.retrieve(id).capabilities["thinking"]["types"]`) — `adaptive.supported` / `enabled.supported` tell you which shape to pick.
 
 ## Image, audio, and speech models
 

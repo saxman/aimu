@@ -226,8 +226,9 @@ class AsyncModelClient(AsyncBaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        return await self._client._generate(prompt, generate_kwargs, stream=stream, images=images)
+        return await self._client._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
 
     async def _chat(
         self,
@@ -236,9 +237,10 @@ class AsyncModelClient(AsyncBaseModelClient):
         use_tools: bool = True,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         return await self._client._chat(
-            user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images
+            user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
         )
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:

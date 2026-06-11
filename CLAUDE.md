@@ -664,6 +664,12 @@ Models with `supports_thinking=True` support extended reasoning:
 - Filter via `include=["generating", "tool_calling"]` on `chat(...)` / `generate(...)`.
 - Thinking content may also be stored in the messages dict under a "thinking" key
 
+`supports_thinking` is the universal flag; *how* reasoning is requested is provider-specific and handled inside each client (Anthropic `thinking` param, HuggingFace `enable_thinking` template kwarg, `<think>`-tag parsing for OpenAI-compat/Ollama/llama-cpp, `reasoning_effort` for OpenAI o-series). The Anthropic client distinguishes two request shapes via a `ThinkingStyle` enum carried on each `AnthropicModel` member (analogous to HuggingFace's `ToolCallFormat`):
+- **`ThinkingStyle.ENABLED`** — `thinking={"type": "enabled", "budget_tokens": N}`; the model always thinks up to the budget. Opus 4.6, Sonnet 4.6, Haiku 4.5.
+- **`ThinkingStyle.ADAPTIVE`** — `thinking={"type": "adaptive", "display": "summarized"}`; the model decides per request whether and how much to think (it may not think on simple prompts), and `temperature`/`top_p`/`top_k` are dropped. Required by Opus 4.7+ and Fable 5, which reject the `enabled` form with a 400. `display="summarized"` is set so reasoning still surfaces as `THINKING` chunks (the API default `"omitted"` yields empty thinking text).
+
+Because adaptive models may legitimately emit no thinking on trivial prompts, tests that assert thinking-presence use a multi-step reasoning prompt and treat adaptive models like the other "doesn't consistently emit thinking" models in the tool-call assertions.
+
 ### Vision Input
 
 Models with `supports_vision=True` accept images alongside the user prompt:
@@ -942,7 +948,7 @@ Key files and their roles:
 ### Cloud Provider Client Notes
 
 - **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/providers/openai/text.py](aimu/models/providers/openai/text.py).
-- **`AnthropicClient`** (`aimu[anthropic]`): full implementation using the native `anthropic` SDK; reads `ANTHROPIC_API_KEY`. `self.messages` is always stored in OpenAI format; conversion to Anthropic format (`_openai_messages_to_anthropic`) and tool format conversion (`_openai_tools_to_anthropic`) happen at call time. After `_handle_tool_calls()` assigns random IDs, `_patch_tool_ids()` replaces them with Anthropic's original `tool_use` block IDs so that tool results are correctly matched. Thinking is native (`thinking={"type": "enabled", "budget_tokens": N}`), not `<think>` tag parsing.
+- **`AnthropicClient`** (`aimu[anthropic]`): full implementation using the native `anthropic` SDK; reads `ANTHROPIC_API_KEY`. `self.messages` is always stored in OpenAI format; conversion to Anthropic format (`_openai_messages_to_anthropic`) and tool format conversion (`_openai_tools_to_anthropic`) happen at call time. After `_handle_tool_calls()` assigns random IDs, `_patch_tool_ids()` replaces them with Anthropic's original `tool_use` block IDs so that tool results are correctly matched. Thinking is native (not `<think>` tag parsing) and `_thinking_kwargs()` builds the request per the model's `ThinkingStyle`: `ENABLED` → `{"type": "enabled", "budget_tokens": N}` (Opus 4.6, Sonnet 4.6, Haiku 4.5); `ADAPTIVE` → `{"type": "adaptive", "display": "summarized"}` with sampling params stripped (Opus 4.7, Opus 4.8, Fable 5 — the `enabled` form 400s on these). Catalog: `CLAUDE_FABLE_5`, `CLAUDE_OPUS_4_8`, `CLAUDE_OPUS_4_7`, `CLAUDE_OPUS_4_6`, `CLAUDE_SONNET_4_6`, `CLAUDE_HAIKU_4_5`. See "Thinking Models" above for the `ThinkingStyle` rationale.
 - **`GeminiClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://generativelanguage.googleapis.com/v1beta/openai/`; reads `GOOGLE_API_KEY`. Gemini 2.5 thinking models emit `<think>` tags on this endpoint, so `_ThinkingParser` works as-is. Lives in [aimu/models/providers/gemini/text.py](aimu/models/providers/gemini/text.py).
 - Test with `pytest tests/test_models.py --client=openai` (or `anthropic`, `gemini`)
 

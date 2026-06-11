@@ -8,9 +8,19 @@ Legend: ✅ = supported, — = not supported.
 
 | Enum member | Model id | Tools | Thinking | Vision |
 |---|---|:---:|:---:|:---:|
-| `CLAUDE_SONNET_4_6` | `claude-sonnet-4-6` | ✅ | ✅ | ✅ |
-| `CLAUDE_OPUS_4_6` | `claude-opus-4-6` | ✅ | ✅ | ✅ |
-| `CLAUDE_HAIKU_4_5` | `claude-haiku-4-5` | ✅ | — | ✅ |
+| `CLAUDE_FABLE_5` | `claude-fable-5` | ✅ | ✅ (adaptive) | ✅ |
+| `CLAUDE_OPUS_4_8` | `claude-opus-4-8` | ✅ | ✅ (adaptive) | ✅ |
+| `CLAUDE_OPUS_4_7` | `claude-opus-4-7` | ✅ | ✅ (adaptive) | ✅ |
+| `CLAUDE_OPUS_4_6` | `claude-opus-4-6` | ✅ | ✅ (budget) | ✅ |
+| `CLAUDE_SONNET_4_6` | `claude-sonnet-4-6` | ✅ | ✅ (budget) | ✅ |
+| `CLAUDE_HAIKU_4_5` | `claude-haiku-4-5` | ✅ | ✅ (budget) | ✅ |
+
+AIMU requests Anthropic reasoning in one of two shapes, fixed per model by a `ThinkingStyle` on each `AnthropicModel` member (an Anthropic-specific enum, analogous to HuggingFace's `ToolCallFormat`):
+
+- **budget** — `thinking={"type": "enabled", "budget_tokens": N}`; the model always thinks up to the budget. Used by Opus 4.6, Sonnet 4.6, and Haiku 4.5.
+- **adaptive** — `thinking={"type": "adaptive", "display": "summarized"}`; the model decides per request whether and how much to think (it may not think at all on simple prompts), and `temperature`/`top_p`/`top_k` are not sent. Required by Opus 4.7+ and Fable 5, which reject the budget form with a 400.
+
+Both styles surface reasoning as `THINKING` stream chunks and populate `last_thinking`. The `thinking=` column reflects the universal `supports_thinking` flag; the style only changes how the request is built, handled entirely inside `AnthropicClient`.
 
 ## OpenAI (`OpenAIModel`)
 

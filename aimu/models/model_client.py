@@ -314,8 +314,9 @@ class ModelClient(BaseModelClient):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        return self._client._generate(prompt, generate_kwargs, stream=stream, images=images)
+        return self._client._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
 
     def _chat(
         self,

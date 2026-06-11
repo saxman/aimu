@@ -123,5 +123,5 @@ Each provider client's constructor signature is in the [API reference](../refere
 ValueError: Unknown provider 'foo'. Available providers (with installed deps): ['anthropic', 'ollama', ...]
 
 >>> aimu.client("anthropic:claude-nonsense")
-ValueError: Provider 'anthropic' has no model id 'claude-nonsense'. Available: ['claude-haiku-4-5', 'claude-opus-4-6', 'claude-sonnet-4-6']
+ValueError: Provider 'anthropic' has no model id 'claude-nonsense'. Available: ['claude-fable-5', 'claude-haiku-4-5', 'claude-opus-4-6', 'claude-opus-4-7', 'claude-opus-4-8', 'claude-sonnet-4-6']
 ```

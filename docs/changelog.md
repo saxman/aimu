@@ -14,6 +14,7 @@
 - **New** `images=` and `audio=` are mutually exclusive per turn; passing both raises `ValueError`.
 - Internally normalised to OpenAI `input_audio` content blocks (`{"type": "input_audio", "input_audio": {"data": "<b64>", "format": "wav"}}`). Provider adaptation happens at request time: OpenAI/Gemini/OpenAI-compat pass through; Anthropic converts to `{"type": "audio", "source": {"type": "base64", ...}}`; HuggingFace decodes to float32 numpy arrays via `soundfile` and passes them to the `AutoProcessor`; Ollama raises with a clear message (API does not yet support audio).
 - Mirrored on the async surface (`aimu.aio`): same signature on `aio.chat()` and `aio.generate()`.
+- **Fix** `ModelClient._generate` (and the async `AsyncModelClient._generate` / `_chat`) now accept and forward `audio=`. They were missing the parameter while the base `generate()`/`chat()` always pass it, so every `aimu.client().generate()` / `aimu.chat(...)` call through the factory raised `TypeError: _generate() got an unexpected keyword argument 'audio'`. (Concrete provider clients were unaffected, which is why the live test suite — which constructs them directly — didn't surface it.)
 
 ### Documentation
 
@@ -30,6 +31,14 @@
 - **New** Async mirror under `aimu.aio`: `AsyncTranscriptionClient`, `aio.transcription_client(sync_client)`, `await aio.transcribe(audio, *, model, ...)`. Wraps sync via `asyncio.to_thread` (Decision 7 — same as every other aio modality).
 - **New** Built-in `transcribe_audio(audio_path: str) -> str` `@tool` in `aimu.tools.builtin`; `builtin.transcription` subgroup; included in `ALL_TOOLS`. Backed by a lazy `_transcription_client` singleton via `AIMU_TRANSCRIPTION_MODEL`. `make_transcription_tool(client)` binds a fresh tool to a caller-supplied client.
 - **New** `docs/how-to/transcribe-audio.md` and `notebooks/19 - Transcription.ipynb`.
+
+### Anthropic models & adaptive thinking
+
+- **New** `AnthropicModel` members: `CLAUDE_FABLE_5` (`claude-fable-5`), `CLAUDE_OPUS_4_8` (`claude-opus-4-8`), `CLAUDE_OPUS_4_7` (`claude-opus-4-7`) — all `tools=True, thinking=True, vision=True`.
+- **New** `ThinkingStyle` enum (`ENABLED` / `ADAPTIVE`) carried as a per-member extra on `AnthropicModel` (analogous to HuggingFace's `ToolCallFormat`). `AnthropicClient._thinking_kwargs()` builds the request accordingly: `ENABLED` → `{"type": "enabled", "budget_tokens": N}`; `ADAPTIVE` → `{"type": "adaptive", "display": "summarized"}` with `temperature`/`top_p`/`top_k` dropped. Opus 4.7+ and Fable 5 are adaptive-only (the `enabled` form 400s on them); Opus 4.6, Sonnet 4.6, and Haiku 4.5 use the budget form.
+- **Fix** `CLAUDE_HAIKU_4_5` now correctly has `thinking=True` — Haiku 4.5 supports extended thinking via the `enabled`/`budget_tokens` form (previously omitted, so thinking tests silently skipped).
+- Adaptive models decide per request whether to think and may emit none on simple prompts; the thinking tests use a multi-step reasoning prompt and assert thinking emission rather than an exact answer.
+- **Docs** Updated the [model matrix](reference/model-matrix.md#anthropic-anthropicmodel), [provider matrix](reference/provider-matrix.md), [add a new model](how-to/add-new-model.md#anthropic-provider-specific-extras), and CLAUDE.md (Thinking Models, AnthropicClient notes) to cover the two thinking styles and the new models.
 
 ---
 
