@@ -36,7 +36,7 @@ hf = [
     "accelerate",
     "sentencepiece",
     "mistral-common", # required for Mistral-Small-3.2 model
-    "kernels", # required for GPT-OSS
+    "kernels>=0.12,<0.13", # required for GPT-OSS; must match transformers' supported range (it imports kernels at module load, and >=0.13 breaks that import)
     "bitsandbytes", # for models that require quantization before loading (e.g. Magistral)
     # Image generation via HuggingFace diffusers (HuggingFaceImageClient)
     "diffusers>=0.30",
