@@ -44,6 +44,7 @@ from .models import (
     generate_json,
     parse_json_response,
     HAS_HF_AUDIO,
+    HAS_HF_EMBEDDING,
     HAS_HF_IMAGE,
     HAS_HF_SPEECH,
     HAS_OLLAMA_EMBEDDING,
@@ -363,10 +364,11 @@ def embedding_client(
         client = aimu.embedding_client("openai:text-embedding-3-small")
         vectors = client.embed(["hello", "world"])
     """
-    if not (HAS_OPENAI_EMBEDDING or HAS_OLLAMA_EMBEDDING):
+    if not (HAS_OPENAI_EMBEDDING or HAS_OLLAMA_EMBEDDING or HAS_HF_EMBEDDING):
         raise ImportError(
-            "Embedding generation requires the [openai_compat] extra (OpenAI) or the [ollama] extra (Ollama): "
-            "pip install -e '.[openai_compat]'  or  pip install -e '.[ollama]'"
+            "Embedding generation requires one of: the [openai_compat] extra (OpenAI), the [ollama] "
+            "extra (Ollama), or the [hf] extra (local sentence-transformers): "
+            "pip install -e '.[openai_compat]' | '.[ollama]' | '.[hf]'"
         )
     if model is None:
         from .models._internal.model_defaults import EMBEDDING_MODEL_ENV, resolve_default_modality_model
@@ -426,6 +428,7 @@ def clear_hf_cache(model: Any = None) -> None:
         "models.providers.hf.image",
         "models.providers.hf.audio",
         "models.providers.hf.speech",
+        "models.providers.hf.embedding",
     ]
     for suffix in suffixes:
         try:
@@ -557,6 +560,7 @@ __all__ = [
     "EmbeddingSpec",
     "HAS_GEMINI_IMAGE",
     "HAS_HF_AUDIO",
+    "HAS_HF_EMBEDDING",
     "HAS_HF_IMAGE",
     "HAS_HF_SPEECH",
     "HAS_OLLAMA_EMBEDDING",

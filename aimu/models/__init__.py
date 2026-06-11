@@ -14,6 +14,7 @@ from .base import (
     EmbeddingSpec,
     GeminiImageSpec,
     HuggingFaceAudioSpec,
+    HuggingFaceEmbeddingSpec,
     HuggingFaceImageSpec,
     HuggingFaceSpeechSpec,
     HuggingFaceTranscriptionSpec,
@@ -203,6 +204,15 @@ except Exception:
     OllamaEmbeddingClient = None
     OllamaEmbeddingModel = None
 
+try:
+    from .providers.hf.embedding import HuggingFaceEmbeddingClient, HuggingFaceEmbeddingModel
+
+    HAS_HF_EMBEDDING = True
+except Exception:
+    HAS_HF_EMBEDDING = False
+    HuggingFaceEmbeddingClient = None
+    HuggingFaceEmbeddingModel = None
+
 # Expose what's available
 __all__ = [
     "extract_tool_calls",
@@ -256,6 +266,7 @@ __all__ = [
     "EmbeddingSpec",
     "OpenAIEmbeddingSpec",
     "OllamaEmbeddingSpec",
+    "HuggingFaceEmbeddingSpec",
     "available_embedding_clients",
     "resolve_embedding_model_string",
 ]
@@ -307,6 +318,8 @@ if HAS_OPENAI_EMBEDDING:
     __all__.extend(["OpenAIEmbeddingClient", "OpenAIEmbeddingModel"])
 if HAS_OLLAMA_EMBEDDING:
     __all__.extend(["OllamaEmbeddingClient", "OllamaEmbeddingModel"])
+if HAS_HF_EMBEDDING:
+    __all__.extend(["HuggingFaceEmbeddingClient", "HuggingFaceEmbeddingModel"])
 
 
 def available_embedding_clients() -> list[type[BaseEmbeddingClient]]:
@@ -314,6 +327,8 @@ def available_embedding_clients() -> list[type[BaseEmbeddingClient]]:
     clients: list[type[BaseEmbeddingClient]] = []
     if HAS_OLLAMA_EMBEDDING:
         clients.append(OllamaEmbeddingClient)
+    if HAS_HF_EMBEDDING:
+        clients.append(HuggingFaceEmbeddingClient)
     if HAS_OPENAI_EMBEDDING:
         clients.append(OpenAIEmbeddingClient)
     return clients

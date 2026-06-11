@@ -44,6 +44,8 @@ hf = [
     "Pillow",
     # Audio generation output (HuggingFaceAudioClient WAV encoding)
     "soundfile",
+    # Local text embeddings (HuggingFaceEmbeddingClient); reads each model's own pooling config
+    "sentence-transformers>=3",
 ]
 ollama = [
     "ollama",

@@ -98,7 +98,7 @@ def pytest_addoption(parser):
         action="store",
         default=None,
         help=(
-            "Embedding client to test live: 'openai', 'ollama', or 'all'. Required to "
+            "Embedding client to test live: 'openai', 'ollama', 'hf', or 'all'. Required to "
             "enable live tests in tests/test_embeddings.py — omit to skip them."
         ),
     )

@@ -8,7 +8,9 @@ top-level ``aimu.embedding_client()`` / ``aimu.embed()`` dispatch.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
+import importlib
+import sys
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -213,3 +215,82 @@ def test_top_level_embed_dispatch(monkeypatch):
 
     out = aimu.embed("hi", model="openai:text-embedding-3-small")
     assert out == [9.0]
+
+
+# ---------------------------------------------------------------------------
+# HuggingFace provider (stubbed sentence-transformers — works whether or not it's installed)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def hf_embedding_module(monkeypatch):
+    """Stub ``sentence_transformers`` and load the HF embedding provider module fresh.
+
+    Lets the provider's logic be tested without the real (large) dependency installed.
+    """
+    import numpy as np
+
+    class _FakeSentenceTransformer:
+        def __init__(self, model_id, device=None, **kwargs):
+            self.model_id = model_id
+            self.device = device
+            self.kwargs = kwargs
+
+        def encode(self, texts, convert_to_numpy=True, normalize_embeddings=True, **kwargs):
+            _FakeSentenceTransformer.last_normalize = normalize_embeddings
+            return np.array([[float(len(t)), 1.0, 0.0] for t in texts], dtype="float32")
+
+    st_stub = ModuleType("sentence_transformers")
+    st_stub.SentenceTransformer = _FakeSentenceTransformer
+    st_stub._aimu_stub = True
+    monkeypatch.setitem(sys.modules, "sentence_transformers", st_stub)
+    monkeypatch.delitem(sys.modules, "aimu.models.providers.hf.embedding", raising=False)
+
+    module = importlib.import_module("aimu.models.providers.hf.embedding")
+    module._model_registry.clear()
+    return module, _FakeSentenceTransformer
+
+
+def test_hf_construction_from_enum_string_spec(hf_embedding_module):
+    module, _ = hf_embedding_module
+    from aimu.models import HuggingFaceEmbeddingSpec
+
+    c_enum = module.HuggingFaceEmbeddingClient(module.HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5)
+    c_str = module.HuggingFaceEmbeddingClient("hf:BAAI/bge-small-en-v1.5")
+    c_spec = module.HuggingFaceEmbeddingClient(HuggingFaceEmbeddingSpec("BAAI/bge-small-en-v1.5", dimensions=384))
+    assert c_enum.spec.id == c_str.spec.id == c_spec.spec.id == "BAAI/bge-small-en-v1.5"
+    assert c_enum.dimensions == 384
+
+
+def test_hf_unknown_string_raises(hf_embedding_module):
+    module, _ = hf_embedding_module
+    with pytest.raises(ValueError, match="Unknown HuggingFace embedding model id"):
+        module.HuggingFaceEmbeddingClient("hf:some/unknown-repo")
+
+
+def test_hf_embed_single_and_list(hf_embedding_module):
+    module, _ = hf_embedding_module
+    client = module.HuggingFaceEmbeddingClient(module.HuggingFaceEmbeddingModel.ALL_MINILM_L6_V2)
+    assert client.embed("hello") == [5.0, 1.0, 0.0]
+    out = client.embed(["a", "bb"])
+    assert out == [[1.0, 1.0, 0.0], [2.0, 1.0, 0.0]]
+
+
+def test_hf_embed_normalizes_by_default(hf_embedding_module):
+    module, fake = hf_embedding_module
+    client = module.HuggingFaceEmbeddingClient(module.HuggingFaceEmbeddingModel.BGE_BASE_EN_V1_5)
+    client.embed(["x"])
+    assert fake.last_normalize is True
+    client.embed(["x"], normalize_embeddings=False)
+    assert fake.last_normalize is False
+
+
+def test_hf_lazy_load_and_weight_cache(hf_embedding_module):
+    module, _ = hf_embedding_module
+    c1 = module.HuggingFaceEmbeddingClient(module.HuggingFaceEmbeddingModel.ALL_MINILM_L6_V2)
+    assert c1._model is None  # not loaded until first embed
+    c1.embed("trigger load")
+    assert c1._model is not None
+    c2 = module.HuggingFaceEmbeddingClient(module.HuggingFaceEmbeddingModel.ALL_MINILM_L6_V2)
+    c2.embed("again")
+    assert c2._model is c1._model  # shared via module-level registry

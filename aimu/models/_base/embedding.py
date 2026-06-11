@@ -48,6 +48,19 @@ class OllamaEmbeddingSpec(EmbeddingSpec):
     """Descriptor for an Ollama embedding model. ``eq=False`` keeps id-only equality."""
 
 
+@dataclass(eq=False)
+class HuggingFaceEmbeddingSpec(EmbeddingSpec):
+    """Descriptor for a HuggingFace (sentence-transformers) embedding model.
+
+    ``normalize`` is the default L2-normalization applied by the client (overridable per
+    call via ``embed(normalize_embeddings=...)``); cosine-similarity retrieval wants
+    normalized vectors. Pooling is read from the model's own config by sentence-transformers,
+    so it is not pinned here. ``eq=False`` keeps id-only equality.
+    """
+
+    normalize: bool = True
+
+
 class EmbeddingModel(Enum):
     """Base enum for embedding-provider model catalogs.
 

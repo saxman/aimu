@@ -36,6 +36,15 @@ except ImportError:
     OllamaEmbeddingClient = None  # type: ignore[assignment,misc]
     OllamaEmbeddingModel = None  # type: ignore[assignment,misc]
 
+try:
+    from .providers.hf.embedding import HuggingFaceEmbeddingClient, HuggingFaceEmbeddingModel
+
+    _HAS_HF_EMBEDDING = True
+except ImportError:
+    _HAS_HF_EMBEDDING = False
+    HuggingFaceEmbeddingClient = None  # type: ignore[assignment,misc]
+    HuggingFaceEmbeddingModel = None  # type: ignore[assignment,misc]
+
 
 def _provider_registry() -> dict[str, tuple]:
     """Map ``provider`` string → ``(EmbeddingModel subclass, EmbeddingClient subclass)``."""
@@ -44,6 +53,8 @@ def _provider_registry() -> dict[str, tuple]:
         registry["openai"] = (OpenAIEmbeddingModel, OpenAIEmbeddingClient)
     if _HAS_OLLAMA_EMBEDDING:
         registry["ollama"] = (OllamaEmbeddingModel, OllamaEmbeddingClient)
+    if _HAS_HF_EMBEDDING:
+        registry["hf"] = (HuggingFaceEmbeddingModel, HuggingFaceEmbeddingClient)
     return registry
 
 
@@ -109,6 +120,14 @@ class EmbeddingClient:
                     )
                 self._client = OllamaEmbeddingClient(model, model_kwargs=model_kwargs)
                 return
+            if provider == "hf":
+                if not _HAS_HF_EMBEDDING:
+                    raise ImportError(
+                        "HuggingFace embedding support requires the [hf] extra (sentence-transformers): "
+                        "pip install -e '.[hf]'"
+                    )
+                self._client = HuggingFaceEmbeddingClient(model, model_kwargs=model_kwargs)
+                return
             raise ValueError(f"Unknown embedding provider {provider!r}. Available: {sorted(_provider_registry())}")
 
         if isinstance(model, EmbeddingSpec) and not isinstance(model, EmbeddingModel):
@@ -121,6 +140,8 @@ class EmbeddingClient:
             self._client = OpenAIEmbeddingClient(model, model_kwargs=model_kwargs)
         elif _HAS_OLLAMA_EMBEDDING and OllamaEmbeddingModel is not None and isinstance(model, OllamaEmbeddingModel):
             self._client = OllamaEmbeddingClient(model, model_kwargs=model_kwargs)
+        elif _HAS_HF_EMBEDDING and HuggingFaceEmbeddingModel is not None and isinstance(model, HuggingFaceEmbeddingModel):
+            self._client = HuggingFaceEmbeddingClient(model, model_kwargs=model_kwargs)
         else:
             raise ValueError(
                 f"No available client for embedding-model type {type(model).__name__!r}. "

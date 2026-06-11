@@ -17,6 +17,7 @@ from ._base.embedding import (
     BaseEmbeddingClient,
     EmbeddingModel,
     EmbeddingSpec,
+    HuggingFaceEmbeddingSpec,
     OllamaEmbeddingSpec,
     OpenAIEmbeddingSpec,
 )
@@ -68,6 +69,7 @@ __all__ = [
     "EmbeddingSpec",
     "OpenAIEmbeddingSpec",
     "OllamaEmbeddingSpec",
+    "HuggingFaceEmbeddingSpec",
     "EmbeddingModel",
     "BaseEmbeddingClient",
     # speech

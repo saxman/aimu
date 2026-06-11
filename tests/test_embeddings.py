@@ -19,7 +19,7 @@ def _params(config):
     if not selected:
         return []
     model_name = config.getoption("--embedding-model")
-    from aimu.models import HAS_OLLAMA_EMBEDDING, HAS_OPENAI_EMBEDDING
+    from aimu.models import HAS_HF_EMBEDDING, HAS_OLLAMA_EMBEDDING, HAS_OPENAI_EMBEDDING
 
     providers: list[tuple] = []
     if selected in ("openai", "all") and HAS_OPENAI_EMBEDDING:
@@ -30,6 +30,10 @@ def _params(config):
         from aimu.models import OllamaEmbeddingModel
 
         providers.append(("ollama", OllamaEmbeddingModel))
+    if selected in ("hf", "all") and HAS_HF_EMBEDDING:
+        from aimu.models import HuggingFaceEmbeddingModel
+
+        providers.append(("hf", HuggingFaceEmbeddingModel))
 
     params = []
     for provider, enum in providers:
