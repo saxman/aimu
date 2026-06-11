@@ -31,7 +31,7 @@ notebooks = [
 ]
 hf = [
     "torch",
-    "transformers",
+    "transformers>=5,<6", # catalog targets 5.x models (Qwen 3.6, Gemma 4, GPT-OSS); cap the major to avoid surprise breakage on the next
     "torchvision", # required for gemma 4 e4b
     "accelerate",
     "sentencepiece",
