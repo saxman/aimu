@@ -19,6 +19,7 @@ class _ChatStateMixin:
       - ``messages``: list of OpenAI-format message dicts
       - ``_system_message``: ``str | None``
       - ``last_thinking``: ``str | None``
+      - ``last_usage``: ``dict | None``
       - ``tools``: list of ``@tool``-decorated callables
     """
 
@@ -58,6 +59,7 @@ class _ChatStateMixin:
         if system_message != "__keep__":
             self._system_message = system_message
         self.last_thinking = ""
+        self.last_usage = None
 
     def __deepcopy__(self, memo):
         # Stateful conversation history and non-copyable backend resources.
@@ -108,9 +110,7 @@ class _ChatStateMixin:
             self.messages.append({"role": "system", "content": self._system_message})
 
         if images and audio:
-            raise ValueError(
-                "images= and audio= are mutually exclusive per turn. Pass one or the other, not both."
-            )
+            raise ValueError("images= and audio= are mutually exclusive per turn. Pass one or the other, not both.")
 
         if images:
             self._require_vision()

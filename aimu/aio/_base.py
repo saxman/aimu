@@ -38,6 +38,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
     default_generate_kwargs: dict
     messages: list[dict]
     last_thinking: str | None
+    last_usage: dict | None
 
     @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
@@ -48,6 +49,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         self.messages = []
         self.tools: list = []
         self.last_thinking = ""
+        self.last_usage = None
         self.concurrent_tool_calls = False
 
     @classproperty
@@ -136,15 +138,21 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         ``AsyncIterator[StreamChunk]`` — consume with ``async for``.
         """
         if tools is None:
-            result = await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio)
+            result = await self._chat(
+                user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
+            )
             if stream and include is not None:
                 return afilter_chunks(result, resolve_include(include))
             return result
 
         if stream:
-            return self._chat_with_tools_streamed(user_message, generate_kwargs, use_tools, images, include, tools, audio=audio)
+            return self._chat_with_tools_streamed(
+                user_message, generate_kwargs, use_tools, images, include, tools, audio=audio
+            )
         with self._tools_override(tools):
-            return await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio)
+            return await self._chat(
+                user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
+            )
 
     async def _chat_with_tools_streamed(
         self,
@@ -162,7 +170,9 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         ``self.tools``), so the swap wraps the ``async for`` rather than just ``_chat``.
         """
         with self._tools_override(tools):
-            result = await self._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio)
+            result = await self._chat(
+                user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio
+            )
             if include is not None:
                 result = afilter_chunks(result, resolve_include(include))
             async for chunk in result:

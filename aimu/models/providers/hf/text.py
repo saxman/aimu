@@ -397,7 +397,9 @@ class HuggingFaceClient(BaseModelClient):
             pil_images = _extract_pil_images(messages) if self.model.supports_vision else []
             audio_arrays = _extract_audio_arrays(messages) if self.model.supports_audio else []
             template_messages = _replace_image_url_with_image_placeholder(messages) if pil_images else messages
-            template_messages = _replace_audio_with_placeholder(template_messages) if audio_arrays else template_messages
+            template_messages = (
+                _replace_audio_with_placeholder(template_messages) if audio_arrays else template_messages
+            )
             text = self._hf_processor.apply_chat_template(
                 template_messages,
                 tools=tools if self.model.supports_tools else None,
@@ -574,6 +576,7 @@ class HuggingFaceClient(BaseModelClient):
             content = _build_user_content_blocks(prompt, images)
         elif audio:
             from ..._internal.audio_input import _build_audio_content_blocks
+
             content = _build_audio_content_blocks(prompt, audio)
         else:
             content = prompt

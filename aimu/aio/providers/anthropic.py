@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 
 from aimu.models.providers.anthropic import AnthropicClient as _SyncAnthropicClient
 from aimu.models.providers.anthropic import AnthropicModel
+from aimu.models._internal.usage import usage_from_anthropic
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 
 from .._base import AsyncBaseModelClient
@@ -96,6 +97,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             messages=[{"role": "user", "content": _SyncAnthropicClient._generate_content(prompt, images, audio=audio)}],
             **generate_kwargs,
         )
+        self.last_usage = usage_from_anthropic(response)
 
         self.last_thinking = ""
         content = ""
@@ -114,6 +116,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         audio: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
         self.last_thinking = ""
+        self.last_usage = None
 
         async with self._client.messages.stream(
             model=self.model.value,
@@ -138,7 +141,9 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         images: Optional[list] = None,
         audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        generate_kwargs, tools = await self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
+        generate_kwargs, tools = await self._chat_setup(
+            user_message, generate_kwargs, use_tools, images=images, audio=audio
+        )
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:
@@ -198,6 +203,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             if not self.last_thinking:
                 self.last_thinking = first_call_thinking
 
+        self.last_usage = usage_from_anthropic(response)
         assistant_msg: dict = {"role": "assistant", "content": text_content}
         if self.last_thinking:
             assistant_msg["thinking"] = self.last_thinking
@@ -211,6 +217,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         tool_use_acc: list[dict] = []
         first_pass_chunks: list[StreamChunk] = []
         self.last_thinking = ""
+        self.last_usage = None
 
         async with self._client.messages.stream(
             model=self.model.value,

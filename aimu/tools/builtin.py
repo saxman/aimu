@@ -956,4 +956,16 @@ transcription = [transcribe_audio]
 # execute_python is in the compute subgroup for discoverability but intentionally
 # excluded from ALL_TOOLS — code execution is higher-risk than other builtins.
 # Opt in explicitly via ``tools=builtin.compute`` or ``make_tools(python_sandbox=True)``.
-ALL_TOOLS = [*misc, get_weather, calculate, get_webpage, web_search, wikipedia, *fs, *image, *audio, *speech, *transcription]
+ALL_TOOLS = [
+    *misc,
+    get_weather,
+    calculate,
+    get_webpage,
+    web_search,
+    wikipedia,
+    *fs,
+    *image,
+    *audio,
+    *speech,
+    *transcription,
+]

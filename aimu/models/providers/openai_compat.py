@@ -20,6 +20,7 @@ import openai
 from ..base import BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType, classproperty
 from .._internal.audio_input import _build_audio_content_blocks
 from .._internal.image_input import _build_user_content_blocks
+from .._internal.usage import usage_from_openai
 from ._thinking import _ThinkingParser, _split_thinking
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,9 @@ class OpenAICompatClient(BaseModelClient):
     def _iter_stream(self, stream) -> Iterator[StreamChunk]:
         """Iterate a completion stream, yielding StreamChunks and updating self.last_thinking."""
         self.last_thinking = ""
+        # Streaming usage is not captured yet (would require stream_options + per-server
+        # support); clear the previous value so a stale non-streaming count isn't read.
+        self.last_usage = None
         parser = _ThinkingParser() if self.is_thinking_model else None
 
         for chunk in stream:
@@ -111,6 +115,7 @@ class OpenAICompatClient(BaseModelClient):
             **generate_kwargs,
         )
         logger.debug("LLM raw response: %s", response)
+        self.last_usage = usage_from_openai(response)
         content = response.choices[0].message.content or ""
 
         self.last_thinking = ""
@@ -178,6 +183,7 @@ class OpenAICompatClient(BaseModelClient):
             logger.debug("LLM raw response (after tools): %s", response)
             msg = response.choices[0].message
 
+        self.last_usage = usage_from_openai(response)
         content = msg.content or ""
         self.last_thinking = ""
         if self.is_thinking_model:
@@ -201,6 +207,7 @@ class OpenAICompatClient(BaseModelClient):
         first_pass_chunks: list[StreamChunk] = []
         parser = _ThinkingParser() if self.is_thinking_model else None
         self.last_thinking = ""
+        self.last_usage = None
 
         for chunk in stream:
             delta = chunk.choices[0].delta

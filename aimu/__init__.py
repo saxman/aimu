@@ -46,14 +46,20 @@ from .models import (
     HAS_HF_AUDIO,
     HAS_HF_IMAGE,
     HAS_HF_SPEECH,
+    HAS_OLLAMA_EMBEDDING,
+    HAS_OPENAI_EMBEDDING,
     HAS_OPENAI_SPEECH,
     AudioClient,
     AudioModel,
     AudioSpec,
     BaseAudioClient,
+    BaseEmbeddingClient,
     BaseImageClient,
     BaseModelClient,
     BaseSpeechClient,
+    EmbeddingClient,
+    EmbeddingModel,
+    EmbeddingSpec,
     GeminiImageClient,
     GeminiImageModel,
     GeminiImageSpec,
@@ -86,6 +92,7 @@ from .models import (
     available_speech_clients,
     available_text_models,
     resolve_audio_model_string,
+    resolve_embedding_model_string,
     resolve_default_text_model_enum,
     resolve_image_model_enum,
     resolve_image_model_string,
@@ -323,7 +330,9 @@ def transcription_client(
     return TranscriptionClient(model, model_kwargs=kwargs or None)
 
 
-def transcribe(audio: Any, *, model: Union[str, "TranscriptionModel", "TranscriptionSpec", None] = None, **kwargs: Any) -> str:
+def transcribe(
+    audio: Any, *, model: Union[str, "TranscriptionModel", "TranscriptionSpec", None] = None, **kwargs: Any
+) -> str:
     """One-shot transcription -- builds a fresh client and transcribes one audio clip.
 
     ``audio`` accepts a file path, raw bytes, an ``https://`` URL, or a
@@ -333,6 +342,60 @@ def transcribe(audio: Any, *, model: Union[str, "TranscriptionModel", "Transcrip
     member, or omitted (reads ``AIMU_TRANSCRIPTION_MODEL`` env var).
     """
     return transcription_client(model).transcribe(audio, **kwargs)
+
+
+def embedding_client(
+    model: Union[str, "EmbeddingModel", "EmbeddingSpec", None] = None,
+    **kwargs: Any,
+) -> "EmbeddingClient":
+    """Construct an :class:`EmbeddingClient` for text-embedding generation.
+
+    ``model`` accepts an :class:`EmbeddingModel` enum member, a ``"provider:model_id"``
+    string (e.g. ``"openai:text-embedding-3-small"``, ``"ollama:nomic-embed-text"``), or
+    an :class:`EmbeddingSpec`. Extra ``**kwargs`` are forwarded as ``model_kwargs`` to the
+    underlying client (e.g. ``api_key=`` for OpenAI).
+
+    When ``model`` is omitted, the ``AIMU_EMBEDDING_MODEL`` env var is used; if it is unset
+    a ``ValueError`` is raised (no model is downloaded implicitly).
+
+    Example::
+
+        client = aimu.embedding_client("openai:text-embedding-3-small")
+        vectors = client.embed(["hello", "world"])
+    """
+    if not (HAS_OPENAI_EMBEDDING or HAS_OLLAMA_EMBEDDING):
+        raise ImportError(
+            "Embedding generation requires the [openai_compat] extra (OpenAI) or the [ollama] extra (Ollama): "
+            "pip install -e '.[openai_compat]'  or  pip install -e '.[ollama]'"
+        )
+    if model is None:
+        from .models._internal.model_defaults import EMBEDDING_MODEL_ENV, resolve_default_modality_model
+
+        model = resolve_default_modality_model(EMBEDDING_MODEL_ENV)
+    return EmbeddingClient(model, model_kwargs=kwargs or None)
+
+
+def embed(
+    texts: Union[str, list],
+    *,
+    model: Union[str, "EmbeddingModel", "EmbeddingSpec", None] = None,
+    **kwargs: Any,
+) -> Any:
+    """One-shot embedding — builds a fresh client and embeds one string or a list.
+
+    A single ``str`` returns one vector (``list[float]``); a list returns a list of
+    vectors (``list[list[float]]``). For repeated embedding, construct a client with
+    :func:`embedding_client` and reuse it.
+
+    ``model`` may be a ``"provider:model_id"`` string, an :class:`EmbeddingModel` member,
+    or omitted (reads ``AIMU_EMBEDDING_MODEL`` env var).
+
+    Example::
+
+        vector = aimu.embed("hello", model="openai:text-embedding-3-small")
+        vectors = aimu.embed(["a", "b"], model="ollama:nomic-embed-text")
+    """
+    return embedding_client(model).embed(texts, **kwargs)
 
 
 def clear_hf_cache(model: Any = None) -> None:
@@ -485,13 +548,19 @@ __all__ = [
     "AudioModel",
     "AudioSpec",
     "BaseAudioClient",
+    "BaseEmbeddingClient",
     "BaseImageClient",
     "BaseModelClient",
     "BaseSpeechClient",
+    "EmbeddingClient",
+    "EmbeddingModel",
+    "EmbeddingSpec",
     "HAS_GEMINI_IMAGE",
     "HAS_HF_AUDIO",
     "HAS_HF_IMAGE",
     "HAS_HF_SPEECH",
+    "HAS_OLLAMA_EMBEDDING",
+    "HAS_OPENAI_EMBEDDING",
     "HAS_OPENAI_SPEECH",
     "GeminiImageClient",
     "GeminiImageModel",
@@ -530,6 +599,8 @@ __all__ = [
     "clear_hf_cache",
     "clear_llamacpp_cache",
     "client",
+    "embed",
+    "embedding_client",
     "extract_tool_calls",
     "generate_json",
     "parse_json_response",
@@ -539,6 +610,7 @@ __all__ = [
     "image_client",
     "available_text_models",
     "resolve_audio_model_string",
+    "resolve_embedding_model_string",
     "resolve_default_text_model_enum",
     "resolve_image_model_enum",
     "resolve_image_model_string",

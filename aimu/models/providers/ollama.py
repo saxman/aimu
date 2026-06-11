@@ -1,9 +1,20 @@
-from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
+from ..base import (
+    StreamingContentType,
+    StreamChunk,
+    Model,
+    ModelSpec,
+    BaseModelClient,
+    BaseEmbeddingClient,
+    EmbeddingModel,
+    OllamaEmbeddingSpec,
+    classproperty,
+)
 from .._internal.image_input import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
+from .._internal.usage import usage_from_ollama
 
 import ollama
 import logging
-from typing import Iterator, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +118,7 @@ class OllamaClient(BaseModelClient):
         )
 
         logger.debug("LLM raw response: %s", response)
+        self.last_usage = usage_from_ollama(response)
 
         self.last_thinking = ""
 
@@ -145,6 +157,7 @@ class OllamaClient(BaseModelClient):
         )
 
         self.last_thinking = ""
+        self.last_usage = None
 
         for response_part in response:
             logger.debug("LLM raw response part: %s", response_part)
@@ -206,6 +219,7 @@ class OllamaClient(BaseModelClient):
 
             logger.debug("LLM raw response: %s", response)
 
+        self.last_usage = usage_from_ollama(response)
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
 
         if response["message"].thinking:
@@ -214,6 +228,7 @@ class OllamaClient(BaseModelClient):
         return response["message"].content
 
     def _chat_streamed(self, generate_kwargs: dict, tools: list) -> Iterator[StreamChunk]:
+        self.last_usage = None
         response = ollama.chat(
             model=self.model.value,
             messages=_adapt_messages_for_ollama(self.messages),
@@ -289,3 +304,75 @@ class OllamaClient(BaseModelClient):
         if thinking:
             message["thinking"] = thinking
         self.messages.append(message)
+
+
+class OllamaEmbeddingModel(EmbeddingModel):
+    """Catalog of Ollama embedding models (pull with ``ollama pull <id>``).
+
+    Each member's value is an :class:`OllamaEmbeddingSpec`. ``.value`` is the Ollama
+    model tag; ``.spec`` returns the full spec.
+    """
+
+    NOMIC_EMBED_TEXT = OllamaEmbeddingSpec("nomic-embed-text", dimensions=768, max_input_tokens=8192)
+    MXBAI_EMBED_LARGE = OllamaEmbeddingSpec("mxbai-embed-large", dimensions=1024, max_input_tokens=512)
+    BGE_M3 = OllamaEmbeddingSpec("bge-m3", dimensions=1024, max_input_tokens=8192)
+    ALL_MINILM = OllamaEmbeddingSpec("all-minilm", dimensions=384, max_input_tokens=512)
+
+
+def _parse_embedding_model_string(s: str) -> OllamaEmbeddingSpec:
+    """Resolve an ``"ollama:<model_id>"`` string to a known :class:`OllamaEmbeddingModel` spec."""
+    if ":" not in s:
+        raise ValueError(
+            f"Ollama embedding model string must be in 'provider:model_id' form "
+            f"(e.g. 'ollama:nomic-embed-text'). Got: {s!r}"
+        )
+    provider, model_id = s.split(":", 1)
+    if provider != "ollama":
+        raise ValueError(f"Only 'ollama:' provider is supported for OllamaEmbeddingClient. Got provider: {provider!r}")
+    for member in OllamaEmbeddingModel:
+        if member.value == model_id:
+            return member.spec
+    available = sorted(m.value for m in OllamaEmbeddingModel)
+    raise ValueError(
+        f"Unknown Ollama embedding model id {model_id!r}. AIMU supports curated models only; "
+        f"pass a known id, an OllamaEmbeddingModel member, or a hand-built OllamaEmbeddingSpec. "
+        f"Available ids: {available}"
+    )
+
+
+class OllamaEmbeddingClient(BaseEmbeddingClient):
+    """Text-embedding client for a local Ollama server.
+
+    Pass an :class:`OllamaEmbeddingModel` member, an :class:`OllamaEmbeddingSpec`, or an
+    ``"ollama:<model_id>"`` string. The model is pulled on construction (same as
+    :class:`OllamaClient`).
+    """
+
+    MODELS = OllamaEmbeddingModel
+
+    def __init__(
+        self,
+        model: "OllamaEmbeddingModel | OllamaEmbeddingSpec | str",
+        model_kwargs: Optional[dict] = None,
+    ):
+        if isinstance(model, str):
+            spec = _parse_embedding_model_string(model)
+        elif isinstance(model, OllamaEmbeddingModel):
+            spec = model.spec
+        elif isinstance(model, OllamaEmbeddingSpec):
+            spec = model
+        else:
+            raise TypeError(
+                f"OllamaEmbeddingClient expects an OllamaEmbeddingModel member, OllamaEmbeddingSpec, "
+                f"or 'ollama:<model_id>' string. Got: {type(model).__name__}"
+            )
+        super().__init__(model=model, model_kwargs=model_kwargs)
+        self.spec = spec
+        ollama.pull(spec.id)
+
+    def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+        response = ollama.embed(model=self.spec.id, input=texts, **kwargs)
+        return [list(vector) for vector in response["embeddings"]]
+
+    def __repr__(self) -> str:
+        return f"OllamaEmbeddingClient(model={self.spec.id!r})"

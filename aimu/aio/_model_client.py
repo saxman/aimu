@@ -208,6 +208,15 @@ class AsyncModelClient(AsyncBaseModelClient):
         self._client.last_thinking = value
 
     @property
+    def last_usage(self) -> Optional[dict]:
+        """Token usage of the most recent non-streaming response, or ``None``."""
+        return self._client.last_usage
+
+    @last_usage.setter
+    def last_usage(self, value: Optional[dict]) -> None:
+        self._client.last_usage = value
+
+    @property
     def concurrent_tool_calls(self) -> bool:
         return self._client.concurrent_tool_calls
 

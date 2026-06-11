@@ -5,10 +5,13 @@ from .base import (
     AudioModel,
     AudioSpec,
     BaseAudioClient,
+    BaseEmbeddingClient,
     BaseImageClient,
     BaseModelClient,
     BaseSpeechClient,
     BaseTranscriptionClient,
+    EmbeddingModel,
+    EmbeddingSpec,
     GeminiImageSpec,
     HuggingFaceAudioSpec,
     HuggingFaceImageSpec,
@@ -18,6 +21,8 @@ from .base import (
     ImageSpec,
     Model,
     ModelSpec,
+    OllamaEmbeddingSpec,
+    OpenAIEmbeddingSpec,
     OpenAISpeechSpec,
     OpenAITranscriptionSpec,
     SpeechModel,
@@ -27,6 +32,7 @@ from .base import (
     TranscriptionModel,
     TranscriptionSpec,
 )
+from .embedding_client import EmbeddingClient, resolve_embedding_model_string
 from .image_client import ImageClient, resolve_image_model_enum, resolve_image_model_string
 from .model_client import (
     ModelClient,
@@ -179,6 +185,24 @@ except Exception:
     OpenAITranscriptionClient = None
     OpenAITranscriptionModel = None
 
+try:
+    from .providers.openai.embedding import OpenAIEmbeddingClient, OpenAIEmbeddingModel
+
+    HAS_OPENAI_EMBEDDING = True
+except Exception:
+    HAS_OPENAI_EMBEDDING = False
+    OpenAIEmbeddingClient = None
+    OpenAIEmbeddingModel = None
+
+try:
+    from .providers.ollama import OllamaEmbeddingClient, OllamaEmbeddingModel
+
+    HAS_OLLAMA_EMBEDDING = True
+except Exception:
+    HAS_OLLAMA_EMBEDDING = False
+    OllamaEmbeddingClient = None
+    OllamaEmbeddingModel = None
+
 # Expose what's available
 __all__ = [
     "extract_tool_calls",
@@ -226,6 +250,14 @@ __all__ = [
     "TranscriptionModel",
     "TranscriptionSpec",
     "resolve_transcription_model_string",
+    "BaseEmbeddingClient",
+    "EmbeddingClient",
+    "EmbeddingModel",
+    "EmbeddingSpec",
+    "OpenAIEmbeddingSpec",
+    "OllamaEmbeddingSpec",
+    "available_embedding_clients",
+    "resolve_embedding_model_string",
 ]
 if HAS_HF:
     __all__.extend(["HuggingFaceClient", "HuggingFaceModel", "ToolCallFormat"])
@@ -271,6 +303,20 @@ if HAS_HF_TRANSCRIPTION:
     __all__.extend(["HuggingFaceTranscriptionClient", "HuggingFaceTranscriptionModel"])
 if HAS_OPENAI_TRANSCRIPTION:
     __all__.extend(["OpenAITranscriptionClient", "OpenAITranscriptionModel"])
+if HAS_OPENAI_EMBEDDING:
+    __all__.extend(["OpenAIEmbeddingClient", "OpenAIEmbeddingModel"])
+if HAS_OLLAMA_EMBEDDING:
+    __all__.extend(["OllamaEmbeddingClient", "OllamaEmbeddingModel"])
+
+
+def available_embedding_clients() -> list[type[BaseEmbeddingClient]]:
+    """Return client classes for all installed embedding providers, in display order."""
+    clients: list[type[BaseEmbeddingClient]] = []
+    if HAS_OLLAMA_EMBEDDING:
+        clients.append(OllamaEmbeddingClient)
+    if HAS_OPENAI_EMBEDDING:
+        clients.append(OpenAIEmbeddingClient)
+    return clients
 
 
 def available_text_clients() -> list[type[BaseModelClient]]:

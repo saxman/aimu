@@ -73,9 +73,7 @@ def resolve_transcription_model_string(model_str: str) -> TranscriptionModel:
         if member.value == model_id:
             return member
     available = sorted(m.value for m in model_enum)
-    raise ValueError(
-        f"Provider {provider!r} has no transcription model id {model_id!r}. Available: {available}"
-    )
+    raise ValueError(f"Provider {provider!r} has no transcription model id {model_id!r}. Available: {available}")
 
 
 class TranscriptionClient:
@@ -96,14 +94,10 @@ class TranscriptionClient:
         client = TranscriptionClient("hf:openai/whisper-tiny")
     """
 
-    def __init__(
-        self, model: TranscriptionModel | TranscriptionSpec | str, model_kwargs: dict | None = None
-    ) -> None:
+    def __init__(self, model: TranscriptionModel | TranscriptionSpec | str, model_kwargs: dict | None = None) -> None:
         if isinstance(model, str):
             if ":" not in model:
-                raise ValueError(
-                    f"Transcription model string must be in 'provider:model_id' form, got: {model!r}"
-                )
+                raise ValueError(f"Transcription model string must be in 'provider:model_id' form, got: {model!r}")
             provider, _, _model_id = model.partition(":")
             if provider == "hf":
                 if not _HAS_HF_TRANSCRIPTION:
@@ -111,9 +105,7 @@ class TranscriptionClient:
                         "HuggingFace transcription support requires the [hf] extra "
                         "(soundfile, torch, transformers): pip install -e '.[hf]'"
                     )
-                self._client: BaseTranscriptionClient = HuggingFaceTranscriptionClient(
-                    model, model_kwargs=model_kwargs
-                )
+                self._client: BaseTranscriptionClient = HuggingFaceTranscriptionClient(model, model_kwargs=model_kwargs)
                 return
             if provider == "openai":
                 if not _HAS_OPENAI_TRANSCRIPTION:
@@ -123,9 +115,7 @@ class TranscriptionClient:
                     )
                 self._client = OpenAITranscriptionClient(model, model_kwargs=model_kwargs)
                 return
-            raise ValueError(
-                f"Unknown transcription provider {provider!r}. Available: {sorted(_provider_registry())}"
-            )
+            raise ValueError(f"Unknown transcription provider {provider!r}. Available: {sorted(_provider_registry())}")
 
         if isinstance(model, TranscriptionSpec) and not isinstance(model, TranscriptionModel):
             raise TypeError(

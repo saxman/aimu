@@ -13,6 +13,13 @@ import location stays ``aimu.models.base`` for the ~50 call sites that depend on
 """
 
 from ._base.audio import AudioModel, AudioSpec, BaseAudioClient, HuggingFaceAudioSpec
+from ._base.embedding import (
+    BaseEmbeddingClient,
+    EmbeddingModel,
+    EmbeddingSpec,
+    OllamaEmbeddingSpec,
+    OpenAIEmbeddingSpec,
+)
 from ._base.image import (
     BaseImageClient,
     GeminiImageSpec,
@@ -57,6 +64,12 @@ __all__ = [
     "HuggingFaceAudioSpec",
     "AudioModel",
     "BaseAudioClient",
+    # embedding
+    "EmbeddingSpec",
+    "OpenAIEmbeddingSpec",
+    "OllamaEmbeddingSpec",
+    "EmbeddingModel",
+    "BaseEmbeddingClient",
     # speech
     "SpeechSpec",
     "HuggingFaceSpeechSpec",

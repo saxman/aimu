@@ -17,6 +17,7 @@ import openai
 
 from aimu.models._internal.audio_input import _build_audio_content_blocks
 from aimu.models._internal.image_input import _build_user_content_blocks
+from aimu.models._internal.usage import usage_from_openai
 from aimu.models.providers._thinking import _ThinkingParser, _split_thinking
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.openai_compat import (
@@ -78,6 +79,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
 
     async def _iter_stream(self, stream) -> AsyncIterator[StreamChunk]:
         self.last_thinking = ""
+        self.last_usage = None
         parser = _ThinkingParser() if self.is_thinking_model else None
 
         async for chunk in stream:
@@ -118,6 +120,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             messages=[{"role": "user", "content": content_in}],
             **generate_kwargs,
         )
+        self.last_usage = usage_from_openai(response)
         content = response.choices[0].message.content or ""
 
         self.last_thinking = ""
@@ -157,7 +160,9 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         images: Optional[list] = None,
         audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        generate_kwargs, tools = await self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
+        generate_kwargs, tools = await self._chat_setup(
+            user_message, generate_kwargs, use_tools, images=images, audio=audio
+        )
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
@@ -184,6 +189,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             )
             msg = response.choices[0].message
 
+        self.last_usage = usage_from_openai(response)
         content = msg.content or ""
         self.last_thinking = ""
         if self.is_thinking_model:
@@ -205,6 +211,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         first_pass_chunks: list[StreamChunk] = []
         parser = _ThinkingParser() if self.is_thinking_model else None
         self.last_thinking = ""
+        self.last_usage = None
 
         async for chunk in stream:
             delta = chunk.choices[0].delta

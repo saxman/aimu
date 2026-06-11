@@ -117,7 +117,9 @@ class AsyncLlamaCppClient(AsyncBaseModelClient):
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         if stream:
             return self._stream_via_thread(
-                self._sync._chat(user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio)
+                self._sync._chat(
+                    user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio
+                )
             )
         return await asyncio.to_thread(self._sync._chat, user_message, generate_kwargs, use_tools, False, images, audio)
 

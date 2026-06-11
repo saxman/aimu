@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 from ..base import BaseModelClient, Model, ModelSpec, StreamingContentType, StreamChunk, classproperty
 from .._internal.image_input import _build_user_content_blocks, _openai_blocks_to_anthropic
+from .._internal.usage import usage_from_anthropic
 
 logger = logging.getLogger(__name__)
 
@@ -293,6 +294,7 @@ class AnthropicClient(BaseModelClient):
             **generate_kwargs,
         )
         logger.debug("Anthropic raw response: %s", response)
+        self.last_usage = usage_from_anthropic(response)
 
         self.last_thinking = ""
         content = ""
@@ -315,6 +317,7 @@ class AnthropicClient(BaseModelClient):
             return _openai_blocks_to_anthropic(_build_user_content_blocks(prompt, images))
         if audio:
             from .._internal.audio_input import _build_audio_content_blocks
+
             return _openai_blocks_to_anthropic(_build_audio_content_blocks(prompt, audio))
         return prompt
 
@@ -326,6 +329,7 @@ class AnthropicClient(BaseModelClient):
         audio: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
         self.last_thinking = ""
+        self.last_usage = None
 
         with self._client.messages.stream(
             model=self.model.value,
@@ -416,6 +420,7 @@ class AnthropicClient(BaseModelClient):
             if not self.last_thinking:
                 self.last_thinking = first_call_thinking
 
+        self.last_usage = usage_from_anthropic(response)
         assistant_msg: dict = {"role": "assistant", "content": text_content}
         if self.last_thinking:
             assistant_msg["thinking"] = self.last_thinking
@@ -430,6 +435,7 @@ class AnthropicClient(BaseModelClient):
         tool_use_acc: list[dict] = []  # {"id": str, "name": str, "input_json": str}
         first_pass_chunks: list[StreamChunk] = []
         self.last_thinking = ""
+        self.last_usage = None
 
         with self._client.messages.stream(
             model=self.model.value,

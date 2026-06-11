@@ -43,6 +43,7 @@ from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
 from .agent import Agent, AsyncRunner
 from .audio import AsyncAudioClient, audio_client, generate_audio
+from .embedding import AsyncEmbeddingClient, embed, embedding_client
 from .image import AsyncImageClient, generate_image, image_client
 from .speech import AsyncSpeechClient, speech_client, generate_speech
 from .transcription import AsyncTranscriptionClient, transcription_client, transcribe
@@ -92,6 +93,7 @@ except Exception:
 __all__ = [
     "Agent",
     "AsyncAudioClient",
+    "AsyncEmbeddingClient",
     "AsyncGeminiImageClient",
     "AsyncHuggingFaceAudioClient",
     "AsyncHuggingFaceImageClient",
@@ -115,6 +117,8 @@ __all__ = [
     "audio_client",
     "chat",
     "client",
+    "embed",
+    "embedding_client",
     "generate_audio",
     "generate_image",
     "generate_speech",

@@ -303,6 +303,19 @@ class ModelClient(BaseModelClient):
     def last_thinking(self, value: str) -> None:
         self._client.last_thinking = value
 
+    @property
+    def last_usage(self) -> Optional[dict]:
+        """Token usage of the most recent non-streaming response, or ``None``.
+
+        Shape: ``{"input_tokens", "output_tokens", "total_tokens"}``. ``None`` after a
+        streaming call or when the provider/server did not report usage.
+        """
+        return self._client.last_usage
+
+    @last_usage.setter
+    def last_usage(self, value: Optional[dict]) -> None:
+        self._client.last_usage = value
+
     def reset(self, system_message: Optional[str] = "__keep__") -> None:
         self._client.reset(system_message)
 

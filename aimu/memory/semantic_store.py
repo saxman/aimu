@@ -8,11 +8,38 @@ by semantic topic (e.g. "work", "family life") or by exact subject.
 from __future__ import annotations
 
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 import chromadb
 
 from aimu.memory.base import MemoryStore
+
+
+class _EmbeddingClientFunction(chromadb.EmbeddingFunction):
+    """Adapt an AIMU embedding client to ChromaDB's ``EmbeddingFunction`` protocol.
+
+    ChromaDB calls this with a list of documents and expects one vector per document;
+    it delegates to the client's ``embed()`` (which returns ``list[list[float]]`` for a
+    list input). Lets a caller pick the embedding model instead of ChromaDB's built-in
+    default.
+    """
+
+    def __init__(self, client: Any):
+        self._client = client
+
+    def __call__(self, input: Any) -> Any:  # noqa: A002 - ChromaDB requires the param named `input`
+        return self._client.embed(list(input))
+
+    @staticmethod
+    def name() -> str:
+        return "aimu_embedding_client"
+
+    def get_config(self) -> Any:
+        # The wrapped live client isn't serialisable. Returning the NotImplemented sentinel
+        # is ChromaDB's signal to skip embedding-function config persistence (avoids a
+        # per-call deprecation warning). Reopen a persistent store with the same
+        # embedding_client= (documented on SemanticMemoryStore).
+        return NotImplemented
 
 
 class SemanticMemoryStore(MemoryStore):
@@ -28,6 +55,12 @@ class SemanticMemoryStore(MemoryStore):
         collection_name: ChromaDB collection name (default: "memories").
         persist_path: Directory path for persistent storage. If None, uses an
             in-memory ephemeral client.
+        embedding_client: Optional AIMU embedding client (e.g. from
+            ``aimu.embedding_client("openai:text-embedding-3-small")``) to embed facts.
+            When ``None`` (default), ChromaDB's built-in default embedding model is used,
+            preserving the original behaviour exactly. A custom embedding model is not
+            persisted in the collection config, so reopen a persistent store with the same
+            ``embedding_client=``.
 
     Examples:
         >>> store = SemanticMemoryStore()
@@ -36,18 +69,30 @@ class SemanticMemoryStore(MemoryStore):
         >>> store.store("Sarah is the sister of Emma")
         >>> store.search("work")        # ["Paul works at Google"]
         >>> store.search("family life") # marriage / sibling facts
+
+        >>> client = aimu.embedding_client("openai:text-embedding-3-small")
+        >>> store = SemanticMemoryStore(embedding_client=client)
     """
 
-    def __init__(self, collection_name: str = "memories", persist_path: Optional[str] = None):
+    def __init__(
+        self,
+        collection_name: str = "memories",
+        persist_path: Optional[str] = None,
+        embedding_client: Optional[Any] = None,
+    ):
         if persist_path:
             self._client = chromadb.PersistentClient(path=persist_path)
         else:
             self._client = chromadb.EphemeralClient()
 
-        self._collection = self._client.get_or_create_collection(
-            name=collection_name,
-            metadata={"hnsw:space": "cosine"},
-        )
+        collection_kwargs: dict[str, Any] = {
+            "name": collection_name,
+            "metadata": {"hnsw:space": "cosine"},
+        }
+        if embedding_client is not None:
+            collection_kwargs["embedding_function"] = _EmbeddingClientFunction(embedding_client)
+
+        self._collection = self._client.get_or_create_collection(**collection_kwargs)
 
     # ------------------------------------------------------------------
     # MemoryStore abstract interface

@@ -92,3 +92,23 @@ def pytest_addoption(parser):
             "Defaults to 'all' within the selected --speech-client."
         ),
     )
+
+    parser.addoption(
+        "--embedding-client",
+        action="store",
+        default=None,
+        help=(
+            "Embedding client to test live: 'openai', 'ollama', or 'all'. Required to "
+            "enable live tests in tests/test_embeddings.py — omit to skip them."
+        ),
+    )
+
+    parser.addoption(
+        "--embedding-model",
+        action="store",
+        default="all",
+        help=(
+            "Embedding model enum member name (e.g. TEXT_EMBEDDING_3_SMALL, NOMIC_EMBED_TEXT). "
+            "Defaults to 'all' within the selected --embedding-client."
+        ),
+    )

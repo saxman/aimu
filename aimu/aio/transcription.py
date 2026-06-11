@@ -40,8 +40,7 @@ def _refuse(model: Any) -> None:
         raise ValueError(_WRAP_GUIDANCE.format(model=repr(model)))
     raise TypeError(
         f"AsyncTranscriptionClient expects a sync HuggingFaceTranscriptionClient or "
-        f"OpenAITranscriptionClient. Got: {type(model).__name__}. "
-        + _WRAP_GUIDANCE.format(model=repr(model))
+        f"OpenAITranscriptionClient. Got: {type(model).__name__}. " + _WRAP_GUIDANCE.format(model=repr(model))
     )
 
 
@@ -124,9 +123,8 @@ async def transcribe(audio: Any, *, model: Any = None, **kwargs: Any) -> str | d
 
         model = resolve_default_modality_model(TRANSCRIPTION_MODEL_ENV)
 
-    if (
-        (_HAS_HF_TRANSCRIPTION and _is_hf_transcription_client(model))
-        or (_HAS_OPENAI_TRANSCRIPTION and _is_openai_transcription_client(model))
+    if (_HAS_HF_TRANSCRIPTION and _is_hf_transcription_client(model)) or (
+        _HAS_OPENAI_TRANSCRIPTION and _is_openai_transcription_client(model)
     ):
         sync_client: Any = model
     elif isinstance(model, str) or hasattr(model, "spec"):

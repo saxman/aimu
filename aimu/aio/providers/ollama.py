@@ -8,6 +8,7 @@ from typing import AsyncIterator, Optional, Union
 import ollama
 
 from aimu.models._internal.image_input import _adapt_messages_for_ollama
+from aimu.models._internal.usage import usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.ollama import OllamaClient, OllamaModel
 
@@ -81,6 +82,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
         )
+        self.last_usage = usage_from_ollama(response)
 
         self.last_thinking = ""
         if not self.is_thinking_model:
@@ -105,6 +107,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         )
 
         self.last_thinking = ""
+        self.last_usage = None
         async for response_part in response:
             if response_part.thinking:
                 self.last_thinking += response_part.thinking
@@ -120,7 +123,9 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         images: Optional[list] = None,
         audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        generate_kwargs, tools = await self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
+        generate_kwargs, tools = await self._chat_setup(
+            user_message, generate_kwargs, use_tools, images=images, audio=audio
+        )
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
@@ -152,12 +157,14 @@ class AsyncOllamaClient(AsyncBaseModelClient):
                 keep_alive=self.model_keep_alive_seconds,
             )
 
+        self.last_usage = usage_from_ollama(response)
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
         if response["message"].thinking:
             self.messages[-1]["thinking"] = response["message"].thinking
         return response["message"].content
 
     async def _chat_streamed(self, generate_kwargs: dict, tools: list) -> AsyncIterator[StreamChunk]:
+        self.last_usage = None
         response = await self._client.chat(
             model=self.model.value,
             messages=_adapt_messages_for_ollama(self.messages),
