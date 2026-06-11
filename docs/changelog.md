@@ -39,8 +39,12 @@
 - **Fix** `CLAUDE_HAIKU_4_5` now correctly has `thinking=True` — Haiku 4.5 supports extended thinking via the `enabled`/`budget_tokens` form (previously omitted, so thinking tests silently skipped).
 - Adaptive models decide per request whether to think and may emit none on simple prompts; the thinking tests use a multi-step reasoning prompt and assert thinking emission rather than an exact answer.
 - **Docs** Updated the [model matrix](reference/model-matrix.md#anthropic-anthropicmodel), [provider matrix](reference/provider-matrix.md), [add a new model](how-to/add-new-model.md#anthropic-provider-specific-extras), and CLAUDE.md (Thinking Models, AnthropicClient notes) to cover the two thinking styles and the new models.
+- **Docs** Added an "Adaptive vs. budget thinking" section to `notebooks/01 - Model Client.ipynb` (section C) demonstrating `ThinkingStyle` and adaptive models skipping thinking on trivial prompts.
 
----
+### Dependencies
+
+- **Fix** Pinned the `[hf]` extra's `kernels` to `>=0.12,<0.13`. It was unconstrained and resolved to `kernels 0.15.2`, which is outside the range `transformers` supports (`<0.13`); `transformers` constructs `kernels.LayerRepository(...)` at import time and 0.13+ made `revision`/`version` mandatory, so `from transformers import AutoProcessor` raised `ValueError` — silently flipping `HAS_HF` to `False` (HuggingFace clients unavailable) and erroring every HF test on import.
+- Pinned the `[hf]` extra's `transformers` to `>=5,<6` (the major the model catalog targets — Qwen 3.6, Gemma 4, GPT-OSS) so a future major can't reintroduce this class of import-time breakage on resolve.
 
 ## v0.7.0 (2026-06-08) — MCP tool unification, model resolvers, and agent improvements
 
