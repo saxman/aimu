@@ -22,6 +22,7 @@ from aimu.models.base import Model, StreamChunk, classproperty
 from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
 
 from ..._base import AsyncBaseModelClient
+from .._sync_tool_bridge import bridge_async_tools
 
 
 class AsyncHuggingFaceClient(AsyncBaseModelClient):
@@ -129,25 +130,52 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
         images: Optional[list] = None,
         audio: Optional[list] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
+        # The sync _chat loop dispatches tools in a worker thread and can't await
+        # async tools. Bridge them to sync callables that run on this loop so the
+        # sync dispatcher can call them. See _sync_tool_bridge.
+        restore = self._install_bridged_tools() if use_tools else None
         if stream:
-            return self._stream_via_thread(
-                self._sync._chat(
-                    user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio
-                )
+            sync_iter = self._sync._chat(
+                user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio
             )
-        return await asyncio.to_thread(self._sync._chat, user_message, generate_kwargs, use_tools, False, images, audio)
+            return self._stream_via_thread(sync_iter, restore=restore)
+        try:
+            return await asyncio.to_thread(
+                self._sync._chat, user_message, generate_kwargs, use_tools, False, images, audio
+            )
+        finally:
+            if restore is not None:
+                self._sync.tools = restore
 
-    async def _stream_via_thread(self, sync_iterator) -> AsyncIterator[StreamChunk]:
+    def _install_bridged_tools(self) -> Optional[list]:
+        """Swap in sync-bridged tools for the duration of a sync ``_chat`` call.
+
+        Returns the original tools list to restore afterward, or ``None`` if no
+        async tools were present (nothing swapped).
+        """
+        original = self._sync.tools
+        bridged = bridge_async_tools(original, asyncio.get_running_loop())
+        if bridged is None:
+            return None
+        self._sync.tools = bridged
+        return original
+
+    async def _stream_via_thread(self, sync_iterator, restore: Optional[list] = None) -> AsyncIterator[StreamChunk]:
         """Yield from a sync iterator by hopping each ``next()`` to a worker thread.
 
         Crude but correct — HF's streaming iterator is sync, so each chunk pull
         blocks until the next token is generated. ``asyncio.to_thread`` keeps the
-        event loop free between chunks.
+        event loop free between chunks. ``restore``, when given, is the tools list
+        to reinstate once the stream is exhausted (see :meth:`_install_bridged_tools`).
         """
         sentinel = object()
         loop_iter = iter(sync_iterator)
-        while True:
-            chunk = await asyncio.to_thread(next, loop_iter, sentinel)
-            if chunk is sentinel:
-                break
-            yield chunk
+        try:
+            while True:
+                chunk = await asyncio.to_thread(next, loop_iter, sentinel)
+                if chunk is sentinel:
+                    break
+                yield chunk
+        finally:
+            if restore is not None:
+                self._sync.tools = restore
