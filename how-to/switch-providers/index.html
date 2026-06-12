@@ -695,6 +695,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1146,6 +1156,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../handle-audio-input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handle audio input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../generate-images/" class="md-nav__link">
         
   
@@ -1210,6 +1248,62 @@
     
   
     Generate speech
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transcribe-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transcribe audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../use-embeddings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embed text
   
 
     
@@ -1350,6 +1444,62 @@
     
   
     Use document memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../use-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval-augmented generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../using-llms-inside-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use LLMs inside tools
   
 
     
@@ -1618,6 +1768,8 @@
       
         
       
+        
+      
     
     
     
@@ -1846,6 +1998,34 @@
     
   
     aimu.memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.rag
   
 
     
@@ -2711,7 +2891,7 @@
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Unknown</span> <span class="n">provider</span> <span class="s1">&#39;foo&#39;</span><span class="o">.</span> <span class="n">Available</span> <span class="n">providers</span> <span class="p">(</span><span class="k">with</span> <span class="n">installed</span> <span class="n">deps</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;anthropic&#39;</span><span class="p">,</span> <span class="s1">&#39;ollama&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-nonsense&quot;</span><span class="p">)</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Provider</span> <span class="s1">&#39;anthropic&#39;</span> <span class="n">has</span> <span class="n">no</span> <span class="n">model</span> <span class="nb">id</span> <span class="s1">&#39;claude-nonsense&#39;</span><span class="o">.</span> <span class="n">Available</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;claude-haiku-4-5&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-6&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-sonnet-4-6&#39;</span><span class="p">]</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Provider</span> <span class="s1">&#39;anthropic&#39;</span> <span class="n">has</span> <span class="n">no</span> <span class="n">model</span> <span class="nb">id</span> <span class="s1">&#39;claude-nonsense&#39;</span><span class="o">.</span> <span class="n">Available</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;claude-fable-5&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-haiku-4-5&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-6&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-7&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-8&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-sonnet-4-6&#39;</span><span class="p">]</span>
 </span></code></pre></div>
 
 

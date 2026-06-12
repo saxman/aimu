@@ -804,6 +804,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1117,6 +1127,34 @@
   
   
     <li class="md-nav__item">
+      <a href="how-to/handle-audio-input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handle audio input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="how-to/generate-images/" class="md-nav__link">
         
   
@@ -1181,6 +1219,62 @@
     
   
     Generate speech
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="how-to/transcribe-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transcribe audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="how-to/use-embeddings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embed text
   
 
     
@@ -1321,6 +1415,62 @@
     
   
     Use document memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="how-to/use-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval-augmented generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="how-to/using-llms-inside-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use LLMs inside tools
   
 
     
@@ -1589,6 +1739,8 @@
       
         
       
+        
+      
     
     
     
@@ -1817,6 +1969,34 @@
     
   
     aimu.memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/api/rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.rag
   
 
     
@@ -2579,7 +2759,7 @@
 <li><strong>Optional async surface</strong> — <code>aimu.aio</code> mirrors the whole sync API (same class names, one-import-away). <code>Parallel</code> and <code>concurrent_tool_calls</code> use <code>asyncio.TaskGroup</code> for structured concurrency. See <a href="explanation/async-design/">async design</a>.</li>
 </ul>
 <h2 id="notebooks">Notebooks<a class="headerlink" href="#notebooks" title="Permanent link">&para;</a></h2>
-<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 17 runnable demos covering every subsystem end-to-end, including <code>14 - Async</code>, <code>15 - Image Generation</code>, <code>16 - Audio Generation</code>, and <code>17 - Speech</code> (TTS now, STT placeholder for Whisper). The <a href="https://github.com/saxman/aimu#examples">README</a> lists each one.</p>
+<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 21 runnable demos covering every subsystem end-to-end, including <code>17 - Speech</code>, <code>18 - Audio Input</code>, <code>19 - Transcription</code>, <code>20 - Embeddings</code>, and <code>21 - RAG</code>. The <a href="https://github.com/saxman/aimu#examples">README</a> lists each one.</p>
 <h2 id="web-apps">Web apps<a class="headerlink" href="#web-apps" title="Permanent link">&para;</a></h2>
 <p>The <a href="https://github.com/saxman/aimu/tree/main/web"><code>web/</code></a> directory ships two Streamlit chat applications. <code>streamlit_chatbot_basic.py</code> (~70 lines) is a minimal showcase — provider/model selector, streaming chat, built-in tools — illustrating how little code a working AIMU chatbot takes. <code>streamlit_chatbot.py</code> is a full-featured version that adds image generation, audio generation, speech narration (live sentence-by-sentence TTS as the model streams), agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included.</p>
 

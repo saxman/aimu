@@ -693,6 +693,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1006,6 +1016,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/handle-audio-input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handle audio input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/generate-images/" class="md-nav__link">
         
   
@@ -1070,6 +1108,62 @@
     
   
     Generate speech
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/transcribe-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transcribe audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-embeddings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embed text
   
 
     
@@ -1210,6 +1304,62 @@
     
   
     Use document memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval-augmented generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/using-llms-inside-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use LLMs inside tools
   
 
     
@@ -1483,6 +1633,8 @@
       
         
       
+        
+      
     
     
     
@@ -1714,6 +1866,34 @@
     
   
     aimu.memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.rag
   
 
     
@@ -1985,6 +2165,17 @@
     <span class="md-ellipsis">
       
         Tool endpoints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#default-model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default model selection
       
     </span>
   </a>
@@ -2455,6 +2646,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#default-model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default model selection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#mcp-server-storage-paths" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2572,6 +2774,30 @@
 <p>The built-in <code>generate_image</code> tool constructs its image client lazily on first call, picking the provider and model from <code>AIMU_IMAGE_MODEL</code>. Accepts any string supported by <code>aimu.image_client()</code> — <code>"hf:&lt;repo&gt;"</code> or <code>"gemini:&lt;id_or_alias&gt;"</code>. Override per-agent by building your own tool with <code>make_image_tool(client)</code> instead of using the singleton.</p>
 <p>The built-in <code>generate_audio</code> tool follows the same pattern. <code>AIMU_AUDIO_MODEL</code> accepts any string supported by <code>aimu.audio_client()</code> — currently <code>"hf:&lt;repo&gt;"</code>. Override per-agent with <code>make_audio_tool(client)</code> instead of using the singleton.</p>
 <p>The built-in <code>generate_speech</code> tool follows the same pattern. <code>AIMU_SPEECH_MODEL</code> accepts any string supported by <code>aimu.speech_client()</code> — <code>"openai:&lt;model_id&gt;"</code> (requires <code>OPENAI_API_KEY</code>) or <code>"hf:&lt;repo_id&gt;"</code>. Override per-agent with <code>make_speech_tool(client)</code> instead of using the singleton.</p>
+<h2 id="default-model-selection">Default model selection<a class="headerlink" href="#default-model-selection" title="Permanent link">&para;</a></h2>
+<p>These set the default <code>model=</code> for a modality's top-level helpers when the argument is omitted. Unlike the tool defaults above, they have <strong>no built-in fallback</strong> — if unset and no model is passed, the helper raises <code>ValueError</code> (AIMU never downloads weights implicitly).</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Used by</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AIMU_TRANSCRIPTION_MODEL</code></td>
+<td><code>aimu.transcription_client()</code> / <code>aimu.transcribe()</code></td>
+<td>None (raises if unset)</td>
+</tr>
+<tr>
+<td><code>AIMU_EMBEDDING_MODEL</code></td>
+<td><code>aimu.embedding_client()</code> / <code>aimu.embed()</code></td>
+<td>None (raises if unset)</td>
+</tr>
+</tbody>
+</table>
+<p><code>AIMU_EMBEDDING_MODEL</code> accepts any string supported by <code>aimu.embedding_client()</code> — <code>"openai:&lt;model_id&gt;"</code> (requires <code>OPENAI_API_KEY</code>), <code>"ollama:&lt;model_id&gt;"</code>, or <code>"hf:&lt;repo_id&gt;"</code> (the <code>[hf]</code> extra).</p>
 <h2 id="mcp-server-storage-paths">MCP server storage paths<a class="headerlink" href="#mcp-server-storage-paths" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2618,10 +2844,13 @@
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Speech generation default (used by the built-in generate_speech tool)</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="na">AIMU_SPEECH_MODEL</span><span class="o">=</span><span class="s">hf:microsoft/speecht5_tts</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># MCP server storage</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="na">MEMORY_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/memory</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="na">DOCUMENT_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/docs</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="na">PROMPT_CATALOG_PATH</span><span class="o">=</span><span class="s">./.aimu/prompts.db</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># Embedding default (used by aimu.embedding_client() / aimu.embed())</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="na">AIMU_EMBEDDING_MODEL</span><span class="o">=</span><span class="s">openai:text-embedding-3-small</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="c1"># MCP server storage</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="na">MEMORY_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/memory</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="na">DOCUMENT_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/docs</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="na">PROMPT_CATALOG_PATH</span><span class="o">=</span><span class="s">./.aimu/prompts.db</span>
 </span></code></pre></div>
 <p>Place it in your project root. Don't commit it — add <code>.env</code> to <code>.gitignore</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

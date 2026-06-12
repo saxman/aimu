@@ -693,6 +693,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1006,6 +1016,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/handle-audio-input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handle audio input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/generate-images/" class="md-nav__link">
         
   
@@ -1070,6 +1108,62 @@
     
   
     Generate speech
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/transcribe-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transcribe audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-embeddings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embed text
   
 
     
@@ -1210,6 +1304,62 @@
     
   
     Use document memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval-augmented generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/using-llms-inside-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use LLMs inside tools
   
 
     
@@ -1483,6 +1633,8 @@
       
         
       
+        
+      
     
     
     
@@ -1714,6 +1866,34 @@
     
   
     aimu.memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.rag
   
 
     
@@ -2801,28 +2981,55 @@
 </thead>
 <tbody>
 <tr>
-<td><code>CLAUDE_SONNET_4_6</code></td>
-<td><code>claude-sonnet-4-6</code></td>
+<td><code>CLAUDE_FABLE_5</code></td>
+<td><code>claude-fable-5</code></td>
 <td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅ (adaptive)</td>
 <td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td><code>CLAUDE_OPUS_4_8</code></td>
+<td><code>claude-opus-4-8</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅ (adaptive)</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td><code>CLAUDE_OPUS_4_7</code></td>
+<td><code>claude-opus-4-7</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅ (adaptive)</td>
 <td style="text-align: center;">✅</td>
 </tr>
 <tr>
 <td><code>CLAUDE_OPUS_4_6</code></td>
 <td><code>claude-opus-4-6</code></td>
 <td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅ (budget)</td>
 <td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td><code>CLAUDE_SONNET_4_6</code></td>
+<td><code>claude-sonnet-4-6</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅ (budget)</td>
 <td style="text-align: center;">✅</td>
 </tr>
 <tr>
 <td><code>CLAUDE_HAIKU_4_5</code></td>
 <td><code>claude-haiku-4-5</code></td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">—</td>
+<td style="text-align: center;">✅ (budget)</td>
 <td style="text-align: center;">✅</td>
 </tr>
 </tbody>
 </table>
+<p>AIMU requests Anthropic reasoning in one of two shapes, fixed per model by a <code>ThinkingStyle</code> on each <code>AnthropicModel</code> member (an Anthropic-specific enum, analogous to HuggingFace's <code>ToolCallFormat</code>):</p>
+<ul>
+<li><strong>budget</strong> — <code>thinking={"type": "enabled", "budget_tokens": N}</code>; the model always thinks up to the budget. Used by Opus 4.6, Sonnet 4.6, and Haiku 4.5.</li>
+<li><strong>adaptive</strong> — <code>thinking={"type": "adaptive", "display": "summarized"}</code>; the model decides per request whether and how much to think (it may not think at all on simple prompts), and <code>temperature</code>/<code>top_p</code>/<code>top_k</code> are not sent. Required by Opus 4.7+ and Fable 5, which reject the budget form with a 400.</li>
+</ul>
+<p>Both styles surface reasoning as <code>THINKING</code> stream chunks and populate <code>last_thinking</code>. The <code>thinking=</code> column reflects the universal <code>supports_thinking</code> flag; the style only changes how the request is built, handled entirely inside <code>AnthropicClient</code>.</p>
 <h2 id="openai-openaimodel">OpenAI (<code>OpenAIModel</code>)<a class="headerlink" href="#openai-openaimodel" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

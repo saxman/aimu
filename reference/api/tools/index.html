@@ -693,6 +693,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1006,6 +1016,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../how-to/handle-audio-input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handle audio input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../how-to/generate-images/" class="md-nav__link">
         
   
@@ -1070,6 +1108,62 @@
     
   
     Generate speech
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/transcribe-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transcribe audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/use-embeddings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embed text
   
 
     
@@ -1210,6 +1304,62 @@
     
   
     Use document memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/use-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval-augmented generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/using-llms-inside-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use LLMs inside tools
   
 
     
@@ -1464,6 +1614,8 @@
   
     
     
+      
+        
       
         
       
@@ -1915,6 +2067,39 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#tool-factories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool factories
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_memory_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_memory_tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_retrieval_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_retrieval_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1967,6 +2152,34 @@
     
   
     aimu.memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.rag
   
 
     
@@ -2787,6 +3000,39 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#tool-factories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool factories
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_memory_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_memory_tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_retrieval_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_retrieval_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3494,6 +3740,72 @@ engines). Comma-separated for multiple, e.g. "news,science".</p>
           </tr>
       </tbody>
     </table>
+
+
+    </div>
+
+</div><h2 id="tool-factories">Tool factories<a class="headerlink" href="#tool-factories" title="Permanent link">&para;</a></h2>
+<p>Bind a tool to a specific resource (a memory store, a knowledge base) instead of a
+process-wide singleton.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.make_memory_tools" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.make_memory_tools</span>
+
+
+<a href="#aimu.tools.builtin.make_memory_tools" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_memory_tools</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Build <code>store_memory</code>, <code>search_memories</code>, and <code>list_memories</code> tools bound to <em>store</em>.</p>
+<p><em>store</em> may be any :class:<code>aimu.memory.MemoryStore</code> implementation —
+:class:<code>~aimu.memory.SemanticMemoryStore</code> (ChromaDB vector search),
+:class:<code>~aimu.memory.DocumentStore</code> (path-keyed), or a custom subclass.</p>
+<p>Unlike the image/audio/speech tools, there is no env-var singleton for memory
+because the choice of store (ephemeral vs. persistent, which persist_path) is
+meaningful and should be explicit. Construct the store, pass it here, and add
+the returned list to the agent::</p>
+<div class="language-text highlight"><pre><span></span><code>store = SemanticMemoryStore(persist_path=&quot;./.memory&quot;)
+agent = Agent(client, tools=make_memory_tools(store) + builtin.web)
+</code></pre></div>
+<p>For cross-process or multi-agent memory, use the FastMCP servers in
+<code>aimu.memory.mcp</code> / <code>aimu.memory.document_mcp</code> instead.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.make_retrieval_tool" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.make_retrieval_tool</span>
+
+
+<a href="#aimu.tools.builtin.make_retrieval_tool" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_retrieval_tool</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">n_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Build a <code>retrieve_context</code> tool bound to <em>store</em> for retrieval-augmented agents.</p>
+<p><em>store</em> may be any :class:<code>aimu.memory.MemoryStore</code> (typically a
+:class:<code>~aimu.memory.SemanticMemoryStore</code> populated via :func:<code>aimu.rag.ingest</code>).
+The tool runs :func:<code>aimu.rag.retrieve</code> and returns the joined context, letting an
+agent fetch relevant background on demand::</p>
+<div class="language-text highlight"><pre><span></span><code>from aimu.rag import ingest
+store = SemanticMemoryStore()
+ingest(store, my_documents)
+agent = Agent(client, tools=[make_retrieval_tool(store)])
+</code></pre></div>
+<p>Like :func:<code>make_memory_tools</code>, there is no env-var singleton — the store (and what was
+ingested into it) is a meaningful, explicit choice.</p>
 
 
     </div>

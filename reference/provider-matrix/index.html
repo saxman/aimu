@@ -693,6 +693,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1006,6 +1016,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/handle-audio-input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handle audio input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/generate-images/" class="md-nav__link">
         
   
@@ -1070,6 +1108,62 @@
     
   
     Generate speech
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/transcribe-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transcribe audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-embeddings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embed text
   
 
     
@@ -1210,6 +1304,62 @@
     
   
     Use document memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval-augmented generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/using-llms-inside-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use LLMs inside tools
   
 
     
@@ -1483,6 +1633,8 @@
       
         
       
+        
+      
     
     
     
@@ -1714,6 +1866,34 @@
     
   
     aimu.memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.rag
   
 
     
@@ -2734,7 +2914,7 @@
 <h2 id="notes-per-provider">Notes per provider<a class="headerlink" href="#notes-per-provider" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>OpenAIClient</code></strong> overrides <code>_update_generate_kwargs</code> for o-series models (o1/o3/o4): renames <code>max_tokens → max_completion_tokens</code> and forces <code>temperature=1</code>.</li>
-<li><strong><code>AnthropicClient</code></strong> stores <code>self.messages</code> in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (<code>thinking={"type": "enabled", "budget_tokens": N}</code>), not <code>&lt;think&gt;</code> tag parsing.</li>
+<li><strong><code>AnthropicClient</code></strong> stores <code>self.messages</code> in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not <code>&lt;think&gt;</code> tag parsing), built per the model's <code>ThinkingStyle</code>: <code>enabled</code> (<code>{"type": "enabled", "budget_tokens": N}</code>) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or <code>adaptive</code> (<code>{"type": "adaptive", "display": "summarized"}</code>, sampling params dropped) for Opus 4.7+ / Fable 5. See the <a href="../model-matrix/#anthropic-anthropicmodel">model matrix</a>.</li>
 <li><strong><code>GeminiClient</code></strong> uses Google's OpenAI-compatible endpoint. Gemini 2.5 thinking models emit <code>&lt;think&gt;</code> tags on this endpoint, so the shared <code>_ThinkingParser</code> works as-is.</li>
 <li><strong><code>OllamaClient</code></strong> (native API) supports vision via the message-level <code>images=</code> field; only inline base64 / data URLs work, http(s) URLs raise <code>ValueError</code>.</li>
 <li><strong><code>LlamaCppClient</code></strong> loads GGUF files in-process. Vision needs an <code>mmproj</code> projector via the <code>chat_handler=</code> kwarg (e.g. <code>Llava15ChatHandler(clip_model_path=...)</code>).</li>
