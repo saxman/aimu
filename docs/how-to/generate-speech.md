@@ -245,4 +245,5 @@ wav = await aio.generate_speech("Hello!", model=sync, format="bytes")
 - [Reference: stream phases](../reference/stream-phases.md) — `SPEECH_GENERATING` chunk shape.
 - [Reference: env vars](../reference/env-vars.md) — `AIMU_SPEECH_MODEL`.
 - [Generate audio](generate-audio.md) — the music/sound surface, which this mirrors.
-- [Notebook 17 — Speech](https://github.com/saxman/aimu/tree/main/notebooks) — runnable end-to-end demo (TTS now, STT placeholder).
+- [Notebook 17 — Speech](https://github.com/saxman/aimu/blob/main/notebooks/17%20-%20Speech.ipynb) — runnable TTS demo.
+- [Transcribe audio](transcribe-audio.md) — the speech-to-text (ASR) surface.

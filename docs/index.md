@@ -75,7 +75,7 @@ That's the full mental model: a `chat()` function for one-shots, a `client()` fa
 
 ## Notebooks
 
-The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 17 runnable demos covering every subsystem end-to-end, including `14 - Async`, `15 - Image Generation`, `16 - Audio Generation`, and `17 - Speech` (TTS now, STT placeholder for Whisper). The [README](https://github.com/saxman/aimu#examples) lists each one.
+The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 21 runnable demos covering every subsystem end-to-end, including `17 - Speech`, `18 - Audio Input`, `19 - Transcription`, `20 - Embeddings`, and `21 - RAG`. The [README](https://github.com/saxman/aimu#examples) lists each one.
 
 ## Web apps
 

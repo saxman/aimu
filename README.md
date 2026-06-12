@@ -343,7 +343,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [14 - Async](notebooks/14%20-%20Async.ipynb) | `aimu.aio` surface end-to-end: chat, streaming, async tools, `asyncio.TaskGroup`-backed `Parallel`, async `MCPClient`, in-process provider wrapping |
 | [15 - Image Generation](notebooks/15%20-%20Image%20Generation.ipynb) | `aimu.image_client()` / `aimu.generate_image()` with HuggingFace `diffusers` and Google Nano Banana, plus the built-in `generate_image` agent tool |
 | [16 - Audio Generation](notebooks/16%20-%20Audio%20Generation.ipynb) | `aimu.audio_client()` / `aimu.generate_audio()` with MusicGen, AudioLDM2, and Stable Audio Open, plus streaming and the built-in `generate_audio` agent tool |
-| [17 - Speech](notebooks/17%20-%20Speech.ipynb) | TTS with HuggingFace (SpeechT5, MMS-TTS, BARK) and OpenAI (tts-1/tts-1-hd); `generate_speech` agent tool; Streamlit live narration; STT placeholder |
+| [17 - Speech](notebooks/17%20-%20Speech.ipynb) | TTS with HuggingFace (SpeechT5, MMS-TTS, BARK) and OpenAI (tts-1/tts-1-hd); `generate_speech` agent tool; Streamlit live narration (speech-to-text is notebook 19) |
 | [18 - Audio Input](notebooks/18%20-%20Audio%20Input.ipynb) | Audio input via `audio=` on `chat()` and `generate()`; model selection; accepted formats; async surface |
 | [19 - Transcription](notebooks/19%20-%20Transcription.ipynb) | Speech-to-text via `transcription_client()` / `transcribe()`; OpenAI and HuggingFace providers; timestamps; async surface |
 | [20 - Embeddings](notebooks/20%20-%20Embeddings.ipynb) | Text embeddings via `embedding_client()` / `embed()`; OpenAI, Ollama, and local HuggingFace providers; cosine similarity; pluggable into `SemanticMemoryStore`; async surface |
