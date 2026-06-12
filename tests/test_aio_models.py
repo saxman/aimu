@@ -18,6 +18,14 @@ from aimu.aio._base import AsyncBaseModelClient
 from aimu.models import StreamChunk, StreamingContentType
 from helpers_aio import create_real_async_model_client, resolve_async_model_params
 
+# A multi-step reasoning prompt so adaptive-thinking models (e.g. Anthropic Opus 4.7+,
+# Fable 5) actually engage thinking — they may emit none on trivial prompts. Mirrors
+# ``_THINKING_PROMPT`` in tests/test_models.py.
+_THINKING_PROMPT = (
+    "Compute the sum of all integers from 1 to 200 that are divisible by 7. "
+    "Show your work, then state the final total."
+)
+
 
 def pytest_generate_tests(metafunc):
     if "async_model_client" not in metafunc.fixturenames:
@@ -151,7 +159,7 @@ async def test_generate_streamed_thinking(async_model_client):
 
     content = ""
     thinking = ""
-    async for chunk in await async_model_client.generate("What is the capital of France?", stream=True):
+    async for chunk in await async_model_client.generate(_THINKING_PROMPT, stream=True):
         if chunk.phase == StreamingContentType.THINKING:
             thinking += chunk.content
         elif chunk.phase == StreamingContentType.GENERATING:
@@ -159,7 +167,7 @@ async def test_generate_streamed_thinking(async_model_client):
 
     assert async_model_client.last_thinking, "last_thinking should be populated for thinking models"
     assert thinking, "thinking chunks should be yielded for thinking models"
-    assert "Paris" in content
+    assert content, "generation should produce non-empty output"
 
 
 async def test_generate_streamed_exclude_thinking(async_model_client):
@@ -172,7 +180,7 @@ async def test_generate_streamed_exclude_thinking(async_model_client):
     content = ""
     thinking = ""
     stream = await async_model_client.generate(
-        "What is the capital of France?",
+        _THINKING_PROMPT,
         stream=True,
         include=["generating", "tool_calling", "done"],
     )
@@ -184,7 +192,7 @@ async def test_generate_streamed_exclude_thinking(async_model_client):
 
     assert not thinking, "thinking chunks should not be yielded when THINKING excluded"
     assert async_model_client.last_thinking, "last_thinking should still be populated even when THINKING filtered"
-    assert "Paris" in content
+    assert content, "generation should produce non-empty output"
 
 
 # ---------------------------------------------------------------------------
