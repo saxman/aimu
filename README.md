@@ -102,7 +102,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 ### Chat
 
-One-shot with `aimu.chat()`, multi-turn with `aimu.client()`, and streaming with phase filtering via `include=`. Omit `model=` and AIMU resolves one for you: it reads `AIMU_LANGUAGE_MODEL`, else auto-selects an already-available local model (a running Ollama server, a cached HuggingFace model, or a local OpenAI-compatible server). A cloud provider is never auto-selected and weights are never downloaded implicitly. Image, audio, speech, and transcription read `AIMU_IMAGE_MODEL` / `AIMU_AUDIO_MODEL` / `AIMU_SPEECH_MODEL` / `AIMU_TRANSCRIPTION_MODEL` respectively.
+One-shot with `aimu.chat()`, multi-turn with `aimu.client()`, and streaming with phase filtering (thinking, tool usage, generation) via `include=`. Omit `model=` and AIMU resolves one for you by reading `AIMU_[LANGUAGE|IMAGE|AUDIO|SPEECH|TRANSCRIPTION|EMBEDDING]_MODEL` or auto-selects an available local model (LANGUAGE only, via a running Ollama server, a cached HuggingFace model, or a local OpenAI-compatible server).
 
 ```python
 import aimu
