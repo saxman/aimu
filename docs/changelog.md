@@ -43,6 +43,16 @@
 - **New** Async mirror: `aio.embedding_client(sync_client)` / `aio.embed()` wrap a sync client via `asyncio.to_thread`.
 - **Docs** `docs/how-to/use-embeddings.md`, `notebooks/20 - Embeddings.ipynb`, API reference, and env-var reference.
 
+### RAG primitives (retrieval-augmented generation)
+
+- **New** `aimu.rag` — chunk/retrieve/rerank helpers as **plain functions over the `MemoryStore` interface** (no retriever/splitter/loader class hierarchy).
+- **New** `split_text(text, *, chunk_size=1000, chunk_overlap=200, separators=None, length_function=len)` — recursive separator-based chunking (paragraphs → lines → sentences → words → characters) with overlap. `length_function` defaults to character count; pass a tokenizer's counter for token-aware chunking. Oversized unsplittable text hard-cuts at `chunk_size`.
+- **New** `ingest(store, documents, *, chunk_size, chunk_overlap, separators, length_function) -> int` — splits one or many documents and stores each chunk via `store.store()`; returns the chunk count. `retrieve(store, query, *, n_results=5, **search_kwargs) -> list[str]` — a RAG-named pass-through to `store.search()` (forwards e.g. `max_distance=`). `format_context(chunks, *, separator="\n\n", numbered=False) -> str` — join chunks for prompt augmentation.
+- **New** `rerank(query, documents, *, model="cross-encoder/ms-marco-MiniLM-L-6-v2", top_n=None)` — cross-encoder reranking via `sentence-transformers` (the `[hf]` extra); lazy-loaded and cached. Empty input returns `[]` without loading the model.
+- **New** `make_retrieval_tool(store, *, n_results=5)` in `aimu.tools.builtin` — wraps `retrieve` + `format_context` as a `retrieve_context(query)` agent tool (returns numbered context).
+- **Docs** `docs/how-to/use-rag.md` and the `aimu.rag` API reference.
+- Loaders and per-chunk metadata are intentionally out of scope: ingestion sources are covered by `read_file` / `get_webpage` (or any text-returning library), and chunks are stored as plain strings per the `MemoryStore` contract.
+
 ### Token usage surfacing
 
 - **New** `client.last_usage` — token counts for the most recent non-streaming `chat()` / `generate()`, as `{"input_tokens", "output_tokens", "total_tokens"}` (or `None` when the provider/server omits usage). Captured for Anthropic, OpenAI-compat (incl. OpenAI/Gemini/local servers), and Ollama, on both sync and async surfaces, and delegated through the `ModelClient` / `AsyncModelClient` wrappers. Reset to `None` on streaming calls (streaming usage capture is a separate follow-up) and by `reset()`. Token counts only — dollar cost is derivable but intentionally not computed (no maintained price table).

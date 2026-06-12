@@ -421,6 +421,16 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `memory_list(path_prefix)`, `memory_search(query)`, `memory_read(path)`, `memory_write(path, content)`, `memory_edit(path, old_str, new_str)`, `memory_delete(path)`
   - Storage path via `DOCUMENT_STORE_PATH` env var; run: `python -m aimu.memory.document_mcp`
 
+### Retrieval-Augmented Generation (RAG)
+
+- **[aimu/rag/](aimu/rag/)**: chunk / retrieve / rerank primitives as **plain functions over the `MemoryStore` interface** — deliberately *no* `BaseRetriever` / `BaseSplitter` / `BaseLoader` class hierarchy. The retriever interface already exists as `MemoryStore.search()`; a parallel retriever tree would violate "composability through uniform interfaces" and "no parallel inheritance trees for the same concept" (see `docs/explanation/design-principles.md`). If polymorphism is ever needed, the idiomatic move is a `typing.Protocol`, not an ABC subtree.
+  - **[aimu/rag/splitter.py](aimu/rag/splitter.py)**: `split_text(text, *, chunk_size=1000, chunk_overlap=200, separators=None, length_function=len)` — recursive separator-based chunking. Tries the largest separator that keeps pieces under `chunk_size` (default hierarchy: `["\n\n", "\n", ". ", " ", ""]`), recursing into oversized pieces; `""` is the base case (character split) so no chunk exceeds `chunk_size`. `_merge` greedily packs splits with `chunk_overlap` carried at piece granularity. `length_function` defaults to `len` (chars); pass a tokenizer's counter for token-aware chunking. Empty/whitespace input → `[]`; `chunk_overlap >= chunk_size` raises `ValueError`.
+  - **[aimu/rag/pipeline.py](aimu/rag/pipeline.py)**: `ingest(store, documents, *, chunk_size, chunk_overlap, separators, length_function) -> int` (splits one-or-many docs, calls `store.store()` per chunk, returns count); `retrieve(store, query, *, n_results=5, **search_kwargs) -> list[str]` (RAG-named pass-through to `store.search()`, forwarding e.g. `max_distance=`); `format_context(chunks, *, separator="\n\n", numbered=False) -> str`.
+  - **[aimu/rag/rerank.py](aimu/rag/rerank.py)**: `rerank(query, documents, *, model="cross-encoder/ms-marco-MiniLM-L-6-v2", top_n=None)` via `sentence_transformers.CrossEncoder`; lazy-imported (raises `ImportError` pointing at the `[hf]` extra if absent) and weight-cached in a module-level registry. Empty input returns `[]` without loading the model.
+  - RAG-as-augmentation is a **workflow you compose** (`ingest` → `retrieve` → `format_context` → `chat`), not a new abstraction. `make_retrieval_tool(store, *, n_results=5)` in [aimu/tools/builtin.py](aimu/tools/builtin.py) wraps `retrieve` + `format_context` as a `retrieve_context(query)` agent tool (numbered context; "No relevant context found." when empty), next to `make_memory_tools`.
+  - **Out of scope (by design)**: document loaders (`builtin.fs.read_file` / `get_webpage` cover ingestion sources) and per-chunk metadata (chunks are plain strings per the `MemoryStore` `store(content: str)` contract — the higher-leverage future change for citations/filtering would be widening that value type, *not* adding loader/retriever classes).
+  - **Tests**: `tests/test_rag.py` (mock-only): splitter (size, overlap, hard-cut, token-aware via `length_function`, custom separators, guards), `ingest`/`retrieve` over a deterministic substring store, `format_context`, `rerank` with a stubbed `CrossEncoder`, and `make_retrieval_tool` spec + output.
+
 ### Agent Skills
 
 - **[aimu/skills/](aimu/skills/)**: Filesystem-discovered skills that inject instructions and tools into agents
@@ -1098,6 +1108,10 @@ aimu/
 │   ├── document_store.py # DocumentStore (path-based, Anthropic API-compatible)
 │   ├── mcp.py           # FastMCP server for SemanticMemoryStore
 │   └── document_mcp.py  # FastMCP server for DocumentStore
+├── rag/                 # Retrieval-augmented generation primitives (plain functions over MemoryStore)
+│   ├── splitter.py      # split_text (recursive separators + overlap + length_function)
+│   ├── pipeline.py      # ingest, retrieve, format_context
+│   └── rerank.py        # rerank (cross-encoder via sentence-transformers; lazy + cached)
 ├── skills/              # Agent skill discovery and MCP server
 │   ├── skill.py         # AgentSkill dataclass; load_body, script_tool_names
 │   ├── manager.py       # SkillManager + SkillLoadError + SkillNotFoundError

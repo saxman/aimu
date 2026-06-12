@@ -889,6 +889,40 @@ def make_memory_tools(store):
     return [store_memory, search_memories, list_memories]
 
 
+def make_retrieval_tool(store, *, n_results: int = 5):
+    """Build a ``retrieve_context`` tool bound to *store* for retrieval-augmented agents.
+
+    *store* may be any :class:`aimu.memory.MemoryStore` (typically a
+    :class:`~aimu.memory.SemanticMemoryStore` populated via :func:`aimu.rag.ingest`).
+    The tool runs :func:`aimu.rag.retrieve` and returns the joined context, letting an
+    agent fetch relevant background on demand::
+
+        from aimu.rag import ingest
+        store = SemanticMemoryStore()
+        ingest(store, my_documents)
+        agent = Agent(client, tools=[make_retrieval_tool(store)])
+
+    Like :func:`make_memory_tools`, there is no env-var singleton — the store (and what was
+    ingested into it) is a meaningful, explicit choice.
+    """
+
+    @tool
+    def retrieve_context(query: str) -> str:
+        """Retrieve background context relevant to a query from the knowledge base.
+
+        Args:
+            query: The topic or question to look up.
+        """
+        from aimu.rag import format_context, retrieve
+
+        chunks = retrieve(store, query, n_results=n_results)
+        if not chunks:
+            return "No relevant context found."
+        return format_context(chunks, numbered=True)
+
+    return retrieve_context
+
+
 # Curated subsets — pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_webpage, web_search, wikipedia]
 fs = [list_directory, read_file]

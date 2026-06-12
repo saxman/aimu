@@ -43,3 +43,12 @@ The `aimu.tools.builtin` module ships ready-made `@tool` functions grouped by do
 ::: aimu.tools.builtin.list_directory
 
 ::: aimu.tools.builtin.read_file
+
+## Tool factories
+
+Bind a tool to a specific resource (a memory store, a knowledge base) instead of a
+process-wide singleton.
+
+::: aimu.tools.builtin.make_memory_tools
+
+::: aimu.tools.builtin.make_retrieval_tool

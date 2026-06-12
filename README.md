@@ -75,6 +75,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 - `DocumentStore` - path-keyed document storage, drop-in compatible with the Claude memory tool API.
 - `ConversationManager` - TinyDB-backed chat history that persists across sessions. Integrates directly with any `ModelClient` via `client.messages`.
 - `make_memory_tools(store)` returns `store_memory`, `search_memories`, and `list_memories` as `@tool` functions for direct in-process agent use. Pass the result to `Agent(client, tools=...)` or include it via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use the FastMCP servers in `aimu.memory.mcp` / `aimu.memory.document_mcp`.
+- `aimu.rag` — retrieval-augmented generation as plain functions over `MemoryStore`: `split_text` (recursive, token-aware), `ingest`, `retrieve`, `format_context`, and optional cross-encoder `rerank`. `make_retrieval_tool(store)` exposes retrieval as an agent tool. No retriever/splitter/loader class hierarchy.
 
 ### Output utilities
 
@@ -247,6 +248,21 @@ from aimu.memory import SemanticMemoryStore
 store = SemanticMemoryStore(embedding_client=client)
 ```
 
+**RAG.** Chunk documents into a store, retrieve, and ground the answer — plain functions:
+
+```python
+import aimu
+from aimu.memory import SemanticMemoryStore
+from aimu.rag import ingest, retrieve, format_context
+
+store = SemanticMemoryStore()
+ingest(store, my_documents, chunk_size=800, chunk_overlap=100)
+
+question = "What is AIMU's design philosophy?"
+context = format_context(retrieve(store, question, n_results=5))
+answer = aimu.chat(f"Context:\n{context}\n\nQuestion: {question}")
+```
+
 **Vision and image generation together.** A vision-capable agent with `generate_image` as a tool can perceive and create in the same run:
 
 ```python
@@ -331,6 +347,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [18 - Audio Input](notebooks/18%20-%20Audio%20Input.ipynb) | Audio input via `audio=` on `chat()` and `generate()`; model selection; accepted formats; async surface |
 | [19 - Transcription](notebooks/19%20-%20Transcription.ipynb) | Speech-to-text via `transcription_client()` / `transcribe()`; OpenAI and HuggingFace providers; timestamps; async surface |
 | [20 - Embeddings](notebooks/20%20-%20Embeddings.ipynb) | Text embeddings via `embedding_client()` / `embed()`; OpenAI, Ollama, and local HuggingFace providers; cosine similarity; pluggable into `SemanticMemoryStore`; async surface |
+| [21 - RAG](notebooks/21%20-%20RAG.ipynb) | Retrieval-augmented generation with `aimu.rag`: `split_text` chunking, `ingest` / `retrieve` / `format_context`, reranking, and `make_retrieval_tool` for agents |
 
 ## Web apps
 

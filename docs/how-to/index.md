@@ -35,6 +35,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 - [Persist conversations](persist-conversations.md) — `ConversationManager`
 - [Use semantic memory](use-semantic-memory.md) — `SemanticMemoryStore`
 - [Use document memory](use-document-memory.md) — `DocumentStore`
+- [Retrieval-augmented generation](use-rag.md) — `aimu.rag`: chunk, retrieve, rerank, and ground answers in your documents
 
 ## Prompts and evaluation
 

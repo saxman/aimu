@@ -114,6 +114,7 @@ nav:
       - Persist conversations: how-to/persist-conversations.md
       - Use semantic memory: how-to/use-semantic-memory.md
       - Use document memory: how-to/use-document-memory.md
+      - Retrieval-augmented generation: how-to/use-rag.md
       - Use LLMs inside tools: how-to/using-llms-inside-tools.md
       - Build an orchestrator: how-to/build-orchestrator.md
       - Plan, execute, evaluate, replan: how-to/plan-execute-evaluate.md
@@ -130,6 +131,7 @@ nav:
           - aimu.tools: reference/api/tools.md
           - aimu.skills: reference/api/skills.md
           - aimu.memory: reference/api/memory.md
+          - aimu.rag: reference/api/rag.md
           - aimu.prompts: reference/api/prompts.md
           - aimu.evals: reference/api/evals.md
           - aimu.history: reference/api/history.md
