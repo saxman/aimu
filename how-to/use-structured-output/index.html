@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/use-rag/">
+        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/use-structured-output/">
       
       
-        <link rel="prev" href="../use-document-memory/">
+        <link rel="prev" href="../stream-output/">
       
       
-        <link rel="next" href="../using-llms-inside-tools/">
+        <link rel="next" href="../use-async/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Retrieval-augmented generation - AIMU</title>
+        <title>Get structured output - AIMU</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#retrieval-augmented-generation-rag" class="md-skip">
+        <a href="#get-structured-output" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Retrieval-augmented generation
+              Get structured output
             
           </span>
         </div>
@@ -964,10 +964,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../use-structured-output/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get structured output
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -983,6 +1010,114 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works-native-with-a-parse-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works: native, with a parse fallback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#works-on-generate-too" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Works on generate() too
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pydantic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pydantic
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#with-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#async" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#which-models-enforce-natively" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which models enforce natively
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1356,37 +1491,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Retrieval-augmented generation
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../use-rag/" class="md-nav__link">
         
   
   
@@ -1402,114 +1510,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#splitting-text" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Splitting text
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#retrieving" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Retrieving
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reranking-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reranking (optional)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#as-an-agent-tool" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        As an agent tool
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#choosing-a-store" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Choosing a store
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Scope
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See also
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2673,10 +2673,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-flow" class="md-nav__link">
+  <a href="#how-it-works-native-with-a-parse-fallback" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The flow
+        How it works: native, with a parse fallback
       
     </span>
   </a>
@@ -2684,10 +2684,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#splitting-text" class="md-nav__link">
+  <a href="#works-on-generate-too" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Splitting text
+        Works on generate() too
       
     </span>
   </a>
@@ -2695,10 +2695,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#retrieving" class="md-nav__link">
+  <a href="#pydantic" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Retrieving
+        Pydantic
       
     </span>
   </a>
@@ -2706,10 +2706,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#reranking-optional" class="md-nav__link">
+  <a href="#with-tools" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reranking (optional)
+        With tools
       
     </span>
   </a>
@@ -2717,10 +2717,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#as-an-agent-tool" class="md-nav__link">
+  <a href="#constraints" class="md-nav__link">
     <span class="md-ellipsis">
       
-        As an agent tool
+        Constraints
       
     </span>
   </a>
@@ -2728,10 +2728,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#choosing-a-store" class="md-nav__link">
+  <a href="#async" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Choosing a store
+        Async
       
     </span>
   </a>
@@ -2739,10 +2739,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#scope" class="md-nav__link">
+  <a href="#which-models-enforce-natively" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Scope
+        Which models enforce natively
       
     </span>
   </a>
@@ -2780,103 +2780,87 @@
   
 
 
-<h1 id="retrieval-augmented-generation-rag">Retrieval-augmented generation (RAG)<a class="headerlink" href="#retrieval-augmented-generation-rag" title="Permanent link">&para;</a></h1>
-<p><code>aimu.rag</code> provides the primitives to ground a model's answers in your own documents:
-chunk text, store it, retrieve the relevant pieces for a query, and fold them into the
-prompt. They are <strong>plain functions over the <a href="../use-semantic-memory/"><code>MemoryStore</code></a>
-interface</strong> — there is no retriever/splitter/loader class hierarchy to learn.</p>
-<h2 id="the-flow">The flow<a class="headerlink" href="#the-flow" title="Permanent link">&para;</a></h2>
+<h1 id="get-structured-output">Get structured output<a class="headerlink" href="#get-structured-output" title="Permanent link">&para;</a></h1>
+<p>Pass <code>schema=</code> to <code>chat()</code> or <code>generate()</code> to get a validated, typed object back instead of
+a string. <code>schema</code> may be a <strong>dataclass</strong> (dependency-free) or a <strong>Pydantic v2 model</strong>.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">SemanticMemoryStore</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.rag</span><span class="w"> </span><span class="kn">import</span> <span class="n">ingest</span><span class="p">,</span> <span class="n">retrieve</span><span class="p">,</span> <span class="n">format_context</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># 1. Chunk documents into a store (any MemoryStore works)</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">store</span> <span class="o">=</span> <span class="n">SemanticMemoryStore</span><span class="p">(</span><span class="n">embedding_client</span><span class="o">=</span><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">&quot;openai:text-embedding-3-small&quot;</span><span class="p">))</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">ingest</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">my_documents</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span> <span class="n">chunk_overlap</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nd">@dataclass</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">Person</span><span class="p">:</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">age</span><span class="p">:</span> <span class="nb">int</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># 2. Retrieve the chunks relevant to a question</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">question</span> <span class="o">=</span> <span class="s2">&quot;What is AIMU&#39;s design philosophy?&quot;</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">chunks</span> <span class="o">=</span> <span class="n">retrieve</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">question</span><span class="p">,</span> <span class="n">n_results</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># 3. Augment the prompt and answer</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">context</span> <span class="o">=</span> <span class="n">format_context</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Context:</span><span class="se">\n</span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">Question: </span><span class="si">{</span><span class="n">question</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4.1&quot;</span><span class="p">)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">person</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Extract the person: Ada Lovelace, 36.&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">Person</span><span class="p">)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># person -&gt; Person(name=&quot;Ada Lovelace&quot;, age=36)</span>
 </span></code></pre></div>
-<p><code>ingest</code> → <code>retrieve</code> → <code>format_context</code> → <code>chat</code> is just a workflow you compose; RAG is
-not a separate object type.</p>
-<h2 id="splitting-text">Splitting text<a class="headerlink" href="#splitting-text" title="Permanent link">&para;</a></h2>
-<p><code>split_text</code> chops a long string into overlapping chunks, breaking on the largest
-separator that keeps each chunk under <code>chunk_size</code> (paragraphs → lines → sentences →
-words → characters).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.rag</span><span class="w"> </span><span class="kn">import</span> <span class="n">split_text</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">chunks</span> <span class="o">=</span> <span class="n">split_text</span><span class="p">(</span><span class="n">long_text</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">chunk_overlap</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
-</span></code></pre></div>
+<h2 id="how-it-works-native-with-a-parse-fallback">How it works: native, with a parse fallback<a class="headerlink" href="#how-it-works-native-with-a-parse-fallback" title="Permanent link">&para;</a></h2>
+<p>AIMU uses the best method the model supports, automatically:</p>
 <ul>
-<li><strong><code>chunk_size</code> / <code>chunk_overlap</code></strong> — overlap repeats the tail of one chunk at the head
-  of the next so context isn't lost at boundaries. <code>chunk_overlap</code> must be smaller than
-  <code>chunk_size</code>.</li>
-<li><strong><code>separators</code></strong> — override the hierarchy, e.g. <code>["\n## ", "\n", " ", ""]</code> for Markdown.</li>
-<li><strong><code>length_function</code></strong> — defaults to <code>len</code> (characters). Pass a tokenizer's counter for
-  <strong>token-aware</strong> chunking:</li>
+<li><strong>Native enforcement</strong> when the model has <code>supports_structured_output=True</code> — the provider
+  constrains generation to the schema (OpenAI <code>response_format</code>, Ollama <code>format=</code>, Anthropic
+  forced-tool). Check it with <code>client.supports_structured_output</code>.</li>
+<li><strong>Prompt-and-parse</strong> otherwise — the schema is appended to the prompt and the response is
+  parsed.</li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">tiktoken</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">enc</span> <span class="o">=</span> <span class="n">tiktoken</span><span class="o">.</span><span class="n">get_encoding</span><span class="p">(</span><span class="s2">&quot;cl100k_base&quot;</span><span class="p">)</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">chunks</span> <span class="o">=</span> <span class="n">split_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">chunk_overlap</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                    <span class="n">length_function</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">s</span><span class="p">)))</span>
+<p>Either way you get a validated instance or a <code>ValueError</code> (parsing failed). The choice is
+based on the model's static capability, not on catching a runtime error, so a genuine
+provider failure surfaces rather than silently downgrading.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4.1&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">supports_structured_output</span>      <span class="c1"># True  (native)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">supports_structured_output</span>   <span class="c1"># True  (Ollama format=)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;hf:Qwen/Qwen3-8B&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">supports_structured_output</span>    <span class="c1"># False (prompt-and-parse)</span>
 </span></code></pre></div>
-<p><code>ingest</code> forwards all of these, so <code>ingest(store, docs, chunk_size=..., length_function=...)</code>
-chunks the same way.</p>
-<h2 id="retrieving">Retrieving<a class="headerlink" href="#retrieving" title="Permanent link">&para;</a></h2>
-<p><code>retrieve</code> is a RAG-named pass-through to <code>store.search()</code>, returning the matching chunk
-strings. Extra keyword arguments flow through to the store:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">chunks</span> <span class="o">=</span> <span class="n">retrieve</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">n_results</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">chunks</span> <span class="o">=</span> <span class="n">retrieve</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">n_results</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">max_distance</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>  <span class="c1"># SemanticMemoryStore cutoff</span>
+<h2 id="works-on-generate-too">Works on <code>generate()</code> too<a class="headerlink" href="#works-on-generate-too" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">person</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:llama3.2:3b&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Ada Lovelace, 36&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">Person</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="reranking-optional">Reranking (optional)<a class="headerlink" href="#reranking-optional" title="Permanent link">&para;</a></h2>
-<p>A vector search is fast but coarse. Fetch a wide candidate set, then rerank it with a
-cross-encoder to keep the best few. Requires the <code>[hf]</code> extra (<code>sentence-transformers</code>).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.rag</span><span class="w"> </span><span class="kn">import</span> <span class="n">retrieve</span><span class="p">,</span> <span class="n">rerank</span>
+<p>Or one-shot:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">person</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_json</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;Ada Lovelace, 36&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">Person</span><span class="p">)</span>  <span class="c1"># parse + retry helper</span>
+</span></code></pre></div>
+<p>(<code>generate_json</code> is the older prompt-and-parse convenience with retries; <code>schema=</code> on
+<code>chat</code>/<code>generate</code> is the newer path that prefers native enforcement.)</p>
+<h2 id="pydantic">Pydantic<a class="headerlink" href="#pydantic" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">candidates</span> <span class="o">=</span> <span class="n">retrieve</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">n_results</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">top</span> <span class="o">=</span> <span class="n">rerank</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">top_n</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">Invoice</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">vendor</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">total</span><span class="p">:</span> <span class="nb">float</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">paid</span><span class="p">:</span> <span class="nb">bool</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">invoice</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Acme, $1,250.00, unpaid&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">Invoice</span><span class="p">)</span>  <span class="c1"># -&gt; Invoice</span>
 </span></code></pre></div>
-<p>The cross-encoder is loaded once and cached across calls.</p>
-<h2 id="as-an-agent-tool">As an agent tool<a class="headerlink" href="#as-an-agent-tool" title="Permanent link">&para;</a></h2>
-<p>Let an agent fetch context on demand with <code>make_retrieval_tool</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.rag</span><span class="w"> </span><span class="kn">import</span> <span class="n">ingest</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">SemanticMemoryStore</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_retrieval_tool</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">store</span> <span class="o">=</span> <span class="n">SemanticMemoryStore</span><span class="p">()</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">ingest</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">my_documents</span><span class="p">)</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">make_retrieval_tool</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">n_results</span><span class="o">=</span><span class="mi">5</span><span class="p">)])</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Using the knowledge base, explain X.&quot;</span><span class="p">)</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># the agent can call retrieve_context(query=&quot;...&quot;) whenever it needs background</span>
-</span></code></pre></div>
-<p>The tool returns numbered context (<code>[1] ...</code>, <code>[2] ...</code>) so the model can cite which
-chunk it used, or <code>"No relevant context found."</code> when the store has nothing relevant.</p>
-<h2 id="choosing-a-store">Choosing a store<a class="headerlink" href="#choosing-a-store" title="Permanent link">&para;</a></h2>
-<p>Any <code>MemoryStore</code> works with <code>ingest</code> / <code>retrieve</code>:</p>
+<p>Pydantic is optional — dataclasses work without it.</p>
+<h2 id="with-tools">With tools<a class="headerlink" href="#with-tools" title="Permanent link">&para;</a></h2>
+<p><code>schema=</code> composes with tool calling on OpenAI-compatible and parse-path providers: tools
+run in the loop, and the final answer obeys the schema.</p>
+<p><strong>Anthropic is the exception.</strong> Its native structured output <em>is</em> a forced tool, which
+conflicts with offering action tools, so combining <code>schema=</code> with active <code>tools=</code> raises a
+<code>ValueError</code>. Drop the tools (or <code>use_tools=False</code>), or use a provider whose <code>response_format</code>
+composes with tools.</p>
+<h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../use-semantic-memory/"><code>SemanticMemoryStore</code></a> — ChromaDB vector search; the usual
-  choice. Pair it with a chosen embedding model via <code>embedding_client=</code> (see
-  <a href="../use-embeddings/">Embed text</a>).</li>
-<li><code>DocumentStore</code> — case-insensitive substring search; no embeddings, good for exact-term
-  lookup or when you can't run an embedding model.</li>
+<li><strong><code>schema=</code> and <code>stream=True</code> are mutually exclusive</strong> — a typed object can't be streamed
+  incrementally; passing both raises <code>ValueError</code>.</li>
+<li><strong><code>self.messages</code> stays plain.</strong> The typed object is a return value only; the assistant turn
+  is stored as the plain JSON string, so conversation history remains provider-portable.</li>
 </ul>
-<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
-<p><code>aimu.rag</code> ships the chunk/retrieve/rerank primitives only. Document <strong>loaders</strong> (PDF,
-HTML, etc.) are intentionally not included — the built-in <code>read_file</code> and <code>get_webpage</code>
-tools, or any library that returns text, feed <code>ingest</code> directly. Chunks are stored as
-plain strings (the <code>MemoryStore</code> contract), so per-chunk metadata (source, page) is not
-currently carried.</p>
+<h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
+<p>Identical on the async surface:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4.1&quot;</span><span class="p">)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">person</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Ada Lovelace, 36&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">Person</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="which-models-enforce-natively">Which models enforce natively<a class="headerlink" href="#which-models-enforce-natively" title="Permanent link">&para;</a></h2>
+<p><code>supports_structured_output=True</code> (native) on the OpenAI, Gemini, Ollama (all models), and
+Anthropic catalogs; <code>Client.STRUCTURED_MODELS</code> lists them per provider. HuggingFace and
+llama-cpp use the prompt-and-parse path. See <a href="../../reference/api/aimu/">parse helpers</a> for
+<code>parse_json_response</code> / <code>generate_json</code>, which back the coercion.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../use-embeddings/">Embed text</a> — pick the embedding model behind your vector store</li>
-<li><a href="../use-semantic-memory/">Use semantic memory</a> — the store interface RAG builds on</li>
+<li><a href="../stream-output/">Stream output</a> — note that streaming and <code>schema=</code> don't combine</li>
+<li><a href="../switch-providers/">Switch providers</a> — <code>supports_structured_output</code> varies by provider</li>
 </ul>
 
 

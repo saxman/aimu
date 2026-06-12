@@ -703,6 +703,8 @@
       
         
       
+        
+      
     
     
     
@@ -940,6 +942,34 @@
     
   
     Stream output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/use-structured-output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get structured output
   
 
     
@@ -2556,6 +2586,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#structured-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structured output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#rag-primitives-retrieval-augmented-generation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3126,6 +3167,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#structured-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structured output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#rag-primitives-retrieval-augmented-generation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3606,7 +3658,7 @@
 <h3 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>docs/how-to/handle-audio-input.md</code> — accepted input forms, model selection, stateful vs. stateless, async surface, per-provider adaptation.</li>
-<li><strong>New</strong> <code>notebooks/18 - Audio Input.ipynb</code> — capability flags, all input forms, multiple clips per turn, stateful/stateless split, multi-turn conversations, capability check, mutual-exclusion demo, Gemini and HuggingFace sections, async surface.</li>
+<li><strong>New</strong> <code>notebooks/05 - Audio Input.ipynb</code> — capability flags, all input forms, multiple clips per turn, stateful/stateless split, multi-turn conversations, capability check, mutual-exclusion demo, Gemini and HuggingFace sections, async surface.</li>
 </ul>
 <h3 id="transcription-speech-to-text">Transcription (speech-to-text)<a class="headerlink" href="#transcription-speech-to-text" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3617,7 +3669,7 @@
 <li><strong>New</strong> <code>AIMU_TRANSCRIPTION_MODEL</code> env var — sets the default model for <code>aimu.transcription_client()</code> and <code>aimu.transcribe()</code> when <code>model=</code> is omitted.</li>
 <li><strong>New</strong> Async mirror under <code>aimu.aio</code>: <code>AsyncTranscriptionClient</code>, <code>aio.transcription_client(sync_client)</code>, <code>await aio.transcribe(audio, *, model, ...)</code>. Wraps sync via <code>asyncio.to_thread</code> (Decision 7 — same as every other aio modality).</li>
 <li><strong>New</strong> Built-in <code>transcribe_audio(audio_path: str) -&gt; str</code> <code>@tool</code> in <code>aimu.tools.builtin</code>; <code>builtin.transcription</code> subgroup; included in <code>ALL_TOOLS</code>. Backed by a lazy <code>_transcription_client</code> singleton via <code>AIMU_TRANSCRIPTION_MODEL</code>. <code>make_transcription_tool(client)</code> binds a fresh tool to a caller-supplied client.</li>
-<li><strong>New</strong> <code>docs/how-to/transcribe-audio.md</code> and <code>notebooks/19 - Transcription.ipynb</code>.</li>
+<li><strong>New</strong> <code>docs/how-to/transcribe-audio.md</code> and <code>notebooks/21 - Transcription.ipynb</code>.</li>
 </ul>
 <h3 id="embeddings-text-to-vector">Embeddings (text-to-vector)<a class="headerlink" href="#embeddings-text-to-vector" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3628,7 +3680,18 @@
 <li><strong>New</strong> <code>SemanticMemoryStore(embedding_client=...)</code> — pluggable embedding model; default <code>None</code> keeps ChromaDB's built-in embedder (unchanged behaviour).</li>
 <li><strong>New</strong> <code>AIMU_EMBEDDING_MODEL</code> env var sets the default model for <code>aimu.embedding_client()</code> / <code>aimu.embed()</code> when <code>model=</code> is omitted (raises if unset; no implicit download).</li>
 <li><strong>New</strong> Async mirror: <code>aio.embedding_client(sync_client)</code> / <code>aio.embed()</code> wrap a sync client via <code>asyncio.to_thread</code>.</li>
-<li><strong>Docs</strong> <code>docs/how-to/use-embeddings.md</code>, <code>notebooks/20 - Embeddings.ipynb</code>, API reference, and env-var reference.</li>
+<li><strong>Docs</strong> <code>docs/how-to/use-embeddings.md</code>, <code>notebooks/11 - Embeddings.ipynb</code>, API reference, and env-var reference.</li>
+</ul>
+<h3 id="structured-output">Structured output<a class="headerlink" href="#structured-output" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>New</strong> <code>schema=</code> on <code>chat()</code> and <code>generate()</code> (sync and async). Pass a dataclass type or a Pydantic v2 model; the call returns a validated instance of that type instead of a string. Mutually exclusive with <code>stream=True</code>.</li>
+<li><strong>New</strong> <code>ModelSpec.structured_output</code> flag → <code>client.supports_structured_output</code> property and a <code>STRUCTURED_MODELS</code> classproperty (parallel to <code>tools</code>/<code>thinking</code>/<code>vision</code>/<code>audio</code>). Set on the OpenAI, Gemini, Ollama (all models), and Anthropic catalogs.</li>
+<li><strong>Auto-escalate semantics</strong>: native provider enforcement when <code>supports_structured_output=True</code> (OpenAI <code>response_format</code> json_schema; Ollama <code>format=</code>; Anthropic forced-tool), otherwise the schema is appended to the prompt and the response is parsed. The branch is on the static capability flag, not on catching a runtime error, so a genuine provider failure surfaces rather than silently downgrading; parse failure raises <code>ValueError</code>.</li>
+<li><code>self.messages</code> stays plain strings — the typed object is a return value only, so conversation history remains provider-portable.</li>
+<li><strong>Composition</strong>: <code>schema=</code> works alongside <code>tools=</code> on OpenAI-compatible and parse-path providers. On Anthropic (native structured output <em>is</em> a forced tool) combining <code>schema=</code> with active tools raises <code>ValueError</code>.</li>
+<li><strong>New</strong> <code>schema_to_json_schema()</code> (internal) converts a dataclass/Pydantic model to a JSON Schema, reusing the <code>@tool</code> decorator's Python-type → JSON-Schema mapping.</li>
+<li><strong>Docs</strong> <code>docs/how-to/use-structured-output.md</code>.</li>
+<li>Deferred: <code>Agent.run(schema=...)</code>, a <code>strict=True</code> (native-or-raise) knob, and native HuggingFace/llama-cpp enforcement (those use the parse path).</li>
 </ul>
 <h3 id="rag-primitives-retrieval-augmented-generation">RAG primitives (retrieval-augmented generation)<a class="headerlink" href="#rag-primitives-retrieval-augmented-generation" title="Permanent link">&para;</a></h3>
 <ul>

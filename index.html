@@ -814,6 +814,8 @@
       
         
       
+        
+      
     
     
     
@@ -1051,6 +1053,34 @@
     
   
     Stream output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="how-to/use-structured-output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get structured output
   
 
     
@@ -2759,7 +2789,7 @@
 <li><strong>Optional async surface</strong> — <code>aimu.aio</code> mirrors the whole sync API (same class names, one-import-away). <code>Parallel</code> and <code>concurrent_tool_calls</code> use <code>asyncio.TaskGroup</code> for structured concurrency. See <a href="explanation/async-design/">async design</a>.</li>
 </ul>
 <h2 id="notebooks">Notebooks<a class="headerlink" href="#notebooks" title="Permanent link">&para;</a></h2>
-<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 21 runnable demos covering every subsystem end-to-end, including <code>17 - Speech</code>, <code>18 - Audio Input</code>, <code>19 - Transcription</code>, <code>20 - Embeddings</code>, and <code>21 - RAG</code>. The <a href="https://github.com/saxman/aimu#examples">README</a> lists each one.</p>
+<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 22 runnable demos ordered to build up incrementally — from <code>01 - Model Client</code>, <code>03 - Structured Output</code>, and <code>06 - Tools</code> through <code>07 - Agents</code>, <code>11 - Embeddings</code>, <code>13 - RAG</code>, and the generative-modality and <code>22 - Async</code> notebooks. The <a href="https://github.com/saxman/aimu#examples">README</a> lists each one in order.</p>
 <h2 id="web-apps">Web apps<a class="headerlink" href="#web-apps" title="Permanent link">&para;</a></h2>
 <p>The <a href="https://github.com/saxman/aimu/tree/main/web"><code>web/</code></a> directory ships two Streamlit chat applications. <code>streamlit_chatbot_basic.py</code> (~70 lines) is a minimal showcase — provider/model selector, streaming chat, built-in tools — illustrating how little code a working AIMU chatbot takes. <code>streamlit_chatbot.py</code> is a full-featured version that adds image generation, audio generation, speech narration (live sentence-by-sentence TTS as the model streams), agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included.</p>
 
