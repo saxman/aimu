@@ -489,12 +489,20 @@ class HuggingFaceClient(BaseModelClient):
 
         logger.debug("[raw] response: %s", response)
 
-        if self.model.supports_thinking and "</think>" in response:
-            idx = response.index("</think>")
-            start = len("<think>") if response.startswith("<think>") else 0
-            self.last_thinking = response[start:idx].strip()
-            logger.debug("LLM thinking: %s", self.last_thinking)
-            response = response[idx + len("</think>") :].strip()
+        if self.model.supports_thinking:
+            opened = self.model.think_opener_in_prompt or response.startswith("<think>")
+            if "</think>" in response:
+                idx = response.index("</think>")
+                start = len("<think>") if response.startswith("<think>") else 0
+                self.last_thinking = response[start:idx].strip()
+                logger.debug("LLM thinking: %s", self.last_thinking)
+                response = response[idx + len("</think>") :].strip()
+            elif opened:
+                # Thinking was opened but truncated before </think> (e.g. token
+                # budget exhausted). The whole output is thinking, not an answer.
+                start = len("<think>") if response.startswith("<think>") else 0
+                self.last_thinking = response[start:].strip() or None
+                response = ""
 
         logger.debug("[generating] %s", response)
 
@@ -522,8 +530,10 @@ class HuggingFaceClient(BaseModelClient):
             # <think> may be pre-filled in the prompt template (e.g. Qwen3.5) and thus
             # consumed by skip_prompt=True before streaming begins. Detect thinking by
             # scanning for </think> rather than requiring <think> at the start.
+            opened = self.model.think_opener_in_prompt
             if response_part.startswith("<think>"):
                 response_part = response_part[len("<think>") :]
+                opened = True
 
             self.last_thinking = ""
             buffered = []
@@ -553,7 +563,14 @@ class HuggingFaceClient(BaseModelClient):
                 cur = next(streamer, None)
 
             if not found_end:
-                # No </think> in this response — not a thinking turn
+                if opened:
+                    # The think block was opened but truncated before </think>
+                    # (e.g. token budget exhausted). The buffered content is
+                    # thinking, not a final answer — keep it as last_thinking and
+                    # the pending THINKING tokens, and emit nothing as generation.
+                    self.last_thinking = self.last_thinking.strip() or None
+                    return iter([])
+                # No <think> opener and no </think> — genuinely not a thinking turn.
                 self.last_thinking = None
                 self._pending_thinking_tokens = []
                 return iter(buffered)
