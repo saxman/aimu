@@ -225,7 +225,10 @@ def test_generate_streamed_thinking(model_client):
 
     content = ""
     thinking = ""
-    for chunk in model_client.generate(_THINKING_PROMPT, stream=True):
+    # Generous budget: this prompt induces long reasoning, and HF's default
+    # max_new_tokens=1024 truncates an 8B model mid-thinking (before </think>),
+    # which leaves last_thinking unset and leaks the reasoning into GENERATING.
+    for chunk in model_client.generate(_THINKING_PROMPT, stream=True, generate_kwargs={"max_tokens": 4096}):
         if chunk.phase == StreamingContentType.THINKING:
             thinking += chunk.content
         elif chunk.phase == StreamingContentType.GENERATING:
@@ -250,6 +253,7 @@ def test_generate_streamed_exclude_thinking(model_client):
         _THINKING_PROMPT,
         stream=True,
         include=["generating", "tool_calling", "done"],
+        generate_kwargs={"max_tokens": 4096},
     )
     for chunk in stream:
         if chunk.phase == StreamingContentType.THINKING:
