@@ -80,6 +80,10 @@ extra:
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/aimu/
 
+# Internal planning artifacts kept in-repo but not published to the docs site.
+exclude_docs: |
+  superpowers/
+
 nav:
   - Home: index.md
   - Tutorials:
@@ -99,15 +103,18 @@ nav:
       - Stream output: how-to/stream-output.md
       - Use async (aio): how-to/use-async.md
       - Handle vision input: how-to/handle-vision.md
+      - Handle audio input: how-to/handle-audio-input.md
       - Generate images: how-to/generate-images.md
       - Generate audio: how-to/generate-audio.md
       - Generate speech: how-to/generate-speech.md
+      - Transcribe audio: how-to/transcribe-audio.md
       - Embed text: how-to/use-embeddings.md
       - Iterative image refinement: how-to/iterative-image-refinement.md
       - Iterative text refinement: how-to/iterative-text-refinement.md
       - Persist conversations: how-to/persist-conversations.md
       - Use semantic memory: how-to/use-semantic-memory.md
       - Use document memory: how-to/use-document-memory.md
+      - Use LLMs inside tools: how-to/using-llms-inside-tools.md
       - Build an orchestrator: how-to/build-orchestrator.md
       - Plan, execute, evaluate, replan: how-to/plan-execute-evaluate.md
       - Tune prompts: how-to/tune-prompts.md
