@@ -151,6 +151,79 @@ def test_modality_unset_raises(monkeypatch):
         _defaults.resolve_default_modality_model("AIMU_AUDIO_MODEL")
 
 
+def test_modality_unset_lists_locally_available(monkeypatch):
+    monkeypatch.delenv("AIMU_IMAGE_MODEL", raising=False)
+    monkeypatch.setattr(_defaults, "available_image_models", lambda: [_FakeMember("some/repo", False)])
+    with pytest.raises(ValueError, match=r"Locally available: hf:some/repo"):
+        _defaults.resolve_default_modality_model("AIMU_IMAGE_MODEL")
+
+
+def test_modality_unset_no_hint_when_nothing_discovered(monkeypatch):
+    monkeypatch.delenv("AIMU_IMAGE_MODEL", raising=False)
+    monkeypatch.setattr(_defaults, "available_image_models", lambda: [])
+    with pytest.raises(ValueError, match="AIMU_IMAGE_MODEL") as exc:
+        _defaults.resolve_default_modality_model("AIMU_IMAGE_MODEL")
+    assert "Locally available" not in str(exc.value)
+
+
+def test_modality_discovery_failure_is_swallowed(monkeypatch):
+    monkeypatch.delenv("AIMU_IMAGE_MODEL", raising=False)
+
+    def boom():
+        raise RuntimeError("scan blew up")
+
+    monkeypatch.setattr(_defaults, "available_image_models", boom)
+    with pytest.raises(ValueError) as exc:
+        _defaults.resolve_default_modality_model("AIMU_IMAGE_MODEL")
+    assert "Locally available" not in str(exc.value)
+
+
+# --- per-modality local discovery (return enum members; never auto-select) ------------
+
+
+def test_hf_cached_modality_members_filters_by_cache(monkeypatch):
+    cached, uncached = _FakeMember("org/cached", False), _FakeMember("org/missing", False)
+    monkeypatch.setattr(_defaults, "_hf_cached_repo_ids", lambda: {"org/cached"})
+    assert _defaults._hf_cached_modality_members([cached, uncached], True) == [cached]
+
+
+def test_hf_cached_modality_members_empty_when_flag_off(monkeypatch):
+    monkeypatch.setattr(_defaults, "_hf_cached_repo_ids", lambda: pytest.fail("must not scan when flag off"))
+    assert _defaults._hf_cached_modality_members([_FakeMember("a", False)], False) == []
+
+
+def test_available_embedding_models_concatenates_ollama_then_hf(monkeypatch):
+    ollama = [_FakeMember("nomic-embed-text", False)]
+    hf = [_FakeMember("BAAI/bge-small-en-v1.5", False)]
+    monkeypatch.setattr(_defaults, "_ollama_embedding_members", lambda: ollama)
+    monkeypatch.setattr(_defaults, "_hf_embedding_members", lambda: hf)
+    assert _defaults.available_embedding_models() == ollama + hf
+
+
+def test_modality_model_string_defaults_to_hf_prefix():
+    assert _defaults._modality_model_string(_FakeMember("org/repo", False)) == "hf:org/repo"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "available_image_models",
+        "available_audio_models",
+        "available_speech_models",
+        "available_transcription_models",
+        "available_embedding_models",
+    ],
+)
+def test_modality_discovery_functions_are_public(name):
+    import aimu
+    import aimu.models as models
+
+    assert callable(getattr(aimu, name))
+    assert getattr(aimu, name) is getattr(models, name)
+    assert name in aimu.__all__
+    assert name in models.__all__
+
+
 # --- entry-point wiring (omitted model invokes the resolver) --------------------------
 
 

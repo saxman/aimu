@@ -33,6 +33,13 @@ from .base import (
     TranscriptionModel,
     TranscriptionSpec,
 )
+from ._internal.model_defaults import (
+    available_audio_models,
+    available_embedding_models,
+    available_image_models,
+    available_speech_models,
+    available_transcription_models,
+)
 from .embedding_client import EmbeddingClient, resolve_embedding_model_string
 from .image_client import ImageClient, resolve_image_model_enum, resolve_image_model_string
 from .model_client import (
@@ -242,10 +249,15 @@ __all__ = [
     "StreamChunk",
     "StreamingContentType",
     "available_audio_clients",
+    "available_audio_models",
+    "available_embedding_models",
     "available_image_clients",
+    "available_image_models",
     "available_speech_clients",
+    "available_speech_models",
     "available_text_clients",
     "available_text_models",
+    "available_transcription_models",
     "resolve_audio_model_string",
     "resolve_default_text_model_enum",
     "resolve_image_model_enum",
