@@ -53,6 +53,10 @@ class AsyncOllamaClient(AsyncBaseModelClient):
     def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_audio]
 
+    @classproperty
+    def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_structured_output]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:
         if not generate_kwargs:
             generate_kwargs = self.default_generate_kwargs
@@ -67,6 +71,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         gen_images = OllamaClient._extract_ollama_images(images)
@@ -81,6 +86,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             options=generate_kwargs,
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
+            format=response_format,
         )
         self.last_usage = usage_from_ollama(response)
 
@@ -122,6 +128,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs, tools = await self._chat_setup(
             user_message, generate_kwargs, use_tools, images=images, audio=audio
@@ -137,6 +144,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             tools=tools,
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
+            format=response_format,
         )
 
         if response["message"].tool_calls:
@@ -155,6 +163,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
                 tools=tools,
                 think=self.is_thinking_model,
                 keep_alive=self.model_keep_alive_seconds,
+                format=response_format,
             )
 
         self.last_usage = usage_from_ollama(response)

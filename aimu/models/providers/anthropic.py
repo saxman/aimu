@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from enum import Enum
 from types import SimpleNamespace
 from typing import Any, Iterator, Optional, Union
@@ -49,12 +50,12 @@ class AnthropicModel(Model):
         super().__init__(spec)
         self.thinking_style = thinking_style
 
-    CLAUDE_FABLE_5 = (ModelSpec("claude-fable-5", tools=True, thinking=True, vision=True), ThinkingStyle.ADAPTIVE)
-    CLAUDE_OPUS_4_8 = (ModelSpec("claude-opus-4-8", tools=True, thinking=True, vision=True), ThinkingStyle.ADAPTIVE)
-    CLAUDE_OPUS_4_7 = (ModelSpec("claude-opus-4-7", tools=True, thinking=True, vision=True), ThinkingStyle.ADAPTIVE)
-    CLAUDE_OPUS_4_6 = ModelSpec("claude-opus-4-6", tools=True, thinking=True, vision=True)
-    CLAUDE_SONNET_4_6 = ModelSpec("claude-sonnet-4-6", tools=True, thinking=True, vision=True)
-    CLAUDE_HAIKU_4_5 = ModelSpec("claude-haiku-4-5", tools=True, thinking=True, vision=True)
+    CLAUDE_FABLE_5 = (ModelSpec("claude-fable-5", tools=True, thinking=True, vision=True, structured_output=True), ThinkingStyle.ADAPTIVE)
+    CLAUDE_OPUS_4_8 = (ModelSpec("claude-opus-4-8", tools=True, thinking=True, vision=True, structured_output=True), ThinkingStyle.ADAPTIVE)
+    CLAUDE_OPUS_4_7 = (ModelSpec("claude-opus-4-7", tools=True, thinking=True, vision=True, structured_output=True), ThinkingStyle.ADAPTIVE)
+    CLAUDE_OPUS_4_6 = ModelSpec("claude-opus-4-6", tools=True, thinking=True, vision=True, structured_output=True)
+    CLAUDE_SONNET_4_6 = ModelSpec("claude-sonnet-4-6", tools=True, thinking=True, vision=True, structured_output=True)
+    CLAUDE_HAIKU_4_5 = ModelSpec("claude-haiku-4-5", tools=True, thinking=True, vision=True, structured_output=True)
 
 
 class AnthropicClient(BaseModelClient):
@@ -102,6 +103,36 @@ class AnthropicClient(BaseModelClient):
     @classproperty
     def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_audio]
+
+    @classproperty
+    def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_structured_output]
+
+    def _structured_call(self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict) -> str:
+        """Anthropic structured output via a forced single tool.
+
+        Anthropic has no ``response_format`` param; the idiomatic enforcement is to expose
+        one tool whose ``input_schema`` is the JSON Schema and force it with ``tool_choice``.
+        Extended thinking is incompatible with a forced ``tool_choice``, so ``generate_kwargs``
+        here must NOT carry the thinking param (callers route around ``_thinking_kwargs``).
+        Returns the tool input as a JSON string so the base coerces it like every other provider.
+        """
+        name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
+        tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
+        response = self._client.messages.create(
+            model=self.model.value,
+            system=system_str,
+            messages=ant_messages,
+            tools=[tool],
+            tool_choice={"type": "tool", "name": name},
+            **generate_kwargs,
+        )
+        logger.debug("Anthropic raw response (structured): %s", response)
+        self.last_usage = usage_from_anthropic(response)
+        for block in response.content:
+            if block.type == "tool_use":
+                return json.dumps(block.input)
+        return "{}"
 
     # ------------------------------------------------------------------ #
     # generate_kwargs helpers                                              #
@@ -281,8 +312,14 @@ class AnthropicClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
+        if response_format is not None:
+            content = self._generate_content(prompt, images, audio)
+            return self._structured_call(anthropic.NOT_GIVEN, [{"role": "user", "content": content}], generate_kwargs, response_format)
+
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:
@@ -353,8 +390,25 @@ class AnthropicClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
+        if response_format is not None and use_tools and self.tools:
+            raise ValueError(
+                "Anthropic structured output uses a forced tool, which is incompatible with active "
+                "action tools. Drop tools (or use_tools=False), or use a provider whose response_format "
+                "composes with tools (e.g. OpenAI)."
+            )
+
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
+
+        if response_format is not None:
+            system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
+            text = self._structured_call(
+                system_str if system_str else anthropic.NOT_GIVEN, ant_messages, generate_kwargs, response_format
+            )
+            self.messages.append({"role": "assistant", "content": text})
+            return text
+
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:

@@ -14,16 +14,16 @@ _O_SERIES_PREFIXES = ("o1", "o3", "o4")
 
 class OpenAIModel(Model):
     # Standard GPT models — GPT-4o and GPT-4.1 accept audio via input_audio blocks
-    GPT_4O_MINI = ModelSpec("gpt-4o-mini", tools=True, vision=True, audio=True)
-    GPT_4O = ModelSpec("gpt-4o", tools=True, vision=True, audio=True)
-    GPT_4_1 = ModelSpec("gpt-4.1", tools=True, vision=True, audio=True)
-    GPT_4_1_MINI = ModelSpec("gpt-4.1-mini", tools=True, vision=True, audio=True)
-    GPT_4_1_NANO = ModelSpec("gpt-4.1-nano", tools=True, vision=True, audio=True)
+    GPT_4O_MINI = ModelSpec("gpt-4o-mini", tools=True, vision=True, audio=True, structured_output=True)
+    GPT_4O = ModelSpec("gpt-4o", tools=True, vision=True, audio=True, structured_output=True)
+    GPT_4_1 = ModelSpec("gpt-4.1", tools=True, vision=True, audio=True, structured_output=True)
+    GPT_4_1_MINI = ModelSpec("gpt-4.1-mini", tools=True, vision=True, audio=True, structured_output=True)
+    GPT_4_1_NANO = ModelSpec("gpt-4.1-nano", tools=True, vision=True, audio=True, structured_output=True)
     # o-series reasoning models: reasoning tokens not accessible as text chunks,
     # so thinking=False; pass reasoning_effort via generate_kwargs if needed
-    O4_MINI = ModelSpec("o4-mini", tools=True, vision=True)
-    O3 = ModelSpec("o3", tools=True, vision=True)
-    O3_MINI = ModelSpec("o3-mini", tools=True)
+    O4_MINI = ModelSpec("o4-mini", tools=True, vision=True, structured_output=True)
+    O3 = ModelSpec("o3", tools=True, vision=True, structured_output=True)
+    O3_MINI = ModelSpec("o3-mini", tools=True, structured_output=True)
 
 
 class OpenAIClient(OpenAICompatClient):

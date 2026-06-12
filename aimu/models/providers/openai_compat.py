@@ -13,6 +13,7 @@ subpackages, since they have multiple modalities and first-class identities:
 
 import json
 import logging
+import re
 from typing import Any, Iterator, Optional, Union
 
 import openai
@@ -62,10 +63,28 @@ class OpenAICompatClient(BaseModelClient):
     def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_audio]
 
+    @classproperty
+    def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_structured_output]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         if not generate_kwargs:
             return self.default_generate_kwargs.copy()
         return {**self.default_generate_kwargs, **generate_kwargs}
+
+    @staticmethod
+    def _with_response_format(generate_kwargs: dict, response_format: Optional[dict]) -> dict:
+        """Wrap a JSON Schema dict in OpenAI's ``response_format`` envelope.
+
+        Uses ``strict: False`` so arbitrary user schemas (optional fields, defaults) don't
+        trip OpenAI strict-mode's subset rules; the schema still constrains generation and
+        the base coerces/validates the result.
+        """
+        if not response_format:
+            return generate_kwargs
+        name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
+        envelope = {"type": "json_schema", "json_schema": {"name": name, "schema": response_format, "strict": False}}
+        return {**generate_kwargs, "response_format": envelope}
 
     def _iter_stream(self, stream) -> Iterator[StreamChunk]:
         """Iterate a completion stream, yielding StreamChunks and updating self.last_thinking."""
@@ -97,8 +116,10 @@ class OpenAICompatClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = self._with_response_format(generate_kwargs, response_format)
 
         if stream:
             return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
@@ -153,8 +174,10 @@ class OpenAICompatClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
+        generate_kwargs = self._with_response_format(generate_kwargs, response_format)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)

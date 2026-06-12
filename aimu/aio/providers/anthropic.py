@@ -71,6 +71,30 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
     def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_audio]
 
+    @classproperty
+    def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_structured_output]
+
+    async def _structured_call(self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict) -> str:
+        """Async forced-tool structured output (see sync ``AnthropicClient._structured_call``)."""
+        import re
+
+        name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
+        tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
+        response = await self._client.messages.create(
+            model=self.model.value,
+            system=system_str,
+            messages=ant_messages,
+            tools=[tool],
+            tool_choice={"type": "tool", "name": name},
+            **generate_kwargs,
+        )
+        self.last_usage = usage_from_anthropic(response)
+        for block in response.content:
+            if block.type == "tool_use":
+                return json.dumps(block.input)
+        return "{}"
+
     # Pure helpers reused from sync client — no I/O involved.
     _update_generate_kwargs = _SyncAnthropicClient._update_generate_kwargs
     _thinking_kwargs = _SyncAnthropicClient._thinking_kwargs
@@ -85,8 +109,16 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+
+        if response_format is not None:
+            content = _SyncAnthropicClient._generate_content(prompt, images, audio=audio)
+            return await self._structured_call(
+                anthropic.NOT_GIVEN, [{"role": "user", "content": content}], generate_kwargs, response_format
+            )
+
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:
@@ -140,10 +172,27 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
+        if response_format is not None and use_tools and self.tools:
+            raise ValueError(
+                "Anthropic structured output uses a forced tool, which is incompatible with active "
+                "action tools. Drop tools (or use_tools=False), or use a provider whose response_format "
+                "composes with tools (e.g. OpenAI)."
+            )
+
         generate_kwargs, tools = await self._chat_setup(
             user_message, generate_kwargs, use_tools, images=images, audio=audio
         )
+
+        if response_format is not None:
+            system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
+            text = await self._structured_call(
+                system_str if system_str else anthropic.NOT_GIVEN, ant_messages, generate_kwargs, response_format
+            )
+            self.messages.append({"role": "assistant", "content": text})
+            return text
+
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
         if stream:

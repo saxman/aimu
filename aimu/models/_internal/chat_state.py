@@ -82,6 +82,10 @@ class _ChatStateMixin:
     def is_audio_model(self) -> bool:
         return self.model.supports_audio
 
+    @property
+    def supports_structured_output(self) -> bool:
+        return self.model.supports_structured_output
+
     def _require_vision(self) -> None:
         """Raise ``ValueError`` if the model lacks vision support.
 

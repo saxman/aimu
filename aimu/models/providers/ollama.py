@@ -24,37 +24,37 @@ _GEMMA_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
 
 class OllamaModel(Model):
     # Alibaba
-    QWEN_3_6_35B = ModelSpec("qwen3.6:35b", tools=True, thinking=True)
-    QWEN_3_6_27B = ModelSpec("qwen3.6:27b", tools=True, thinking=True)
-    QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True)
-    QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True)
-    QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)
+    QWEN_3_6_35B = ModelSpec("qwen3.6:35b", tools=True, thinking=True, structured_output=True)
+    QWEN_3_6_27B = ModelSpec("qwen3.6:27b", tools=True, thinking=True, structured_output=True)
+    QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True, structured_output=True)
+    QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True, structured_output=True)
+    QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True, structured_output=True)
     # Google — these weights support audio; add audio=True once Ollama API exposes audio input
-    GEMMA_4_E4B = ModelSpec("gemma4:e4b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
-    GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
-    GEMMA_4_26B = ModelSpec("gemma4:26b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
-    GEMMA_4_31B = ModelSpec("gemma4:31b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS)
-    GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True)
+    GEMMA_4_E4B = ModelSpec("gemma4:e4b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True)
+    GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True)
+    GEMMA_4_26B = ModelSpec("gemma4:26b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True)
+    GEMMA_4_31B = ModelSpec("gemma4:31b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True)
+    GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True, structured_output=True)
     # NVIDIA
-    NEMOTRON_CASCADE_2_30B = ModelSpec("nemotron-cascade-2:30b", tools=True, thinking=True)
-    NEMOTRON_3_NANO_30B = ModelSpec("nemotron-3-nano:30b", tools=True, thinking=True)
+    NEMOTRON_CASCADE_2_30B = ModelSpec("nemotron-cascade-2:30b", tools=True, thinking=True, structured_output=True)
+    NEMOTRON_3_NANO_30B = ModelSpec("nemotron-3-nano:30b", tools=True, thinking=True, structured_output=True)
     # Zhipu AI — doesn't use tools when expected
-    GLM_4_7_FLASH_31B_Q4 = ModelSpec("glm-4.7-flash:q4_K_M", thinking=True)
+    GLM_4_7_FLASH_31B_Q4 = ModelSpec("glm-4.7-flash:q4_K_M", thinking=True, structured_output=True)
     # OpenAI
-    GPT_OSS_20B = ModelSpec("gpt-oss:20b", tools=True, thinking=True)
+    GPT_OSS_20B = ModelSpec("gpt-oss:20b", tools=True, thinking=True, structured_output=True)
     # Mistral
-    MAGISTRAL_SMALL_24B = ModelSpec("magistral:24b", tools=True, thinking=True)
-    MINISTRAL_3_14B = ModelSpec("ministral-3:14b", tools=True)
+    MAGISTRAL_SMALL_24B = ModelSpec("magistral:24b", tools=True, thinking=True, structured_output=True)
+    MINISTRAL_3_14B = ModelSpec("ministral-3:14b", tools=True, structured_output=True)
     # Microsoft
-    PHI_4_MINI_3_8B = ModelSpec("phi4-mini:3.8b")
-    PHI_4_14B = ModelSpec("phi4:14b")
+    PHI_4_MINI_3_8B = ModelSpec("phi4-mini:3.8b", structured_output=True)
+    PHI_4_14B = ModelSpec("phi4:14b", structured_output=True)
     # DeepSeek
-    DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True)
+    DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True, structured_output=True)
     # HuggingFace — tool call responses don't always look correct
-    SMOLLM2_1_7B = ModelSpec("smollm2:1.7b")
+    SMOLLM2_1_7B = ModelSpec("smollm2:1.7b", structured_output=True)
     # Meta — don't reliably use tools when expected
-    LLAMA_3_2_3B = ModelSpec("llama3.2:3b")
-    LLAMA_3_1_8B = ModelSpec("llama3.1:8b")
+    LLAMA_3_2_3B = ModelSpec("llama3.2:3b", structured_output=True)
+    LLAMA_3_1_8B = ModelSpec("llama3.1:8b", structured_output=True)
 
 
 class OllamaClient(BaseModelClient):
@@ -85,6 +85,10 @@ class OllamaClient(BaseModelClient):
     def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_audio]
 
+    @classproperty
+    def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_structured_output]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
         if not generate_kwargs:
             generate_kwargs = self.default_generate_kwargs
@@ -101,6 +105,7 @@ class OllamaClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
         gen_images = self._extract_ollama_images(images)
@@ -115,6 +120,7 @@ class OllamaClient(BaseModelClient):
             options=generate_kwargs,
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
+            format=response_format,
         )
 
         logger.debug("LLM raw response: %s", response)
@@ -176,6 +182,7 @@ class OllamaClient(BaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
 
@@ -189,6 +196,7 @@ class OllamaClient(BaseModelClient):
             tools=tools,
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
+            format=response_format,
         )
 
         logger.debug("LLM raw response: %s", response)
@@ -215,6 +223,7 @@ class OllamaClient(BaseModelClient):
                 tools=tools,
                 think=self.is_thinking_model,
                 keep_alive=self.model_keep_alive_seconds,
+                format=response_format,
             )
 
             logger.debug("LLM raw response: %s", response)

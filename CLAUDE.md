@@ -255,8 +255,8 @@ State (`messages`, `system_message`, `tools`) is shared with the wrapped sync cl
 The codebase uses an abstract base class pattern for model clients:
 
 - **[aimu/models/base.py](aimu/models/base.py)**: Defines `BaseModelClient` abstract base class with:
-  - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None, include=None, tools=None, audio=None)`: Multi-turn chat with message history; returns `str` or `Iterator[StreamChunk]`. Concrete clients implement `_chat()`; the public `chat()` is provided by the base and applies the `include` stream filter.
-  - `generate(prompt, generate_kwargs, stream=False, images=None, include=None, audio=None)`: Single-turn stateless generation. Concrete clients implement `_generate()`; the public `generate()` is provided by the base. Accepts `images=` for one-shot vision or `audio=` for one-shot audio input (same forms as `chat`) **without** touching `self.messages`. The base validates the respective capability flag (raises `ValueError` for non-vision / non-audio models). Passing both `images=` and `audio=` raises `ValueError`.
+  - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None, include=None, tools=None, audio=None, schema=None)`: Multi-turn chat with message history; returns `str`, `Iterator[StreamChunk]`, or — when `schema=` is set — a validated dataclass/Pydantic instance. Concrete clients implement `_chat()`; the public `chat()` is provided by the base and applies the `include` stream filter and the `schema=` structured-output path (see "Structured Output").
+  - `generate(prompt, generate_kwargs, stream=False, images=None, include=None, audio=None, schema=None)`: Single-turn stateless generation. Concrete clients implement `_generate()`; the public `generate()` is provided by the base. Accepts `images=` for one-shot vision or `audio=` for one-shot audio input (same forms as `chat`) **without** touching `self.messages`, and `schema=` for structured output. The base validates the respective capability flag (raises `ValueError` for non-vision / non-audio models). Passing both `images=` and `audio=` raises `ValueError`.
   - `images=` (vision-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, http(s) URLs, or `data:image/...` URLs. Available on both `chat()` (stateful) and `generate()` (stateless).
   - `audio=` (audio-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, `https://` URLs (fetched eagerly — `input_audio` has no remote-URL field), or `data:audio/...;base64,...` URLs. Stored in `self.messages` as OpenAI `input_audio` content blocks. Available on both `chat()` and `generate()`. Mutually exclusive with `images=` per turn.
   - `include=` (streaming only): optional iterable of `StreamingContentType` values (or their string equivalents `"thinking"`, `"tool_calling"`, `"generating"`, `"done"`) selecting which phases to yield. Defaults to all phases.
@@ -278,8 +278,8 @@ The codebase uses an abstract base class pattern for model clients:
     - `dict {"step", "total_steps", "image", "final", "result"}` for `IMAGE_GENERATING` — emitted by image clients during denoising (HF diffusers per step; Gemini coarse start/done). ``image`` is an optional ``PIL.Image`` (None unless ``preview_every`` opted in); ``final=True`` marks the terminal chunk per image; ``result`` carries the encoded output (path / bytes / data-url per ``format=``) on the final chunk.
 
     Helpers `is_text()` / `is_tool_call()` / `is_image_progress()` dispatch on phase.
-  - `ModelSpec`: frozen dataclass with `id: str`, `tools: bool`, `thinking: bool`, `vision: bool`, `audio: bool`, `generation_kwargs: dict | None`. Equality and hash use `id` only, so it can hold a dict and still be used as an enum value. Each `Model` enum member's value is a `ModelSpec`.
-  - `Model(Enum)`: base enum. Each member's value is a `ModelSpec`. Members expose `.value` (the id string), `.spec` (the `ModelSpec`), `.supports_tools`, `.supports_thinking`, `.supports_vision`, `.supports_audio`, `.generation_kwargs`.
+  - `ModelSpec`: frozen dataclass with `id: str`, `tools: bool`, `thinking: bool`, `vision: bool`, `audio: bool`, `structured_output: bool`, `generation_kwargs: dict | None`. Equality and hash use `id` only, so it can hold a dict and still be used as an enum value. Each `Model` enum member's value is a `ModelSpec`.
+  - `Model(Enum)`: base enum. Each member's value is a `ModelSpec`. Members expose `.value` (the id string), `.spec` (the `ModelSpec`), `.supports_tools`, `.supports_thinking`, `.supports_vision`, `.supports_audio`, `.supports_structured_output`, `.generation_kwargs`.
 
 - **[aimu/models/model_client.py](aimu/models/model_client.py)**: `ModelClient(BaseModelClient)` factory/wrapper class:
   - Single public construction path. Accepts a `Model` enum member or a `"provider:model_id"` string.
@@ -636,7 +636,7 @@ These are *implementation* patterns — the *how*. The *why* lives in the "Desig
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed. `HAS_*` flags expose installation state; missing optional deps don't break the import of the package.
 3. **Tool Calling Abstraction**: The base class handles tool calls uniformly across providers. Concrete clients implement `_chat` / `_generate`; the public `chat` / `generate` wrap them with the `include` filter. `@tool` functions and `MCPClient.as_tools()` callables share one `self.tools` registry and dispatch through one by-name lookup (last entry wins on name collision).
 4. **Streaming chunk type**: All clients support streaming via `chat(..., stream=True)`, `generate(..., stream=True)`, and image clients via `generate(..., stream=True)`. They yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, IMAGE_GENERATING, DONE); see the `StreamChunk` entry above for content shapes per phase. Streaming tools (generator functions decorated with `@tool`) yield their own chunks that flow through the agent's stream — see "Streaming tools" below. Use `chunk.is_text()` / `chunk.is_tool_call()` / `chunk.is_image_progress()` to dispatch on phase.
-5. **Model Capability Flags**: `supports_tools`, `supports_thinking`, `supports_vision`, and `supports_audio` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access. `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` / `AUDIO_MODELS` classproperties are derived automatically.
+5. **Model Capability Flags**: `supports_tools`, `supports_thinking`, `supports_vision`, `supports_audio`, and `supports_structured_output` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access. `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` / `AUDIO_MODELS` / `STRUCTURED_MODELS` classproperties are derived automatically.
 
 ## Important Implementation Notes
 
@@ -712,6 +712,23 @@ Models with `supports_vision=True` accept images alongside the user prompt:
 - Capability flag: `ModelSpec` accepts `audio: bool = False`. `BaseModelClient.is_audio_model` and `AUDIO_MODELS` classproperty mirror the vision equivalents.
 - Audio-capable text models: OpenAI GPT-4o/4.1 series, Gemini 2.0/2.5, HuggingFace Gemma 4 E4B/12B, Nemotron-H-8B.
 - `soundfile` (already in the `[hf]` extra) is used only for the HuggingFace extraction path; all other providers decode client-side or pass through base64 directly.
+
+### Structured Output
+
+`schema=` on `chat()` / `generate()` (sync and async) returns a validated instance of a **dataclass or Pydantic v2 model** instead of a string. One additive parameter; no new public class, no breakage.
+
+- **Auto-escalate, branching on the static capability flag** (not on catching a runtime error):
+  - `supports_structured_output=True` → native provider enforcement. The base converts the schema to a JSON Schema once ([aimu/models/_internal/structured.py](aimu/models/_internal/structured.py): `schema_to_json_schema`, reusing the `@tool` decorator's type map) and threads it as `response_format` (a dict) to the provider's `_chat`/`_generate`. If the native call itself errors, it **raises** — it does not cascade to parse (that would mask a provider error).
+  - `supports_structured_output=False` → the base appends a JSON-Schema instruction to the prompt and parses the result. Providers never receive `response_format` on this path.
+  - Either way the base coerces the returned text via `parse_json_response(text, schema)`; parse failure raises `ValueError`.
+- **Per-provider native envelope** (only these three accept `response_format`; async mirrors + the `ModelClient`/`AsyncModelClient` factories forward it; HuggingFace/llama-cpp are parse-path and untouched):
+  - `OpenAICompatClient` (OpenAI, Gemini): `response_format={"type":"json_schema","json_schema":{"name", "schema", "strict": False}}` via `_with_response_format()`. `strict: False` so arbitrary user schemas (optional fields, defaults) don't trip OpenAI strict-mode's subset rules.
+  - `OllamaClient`: native `format=<json schema>` on `ollama.chat`/`generate` — grammar-enforced for *any* Ollama model.
+  - `AnthropicClient`: forced single tool whose `input_schema` is the JSON Schema (`tool_choice={"type":"tool","name":...}`), returning the tool input as a JSON string for uniform coercion. Thinking is incompatible with a forced `tool_choice`, so the structured path routes around `_thinking_kwargs`.
+- **Invariants/guards**: `self.messages` stays plain strings (the typed object is return-only). `schema=` + `stream=True` raises `ValueError`. On Anthropic, `schema=` + active `tools=` raises (its native mode *is* a forced tool, which conflicts with action tools); OpenAI-compat and parse-path providers compose `schema=` with tools fine.
+- **Capability flag**: `ModelSpec.structured_output: bool = False` → `supports_structured_output` property (on `_ChatStateMixin`) + `STRUCTURED_MODELS` classproperty. Set on the OpenAI, Gemini, Ollama (all models), and Anthropic catalogs.
+- **Deferred**: `Agent.run(schema=...)`; a `strict=True` (native-or-raise) knob; native HuggingFace/llama-cpp enforcement (would need an `xgrammar`/`outlines` backend). `generate_json` remains the older prompt-and-parse-with-retries convenience.
+- **Tests**: `tests/test_structured_api.py` (schema helper, base native/parse logic via fakes, OpenAI envelope, Ollama `format=`, Anthropic forced-tool + tools-conflict, guards, plain-messages invariant) and `tests/test_aio_structured_api.py` (async mirror).
 
 ### OpenAICompatClient Notes
 

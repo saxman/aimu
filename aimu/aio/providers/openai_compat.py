@@ -25,6 +25,7 @@ from aimu.models.providers.openai_compat import (
     LlamaServerOpenAIModel,
     LMStudioOpenAIModel,
     OllamaOpenAIModel,
+    OpenAICompatClient as _SyncOpenAICompatClient,
     SGLangOpenAIModel,
     VLLMOpenAIModel,
 )
@@ -72,6 +73,10 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
     def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_audio]
 
+    @classproperty
+    def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
+        return [m for m in cls.MODELS if m.supports_structured_output]
+
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
         if not generate_kwargs:
             return self.default_generate_kwargs.copy()
@@ -103,8 +108,10 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = _SyncOpenAICompatClient._with_response_format(generate_kwargs, response_format)
 
         if stream:
             return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
@@ -159,10 +166,12 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         generate_kwargs, tools = await self._chat_setup(
             user_message, generate_kwargs, use_tools, images=images, audio=audio
         )
+        generate_kwargs = _SyncOpenAICompatClient._with_response_format(generate_kwargs, response_format)
 
         if stream:
             return self._chat_streamed(generate_kwargs, tools)

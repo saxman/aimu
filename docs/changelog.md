@@ -43,6 +43,17 @@
 - **New** Async mirror: `aio.embedding_client(sync_client)` / `aio.embed()` wrap a sync client via `asyncio.to_thread`.
 - **Docs** `docs/how-to/use-embeddings.md`, `notebooks/20 - Embeddings.ipynb`, API reference, and env-var reference.
 
+### Structured output
+
+- **New** `schema=` on `chat()` and `generate()` (sync and async). Pass a dataclass type or a Pydantic v2 model; the call returns a validated instance of that type instead of a string. Mutually exclusive with `stream=True`.
+- **New** `ModelSpec.structured_output` flag → `client.supports_structured_output` property and a `STRUCTURED_MODELS` classproperty (parallel to `tools`/`thinking`/`vision`/`audio`). Set on the OpenAI, Gemini, Ollama (all models), and Anthropic catalogs.
+- **Auto-escalate semantics**: native provider enforcement when `supports_structured_output=True` (OpenAI `response_format` json_schema; Ollama `format=`; Anthropic forced-tool), otherwise the schema is appended to the prompt and the response is parsed. The branch is on the static capability flag, not on catching a runtime error, so a genuine provider failure surfaces rather than silently downgrading; parse failure raises `ValueError`.
+- `self.messages` stays plain strings — the typed object is a return value only, so conversation history remains provider-portable.
+- **Composition**: `schema=` works alongside `tools=` on OpenAI-compatible and parse-path providers. On Anthropic (native structured output *is* a forced tool) combining `schema=` with active tools raises `ValueError`.
+- **New** `schema_to_json_schema()` (internal) converts a dataclass/Pydantic model to a JSON Schema, reusing the `@tool` decorator's Python-type → JSON-Schema mapping.
+- **Docs** `docs/how-to/use-structured-output.md`.
+- Deferred: `Agent.run(schema=...)`, a `strict=True` (native-or-raise) knob, and native HuggingFace/llama-cpp enforcement (those use the parse path).
+
 ### RAG primitives (retrieval-augmented generation)
 
 - **New** `aimu.rag` — chunk/retrieve/rerank helpers as **plain functions over the `MemoryStore` interface** (no retriever/splitter/loader class hierarchy).

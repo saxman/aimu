@@ -10,6 +10,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 - [Add a new model](add-new-model.md) — register a model enum member
 - [Add or update a provider](add-new-provider.md) — write a provider client and wire it into the factory
 - [Stream output](stream-output.md) — `stream=True`, phase filtering, helpers
+- [Get structured output](use-structured-output.md) — `schema=` on `chat()` / `generate()` returns a typed dataclass/Pydantic object; native enforcement with a parse fallback
 - [Use async (`aio`)](use-async.md) — embed AIMU in async apps; `asyncio.TaskGroup`-backed `Parallel`
 - [Handle vision input](handle-vision.md) — pass images via `images=`
 - [Generate images](generate-images.md) — `aimu.image_client()` / `generate_image()` with HuggingFace `diffusers` + Google Nano Banana

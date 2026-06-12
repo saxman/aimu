@@ -236,8 +236,12 @@ class AsyncModelClient(AsyncBaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        return await self._client._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
+        # Forward response_format only when set (non-None only on the native structured path,
+        # where the inner client accepts it); parse-path inner clients never receive it.
+        extra = {"response_format": response_format} if response_format is not None else {}
+        return await self._client._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio, **extra)
 
     async def _chat(
         self,
@@ -247,9 +251,11 @@ class AsyncModelClient(AsyncBaseModelClient):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
+        extra = {"response_format": response_format} if response_format is not None else {}
         return await self._client._chat(
-            user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
+            user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio, **extra
         )
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:

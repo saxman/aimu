@@ -35,6 +35,7 @@ class ModelSpec:
     thinking: bool = False
     vision: bool = False
     audio: bool = False
+    structured_output: bool = False
     generation_kwargs: Optional[dict] = field(default=None)
 
     def __hash__(self) -> int:
@@ -62,6 +63,7 @@ class Model(Enum):
         self.supports_thinking = spec.thinking
         self.supports_vision = spec.vision
         self.supports_audio = spec.audio
+        self.supports_structured_output = spec.structured_output
         self.generation_kwargs = dict(spec.generation_kwargs or {})
 
 
@@ -118,6 +120,10 @@ class BaseModelClient(_ChatStateMixin, ABC):
     def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
         raise NotImplementedError
 
+    @classproperty
+    def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
+        raise NotImplementedError
+
     @abstractmethod
     def _generate(
         self,
@@ -126,8 +132,14 @@ class BaseModelClient(_ChatStateMixin, ABC):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        """Provider-specific generate implementation. Use :meth:`generate`."""
+        """Provider-specific generate implementation. Use :meth:`generate`.
+
+        ``response_format`` (a JSON Schema dict) is passed only by the structured-output
+        path and only to providers with ``supports_structured_output=True``; others never
+        receive it and need not accept it.
+        """
         pass
 
     @abstractmethod
@@ -139,8 +151,12 @@ class BaseModelClient(_ChatStateMixin, ABC):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        """Provider-specific chat implementation. Use :meth:`chat`."""
+        """Provider-specific chat implementation. Use :meth:`chat`.
+
+        ``response_format`` semantics match :meth:`_generate`.
+        """
         pass
 
     def generate(
@@ -151,7 +167,8 @@ class BaseModelClient(_ChatStateMixin, ABC):
         images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         audio: Optional[list] = None,
-    ) -> Union[str, Iterator[StreamChunk]]:
+        schema: Optional[type] = None,
+    ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Single-turn, stateless generation. See :meth:`chat` for the ``include`` filter semantics.
 
         Args:
@@ -168,6 +185,10 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 URL, or an http(s) URL (fetched eagerly). Raises ``ValueError`` if the model does
                 not support audio input. Like ``images``, this does not touch ``self.messages``.
                 ``images`` and ``audio`` are mutually exclusive.
+            schema: Optional dataclass type or Pydantic v2 model. When set, returns a validated
+                instance of that type instead of a string. See :meth:`chat` for the structured-output
+                semantics (native enforcement when ``supports_structured_output`` is True, otherwise
+                prompt-and-parse). Mutually exclusive with ``stream=True``.
         """
         if images and audio:
             raise ValueError("images= and audio= are mutually exclusive. Pass one or the other, not both.")
@@ -175,6 +196,10 @@ class BaseModelClient(_ChatStateMixin, ABC):
             self._require_vision()
         if audio:
             self._require_audio()
+        if schema is not None:
+            if stream:
+                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+            return self._generate_structured(prompt, generate_kwargs, images, audio, schema)
         result = self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
         if stream and include is not None:
             return self._filter_chunks(result, self._resolve_include(include))
@@ -190,7 +215,8 @@ class BaseModelClient(_ChatStateMixin, ABC):
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         tools: Optional[list] = None,
         audio: Optional[list] = None,
-    ) -> Union[str, Iterator[StreamChunk]]:
+        schema: Optional[type] = None,
+    ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Multi-turn chat with persistent message history.
 
         Args:
@@ -217,7 +243,19 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 as :meth:`generate`. Raises ``ValueError`` if the model does not support audio
                 input. Audio blocks persist in ``self.messages`` for multi-turn context.
                 ``images`` and ``audio`` are mutually exclusive per turn.
+            schema: Optional dataclass type or Pydantic v2 model. When set, returns a validated
+                instance of that type instead of a string. If the model has
+                ``supports_structured_output=True`` the provider enforces the schema natively
+                (OpenAI ``response_format``, Ollama ``format=``, Anthropic forced-tool); otherwise
+                the schema is appended to the prompt and the response is parsed. Raises
+                ``ValueError`` on parse failure. Mutually exclusive with ``stream=True``. On
+                Anthropic (native, forced-tool) combining ``schema`` with active ``tools`` raises.
         """
+        if schema is not None:
+            if stream:
+                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+            return self._chat_structured(user_message, generate_kwargs, use_tools, images, audio, tools, schema)
+
         if tools is None:
             result = self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
@@ -234,6 +272,57 @@ class BaseModelClient(_ChatStateMixin, ABC):
             return self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
             )
+
+    def _structured_request(self, schema: type) -> tuple[Optional[dict], str]:
+        """Resolve a schema to ``(response_format, prompt_suffix)`` for the active model.
+
+        Native models get the JSON Schema dict as ``response_format`` and no prompt suffix;
+        parse-path models get ``None`` and a suffix instructing JSON output. The provider
+        only ever receives ``response_format`` when it's non-None (native).
+        """
+        from .._internal.structured import json_schema_instruction, schema_to_json_schema
+
+        json_schema = schema_to_json_schema(schema)
+        if self.supports_structured_output:
+            return json_schema, ""
+        return None, "\n\n" + json_schema_instruction(json_schema)
+
+    def _chat_structured(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        use_tools: bool,
+        images: Optional[list],
+        audio: Optional[list],
+        tools: Optional[list],
+        schema: type,
+    ) -> Any:
+        from .._internal.json import parse_json_response
+
+        response_format, suffix = self._structured_request(schema)
+        message = user_message + suffix
+        extra = {"response_format": response_format} if response_format is not None else {}
+        if tools is None:
+            text = self._chat(message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio, **extra)
+        else:
+            with self._tools_override(tools):
+                text = self._chat(message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio, **extra)
+        return parse_json_response(text, schema)
+
+    def _generate_structured(
+        self,
+        prompt: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        images: Optional[list],
+        audio: Optional[list],
+        schema: type,
+    ) -> Any:
+        from .._internal.json import parse_json_response
+
+        response_format, suffix = self._structured_request(schema)
+        extra = {"response_format": response_format} if response_format is not None else {}
+        text = self._generate(prompt + suffix, generate_kwargs, stream=False, images=images, audio=audio, **extra)
+        return parse_json_response(text, schema)
 
     def _chat_with_tools_streamed(
         self,

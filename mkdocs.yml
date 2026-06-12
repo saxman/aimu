@@ -101,6 +101,7 @@ nav:
       - Use MCP tools: how-to/use-mcp-tools.md
       - Use skills: how-to/use-skills.md
       - Stream output: how-to/stream-output.md
+      - Get structured output: how-to/use-structured-output.md
       - Use async (aio): how-to/use-async.md
       - Handle vision input: how-to/handle-vision.md
       - Handle audio input: how-to/handle-audio-input.md

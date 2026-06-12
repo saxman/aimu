@@ -36,6 +36,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 - Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamingContentType.THINKING` chunks via the same API.
 - Typed streaming: `StreamChunk(phase, content, agent, iteration)` flows through `client.chat()`, `Agent.run()`, and every workflow. Filter with `include=["generating"]`.
 - Token usage is surfaced as `client.last_usage` (`{"input_tokens", "output_tokens", "total_tokens"}`) after each non-streaming call.
+- Structured output: pass `schema=` (a dataclass or Pydantic model) to `chat()` / `generate()` to get a typed object back. Native provider enforcement (OpenAI `response_format`, Ollama `format=`, Anthropic forced-tool) where available, with a prompt-and-parse fallback elsewhere.
 - `aimu.embedding_client()` / `aimu.embed()` for text embeddings. OpenAI and Ollama, plus local HuggingFace `sentence-transformers`. Single string → one vector; list → list of vectors.
 
 ### Image and audio generation
@@ -231,6 +232,21 @@ import aimu
 text = aimu.transcribe("./clip.wav", model="openai:whisper-1")
 client = aimu.transcription_client("hf:openai/whisper-tiny")  # local
 text = client.transcribe("./clip.wav")
+```
+
+**Structured output.** Get a typed object back instead of a string:
+
+```python
+import aimu
+from dataclasses import dataclass
+
+@dataclass
+class Person:
+    name: str
+    age: int
+
+person = aimu.client("openai:gpt-4.1").chat("Extract: Ada Lovelace, 36", schema=Person)
+# Person(name="Ada Lovelace", age=36)  — native enforcement on capable models, parse fallback otherwise
 ```
 
 **Embeddings.** Text to vectors, same `provider:model_id` shape:

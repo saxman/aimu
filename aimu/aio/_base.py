@@ -68,6 +68,10 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
     def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
         raise NotImplementedError
 
+    @classproperty
+    def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
+        raise NotImplementedError
+
     @abstractmethod
     async def _generate(
         self,
@@ -76,8 +80,13 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        """Provider-specific async generate implementation. Use :meth:`generate`."""
+        """Provider-specific async generate implementation. Use :meth:`generate`.
+
+        ``response_format`` (a JSON Schema dict) is passed only on the native structured-output
+        path and only to providers with ``supports_structured_output=True``.
+        """
         pass
 
     @abstractmethod
@@ -89,6 +98,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         stream: bool = False,
         images: Optional[list] = None,
         audio: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         """Provider-specific async chat implementation. Use :meth:`chat`."""
         pass
@@ -101,12 +111,14 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         images: Optional[list] = None,
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         audio: Optional[list] = None,
-    ) -> Union[str, AsyncIterator[StreamChunk]]:
+        schema: Optional[type] = None,
+    ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Single-turn, stateless async generation. See sync :meth:`BaseModelClient.generate`.
 
         ``images`` / ``audio`` accept the same forms as :meth:`chat` and raise ``ValueError``
         for models that don't support the respective modality. The call stays stateless
-        (does not touch ``self.messages``). Passing both raises ``ValueError``.
+        (does not touch ``self.messages``). Passing both raises ``ValueError``. ``schema``
+        mirrors the sync surface — see :meth:`chat`.
         """
         if images and audio:
             raise ValueError("Pass either images= or audio= per call, not both.")
@@ -114,6 +126,10 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             self._require_vision()
         if audio:
             self._require_audio()
+        if schema is not None:
+            if stream:
+                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+            return await self._generate_structured(prompt, generate_kwargs, images, audio, schema)
         result = await self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
         if stream and include is not None:
             return afilter_chunks(result, resolve_include(include))
@@ -129,14 +145,21 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         tools: Optional[list] = None,
         audio: Optional[list] = None,
-    ) -> Union[str, AsyncIterator[StreamChunk]]:
+        schema: Optional[type] = None,
+    ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Multi-turn async chat with persistent message history.
 
         Args mirror the sync :meth:`BaseModelClient.chat`, including the per-call
-        ``tools`` override (``None`` uses ``self.tools``; any other value replaces the
-        Python ``@tool`` callables for this call only). Streaming returns an
+        ``tools`` override and ``schema`` (structured output: native when
+        ``supports_structured_output`` else prompt-and-parse; mutually exclusive with
+        ``stream=True``; Anthropic native + active tools raises). Streaming returns an
         ``AsyncIterator[StreamChunk]`` — consume with ``async for``.
         """
+        if schema is not None:
+            if stream:
+                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+            return await self._chat_structured(user_message, generate_kwargs, use_tools, images, audio, tools, schema)
+
         if tools is None:
             result = await self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
@@ -153,6 +176,40 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             return await self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
             )
+
+    def _structured_request(self, schema: type) -> tuple[Optional[dict], str]:
+        """Resolve a schema to ``(response_format, prompt_suffix)`` for the active model.
+
+        Native models get the JSON Schema dict; parse-path models get ``None`` and an
+        instruction suffix. Mirrors :meth:`BaseModelClient._structured_request`.
+        """
+        from aimu.models._internal.structured import json_schema_instruction, schema_to_json_schema
+
+        json_schema = schema_to_json_schema(schema)
+        if self.supports_structured_output:
+            return json_schema, ""
+        return None, "\n\n" + json_schema_instruction(json_schema)
+
+    async def _chat_structured(self, user_message, generate_kwargs, use_tools, images, audio, tools, schema):
+        from aimu.models._internal.json import parse_json_response
+
+        response_format, suffix = self._structured_request(schema)
+        message = user_message + suffix
+        extra = {"response_format": response_format} if response_format is not None else {}
+        if tools is None:
+            text = await self._chat(message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio, **extra)
+        else:
+            with self._tools_override(tools):
+                text = await self._chat(message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio, **extra)
+        return parse_json_response(text, schema)
+
+    async def _generate_structured(self, prompt, generate_kwargs, images, audio, schema):
+        from aimu.models._internal.json import parse_json_response
+
+        response_format, suffix = self._structured_request(schema)
+        extra = {"response_format": response_format} if response_format is not None else {}
+        text = await self._generate(prompt + suffix, generate_kwargs, stream=False, images=images, audio=audio, **extra)
+        return parse_json_response(text, schema)
 
     async def _chat_with_tools_streamed(
         self,
