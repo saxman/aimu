@@ -945,6 +945,30 @@ Key files and their roles:
   - `tests/test_aio_transcription_api.py` (mock-only): wrap refusal, state sharing, async transcribe.
   - `tests/test_transcription.py` (live, opt-in): `--transcription-client` / `--transcription-model` CLI flags; cross-model tests (text output, `verbose_json`, language hint). Skipped when `--transcription-client` is omitted.
 
+### Embeddings (Text-to-Vector)
+
+AIMU provides a dedicated text-embedding surface via `aimu.embedding_client()` and `aimu.embed()`, a **parallel surface** to the other modality clients. Embeddings map text to fixed-length vectors (semantic similarity, clustering, retrieval, semantic memory). The interface is disjoint from chat (no message history, no streaming), so `BaseEmbeddingClient` is its own ABC.
+
+Three providers ship: **OpenAI** (cloud), **Ollama** (local server), **HuggingFace** (local, via `sentence-transformers`).
+
+- **[aimu/models/_base/embedding.py](aimu/models/_base/embedding.py)** — base types (parallel to `_base/audio.py`):
+  - `EmbeddingSpec` (id-only equality/hash): `id`, `dimensions`, `max_input_tokens`. Subclasses `OpenAIEmbeddingSpec`, `OllamaEmbeddingSpec`, `HuggingFaceEmbeddingSpec` (adds `normalize: bool = True`), all `@dataclass(eq=False)`.
+  - `EmbeddingModel(Enum)` base — `__init__` sets `_value_ = spec.id` and stores `self.spec`.
+  - `BaseEmbeddingClient(ABC)`: concrete `embed(texts, **kwargs)` normalizes a single `str` to one vector (`list[float]`) and a list to a list of vectors (`list[list[float]]`, order preserved); empty list → `[]`; non-string items raise `ValueError`. Delegates to abstract `_embed(texts: list[str], **kwargs) -> list[list[float]]`. Exposes `dimensions` (from the spec).
+- **[aimu/models/providers/openai/embedding.py](aimu/models/providers/openai/embedding.py)**: `OpenAIEmbeddingClient` + `OpenAIEmbeddingModel` (`TEXT_EMBEDDING_3_SMALL/LARGE`, `TEXT_EMBEDDING_ADA_002`). Uses `openai.embeddings.create()`; reads `OPENAI_API_KEY`. `dimensions=` (OpenAI's vector-truncation param) is forwarded via `embed(..., dimensions=N)`.
+- **[aimu/models/providers/ollama.py](aimu/models/providers/ollama.py)**: `OllamaEmbeddingClient` + `OllamaEmbeddingModel` (`nomic-embed-text`, `mxbai-embed-large`, `bge-m3`, `all-minilm`). Uses `ollama.embed()`; pulls the model on construction (same as `OllamaClient`).
+- **[aimu/models/providers/hf/embedding.py](aimu/models/providers/hf/embedding.py)**: `HuggingFaceEmbeddingClient` + `HuggingFaceEmbeddingModel` (MiniLM-L6-v2, BGE small/base/large-en-v1.5, GTE-large, E5-large-v2, mxbai-embed-large-v1). Backed by `sentence_transformers.SentenceTransformer` so each model's own pooling/normalization config is honoured (avoids hand-rolled pooling that is silently wrong per model). Lazy load + module-level `_model_registry` weight cache (same pattern as the other HF clients; cleared by `aimu.clear_hf_cache()`, which includes `models.providers.hf.embedding`). `_embed` defaults `normalize_embeddings` to `spec.normalize` (overridable per call). Hard `import sentence_transformers` so `HAS_HF_EMBEDDING` reflects installed state. Retrieval-tuned models (BGE / E5) expect `"query: "` / `"passage: "` prefixes for asymmetric retrieval — the client does not auto-prepend; pass prefixed strings when needed.
+- **[aimu/models/embedding_client.py](aimu/models/embedding_client.py)**: `EmbeddingClient` factory + `resolve_embedding_model_string()` (mirrors `transcription_client.py`). Dispatches on `"openai:"` / `"ollama:"` / `"hf:"`.
+- **[aimu/__init__.py](aimu/__init__.py)**: `aimu.embedding_client(model=None, **kwargs)` and `aimu.embed(texts, *, model=None, **kwargs)`. When `model` is omitted, reads `AIMU_EMBEDDING_MODEL` via `resolve_default_modality_model()`; unset raises `ValueError` (no implicit download).
+- **Memory integration**: `SemanticMemoryStore(embedding_client=...)` adapts the client to a ChromaDB `EmbeddingFunction` (`_EmbeddingClientFunction`, which returns `NotImplemented` from `get_config()` to skip config persistence). Default `None` keeps ChromaDB's built-in embedder — unchanged behaviour. A custom embedding model isn't persisted in the collection config, so reopen a persistent store with the same `embedding_client=`.
+- **Async** ([aimu/aio/embedding.py](aimu/aio/embedding.py)): `aio.embedding_client(sync_client)` wraps any sync `BaseEmbeddingClient` via `asyncio.to_thread` (one provider-agnostic wrapper, since all embedding clients share `embed()`); refuses enum/string construction with a pointer to the wrap pattern. `aio.embed(texts, *, model=...)` accepts a sync client or builds one via `aimu.embedding_client(model)`.
+- **Optional dep flags**: `HAS_OPENAI_EMBEDDING`, `HAS_OLLAMA_EMBEDDING`, `HAS_HF_EMBEDDING` (the last requires `sentence-transformers`, added to the `[hf]` extra). `available_embedding_clients()` returns installed provider clients.
+- **Tests**: `tests/test_embeddings_api.py` (mock-only; HF tests stub `sentence_transformers` and import the provider fresh), `tests/test_aio_embeddings_api.py` (wrap refusal, state sharing, async embed), `tests/test_embeddings.py` (live, opt-in; `--embedding-client` / `--embedding-model` flags).
+
+### Token Usage Surfacing
+
+`client.last_usage` holds token counts for the most recent **non-streaming** `chat()` / `generate()` as `{"input_tokens", "output_tokens", "total_tokens"}`, or `None` when the provider/server omitted usage. Normalizers live in [aimu/models/_internal/usage.py](aimu/models/_internal/usage.py) (`usage_from_openai` / `usage_from_anthropic` / `usage_from_ollama`); each provider sets `self.last_usage` after its final response. Captured for Anthropic, OpenAI-compat (incl. OpenAI/Gemini/local servers), and Ollama, on both sync and async surfaces; delegated through the `ModelClient` / `AsyncModelClient` wrappers (mirroring `last_thinking`). Streaming paths reset it to `None` (streaming usage capture is a deferred follow-up), as does `reset()`. In-process providers (HuggingFace, LlamaCpp) leave it `None`. Token counts only — dollar cost is intentionally not computed (it would need a maintained per-model price table).
+
 ### Cloud Provider Client Notes
 
 - **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/providers/openai/text.py](aimu/models/providers/openai/text.py).
@@ -988,6 +1012,7 @@ aimu/
 │   ├── audio.py         # AsyncAudioClient factory + aio.audio_client() / aio.generate_audio()
 │   ├── speech.py        # AsyncSpeechClient factory + aio.speech_client() / aio.generate_speech()
 │   ├── transcription.py # AsyncTranscriptionClient factory + aio.transcription_client() / aio.transcribe()
+│   ├── embedding.py     # AsyncEmbeddingClient (wraps any sync BaseEmbeddingClient) + aio.embedding_client() / aio.embed()
 │   ├── tools/           # Async tools (mirrors aimu.tools)
 │   │   └── builtin.py        # Async generate_image + re-exports of sync built-ins (incl. generate_audio, generate_speech, transcribe_audio)
 │   └── workflows/       # Async workflow patterns (asyncio.TaskGroup for Parallel)
@@ -1003,23 +1028,27 @@ aimu/
 │   │   ├── text.py          # ModelSpec, Model, BaseModelClient
 │   │   ├── image.py         # ImageSpec (+ HuggingFaceImageSpec, GeminiImageSpec), ImageModel, BaseImageClient
 │   │   ├── audio.py         # AudioSpec (+ HuggingFaceAudioSpec), AudioModel, BaseAudioClient
-│   │   └── speech.py        # SpeechSpec (+ HuggingFaceSpeechSpec, OpenAISpeechSpec), SpeechModel, BaseSpeechClient
+│   │   ├── speech.py        # SpeechSpec (+ HuggingFaceSpeechSpec, OpenAISpeechSpec), SpeechModel, BaseSpeechClient
+│   │   ├── transcription.py # TranscriptionSpec (+ HF/OpenAI subclasses), TranscriptionModel, BaseTranscriptionClient
+│   │   └── embedding.py     # EmbeddingSpec (+ OpenAI/Ollama/HuggingFace subclasses), EmbeddingModel, BaseEmbeddingClient
 │   ├── model_client.py  # ModelClient factory/wrapper + resolve_model_string + resolve_model_enum + available_text_models/resolve_default_text_model_enum (re-export)
 │   ├── image_client.py  # ImageClient factory + resolve_image_model_string + resolve_image_model_enum
 │   ├── audio_client.py  # AudioClient factory + resolve_audio_model_string
 │   ├── speech_client.py # SpeechClient factory + resolve_speech_model_string
 │   ├── transcription_client.py # TranscriptionClient factory + resolve_transcription_model_string
+│   ├── embedding_client.py # EmbeddingClient factory + resolve_embedding_model_string
 │   ├── _internal/       # Private cross-cutting helpers (never re-exported)
 │   │   ├── chat_state.py    # _ChatStateMixin — system_message/reset/append (shared sync+async)
 │   │   ├── streaming.py     # resolve_include, filter_chunks, afilter_chunks — stream helpers
 │   │   ├── json.py          # parse_json_response, generate_json, extract_tool_calls
+│   │   ├── usage.py         # usage_from_openai/anthropic/ollama — normalize token usage → client.last_usage
 │   │   ├── model_defaults.py # default-model resolution + local-availability discovery (env + local probes); backs available_text_models / resolve_default_text_model_enum
 │   │   ├── image_input.py   # vision-input normalization (_normalize_image, per-provider adapters)
 │   │   ├── image_output.py  # encode_image() — diffusion-output format conversion
 │   │   └── audio_output.py  # encode_audio() — audio/speech-output conversion (WAV); reused by speech
 │   └── providers/       # Concrete provider clients, one module per provider
 │       ├── anthropic.py     # AnthropicClient + AnthropicModel
-│       ├── ollama.py        # OllamaClient + OllamaModel (native API)
+│       ├── ollama.py        # OllamaClient + OllamaModel (native API) + OllamaEmbeddingClient + OllamaEmbeddingModel
 │       ├── llamacpp.py      # LlamaCppClient + LlamaCppModel (requires llamacpp extra)
 │       ├── openai_compat.py # OpenAICompatClient base + local-server subclasses
 │       │                    #   (LMStudio/OllamaOpenAI/HFOpenAI/VLLM/LlamaServer/SGLang) (requires openai package)
@@ -1030,11 +1059,13 @@ aimu/
 │       │   ├── image.py         # HuggingFaceImageClient + HuggingFaceImageModel (image extra)
 │       │   ├── audio.py         # HuggingFaceAudioClient + HuggingFaceAudioModel (MusicGen/AudioLDM2/StableAudio; hf extra)
 │       │   ├── speech.py        # HuggingFaceSpeechClient + HuggingFaceSpeechModel (MMS-TTS, BARK; hf extra)
-│       │   └── transcription.py # HuggingFaceTranscriptionClient + HuggingFaceTranscriptionModel (Whisper family; hf extra)
+│       │   ├── transcription.py # HuggingFaceTranscriptionClient + HuggingFaceTranscriptionModel (Whisper family; hf extra)
+│       │   └── embedding.py     # HuggingFaceEmbeddingClient + HuggingFaceEmbeddingModel (sentence-transformers; hf extra)
 │       ├── openai/          # OpenAI cloud clients
 │       │   ├── text.py          # OpenAIClient + OpenAIModel (GPT/o-series; subclasses OpenAICompatClient)
 │       │   ├── speech.py        # OpenAISpeechClient + OpenAISpeechModel (tts-1, tts-1-hd; openai_compat extra)
-│       │   └── transcription.py # OpenAITranscriptionClient + OpenAITranscriptionModel (whisper-1, gpt-4o-transcribe; openai_compat extra)
+│       │   ├── transcription.py # OpenAITranscriptionClient + OpenAITranscriptionModel (whisper-1, gpt-4o-transcribe; openai_compat extra)
+│       │   └── embedding.py     # OpenAIEmbeddingClient + OpenAIEmbeddingModel (text-embedding-3-*; openai_compat extra)
 │       └── gemini/          # Google Gemini clients
 │           ├── text.py          # GeminiClient + GeminiModel (subclasses OpenAICompatClient)
 │           └── image.py         # GeminiImageClient + GeminiImageModel (Nano Banana; image extra)

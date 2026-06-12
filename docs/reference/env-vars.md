@@ -27,6 +27,17 @@ The built-in `generate_audio` tool follows the same pattern. `AIMU_AUDIO_MODEL` 
 
 The built-in `generate_speech` tool follows the same pattern. `AIMU_SPEECH_MODEL` accepts any string supported by `aimu.speech_client()` — `"openai:<model_id>"` (requires `OPENAI_API_KEY`) or `"hf:<repo_id>"`. Override per-agent with `make_speech_tool(client)` instead of using the singleton.
 
+## Default model selection
+
+These set the default `model=` for a modality's top-level helpers when the argument is omitted. Unlike the tool defaults above, they have **no built-in fallback** — if unset and no model is passed, the helper raises `ValueError` (AIMU never downloads weights implicitly).
+
+| Variable | Used by | Default |
+|---|---|---|
+| `AIMU_TRANSCRIPTION_MODEL` | `aimu.transcription_client()` / `aimu.transcribe()` | None (raises if unset) |
+| `AIMU_EMBEDDING_MODEL` | `aimu.embedding_client()` / `aimu.embed()` | None (raises if unset) |
+
+`AIMU_EMBEDDING_MODEL` accepts any string supported by `aimu.embedding_client()` — `"openai:<model_id>"` (requires `OPENAI_API_KEY`), `"ollama:<model_id>"`, or `"hf:<repo_id>"` (the `[hf]` extra).
+
 ## MCP server storage paths
 
 | Variable | Used by | Default |
@@ -56,6 +67,9 @@ AIMU_AUDIO_MODEL=hf:facebook/musicgen-small
 
 # Speech generation default (used by the built-in generate_speech tool)
 AIMU_SPEECH_MODEL=hf:microsoft/speecht5_tts
+
+# Embedding default (used by aimu.embedding_client() / aimu.embed())
+AIMU_EMBEDDING_MODEL=openai:text-embedding-3-small
 
 # MCP server storage
 MEMORY_STORE_PATH=./.aimu/memory

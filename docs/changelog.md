@@ -32,6 +32,21 @@
 - **New** Built-in `transcribe_audio(audio_path: str) -> str` `@tool` in `aimu.tools.builtin`; `builtin.transcription` subgroup; included in `ALL_TOOLS`. Backed by a lazy `_transcription_client` singleton via `AIMU_TRANSCRIPTION_MODEL`. `make_transcription_tool(client)` binds a fresh tool to a caller-supplied client.
 - **New** `docs/how-to/transcribe-audio.md` and `notebooks/19 - Transcription.ipynb`.
 
+### Embeddings (text-to-vector)
+
+- **New** `aimu.embedding_client()` / `aimu.embed()` + `EmbeddingClient` factory + `BaseEmbeddingClient` ABC — a dedicated text-embedding surface, parallel to the other modality clients. `embed()` takes one string (returns `list[float]`) or a list (returns `list[list[float]]`, order preserved); an empty list returns `[]` without a provider call. `client.dimensions` reports the spec's vector width.
+- **New** `OpenAIEmbeddingClient` + `OpenAIEmbeddingModel` (`text-embedding-3-small/large`, `text-embedding-ada-002`) via `openai.embeddings.create()`; auth via `OPENAI_API_KEY`.
+- **New** `OllamaEmbeddingClient` + `OllamaEmbeddingModel` (`nomic-embed-text`, `mxbai-embed-large`, `bge-m3`, `all-minilm`) via `ollama.embed()`.
+- **New** `HuggingFaceEmbeddingClient` + `HuggingFaceEmbeddingModel` (MiniLM-L6-v2, BGE small/base/large-en-v1.5, GTE-large, E5-large-v2, mxbai-embed-large-v1) backed by `sentence-transformers` so each model's own pooling/normalization config is honoured; lazy load + module-level weight cache (freed by `aimu.clear_hf_cache()`). Adds `sentence-transformers>=3` to the `[hf]` extra.
+- **New** `SemanticMemoryStore(embedding_client=...)` — pluggable embedding model; default `None` keeps ChromaDB's built-in embedder (unchanged behaviour).
+- **New** `AIMU_EMBEDDING_MODEL` env var sets the default model for `aimu.embedding_client()` / `aimu.embed()` when `model=` is omitted (raises if unset; no implicit download).
+- **New** Async mirror: `aio.embedding_client(sync_client)` / `aio.embed()` wrap a sync client via `asyncio.to_thread`.
+- **Docs** `docs/how-to/use-embeddings.md`, `notebooks/20 - Embeddings.ipynb`, API reference, and env-var reference.
+
+### Token usage surfacing
+
+- **New** `client.last_usage` — token counts for the most recent non-streaming `chat()` / `generate()`, as `{"input_tokens", "output_tokens", "total_tokens"}` (or `None` when the provider/server omits usage). Captured for Anthropic, OpenAI-compat (incl. OpenAI/Gemini/local servers), and Ollama, on both sync and async surfaces, and delegated through the `ModelClient` / `AsyncModelClient` wrappers. Reset to `None` on streaming calls (streaming usage capture is a separate follow-up) and by `reset()`. Token counts only — dollar cost is derivable but intentionally not computed (no maintained price table).
+
 ### Anthropic models & adaptive thinking
 
 - **New** `AnthropicModel` members: `CLAUDE_FABLE_5` (`claude-fable-5`), `CLAUDE_OPUS_4_8` (`claude-opus-4-8`), `CLAUDE_OPUS_4_7` (`claude-opus-4-7`) — all `tools=True, thinking=True, vision=True`.

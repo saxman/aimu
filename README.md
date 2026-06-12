@@ -35,6 +35,8 @@ Composition happens by passing objects to constructors. Conversation state is a 
 - One client interface for Ollama, HuggingFace, llama-cpp, the Claude API, OpenAI, Gemini, and any OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve). Swap with a string change: `"provider:model_id"`.
 - Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamingContentType.THINKING` chunks via the same API.
 - Typed streaming: `StreamChunk(phase, content, agent, iteration)` flows through `client.chat()`, `Agent.run()`, and every workflow. Filter with `include=["generating"]`.
+- Token usage is surfaced as `client.last_usage` (`{"input_tokens", "output_tokens", "total_tokens"}`) after each non-streaming call.
+- `aimu.embedding_client()` / `aimu.embed()` for text embeddings. OpenAI and Ollama, plus local HuggingFace `sentence-transformers`. Single string → one vector; list → list of vectors.
 
 ### Image and audio generation
 
@@ -69,7 +71,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 ### Memory and persistence
 
 - `SemanticMemoryStore`, `DocumentStore`, and `ConversationManager` all implement the same `MemoryStore` interface and are interchangeable wherever one is accepted.
-- `SemanticMemoryStore` - ChromaDB vector search for semantic fact storage and retrieval.
+- `SemanticMemoryStore` - ChromaDB vector search for semantic fact storage and retrieval. Pass `embedding_client=aimu.embedding_client(...)` to use your own embedding model instead of ChromaDB's default.
 - `DocumentStore` - path-keyed document storage, drop-in compatible with the Claude memory tool API.
 - `ConversationManager` - TinyDB-backed chat history that persists across sessions. Integrates directly with any `ModelClient` via `client.messages`.
 - `make_memory_tools(store)` returns `store_memory`, `search_memories`, and `list_memories` as `@tool` functions for direct in-process agent use. Pass the result to `Agent(client, tools=...)` or include it via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use the FastMCP servers in `aimu.memory.mcp` / `aimu.memory.document_mcp`.
@@ -230,6 +232,21 @@ client = aimu.transcription_client("hf:openai/whisper-tiny")  # local
 text = client.transcribe("./clip.wav")
 ```
 
+**Embeddings.** Text to vectors, same `provider:model_id` shape:
+
+```python
+import aimu
+
+vector = aimu.embed("the quick brown fox", model="openai:text-embedding-3-small")  # list[float]
+
+client = aimu.embedding_client("hf:BAAI/bge-small-en-v1.5")  # local sentence-transformers
+vectors = client.embed(["alpha", "beta"])                     # list[list[float]]
+
+# Use a chosen embedding model for semantic memory
+from aimu.memory import SemanticMemoryStore
+store = SemanticMemoryStore(embedding_client=client)
+```
+
 **Vision and image generation together.** A vision-capable agent with `generate_image` as a tool can perceive and create in the same run:
 
 ```python
@@ -313,6 +330,7 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | [17 - Speech](notebooks/17%20-%20Speech.ipynb) | TTS with HuggingFace (SpeechT5, MMS-TTS, BARK) and OpenAI (tts-1/tts-1-hd); `generate_speech` agent tool; Streamlit live narration; STT placeholder |
 | [18 - Audio Input](notebooks/18%20-%20Audio%20Input.ipynb) | Audio input via `audio=` on `chat()` and `generate()`; model selection; accepted formats; async surface |
 | [19 - Transcription](notebooks/19%20-%20Transcription.ipynb) | Speech-to-text via `transcription_client()` / `transcribe()`; OpenAI and HuggingFace providers; timestamps; async surface |
+| [20 - Embeddings](notebooks/20%20-%20Embeddings.ipynb) | Text embeddings via `embedding_client()` / `embed()`; OpenAI, Ollama, and local HuggingFace providers; cosine similarity; pluggable into `SemanticMemoryStore`; async surface |
 
 ## Web apps
 
