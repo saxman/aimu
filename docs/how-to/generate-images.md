@@ -252,7 +252,7 @@ agent = Agent(text_client, tools=[fast_tool])
 
 ## Skill integration (deeper, optional)
 
-For `SkillAgent` users, drop a `SKILL.md` under `.agents/skills/image-generation/` with prompt-engineering guidance. Skills are filesystem-discovered (not shipped with AIMU); see [notebooks/15 - Image Generation.ipynb](https://github.com/saxman/aimu/tree/main/notebooks) for a copyable example.
+For `SkillAgent` users, drop a `SKILL.md` under `.agents/skills/image-generation/` with prompt-engineering guidance. Skills are filesystem-discovered (not shipped with AIMU); see [notebooks/18 - Image Generation.ipynb](https://github.com/saxman/aimu/tree/main/notebooks) for a copyable example.
 
 ## Async
 

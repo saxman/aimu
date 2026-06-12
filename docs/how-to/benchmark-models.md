@@ -91,4 +91,4 @@ Rows are sequential within a client; clients are sequential across runs. Concurr
 
 - [`aimu.evals.Benchmark`](../reference/api/evals.md#aimu.evals.Benchmark)
 - [Integrate DeepEval](integrate-deepeval.md)
-- Notebook [13 - Benchmarking](https://github.com/saxman/aimu/blob/main/notebooks/13%20-%20Benchmarking.ipynb)
+- Notebook [17 - Benchmarking](https://github.com/saxman/aimu/blob/main/notebooks/17%20-%20Benchmarking.ipynb)

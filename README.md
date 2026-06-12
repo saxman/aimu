@@ -344,26 +344,27 @@ The [`notebooks/`](notebooks/) directory ships interactive demos for every subsy
 | Notebook | Description |
 |---|---|
 | [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb) | Text generation, chat, streaming, thinking models |
-| [02 - Vision](notebooks/02%20-%20Vision.ipynb) | Image input via `images=` on `chat()` and one-shot `generate()` |
-| [03 - Tools](notebooks/03%20-%20Tools.ipynb) | `@tool` decorator, built-in tool groups, MCPClient |
-| [04 - Prompt Management](notebooks/04%20-%20Prompt%20Management.ipynb) | Versioned prompt storage |
-| [05 - Prompt Tuning](notebooks/05%20-%20Prompt%20Tuning.ipynb) | Classification, multi-class, extraction, judged tuners |
-| [06 - Conversations](notebooks/06%20-%20Conversations.ipynb) | Persistent chat history |
-| [07 - Memory](notebooks/07%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
-| [08 - Agents](notebooks/08%20-%20Agents.ipynb) | `Agent` and `agent.as_model_client()` |
-| [09 - Agent Skills](notebooks/09%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection |
-| [10 - Workflows](notebooks/10%20-%20Workflows.ipynb) | Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator |
-| [11 - Prebuilt Agents](notebooks/11%20-%20Prebuilt%20Agents.ipynb) | Orchestrator + worker tools pattern |
-| [12 - Evaluations](notebooks/12%20-%20Evaluations.ipynb) | DeepEval integration |
-| [13 - Benchmarking](notebooks/13%20-%20Benchmarking.ipynb) | Multi-model comparison harness |
-| [14 - Async](notebooks/14%20-%20Async.ipynb) | `aimu.aio` surface end-to-end: chat, streaming, async tools, `asyncio.TaskGroup`-backed `Parallel`, async `MCPClient`, in-process provider wrapping |
-| [15 - Image Generation](notebooks/15%20-%20Image%20Generation.ipynb) | `aimu.image_client()` / `aimu.generate_image()` with HuggingFace `diffusers` and Google Nano Banana, plus the built-in `generate_image` agent tool |
-| [16 - Audio Generation](notebooks/16%20-%20Audio%20Generation.ipynb) | `aimu.audio_client()` / `aimu.generate_audio()` with MusicGen, AudioLDM2, and Stable Audio Open, plus streaming and the built-in `generate_audio` agent tool |
-| [17 - Speech](notebooks/17%20-%20Speech.ipynb) | TTS with HuggingFace (SpeechT5, MMS-TTS, BARK) and OpenAI (tts-1/tts-1-hd); `generate_speech` agent tool; Streamlit live narration (speech-to-text is notebook 19) |
-| [18 - Audio Input](notebooks/18%20-%20Audio%20Input.ipynb) | Audio input via `audio=` on `chat()` and `generate()`; model selection; accepted formats; async surface |
-| [19 - Transcription](notebooks/19%20-%20Transcription.ipynb) | Speech-to-text via `transcription_client()` / `transcribe()`; OpenAI and HuggingFace providers; timestamps; async surface |
-| [20 - Embeddings](notebooks/20%20-%20Embeddings.ipynb) | Text embeddings via `embedding_client()` / `embed()`; OpenAI, Ollama, and local HuggingFace providers; cosine similarity; pluggable into `SemanticMemoryStore`; async surface |
-| [21 - RAG](notebooks/21%20-%20RAG.ipynb) | Retrieval-augmented generation with `aimu.rag`: `split_text` chunking, `ingest` / `retrieve` / `format_context`, reranking, and `make_retrieval_tool` for agents |
+| [02 - Conversations](notebooks/02%20-%20Conversations.ipynb) | Persistent multi-turn chat history (`ConversationManager`) |
+| [03 - Structured Output](notebooks/03%20-%20Structured%20Output.ipynb) | Typed responses via `schema=` on `chat()` / `generate()`; native enforcement (OpenAI / Ollama / Anthropic) with a prompt-and-parse fallback |
+| [04 - Vision](notebooks/04%20-%20Vision.ipynb) | Image input via `images=` on `chat()` and one-shot `generate()` |
+| [05 - Audio Input](notebooks/05%20-%20Audio%20Input.ipynb) | Audio input via `audio=` on `chat()` and `generate()`; model selection; accepted formats; async surface |
+| [06 - Tools](notebooks/06%20-%20Tools.ipynb) | `@tool` decorator, built-in tool groups, MCPClient |
+| [07 - Agents](notebooks/07%20-%20Agents.ipynb) | `Agent` and `agent.as_model_client()` |
+| [08 - Agent Skills](notebooks/08%20-%20Agent%20Skills.ipynb) | Filesystem-discovered skill injection |
+| [09 - Workflows](notebooks/09%20-%20Workflows.ipynb) | Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator |
+| [10 - Prebuilt Agents](notebooks/10%20-%20Prebuilt%20Agents.ipynb) | Orchestrator + worker tools pattern |
+| [11 - Embeddings](notebooks/11%20-%20Embeddings.ipynb) | Text embeddings via `embedding_client()` / `embed()`; OpenAI, Ollama, and local HuggingFace providers; cosine similarity; pluggable into `SemanticMemoryStore`; async surface |
+| [12 - Memory](notebooks/12%20-%20Memory.ipynb) | Semantic fact storage and retrieval |
+| [13 - RAG](notebooks/13%20-%20RAG.ipynb) | Retrieval-augmented generation with `aimu.rag`: `split_text` chunking, `ingest` / `retrieve` / `format_context`, reranking, and `make_retrieval_tool` for agents |
+| [14 - Prompt Management](notebooks/14%20-%20Prompt%20Management.ipynb) | Versioned prompt storage |
+| [15 - Prompt Tuning](notebooks/15%20-%20Prompt%20Tuning.ipynb) | Classification, multi-class, extraction, judged tuners |
+| [16 - Evaluations](notebooks/16%20-%20Evaluations.ipynb) | DeepEval integration |
+| [17 - Benchmarking](notebooks/17%20-%20Benchmarking.ipynb) | Multi-model comparison harness |
+| [18 - Image Generation](notebooks/18%20-%20Image%20Generation.ipynb) | `aimu.image_client()` / `aimu.generate_image()` with HuggingFace `diffusers` and Google Nano Banana, plus the built-in `generate_image` agent tool |
+| [19 - Audio Generation](notebooks/19%20-%20Audio%20Generation.ipynb) | `aimu.audio_client()` / `aimu.generate_audio()` with MusicGen, AudioLDM2, and Stable Audio Open, plus streaming and the built-in `generate_audio` agent tool |
+| [20 - Speech](notebooks/20%20-%20Speech.ipynb) | TTS with HuggingFace (SpeechT5, MMS-TTS, BARK) and OpenAI (tts-1/tts-1-hd); `generate_speech` agent tool; Streamlit live narration (speech-to-text is notebook 21) |
+| [21 - Transcription](notebooks/21%20-%20Transcription.ipynb) | Speech-to-text via `transcription_client()` / `transcribe()`; OpenAI and HuggingFace providers; timestamps; async surface |
+| [22 - Async](notebooks/22%20-%20Async.ipynb) | `aimu.aio` surface end-to-end: chat, streaming, async tools, `asyncio.TaskGroup`-backed `Parallel`, async `MCPClient`, in-process provider wrapping |
 
 ## Web apps
 

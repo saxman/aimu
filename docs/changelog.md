@@ -19,7 +19,7 @@
 ### Documentation
 
 - **New** `docs/how-to/handle-audio-input.md` — accepted input forms, model selection, stateful vs. stateless, async surface, per-provider adaptation.
-- **New** `notebooks/18 - Audio Input.ipynb` — capability flags, all input forms, multiple clips per turn, stateful/stateless split, multi-turn conversations, capability check, mutual-exclusion demo, Gemini and HuggingFace sections, async surface.
+- **New** `notebooks/05 - Audio Input.ipynb` — capability flags, all input forms, multiple clips per turn, stateful/stateless split, multi-turn conversations, capability check, mutual-exclusion demo, Gemini and HuggingFace sections, async surface.
 
 ### Transcription (speech-to-text)
 
@@ -30,7 +30,7 @@
 - **New** `AIMU_TRANSCRIPTION_MODEL` env var — sets the default model for `aimu.transcription_client()` and `aimu.transcribe()` when `model=` is omitted.
 - **New** Async mirror under `aimu.aio`: `AsyncTranscriptionClient`, `aio.transcription_client(sync_client)`, `await aio.transcribe(audio, *, model, ...)`. Wraps sync via `asyncio.to_thread` (Decision 7 — same as every other aio modality).
 - **New** Built-in `transcribe_audio(audio_path: str) -> str` `@tool` in `aimu.tools.builtin`; `builtin.transcription` subgroup; included in `ALL_TOOLS`. Backed by a lazy `_transcription_client` singleton via `AIMU_TRANSCRIPTION_MODEL`. `make_transcription_tool(client)` binds a fresh tool to a caller-supplied client.
-- **New** `docs/how-to/transcribe-audio.md` and `notebooks/19 - Transcription.ipynb`.
+- **New** `docs/how-to/transcribe-audio.md` and `notebooks/21 - Transcription.ipynb`.
 
 ### Embeddings (text-to-vector)
 
@@ -41,7 +41,7 @@
 - **New** `SemanticMemoryStore(embedding_client=...)` — pluggable embedding model; default `None` keeps ChromaDB's built-in embedder (unchanged behaviour).
 - **New** `AIMU_EMBEDDING_MODEL` env var sets the default model for `aimu.embedding_client()` / `aimu.embed()` when `model=` is omitted (raises if unset; no implicit download).
 - **New** Async mirror: `aio.embedding_client(sync_client)` / `aio.embed()` wrap a sync client via `asyncio.to_thread`.
-- **Docs** `docs/how-to/use-embeddings.md`, `notebooks/20 - Embeddings.ipynb`, API reference, and env-var reference.
+- **Docs** `docs/how-to/use-embeddings.md`, `notebooks/11 - Embeddings.ipynb`, API reference, and env-var reference.
 
 ### Structured output
 

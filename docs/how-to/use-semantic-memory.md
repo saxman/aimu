@@ -91,4 +91,4 @@ client.tools = mem.as_tools()
 
 - [Use document memory](use-document-memory.md) — path-based store mirroring Anthropic's Memory API
 - [`aimu.memory.SemanticMemoryStore`](../reference/api/memory.md)
-- Notebook [07 - Memory](https://github.com/saxman/aimu/blob/main/notebooks/07%20-%20Memory.ipynb)
+- Notebook [12 - Memory](https://github.com/saxman/aimu/blob/main/notebooks/12%20-%20Memory.ipynb)

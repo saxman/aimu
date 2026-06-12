@@ -147,4 +147,4 @@ You've now seen all four workflow patterns plus the autonomous `Agent`. Pick the
 - **[Vision and streaming](04-vision-and-streaming.md)** — last tutorial.
 - **[How-to: build an orchestrator](../how-to/build-orchestrator.md)** — when you want an LLM to dispatch to other agents *autonomously* via tools (a different pattern from `Router`, which dispatches in code).
 - **[Explanation: agents vs workflows](../explanation/agents-vs-workflows.md)** — the design argument.
-- Notebook [10 - Workflows](https://github.com/saxman/aimu/blob/main/notebooks/10%20-%20Workflows.ipynb) — interactive versions of every example here.
+- Notebook [09 - Workflows](https://github.com/saxman/aimu/blob/main/notebooks/09%20-%20Workflows.ipynb) — interactive versions of every example here.

@@ -124,4 +124,4 @@ Subclass `PromptTuner` and implement `apply_prompt`, `evaluate`, `mutation_promp
 
 - [`aimu.prompts` API reference](../reference/api/prompts.md)
 - [Benchmark models](benchmark-models.md) — compare clients on a fixed prompt
-- Notebook [05 - Prompt Tuning](https://github.com/saxman/aimu/blob/main/notebooks/05%20-%20Prompt%20Tuning.ipynb)
+- Notebook [15 - Prompt Tuning](https://github.com/saxman/aimu/blob/main/notebooks/15%20-%20Prompt%20Tuning.ipynb)

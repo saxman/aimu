@@ -49,4 +49,4 @@ manager.update_conversation(client.messages)
 ## See also
 
 - [`aimu.history.ConversationManager`](../reference/api/history.md)
-- Notebook [06 - Conversations](https://github.com/saxman/aimu/blob/main/notebooks/06%20-%20Conversations.ipynb)
+- Notebook [02 - Conversations](https://github.com/saxman/aimu/blob/main/notebooks/02%20-%20Conversations.ipynb)

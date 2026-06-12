@@ -89,5 +89,5 @@ AIMU keeps `self.messages` in OpenAI format always (`image_url` content blocks) 
 
 ## See also
 
-- Notebook [02 - Vision](https://github.com/saxman/aimu/blob/main/notebooks/02%20-%20Vision.ipynb)
+- Notebook [04 - Vision](https://github.com/saxman/aimu/blob/main/notebooks/04%20-%20Vision.ipynb)
 - [Model matrix](../reference/model-matrix.md) — `supports_vision` column

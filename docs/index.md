@@ -75,7 +75,7 @@ That's the full mental model: a `chat()` function for one-shots, a `client()` fa
 
 ## Notebooks
 
-The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 21 runnable demos covering every subsystem end-to-end, including `17 - Speech`, `18 - Audio Input`, `19 - Transcription`, `20 - Embeddings`, and `21 - RAG`. The [README](https://github.com/saxman/aimu#examples) lists each one.
+The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 22 runnable demos ordered to build up incrementally — from `01 - Model Client`, `03 - Structured Output`, and `06 - Tools` through `07 - Agents`, `11 - Embeddings`, `13 - RAG`, and the generative-modality and `22 - Async` notebooks. The [README](https://github.com/saxman/aimu#examples) lists each one in order.
 
 ## Web apps
 
