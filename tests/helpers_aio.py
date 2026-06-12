@@ -210,7 +210,12 @@ def create_real_async_model_client(request):
         # is present locally via the sync `ollama.pull` first if needed.
         import ollama
 
-        ollama.pull(model.value)
+        try:
+            ollama.pull(model.value)
+        except ollama.ResponseError as exc:
+            # Model can't be pulled in this environment (e.g. a 412 when the local
+            # Ollama is too old for the model's manifest format). Skip rather than error.
+            pytest.skip(f"Could not pull {model.value}: {exc}")
         client = AsyncOllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
         # Force model.supports_vision attr access through enum so downstream tests
         # using `model_client.model.supports_*` work uniformly.

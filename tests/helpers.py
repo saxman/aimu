@@ -264,8 +264,15 @@ def create_real_model_client(request) -> Iterator[BaseModelClient]:
     model = request.param
 
     if HAS_OLLAMA and model in OllamaClient.MODELS:
+        import ollama
+
         time.sleep(2)  # give Ollama time to free memory from the prior model
-        client = OllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
+        try:
+            client = OllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
+        except ollama.ResponseError as exc:
+            # Model can't be pulled in this environment (e.g. a 412 when the local
+            # Ollama is too old for the model's manifest format). Skip rather than error.
+            pytest.skip(f"Could not pull {model.value}: {exc}")
     elif HAS_HF and model in HuggingFaceClient.MODELS:
         client = HuggingFaceClient(model, system_message="You are a helpful assistant.")
     elif HAS_ANTHROPIC and model in AnthropicClient.MODELS:
