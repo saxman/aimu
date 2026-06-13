@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Audio input for text models
+## v0.8.0 (2026-06-12) — Embeddings, transcription, structured output, RAG & audio input
 
 ### Models
 
@@ -81,6 +81,16 @@
 
 - **Fix** Pinned the `[hf]` extra's `kernels` to `>=0.12,<0.13`. It was unconstrained and resolved to `kernels 0.15.2`, which is outside the range `transformers` supports (`<0.13`); `transformers` constructs `kernels.LayerRepository(...)` at import time and 0.13+ made `revision`/`version` mandatory, so `from transformers import AutoProcessor` raised `ValueError` — silently flipping `HAS_HF` to `False` (HuggingFace clients unavailable) and erroring every HF test on import.
 - Pinned the `[hf]` extra's `transformers` to `>=5,<6` (the major the model catalog targets — Qwen 3.6, Gemma 4, GPT-OSS) so a future major can't reintroduce this class of import-time breakage on resolve.
+
+### Async surface
+
+- **New** Async→sync tool bridging for wrapped in-process clients. `AsyncHuggingFaceClient` / `AsyncLlamaCppClient` run their sync client's `_chat` tool-dispatch loop in a worker thread (via `asyncio.to_thread`), and that sync dispatcher refuses `async def` tools — but the async surface routinely attaches them (e.g. `await aio.MCPClient.as_tools()`). Each async tool is now wrapped as a sync callable that drives the coroutine back on the main event loop (`run_coroutine_threadsafe`) and blocks only the worker thread (no deadlock — the main loop is free, awaiting the `to_thread` future). Async-generator (streaming) tools bridge to sync generators; the OpenAI tool spec and dispatch name are preserved. Async agents using in-process models can now mix sync and async tools (including MCP) transparently.
+
+### Fixes
+
+- **Change** HuggingFace default `max_new_tokens` raised from `1024` to `4096`. The previous default truncated reasoning models (e.g. Qwen 3.5/3.6) mid-thinking — before the closing `</think>` — which left no room for the answer; the higher default leaves headroom for thinking plus a response. Override per call with `generate_kwargs={"max_tokens": N}`.
+- **Fix** Streamed `chat()` on a HuggingFace thinking model no longer raises `RuntimeError: generator raised StopIteration` when a turn produces reasoning but is truncated before emitting an answer. The streaming path now mirrors the non-streaming one: it surfaces the buffered thinking and finishes with empty generated content instead of doing an unguarded `next()` on an empty token stream.
+- **Fix (tests)** Mock-only audio/speech/image API tests previously replaced `transformers` / `soundfile` / `diffusers` in `sys.modules` with bare stubs at collection time and never restored them, breaking any live model test that ran later in the same session (`ModuleNotFoundError: Could not import module 'Qwen3_5ForCausalLM'`). The stubs are now installed via auto-restoring, `monkeypatch`-scoped fixtures, and the permanent install is skipped whenever the real dependency is importable.
 
 ## v0.7.0 (2026-06-08) — MCP tool unification, model resolvers, and agent improvements
 
