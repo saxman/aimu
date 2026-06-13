@@ -22,6 +22,25 @@ def _make_stub_module(name: str) -> types.ModuleType:
     return mod
 
 
+def _real_present(name: str) -> bool:
+    """True if module ``name`` is the real (non-stub) package, or importable as one.
+
+    Keeps the permanent collection-time install from displacing a real dependency:
+    a bare ``transformers`` stub breaks the real package's own relative imports
+    (``from ...modeling_layers import``) for the rest of the session, which silently
+    kills live HuggingFace model tests.
+    """
+    mod = sys.modules.get(name)
+    if mod is not None:
+        return not getattr(mod, "_aimu_stub", False)
+    import importlib.util
+
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
 def _install_speech_stubs(monkeypatch=None, force=False):
     """Install minimal stubs for soundfile, transformers, openai before importing speech clients.
 
@@ -33,6 +52,11 @@ def _install_speech_stubs(monkeypatch=None, force=False):
     restored afterwards (no cross-file pollution). Called once at import time with neither argument
     purely so module-level ``from aimu.models.providers.hf.speech import ...`` can import (it hard-imports
     ``soundfile``)."""
+
+    # Permanent (collection-time) path: never displace real deps. The autouse
+    # fixture re-installs the fakes per-test via monkeypatch when deps are real.
+    if monkeypatch is None and not force and _real_present("transformers") and _real_present("soundfile"):
+        return
 
     def _set(name, mod):
         if monkeypatch is not None:
@@ -56,10 +80,10 @@ def _install_speech_stubs(monkeypatch=None, force=False):
     try:
         from test_images_api import _install_diffusers_stub
 
-        _install_diffusers_stub()
+        _install_diffusers_stub(monkeypatch=monkeypatch, force=force)
     except ImportError:
         if "diffusers" not in sys.modules:
-            sys.modules["diffusers"] = _make_stub_module("diffusers")
+            _set("diffusers", _make_stub_module("diffusers"))
 
     # transformers
     if force or not getattr(sys.modules.get("transformers"), "_aimu_stub", False):

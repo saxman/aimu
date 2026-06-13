@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from test_images_api import _install_diffusers_stub  # noqa: F401 — side effect
+from test_images_api import _force_diffusers_stub, _install_diffusers_stub  # noqa: F401 — side effect + autouse fixture
 
 _install_diffusers_stub()
 

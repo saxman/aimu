@@ -844,3 +844,48 @@ def test_clear_llamacpp_cache_clears_registry():
     aimu.clear_llamacpp_cache()
 
     assert fake_key not in _model_registry
+
+
+# ---------------------------------------------------------------------------
+# HuggingFace streaming: thinking-only turn (regression for the unguarded next())
+# ---------------------------------------------------------------------------
+
+
+def test_hf_chat_streamed_thinking_only_turn_does_not_crash(monkeypatch):
+    """A thinking-only streamed turn must not raise ``RuntimeError``.
+
+    When a thinking model opens a ``<think>`` block but generation ends before
+    ``</think>`` (e.g. token budget exhausted with ``do_sample=True``),
+    ``_generate_streaming`` returns an empty iterator. ``_chat_streamed`` used to
+    do an unguarded ``next(it)`` on it, and a ``StopIteration`` raised inside the
+    generator surfaced as ``RuntimeError: generator raised StopIteration`` (PEP 479).
+    It must instead surface the buffered thinking and finish with empty content,
+    mirroring the non-streaming ``_generate_sync`` path.
+    """
+    import types
+
+    pytest.importorskip("transformers")
+    import aimu.models.providers.hf.text as hf_text
+
+    # No real tokenizer/model needed: the streamer is stubbed and _generate_streaming
+    # is replaced with one that returns the empty iterator the bug hinges on.
+    monkeypatch.setattr(hf_text, "TextIteratorStreamer", lambda *a, **k: iter([]))
+
+    fake = types.SimpleNamespace(
+        _uses_processor_parse_response=False,
+        _hf_tokenizer=types.SimpleNamespace(decode=lambda *_a, **_k: "<eos>"),
+        _hf_model=types.SimpleNamespace(config=types.SimpleNamespace(eos_token_id=0)),
+        model=types.SimpleNamespace(tool_call_format=None),
+        messages=[],
+        last_thinking="reasoning that never closed",
+        _pending_thinking_tokens=["reasoning that never closed"],
+        _generate_streaming=lambda *a, **k: iter([]),
+    )
+
+    chunks = list(hf_text.HuggingFaceClient._chat_streamed(fake, {}, []))
+
+    assert [c.phase for c in chunks] == [StreamingContentType.THINKING]
+    assert chunks[0].content == "reasoning that never closed"
+    assert fake.messages == [
+        {"role": "assistant", "content": "", "thinking": "reasoning that never closed"}
+    ]

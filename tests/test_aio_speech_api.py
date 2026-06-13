@@ -15,7 +15,7 @@ import importlib
 
 import pytest
 
-from test_speech_api import _install_speech_stubs  # noqa: F401 — side effect
+from test_speech_api import _force_speech_stubs, _install_speech_stubs  # noqa: F401 — side effect + autouse fixture
 
 _install_speech_stubs()
 

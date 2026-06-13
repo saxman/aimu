@@ -7,7 +7,7 @@ the per-agent factory escape hatch. No diffusers install required.
 from __future__ import annotations
 
 # Install the diffusers stub before importing aimu.tools.builtin's image bits.
-from test_images_api import _install_diffusers_stub  # noqa: F401 — side effect
+from test_images_api import _force_diffusers_stub, _install_diffusers_stub  # noqa: F401 — side effect + autouse fixture
 
 _install_diffusers_stub()
 

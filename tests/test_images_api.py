@@ -41,22 +41,49 @@ def _make_stub_image(width: int = 8, height: int = 8, color: str = "red") -> Ima
     return Image.new("RGB", (width, height), color=color)
 
 
-def _install_diffusers_stub():
+def _real_present(name: str) -> bool:
+    """True if module ``name`` is the real (non-stub) package, or importable as one.
+
+    Keeps the permanent collection-time install from displacing a real ``diffusers``:
+    a bare stub breaks the real package's own relative imports for the rest of the
+    session, which silently kills live image/audio-diffusion model tests.
+    """
+    mod = sys.modules.get(name)
+    if mod is not None:
+        return not getattr(mod, "_aimu_stub", False)
+    import importlib.util
+
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def _install_diffusers_stub(monkeypatch=None, force=False):
     """Install a fake ``diffusers`` module so HF image tests don't need real weights.
 
     Also rebinds the ``diffusers`` name inside any already-loaded
     ``aimu.models.providers.hf.image`` module — when the real ``diffusers``
     is installed and gets imported first (e.g. by an earlier test importing
     ``aimu``), the stub in ``sys.modules`` doesn't reach the module's local binding.
+
+    Pass ``monkeypatch`` (from the autouse fixture below) to scope the stub to one
+    test and restore the real module + binding afterwards. Pass ``force=True`` to
+    install regardless of the guard. The permanent (collection-time) call short-
+    circuits when the real ``diffusers`` is installed, so live model tests keep it.
     """
     import types
 
-    if (
-        "diffusers" in sys.modules
-        and isinstance(sys.modules["diffusers"], types.ModuleType)
-        and getattr(sys.modules["diffusers"], "_aimu_stub", False)
-    ):
-        return
+    # Permanent (collection-time) path: never displace a real diffusers, and don't
+    # re-install if a stub is already in place. The autouse fixture re-installs the
+    # fake per-test via monkeypatch when the real dep is present.
+    if monkeypatch is None and not force:
+        if _real_present("diffusers"):
+            return
+        if isinstance(sys.modules.get("diffusers"), types.ModuleType) and getattr(
+            sys.modules.get("diffusers"), "_aimu_stub", False
+        ):
+            return
 
     class _FakePipeline:
         device = MagicMock(type="cpu")
@@ -115,15 +142,35 @@ def _install_diffusers_stub():
         "FluxImg2ImgPipeline",
     ]:
         setattr(stub, _img2img_name, _FakePipeline)
-    sys.modules["diffusers"] = stub
+    if monkeypatch is not None:
+        monkeypatch.setitem(sys.modules, "diffusers", stub)
+    else:
+        sys.modules["diffusers"] = stub
 
-    # Rebind the name inside the HF image client module if it's already loaded.
+    # Rebind the name inside the HF image client module if it's already loaded
+    # (it does ``import diffusers`` at module level and resolves via getattr).
     hf_mod = sys.modules.get("aimu.models.providers.hf.image")
     if hf_mod is not None:
-        hf_mod.diffusers = stub
+        if monkeypatch is not None:
+            monkeypatch.setattr(hf_mod, "diffusers", stub, raising=False)
+        else:
+            hf_mod.diffusers = stub
 
 
 _install_diffusers_stub()
+
+
+@pytest.fixture(autouse=True)
+def _force_diffusers_stub(monkeypatch):
+    """Re-assert the diffusers stub before each test, scoped + restored via monkeypatch.
+
+    In a full dev/CI environment the permanent install above is a no-op (it must not
+    displace the real ``diffusers``, which would break live image/audio-diffusion
+    tests). This installs the fake for each mock test and restores the real module
+    and the HF image client's module-level binding afterwards. Imported by the
+    sibling image mock files (test_image_tools, test_aio_image_api).
+    """
+    _install_diffusers_stub(monkeypatch=monkeypatch, force=True)
 
 
 import importlib  # noqa: E402

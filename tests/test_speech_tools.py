@@ -10,7 +10,12 @@ import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
-from test_speech_api import _install_speech_stubs, _register_hf_speech, _register_openai_speech
+from test_speech_api import (  # noqa: F401 — _force_speech_stubs is an autouse fixture
+    _force_speech_stubs,
+    _install_speech_stubs,
+    _register_hf_speech,
+    _register_openai_speech,
+)
 
 _install_speech_stubs()
 _register_hf_speech()

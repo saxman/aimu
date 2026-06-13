@@ -31,23 +31,52 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
-def _install_audio_stubs():  # noqa: PLR0912
+def _real_present(name: str) -> bool:
+    """True if module ``name`` is the real (non-stub) package, or importable as one.
+
+    Used to keep the permanent collection-time install from displacing a real
+    dependency: replacing ``sys.modules["transformers"]`` with a bare stub breaks
+    the real package's own relative imports (``from ...modeling_layers import``)
+    for the rest of the session, which silently kills live HuggingFace model tests.
+    """
+    mod = sys.modules.get(name)
+    if mod is not None:
+        return not getattr(mod, "_aimu_stub", False)
+    import importlib.util
+
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def _install_audio_stubs(monkeypatch=None, force=False):  # noqa: PLR0912
     """Install fake soundfile, transformers, and diffusers modules.
 
-    Safe to call multiple times — subsequent calls are no-ops if stubs are
-    already in place. Also exported so test_audio_tools.py and
-    test_aio_audio_api.py can reuse the same stubs.
+    Pass ``monkeypatch`` (from the autouse fixture below) to scope the stubs to a
+    single test and restore the real modules afterwards — no cross-file pollution.
+    Pass ``force=True`` to overwrite whatever is present regardless of the guard.
 
-    Soundfile is installed FIRST so that when ``_install_diffusers_stub``
-    from test_images_api.py is imported (triggering aimu.models import), the
-    hf_audio subpackage can be imported successfully (it has a hard
-    ``import soundfile`` at the top). If soundfile were installed after the
-    image stub, aimu.models.audio_client would record _HAS_HF_AUDIO=False
-    before our stub was ready.
+    Called once at import time with neither argument purely so module-level
+    ``import aimu.models.providers.hf.audio`` can succeed when the real deps are
+    absent. When the real deps ARE installed (a full dev/CI environment), the
+    permanent call short-circuits below so the real ``transformers`` is left
+    intact for live model tests; per-test fakes then come from the autouse fixture.
     """
+    # Permanent (collection-time) path: never displace real deps. The autouse
+    # fixture re-installs the fakes per-test via monkeypatch when deps are real.
+    if monkeypatch is None and not force and _real_present("transformers") and _real_present("soundfile"):
+        return
+
+    def _set(name, mod):
+        if monkeypatch is not None:
+            monkeypatch.setitem(sys.modules, name, mod)
+        else:
+            sys.modules[name] = mod
+
     # --- soundfile --- (must come before _install_diffusers_stub / aimu.models import)
 
-    if not getattr(sys.modules.get("soundfile"), "_aimu_stub", False):
+    if force or not _real_present("soundfile"):
         sf_stub = types.ModuleType("soundfile")
         sf_stub._aimu_stub = True  # type: ignore[attr-defined]
 
@@ -56,10 +85,10 @@ def _install_audio_stubs():  # noqa: PLR0912
             file.write(b"RIFF" + b"\x00" * 40)
 
         sf_stub.write = _sf_write  # type: ignore[attr-defined]
-        sys.modules["soundfile"] = sf_stub
+        _set("soundfile", sf_stub)
 
     # --- transformers (MusicGen) ---
-    if not getattr(sys.modules.get("transformers"), "_aimu_stub", False):
+    if force or not _real_present("transformers"):
 
         class _FakeDevice:
             type = "cpu"
@@ -132,7 +161,7 @@ def _install_audio_stubs():  # noqa: PLR0912
         tr_stub._aimu_stub = True  # type: ignore[attr-defined]
         tr_stub.AutoProcessor = _FakeProcessor  # type: ignore[attr-defined]
         tr_stub.MusicgenForConditionalGeneration = _FakeMusicgenModel  # type: ignore[attr-defined]
-        sys.modules["transformers"] = tr_stub
+        _set("transformers", tr_stub)
 
     # --- diffusers (AudioLDM2, StableAudio) ---
     # Ensure image pipeline classes are present regardless of collection order.
@@ -142,7 +171,7 @@ def _install_audio_stubs():  # noqa: PLR0912
     try:
         from test_images_api import _install_diffusers_stub
 
-        _install_diffusers_stub()
+        _install_diffusers_stub(monkeypatch=monkeypatch, force=force)
     except ImportError:
         pass  # Running without test_images_api — image stubs not needed here.
 
@@ -150,7 +179,7 @@ def _install_audio_stubs():  # noqa: PLR0912
     if "diffusers" not in sys.modules:
         diffusers_stub = types.ModuleType("diffusers")
         diffusers_stub._aimu_stub = True  # type: ignore[attr-defined]
-        sys.modules["diffusers"] = diffusers_stub
+        _set("diffusers", diffusers_stub)
 
     diff = sys.modules["diffusers"]
 
@@ -228,6 +257,19 @@ def _install_audio_stubs():  # noqa: PLR0912
 
 
 _install_audio_stubs()
+
+
+@pytest.fixture(autouse=True)
+def _force_audio_stubs(monkeypatch):
+    """Re-assert the audio stubs before each test, scoped + restored via monkeypatch.
+
+    In a full dev/CI environment the permanent install above is a no-op (it must
+    not displace the real ``transformers``/``soundfile``, which would break live
+    model tests). This fixture installs the fakes for the duration of each mock
+    test and restores the real modules afterwards, so nothing leaks across files.
+    Imported by the sibling audio mock files (test_aio_audio_api, test_audio_tools).
+    """
+    _install_audio_stubs(monkeypatch=monkeypatch, force=True)
 
 
 import importlib  # noqa: E402
