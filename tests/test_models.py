@@ -145,22 +145,28 @@ def test_chat_streamed_multiple_turns(model_client):
 
     model_client.messages = []
 
+    # Generous budget: thinking models (e.g. Qwen3.5) reason before answering, and
+    # HF's default max_new_tokens=1024 can truncate a follow-up turn mid-thinking
+    # (before </think>), leaving an empty answer. Matches the budget used by the
+    # dedicated thinking-streaming tests.
+    kwargs = {"max_tokens": 4096}
+
     content1 = ""
-    for chunk in model_client.chat("What is the capital of France?", stream=True):
+    for chunk in model_client.chat("What is the capital of France?", generate_kwargs=kwargs, stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             content1 += chunk.content
     assert "Paris" in content1
     assert len(model_client.messages) == 3  # system (auto-added), user, assistant
 
     content2 = ""
-    for chunk in model_client.chat("What is the population of that city?", stream=True):
+    for chunk in model_client.chat("What is the population of that city?", generate_kwargs=kwargs, stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             content2 += chunk.content
     assert "population" in content2.lower() or "inhabitants" in content2.lower()
     assert len(model_client.messages) == 5  # system (auto-added), user, assistant, user, assistant
 
     content3 = ""
-    for chunk in model_client.chat("What is the climate like there?", stream=True):
+    for chunk in model_client.chat("What is the climate like there?", generate_kwargs=kwargs, stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             content3 += chunk.content
     assert "climate" in content3.lower() or "temperature" in content3.lower()

@@ -123,22 +123,34 @@ async def test_chat_streamed(async_model_client):
 async def test_chat_streamed_multiple_turns(async_model_client):
     async_model_client.messages = []
 
+    # Generous budget: thinking models (e.g. Qwen3.5) reason before answering, and
+    # HF's default max_new_tokens=1024 can truncate a follow-up turn mid-thinking
+    # (before </think>), leaving an empty answer. Matches the budget used by the
+    # dedicated thinking-streaming tests.
+    kwargs = {"max_tokens": 4096}
+
     content1 = ""
-    async for chunk in await async_model_client.chat("What is the capital of France?", stream=True):
+    async for chunk in await async_model_client.chat(
+        "What is the capital of France?", generate_kwargs=kwargs, stream=True
+    ):
         if chunk.phase == StreamingContentType.GENERATING:
             content1 += chunk.content
     assert "Paris" in content1
     assert len(async_model_client.messages) == 3
 
     content2 = ""
-    async for chunk in await async_model_client.chat("What is the population of that city?", stream=True):
+    async for chunk in await async_model_client.chat(
+        "What is the population of that city?", generate_kwargs=kwargs, stream=True
+    ):
         if chunk.phase == StreamingContentType.GENERATING:
             content2 += chunk.content
     assert "population" in content2.lower() or "inhabitants" in content2.lower()
     assert len(async_model_client.messages) == 5
 
     content3 = ""
-    async for chunk in await async_model_client.chat("What is the climate like there?", stream=True):
+    async for chunk in await async_model_client.chat(
+        "What is the climate like there?", generate_kwargs=kwargs, stream=True
+    ):
         if chunk.phase == StreamingContentType.GENERATING:
             content3 += chunk.content
     assert "climate" in content3.lower() or "temperature" in content3.lower()
