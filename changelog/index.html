@@ -2519,15 +2519,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased-audio-input-for-text-models" class="md-nav__link">
+  <a href="#v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased — Audio input for text models
+        v0.8.0 (2026-06-12) — Embeddings, transcription, structured output, RAG &amp; audio input
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased — Audio input for text models">
+    <nav class="md-nav" aria-label="v0.8.0 (2026-06-12) — Embeddings, transcription, structured output, RAG &amp; audio input">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2640,6 +2640,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#async-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixes
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2702,7 +2724,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixes" class="md-nav__link">
+  <a href="#fixes_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixes
@@ -3100,15 +3122,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased-audio-input-for-text-models" class="md-nav__link">
+  <a href="#v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased — Audio input for text models
+        v0.8.0 (2026-06-12) — Embeddings, transcription, structured output, RAG &amp; audio input
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased — Audio input for text models">
+    <nav class="md-nav" aria-label="v0.8.0 (2026-06-12) — Embeddings, transcription, structured output, RAG &amp; audio input">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3221,6 +3243,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#async-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixes
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3283,7 +3327,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixes" class="md-nav__link">
+  <a href="#fixes_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixes
@@ -3640,7 +3684,7 @@
 
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="unreleased-audio-input-for-text-models">Unreleased — Audio input for text models<a class="headerlink" href="#unreleased-audio-input-for-text-models" title="Permanent link">&para;</a></h2>
+<h2 id="v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input">v0.8.0 (2026-06-12) — Embeddings, transcription, structured output, RAG &amp; audio input<a class="headerlink" href="#v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input" title="Permanent link">&para;</a></h2>
 <h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>audio: bool = False</code> field on <code>ModelSpec</code>. Audio-capable text models expose <code>supports_audio</code> on their enum members, <code>is_audio_model</code> on their client instances, and an <code>AUDIO_MODELS</code> classproperty (parallel to <code>TOOL_MODELS</code>, <code>THINKING_MODELS</code>, <code>VISION_MODELS</code>).</li>
@@ -3721,6 +3765,16 @@
 <li><strong>Fix</strong> Pinned the <code>[hf]</code> extra's <code>kernels</code> to <code>&gt;=0.12,&lt;0.13</code>. It was unconstrained and resolved to <code>kernels 0.15.2</code>, which is outside the range <code>transformers</code> supports (<code>&lt;0.13</code>); <code>transformers</code> constructs <code>kernels.LayerRepository(...)</code> at import time and 0.13+ made <code>revision</code>/<code>version</code> mandatory, so <code>from transformers import AutoProcessor</code> raised <code>ValueError</code> — silently flipping <code>HAS_HF</code> to <code>False</code> (HuggingFace clients unavailable) and erroring every HF test on import.</li>
 <li>Pinned the <code>[hf]</code> extra's <code>transformers</code> to <code>&gt;=5,&lt;6</code> (the major the model catalog targets — Qwen 3.6, Gemma 4, GPT-OSS) so a future major can't reintroduce this class of import-time breakage on resolve.</li>
 </ul>
+<h3 id="async-surface">Async surface<a class="headerlink" href="#async-surface" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>New</strong> Async→sync tool bridging for wrapped in-process clients. <code>AsyncHuggingFaceClient</code> / <code>AsyncLlamaCppClient</code> run their sync client's <code>_chat</code> tool-dispatch loop in a worker thread (via <code>asyncio.to_thread</code>), and that sync dispatcher refuses <code>async def</code> tools — but the async surface routinely attaches them (e.g. <code>await aio.MCPClient.as_tools()</code>). Each async tool is now wrapped as a sync callable that drives the coroutine back on the main event loop (<code>run_coroutine_threadsafe</code>) and blocks only the worker thread (no deadlock — the main loop is free, awaiting the <code>to_thread</code> future). Async-generator (streaming) tools bridge to sync generators; the OpenAI tool spec and dispatch name are preserved. Async agents using in-process models can now mix sync and async tools (including MCP) transparently.</li>
+</ul>
+<h3 id="fixes">Fixes<a class="headerlink" href="#fixes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Change</strong> HuggingFace default <code>max_new_tokens</code> raised from <code>1024</code> to <code>4096</code>. The previous default truncated reasoning models (e.g. Qwen 3.5/3.6) mid-thinking — before the closing <code>&lt;/think&gt;</code> — which left no room for the answer; the higher default leaves headroom for thinking plus a response. Override per call with <code>generate_kwargs={"max_tokens": N}</code>.</li>
+<li><strong>Fix</strong> Streamed <code>chat()</code> on a HuggingFace thinking model no longer raises <code>RuntimeError: generator raised StopIteration</code> when a turn produces reasoning but is truncated before emitting an answer. The streaming path now mirrors the non-streaming one: it surfaces the buffered thinking and finishes with empty generated content instead of doing an unguarded <code>next()</code> on an empty token stream.</li>
+<li><strong>Fix (tests)</strong> Mock-only audio/speech/image API tests previously replaced <code>transformers</code> / <code>soundfile</code> / <code>diffusers</code> in <code>sys.modules</code> with bare stubs at collection time and never restored them, breaking any live model test that ran later in the same session (<code>ModuleNotFoundError: Could not import module 'Qwen3_5ForCausalLM'</code>). The stubs are now installed via auto-restoring, <code>monkeypatch</code>-scoped fixtures, and the permanent install is skipped whenever the real dependency is importable.</li>
+</ul>
 <h2 id="v070-2026-06-08-mcp-tool-unification-model-resolvers-and-agent-improvements">v0.7.0 (2026-06-08) — MCP tool unification, model resolvers, and agent improvements<a class="headerlink" href="#v070-2026-06-08-mcp-tool-unification-model-resolvers-and-agent-improvements" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3743,7 +3797,7 @@
 <ul>
 <li><strong>New</strong> <code>Agent.final_answer_prompt</code> (opt-in, default <code>None</code>; sync and <code>aimu.aio</code>) — guarantees a final answer when the agentic loop exhausts <code>max_iterations</code> while the model is still calling tools. Instead of returning whatever the last (possibly tool-only) turn produced — an empty or stub result — the agent sends this prompt once with tools disabled (<code>chat(..., tools=[])</code>), forcing the model to synthesize an answer from the context it has gathered. The trigger is the post-loop <code>_last_turn_called_tools()</code> check (no new counter); it fires only on the cap-with-pending-tools path (a natural finish — a turn with no tool calls — is unaffected) and the wrap-up turn is <strong>not</strong> counted against <code>max_iterations</code>. <code>OrchestratorAgent._init_orchestrator()</code> and <code>OrchestratorAgent.assemble(..., final_answer_prompt=...)</code> (sync + <code>aio</code>) forward it to the inner orchestrator agent, and it is accepted as a <code>from_config</code> key. Leaving it <code>None</code> preserves prior behaviour exactly.</li>
 </ul>
-<h3 id="fixes">Fixes<a class="headerlink" href="#fixes" title="Permanent link">&para;</a></h3>
+<h3 id="fixes_1">Fixes<a class="headerlink" href="#fixes_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Fix</strong> <code>SkillAgent</code> skill injection no longer wipes conversation history when applied to an already-used client. It previously called <code>reset()</code> to unlock the setter (clearing <code>messages</code>); it now assigns <code>system_message</code> directly, which swaps the system entry in place.</li>
 </ul>
