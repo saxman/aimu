@@ -677,13 +677,21 @@ class HuggingFaceClient(BaseModelClient):
             yield StreamChunk(StreamingContentType.THINKING, token)
         self._pending_thinking_tokens = []
 
-        response_part = next(it)
+        response_part = next(it, None)
         content = ""
         msgs_before = len(self.messages)
 
         prefix = self.model.tool_call_format
 
-        if prefix and prefix.detected_in(response_part):
+        if response_part is None:
+            # Thinking-only turn: the model opened a <think> block but generation
+            # ended before </think> (e.g. token budget exhausted, common with
+            # sampling), so _generate_streaming returned an empty iterator. Mirror
+            # _generate_sync — surface the buffered thinking via _pending_thinking_tokens
+            # below and finish with empty generated content, rather than letting an
+            # unguarded next() raise StopIteration (PEP 479 RuntimeError) on this generator.
+            pass
+        elif prefix and prefix.detected_in(response_part):
             parts = [response_part]
             parts.extend(it)
             response = "".join(parts)
