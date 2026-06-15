@@ -797,17 +797,28 @@ def test_extract_tool_calls_missing_result_returns_empty_string():
 def test_hf_client_cache_key_includes_model_kwargs():
     from aimu.models.providers.hf.text import _make_cache_key
 
-    k1 = _make_cache_key("model/id", {"device_map": "auto"})
-    k2 = _make_cache_key("model/id", {"device_map": "cuda:0"})
+    k1 = _make_cache_key("model/id", "causal-lm", {"device_map": "auto"})
+    k2 = _make_cache_key("model/id", "causal-lm", {"device_map": "cuda:0"})
     assert k1 != k2
 
 
 def test_hf_client_cache_key_same_kwargs_same_key():
     from aimu.models.providers.hf.text import _make_cache_key
 
-    k1 = _make_cache_key("model/id", {"device_map": "auto", "torch_dtype": "auto"})
-    k2 = _make_cache_key("model/id", {"torch_dtype": "auto", "device_map": "auto"})
+    k1 = _make_cache_key("model/id", "causal-lm", {"device_map": "auto", "torch_dtype": "auto"})
+    k2 = _make_cache_key("model/id", "causal-lm", {"torch_dtype": "auto", "device_map": "auto"})
     assert k1 == k2  # order of kwargs doesn't matter
+
+
+def test_hf_client_cache_key_includes_load_profile():
+    # Two enum members can share a repo id + kwargs but load via different classes
+    # (AutoModelForCausalLM vs AutoModelForImageTextToText); the load-profile tag keeps
+    # them from colliding in the weight cache.
+    from aimu.models.providers.hf.text import _make_cache_key
+
+    k1 = _make_cache_key("repo/id", "causal-lm", {"device_map": "auto"})
+    k2 = _make_cache_key("repo/id", "qwen-multimodal", {"device_map": "auto"})
+    assert k1 != k2
 
 
 def test_hf_image_cache_key_includes_pipeline_class():

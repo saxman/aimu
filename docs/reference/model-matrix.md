@@ -82,10 +82,8 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 
 | Enum member | Repo id | Tools | Thinking | Vision |
 |---|---|:---:|:---:|:---:|
-| `QWEN_3_6_27B` | `Qwen/Qwen3.6-27B-FP8` | ✅ | ✅ | — |
-| `QWEN_3_6_27B_VL` | `Qwen/Qwen3.6-27B-FP8` | ✅ | ✅ | ✅ |
-| `QWEN_3_5_9B` | `Qwen/Qwen3.5-9B` | ✅ | ✅ | — |
-| `QWEN_3_5_9B_VL` | `Qwen/Qwen3.5-9B` | ✅ | ✅ | ✅ |
+| `QWEN_3_6_27B` | `Qwen/Qwen3.6-27B-FP8` | ✅ | ✅ | ✅ |
+| `QWEN_3_5_9B` | `Qwen/Qwen3.5-9B` | ✅ | ✅ | ✅ |
 | `QWEN_3_8B` | `Qwen/Qwen3-8B` | ✅ | ✅ | — |
 | `GEMMA_4_E4B` | `google/gemma-4-E4B-it` | ✅ | — | ✅ |
 | `GEMMA_3_12B` | `google/gemma-3-12b-it` | — | — | ✅ |

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Models
+
+- **Fix** `HuggingFaceModel.QWEN_3_6_27B` (and the Qwen 3.5/3.6 family) crashed at generation with `RuntimeError: expected mat1 and mat2 to have the same dtype, but got: c10::BFloat16 != c10::Float8_e4m3fn`. These are unified multimodal FP8 checkpoints whose `quantization_config.modules_to_not_convert` skip-list is written against the multimodal module tree (`model.language_model.*` / `model.visual.*`). The text-only entries loaded via `AutoModelForCausalLM`, which builds a text-only tree (`model.layers.*`) the skip-list can't match, so layers meant to stay bf16 (router `mlp.gate`, `lm_head`, `linear_attn` projections) mis-quantized. Qwen 3.5/3.6 now always load via `AutoModelForImageTextToText`.
+- **Change** Merged the Qwen 3.5/3.6 text-only and `_VL` enum members into single `vision=True` entries (`QWEN_3_6_27B`, `QWEN_3_5_9B`); removed `QWEN_3_6_27B_VL` and `QWEN_3_5_9B_VL`. The two variants loaded the identical checkpoint via the identical loader (vision tower included either way), so the split no longer backed any loader or VRAM difference.
+- **Fix** `HuggingFaceClient`'s module-level weight cache could collide: two enum members sharing a repo id and `model_kwargs` but loading via different classes (`AutoModelForCausalLM` vs `AutoModelForImageTextToText`) produced the same cache key, so the second silently received the first's model object. `_make_cache_key` now folds in a load-profile tag (mirroring how the image/audio/speech clients key on `pipeline_class` / `pipeline_type`).
+
 ## v0.8.0 (2026-06-12) — Embeddings, transcription, structured output, RAG & audio input
 
 ### Models

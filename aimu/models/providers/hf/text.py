@@ -35,8 +35,30 @@ _model_registry: dict[tuple, tuple] = {}
 _registry_lock = threading.Lock()
 
 
-def _make_cache_key(spec_id: str, model_kwargs: dict | None) -> tuple:
-    return (spec_id, *sorted((k, str(v)) for k, v in (model_kwargs or {}).items()))
+def _load_profile(model: "HuggingFaceModel") -> str:
+    """Tag identifying which __init__ loader branch a model uses.
+
+    Two enum members can share a repo id and model_kwargs yet load via different
+    classes (e.g. AutoModelForCausalLM vs AutoModelForImageTextToText). Folding this
+    tag into the weight-cache key keeps those from colliding, while members that load
+    identically (the text-only and _VL Qwen entries, which share one multimodal
+    checkpoint) still share a single cached load. Mirrors how the image/audio/speech
+    clients key on pipeline_class / pipeline_type.
+    """
+    mid = model.value
+    if model.name == "MAGISTRAL_SMALL":
+        return "mistral3"
+    if mid.startswith("google/gemma-4"):
+        return "gemma4"
+    if mid.startswith("google/gemma-3"):
+        return "gemma3"
+    if mid.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6")):
+        return "qwen-multimodal"
+    return "causal-lm"
+
+
+def _make_cache_key(spec_id: str, load_profile: str, model_kwargs: dict | None) -> tuple:
+    return (spec_id, load_profile, *sorted((k, str(v)) for k, v in (model_kwargs or {}).items()))
 
 
 DEFAULT_GENERATE_KWARGS = {
@@ -129,23 +151,16 @@ class HuggingFaceModel(Model):
         self.think_opener_in_prompt = think_opener_in_prompt
 
     # Alibaba
+    # Qwen 3.5/3.6 are natively multimodal (unified vision-language foundation): one HF
+    # repo holds both the language model and the vision tower, loaded together via
+    # AutoModelForImageTextToText (see __init__ -- the FP8 checkpoint's quant skip-list
+    # only matches that module tree). The vision encoder loads regardless, so each model
+    # is a single vision=True entry; there is no separate text-only flavor to maintain.
     QWEN_3_6_27B = (
-        ModelSpec("Qwen/Qwen3.6-27B-FP8", tools=True, thinking=True, generation_kwargs=_QWEN_KWARGS),
-        ToolCallFormat.XML,
-    )
-    # Qwen 3.5/3.6 are natively multimodal (unified vision-language foundation).
-    # _VL variants share the same HF repo as the text-only entries above but load
-    # via AutoModelForImageTextToText with the vision encoder, so chat(images=...) works.
-    QWEN_3_6_27B_VL = (
         ModelSpec("Qwen/Qwen3.6-27B-FP8", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
         ToolCallFormat.XML,
     )
     QWEN_3_5_9B = (
-        ModelSpec("Qwen/Qwen3.5-9B", tools=True, thinking=True, generation_kwargs=_QWEN_KWARGS),
-        ToolCallFormat.XML,
-        True,
-    )
-    QWEN_3_5_9B_VL = (
         ModelSpec("Qwen/Qwen3.5-9B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
         ToolCallFormat.XML,
         True,
@@ -288,7 +303,7 @@ class HuggingFaceClient(BaseModelClient):
         # same parsing path as non-processor models.
         self._uses_processor_parse_response = False
 
-        self._cache_key = _make_cache_key(model.value, model_kwargs)
+        self._cache_key = _make_cache_key(model.value, _load_profile(model), model_kwargs)
         with _registry_lock:
             if self._cache_key in _model_registry:
                 cached = _model_registry[self._cache_key]
@@ -313,9 +328,18 @@ class HuggingFaceClient(BaseModelClient):
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
-        elif model.supports_vision and model.value.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6")):
-            # Qwen 3.5/3.6 are natively multimodal but require AutoModelForImageTextToText
-            # to load the vision encoder; AutoModelForCausalLM ignores the vision tower.
+        elif model.value.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6")):
+            # Qwen 3.5/3.6 are unified multimodal checkpoints and must ALWAYS load via
+            # AutoModelForImageTextToText -- even for the text-only enum members (which
+            # simply leave the vision tower unused; chat(images=...) is gated separately
+            # by supports_vision). AutoModelForCausalLM is wrong here even when we don't
+            # need vision: it builds a text-only module tree (model.layers.*), but the
+            # FP8 checkpoint's quantization_config.modules_to_not_convert is written
+            # against the multimodal tree (model.language_model.* / model.visual.*). Under
+            # the causal-LM tree those skip-rules match nothing, so layers meant to stay
+            # bf16 (router mlp.gate, lm_head, embed_tokens, linear_attn projections)
+            # mis-quantize and crash with "mat1 and mat2 to have the same dtype, but got
+            # BFloat16 != Float8_e4m3fn". The ImageTextToText tree matches the skip-list.
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForImageTextToText.from_pretrained(model.value, **model_kwargs)
