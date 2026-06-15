@@ -2519,6 +2519,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2531,7 +2559,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models" class="md-nav__link">
+  <a href="#models_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -2691,7 +2719,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_1" class="md-nav__link">
+  <a href="#models_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3122,6 +3150,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3134,7 +3190,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models" class="md-nav__link">
+  <a href="#models_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3294,7 +3350,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_1" class="md-nav__link">
+  <a href="#models_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3684,8 +3740,15 @@
 
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input">v0.8.0 (2026-06-12) — Embeddings, transcription, structured output, RAG &amp; audio input<a class="headerlink" href="#v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input" title="Permanent link">&para;</a></h2>
+<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fix</strong> <code>HuggingFaceModel.QWEN_3_6_27B</code> (and the Qwen 3.5/3.6 family) crashed at generation with <code>RuntimeError: expected mat1 and mat2 to have the same dtype, but got: c10::BFloat16 != c10::Float8_e4m3fn</code>. These are unified multimodal FP8 checkpoints whose <code>quantization_config.modules_to_not_convert</code> skip-list is written against the multimodal module tree (<code>model.language_model.*</code> / <code>model.visual.*</code>). The text-only entries loaded via <code>AutoModelForCausalLM</code>, which builds a text-only tree (<code>model.layers.*</code>) the skip-list can't match, so layers meant to stay bf16 (router <code>mlp.gate</code>, <code>lm_head</code>, <code>linear_attn</code> projections) mis-quantized. Qwen 3.5/3.6 now always load via <code>AutoModelForImageTextToText</code>.</li>
+<li><strong>Change</strong> Merged the Qwen 3.5/3.6 text-only and <code>_VL</code> enum members into single <code>vision=True</code> entries (<code>QWEN_3_6_27B</code>, <code>QWEN_3_5_9B</code>); removed <code>QWEN_3_6_27B_VL</code> and <code>QWEN_3_5_9B_VL</code>. The two variants loaded the identical checkpoint via the identical loader (vision tower included either way), so the split no longer backed any loader or VRAM difference.</li>
+<li><strong>Fix</strong> <code>HuggingFaceClient</code>'s module-level weight cache could collide: two enum members sharing a repo id and <code>model_kwargs</code> but loading via different classes (<code>AutoModelForCausalLM</code> vs <code>AutoModelForImageTextToText</code>) produced the same cache key, so the second silently received the first's model object. <code>_make_cache_key</code> now folds in a load-profile tag (mirroring how the image/audio/speech clients key on <code>pipeline_class</code> / <code>pipeline_type</code>).</li>
+</ul>
+<h2 id="v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input">v0.8.0 (2026-06-12) — Embeddings, transcription, structured output, RAG &amp; audio input<a class="headerlink" href="#v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input" title="Permanent link">&para;</a></h2>
+<h3 id="models_1">Models<a class="headerlink" href="#models_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>audio: bool = False</code> field on <code>ModelSpec</code>. Audio-capable text models expose <code>supports_audio</code> on their enum members, <code>is_audio_model</code> on their client instances, and an <code>AUDIO_MODELS</code> classproperty (parallel to <code>TOOL_MODELS</code>, <code>THINKING_MODELS</code>, <code>VISION_MODELS</code>).</li>
 <li><strong>New</strong> Audio-capable models added to the catalog: <code>OpenAIModel</code> GPT-4o, GPT-4o-mini, GPT-4.1, GPT-4.1-mini, GPT-4.1-nano; <code>GeminiModel</code> 2.0 Flash, 2.0 Flash Lite, 2.5 Pro, 2.5 Flash; <code>HuggingFaceModel.GEMMA_4_E4B</code>, <code>GEMMA_4_12B</code>, <code>NEMOTRON_H_8B</code>. Ollama models remain <code>audio=False</code> with inline comments noting where the underlying weights support audio (upgrade path once the Ollama API adds audio input).</li>
@@ -3781,7 +3844,7 @@
 <li><strong>Breaking</strong> Removed the <code>model_client.mcp_client</code> attribute. MCP tools now integrate through the single <code>model_client.tools</code> registry: call <code>MCPClient(...).as_tools()</code> (sync) or <code>await aio.MCPClient.connect(...).as_tools()</code> (async) to turn a server's tools into <code>@tool</code>-style callables, then add them to <code>tools</code> (constructor <code>Agent(tools=...)</code>, <code>client.tools = ...</code>, or the per-call <code>chat(tools=...)</code> / <code>run(tools=...)</code> override). Migration: replace <code>client.mcp_client = mcp</code> with <code>client.tools = mcp.as_tools()</code> (concatenate with <code>@tool</code> functions as needed, e.g. <code>builtin.web + mcp.as_tools()</code>). Two consequences: dispatch is now one by-name lookup over <code>tools</code>, so on a name collision the <strong>last</strong> entry wins (previously Python <code>@tool</code> always beat a same-named MCP tool — to preserve that, append the Python tool <em>after</em> <code>mcp.as_tools()</code>); and <code>MCPClient.get_tools()</code> is no longer called on every <code>chat()</code> (the tool list is snapshotted by <code>as_tools()</code>), so call <code>as_tools()</code> again to pick up server-side tool changes. <code>SkillAgent</code> and the internal dispatch (<code>_handle_tool_calls(tool_calls)</code>, <code>_call_plain_tool(tc, tc_id)</code> — both lost their <code>tools</code> parameter) were updated accordingly. The <code>MCPClient</code> class, its <code>get_tools()</code> / <code>call_tool()</code> / <code>ping()</code>, and the <code>aio.MCPClient</code> parallel are unchanged.</li>
 <li><strong>Breaking</strong> <code>system_message</code> is no longer immutable after the first <code>chat()</code>. The setter is now always live: assigning it mid-conversation rewrites the <code>{"role": "system"}</code> entry in <code>messages</code> in place (re-conditioning the model on the new prompt while preserving history), inserts one if absent, or removes it on <code>None</code>. Before the first chat it still just seeds the value. The previous behaviour raised <code>RuntimeError</code>; code that caught that error to gate a <code>reset()</code> can now assign directly. To change the prompt <em>and</em> drop history, use <code>reset(system_message="new")</code>. Two consequences are accepted by design: the transcript becomes counterfactual (prior assistant turns predate the new prompt), and there is no longer a guard against silently re-conditioning a <code>ModelClient</code> shared by another agent's in-flight conversation — don't share a live-conversation client across agents that each set <code>system_message</code>. The <code>_system_message_locked</code> flag has been removed. See <a href="../explanation/system-message-lifecycle/">System message lifecycle</a>.</li>
 </ul>
-<h3 id="models_1">Models<a class="headerlink" href="#models_1" title="Permanent link">&para;</a></h3>
+<h3 id="models_2">Models<a class="headerlink" href="#models_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>aimu.resolve_model_enum(model)</code> and <code>aimu.resolve_image_model_enum(model)</code> — resolve a model to its <code>Model</code> / <code>ImageModel</code> enum member from any of three input forms: an enum member (returned unchanged), a <code>"provider:model_id"</code> string (delegates to <code>resolve_model_string</code> / <code>resolve_image_model_string</code>), or a <strong>bare enum-member name</strong> (e.g. <code>"QWEN_3_8B"</code>, <code>"FLUX_2_KLEIN_4B"</code>, <code>"NANO_BANANA"</code>) looked up across every installed provider enum. Useful for CLIs/scripts that accept "enum, name, or string" uniformly. For text, an ambiguous bare name (the same id ships under many providers) is disambiguated the way the omitted-<code>model</code> default is — prefer a provider where the model is <em>actually available locally</em> (running Ollama → cached HuggingFace → reachable local OpenAI-compat server, tool-capable first), logged at WARNING; if it isn't available under any provider, <code>ValueError</code> lists the <code>"provider:model_id"</code> options. This availability probe runs only on the ambiguous path. <code>resolve_image_model_enum</code> has no local-availability notion (image catalogs don't collide) and raises on the rare ambiguity. Exported from <code>aimu.models</code> and top-level <code>aimu</code>.</li>
 <li><strong>New</strong> <code>aimu.available_text_models(*, include_hf_cache=True)</code> — discovery: return locally <em>available</em> text models as <code>Model</code> enum members (running Ollama → cached HuggingFace → reachable local OpenAI-compat servers), in provider-priority order. Download-free and cloud-free. <code>aimu.resolve_default_text_model_enum(*, include_hf_cache=True)</code> returns the single auto-pick (env var → first available, tool-capable preferred) as an enum member — the enum-returning twin of the internal default resolver that backs <code>client()</code>/<code>chat()</code>/<code>agent()</code> when <code>model=</code> is omitted.</li>
