@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Tools
+
+- **New** `aimu.ToolContext` — dependency injection for tools. A tool parameter annotated `ToolContext` (or `ToolContext[Deps]`) is filled by the agent at call time and excluded from the model-facing JSON schema, so the model never supplies it. This lets a tool reach shared state (a document store, cache, configuration) without module-level globals. `@aimu.tool` records the injected parameter names on `func.__tool_injected__`; both sync and async dispatch fill them via `_tool_call_kwargs()` from the client's `tool_context_deps`. Exported from `aimu` and `aimu.tools`.
+
+### Agents and workflows
+
+- **New** `Agent.deps` field + per-run `Agent.run(..., deps=...)` override (sync and `aimu.aio`) — supplies the value injected as `ctx.deps` into tools that declare a `ToolContext` parameter. The per-run `deps=` takes precedence over the agent's `deps=` field; `_prepare_run()` publishes the effective value to the model client before each run. `None` (bare `client.chat()`) means `ctx.deps` is `None`. Forwarded by `SkillAgent`.
+- **New** `Agent.run(..., schema=...)` (sync and `aimu.aio`) — pass a dataclass or Pydantic v2 model to make the run a single structured-output turn that returns a validated instance instead of running the tool-calling loop. Useful for an agent whose job is to return a typed object (e.g. a critic's verdict). Mutually exclusive with `stream=True`.
+- **New** `EvaluatorOptimizer` typed-verdict acceptance, replacing brittle substring matching. Acceptance is now decided by one of three mechanisms in priority order: `stop_when` (a predicate over the evaluator's output — the raw text, or the typed verdict when `verdict_schema` is set), `verdict_schema` (a dataclass / Pydantic model the evaluator must return via structured output; acceptance reads its `passed` bool and revision uses its `feedback` str — `passed_attr` / `feedback_attr` are configurable, and a malformed verdict raises rather than silently continuing), or `pass_keyword` (the default, unchanged — accept when the substring appears in the evaluator's text). Leaving the new fields unset preserves prior behaviour exactly.
+
+### Console output
+
+- **New** `aimu.pretty_print(stream, *, file=None, show_thinking=False, show_tools=True)` — render the `StreamChunk` iterator from `client.chat(stream=True)`, `Agent.run(stream=True)`, or any workflow run to a readable transcript (tool calls flagged, generated text streamed inline, thinking optional), and return the concatenated generated text. Saves callers from re-implementing the `chunk.is_tool_call()` / `chunk.is_text()` dispatch loop. Exported from `aimu`.
+
+### Documentation
+
+- **New** README "Agents and workflows", "Tools", "Output and utilities", and quick-start sections cover `ToolContext` injection, the configurable `EvaluatorOptimizer` acceptance (`pass_keyword` / `stop_when` / `verdict_schema`), and `pretty_print`, with a runnable example combining all three.
+
 ### Examples
 
 - **Change** Consolidated the loose `scripts/` directory and the `data/skills/` demo skills into a single top-level `examples/` tree, organized by theme: `examples/text-refinement/` (the `epic_*` family), `examples/image-refinement/` (the `hotdog_*` family), `examples/news-summarizer/`, and `examples/skills/` (`haiku-poet`, `unit-converter`). Each example directory has its own `README.md`, and `examples/README.md` indexes them. Files were moved with `git mv` (history preserved); `scripts/` and `data/` are removed.

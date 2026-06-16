@@ -522,7 +522,7 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
 
 - **[aimu/agents/workflows/evaluator.py](aimu/agents/workflows/evaluator.py)**: `EvaluatorOptimizer(Runner)`: **Evaluator-Optimizer** pattern (re-exported from `aimu.agents`)
   - `generator` produces output; `evaluator` reviews it against the original task
-  - Loop stops when `pass_keyword` appears in evaluator feedback or `max_rounds` is reached
+  - Acceptance is decided by one of three mechanisms (priority order): `stop_when` (a predicate over the evaluator's output — raw text, or the typed verdict when `verdict_schema` is set); `verdict_schema` (a dataclass / Pydantic model the evaluator returns via `Agent.run(schema=...)` — acceptance reads its `passed` bool, revision uses its `feedback` str; `passed_attr`/`feedback_attr` configurable; a malformed verdict raises); or `pass_keyword` (default substring match in the evaluator's text). The loop also stops at `max_rounds`.
   - `run(stream=True)` yields a single GENERATING chunk with the final output (intermediate drafts not streamed)
   - `messages` property: merges `generator.messages` + `evaluator.messages`
 
@@ -728,7 +728,8 @@ Models with `supports_vision=True` accept images alongside the user prompt:
   - `AnthropicClient`: forced single tool whose `input_schema` is the JSON Schema (`tool_choice={"type":"tool","name":...}`), returning the tool input as a JSON string for uniform coercion. Thinking is incompatible with a forced `tool_choice`, so the structured path routes around `_thinking_kwargs`.
 - **Invariants/guards**: `self.messages` stays plain strings (the typed object is return-only). `schema=` + `stream=True` raises `ValueError`. On Anthropic, `schema=` + active `tools=` raises (its native mode *is* a forced tool, which conflicts with action tools); OpenAI-compat and parse-path providers compose `schema=` with tools fine.
 - **Capability flag**: `ModelSpec.structured_output: bool = False` → `supports_structured_output` property (on `_ChatStateMixin`) + `STRUCTURED_MODELS` classproperty. Set on the OpenAI, Gemini, Ollama (all models), and Anthropic catalogs.
-- **Deferred**: `Agent.run(schema=...)`; a `strict=True` (native-or-raise) knob; native HuggingFace/llama-cpp enforcement (would need an `xgrammar`/`outlines` backend). `generate_json` remains the older prompt-and-parse-with-retries convenience.
+- **`Agent.run(schema=...)`** (sync + async): pass a dataclass / Pydantic v2 model to make the run a single structured-output turn that returns a validated instance instead of running the tool-calling loop — for an agent whose job is to return a typed object (e.g. a critic's verdict). Mutually exclusive with `stream=True` and with the tool loop. `EvaluatorOptimizer(verdict_schema=...)` uses this to get a typed `Verdict(passed, feedback)` from its evaluator.
+- **Deferred**: a `strict=True` (native-or-raise) knob; native HuggingFace/llama-cpp enforcement (would need an `xgrammar`/`outlines` backend). `generate_json` remains the older prompt-and-parse-with-retries convenience.
 - **Tests**: `tests/test_structured_api.py` (schema helper, base native/parse logic via fakes, OpenAI envelope, Ollama `format=`, Anthropic forced-tool + tools-conflict, guards, plain-messages invariant) and `tests/test_aio_structured_api.py` (async mirror).
 
 ### OpenAICompatClient Notes
