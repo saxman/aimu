@@ -112,11 +112,11 @@ A curated model catalog, capturing model capabilities and nuances, is part of th
 - Same `@tool`-decorated functions work on both surfaces. `async def` tools are auto-detected and awaited; sync (CPU-bound) tools are routed through `asyncio.to_thread` so the event loop stays free.
 - Native async providers: Anthropic, OpenAI, Gemini, Ollama, every OpenAI-compatible endpoint. In-process providers (HuggingFace, LlamaCpp) wrap an existing sync client so model weights load only once.
 
-## Examples
+## Example usage
 
 ### Chat
 
-One-shot with `aimu.chat()`, multi-turn with `aimu.client()`, and streaming with phase filtering (thinking, tool usage, generation) via `include=`. Omit `model=` and AIMU resolves one for you by reading `AIMU_[LANGUAGE|IMAGE|AUDIO|SPEECH|TRANSCRIPTION|EMBEDDING]_MODEL` or auto-selects an available local model (LANGUAGE only, via a running Ollama server, a cached HuggingFace model, or a local OpenAI-compatible server).
+One-shot with `aimu.chat()`, multi-turn with `aimu.client()`, and streaming with phase filtering (thinking, tool usage, generation) via `include=`. Omit `model=` and AIMU resolves one for you by reading environment variables or auto-selects an available local model (LLMs only) via a running Ollama server, a cached HuggingFace model, or a local OpenAI-compatible server.
 
 ```python
 import aimu
@@ -183,29 +183,30 @@ client.generate("What language is spoken here?", audio=["./clip.mp3"])    # one-
 Each modality has a parallel factory (`image_client` / `audio_client` / `speech_client`) and one-shot helper (`generate_image` / `generate_audio` / `generate_speech`), all using the same `provider:model_id` shape. Pass `reference_image=` to any image `generate()` for image-to-image.
 
 ```python
-import aimu
-
 # Image — local HuggingFace diffusers, with image-to-image
 path = aimu.generate_image("a watercolor of a fox in a snowy forest", model="hf:runwayml/stable-diffusion-v1-5")
+
 client = aimu.image_client("hf:stabilityai/stable-diffusion-xl-base-1.0")  # reuse loaded weights
 img = client.generate("a cyberpunk city skyline at dusk")
 img = client.generate("a cyberpunk version", reference_image="./photo.jpg", strength=0.7)
+```
 
-# FLUX.2 Klein — 4-step distilled, native img2img (no separate strength param)
-klein = aimu.image_client("hf:black-forest-labs/FLUX.2-klein-4B")
-img = klein.generate("add snow", reference_image="./cat.jpg")
-
+```python
 # Audio (music and sound) — returns (sample_rate, np.ndarray) by default
 sr, audio = aimu.generate_audio("a lo-fi hip-hop beat with soft piano", model="hf:facebook/musicgen-small", duration_s=5.0)
 path = aimu.generate_audio("ambient ocean waves", model="hf:facebook/musicgen-small", format="path")
+```
 
-# Speech (TTS) — OpenAI cloud or local HuggingFace
+```python
+# Speech synthesis (text-to-speech)
 path = aimu.generate_speech("Hello, world!", model="openai:tts-1")
 sr, audio = aimu.generate_speech("Hello!", model="hf:facebook/mms-tts-eng", format="numpy")
 tts = aimu.speech_client("openai:tts-1-hd")  # reuse a client across calls
 path = tts.generate("Good morning.", voice="nova", format="path")
+```
 
-# Speech-to-text (transcription) — OpenAI cloud or local HuggingFace
+```python
+# Transcription (speech-to-text)
 text = aimu.transcribe("./clip.wav", model="openai:whisper-1")
 stt = aimu.transcription_client("hf:openai/whisper-tiny")
 text = stt.transcribe("./clip.wav")
@@ -249,7 +250,7 @@ context = format_context(retrieve(store, question, n_results=5))
 answer = aimu.chat(f"Context:\n{context}\n\nQuestion: {question}")
 ```
 
-### Composed agents
+### Composable agents
 
 Agents combine perception, generation, and memory in a single run. A vision-capable agent can take `generate_image` as a tool; `make_memory_tools(store)` adds `store_memory`, `search_memories`, and `list_memories` over an explicit (ephemeral or on-disk) store.
 
@@ -289,7 +290,7 @@ async def main():
 asyncio.run(main())
 ```
 
-## References
+## Resources
 
 ### Documentation
 
