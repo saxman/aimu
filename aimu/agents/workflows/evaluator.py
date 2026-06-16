@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.agents.agent import Agent
 from aimu.agents.base import MessageHistory, Runner
@@ -16,25 +16,33 @@ class EvaluatorOptimizer(Runner):
     """**Evaluator-Optimizer** pattern: iteratively improve via critic feedback.
 
     The generator produces an initial response. The evaluator reviews it against the
-    original task and either returns ``pass_keyword`` (accepted) or revision feedback.
+    original task and decides whether it is accepted; if not, its feedback drives a revision.
     The loop stops when the evaluator accepts or ``max_rounds`` is reached.
 
-    Prompt the evaluator to respond with the exact ``pass_keyword`` for acceptance and
-    specific revision feedback otherwise.
+    Acceptance is decided by one of three mechanisms, in priority order:
+
+    * ``stop_when`` — a predicate over the evaluator's output (the raw text, or the typed
+      verdict when ``verdict_schema`` is set). The most flexible and robust option.
+    * ``verdict_schema`` — a dataclass / Pydantic model the evaluator must return (via
+      structured output). Acceptance reads its ``passed`` (bool) attribute and revision uses
+      its ``feedback`` (str) attribute. Requires a structured-output-capable model; it raises
+      on a malformed verdict rather than silently continuing.
+    * ``pass_keyword`` (default) — accept when this substring appears in the evaluator's text.
 
     Usage::
 
         eo = EvaluatorOptimizer(
             generator=Agent(client, "Write a clear, accurate explanation.", name="writer"),
-            evaluator=Agent(
-                client,
-                "Review for accuracy and clarity. If acceptable, reply PASS. "
-                "Otherwise reply REVISE: <specific feedback>.",
-                name="critic",
-            ),
+            evaluator=Agent(client, "Reply PASS or REVISE: <feedback>.", name="critic"),
             max_rounds=4,
         )
         result = eo.run("Explain gradient descent.")
+
+        # Typed verdict instead of substring matching:
+        class Verdict(BaseModel):
+            passed: bool
+            feedback: str = ""
+        eo = EvaluatorOptimizer(generator=writer, evaluator=critic, verdict_schema=Verdict)
     """
 
     generator: Agent
@@ -42,6 +50,21 @@ class EvaluatorOptimizer(Runner):
     name: str = "evaluator_optimizer"
     max_rounds: int = 3
     pass_keyword: str = "PASS"
+    stop_when: Optional[Callable[[Any], bool]] = None
+    verdict_schema: Optional[type] = None
+    passed_attr: str = "passed"
+    feedback_attr: str = "feedback"
+
+    def _evaluate(self, eval_input: str, generate_kwargs: Optional[dict[str, Any]]) -> tuple[bool, str]:
+        """Run the evaluator and return ``(accepted, feedback_text)``."""
+        if self.verdict_schema is not None:
+            verdict = self.evaluator.run(eval_input, generate_kwargs=generate_kwargs, schema=self.verdict_schema)
+            accepted = self.stop_when(verdict) if self.stop_when else bool(getattr(verdict, self.passed_attr))
+            feedback = str(getattr(verdict, self.feedback_attr, "") or verdict)
+            return accepted, feedback
+        feedback = self.evaluator.run(eval_input, generate_kwargs=generate_kwargs)
+        accepted = self.stop_when(feedback) if self.stop_when else (self.pass_keyword in feedback)
+        return accepted, feedback
 
     @property
     def messages(self) -> MessageHistory:
@@ -71,8 +94,8 @@ class EvaluatorOptimizer(Runner):
         output = self.generator.run(task, generate_kwargs=generate_kwargs, images=images)
         for round_num in range(self.max_rounds - 1):
             eval_input = f"Task: {task}\n\nResponse:\n{output}"
-            feedback = self.evaluator.run(eval_input, generate_kwargs=generate_kwargs)
-            if self.pass_keyword in feedback:
+            accepted, feedback = self._evaluate(eval_input, generate_kwargs)
+            if accepted:
                 logger.debug("EvaluatorOptimizer '%s' accepted output on round %d.", self.name, round_num + 1)
                 break
             logger.debug("EvaluatorOptimizer '%s' revising on round %d.", self.name, round_num + 1)

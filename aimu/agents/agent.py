@@ -65,6 +65,7 @@ class Agent(Runner):
     continuation_prompt: str = field(default=DEFAULT_CONTINUATION_PROMPT)
     reset_messages_on_run: bool = False
     final_answer_prompt: Optional[str] = None
+    deps: Optional[Any] = None
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -73,12 +74,17 @@ class Agent(Runner):
             # in messages histories should pass ``name=`` explicitly.
             self.name = f"agent-{id(self) & 0xFFFFFF:06x}"
 
-    def _prepare_run(self) -> None:
-        """Reset client state and re-apply system_message before a run, when configured."""
+    def _prepare_run(self, deps: Any = None) -> None:
+        """Reset client state and re-apply system_message before a run, when configured.
+
+        ``deps`` (a per-run override) takes precedence over the agent's ``self.deps`` field;
+        the effective value is published to the model client for ``ToolContext`` injection.
+        """
         if self.reset_messages_on_run or self.system_message is not None:
             self.model_client.reset(system_message=self.system_message)
         if self.tools:
             self.model_client.tools = list(self.tools)
+        self.model_client.tool_context_deps = deps if deps is not None else self.deps
 
     def run(
         self,
@@ -87,17 +93,34 @@ class Agent(Runner):
         stream: bool = False,
         images: Optional[list] = None,
         tools: Optional[list[Callable]] = None,
-    ) -> Union[str, Iterator[StreamChunk]]:
+        deps: Optional[Any] = None,
+        schema: Optional[type] = None,
+    ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Run the agentic loop. ``images`` attach only to the initial turn.
 
         ``tools`` is a per-run override of the agent's configured ``self.tools``: ``None``
         (default) uses them, any other value (including ``[]`` to disable Python tools for
         this run) replaces them for every ``chat()`` call in the loop and is restored
         afterward.
+
+        ``deps`` is a per-run override of the agent's ``self.deps`` field — the value injected
+        as ``ctx.deps`` into tools that declare a :class:`~aimu.tools.ToolContext` parameter.
+
+        ``schema`` (a dataclass or Pydantic v2 model) makes the run a single structured-output
+        turn that returns a validated instance instead of looping with tools — use it for an
+        agent whose job is to return a typed object (e.g. a critic's verdict). It is mutually
+        exclusive with ``stream=True`` and with the tool-calling loop.
         """
+        if schema is not None:
+            if stream:
+                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+            self._prepare_run(deps)
+            result = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
+            self._last_messages = list(self.model_client.messages)
+            return result
         if stream:
-            return self._run_streamed(task, generate_kwargs, images=images, tools=tools)
-        self._prepare_run()
+            return self._run_streamed(task, generate_kwargs, images=images, tools=tools, deps=deps)
+        self._prepare_run(deps)
         response = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
 
         for _ in range(self.max_iterations - 1):
@@ -119,8 +142,9 @@ class Agent(Runner):
         generate_kwargs: Optional[dict[str, Any]] = None,
         images: Optional[list] = None,
         tools: Optional[list[Callable]] = None,
+        deps: Optional[Any] = None,
     ) -> Iterator[StreamChunk]:
-        self._prepare_run()
+        self._prepare_run(deps)
         iteration = 0
         for chunk in self.model_client.chat(
             task, generate_kwargs=generate_kwargs, stream=True, images=images, tools=tools

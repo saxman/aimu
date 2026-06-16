@@ -51,6 +51,9 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         self.last_thinking = ""
         self.last_usage = None
         self.concurrent_tool_calls = False
+        # Value injected as ``ctx.deps`` into tools that declare a ToolContext parameter.
+        # Set by Agent from its deps= field / run(deps=) override; None for bare chat().
+        self.tool_context_deps = None
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -302,10 +305,11 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                     "stream=True. For non-streaming use, convert the tool to a plain function."
                 )
             try:
+                kwargs = self._tool_call_kwargs(fn, tc["arguments"])
                 if getattr(fn, "__tool_is_async__", False):
-                    response = await fn(**tc["arguments"])
+                    response = await fn(**kwargs)
                 else:
-                    response = await asyncio.to_thread(lambda: fn(**tc["arguments"]))
+                    response = await asyncio.to_thread(lambda: fn(**kwargs))
                 content = str(response)
             except Exception as exc:
                 content = f"Tool '{tc['name']}' raised an error: {exc}"
@@ -389,9 +393,10 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                 try:
                     return_value: Any = None
                     last_content: Any = None
+                    kwargs = self._tool_call_kwargs(fn, tc["arguments"])
                     if getattr(fn, "__tool_is_async__", False):
                         # Async generator tool — drain with `async for`.
-                        agen = fn(**tc["arguments"])
+                        agen = fn(**kwargs)
                         async for chunk in agen:
                             yield chunk
                             last_content = chunk.content
@@ -399,7 +404,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                     else:
                         # Sync generator dispatched in the async surface — pull steps
                         # via to_thread so the event loop stays free between yields.
-                        gen = fn(**tc["arguments"])
+                        gen = fn(**kwargs)
                         _SENTINEL = object()
 
                         def _next_chunk(_gen=gen):

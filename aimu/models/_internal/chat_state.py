@@ -154,6 +154,24 @@ class _ChatStateMixin:
         finally:
             self.tools = saved
 
+    def _tool_call_kwargs(self, fn, arguments: dict) -> dict:
+        """Model-supplied arguments plus any framework-injected ``ToolContext`` parameters.
+
+        Tools that declare a ``ToolContext`` parameter (recorded in ``fn.__tool_injected__`` by
+        ``@tool``) have it filled here with the client's ``tool_context_deps`` — set by the agent
+        from its ``deps=`` field / ``run(deps=)`` override — so the model never supplies it.
+        Shared by the sync and async dispatch paths.
+        """
+        kwargs = dict(arguments)
+        injected = getattr(fn, "__tool_injected__", None)
+        if injected:
+            from aimu.tools.context import ToolContext
+
+            ctx = ToolContext(deps=getattr(self, "tool_context_deps", None))
+            for name in injected:
+                kwargs[name] = ctx
+        return kwargs
+
     def _collect_python_tool_specs(self) -> list[dict]:
         """Collect ``__tool_spec__`` dicts from every registered Python tool callable.
 

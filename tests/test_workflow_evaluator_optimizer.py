@@ -118,6 +118,74 @@ def test_evaluator_streamed_does_not_yield_intermediate_drafts():
     assert generating[0].content == "final"
 
 
+def test_evaluator_stop_when_predicate_accepts():
+    """A stop_when predicate over the evaluator text decides acceptance."""
+    gen_client = MockModelClient(["draft"])
+    eval_client = MockModelClient(['{"ok": true}'])
+
+    eo = EvaluatorOptimizer(
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
+        stop_when=lambda feedback: "true" in feedback,
+        max_rounds=3,
+    )
+    result = eo.run("task")
+
+    assert result == "draft"
+    assert eval_client._call_count == 1
+
+
+def test_evaluator_verdict_schema_passes_first_round():
+    """A typed verdict whose `passed` is True accepts the initial output."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class Verdict:
+        passed: bool
+        feedback: str = ""
+
+    gen_client = MockModelClient(["draft"])
+    eval_client = MockModelClient(['{"passed": true, "feedback": ""}'])
+    eval_client.model.supports_structured_output = False
+
+    eo = EvaluatorOptimizer(
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
+        verdict_schema=Verdict,
+        max_rounds=3,
+    )
+    result = eo.run("task")
+
+    assert result == "draft"
+    assert eval_client._call_count == 1
+
+
+def test_evaluator_verdict_schema_revises_then_passes():
+    """A failing verdict drives one revision; the next verdict passes."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class Verdict:
+        passed: bool
+        feedback: str = ""
+
+    gen_client = MockModelClient(["v1", "v2"])
+    eval_client = MockModelClient(['{"passed": false, "feedback": "add detail"}', '{"passed": true}'])
+    eval_client.model.supports_structured_output = False
+
+    eo = EvaluatorOptimizer(
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
+        verdict_schema=Verdict,
+        max_rounds=5,
+    )
+    result = eo.run("task")
+
+    assert result == "v2"
+    assert gen_client._call_count == 2
+    assert eval_client._call_count == 2
+
+
 def test_evaluator_is_runner_subclass():
     """EvaluatorOptimizer implements the single Runner interface."""
     gen_client = MockModelClient(["output"])

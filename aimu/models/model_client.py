@@ -288,6 +288,14 @@ class ModelClient(BaseModelClient):
         self._client.tools = value
 
     @property
+    def tool_context_deps(self) -> Any:
+        return getattr(self._client, "tool_context_deps", None)
+
+    @tool_context_deps.setter
+    def tool_context_deps(self, value: Any) -> None:
+        self._client.tool_context_deps = value
+
+    @property
     def system_message(self) -> Optional[str]:
         return self._client.system_message
 

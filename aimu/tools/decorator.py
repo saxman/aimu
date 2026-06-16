@@ -2,6 +2,8 @@ import inspect
 import types as _types
 from typing import Callable, Union, get_args, get_origin, get_type_hints
 
+from .context import ToolContext
+
 _PY_TO_JSON = {
     str: "string",
     int: "integer",
@@ -50,10 +52,18 @@ def tool(func: Callable) -> Callable:
 
         agent = Agent(client, tools=[letter_counter])
     """
-    func.__tool_spec__ = _build_spec(func)
+    spec, injected = _build_spec(func)
+    func.__tool_spec__ = spec
+    func.__tool_injected__ = injected
     func.__tool_is_async__ = inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)
     func.__tool_is_streaming__ = inspect.isgeneratorfunction(func) or inspect.isasyncgenfunction(func)
     return func
+
+
+def _is_injected(annotation) -> bool:
+    """True if a parameter annotation marks it as a framework-injected ``ToolContext``."""
+    annotation = _unwrap_optional(annotation)
+    return annotation is ToolContext or get_origin(annotation) is ToolContext
 
 
 def _unwrap_optional(annotation):
@@ -77,7 +87,12 @@ def _json_type_for(annotation) -> str:
     return _PY_TO_JSON.get(annotation, "string")
 
 
-def _build_spec(func: Callable) -> dict:
+def _build_spec(func: Callable) -> tuple[dict, list[str]]:
+    """Build the OpenAI-format tool spec and the list of framework-injected parameter names.
+
+    Injected parameters (annotated :class:`ToolContext`) are filled by the agent at call time,
+    so they are kept out of the model-facing schema and returned separately for the dispatcher.
+    """
     sig = inspect.signature(func)
     try:
         hints = get_type_hints(func)
@@ -88,6 +103,7 @@ def _build_spec(func: Callable) -> dict:
 
     properties: dict[str, dict] = {}
     required: list[str] = []
+    injected: list[str] = []
     for name, param in sig.parameters.items():
         if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
             raise ToolSignatureError(
@@ -95,6 +111,9 @@ def _build_spec(func: Callable) -> dict:
                 "Declare each argument explicitly — variadic args cannot be described as JSON Schema."
             )
         annotation = hints.get(name, param.annotation)
+        if _is_injected(annotation):
+            injected.append(name)
+            continue
         has_default = param.default is not inspect.Parameter.empty
         has_annotation = annotation is not inspect.Parameter.empty and annotation is not None
         if not has_annotation and not has_default:
@@ -106,7 +125,7 @@ def _build_spec(func: Callable) -> dict:
         if not has_default:
             required.append(name)
 
-    return {
+    spec = {
         "type": "function",
         "function": {
             "name": func.__name__,
@@ -118,3 +137,4 @@ def _build_spec(func: Callable) -> dict:
             },
         },
     }
+    return spec, injected

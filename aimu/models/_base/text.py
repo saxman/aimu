@@ -103,6 +103,9 @@ class BaseModelClient(_ChatStateMixin, ABC):
         self.last_thinking = ""
         self.last_usage = None
         self.concurrent_tool_calls = False
+        # Value injected as ``ctx.deps`` into tools that declare a ToolContext parameter.
+        # Set by Agent from its deps= field / run(deps=) override; None for bare chat().
+        self.tool_context_deps = None
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -439,7 +442,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
                     "stream=True. For non-streaming use, convert the tool to a plain function."
                 )
             try:
-                response = fn(**tc["arguments"])
+                response = fn(**self._tool_call_kwargs(fn, tc["arguments"]))
                 content = str(response)
             except Exception as exc:
                 content = f"Tool '{tc['name']}' raised an error: {exc}"
@@ -526,7 +529,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
                         f"Tool '{tc['name']}' is an async streaming tool. Use the aimu.aio surface to dispatch it."
                     )
                 try:
-                    gen = fn(**tc["arguments"])
+                    gen = fn(**self._tool_call_kwargs(fn, tc["arguments"]))
                     return_value = None
                     last_content: Any = None
                     while True:

@@ -18,11 +18,13 @@ group directly: ``Agent(client, tools=builtin.web)``.
 
 from . import builtin
 from .client import MCPClient, MCPConnectionError
+from .context import ToolContext
 from .decorator import ToolSignatureError, tool
 
 __all__ = [
     "MCPClient",
     "MCPConnectionError",
+    "ToolContext",
     "ToolSignatureError",
     "builtin",
     "tool",

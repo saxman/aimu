@@ -72,11 +72,13 @@ A curated model catalog, capturing model capabilities and nuances, is part of th
 - `Agent` runs an autonomous tool-using loop until the model stops calling tools.
 - `OrchestrationAgent` interface/pattern for coordinating sub-agent work, and three pre-built agents (`CodeReviewAgent`, `ContentCreationAgent`, and `ResearchReportAgent`).
 - Four code-controlled workflow patterns: `Chain.from_client(...)`, `Router.from_client(...)`, `Parallel.from_client(...)`, `EvaluatorOptimizer(...)`. Compose freely. Workflows accept agents as steps; agents accept workflows as tools via `as_model_client()`.
+- `EvaluatorOptimizer` acceptance is configurable: the default `pass_keyword="PASS"` substring match, a `stop_when` predicate, or a typed `verdict_schema` (the critic returns a `Verdict(passed, feedback)` object via structured output instead of free text).
 - `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients are interchangeable.
 
 ### Tools
 
 - `@tool` on any plain Python function. Type hints + docstring become the spec.
+- `ToolContext` dependency injection: declare a `ctx: ToolContext[Deps]` parameter and it is filled by the agent at call time (from its `deps=` field or `run(deps=)`) and hidden from the model-facing schema — so tools reach shared state (a store, a cache, config) without module globals. Works on both surfaces.
 - Per-call tool override: pass `tools=` to `client.chat()` or `Agent.run()` to swap the tool set for one call (or `tools=[]` to disable), without mutating the client's configured tools.
 - `MCPClient` for cross-process FastMCP tools. `mcp.as_tools()` turns a server's tools into `@tool`-style callables you add to `tools=` — one registry, mix freely with `@tool` functions (`tools=builtin.web + mcp.as_tools()`).
 - Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`, `builtin.transcription`. `builtin.make_tools(client, ..., python_sandbox=False)` assembles the full tool list with optional wiring for image/vision/audio/speech/transcription/memory/sandbox.
@@ -97,6 +99,7 @@ A curated model catalog, capturing model capabilities and nuances, is part of th
 - `parse_json_response(text, schema=None)` — extract JSON from any LLM response string (raw, fenced block, or `{…}` substring). Pass a dataclass or Pydantic v2 model to coerce into a typed object.
 - `generate_json(client, prompt, schema=None, *, retries=2)` — generate then parse in one call, retrying automatically on malformed output.
 - `extract_tool_calls(messages)` — turn an OpenAI-format message list into a clean `list[dict]` of `{iteration, tool, arguments, result}` records. Works on `agent.model_client.messages` or any `client.messages`.
+- `pretty_print(stream)` — render a streamed run (`client.chat(stream=True)`, `Agent.run(stream=True)`, or a workflow) to the console with tool calls flagged and text streamed inline; returns the generated text. Replaces hand-written `chunk.is_tool_call()` / `chunk.is_text()` loops.
 - `runner.restore(messages)` — restore an `Agent`, `EvaluatorOptimizer`, or `Chain` from a saved message list for resuming after failure. Handles the system-message de-duplication automatically.
 - HuggingFace model weight caching — all four modality clients (text, image, audio, speech) share a module-level registry; a second instance for the same model reuses weights. Call `aimu.clear_hf_cache()` to free VRAM. Same pattern for `LlamaCppClient` via `aimu.clear_llamacpp_cache()`.
 
@@ -160,6 +163,38 @@ chain = Chain.from_client(agent.model_client, [
     "Polish the result into a single paragraph.",
 ])
 result = chain.run("Research the top Python web frameworks.")
+```
+
+Tools can reach shared state through an injected `ToolContext` (no globals), a critic can return a
+typed verdict instead of a magic string, and `pretty_print` renders a streamed run:
+
+```python
+import aimu
+from dataclasses import dataclass, field
+from pydantic import BaseModel
+from aimu import ToolContext
+from aimu.agents import Agent, EvaluatorOptimizer
+
+@dataclass
+class Deps:
+    seen: dict = field(default_factory=dict)
+
+@aimu.tool
+def remember(ctx: ToolContext[Deps], key: str, value: str) -> str:
+    """Store a value under a key."""   # the model only sees key + value; ctx is injected
+    ctx.deps.seen[key] = value
+    return "ok"
+
+writer = Agent(aimu.client("ollama:qwen3.5:9b"), tools=[remember], deps=Deps())
+aimu.pretty_print(writer.run("Remember the sky is blue, then summarize.", stream=True))
+
+class Verdict(BaseModel):
+    passed: bool
+    feedback: str = ""
+
+critic = Agent(aimu.client("ollama:qwen3.5:9b"), "Judge the draft; set passed and feedback.")
+review = EvaluatorOptimizer(generator=writer, evaluator=critic, verdict_schema=Verdict)
+print(review.run("Explain gradient descent."))
 ```
 
 ### Vision and audio input

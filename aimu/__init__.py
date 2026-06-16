@@ -107,7 +107,8 @@ from .models import (
     resolve_speech_model_string,
     resolve_transcription_model_string,
 )
-from .tools import tool
+from .tools import ToolContext, tool
+from .display import pretty_print
 
 
 def client(model: Union[str, Model, None] = None, *, system: Optional[str] = None, **kwargs: Any) -> ModelClient:
@@ -597,6 +598,7 @@ __all__ = [
     "SpeechSpec",
     "StreamChunk",
     "StreamingContentType",
+    "ToolContext",
     "TranscriptionClient",
     "TranscriptionModel",
     "TranscriptionSpec",
@@ -617,6 +619,7 @@ __all__ = [
     "generate_image",
     "generate_speech",
     "image_client",
+    "pretty_print",
     "available_audio_models",
     "available_embedding_models",
     "available_image_models",

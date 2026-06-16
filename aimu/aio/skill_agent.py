@@ -30,10 +30,10 @@ class SkillAgent(Agent):
     _skills_mcp_client: Optional[Any] = field(default=None, init=False, repr=False)
     _skills_tools: Optional[list] = field(default=None, init=False, repr=False)
 
-    def _prepare_run(self) -> None:
+    def _prepare_run(self, deps: Any = None) -> None:
         if self.reset_messages_on_run or self.system_message is not None:
             self._skills_setup_done = False
-        super()._prepare_run()
+        super()._prepare_run(deps)
         # NOTE: skill setup is async; defer to the first await point in run().
 
     async def _setup_skills_async(self) -> None:
