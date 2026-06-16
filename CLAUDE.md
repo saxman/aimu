@@ -1199,6 +1199,15 @@ web/                           # Example chat UIs
 └── gradio_chatbot_basic.py          # Gradio chat interface with streaming
 
 notebooks/               # Jupyter notebook demos
+
+examples/                       # Runnable, real-world programs (kept out of the default pytest run via testpaths)
+├── README.md                   # Index of all examples
+├── text-refinement/            # "epic" family: generate→judge→refine over text (loop / Agent / EvaluatorOptimizer / annealing)
+│   └── tests/                  # On pythonpath; run via `pytest examples/`
+├── image-refinement/           # "hotdog" family: same loop over images (adds diffusers + vision eval + img2img); needs [hf]
+│   └── tests/
+├── news-summarizer/            # One task via Agent / Chain / Parallel / OrchestratorAgent (--method)
+└── skills/                     # Demo SKILL.md skills (haiku-poet, unit-converter); exposed as aimu.paths.skills
 ```
 
 ## Testing Strategy

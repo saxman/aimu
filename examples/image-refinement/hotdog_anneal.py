@@ -34,9 +34,9 @@ Honest caveats for this domain:
 Stops when the critic says DONE, or at --max-iterations.
 
 Usage:
-    python scripts/hotdog_anneal.py
-    python scripts/hotdog_anneal.py --initial-temp 3.0 --cooling-rate 0.9 --seed 7
-    python scripts/hotdog_anneal.py --max-iterations 0 --image-model hf:stabilityai/stable-diffusion-xl-base-1.0
+    python examples/image-refinement/hotdog_anneal.py
+    python examples/image-refinement/hotdog_anneal.py --initial-temp 3.0 --cooling-rate 0.9 --seed 7
+    python examples/image-refinement/hotdog_anneal.py --max-iterations 0 --image-model hf:stabilityai/stable-diffusion-xl-base-1.0
 """
 
 from __future__ import annotations

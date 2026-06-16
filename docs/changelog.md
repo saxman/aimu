@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Examples
+
+- **Change** Consolidated the loose `scripts/` directory and the `data/skills/` demo skills into a single top-level `examples/` tree, organized by theme: `examples/text-refinement/` (the `epic_*` family), `examples/image-refinement/` (the `hotdog_*` family), `examples/news-summarizer/`, and `examples/skills/` (`haiku-poet`, `unit-converter`). Each example directory has its own `README.md`, and `examples/README.md` indexes them. Files were moved with `git mv` (history preserved); `scripts/` and `data/` are removed.
+- **New** `aimu.paths.examples` constant pointing at the `examples/` directory. `aimu.paths.skills` now resolves to `examples/skills` (was `data/skills`); the unused `aimu.paths.data` constant is removed.
+- **Change** The example test suites (`test_epic_scripts.py`, `test_hotdog_scripts.py`) are now scoped out of the default `pytest` run via `testpaths = ["tests"]`. Run them explicitly with `pytest examples/`. The two refinement directories are on `pythonpath` so their shared-helper imports resolve.
+- **New** Examples are surfaced from the README (`## Examples` section), the docs site (`docs/examples.md` + nav entry), and cross-linked from notebooks 07, 08, and 09. The two iterative-refinement how-to guides and `generate-images.md` now reference the `examples/` paths.
+
 ### Models
 
 - **Fix** `HuggingFaceModel.QWEN_3_6_27B` (and the Qwen 3.5/3.6 family) crashed at generation with `RuntimeError: expected mat1 and mat2 to have the same dtype, but got: c10::BFloat16 != c10::Float8_e4m3fn`. These are unified multimodal FP8 checkpoints whose `quantization_config.modules_to_not_convert` skip-list is written against the multimodal module tree (`model.language_model.*` / `model.visual.*`). The text-only entries loaded via `AutoModelForCausalLM`, which builds a text-only tree (`model.layers.*`) the skip-list can't match, so layers meant to stay bf16 (router `mlp.gate`, `lm_head`, `linear_attn` projections) mis-quantized. Qwen 3.5/3.6 now always load via `AutoModelForImageTextToText`.

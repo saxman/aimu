@@ -92,6 +92,7 @@ nav:
       - First agent with tools: tutorials/02-first-agent-with-tools.md
       - Workflows: tutorials/03-workflows.md
       - Vision and streaming: tutorials/04-vision-and-streaming.md
+  - Examples: examples.md
   - How-to:
       - how-to/index.md
       - Switch providers: how-to/switch-providers.md

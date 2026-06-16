@@ -137,7 +137,7 @@ image_client(HuggingFaceImageModel.SDXL_BASE).max_prompt_tokens      # 77
 image_client(GeminiImageModel.NANO_BANANA).max_prompt_tokens         # None (uncapped cloud)
 ```
 
-Use it to size prompts to the model — e.g. a summarization step that condenses a long description to fit the budget (see the hotdog scripts in `scripts/`).
+Use it to size prompts to the model — e.g. a summarization step that condenses a long description to fit the budget (see the hotdog scripts in `examples/image-refinement/`).
 
 Note: ad-hoc `"hf:<repo>"` strings get the conservative 77-token default (the catalog isn't consulted) — pass the enum member to pick up the model's real budget.
 

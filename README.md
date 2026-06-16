@@ -290,6 +290,21 @@ Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_
 - 📚 [Reference](https://saxman.github.io/aimu/reference/): Auto-generated API docs, capability matrices, environment variables, CLI
 - 💡 [Explanation](https://saxman.github.io/aimu/explanation/): The *why*: architecture, design principles, agents vs workflows
 
+## Examples
+
+The [`examples/`](examples/) directory ships larger, real-world programs organized by theme (each has its own README):
+
+- [text-refinement/](examples/text-refinement/): A generate → judge → refine loop over **text**, implemented four ways (code loop, `Agent`, `EvaluatorOptimizer`, simulated annealing). GPU-free, Ollama-only.
+- [image-refinement/](examples/image-refinement/): The same loop over **images** (diffusion + vision evaluator), five variants including img2img. Needs `aimu[hf]` and a GPU.
+- [news-summarizer/](examples/news-summarizer/): One task — *summarize recent AI news* — solved with `Agent`, `Chain`, `Parallel`, and `OrchestratorAgent`, selected via `--method`.
+- [skills/](examples/skills/): Demo `SKILL.md` skills (`haiku-poet`, `unit-converter`) for `SkillAgent` discovery, exposed as `aimu.paths.skills`.
+
+```bash
+python examples/text-refinement/epic_loop.py                  # text refinement, GPU-free
+python examples/news-summarizer/news_summarizer.py --method agent
+python examples/image-refinement/hotdog_loop.py               # image refinement (needs aimu[hf] + GPU)
+```
+
 ## Notebooks
 
 The [`notebooks/`](notebooks/) directory ships interactive demos for every subsystem:

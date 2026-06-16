@@ -17,10 +17,10 @@ Strategy: hill climbing in image space with strength annealing.
 
 Usage::
 
-    python scripts/hotdog_img2img.py
-    python scripts/hotdog_img2img.py --image-model FLUX_2_KLEIN_4B --max-iterations 12
-    python scripts/hotdog_img2img.py --initial-strength 0.85 --final-strength 0.2 --patience 3
-    python scripts/hotdog_img2img.py --seed 42
+    python examples/image-refinement/hotdog_img2img.py
+    python examples/image-refinement/hotdog_img2img.py --image-model FLUX_2_KLEIN_4B --max-iterations 12
+    python examples/image-refinement/hotdog_img2img.py --initial-strength 0.85 --final-strength 0.2 --patience 3
+    python examples/image-refinement/hotdog_img2img.py --seed 42
 """
 
 from __future__ import annotations

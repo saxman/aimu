@@ -4,25 +4,25 @@ Build a **generate → evaluate → refine** loop: a model produces an image, a 
 
 The full, runnable code lives in five scripts that share one helper module:
 
-- `scripts/hotdog_loop.py` — **Python directs the loop**. Two strategies via `--strategy`:
+- `examples/image-refinement/hotdog_loop.py` — **Python directs the loop**. Two strategies via `--strategy`:
   - `greedy` (default) — always accept the evaluator's suggestion and move on.
   - `climbing` — keep the best image and revert on non-improvement (`--patience` controls the stop condition).
-- `scripts/hotdog_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
-- `scripts/hotdog_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + critic agent).
-- `scripts/hotdog_anneal.py` — **simulated annealing**: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.
-- `scripts/hotdog_img2img.py` — **image-to-image refinement**: each iteration starts from the current best image rather than pure noise, combining hill-climbing with strength annealing (high `strength` early to explore, low `strength` late to polish).
-- `scripts/_hotdog_common.py` — shared prompts and helpers used by all of them.
+- `examples/image-refinement/hotdog_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
+- `examples/image-refinement/hotdog_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + critic agent).
+- `examples/image-refinement/hotdog_anneal.py` — **simulated annealing**: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.
+- `examples/image-refinement/hotdog_img2img.py` — **image-to-image refinement**: each iteration starts from the current best image rather than pure noise, combining hill-climbing with strength annealing (high `strength` early to explore, low `strength` late to polish).
+- `examples/image-refinement/_hotdog_common.py` — shared prompts and helpers used by all of them.
 
 ```bash
-python scripts/hotdog_loop.py                                        # greedy walk (default)
-python scripts/hotdog_loop.py --strategy climbing --patience 4       # hill-climb: keep best, revert on regression
-python scripts/hotdog_loop.py --max-iterations 0                     # run until the critic says DONE
-python scripts/hotdog_agent.py                                       # agent-directed greedy walk
-python scripts/hotdog_evaluator.py                                   # EvaluatorOptimizer workflow class
-python scripts/hotdog_anneal.py --seed 7                             # simulated annealing: explore early, cool to greedy
-python scripts/hotdog_img2img.py                                     # img2img hill-climbing + strength annealing
-python scripts/hotdog_img2img.py --image-model FLUX_2_KLEIN_4B      # unified pipeline — no strength knob (warning printed)
-python scripts/hotdog_img2img.py --initial-strength 0.85 --final-strength 0.2 --patience 3
+python examples/image-refinement/hotdog_loop.py                                        # greedy walk (default)
+python examples/image-refinement/hotdog_loop.py --strategy climbing --patience 4       # hill-climb: keep best, revert on regression
+python examples/image-refinement/hotdog_loop.py --max-iterations 0                     # run until the critic says DONE
+python examples/image-refinement/hotdog_agent.py                                       # agent-directed greedy walk
+python examples/image-refinement/hotdog_evaluator.py                                   # EvaluatorOptimizer workflow class
+python examples/image-refinement/hotdog_anneal.py --seed 7                             # simulated annealing: explore early, cool to greedy
+python examples/image-refinement/hotdog_img2img.py                                     # img2img hill-climbing + strength annealing
+python examples/image-refinement/hotdog_img2img.py --image-model FLUX_2_KLEIN_4B      # unified pipeline — no strength knob (warning printed)
+python examples/image-refinement/hotdog_img2img.py --initial-strength 0.85 --final-strength 0.2 --patience 3
 ```
 
 ## Three ways to run the same loop

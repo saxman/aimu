@@ -30,9 +30,9 @@ annealing happens in directive space.
 Stops when the judge says DONE, or at --max-iterations.
 
 Usage:
-    python scripts/epic_anneal.py
-    python scripts/epic_anneal.py --initial-temp 3.0 --cooling-rate 0.9 --seed 7
-    python scripts/epic_anneal.py --max-iterations 0 --gen-model ollama:qwen3:8b
+    python examples/text-refinement/epic_anneal.py
+    python examples/text-refinement/epic_anneal.py --initial-temp 3.0 --cooling-rate 0.9 --seed 7
+    python examples/text-refinement/epic_anneal.py --max-iterations 0 --gen-model ollama:qwen3:8b
 """
 
 from __future__ import annotations

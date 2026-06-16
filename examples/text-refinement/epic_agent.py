@@ -8,9 +8,9 @@ The text-only twin of ``hotdog_agent.py`` — the diff from ``epic_loop.py`` is 
 drives the loop*: here an ``Agent``'s tool-calling loop decides when to write and when to judge.
 
 Usage:
-    python scripts/epic_agent.py
-    python scripts/epic_agent.py --gen-model ollama:qwen3:8b --judge-model ollama:qwen3:8b
-    python scripts/epic_agent.py --seed-sentence "She parks the car." --max-iterations 5
+    python examples/text-refinement/epic_agent.py
+    python examples/text-refinement/epic_agent.py --gen-model ollama:qwen3:8b --judge-model ollama:qwen3:8b
+    python examples/text-refinement/epic_agent.py --seed-sentence "She parks the car." --max-iterations 5
 """
 
 from __future__ import annotations

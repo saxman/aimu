@@ -20,10 +20,10 @@ hotdog_loop.py — same lesson, no image generation, vision model, or GPU requir
 Ollama alone).
 
 Usage:
-    python scripts/epic_loop.py
-    python scripts/epic_loop.py --strategy climbing --patience 4
-    python scripts/epic_loop.py --gen-model ollama:qwen3:8b --judge-model anthropic:claude-sonnet-4-6
-    python scripts/epic_loop.py --seed-sentence "She parks the car." --max-iterations 0   # until DONE
+    python examples/text-refinement/epic_loop.py
+    python examples/text-refinement/epic_loop.py --strategy climbing --patience 4
+    python examples/text-refinement/epic_loop.py --gen-model ollama:qwen3:8b --judge-model anthropic:claude-sonnet-4-6
+    python examples/text-refinement/epic_loop.py --seed-sentence "She parks the car." --max-iterations 0   # until DONE
 """
 
 from __future__ import annotations

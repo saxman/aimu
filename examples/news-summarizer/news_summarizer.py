@@ -15,10 +15,10 @@ AIMU's autonomous-agent and code-controlled-workflow surfaces:
 
 Usage::
 
-    python scripts/news_summarizer.py --method agent
-    python scripts/news_summarizer.py --method chain --model ollama:qwen3.5:9b
-    python scripts/news_summarizer.py --method parallel --output-dir ./my-run
-    python scripts/news_summarizer.py --list
+    python examples/news-summarizer/news_summarizer.py --method agent
+    python examples/news-summarizer/news_summarizer.py --method chain --model ollama:qwen3.5:9b
+    python examples/news-summarizer/news_summarizer.py --method parallel --output-dir ./my-run
+    python examples/news-summarizer/news_summarizer.py --list
 
 Each run writes a Markdown ``summary.md`` and a ``trace.json`` into a timestamped folder
 under ``output/news/<timestamp>/`` (like the hotdog and epic scripts), unless overridden

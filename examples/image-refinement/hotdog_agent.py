@@ -5,9 +5,9 @@ An AIMU Agent autonomously controls the loop via tool calls.
 Stops when the vision evaluator declares the hotdog cannot get hotter.
 
 Usage:
-    python scripts/hotdog_agent.py
-    python scripts/hotdog_agent.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0 --eval-model ollama:gemma4:26b
-    python scripts/hotdog_agent.py --output-dir /tmp/hotdog --max-iterations 5
+    python examples/image-refinement/hotdog_agent.py
+    python examples/image-refinement/hotdog_agent.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0 --eval-model ollama:gemma4:26b
+    python examples/image-refinement/hotdog_agent.py --output-dir /tmp/hotdog --max-iterations 5
 """
 
 from __future__ import annotations

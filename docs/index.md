@@ -73,9 +73,13 @@ That's the full mental model: a `chat()` function for one-shots, a `client()` fa
 - **Evaluation** — DeepEval integration and a multi-model benchmark harness with CSV / JSON / catalog export.
 - **Optional async surface** — `aimu.aio` mirrors the whole sync API (same class names, one-import-away). `Parallel` and `concurrent_tool_calls` use `asyncio.TaskGroup` for structured concurrency. See [async design](explanation/async-design.md).
 
+## Examples
+
+The [`examples/`](https://github.com/saxman/aimu/tree/main/examples) directory ships larger, real-world programs organized by theme — `text-refinement/` and `image-refinement/` (the same generate → judge → refine loop in two modalities, each implemented as a code loop, an `Agent`, an `EvaluatorOptimizer` workflow, and simulated annealing), `news-summarizer/` (one task solved with `Agent`, `Chain`, `Parallel`, and `OrchestratorAgent`), and `skills/` (demo skills for `SkillAgent` discovery). See the [examples overview](examples.md).
+
 ## Notebooks
 
-The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 22 runnable demos ordered to build up incrementally — from `01 - Model Client`, `03 - Structured Output`, and `06 - Tools` through `07 - Agents`, `11 - Embeddings`, `13 - RAG`, and the generative-modality and `22 - Async` notebooks. The [README](https://github.com/saxman/aimu#examples) lists each one in order.
+The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 22 runnable demos ordered to build up incrementally — from `01 - Model Client`, `03 - Structured Output`, and `06 - Tools` through `07 - Agents`, `11 - Embeddings`, `13 - RAG`, and the generative-modality and `22 - Async` notebooks. The [README](https://github.com/saxman/aimu#notebooks) lists each one in order.
 
 ## Web apps
 

@@ -18,10 +18,10 @@ The agent-directed counterpart is hotdog_agent.py. For Metropolis-acceptance ann
 see hotdog_anneal.py. For image-to-image refinement see hotdog_img2img.py.
 
 Usage:
-    python scripts/hotdog_loop.py
-    python scripts/hotdog_loop.py --strategy climbing --patience 4
-    python scripts/hotdog_loop.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0
-    python scripts/hotdog_loop.py --max-iterations 0   # run until evaluator says DONE
+    python examples/image-refinement/hotdog_loop.py
+    python examples/image-refinement/hotdog_loop.py --strategy climbing --patience 4
+    python examples/image-refinement/hotdog_loop.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0
+    python examples/image-refinement/hotdog_loop.py --max-iterations 0   # run until evaluator says DONE
 """
 
 from __future__ import annotations

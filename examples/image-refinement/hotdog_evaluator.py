@@ -30,9 +30,9 @@ Two caveats of the EvaluatorOptimizer shape, both visible in the output:
   vision client for the tool (the tool calls ``reset()``, which would clobber an agent brain).
 
 Usage:
-    python scripts/hotdog_evaluator.py
-    python scripts/hotdog_evaluator.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0 --eval-model ollama:gemma4:26b
-    python scripts/hotdog_evaluator.py --output-dir /tmp/hotdog --max-iterations 5
+    python examples/image-refinement/hotdog_evaluator.py
+    python examples/image-refinement/hotdog_evaluator.py --image-model hf:stabilityai/stable-diffusion-xl-base-1.0 --eval-model ollama:gemma4:26b
+    python examples/image-refinement/hotdog_evaluator.py --output-dir /tmp/hotdog --max-iterations 5
 """
 
 from __future__ import annotations

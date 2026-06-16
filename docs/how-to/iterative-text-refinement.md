@@ -6,21 +6,21 @@ The worked example: *"take a mundane sentence and make it as **epic** as possibl
 
 The full, runnable code lives in four scripts that share one helper module:
 
-- `scripts/epic_loop.py` — **Python directs the loop** (a plain code-controlled `for` loop). A `--strategy` flag selects the search: `greedy` (default — accept every step) or `climbing` (hill-climb — keep the best sentence, revert when a step doesn't beat it). Greedy is the climber with "always accept, never revert," so the two share one loop.
-- `scripts/epic_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
-- `scripts/epic_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + judge agent).
-- `scripts/epic_anneal.py` — **simulated annealing**: generalises the climber — accepts worse sentences early (high temperature) to escape local optima, cooling to greedy.
-- `scripts/_epic_common.py` — shared prompts and helpers used by all of them.
+- `examples/text-refinement/epic_loop.py` — **Python directs the loop** (a plain code-controlled `for` loop). A `--strategy` flag selects the search: `greedy` (default — accept every step) or `climbing` (hill-climb — keep the best sentence, revert when a step doesn't beat it). Greedy is the climber with "always accept, never revert," so the two share one loop.
+- `examples/text-refinement/epic_agent.py` — **an `Agent` directs the loop** via tool calls (autonomous).
+- `examples/text-refinement/epic_evaluator.py` — **`EvaluatorOptimizer` directs the loop** (the library workflow class, composing a generator + judge agent).
+- `examples/text-refinement/epic_anneal.py` — **simulated annealing**: generalises the climber — accepts worse sentences early (high temperature) to escape local optima, cooling to greedy.
+- `examples/text-refinement/_epic_common.py` — shared prompts and helpers used by all of them.
 
 ```bash
-python scripts/epic_loop.py                                            # code-directed greedy walk (default)
-python scripts/epic_loop.py --strategy climbing                           # hill-climb: keep best, revert on regression
-python scripts/epic_agent.py                                             # agent-directed greedy walk
-python scripts/epic_evaluator.py                                         # EvaluatorOptimizer workflow class
-python scripts/epic_anneal.py --seed 7                                   # simulated annealing: explore early, cool to greedy
-python scripts/epic_loop.py --seed-sentence "She parks the car."       # any mundane seed sentence
-python scripts/epic_agent.py --max-iterations 0                          # run until the judge says DONE
-python scripts/epic_loop.py --gen-model ollama:qwen3:8b --judge-model anthropic:claude-sonnet-4-6
+python examples/text-refinement/epic_loop.py                                            # code-directed greedy walk (default)
+python examples/text-refinement/epic_loop.py --strategy climbing                           # hill-climb: keep best, revert on regression
+python examples/text-refinement/epic_agent.py                                             # agent-directed greedy walk
+python examples/text-refinement/epic_evaluator.py                                         # EvaluatorOptimizer workflow class
+python examples/text-refinement/epic_anneal.py --seed 7                                   # simulated annealing: explore early, cool to greedy
+python examples/text-refinement/epic_loop.py --seed-sentence "She parks the car."       # any mundane seed sentence
+python examples/text-refinement/epic_agent.py --max-iterations 0                          # run until the judge says DONE
+python examples/text-refinement/epic_loop.py --gen-model ollama:qwen3:8b --judge-model anthropic:claude-sonnet-4-6
 ```
 
 Every script produces a `summary.txt` trace; `--strategy climbing` and `epic_anneal.py` also write `best.txt`.

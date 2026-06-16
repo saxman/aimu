@@ -11,8 +11,8 @@ package = root / "aimu"
 # Path to transient output directory
 output = root / "output"
 
-# Path to persistent data directory
-data = root / "data"
+# Path to runnable examples directory
+examples = root / "examples"
 
-# Path to Agent skills directory
-skills = data / "skills"
+# Path to Agent skills directory (demo skills live under examples/)
+skills = examples / "skills"

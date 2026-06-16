@@ -24,9 +24,9 @@ still apply, both visible in the output:
   sharing turn history with the judge agent's brain).
 
 Usage:
-    python scripts/epic_evaluator.py
-    python scripts/epic_evaluator.py --gen-model ollama:qwen3:8b --judge-model ollama:qwen3:8b
-    python scripts/epic_evaluator.py --seed-sentence "She parks the car." --max-iterations 5
+    python examples/text-refinement/epic_evaluator.py
+    python examples/text-refinement/epic_evaluator.py --gen-model ollama:qwen3:8b --judge-model ollama:qwen3:8b
+    python examples/text-refinement/epic_evaluator.py --seed-sentence "She parks the car." --max-iterations 5
 """
 
 from __future__ import annotations
