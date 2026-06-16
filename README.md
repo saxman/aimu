@@ -10,7 +10,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/aimu)](https://pypi.org/project/aimu/) ![GitHub License](https://img.shields.io/github/license/saxman/genscai) ![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsaxman%2Faimu%2Frefs%2Fheads%2Fmain%2Fpyproject.toml) [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-[Docs](https://saxman.github.io/aimu/) · [Tutorials](https://saxman.github.io/aimu/tutorials/) · [How-to](https://saxman.github.io/aimu/how-to/) · [Reference](https://saxman.github.io/aimu/reference/) · [Notebooks](notebooks/)
+[Docs](https://saxman.github.io/aimu/) · [Tutorials](https://saxman.github.io/aimu/tutorials/) · [How-to](https://saxman.github.io/aimu/how-to/) · [Reference](https://saxman.github.io/aimu/reference/) · [Examples](examples/) · [Notebooks](notebooks/)
 
 </div>
 
@@ -27,6 +27,20 @@ aimu.generate_audio("a lo-fi hip-hop beat with soft piano", model="...")
 aimu.generate_speech("Hello, world!", model="...")
 ```
 Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
+
+## Install
+
+```bash
+pip install aimu[all]
+```
+
+Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech and transcription STT), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
+
+## Why AIMU
+
+AIMU is small and stays small. Six principles shape the API: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
+
+A curated model catalog, capturing model capabilities and nuances, is part of that design: every `"provider:model_id"` string must name a model AIMU ships a spec for. An unknown id raises rather than running with guessed capabilities. To use a one-off custom model, build the spec and pass it directly (`aimu.image_client(HuggingFaceImageSpec(...))`).
 
 ## Key features
 
@@ -275,22 +289,20 @@ async def main():
 asyncio.run(main())
 ```
 
-## Install
+## References
 
-```bash
-pip install aimu[all]
-```
-
-Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech and transcription STT), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
-
-## Documentation
+### Documentation
 
 - 📘 [Tutorials](https://saxman.github.io/aimu/tutorials/): Hand-held walkthroughs. Install to first agent in 15 mins
 - 🛠️ [How-to guides](https://saxman.github.io/aimu/how-to/): Task-oriented recipes (switch providers, write a tool, stream output, benchmark models, ...)
 - 📚 [Reference](https://saxman.github.io/aimu/reference/): Auto-generated API docs, capability matrices, environment variables, CLI
 - 💡 [Explanation](https://saxman.github.io/aimu/explanation/): The *why*: architecture, design principles, agents vs workflows
 
-## Examples
+### Notebooks
+
+The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, numbered `01`–`22` and ordered to build up incrementally — from the model client, tools, and agents through workflows, memory, RAG, the generative modalities, and the async surface. The filenames are self-describing; open the directory to browse and run them.
+
+### Examples
 
 The [`examples/`](examples/) directory ships larger, real-world programs organized by theme (each has its own README):
 
@@ -299,40 +311,7 @@ The [`examples/`](examples/) directory ships larger, real-world programs organiz
 - [news-summarizer/](examples/news-summarizer/): One task — *summarize recent AI news* — solved with `Agent`, `Chain`, `Parallel`, and `OrchestratorAgent`, selected via `--method`.
 - [skills/](examples/skills/): Demo `SKILL.md` skills (`haiku-poet`, `unit-converter`) for `SkillAgent` discovery, exposed as `aimu.paths.skills`.
 
-```bash
-python examples/text-refinement/epic_loop.py                  # text refinement, GPU-free
-python examples/news-summarizer/news_summarizer.py --method agent
-python examples/image-refinement/hotdog_loop.py               # image refinement (needs aimu[hf] + GPU)
-```
-
-## Notebooks
-
-The [`notebooks/`](notebooks/) directory ships interactive demos for every subsystem:
-
-- [01 - Model Client](notebooks/01%20-%20Model%20Client.ipynb): Text generation, chat, streaming, thinking models
-- [02 - Conversations](notebooks/02%20-%20Conversations.ipynb): Persistent multi-turn chat history (`ConversationManager`)
-- [03 - Structured Output](notebooks/03%20-%20Structured%20Output.ipynb): Typed responses via `schema=` on `chat()` / `generate()`; native enforcement (OpenAI / Ollama / Anthropic) with a prompt-and-parse fallback
-- [04 - Vision](notebooks/04%20-%20Vision.ipynb): Image input via `images=` on `chat()` and one-shot `generate()`
-- [05 - Audio Input](notebooks/05%20-%20Audio%20Input.ipynb): Audio input via `audio=` on `chat()` and `generate()`; model selection; accepted formats; async surface
-- [06 - Tools](notebooks/06%20-%20Tools.ipynb): `@tool` decorator, built-in tool groups, MCPClient
-- [07 - Agents](notebooks/07%20-%20Agents.ipynb): `Agent` and `agent.as_model_client()`
-- [08 - Agent Skills](notebooks/08%20-%20Agent%20Skills.ipynb): Filesystem-discovered skill injection
-- [09 - Workflows](notebooks/09%20-%20Workflows.ipynb): Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator
-- [10 - Prebuilt Agents](notebooks/10%20-%20Prebuilt%20Agents.ipynb): Orchestrator + worker tools pattern
-- [11 - Embeddings](notebooks/11%20-%20Embeddings.ipynb): Text embeddings via `embedding_client()` / `embed()`; OpenAI, Ollama, and local HuggingFace providers; cosine similarity; pluggable into `SemanticMemoryStore`; async surface
-- [12 - Memory](notebooks/12%20-%20Memory.ipynb): Semantic fact storage and retrieval
-- [13 - RAG](notebooks/13%20-%20RAG.ipynb): Retrieval-augmented generation with `aimu.rag`: `split_text` chunking, `ingest` / `retrieve` / `format_context`, reranking, and `make_retrieval_tool` for agents
-- [14 - Prompt Management](notebooks/14%20-%20Prompt%20Management.ipynb): Versioned prompt storage
-- [15 - Prompt Tuning](notebooks/15%20-%20Prompt%20Tuning.ipynb): Classification, multi-class, extraction, judged tuners
-- [16 - Evaluations](notebooks/16%20-%20Evaluations.ipynb): DeepEval integration
-- [17 - Benchmarking](notebooks/17%20-%20Benchmarking.ipynb): Multi-model comparison harness
-- [18 - Image Generation](notebooks/18%20-%20Image%20Generation.ipynb): `aimu.image_client()` / `aimu.generate_image()` with HuggingFace `diffusers` and Google Nano Banana, plus the built-in `generate_image` agent tool
-- [19 - Audio Generation](notebooks/19%20-%20Audio%20Generation.ipynb): `aimu.audio_client()` / `aimu.generate_audio()` with MusicGen, AudioLDM2, and Stable Audio Open, plus streaming and the built-in `generate_audio` agent tool
-- [20 - Speech](notebooks/20%20-%20Speech.ipynb): TTS with HuggingFace (SpeechT5, MMS-TTS, BARK) and OpenAI (tts-1/tts-1-hd); `generate_speech` agent tool; Streamlit live narration (speech-to-text is notebook 21)
-- [21 - Transcription](notebooks/21%20-%20Transcription.ipynb): Speech-to-text via `transcription_client()` / `transcribe()`; OpenAI and HuggingFace providers; timestamps; async surface
-- [22 - Async](notebooks/22%20-%20Async.ipynb): `aimu.aio` surface end-to-end: chat, streaming, async tools, `asyncio.TaskGroup`-backed `Parallel`, async `MCPClient`, in-process provider wrapping
-
-## Web apps
+### Web apps
 
 The [`web/`](web/) directory ships chat applications that demonstrate AIMU in action:
 
@@ -346,16 +325,10 @@ streamlit run web/streamlit_chatbot_basic.py   # basic Streamlit demo app
 python web/gradio_chatbot_basic.py             # basic Gradio demo app
 ```
 
-## Design principles
-
-AIMU is small and stays small. Six principles shape the API: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
-
-A curated model catalog, capturing model capabilities and nuances, is part of that design: every `"provider:model_id"` string must name a model AIMU ships a spec for. An unknown id raises rather than running with guessed capabilities. To use a one-off custom model, build the spec and pass it directly (`aimu.image_client(HuggingFaceImageSpec(...))`).
-
 ## Contributing
 
 See the [contributing guide](https://saxman.github.io/aimu/contributing/) for dev setup, testing, lint, and PR conventions.
 
 ## License
 
-Apache 2.0.
+Apache 2.0. See [LICENSE](LICENSE).
