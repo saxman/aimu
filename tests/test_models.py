@@ -28,8 +28,7 @@ from aimu.tools.client import MCPClient
 # so the computed result is intentionally not checked -- keeping the tests robust across
 # smaller local thinking models that may not compute it exactly.
 _THINKING_PROMPT = (
-    "Compute the sum of all integers from 1 to 200 that are divisible by 7. "
-    "Show your work, then state the final total."
+    "Compute the sum of all integers from 1 to 200 that are divisible by 7. Show your work, then state the final total."
 )
 
 

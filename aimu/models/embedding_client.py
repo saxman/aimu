@@ -140,7 +140,9 @@ class EmbeddingClient:
             self._client = OpenAIEmbeddingClient(model, model_kwargs=model_kwargs)
         elif _HAS_OLLAMA_EMBEDDING and OllamaEmbeddingModel is not None and isinstance(model, OllamaEmbeddingModel):
             self._client = OllamaEmbeddingClient(model, model_kwargs=model_kwargs)
-        elif _HAS_HF_EMBEDDING and HuggingFaceEmbeddingModel is not None and isinstance(model, HuggingFaceEmbeddingModel):
+        elif (
+            _HAS_HF_EMBEDDING and HuggingFaceEmbeddingModel is not None and isinstance(model, HuggingFaceEmbeddingModel)
+        ):
             self._client = HuggingFaceEmbeddingClient(model, model_kwargs=model_kwargs)
         else:
             raise ValueError(

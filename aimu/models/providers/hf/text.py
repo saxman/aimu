@@ -62,7 +62,7 @@ def _make_cache_key(spec_id: str, load_profile: str, model_kwargs: dict | None) 
 
 
 DEFAULT_GENERATE_KWARGS = {
-    "max_new_tokens": 4096, # high default to avoid cutting off tool calls or thinking; users can override with generation_kwargs
+    "max_new_tokens": 4096,  # high default to avoid cutting off tool calls or thinking; users can override with generation_kwargs
     "temperature": 0.1,
     "top_p": 0.95,
     "top_k": 50,

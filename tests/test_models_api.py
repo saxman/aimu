@@ -897,6 +897,4 @@ def test_hf_chat_streamed_thinking_only_turn_does_not_crash(monkeypatch):
 
     assert [c.phase for c in chunks] == [StreamingContentType.THINKING]
     assert chunks[0].content == "reasoning that never closed"
-    assert fake.messages == [
-        {"role": "assistant", "content": "", "thinking": "reasoning that never closed"}
-    ]
+    assert fake.messages == [{"role": "assistant", "content": "", "thinking": "reasoning that never closed"}]

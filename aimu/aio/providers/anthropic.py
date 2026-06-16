@@ -75,7 +75,9 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
 
-    async def _structured_call(self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict) -> str:
+    async def _structured_call(
+        self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict
+    ) -> str:
         """Async forced-tool structured output (see sync ``AnthropicClient._structured_call``)."""
         import re
 

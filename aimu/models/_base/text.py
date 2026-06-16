@@ -303,10 +303,14 @@ class BaseModelClient(_ChatStateMixin, ABC):
         message = user_message + suffix
         extra = {"response_format": response_format} if response_format is not None else {}
         if tools is None:
-            text = self._chat(message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio, **extra)
+            text = self._chat(
+                message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio, **extra
+            )
         else:
             with self._tools_override(tools):
-                text = self._chat(message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio, **extra)
+                text = self._chat(
+                    message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio, **extra
+                )
         return parse_json_response(text, schema)
 
     def _generate_structured(

@@ -1,10 +1,12 @@
 """Mock-only unit tests for the transcription surface."""
+
 from __future__ import annotations
 import pytest
 
 
 def test_transcription_spec_equality_by_id():
     from aimu.models._base.transcription import TranscriptionSpec
+
     a = TranscriptionSpec("model-a")
     b = TranscriptionSpec("model-a")
     c = TranscriptionSpec("model-b")
@@ -14,6 +16,7 @@ def test_transcription_spec_equality_by_id():
 
 def test_transcription_spec_hash_by_id():
     from aimu.models._base.transcription import TranscriptionSpec
+
     a = TranscriptionSpec("model-a")
     b = TranscriptionSpec("model-a")
     assert hash(a) == hash(b)
@@ -22,6 +25,7 @@ def test_transcription_spec_hash_by_id():
 
 def test_transcription_spec_defaults():
     from aimu.models._base.transcription import TranscriptionSpec
+
     spec = TranscriptionSpec("test-model")
     assert spec.default_language is None
     assert spec.supports_timestamps is False
@@ -30,6 +34,7 @@ def test_transcription_spec_defaults():
 
 def test_transcription_spec_subclasses_inherit_equality():
     from aimu.models._base.transcription import HuggingFaceTranscriptionSpec, OpenAITranscriptionSpec
+
     a = HuggingFaceTranscriptionSpec("openai/whisper-tiny")
     b = OpenAITranscriptionSpec("openai/whisper-tiny")
     assert a == b
@@ -86,8 +91,7 @@ def _make_base_client(supports_timestamps=True):
             self.spec = TranscriptionSpec("test-model", supports_timestamps=supports_timestamps)
             self._calls = []
 
-        def _transcribe(self, audio, *, language=None, response_format="text",
-                        prompt=None, temperature=None):
+        def _transcribe(self, audio, *, language=None, response_format="text", prompt=None, temperature=None):
             self._calls.append({"audio": audio, "response_format": response_format})
             return "hello world" if response_format == "text" else {"text": "hello world"}
 
@@ -132,6 +136,7 @@ def _make_fake_openai():
 def test_openai_transcription_model_members():
     pytest.importorskip("openai")
     from aimu.models.providers.openai.transcription import OpenAITranscriptionModel
+
     names = {m.name for m in OpenAITranscriptionModel}
     assert "WHISPER_1" in names
     assert "GPT_4O_TRANSCRIBE" in names
@@ -141,18 +146,21 @@ def test_openai_transcription_model_members():
 def test_openai_transcription_model_supports_timestamps():
     pytest.importorskip("openai")
     from aimu.models.providers.openai.transcription import OpenAITranscriptionModel
+
     assert OpenAITranscriptionModel.WHISPER_1.spec.supports_timestamps is True
     assert OpenAITranscriptionModel.GPT_4O_TRANSCRIBE.spec.supports_timestamps is True
 
 
 def test_openai_client_transcribe_text_format(monkeypatch):
     import sys
+
     fake_openai, call_log = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.providers.openai.transcription as mod
+
     reload(mod)
 
     client = mod.OpenAITranscriptionClient(mod.OpenAITranscriptionModel.WHISPER_1)
@@ -164,12 +172,14 @@ def test_openai_client_transcribe_text_format(monkeypatch):
 
 def test_openai_client_transcribe_verbose_json(monkeypatch):
     import sys
+
     fake_openai, call_log = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.providers.openai.transcription as mod
+
     reload(mod)
 
     client = mod.OpenAITranscriptionClient(mod.OpenAITranscriptionModel.WHISPER_1)
@@ -181,12 +191,14 @@ def test_openai_client_transcribe_verbose_json(monkeypatch):
 
 def test_openai_client_passes_language(monkeypatch):
     import sys
+
     fake_openai, call_log = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.providers.openai.transcription as mod
+
     reload(mod)
 
     client = mod.OpenAITranscriptionClient(mod.OpenAITranscriptionModel.WHISPER_1)
@@ -196,12 +208,14 @@ def test_openai_client_passes_language(monkeypatch):
 
 def test_openai_client_omits_language_when_none(monkeypatch):
     import sys
+
     fake_openai, call_log = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.providers.openai.transcription as mod
+
     reload(mod)
 
     client = mod.OpenAITranscriptionClient(mod.OpenAITranscriptionModel.WHISPER_1)
@@ -211,12 +225,14 @@ def test_openai_client_omits_language_when_none(monkeypatch):
 
 def test_openai_client_string_construction(monkeypatch):
     import sys
+
     fake_openai, _ = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.providers.openai.transcription as mod
+
     reload(mod)
 
     client = mod.OpenAITranscriptionClient("openai:whisper-1")
@@ -225,12 +241,14 @@ def test_openai_client_string_construction(monkeypatch):
 
 def test_openai_client_unknown_string_raises(monkeypatch):
     import sys
+
     fake_openai, _ = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.providers.openai.transcription as mod
+
     reload(mod)
 
     with pytest.raises(ValueError, match="Unknown"):
@@ -270,6 +288,7 @@ def test_hf_transcription_model_members():
     pytest.importorskip("soundfile")
     pytest.importorskip("transformers")
     from aimu.models.providers.hf.transcription import HuggingFaceTranscriptionModel
+
     names = {m.name for m in HuggingFaceTranscriptionModel}
     assert "WHISPER_TINY" in names
     assert "WHISPER_LARGE_V3" in names
@@ -280,6 +299,7 @@ def test_hf_transcription_model_supports_timestamps():
     pytest.importorskip("soundfile")
     pytest.importorskip("transformers")
     from aimu.models.providers.hf.transcription import HuggingFaceTranscriptionModel
+
     assert HuggingFaceTranscriptionModel.WHISPER_LARGE_V3.spec.supports_timestamps is True
 
 
@@ -287,6 +307,7 @@ def test_hf_client_transcribe_text_format(monkeypatch):
     _install_hf_transcription_stubs(monkeypatch)
     from importlib import reload
     import aimu.models.providers.hf.transcription as mod
+
     reload(mod)
 
     client = mod.HuggingFaceTranscriptionClient(mod.HuggingFaceTranscriptionModel.WHISPER_TINY)
@@ -298,6 +319,7 @@ def test_hf_client_transcribe_json_format(monkeypatch):
     _install_hf_transcription_stubs(monkeypatch)
     from importlib import reload
     import aimu.models.providers.hf.transcription as mod
+
     reload(mod)
 
     client = mod.HuggingFaceTranscriptionClient(mod.HuggingFaceTranscriptionModel.WHISPER_TINY)
@@ -334,6 +356,7 @@ def test_hf_client_transcribe_verbose_json_format(monkeypatch):
 
     from importlib import reload
     import aimu.models.providers.hf.transcription as mod
+
     reload(mod)
 
     client = mod.HuggingFaceTranscriptionClient(mod.HuggingFaceTranscriptionModel.WHISPER_TINY)
@@ -361,9 +384,11 @@ def test_hf_client_passes_language_to_pipeline(monkeypatch):
 
     def _fake_pipeline(task, model, **kwargs):
         pipe = MagicMock()
+
         def _call(inputs, **kw):
             captured_kwargs.update(kw)
             return {"text": "bonjour"}
+
         pipe.side_effect = _call
         return pipe
 
@@ -372,6 +397,7 @@ def test_hf_client_passes_language_to_pipeline(monkeypatch):
 
     from importlib import reload
     import aimu.models.providers.hf.transcription as mod
+
     reload(mod)
 
     client = mod.HuggingFaceTranscriptionClient(mod.HuggingFaceTranscriptionModel.WHISPER_TINY)
@@ -386,14 +412,17 @@ def test_hf_client_passes_language_to_pipeline(monkeypatch):
 
 def test_transcription_client_factory_with_openai_enum(monkeypatch):
     import sys
+
     fake_openai, _ = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.providers.openai.transcription as op_mod
+
     reload(op_mod)
     import aimu.models.transcription_client as tc_mod
+
     reload(tc_mod)
 
     client = tc_mod.TranscriptionClient(op_mod.OpenAITranscriptionModel.WHISPER_1)
@@ -402,12 +431,14 @@ def test_transcription_client_factory_with_openai_enum(monkeypatch):
 
 def test_transcription_client_factory_with_openai_string(monkeypatch):
     import sys
+
     fake_openai, _ = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.transcription_client as tc_mod
+
     reload(tc_mod)
 
     client = tc_mod.TranscriptionClient("openai:whisper-1")
@@ -416,11 +447,13 @@ def test_transcription_client_factory_with_openai_string(monkeypatch):
 
 def test_resolve_transcription_model_string_openai(monkeypatch):
     import sys
+
     fake_openai, _ = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
 
     from importlib import reload
     import aimu.models.transcription_client as tc_mod
+
     reload(tc_mod)
 
     member = tc_mod.resolve_transcription_model_string("openai:whisper-1")
@@ -429,12 +462,14 @@ def test_resolve_transcription_model_string_openai(monkeypatch):
 
 def test_resolve_transcription_model_string_unknown_provider():
     from aimu.models.transcription_client import resolve_transcription_model_string
+
     with pytest.raises(ValueError, match="Unknown"):
         resolve_transcription_model_string("anthropic:whisper-1")
 
 
 def test_transcription_model_env_constant():
     from aimu.models._internal.model_defaults import TRANSCRIPTION_MODEL_ENV
+
     assert TRANSCRIPTION_MODEL_ENV == "AIMU_TRANSCRIPTION_MODEL"
 
 
@@ -445,12 +480,14 @@ def test_transcription_model_env_constant():
 
 def test_aimu_transcription_client_constructs_openai(monkeypatch):
     import sys
+
     fake_openai, _ = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     import aimu
     from importlib import reload
+
     reload(aimu)
 
     client = aimu.transcription_client("openai:whisper-1")
@@ -459,12 +496,14 @@ def test_aimu_transcription_client_constructs_openai(monkeypatch):
 
 def test_aimu_transcribe_one_shot(monkeypatch):
     import sys
+
     fake_openai, call_log = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     import aimu
     from importlib import reload
+
     reload(aimu)
 
     result = aimu.transcribe(b"\x52\x49\x46\x46" + b"\x00" * 40, model="openai:whisper-1")
@@ -473,6 +512,7 @@ def test_aimu_transcribe_one_shot(monkeypatch):
 
 def test_aimu_transcription_model_env_var(monkeypatch):
     import sys
+
     fake_openai, _ = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
@@ -480,6 +520,7 @@ def test_aimu_transcription_model_env_var(monkeypatch):
 
     import aimu
     from importlib import reload
+
     reload(aimu)
 
     client = aimu.transcription_client()
@@ -490,6 +531,7 @@ def test_aimu_transcription_client_raises_without_model_and_env(monkeypatch):
     monkeypatch.delenv("AIMU_TRANSCRIPTION_MODEL", raising=False)
 
     import aimu
+
     with pytest.raises(ValueError, match="AIMU_TRANSCRIPTION_MODEL"):
         aimu.transcription_client()
 
@@ -511,17 +553,20 @@ def test_async_transcription_client_wrap_refusal():
 
 async def test_async_transcription_client_wraps_openai(monkeypatch):
     import sys
+
     fake_openai, call_log = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.providers.openai.transcription as op_mod
+
     reload(op_mod)
 
     sync_client = op_mod.OpenAITranscriptionClient(op_mod.OpenAITranscriptionModel.WHISPER_1)
 
     from aimu.aio.transcription import AsyncTranscriptionClient
+
     async_client = AsyncTranscriptionClient(sync_client)
     result = await async_client.transcribe(b"\x52\x49\x46\x46" + b"\x00" * 40)
     assert result == "hello world"
@@ -529,17 +574,20 @@ async def test_async_transcription_client_wraps_openai(monkeypatch):
 
 async def test_aio_transcription_client_convenience(monkeypatch):
     import sys
+
     fake_openai, _ = _make_fake_openai()
     monkeypatch.setitem(sys.modules, "openai", fake_openai)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     from importlib import reload
     import aimu.models.providers.openai.transcription as op_mod
+
     reload(op_mod)
 
     sync_client = op_mod.OpenAITranscriptionClient(op_mod.OpenAITranscriptionModel.WHISPER_1)
 
     from aimu.aio import transcription_client
+
     async_client = transcription_client(sync_client)
     assert hasattr(async_client, "transcribe")
 
@@ -551,6 +599,7 @@ async def test_aio_transcription_client_convenience(monkeypatch):
 
 def test_transcribe_audio_tool_spec():
     from aimu.tools import builtin
+
     assert hasattr(builtin, "transcription")
     tool = next(t for t in builtin.transcription if t.__name__ == "transcribe_audio")
     spec = tool.__tool_spec__
@@ -565,6 +614,7 @@ def test_make_transcription_tool_returns_bound_tool():
             return "hello world"
 
     from aimu.tools.builtin import make_transcription_tool
+
     tool = make_transcription_tool(_MockTranscriptionClient())
     assert callable(tool)
     assert tool.__tool_spec__["function"]["name"] == "transcribe_audio"
@@ -572,5 +622,6 @@ def test_make_transcription_tool_returns_bound_tool():
 
 def test_transcribe_audio_tool_in_all_tools():
     from aimu.tools import builtin
+
     names = {t.__name__ for t in builtin.ALL_TOOLS}
     assert "transcribe_audio" in names

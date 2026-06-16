@@ -63,7 +63,9 @@ async def test_chat_stream_include_filters_phases():
     """include=['generating'] drops THINKING chunks."""
 
     class _MultiPhaseClient(MockAsyncModelClient):
-        async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        async def _chat(
+            self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+        ):
             if not stream:
                 return await super()._chat(user_message, generate_kwargs, use_tools, stream, images)
 

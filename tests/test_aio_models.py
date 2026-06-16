@@ -22,8 +22,7 @@ from helpers_aio import create_real_async_model_client, resolve_async_model_para
 # Fable 5) actually engage thinking — they may emit none on trivial prompts. Mirrors
 # ``_THINKING_PROMPT`` in tests/test_models.py.
 _THINKING_PROMPT = (
-    "Compute the sum of all integers from 1 to 200 that are divisible by 7. "
-    "Show your work, then state the final total."
+    "Compute the sum of all integers from 1 to 200 that are divisible by 7. Show your work, then state the final total."
 )
 
 

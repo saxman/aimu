@@ -32,13 +32,22 @@ class FakeAsyncClient(AsyncBaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    async def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None, response_format=None):
+    async def _generate(
+        self, prompt, generate_kwargs=None, stream=False, images=None, audio=None, response_format=None
+    ):
         self.seen_response_format = response_format
         self.seen_prompt = prompt
         return '{"name": "Ada", "age": 36}'
 
     async def _chat(
-        self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None, response_format=None
+        self,
+        user_message,
+        generate_kwargs=None,
+        use_tools=True,
+        stream=False,
+        images=None,
+        audio=None,
+        response_format=None,
     ):
         self.seen_response_format = response_format
         self.seen_prompt = user_message

@@ -30,10 +30,18 @@ class OllamaModel(Model):
     QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True, structured_output=True)
     QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True, structured_output=True)
     # Google — these weights support audio; add audio=True once Ollama API exposes audio input
-    GEMMA_4_E4B = ModelSpec("gemma4:e4b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True)
-    GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True)
-    GEMMA_4_26B = ModelSpec("gemma4:26b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True)
-    GEMMA_4_31B = ModelSpec("gemma4:31b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True)
+    GEMMA_4_E4B = ModelSpec(
+        "gemma4:e4b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True
+    )
+    GEMMA_4_12B = ModelSpec(
+        "gemma4:12b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True
+    )
+    GEMMA_4_26B = ModelSpec(
+        "gemma4:26b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True
+    )
+    GEMMA_4_31B = ModelSpec(
+        "gemma4:31b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True
+    )
     GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True, structured_output=True)
     # NVIDIA
     NEMOTRON_CASCADE_2_30B = ModelSpec("nemotron-cascade-2:30b", tools=True, thinking=True, structured_output=True)

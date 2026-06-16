@@ -50,9 +50,18 @@ class AnthropicModel(Model):
         super().__init__(spec)
         self.thinking_style = thinking_style
 
-    CLAUDE_FABLE_5 = (ModelSpec("claude-fable-5", tools=True, thinking=True, vision=True, structured_output=True), ThinkingStyle.ADAPTIVE)
-    CLAUDE_OPUS_4_8 = (ModelSpec("claude-opus-4-8", tools=True, thinking=True, vision=True, structured_output=True), ThinkingStyle.ADAPTIVE)
-    CLAUDE_OPUS_4_7 = (ModelSpec("claude-opus-4-7", tools=True, thinking=True, vision=True, structured_output=True), ThinkingStyle.ADAPTIVE)
+    CLAUDE_FABLE_5 = (
+        ModelSpec("claude-fable-5", tools=True, thinking=True, vision=True, structured_output=True),
+        ThinkingStyle.ADAPTIVE,
+    )
+    CLAUDE_OPUS_4_8 = (
+        ModelSpec("claude-opus-4-8", tools=True, thinking=True, vision=True, structured_output=True),
+        ThinkingStyle.ADAPTIVE,
+    )
+    CLAUDE_OPUS_4_7 = (
+        ModelSpec("claude-opus-4-7", tools=True, thinking=True, vision=True, structured_output=True),
+        ThinkingStyle.ADAPTIVE,
+    )
     CLAUDE_OPUS_4_6 = ModelSpec("claude-opus-4-6", tools=True, thinking=True, vision=True, structured_output=True)
     CLAUDE_SONNET_4_6 = ModelSpec("claude-sonnet-4-6", tools=True, thinking=True, vision=True, structured_output=True)
     CLAUDE_HAIKU_4_5 = ModelSpec("claude-haiku-4-5", tools=True, thinking=True, vision=True, structured_output=True)
@@ -318,7 +327,9 @@ class AnthropicClient(BaseModelClient):
 
         if response_format is not None:
             content = self._generate_content(prompt, images, audio)
-            return self._structured_call(anthropic.NOT_GIVEN, [{"role": "user", "content": content}], generate_kwargs, response_format)
+            return self._structured_call(
+                anthropic.NOT_GIVEN, [{"role": "user", "content": content}], generate_kwargs, response_format
+            )
 
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
