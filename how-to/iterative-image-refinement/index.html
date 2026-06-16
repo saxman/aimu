@@ -262,6 +262,25 @@
   
   
   
+  
+    <li class="md-tabs__item">
+      <a href="../../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
     
   
   
@@ -640,6 +659,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -723,7 +769,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -745,14 +791,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1817,7 +1863,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1839,14 +1885,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1902,10 +1948,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
         
           
-          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
             
   
   
@@ -1923,8 +1969,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_2">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2437,7 +2483,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2459,14 +2505,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2962,24 +3008,24 @@
 <p>Build a <strong>generate → evaluate → refine</strong> loop: a model produces an image, a vision model critiques it and proposes an improved prompt, and the loop repeats until the critic is satisfied. This guide walks through a worked example — <em>"make a hotdog as visually hot as possible"</em> — that composes image generation, vision input, prompt chaining, and either an agent, a plain Python loop, or a library workflow class.</p>
 <p>The full, runnable code lives in five scripts that share one helper module:</p>
 <ul>
-<li><code>scripts/hotdog_loop.py</code> — <strong>Python directs the loop</strong>. Two strategies via <code>--strategy</code>:</li>
+<li><code>examples/image-refinement/hotdog_loop.py</code> — <strong>Python directs the loop</strong>. Two strategies via <code>--strategy</code>:</li>
 <li><code>greedy</code> (default) — always accept the evaluator's suggestion and move on.</li>
 <li><code>climbing</code> — keep the best image and revert on non-improvement (<code>--patience</code> controls the stop condition).</li>
-<li><code>scripts/hotdog_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
-<li><code>scripts/hotdog_evaluator.py</code> — <strong><code>EvaluatorOptimizer</code> directs the loop</strong> (the library workflow class, composing a generator + critic agent).</li>
-<li><code>scripts/hotdog_anneal.py</code> — <strong>simulated annealing</strong>: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.</li>
-<li><code>scripts/hotdog_img2img.py</code> — <strong>image-to-image refinement</strong>: each iteration starts from the current best image rather than pure noise, combining hill-climbing with strength annealing (high <code>strength</code> early to explore, low <code>strength</code> late to polish).</li>
-<li><code>scripts/_hotdog_common.py</code> — shared prompts and helpers used by all of them.</li>
+<li><code>examples/image-refinement/hotdog_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
+<li><code>examples/image-refinement/hotdog_evaluator.py</code> — <strong><code>EvaluatorOptimizer</code> directs the loop</strong> (the library workflow class, composing a generator + critic agent).</li>
+<li><code>examples/image-refinement/hotdog_anneal.py</code> — <strong>simulated annealing</strong>: generalises the climber — accepts worse images early (high temperature) to escape local optima, cooling to greedy.</li>
+<li><code>examples/image-refinement/hotdog_img2img.py</code> — <strong>image-to-image refinement</strong>: each iteration starts from the current best image rather than pure noise, combining hill-climbing with strength annealing (high <code>strength</code> early to explore, low <code>strength</code> late to polish).</li>
+<li><code>examples/image-refinement/_hotdog_common.py</code> — shared prompts and helpers used by all of them.</li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w">                                        </span><span class="c1"># greedy walk (default)</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w"> </span>--strategy<span class="w"> </span>climbing<span class="w"> </span>--patience<span class="w"> </span><span class="m">4</span><span class="w">       </span><span class="c1"># hill-climb: keep best, revert on regression</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/hotdog_loop.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">                     </span><span class="c1"># run until the critic says DONE</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/hotdog_agent.py<span class="w">                                       </span><span class="c1"># agent-directed greedy walk</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>scripts/hotdog_evaluator.py<span class="w">                                   </span><span class="c1"># EvaluatorOptimizer workflow class</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>python<span class="w"> </span>scripts/hotdog_anneal.py<span class="w"> </span>--seed<span class="w"> </span><span class="m">7</span><span class="w">                             </span><span class="c1"># simulated annealing: explore early, cool to greedy</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>python<span class="w"> </span>scripts/hotdog_img2img.py<span class="w">                                     </span><span class="c1"># img2img hill-climbing + strength annealing</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python<span class="w"> </span>scripts/hotdog_img2img.py<span class="w"> </span>--image-model<span class="w"> </span>FLUX_2_KLEIN_4B<span class="w">      </span><span class="c1"># unified pipeline — no strength knob (warning printed)</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>python<span class="w"> </span>scripts/hotdog_img2img.py<span class="w"> </span>--initial-strength<span class="w"> </span><span class="m">0</span>.85<span class="w"> </span>--final-strength<span class="w"> </span><span class="m">0</span>.2<span class="w"> </span>--patience<span class="w"> </span><span class="m">3</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>examples/image-refinement/hotdog_loop.py<span class="w">                                        </span><span class="c1"># greedy walk (default)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>examples/image-refinement/hotdog_loop.py<span class="w"> </span>--strategy<span class="w"> </span>climbing<span class="w"> </span>--patience<span class="w"> </span><span class="m">4</span><span class="w">       </span><span class="c1"># hill-climb: keep best, revert on regression</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>examples/image-refinement/hotdog_loop.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">                     </span><span class="c1"># run until the critic says DONE</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>examples/image-refinement/hotdog_agent.py<span class="w">                                       </span><span class="c1"># agent-directed greedy walk</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>examples/image-refinement/hotdog_evaluator.py<span class="w">                                   </span><span class="c1"># EvaluatorOptimizer workflow class</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>python<span class="w"> </span>examples/image-refinement/hotdog_anneal.py<span class="w"> </span>--seed<span class="w"> </span><span class="m">7</span><span class="w">                             </span><span class="c1"># simulated annealing: explore early, cool to greedy</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>python<span class="w"> </span>examples/image-refinement/hotdog_img2img.py<span class="w">                                     </span><span class="c1"># img2img hill-climbing + strength annealing</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python<span class="w"> </span>examples/image-refinement/hotdog_img2img.py<span class="w"> </span>--image-model<span class="w"> </span>FLUX_2_KLEIN_4B<span class="w">      </span><span class="c1"># unified pipeline — no strength knob (warning printed)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>python<span class="w"> </span>examples/image-refinement/hotdog_img2img.py<span class="w"> </span>--initial-strength<span class="w"> </span><span class="m">0</span>.85<span class="w"> </span>--final-strength<span class="w"> </span><span class="m">0</span>.2<span class="w"> </span>--patience<span class="w"> </span><span class="m">3</span>
 </span></code></pre></div>
 <h2 id="three-ways-to-run-the-same-loop">Three ways to run the same loop<a class="headerlink" href="#three-ways-to-run-the-same-loop" title="Permanent link">&para;</a></h2>
 <p>The same task is implemented three times on purpose — it's a concrete take on <a href="../../explanation/agents-vs-workflows/">agents vs workflows</a>:</p>

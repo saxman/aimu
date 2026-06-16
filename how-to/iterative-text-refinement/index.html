@@ -262,6 +262,25 @@
   
   
   
+  
+    <li class="md-tabs__item">
+      <a href="../../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
     
   
   
@@ -640,6 +659,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -723,7 +769,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -745,14 +791,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1673,7 +1719,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1695,14 +1741,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1758,10 +1804,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
         
           
-          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
             
   
   
@@ -1779,8 +1825,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_2">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2293,7 +2339,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2315,14 +2361,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2675,20 +2721,20 @@
 <p>The worked example: <em>"take a mundane sentence and make it as </em><em>epic</em><em> as possible."</em> Starting from <code>A man walks to the store to buy a carton of milk.</code>, each round rewrites it into a grander, more mythic register while it stays <strong>one grammatical sentence about the same errand</strong>. A judge scores epicness 1–10 against an "epic ceiling," gates on fidelity (still one sentence about the same event, else 1/10), and emits <code>DONE</code> or <code>CONTINUE: &lt;a grander rewrite direction&gt;</code>.</p>
 <p>The full, runnable code lives in four scripts that share one helper module:</p>
 <ul>
-<li><code>scripts/epic_loop.py</code> — <strong>Python directs the loop</strong> (a plain code-controlled <code>for</code> loop). A <code>--strategy</code> flag selects the search: <code>greedy</code> (default — accept every step) or <code>climbing</code> (hill-climb — keep the best sentence, revert when a step doesn't beat it). Greedy is the climber with "always accept, never revert," so the two share one loop.</li>
-<li><code>scripts/epic_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
-<li><code>scripts/epic_evaluator.py</code> — <strong><code>EvaluatorOptimizer</code> directs the loop</strong> (the library workflow class, composing a generator + judge agent).</li>
-<li><code>scripts/epic_anneal.py</code> — <strong>simulated annealing</strong>: generalises the climber — accepts worse sentences early (high temperature) to escape local optima, cooling to greedy.</li>
-<li><code>scripts/_epic_common.py</code> — shared prompts and helpers used by all of them.</li>
+<li><code>examples/text-refinement/epic_loop.py</code> — <strong>Python directs the loop</strong> (a plain code-controlled <code>for</code> loop). A <code>--strategy</code> flag selects the search: <code>greedy</code> (default — accept every step) or <code>climbing</code> (hill-climb — keep the best sentence, revert when a step doesn't beat it). Greedy is the climber with "always accept, never revert," so the two share one loop.</li>
+<li><code>examples/text-refinement/epic_agent.py</code> — <strong>an <code>Agent</code> directs the loop</strong> via tool calls (autonomous).</li>
+<li><code>examples/text-refinement/epic_evaluator.py</code> — <strong><code>EvaluatorOptimizer</code> directs the loop</strong> (the library workflow class, composing a generator + judge agent).</li>
+<li><code>examples/text-refinement/epic_anneal.py</code> — <strong>simulated annealing</strong>: generalises the climber — accepts worse sentences early (high temperature) to escape local optima, cooling to greedy.</li>
+<li><code>examples/text-refinement/_epic_common.py</code> — shared prompts and helpers used by all of them.</li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/epic_loop.py<span class="w">                                            </span><span class="c1"># code-directed greedy walk (default)</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>scripts/epic_loop.py<span class="w"> </span>--strategy<span class="w"> </span>climbing<span class="w">                           </span><span class="c1"># hill-climb: keep best, revert on regression</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>scripts/epic_agent.py<span class="w">                                             </span><span class="c1"># agent-directed greedy walk</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>scripts/epic_evaluator.py<span class="w">                                         </span><span class="c1"># EvaluatorOptimizer workflow class</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>scripts/epic_anneal.py<span class="w"> </span>--seed<span class="w"> </span><span class="m">7</span><span class="w">                                   </span><span class="c1"># simulated annealing: explore early, cool to greedy</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>python<span class="w"> </span>scripts/epic_loop.py<span class="w"> </span>--seed-sentence<span class="w"> </span><span class="s2">&quot;She parks the car.&quot;</span><span class="w">       </span><span class="c1"># any mundane seed sentence</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>python<span class="w"> </span>scripts/epic_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">                          </span><span class="c1"># run until the judge says DONE</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python<span class="w"> </span>scripts/epic_loop.py<span class="w"> </span>--gen-model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--judge-model<span class="w"> </span>anthropic:claude-sonnet-4-6
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>examples/text-refinement/epic_loop.py<span class="w">                                            </span><span class="c1"># code-directed greedy walk (default)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>examples/text-refinement/epic_loop.py<span class="w"> </span>--strategy<span class="w"> </span>climbing<span class="w">                           </span><span class="c1"># hill-climb: keep best, revert on regression</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>examples/text-refinement/epic_agent.py<span class="w">                                             </span><span class="c1"># agent-directed greedy walk</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>examples/text-refinement/epic_evaluator.py<span class="w">                                         </span><span class="c1"># EvaluatorOptimizer workflow class</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>examples/text-refinement/epic_anneal.py<span class="w"> </span>--seed<span class="w"> </span><span class="m">7</span><span class="w">                                   </span><span class="c1"># simulated annealing: explore early, cool to greedy</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>python<span class="w"> </span>examples/text-refinement/epic_loop.py<span class="w"> </span>--seed-sentence<span class="w"> </span><span class="s2">&quot;She parks the car.&quot;</span><span class="w">       </span><span class="c1"># any mundane seed sentence</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>python<span class="w"> </span>examples/text-refinement/epic_agent.py<span class="w"> </span>--max-iterations<span class="w"> </span><span class="m">0</span><span class="w">                          </span><span class="c1"># run until the judge says DONE</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python<span class="w"> </span>examples/text-refinement/epic_loop.py<span class="w"> </span>--gen-model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--judge-model<span class="w"> </span>anthropic:claude-sonnet-4-6
 </span></code></pre></div>
 <p>Every script produces a <code>summary.txt</code> trace; <code>--strategy climbing</code> and <code>epic_anneal.py</code> also write <code>best.txt</code>.</p>
 <h2 id="why-a-text-twin-of-the-hotdog-scripts">Why a text twin of the hotdog scripts?<a class="headerlink" href="#why-a-text-twin-of-the-hotdog-scripts" title="Permanent link">&para;</a></h2>
