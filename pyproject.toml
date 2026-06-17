@@ -1,6 +1,6 @@
 [project]
 name = "aimu"
-version = "0.8.0"
+version = "0.9.0"
 description = "AI Modeling Utilities: A Python package containing support for working with numerous AI models and services."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -18,6 +18,12 @@ dependencies = [
     "requests",
     "python-dotenv"
 ]
+
+[project.urls]
+Homepage = "https://github.com/saxman/aimu"
+Documentation = "https://saxman.github.io/aimu/"
+Repository = "https://github.com/saxman/aimu"
+Changelog = "https://github.com/saxman/aimu/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
