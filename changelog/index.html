@@ -2576,6 +2576,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#v091-2026-06-16-evaluatoroptimizer-revision-prompt-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9.1 (2026-06-16) — EvaluatorOptimizer revision-prompt fix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.9.1 (2026-06-16) — EvaluatorOptimizer revision-prompt fix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#agents-and-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agents and workflows
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v090-2026-06-16-tool-dependency-injection-structured-output-agents-configurable-evaluator-pretty_print" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2599,7 +2627,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents-and-workflows" class="md-nav__link">
+  <a href="#agents-and-workflows_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents and workflows
@@ -2853,7 +2881,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents-and-workflows_1" class="md-nav__link">
+  <a href="#agents-and-workflows_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents and workflows
@@ -2936,7 +2964,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents-and-workflows_2" class="md-nav__link">
+  <a href="#agents-and-workflows_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents and workflows
@@ -3273,6 +3301,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#v091-2026-06-16-evaluatoroptimizer-revision-prompt-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9.1 (2026-06-16) — EvaluatorOptimizer revision-prompt fix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.9.1 (2026-06-16) — EvaluatorOptimizer revision-prompt fix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#agents-and-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agents and workflows
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v090-2026-06-16-tool-dependency-injection-structured-output-agents-configurable-evaluator-pretty_print" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3296,7 +3352,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents-and-workflows" class="md-nav__link">
+  <a href="#agents-and-workflows_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents and workflows
@@ -3550,7 +3606,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents-and-workflows_1" class="md-nav__link">
+  <a href="#agents-and-workflows_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents and workflows
@@ -3633,7 +3689,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents-and-workflows_2" class="md-nav__link">
+  <a href="#agents-and-workflows_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents and workflows
@@ -3925,12 +3981,17 @@ not this stub.
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="v091-2026-06-16-evaluatoroptimizer-revision-prompt-fix">v0.9.1 (2026-06-16) — EvaluatorOptimizer revision-prompt fix<a class="headerlink" href="#v091-2026-06-16-evaluatoroptimizer-revision-prompt-fix" title="Permanent link">&para;</a></h2>
+<h3 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fix</strong> <code>EvaluatorOptimizer</code> (sync and <code>aimu.aio</code>) lost the draft it was revising. The revision prompt carried only the evaluator's feedback and the original task, so when the generator was an <code>Agent</code> with a system prompt — which resets its conversation on every <code>run()</code> — it could not see its prior response and effectively regenerated from scratch each round instead of revising. The revision prompt now re-supplies the previous output alongside the task and feedback.</li>
+</ul>
 <h2 id="v090-2026-06-16-tool-dependency-injection-structured-output-agents-configurable-evaluator-pretty_print">v0.9.0 (2026-06-16) — Tool dependency injection, structured-output agents, configurable evaluator &amp; pretty_print<a class="headerlink" href="#v090-2026-06-16-tool-dependency-injection-structured-output-agents-configurable-evaluator-pretty_print" title="Permanent link">&para;</a></h2>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>aimu.ToolContext</code> — dependency injection for tools. A tool parameter annotated <code>ToolContext</code> (or <code>ToolContext[Deps]</code>) is filled by the agent at call time and excluded from the model-facing JSON schema, so the model never supplies it. This lets a tool reach shared state (a document store, cache, configuration) without module-level globals. <code>@aimu.tool</code> records the injected parameter names on <code>func.__tool_injected__</code>; both sync and async dispatch fill them via <code>_tool_call_kwargs()</code> from the client's <code>tool_context_deps</code>. Exported from <code>aimu</code> and <code>aimu.tools</code>.</li>
 </ul>
-<h3 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h3>
+<h3 id="agents-and-workflows_1">Agents and workflows<a class="headerlink" href="#agents-and-workflows_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>Agent.deps</code> field + per-run <code>Agent.run(..., deps=...)</code> override (sync and <code>aimu.aio</code>) — supplies the value injected as <code>ctx.deps</code> into tools that declare a <code>ToolContext</code> parameter. The per-run <code>deps=</code> takes precedence over the agent's <code>deps=</code> field; <code>_prepare_run()</code> publishes the effective value to the model client before each run. <code>None</code> (bare <code>client.chat()</code>) means <code>ctx.deps</code> is <code>None</code>. Forwarded by <code>SkillAgent</code>.</li>
 <li><strong>New</strong> <code>Agent.run(..., schema=...)</code> (sync and <code>aimu.aio</code>) — pass a dataclass or Pydantic v2 model to make the run a single structured-output turn that returns a validated instance instead of running the tool-calling loop. Useful for an agent whose job is to return a typed object (e.g. a critic's verdict). Mutually exclusive with <code>stream=True</code>.</li>
@@ -4066,7 +4127,7 @@ not this stub.
 <li><strong>New</strong> <code>MCPClient.as_tools()</code> (sync) and <code>aio.MCPClient.as_tools()</code> (async) return a server's tools as <code>@tool</code>-style callables, each closing over the client, invoking <code>call_tool()</code> cross-process, and carrying <code>__tool_spec__</code> / <code>__tool_is_async__</code> / <code>__tool_is_streaming__</code>. Drop them straight into <code>tools</code> (<code>client.tools = mcp.as_tools()</code>, <code>Agent(tools=builtin.web + mcp.as_tools())</code>). This unifies MCP and in-process tools onto the single <code>self.tools</code> registry and one dispatch path — see the breaking-change note above for the migration from <code>model_client.mcp_client</code>. New shared helper <code>aimu.tools.mcp_format.mcp_content_to_text(tool_response)</code> flattens a <code>call_tool</code> result to a string.</li>
 <li><strong>New</strong> Per-call tool override: <code>chat(..., tools=None)</code> and <code>Agent.run(..., tools=None)</code> (both sync and <code>aimu.aio</code>) accept a <code>tools=</code> list that replaces the client's configured <code>self.tools</code> for a single call/run, restored afterward. <code>tools=None</code> (default) keeps the existing behaviour; <code>tools=[]</code> disables tools for the call (MCP tools, being callables in <code>self.tools</code> via <code>as_tools()</code>, are included in the swap). On an <code>Agent</code>, the override applies to every turn of the agentic loop. Implemented as a scoped <code>self.tools</code> swap (<code>_ChatStateMixin._tools_override</code>) covering both request-spec building and dispatch; the agent threads it through each loop <code>chat()</code> call so no new agent state is introduced. Not safe across concurrent <code>chat()</code> calls on a shared client — same contract as <code>self.messages</code>. Not added to the <code>Runner</code> ABC / workflow classes.</li>
 </ul>
-<h3 id="agents-and-workflows_1">Agents and workflows<a class="headerlink" href="#agents-and-workflows_1" title="Permanent link">&para;</a></h3>
+<h3 id="agents-and-workflows_2">Agents and workflows<a class="headerlink" href="#agents-and-workflows_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>Agent.final_answer_prompt</code> (opt-in, default <code>None</code>; sync and <code>aimu.aio</code>) — guarantees a final answer when the agentic loop exhausts <code>max_iterations</code> while the model is still calling tools. Instead of returning whatever the last (possibly tool-only) turn produced — an empty or stub result — the agent sends this prompt once with tools disabled (<code>chat(..., tools=[])</code>), forcing the model to synthesize an answer from the context it has gathered. The trigger is the post-loop <code>_last_turn_called_tools()</code> check (no new counter); it fires only on the cap-with-pending-tools path (a natural finish — a turn with no tool calls — is unaffected) and the wrap-up turn is <strong>not</strong> counted against <code>max_iterations</code>. <code>OrchestratorAgent._init_orchestrator()</code> and <code>OrchestratorAgent.assemble(..., final_answer_prompt=...)</code> (sync + <code>aio</code>) forward it to the inner orchestrator agent, and it is accepted as a <code>from_config</code> key. Leaving it <code>None</code> preserves prior behaviour exactly.</li>
 </ul>
@@ -4099,7 +4160,7 @@ not this stub.
 <li><strong>New</strong> <code>make_memory_tools(store)</code> in <code>aimu.tools.builtin</code> — wraps any <code>MemoryStore</code> instance as three <code>@tool</code>-decorated functions (<code>store_memory</code>, <code>search_memories</code>, <code>list_memories</code>) for direct in-process agent use. Unlike the image/audio/speech built-in tools, there is no lazy singleton: the store is always explicit because persistence semantics (<code>persist_path</code>, backend, collection name) are meaningful caller choices. Works with <code>SemanticMemoryStore</code>, <code>DocumentStore</code>, or any <code>MemoryStore</code> subclass. For cross-process or multi-agent memory, the existing FastMCP servers (<code>aimu.memory.mcp</code> / <code>aimu.memory.document_mcp</code>) remain the recommended path.</li>
 <li><strong>New</strong> <code>builtin.make_tools(..., memory_store=None)</code> — new <code>memory_store=</code> kwarg appends <code>make_memory_tools(store)</code> to the assembled tool list when provided.</li>
 </ul>
-<h3 id="agents-and-workflows_2">Agents and workflows<a class="headerlink" href="#agents-and-workflows_2" title="Permanent link">&para;</a></h3>
+<h3 id="agents-and-workflows_3">Agents and workflows<a class="headerlink" href="#agents-and-workflows_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>Agent.restore(messages)</code> — restore an agent from a saved <code>list[dict]</code> (OpenAI message format) for resuming after failure. Calls <code>model_client.reset()</code>, strips the leading system message to prevent duplication on the next <code>chat()</code>, and sets <code>model_client.messages</code>. The live partial state after a failed run is on <code>agent.model_client.messages</code> (not the post-run snapshot from <code>agent.messages</code>).</li>
 <li><strong>New</strong> <code>EvaluatorOptimizer.restore(messages)</code> — delegates to <code>generator.restore()</code>.</li>
