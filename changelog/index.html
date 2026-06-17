@@ -2573,7 +2573,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v090-2026-06-16-tool-dependency-injection-structured-output-agents-configurable-evaluator-pretty_print" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9.0 (2026-06-16) — Tool dependency injection, structured-output agents, configurable evaluator &amp; pretty_print
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.9.0 (2026-06-16) — Tool dependency injection, structured-output agents, configurable evaluator &amp; pretty_print">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3259,7 +3270,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v090-2026-06-16-tool-dependency-injection-structured-output-agents-configurable-evaluator-pretty_print" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9.0 (2026-06-16) — Tool dependency injection, structured-output agents, configurable evaluator &amp; pretty_print
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.9.0 (2026-06-16) — Tool dependency injection, structured-output agents, configurable evaluator &amp; pretty_print">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3895,8 +3917,15 @@
   
 
 
+<!--
+Canonical source is the repo-root CHANGELOG.md, included here verbatim via
+pymdownx.snippets so there is a single file to maintain. Edit /CHANGELOG.md,
+not this stub.
+-->
+
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="v090-2026-06-16-tool-dependency-injection-structured-output-agents-configurable-evaluator-pretty_print">v0.9.0 (2026-06-16) — Tool dependency injection, structured-output agents, configurable evaluator &amp; pretty_print<a class="headerlink" href="#v090-2026-06-16-tool-dependency-injection-structured-output-agents-configurable-evaluator-pretty_print" title="Permanent link">&para;</a></h2>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>aimu.ToolContext</code> — dependency injection for tools. A tool parameter annotated <code>ToolContext</code> (or <code>ToolContext[Deps]</code>) is filled by the agent at call time and excluded from the model-facing JSON schema, so the model never supplies it. This lets a tool reach shared state (a document store, cache, configuration) without module-level globals. <code>@aimu.tool</code> records the injected parameter names on <code>func.__tool_injected__</code>; both sync and async dispatch fill them via <code>_tool_call_kwargs()</code> from the client's <code>tool_context_deps</code>. Exported from <code>aimu</code> and <code>aimu.tools</code>.</li>
