@@ -48,6 +48,31 @@ def test_evaluator_revises_once_then_passes():
     assert eval_client._call_count == 2
 
 
+def test_revision_prompt_includes_previous_output_and_feedback():
+    """The revision prompt must carry the prior draft, the feedback, and the task.
+
+    A generator Agent with a system prompt resets its conversation on every run, so it
+    cannot see the response it is told to revise unless that response is in the prompt.
+    Asserting on the prompt text catches the regression regardless of reset behavior.
+    """
+    gen_client = MockModelClient(["draft v1", "draft v2"])
+    eval_client = MockModelClient(["REVISE: needs more detail", "PASS"])
+
+    eo = EvaluatorOptimizer(
+        generator=Agent(gen_client, name="writer"),
+        evaluator=Agent(eval_client, name="critic"),
+        max_rounds=5,
+    )
+    eo.run("Explain gravity.")
+
+    user_turns = [m["content"] for m in gen_client.messages if m["role"] == "user"]
+    assert len(user_turns) == 2  # initial task + one revision
+    revision_prompt = user_turns[1]
+    assert "draft v1" in revision_prompt  # the prior draft it is revising
+    assert "needs more detail" in revision_prompt  # the evaluator's feedback
+    assert "Explain gravity." in revision_prompt  # the original task
+
+
 def test_evaluator_stops_at_max_rounds():
     """Loop stops at max_rounds even if the evaluator never returns PASS."""
     # max_rounds=3 → 1 initial + 2 revisions max; evaluator called at most 2 times

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.9.1 (2026-06-16) — EvaluatorOptimizer revision-prompt fix
+
+### Agents and workflows
+
+- **Fix** `EvaluatorOptimizer` (sync and `aimu.aio`) lost the draft it was revising. The revision prompt carried only the evaluator's feedback and the original task, so when the generator was an `Agent` with a system prompt — which resets its conversation on every `run()` — it could not see its prior response and effectively regenerated from scratch each round instead of revising. The revision prompt now re-supplies the previous output alongside the task and feedback.
+
 ## v0.9.0 (2026-06-16) — Tool dependency injection, structured-output agents, configurable evaluator & pretty_print
 
 ### Tools

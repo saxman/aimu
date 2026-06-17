@@ -34,7 +34,7 @@ wheels = [
 
 [[package]]
 name = "aimu"
-version = "0.8.0"
+version = "0.9.1"
 source = { editable = "." }
 dependencies = [
     { name = "chromadb" },

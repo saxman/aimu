@@ -48,7 +48,15 @@ class EvaluatorOptimizer(AsyncRunner):
                 logger.debug("EvaluatorOptimizer '%s' accepted on round %d.", self.name, round_num + 1)
                 break
             logger.debug("EvaluatorOptimizer '%s' revising on round %d.", self.name, round_num + 1)
-            revision_prompt = f"Revise your response based on this feedback:\n{feedback}\n\nOriginal task: {task}"
+            # Re-supply the prior output: a generator Agent with a system prompt resets its
+            # conversation on every run, so it cannot see the response it is asked to revise
+            # unless that response is in the prompt.
+            revision_prompt = (
+                "Revise your previous response based on the feedback below.\n\n"
+                f"Original task:\n{task}\n\n"
+                f"Your previous response:\n{output}\n\n"
+                f"Feedback:\n{feedback}"
+            )
             output = await self.generator.run(revision_prompt, generate_kwargs=generate_kwargs)
         return output
 
