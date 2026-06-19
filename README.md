@@ -14,7 +14,7 @@
 
 </div>
 
-AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, audio, and speech; autonomous agents and code-controlled workflows; and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of these features in plain Python that is apparent and easy to use.
+AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, audio, and speech, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of these features in plain Python that is apparent and easy to use.
 
 Whether you need vision input, autonomous tool use, image generation, audio generation, or text-to-speech, the call is one line:
 ```python
@@ -28,6 +28,12 @@ aimu.generate_speech("Hello, world!", model="...")
 ```
 Composition happens by passing objects to constructors. Conversation state is a `list[dict]` you can print and edit. Provider-specific details adapt at request time and never leak into your code.
 
+## Why AIMU
+
+AIMU is compact, direct, and easy to understand, by design. Six principles shape the API: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure of capabilities, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
+
+A curated model catalog, capturing model capabilities and nuances, is part of that design: every `"provider:model_id"` string must name a model AIMU ships a spec for. An unknown id raises rather than running with guessed capabilities. To use a one-off custom model, build the spec and pass it directly (`aimu.image_client(HuggingFaceImageSpec(...))`).
+
 ## Install
 
 ```bash
@@ -36,84 +42,56 @@ pip install aimu[all]
 
 Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech and transcription STT), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
 
-## Why AIMU
-
-AIMU is small and stays small. Six principles shape the API: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
-
-A curated model catalog, capturing model capabilities and nuances, is part of that design: every `"provider:model_id"` string must name a model AIMU ships a spec for. An unknown id raises rather than running with guessed capabilities. To use a one-off custom model, build the spec and pass it directly (`aimu.image_client(HuggingFaceImageSpec(...))`).
-
 ## Key features
 
 ### Language models
 
-- One client interface for Ollama, HuggingFace, llama-cpp, the Claude API, OpenAI, Gemini, and any OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve). Swap with a string change: `"provider:model_id"`.
-- Reasoning, tool calling, and vision input work identically across every provider. Reasoning models surface their tokens as `StreamingContentType.THINKING` chunks via the same API.
-- Typed streaming: `StreamChunk(phase, content, agent, iteration)` flows through `client.chat()`, `Agent.run()`, and every workflow. Filter with `include=["generating"]`.
-- Token usage is surfaced as `client.last_usage` (`{"input_tokens", "output_tokens", "total_tokens"}`) after each non-streaming call.
-- Structured output: pass `schema=` (a dataclass or Pydantic model) to `chat()` / `generate()` to get a typed object back. Native provider enforcement (OpenAI `response_format`, Ollama `format=`, Anthropic forced-tool) where available, with a prompt-and-parse fallback elsewhere.
-- `aimu.embedding_client()` / `aimu.embed()` for text embeddings. OpenAI and Ollama, plus local HuggingFace `sentence-transformers`. Single string → one vector; list → list of vectors.
+- **[One provider-agnostic client](https://saxman.github.io/aimu/how-to/switch-providers/).** A single interface covers Ollama, HuggingFace, llama-cpp, Claude, OpenAI, Gemini, and any OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve), and you swap providers with a `"provider:model_id"` string change.
+- **[Reasoning, tools, and vision everywhere](https://saxman.github.io/aimu/reference/model-matrix/).** These capabilities work identically across every provider, and reasoning models surface their thinking as a distinct stream phase through the same API.
+- **[Typed streaming](https://saxman.github.io/aimu/how-to/stream-output/).** A streamed response arrives as `StreamChunk` objects tagged by phase, so reasoning, tool calls, and generated text are each labelled and you keep only the phases you want with `include=`. The same chunk type flows through `client.chat()`, `Agent.run()`, and every workflow, so one rendering loop handles them all.
+- **[Structured output](https://saxman.github.io/aimu/how-to/use-structured-output/).** Pass `schema=` (a dataclass or Pydantic model) to `chat()` or `generate()` to get a validated, typed object back, with native enforcement on OpenAI, Ollama, and Anthropic and a prompt-and-parse fallback (`parse_json_response`, `generate_json`) elsewhere.
+- **[Embeddings](https://saxman.github.io/aimu/how-to/use-embeddings/).** Map text to vectors with `aimu.embedding_client()` / `aimu.embed()` over OpenAI, Ollama, and local HuggingFace `sentence-transformers`, where a string returns one vector and a list returns a list of vectors.
+- **[Local weight reuse](https://saxman.github.io/aimu/reference/api/models/).** HuggingFace clients across every modality (text, image, audio, speech) and llama-cpp share loaded weights through a process-level registry, so a second client for the same model skips the load, and `aimu.clear_hf_cache()` / `aimu.clear_llamacpp_cache()` free VRAM on demand.
 
-### Image and audio generation
+### Generative modalities
 
-- Consistent APIs for text-to-image (`aimu.image_client()` / `aimu.generate_image()`) and text-to-audio (`aimu.audio_client()` / `aimu.generate_audio()`), mirroring the text client interface.
-- For images: HuggingFace `diffusers` locally (SD 1.5 / SDXL / SD 3.5 / FLUX 1 dev & schnell / FLUX 2 Klein 4B & 9B) and Google Nano Banana via the cloud API. Pass `reference_image=` to any `generate()` call for image-to-image workflows.
-- For audio (music and sound): HuggingFace with MusicGen small/medium/large (32 kHz), AudioLDM2 (16 kHz), and Stable Audio Open (44.1 kHz stereo).
-- Drop image and audio generation into any chat agent via the built-in `generate_image` and `generate_audio` tools.
-
-### Speech and transcription
-
-- `aimu.speech_client()` / `aimu.generate_speech()` for text-to-speech. HuggingFace locally (SpeechT5, MMS-TTS, BARK); OpenAI (`tts-1`, `tts-1-hd`) in the cloud.
-- Drop TTS into any agent via the built-in `generate_speech` tool; bind a specific voice with `make_speech_tool(client, voice=...)`.
-- `aimu.transcription_client()` / `aimu.transcribe()` for speech-to-text. OpenAI (whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe) in the cloud; HuggingFace Whisper family locally. Pass `response_format="verbose_json"` for timed segments.
-- Drop transcription into any agent via the built-in `transcribe_audio` tool; bind a specific client with `make_transcription_tool(client)`.
+- **[Image generation](https://saxman.github.io/aimu/how-to/generate-images/).** Create images with `aimu.image_client()` / `aimu.generate_image()` using HuggingFace `diffusers` locally (SD 1.5, SDXL, SD 3.5, FLUX) and Google Nano Banana in the cloud, and pass `reference_image=` to any `generate()` for image-to-image.
+- **[Audio and speech synthesis](https://saxman.github.io/aimu/how-to/generate-audio/).** Generate music and sound with `generate_audio` (MusicGen, AudioLDM2, Stable Audio Open) and [spoken audio](https://saxman.github.io/aimu/how-to/generate-speech/) with `generate_speech` (HuggingFace SpeechT5, MMS-TTS, BARK, plus OpenAI `tts-1`).
+- **[Transcription](https://saxman.github.io/aimu/how-to/transcribe-audio/).** Convert speech to text with `aimu.transcribe()` over OpenAI (whisper-1, gpt-4o-transcribe) and the local HuggingFace Whisper family, requesting `response_format="verbose_json"` for timed segments.
 
 ### Agents and workflows
 
-- `Agent` runs an autonomous tool-using loop until the model stops calling tools.
-- `OrchestrationAgent` interface/pattern for coordinating sub-agent work, and three pre-built agents (`CodeReviewAgent`, `ContentCreationAgent`, and `ResearchReportAgent`).
-- Four code-controlled workflow patterns: `Chain.from_client(...)`, `Router.from_client(...)`, `Parallel.from_client(...)`, `EvaluatorOptimizer(...)`. Compose freely. Workflows accept agents as steps; agents accept workflows as tools via `as_model_client()`.
-- `EvaluatorOptimizer` acceptance is configurable: the default `pass_keyword="PASS"` substring match, a `stop_when` predicate, or a typed `verdict_schema` (the critic returns a `Verdict(passed, feedback)` object via structured output instead of free text).
-- `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients are interchangeable.
+- **[Autonomous agents](https://saxman.github.io/aimu/tutorials/02-first-agent-with-tools/).** An `Agent` runs a tool-using loop until the model stops calling tools, while `OrchestratorAgent` coordinates sub-agents and ships three prebuilt variants (`CodeReviewAgent`, `ContentCreationAgent`, `ResearchReportAgent`).
+- **[Code-controlled workflows](https://saxman.github.io/aimu/tutorials/03-workflows/).** Build pipelines from `Chain`, `Router`, `Parallel`, and `EvaluatorOptimizer`, each with a `from_client()` factory, then compose them freely so workflows take agents as steps and agents take workflows as tools.
+- **[Interchangeable clients](https://saxman.github.io/aimu/explanation/agents-vs-workflows/).** Calling `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients substitute for each other.
+- **[Tracing](https://saxman.github.io/aimu/how-to/stream-output/).** See exactly what a run did: `extract_tool_calls(messages)` returns a clean list of `{iteration, tool, arguments, result}` records from any message history, and `pretty_print(stream)` renders a live run to the console with reasoning, tool calls, and output labelled.
+- **[Resumable runs](https://saxman.github.io/aimu/how-to/using-llms-inside-tools/).** Persist a run's message history and rebuild its state later with `runner.restore(messages)`, which handles system-message de-duplication so an `Agent`, `EvaluatorOptimizer`, or `Chain` can survive a crash or restart.
 
 ### Tools
 
-- `@tool` on any plain Python function. Type hints + docstring become the spec.
-- `ToolContext` dependency injection: declare a `ctx: ToolContext[Deps]` parameter and it is filled by the agent at call time (from its `deps=` field or `run(deps=)`) and hidden from the model-facing schema — so tools reach shared state (a store, a cache, config) without module globals. Works on both surfaces.
-- Per-call tool override: pass `tools=` to `client.chat()` or `Agent.run()` to swap the tool set for one call (or `tools=[]` to disable), without mutating the client's configured tools.
-- `MCPClient` for cross-process FastMCP tools. `mcp.as_tools()` turns a server's tools into `@tool`-style callables you add to `tools=` — one registry, mix freely with `@tool` functions (`tools=builtin.web + mcp.as_tools()`).
-- Built-in tool groups ready to pass to `tools=`: `builtin.web`, `builtin.fs`, `builtin.compute`, `builtin.misc`, `builtin.image`, `builtin.audio`, `builtin.speech`, `builtin.transcription`. `builtin.make_tools(client, ..., python_sandbox=False)` assembles the full tool list with optional wiring for image/vision/audio/speech/transcription/memory/sandbox.
-- `execute_python` sandboxed Python REPL in `builtin.compute`: run code, capture stdout and last expression. Opt-in only (`tools=builtin.compute` or `make_tools(python_sandbox=True)`).
-- Filesystem-discovered `SKILL.md` files auto-inject into a `SkillAgent` (same format Claude Code uses).
+- **[Plain-function tools](https://saxman.github.io/aimu/how-to/add-custom-tool/).** Turn any plain function into a tool with `@tool`, where type hints and the docstring become the spec, and pass `tools=` to `chat()` or `Agent.run()` to override the tool set for one call (or `tools=[]` to disable).
+- **[Context across tool calls](https://saxman.github.io/aimu/explanation/tool-integration/).** Hand an agent a `deps=` object and any tool reads or updates it through a `ctx: ToolContext[Deps]` parameter, so shared state (a store, a cache, config) carries across tool calls within a run without module globals, and the parameter stays hidden from the model-facing schema.
+- **[Pre-built tools](https://saxman.github.io/aimu/reference/api/tools/).** A library of ready-to-use tools ships in the box: web search and fetch, filesystem reads, a calculator, an opt-in sandboxed Python REPL, and the generative-modality tools, grouped as `builtin.web` / `fs` / `compute` / `misc` / `image` / `audio` / `speech` / `transcription` to pass straight to `tools=`.
+- **[MCP integration](https://saxman.github.io/aimu/how-to/use-mcp-tools/).** Bring cross-process FastMCP tools into the same registry with `MCPClient` and `mcp.as_tools()`, mixing them freely with `@tool` functions (`tools=builtin.web + mcp.as_tools()`).
+- **[Agent skills](https://saxman.github.io/aimu/how-to/use-skills/).** A `SkillAgent` discovers `SKILL.md` files on the filesystem (the same format Claude Code uses) and injects their instructions and tools on demand, so you extend an agent by dropping in a folder instead of changing code.
 
 ### Memory and persistence
 
-- `SemanticMemoryStore`, `DocumentStore`, and `ConversationManager` all implement the same `MemoryStore` interface and are interchangeable wherever one is accepted.
-- `SemanticMemoryStore` - ChromaDB vector search for semantic fact storage and retrieval. Pass `embedding_client=aimu.embedding_client(...)` to use your own embedding model instead of ChromaDB's default.
-- `DocumentStore` - path-keyed document storage, drop-in compatible with the Claude memory tool API.
-- `ConversationManager` - TinyDB-backed chat history that persists across sessions. Integrates directly with any `ModelClient` via `client.messages`.
-- `make_memory_tools(store)` returns `store_memory`, `search_memories`, and `list_memories` as `@tool` functions for direct in-process agent use. Pass the result to `Agent(client, tools=...)` or include it via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use the FastMCP servers in `aimu.memory.mcp` / `aimu.memory.document_mcp`.
-- `aimu.rag` — retrieval-augmented generation as plain functions over `MemoryStore`: `split_text` (recursive, token-aware), `ingest`, `retrieve`, `format_context`, and optional cross-encoder `rerank`. `make_retrieval_tool(store)` exposes retrieval as an agent tool. No retriever/splitter/loader class hierarchy.
-
-### Output utilities
-
-- `parse_json_response(text, schema=None)` — extract JSON from any LLM response string (raw, fenced block, or `{…}` substring). Pass a dataclass or Pydantic v2 model to coerce into a typed object.
-- `generate_json(client, prompt, schema=None, *, retries=2)` — generate then parse in one call, retrying automatically on malformed output.
-- `extract_tool_calls(messages)` — turn an OpenAI-format message list into a clean `list[dict]` of `{iteration, tool, arguments, result}` records. Works on `agent.model_client.messages` or any `client.messages`.
-- `pretty_print(stream)` — render a streamed run (`client.chat(stream=True)`, `Agent.run(stream=True)`, or a workflow) to the console with tool calls flagged and text streamed inline; returns the generated text. Replaces hand-written `chunk.is_tool_call()` / `chunk.is_text()` loops.
-- `runner.restore(messages)` — restore an `Agent`, `EvaluatorOptimizer`, or `Chain` from a saved message list for resuming after failure. Handles the system-message de-duplication automatically.
-- HuggingFace model weight caching — all four modality clients (text, image, audio, speech) share a module-level registry; a second instance for the same model reuses weights. Call `aimu.clear_hf_cache()` to free VRAM. Same pattern for `LlamaCppClient` via `aimu.clear_llamacpp_cache()`.
+- **[Uniform store interface](https://saxman.github.io/aimu/reference/api/memory/).** The `SemanticMemoryStore`, `DocumentStore`, and `ConversationManager` classes all implement `MemoryStore` and are interchangeable wherever one is accepted.
+- **[Semantic memory](https://saxman.github.io/aimu/how-to/use-semantic-memory/).** ChromaDB vector search backs fact storage and retrieval, and you can pass `embedding_client=` to use your own embedding model instead of ChromaDB's default.
+- **[Document and conversation stores](https://saxman.github.io/aimu/how-to/use-document-memory/).** A path-keyed `DocumentStore` (drop-in compatible with the Claude memory tool API) and a TinyDB-backed `ConversationManager` persist documents and chat history across sessions.
+- **[Memory tools](https://saxman.github.io/aimu/how-to/use-semantic-memory/).** Calling `make_memory_tools(store)` exposes store, search, and list as agent tools, while FastMCP servers in `aimu.memory.mcp` / `aimu.memory.document_mcp` cover cross-process and multi-agent use.
+- **[Retrieval-augmented generation](https://saxman.github.io/aimu/how-to/use-rag/).** The `aimu.rag` module provides plain functions over `MemoryStore` (`split_text`, `ingest`, `retrieve`, `format_context`, and optional cross-encoder `rerank`) with no retriever, splitter, or loader class hierarchy.
 
 ### Prompts and evaluation
 
-- Hill-climbing `PromptTuner` for automatic prompt optimisation against labelled data. Four concrete tuners: classification, multi-class, extraction, judged-generation.
-- `Benchmark` runs one prompt across multiple clients (plain or agentic, mixed providers) and returns a comparison DataFrame. DeepEval metrics plug in as `Scorer`s.
+- **[Prompt tuning](https://saxman.github.io/aimu/how-to/tune-prompts/).** A hill-climbing `PromptTuner` optimises prompts against labelled data, with four concrete tuners for classification, multi-class, extraction, and judged-generation.
+- **[Benchmarking](https://saxman.github.io/aimu/how-to/benchmark-models/).** The `Benchmark` harness runs one prompt across multiple clients (plain or agentic, mixed providers) and returns a comparison DataFrame, and DeepEval metrics plug in as `Scorer`s.
 
 ### Async (optional)
 
-- `aimu.aio` mirrors the entire public surface — same class names, one import switches paradigms. The sync ladder is unchanged; async is strictly opt-in.
-- `aio.Parallel` and `concurrent_tool_calls=True` use `asyncio.TaskGroup` for structured concurrency: sibling cancellation on first failure, `ExceptionGroup` aggregation.
-- Same `@tool`-decorated functions work on both surfaces. `async def` tools are auto-detected and awaited; sync (CPU-bound) tools are routed through `asyncio.to_thread` so the event loop stays free.
-- Native async providers: Anthropic, OpenAI, Gemini, Ollama, every OpenAI-compatible endpoint. In-process providers (HuggingFace, LlamaCpp) wrap an existing sync client so model weights load only once.
+- **[Full async mirror](https://saxman.github.io/aimu/how-to/use-async/).** The `aimu.aio` namespace mirrors the entire public surface with the same class names, so one import switches paradigms while the sync ladder stays unchanged, and the same `@tool` functions work on both surfaces.
+- **[Structured concurrency](https://saxman.github.io/aimu/explanation/async-design/).** Both `aio.Parallel` and `concurrent_tool_calls=True` use `asyncio.TaskGroup` for sibling cancellation and `ExceptionGroup` aggregation, with native async providers throughout and in-process providers (HuggingFace, LlamaCpp) wrapping a sync client so weights load once.
 
 ## Example usage
 
@@ -127,16 +105,16 @@ import aimu
 # One-shot
 text = aimu.chat("Hello", model="anthropic:claude-sonnet-4-6")
 
-# Multi-turn — history preserved across calls
+# Multi-turn (history preserved across calls)
 client = aimu.client("ollama:qwen3.5:9b", system="You are concise.")
 client.chat("Hi there")
 client.chat("What did I just say?")
 
-# Default model — resolves AIMU_LANGUAGE_MODEL or a discovered local model
+# Default model: resolves AIMU_LANGUAGE_MODEL or a discovered local model
 reply = aimu.chat("Hello")
 client = aimu.client(system="Be brief.")
 
-# Streaming — drop unwanted phases (thinking, tool calls) with include=
+# Streaming: drop unwanted phases (thinking, tool calls) with include=
 for chunk in client.chat("Tell me a story", stream=True, include=["generating"]):
     print(chunk.content, end="", flush=True)
 ```
@@ -218,7 +196,7 @@ client.generate("What language is spoken here?", audio=["./clip.mp3"])    # one-
 Each modality has a parallel factory (`image_client` / `audio_client` / `speech_client`) and one-shot helper (`generate_image` / `generate_audio` / `generate_speech`), all using the same `provider:model_id` shape. Pass `reference_image=` to any image `generate()` for image-to-image.
 
 ```python
-# Image — local HuggingFace diffusers, with image-to-image
+# Image: local HuggingFace diffusers, with image-to-image
 path = aimu.generate_image("a watercolor of a fox in a snowy forest", model="hf:runwayml/stable-diffusion-v1-5")
 
 client = aimu.image_client("hf:stabilityai/stable-diffusion-xl-base-1.0")  # reuse loaded weights
@@ -227,7 +205,7 @@ img = client.generate("a cyberpunk version", reference_image="./photo.jpg", stre
 ```
 
 ```python
-# Audio (music and sound) — returns (sample_rate, np.ndarray) by default
+# Audio (music and sound): returns (sample_rate, np.ndarray) by default
 sr, audio = aimu.generate_audio("a lo-fi hip-hop beat with soft piano", model="hf:facebook/musicgen-small", duration_s=5.0)
 path = aimu.generate_audio("ambient ocean waves", model="hf:facebook/musicgen-small", format="path")
 ```
@@ -308,7 +286,7 @@ agent.run("When is the meeting?")
 
 ### Async
 
-`aimu.aio` mirrors the entire public surface — same class names, one import switches paradigms. `aio.Parallel` and `concurrent_tool_calls=True` use `asyncio.TaskGroup` for true coroutine concurrency.
+`aimu.aio` mirrors the entire public surface with the same class names, so one import switches paradigms. `aio.Parallel` and `concurrent_tool_calls=True` use `asyncio.TaskGroup` for true coroutine concurrency.
 
 ```python
 import asyncio
@@ -336,7 +314,7 @@ asyncio.run(main())
 
 ### Notebooks
 
-The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, numbered `01`–`22` and ordered to build up incrementally — from the model client, tools, and agents through workflows, memory, RAG, the generative modalities, and the async surface. The filenames are self-describing; open the directory to browse and run them.
+The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, numbered `01`–`22` and ordered to build up incrementally, from the model client, tools, and agents through workflows, memory, RAG, the generative modalities, and the async surface. The filenames are self-describing; open the directory to browse and run them.
 
 ### Examples
 
@@ -344,7 +322,7 @@ The [`examples/`](examples/) directory ships larger, real-world programs organiz
 
 - [text-refinement/](examples/text-refinement/): A generate → judge → refine loop over **text**, implemented four ways (code loop, `Agent`, `EvaluatorOptimizer`, simulated annealing). GPU-free, Ollama-only.
 - [image-refinement/](examples/image-refinement/): The same loop over **images** (diffusion + vision evaluator), five variants including img2img. Needs `aimu[hf]` and a GPU.
-- [news-summarizer/](examples/news-summarizer/): One task — *summarize recent AI news* — solved with `Agent`, `Chain`, `Parallel`, and `OrchestratorAgent`, selected via `--method`.
+- [news-summarizer/](examples/news-summarizer/): One task (*summarize recent AI news*) solved with `Agent`, `Chain`, `Parallel`, and `OrchestratorAgent`, selected via `--method`.
 - [skills/](examples/skills/): Demo `SKILL.md` skills (`haiku-poet`, `unit-converter`) for `SkillAgent` discovery, exposed as `aimu.paths.skills`.
 
 ### Web apps
