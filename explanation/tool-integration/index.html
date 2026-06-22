@@ -2608,6 +2608,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Dispatch">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#argument-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Argument validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2887,6 +2904,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Dispatch">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#argument-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Argument validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3019,10 +3053,12 @@
 <h2 id="dispatch">Dispatch<a class="headerlink" href="#dispatch" title="Permanent link">&para;</a></h2>
 <p>When the model returns a tool call, <code>_call_plain_tool()</code> resolves the name against one lookup table built from the single registry, <code>{fn.__name__: fn for fn in self.tools}</code>:</p>
 <ol>
-<li><strong>Match → invoke the callable in-process.</strong> For a <code>@tool</code> function that's a direct call; for an <code>as_tools()</code> wrapper it's a cross-process <code>call_tool()</code> behind the same calling convention.</li>
+<li><strong>Match → validate arguments, then invoke the callable in-process.</strong> For a <code>@tool</code> function that's a direct call; for an <code>as_tools()</code> wrapper it's a cross-process <code>call_tool()</code> behind the same calling convention.</li>
 <li><strong>No match → a "tool not found" message is appended.</strong> The model sees this and can decide what to do.</li>
 </ol>
 <p>Because it's one dict keyed by name, a <strong>name collision resolves to the last entry in the list</strong>. So to shadow an MCP tool with a local Python implementation, append the Python tool after <code>mcp.as_tools()</code>: <code>tools = mcp.as_tools() + [my_override]</code>.</p>
+<h3 id="argument-validation">Argument validation<a class="headerlink" href="#argument-validation" title="Permanent link">&para;</a></h3>
+<p>Both surfaces funnel model-supplied arguments through one helper, <code>_tool_call_kwargs()</code> on the shared <code>_ChatStateMixin</code>, which calls <code>coerce_tool_arguments()</code> before the tool runs. Each <code>@tool</code> function carries a Pydantic <code>TypeAdapter</code> per parameter (built once at decoration time), so dispatch validates and lax-coerces the arguments against the declared type hints: <code>"5"</code> becomes <code>5</code> for an <code>int</code> param, and uncoercible values, missing required arguments, or unknown arguments raise <code>ToolArgumentError</code>. The dispatch path catches that and appends it as a <code>tool</code> message (distinct from a tool that runs and crashes), so the model can self-correct. Because the coercion lives on the shared mixin, it applies identically to sync and async, and to the streaming and concurrent dispatch paths. Callables without <code>@tool</code> metadata (MCP <code>as_tools()</code> wrappers) pass through unchanged; their server validates.</p>
 <h2 id="the-single-source-of-truth">The single source of truth<a class="headerlink" href="#the-single-source-of-truth" title="Permanent link">&para;</a></h2>
 <p><code>aimu.tools.builtin</code> defines every built-in tool exactly once, as a <code>@tool</code>-decorated Python function. The same callables back both routes:</p>
 <ul>
@@ -3069,6 +3105,7 @@
 <h2 id="failure-modes-that-are-now-loud">Failure modes that are now loud<a class="headerlink" href="#failure-modes-that-are-now-loud" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Bad <code>@tool</code> signature</strong>: <code>ToolSignatureError</code> raised at decoration time. Variadic params (<code>*args</code> / <code>**kwargs</code>) and required params without type hints are the two cases.</li>
+<li><strong>Invalid tool arguments at dispatch</strong>: <code>ToolArgumentError</code> raised when the model's arguments can't be coerced to the declared types, omit a required parameter, or include an unknown one. Caught at dispatch and appended as a <code>tool</code> message so the model can retry (separate from a tool that runs and raises).</li>
 <li><strong>MCP connection error</strong>: <code>MCPConnectionError</code> raised at <code>MCPClient</code> construction or on <code>call_tool()</code> failure. <code>MCPClient.ping()</code> lets you verify a connection upfront.</li>
 <li><strong>Tool not found at dispatch</strong>: appended as a <code>tool</code> role message with the text <code>"Tool 'X' not found."</code>. The model sees this and can adjust.</li>
 <li><strong>Async tool on the sync surface</strong>: the sync <code>_handle_tool_calls</code> raises <code>ValueError</code> if a tool's <code>__tool_is_async__</code> flag is set. The message points the caller at <code>aimu.aio</code>.</li>

@@ -2003,6 +2003,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#argument-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Argument validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.coerce_tool_arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        coerce_tool_arguments
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.ToolArgumentError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ToolArgumentError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#mcp-client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2966,6 +2999,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#argument-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Argument validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.coerce_tool_arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        coerce_tool_arguments
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.ToolArgumentError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ToolArgumentError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#mcp-client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3259,6 +3325,66 @@ agent = Agent(client, tools=[letter_counter])
 
 
         <p>Raised by <code>@tool</code> when a function signature can't be converted to a tool spec.</p>
+
+
+
+
+
+
+
+
+
+    </div>
+
+</div><h2 id="argument-validation">Argument validation<a class="headerlink" href="#argument-validation" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.coerce_tool_arguments" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.coerce_tool_arguments</span>
+
+
+<a href="#aimu.tools.coerce_tool_arguments" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">coerce_tool_arguments</span><span class="p">(</span><span class="n">fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">arguments</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Validate and lax-coerce model-supplied tool arguments against <code>fn</code>'s type hints.</p>
+<p>Returns a new dict of model-facing arguments coerced to their declared types
+(<code>"5"</code> -&gt; <code>5</code>, <code>"true"</code> -&gt; <code>True</code>). Raises :class:<code>ToolArgumentError</code> with a
+single self-contained message when arguments are unknown, a required one is missing,
+or a value can't be coerced.</p>
+<p>Callables not built by <code>@tool</code> (e.g. MCP <code>as_tools()</code> wrappers) carry no
+<code>__tool_param_adapters__</code>; their arguments pass through unchanged (the MCP server
+validates them).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.tools.ToolArgumentError" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.tools.ToolArgumentError</span>
+
+
+<a href="#aimu.tools.ToolArgumentError" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="ValueError">ValueError</span></code></p>
+
+
+
+        <p>Raised when model-supplied tool-call arguments fail validation/coercion.</p>
+<p>Caught at dispatch and surfaced to the model as a tool result so it can self-correct.</p>
 
 
 
