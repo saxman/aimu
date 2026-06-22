@@ -41,6 +41,7 @@ use ``asyncio.TaskGroup``: if one worker raises, siblings are cancelled and an
 
 from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
+from .fallback import AsyncFallbackClient
 from .agent import Agent, AsyncRunner
 from .audio import AsyncAudioClient, audio_client, generate_audio
 from .embedding import AsyncEmbeddingClient, embed, embedding_client
@@ -94,6 +95,7 @@ __all__ = [
     "Agent",
     "AsyncAudioClient",
     "AsyncEmbeddingClient",
+    "AsyncFallbackClient",
     "AsyncGeminiImageClient",
     "AsyncHuggingFaceAudioClient",
     "AsyncHuggingFaceImageClient",

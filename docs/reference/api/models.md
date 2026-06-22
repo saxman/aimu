@@ -18,6 +18,12 @@ Provider-agnostic model clients.
 
 ::: aimu.models.StreamingContentType
 
+## Resilience
+
+::: aimu.models.FallbackClient
+
+::: aimu.models.FallbackExhaustedError
+
 ## Provider clients
 
 ::: aimu.models.OllamaClient

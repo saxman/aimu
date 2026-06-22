@@ -41,6 +41,7 @@ from ._internal.model_defaults import (
     available_transcription_models,
 )
 from .embedding_client import EmbeddingClient, resolve_embedding_model_string
+from .fallback import FallbackClient, FallbackExhaustedError
 from .image_client import ImageClient, resolve_image_model_enum, resolve_image_model_string
 from .model_client import (
     ModelClient,
@@ -232,6 +233,8 @@ __all__ = [
     "BaseImageClient",
     "BaseModelClient",
     "BaseSpeechClient",
+    "FallbackClient",
+    "FallbackExhaustedError",
     "GeminiImageSpec",
     "HuggingFaceAudioSpec",
     "HuggingFaceImageSpec",

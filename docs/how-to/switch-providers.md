@@ -134,6 +134,42 @@ Two caveats:
 - **Ollama** (native provider) supports `timeout` but has no request-retry; passing `max_retries` raises `ValueError`. Use the `ollama-openai` provider (which routes through the OpenAI SDK) if you need retries against Ollama.
 - **In-process providers** (`hf:`, `llamacpp:`) run locally with no HTTP request, so they don't accept `timeout` / `max_retries` (passing them raises `TypeError`).
 
+## Provider failover
+
+Per-client `max_retries` retries the *same* provider. To fall back to a *different* provider when one is down, wrap an ordered list of clients in a `FallbackClient`:
+
+```python
+import aimu
+from aimu.models import FallbackClient
+
+client = FallbackClient([
+    aimu.client("anthropic:claude-sonnet-4-6", timeout=30, max_retries=2),  # preferred
+    aimu.client("openai:gpt-4o", timeout=30, max_retries=2),                # fallback
+    aimu.client("ollama:qwen3.5:9b"),                                       # last resort, local
+])
+
+print(client.chat("Hello"))   # tries Anthropic; on error falls over to OpenAI, then Ollama
+```
+
+The first client that answers wins. A client that raises hands off to the next, carrying the **same conversation history**, so a multi-turn chat survives a mid-conversation failover. When every client fails, `FallbackExhaustedError` is raised with the last error chained as its cause.
+
+`FallbackClient` is itself a `BaseModelClient`, so it composes everywhere a plain client does:
+
+```python
+from aimu.agents import Agent
+
+agent = Agent(client, "You are a helpful assistant.", tools=[...])   # resilient agent
+```
+
+Notes:
+
+- **What triggers failover.** By default any `Exception`. Narrow it with `retry_on=` (e.g. `FallbackClient([...], retry_on=(TimeoutError, ConnectionError))`) so permanent errors surface immediately instead of being masked.
+- **Capabilities** (`is_thinking_model`, `model`, etc.) reflect the **first** client, so use capability-compatible clients in one set.
+- **Streaming** fails over only before the first chunk is emitted; an error mid-stream propagates rather than replaying.
+- **Async:** `aio.AsyncFallbackClient` is the one-for-one async twin.
+
+Combine the two layers: `max_retries`/`timeout` give in-SDK retry against one provider, `FallbackClient` gives cross-provider failover on top.
+
 ## Failure modes
 
 `aimu.client("foo:bar")` raises `ValueError` listing the available providers if the prefix is unknown, and raises with the available model ids if the prefix is valid but the id isn't:
