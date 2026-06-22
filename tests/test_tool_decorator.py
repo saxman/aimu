@@ -5,7 +5,7 @@ Tests for the @tool decorator and Python-function tool dispatch through Agent.
 import pytest
 
 from aimu.agents import Agent
-from aimu.tools import ToolSignatureError, tool
+from aimu.tools import ToolArgumentError, ToolSignatureError, coerce_tool_arguments, tool
 from helpers import MockModelClient
 
 
@@ -267,6 +267,110 @@ def test_chat_setup_raises_for_undecorated_tool():
         assert "__tool_spec__" in str(exc)
     else:
         raise AssertionError("expected ValueError for undecorated tool")
+
+
+# ---------------------------------------------------------------------------
+# Argument validation / coercion (P0-A)
+# ---------------------------------------------------------------------------
+
+
+def test_tool_decorator_captures_param_adapters_and_allowed_args():
+    @tool
+    def f(needed: int, opt: str = "x"):
+        """Decorator records per-param validators and the allowed-arg set."""
+
+    assert set(f.__tool_param_adapters__) == {"needed", "opt"}
+    assert f.__tool_allowed_args__ == {"needed", "opt"}
+    assert f.__tool_required__ == ["needed"]
+
+
+def test_coerce_tool_arguments_lax_coerces_known_types():
+    @tool
+    def f(count: int, ratio: float, flag: bool) -> str:
+        """Coerce stringified scalars to their declared types."""
+        return ""
+
+    coerced = coerce_tool_arguments(f, {"count": "5", "ratio": "1.5", "flag": "true"})
+    assert coerced == {"count": 5, "ratio": 1.5, "flag": True}
+    assert isinstance(coerced["count"], int)
+
+
+def test_coerce_tool_arguments_rejects_bad_type():
+    @tool
+    def f(count: int) -> str:
+        """Reject an uncoercible value."""
+        return ""
+
+    with pytest.raises(ToolArgumentError) as excinfo:
+        coerce_tool_arguments(f, {"count": "abc"})
+    assert "count" in str(excinfo.value)
+
+
+def test_coerce_tool_arguments_rejects_missing_required():
+    @tool
+    def f(needed: int, opt: int = 0) -> str:
+        """Reject a call missing a required arg."""
+        return ""
+
+    with pytest.raises(ToolArgumentError) as excinfo:
+        coerce_tool_arguments(f, {"opt": 1})
+    assert "needed" in str(excinfo.value)
+
+
+def test_coerce_tool_arguments_rejects_unknown_arg():
+    @tool
+    def f(value: str) -> str:
+        """Reject an arg not in the signature."""
+        return ""
+
+    with pytest.raises(ToolArgumentError) as excinfo:
+        coerce_tool_arguments(f, {"value": "ok", "surprise": 1})
+    assert "surprise" in str(excinfo.value)
+
+
+def test_coerce_tool_arguments_passes_through_without_adapters():
+    """MCP-style callables carry __tool_spec__ but are not built via _build_spec, so
+    they have no __tool_param_adapters__ and their args pass through unchanged."""
+
+    def mcp_like(**kwargs):
+        return ""
+
+    mcp_like.__tool_spec__ = {"type": "function", "function": {"name": "mcp_like"}}
+    args = {"anything": "5", "extra": [1, 2]}
+    assert coerce_tool_arguments(mcp_like, args) == args
+
+
+def test_dispatch_coerces_arguments_before_invocation():
+    received = {}
+
+    @tool
+    def record(count: int) -> str:
+        """Record the received value and its type."""
+        received["value"] = count
+        received["type"] = type(count).__name__
+        return "ok"
+
+    client = MockModelClient([])
+    client.tools = [record]
+    client._handle_tool_calls([{"name": "record", "arguments": {"count": "5"}}])
+
+    assert received == {"value": 5, "type": "int"}
+
+
+def test_dispatch_bad_argument_returns_validation_message_not_crash_prefix():
+    @tool
+    def record(count: int) -> str:
+        """Should never run with a bad argument."""
+        raise AssertionError("tool body must not run on invalid arguments")
+
+    client = MockModelClient([])
+    client.tools = [record]
+    client._handle_tool_calls([{"name": "record", "arguments": {"count": "abc"}}])
+
+    tool_messages = [m for m in client.messages if m["role"] == "tool"]
+    content = tool_messages[0]["content"]
+    assert "count" in content
+    assert "raised an error" not in content
 
 
 # ---------------------------------------------------------------------------

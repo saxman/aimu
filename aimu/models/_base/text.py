@@ -426,6 +426,8 @@ class BaseModelClient(_ChatStateMixin, ABC):
         ``self.tools`` as a callable (MCP tools are wrapped by ``MCPClient.as_tools()``),
         so dispatch is a single by-name lookup.
         """
+        from aimu.tools.decorator import ToolArgumentError
+
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
         fn = python_tools_by_name.get(tc["name"])
         if fn is not None:
@@ -444,6 +446,8 @@ class BaseModelClient(_ChatStateMixin, ABC):
             try:
                 response = fn(**self._tool_call_kwargs(fn, tc["arguments"]))
                 content = str(response)
+            except ToolArgumentError as exc:
+                content = str(exc)
             except Exception as exc:
                 content = f"Tool '{tc['name']}' raised an error: {exc}"
                 logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
@@ -495,6 +499,8 @@ class BaseModelClient(_ChatStateMixin, ABC):
         speed. When any tool is streaming, dispatch is sequential (chunks from
         concurrent generators would interleave).
         """
+        from aimu.tools.decorator import ToolArgumentError
+
         prepared = self._prepare_tool_calls(tool_calls)
         self._append_assistant_tool_calls(prepared)
 
@@ -547,6 +553,8 @@ class BaseModelClient(_ChatStateMixin, ABC):
                     else:
                         response = last_content if last_content is not None else "(no response)"
                     content = str(response)
+                except ToolArgumentError as exc:
+                    content = str(exc)
                 except Exception as exc:
                     content = f"Tool '{tc['name']}' raised an error: {exc}"
                     logger.warning("Tool call '%s' failed: %s", tc["name"], exc)

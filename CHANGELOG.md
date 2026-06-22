@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Tools
+
+- **New** runtime tool-argument validation. Model-supplied tool-call arguments are now validated and lax-coerced against each `@tool` function's type hints before the tool runs (sync, `aimu.aio`, and the streaming / concurrent dispatch paths alike, via the shared `_ChatStateMixin._tool_call_kwargs`). A coercible mismatch is coerced (`"5"` → `5` for an `int` param); an uncoercible value, a missing required argument, or an unknown argument raises the new `ToolArgumentError`, which the dispatcher reports back to the model as a tool result so it can self-correct (distinct from a tool that runs and crashes). A Pydantic `TypeAdapter` per parameter is built once at decoration time, so dispatch stays cheap. The validator is exposed as `aimu.tools.coerce_tool_arguments(fn, arguments)`. MCP `as_tools()` wrappers carry no local type hints and pass through unchanged (their server validates). `pydantic>=2`, previously a transitive dependency, is now a declared core dependency.
+
 ### Agents and workflows
 
 - **New** `Runner.as_tool(*, name=None, description=None)` (sync and `aimu.aio`): wraps any agent or workflow as a `@tool`-style callable (`tool(task: str) -> str`) that delegates to `run()`. This is the seam that lets an autonomous `Agent` call *any* `Runner` (including a `Chain` / `Router` / `Parallel` workflow or a remote A2A agent), not just other agents. The name defaults to the runner's `name` (sanitised), the description to the first line of its `system_message` (or a generic fallback for workflows).

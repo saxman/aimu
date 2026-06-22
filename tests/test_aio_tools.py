@@ -11,7 +11,9 @@ import pytest
 from fastmcp import FastMCP
 
 from aimu.aio import MCPClient
+from aimu.tools import tool
 from aimu.tools.mcp_format import mcp_tools_to_openai
+from helpers_aio import MockAsyncModelClient
 
 
 def test_mcp_tools_to_openai_converts_spec():
@@ -107,3 +109,64 @@ async def test_async_mcp_client_call_before_connect_raises():
     mcp = MCPClient(server=_build_test_server())
     with pytest.raises(MCPConnectionError, match="not connected"):
         await mcp.call_tool("add", {"a": 1, "b": 2})
+
+
+# ---------------------------------------------------------------------------
+# Argument validation / coercion through the async dispatch path (P0-A)
+# ---------------------------------------------------------------------------
+
+
+async def test_async_dispatch_coerces_arguments():
+    received = {}
+
+    @tool
+    def record(count: int) -> str:
+        """Record the received value and its type."""
+        received["value"] = count
+        received["type"] = type(count).__name__
+        return "ok"
+
+    client = MockAsyncModelClient([])
+    client.tools = [record]
+    await client._handle_tool_calls([{"name": "record", "arguments": {"count": "5"}}])
+
+    assert received == {"value": 5, "type": "int"}
+
+
+async def test_async_dispatch_bad_argument_returns_validation_message():
+    @tool
+    def record(count: int) -> str:
+        """Should never run with a bad argument."""
+        raise AssertionError("tool body must not run on invalid arguments")
+
+    client = MockAsyncModelClient([])
+    client.tools = [record]
+    await client._handle_tool_calls([{"name": "record", "arguments": {"count": "abc"}}])
+
+    tool_messages = [m for m in client.messages if m["role"] == "tool"]
+    content = tool_messages[0]["content"]
+    assert "count" in content
+    assert "raised an error" not in content
+
+
+async def test_async_dispatch_coerces_under_concurrent_tool_calls():
+    seen = []
+
+    @tool
+    def record(count: int) -> str:
+        """Record the coerced value."""
+        seen.append(count)
+        return "ok"
+
+    client = MockAsyncModelClient([])
+    client.tools = [record]
+    client.concurrent_tool_calls = True
+    await client._handle_tool_calls(
+        [
+            {"name": "record", "arguments": {"count": "1"}},
+            {"name": "record", "arguments": {"count": "2"}},
+        ]
+    )
+
+    assert sorted(seen) == [1, 2]
+    assert all(isinstance(v, int) for v in seen)

@@ -2,6 +2,8 @@ import inspect
 import types as _types
 from typing import Callable, Union, get_args, get_origin, get_type_hints
 
+from pydantic import TypeAdapter, ValidationError
+
 from .context import ToolContext
 
 _PY_TO_JSON = {
@@ -16,6 +18,13 @@ _PY_TO_JSON = {
 
 class ToolSignatureError(TypeError):
     """Raised by ``@tool`` when a function signature can't be converted to a tool spec."""
+
+
+class ToolArgumentError(ValueError):
+    """Raised when model-supplied tool-call arguments fail validation/coercion.
+
+    Caught at dispatch and surfaced to the model as a tool result so it can self-correct.
+    """
 
 
 def tool(func: Callable) -> Callable:
@@ -52,9 +61,12 @@ def tool(func: Callable) -> Callable:
 
         agent = Agent(client, tools=[letter_counter])
     """
-    spec, injected = _build_spec(func)
+    spec, injected, adapters, allowed = _build_spec(func)
     func.__tool_spec__ = spec
     func.__tool_injected__ = injected
+    func.__tool_param_adapters__ = adapters
+    func.__tool_allowed_args__ = allowed
+    func.__tool_required__ = spec["function"]["parameters"]["required"]
     func.__tool_is_async__ = inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)
     func.__tool_is_streaming__ = inspect.isgeneratorfunction(func) or inspect.isasyncgenfunction(func)
     return func
@@ -87,11 +99,17 @@ def _json_type_for(annotation) -> str:
     return _PY_TO_JSON.get(annotation, "string")
 
 
-def _build_spec(func: Callable) -> tuple[dict, list[str]]:
-    """Build the OpenAI-format tool spec and the list of framework-injected parameter names.
+def _build_spec(func: Callable) -> tuple[dict, list[str], dict[str, TypeAdapter], set[str]]:
+    """Build the OpenAI-format tool spec plus the metadata used at dispatch.
 
-    Injected parameters (annotated :class:`ToolContext`) are filled by the agent at call time,
-    so they are kept out of the model-facing schema and returned separately for the dispatcher.
+    Returns ``(spec, injected, param_adapters, allowed_args)``:
+
+    * ``injected`` -- framework-injected (``ToolContext``) parameter names, filled by the
+      agent at call time and kept out of the model-facing schema.
+    * ``param_adapters`` -- a Pydantic :class:`TypeAdapter` per annotated, model-facing
+      parameter, built once here so dispatch-time coercion needs no reflection.
+    * ``allowed_args`` -- every model-facing parameter name (annotated or default-only),
+      used to reject unknown model-supplied arguments.
     """
     sig = inspect.signature(func)
     try:
@@ -104,6 +122,8 @@ def _build_spec(func: Callable) -> tuple[dict, list[str]]:
     properties: dict[str, dict] = {}
     required: list[str] = []
     injected: list[str] = []
+    param_adapters: dict[str, TypeAdapter] = {}
+    allowed_args: set[str] = set()
     for name, param in sig.parameters.items():
         if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
             raise ToolSignatureError(
@@ -121,7 +141,11 @@ def _build_spec(func: Callable) -> tuple[dict, list[str]]:
                 f"@aimu.tool: parameter '{name}' on '{func.__name__}' has no type hint and no default. "
                 "Add a type hint (e.g. `name: str`) or a default value."
             )
+        allowed_args.add(name)
         properties[name] = {"type": _json_type_for(annotation) if has_annotation else "string"}
+        if has_annotation:
+            # Full annotation (not unwrapped) so Optional[T]/T|None still accepts None.
+            param_adapters[name] = TypeAdapter(annotation)
         if not has_default:
             required.append(name)
 
@@ -137,4 +161,47 @@ def _build_spec(func: Callable) -> tuple[dict, list[str]]:
             },
         },
     }
-    return spec, injected
+    return spec, injected, param_adapters, allowed_args
+
+
+def coerce_tool_arguments(fn: Callable, arguments: dict) -> dict:
+    """Validate and lax-coerce model-supplied tool arguments against ``fn``'s type hints.
+
+    Returns a new dict of model-facing arguments coerced to their declared types
+    (``"5"`` -> ``5``, ``"true"`` -> ``True``). Raises :class:`ToolArgumentError` with a
+    single self-contained message when arguments are unknown, a required one is missing,
+    or a value can't be coerced.
+
+    Callables not built by ``@tool`` (e.g. MCP ``as_tools()`` wrappers) carry no
+    ``__tool_param_adapters__``; their arguments pass through unchanged (the MCP server
+    validates them).
+    """
+    adapters = getattr(fn, "__tool_param_adapters__", None)
+    if adapters is None:
+        return arguments
+
+    allowed = getattr(fn, "__tool_allowed_args__", set())
+    required = getattr(fn, "__tool_required__", [])
+
+    errors: list[str] = []
+    unknown = [name for name in arguments if name not in allowed]
+    errors.extend(f"unexpected argument '{name}'" for name in unknown)
+    errors.extend(f"missing required argument '{name}'" for name in required if name not in arguments)
+
+    coerced: dict = {}
+    for name, value in arguments.items():
+        if name in unknown:
+            continue
+        adapter = adapters.get(name)
+        if adapter is None:  # default-only param with no annotation: accept as-is
+            coerced[name] = value
+            continue
+        try:
+            coerced[name] = adapter.validate_python(value)
+        except ValidationError as exc:
+            detail = exc.errors()[0].get("msg", "is invalid") if exc.errors() else "is invalid"
+            errors.append(f"'{name}' {detail.lower()}")
+
+    if errors:
+        raise ToolArgumentError(f"invalid arguments for tool '{fn.__name__}': " + "; ".join(errors))
+    return coerced

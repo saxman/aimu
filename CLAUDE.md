@@ -34,7 +34,7 @@ These six principles drive every architectural decision in AIMU. When proposing 
 3. **Composability through uniform interfaces.** `BaseModelClient` for every provider, `Runner` for every agent and workflow, `MemoryStore` for every memory backend, `StreamChunk` for every streaming source. `agent.as_model_client()` exists specifically so agents are substitutable with plain clients.
 4. **Progressive disclosure.** `aimu.chat()` → `aimu.client()` → `Agent` → workflows → custom `BaseModelClient` subclass. Each layer optional; the top wraps the next. New entry points should fit somewhere on this ladder, not parallel to it.
 5. **Direct paths for common tasks.** Common operations have one obvious, ergonomic entry point: `aimu.chat()`, `Chain.from_client(...)`, `Agent(client, "system msg", tools=[...])`, `include=["generating"]`, `builtin.web`. The library does not offer parallel, equally-recommended ways to do the same job. If a second path exists, it's a power-user escape hatch (e.g. `Agent.from_config()`), not a documented alternative.
-6. **Failures are apparent.** Errors raise at the layer where the cause is actionable, with messages that name the problem. `ToolSignatureError` at decoration time. `SkillLoadError` on discovery. `MCPConnectionError` on construction. Silent fallbacks are bugs; chained exceptions preserve the original cause via `raise ... from exc`.
+6. **Failures are apparent.** Errors raise at the layer where the cause is actionable, with messages that name the problem. `ToolSignatureError` at decoration time. `ToolArgumentError` at tool dispatch (surfaced to the model as a tool result). `SkillLoadError` on discovery. `MCPConnectionError` on construction. Silent fallbacks are bugs; chained exceptions preserve the original cause via `raise ... from exc`.
 
 When reviewing a proposed change, ask which principle it serves and which (if any) it violates. The small public surface is itself a feature; keep it small.
 
@@ -330,10 +330,12 @@ AIMU supports two tool registration routes that can be combined on the same clie
 
 - **`@tool` decorator** ([aimu/tools/decorator.py](aimu/tools/decorator.py)): mark any plain Python function as a tool. The decorator is defined in `aimu.tools` and **re-exported at the top level as `aimu.tool`**: `@aimu.tool` is the single recommended/documented form (it's namespaced, so it can't be silently shadowed by another library's `tool` decorator); `from aimu.tools import tool` remains valid for code already inside `aimu.tools`. Both names are the same object. The decorator inspects the signature and docstring at decoration time and attaches an OpenAI-format spec at `func.__tool_spec__`. Hand decorated functions to an agent via `Agent(client, tools=[fn1, fn2])` (or set `client.tools = [fn1, fn2]` directly). Type-to-JSON mapping covers `str`/`int`/`float`/`bool`/`list`/`dict` plus subscripted generics (`list[str]`, `dict[str, int]`) and `Optional[T]` / `T | None`. The first paragraph of the docstring becomes the tool description; required vs. optional args are derived from default values. All tools (in-process `@tool` and MCP `as_tools()` callables) live in `self.tools`; dispatch is one by-name lookup and a name collision resolves to the last entry in the list.
 
-  **Validation (raises `ToolSignatureError`):**
+  **Signature validation (raises `ToolSignatureError` at decoration time):**
   - `*args` / `**kwargs` (variadic parameters): declare each argument explicitly
   - parameter with no type hint *and* no default value
   - Missing return annotation is a warning, not an error.
+
+  **Argument validation (model-supplied call args, raises `ToolArgumentError` at dispatch)**: the decorator also stores `func.__tool_param_adapters__` (a Pydantic `TypeAdapter` per annotated, model-facing parameter, built once at decoration time), `func.__tool_allowed_args__` (model-facing param names), and `func.__tool_required__` (the spec's `required` list). At dispatch the shared `_collect`-path helper `coerce_tool_arguments(fn, arguments)` (in `decorator.py`, exported from `aimu.tools`) validates and **lax-coerces** the model's arguments against the declared hints (`"5"` → `5`, `"true"` → `True`); uncoercible values, missing-required args, and unknown args raise `ToolArgumentError`. The full annotation is kept (not unwrapped) so `Optional[T]`/`T | None` still accepts `None`. Callables without `__tool_param_adapters__` (MCP `as_tools()` wrappers) pass through unchanged (the MCP server validates). `pydantic>=2` is a declared core dependency for this. See "Tool-argument validation" below.
 
   **Async detection**: the decorator also sets `func.__tool_is_async__ = inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)`: true for plain `async def` tools and for `async def + yield` (async generator) tools.
 
@@ -379,9 +381,11 @@ AIMU supports two tool registration routes that can be combined on the same clie
 - **Tool Calling Flow**:
   1. If model supports tools, `_chat_setup` builds the request `tools` list from `__tool_spec__` of every callable in `self.tools` (both `@tool` functions and `as_tools()` wrappers; there is no separate MCP path)
   2. Model returns tool calls in response
-  3. `_call_plain_tool()` dispatches each call via one by-name lookup `{fn.__name__: fn for fn in self.tools}`: a match is invoked in-process (a `@tool` directly, an `as_tools()` wrapper cross-process behind the same calling convention); a miss appends a "not found" tool message. Name collision resolves to the **last** entry in `self.tools` (list order), so append a local tool after `mcp.as_tools()` to shadow one.
+  3. `_call_plain_tool()` dispatches each call via one by-name lookup `{fn.__name__: fn for fn in self.tools}`: a match has its arguments validated/coerced (`_tool_call_kwargs` → `coerce_tool_arguments`) then is invoked in-process (a `@tool` directly, an `as_tools()` wrapper cross-process behind the same calling convention); a miss appends a "not found" tool message. Name collision resolves to the **last** entry in `self.tools` (list order), so append a local tool after `mcp.as_tools()` to shadow one. Invalid arguments raise `ToolArgumentError`, caught at dispatch and appended as a tool message so the model can self-correct (distinct from a tool that runs and raises).
   4. Tool results added to message history with role "tool"
   5. Model called again with tool results to generate final response
+
+- **Tool-argument validation**: model-supplied tool-call arguments are validated and lax-coerced against each `@tool` function's type hints **before** invocation, on every dispatch path. The single integration point is `_ChatStateMixin._tool_call_kwargs` (in [aimu/models/_internal/chat_state.py](aimu/models/_internal/chat_state.py)), which both `BaseModelClient` and `AsyncBaseModelClient` inherit, so one call to `coerce_tool_arguments(fn, arguments)` covers sync + async + streaming + concurrent dispatch. On failure it raises `ToolArgumentError` (in [aimu/tools/decorator.py](aimu/tools/decorator.py), exported from `aimu.tools`); each of the four dispatch sites (`_call_plain_tool` and `_handle_tool_calls_streamed`, sync in `aimu/models/_base/text.py` and async in `aimu/aio/_base.py`) has an `except ToolArgumentError` clause ahead of the generic handler that surfaces `str(exc)` as the tool message (no "raised an error" prefix). Coercion uses Pydantic `TypeAdapter.validate_python` (lax), so a stringified scalar is coerced but a stringified nested object (e.g. `'{"a":1}'` for a `dict` param) is rejected rather than parsed. Tests: `tests/test_tool_decorator.py` (sync), `tests/test_aio_tools.py` (async, incl. `concurrent_tool_calls=True`).
 
 ### Conversation Management
 
@@ -1117,7 +1121,7 @@ aimu/
 │           ├── text.py          # GeminiClient + GeminiModel (subclasses OpenAICompatClient)
 │           └── image.py         # GeminiImageClient + GeminiImageModel (Nano Banana; image extra)
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
-│   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
+│   ├── decorator.py     # @tool decorator + ToolSignatureError + ToolArgumentError + coerce_tool_arguments; sets __tool_is_async__ flag
 │   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech/transcription subgroups (incl. lazy generate_image, generate_audio, generate_speech, transcribe_audio) + make_memory_tools() factory
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping() + .as_tools()
 │   ├── mcp_format.py    # mcp_tools_to_openai() + mcp_content_to_text(): shared by sync & async MCPClient (get_tools/as_tools)

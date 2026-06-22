@@ -295,6 +295,8 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         ``self.tools`` as a callable (MCP tools are wrapped by ``aio.MCPClient.as_tools()``),
         so dispatch is a single by-name lookup. Generator (streaming) tools are rejected here.
         """
+        from aimu.tools.decorator import ToolArgumentError
+
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
         fn = python_tools_by_name.get(tc["name"])
         if fn is not None:
@@ -311,6 +313,8 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                 else:
                     response = await asyncio.to_thread(lambda: fn(**kwargs))
                 content = str(response)
+            except ToolArgumentError as exc:
+                content = str(exc)
             except Exception as exc:
                 content = f"Tool '{tc['name']}' raised an error: {exc}"
                 logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
@@ -363,6 +367,8 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         batch are streaming, the existing ``asyncio.TaskGroup`` fast path is used.
         With any streaming tool, dispatch is sequential.
         """
+        from aimu.tools.decorator import ToolArgumentError
+
         prepared = self._prepare_tool_calls(tool_calls)
         self._append_assistant_tool_calls(prepared)
 
@@ -427,6 +433,8 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                     else:
                         response = last_content if last_content is not None else "(no response)"
                     content = str(response)
+                except ToolArgumentError as exc:
+                    content = str(exc)
                 except Exception as exc:
                     content = f"Tool '{tc['name']}' raised an error: {exc}"
                     logger.warning("Tool call '%s' failed: %s", tc["name"], exc)

@@ -155,14 +155,20 @@ class _ChatStateMixin:
             self.tools = saved
 
     def _tool_call_kwargs(self, fn, arguments: dict) -> dict:
-        """Model-supplied arguments plus any framework-injected ``ToolContext`` parameters.
+        """Validated/coerced model arguments plus any framework-injected ``ToolContext`` parameters.
 
-        Tools that declare a ``ToolContext`` parameter (recorded in ``fn.__tool_injected__`` by
-        ``@tool``) have it filled here with the client's ``tool_context_deps`` (set by the agent
-        from its ``deps=`` field / ``run(deps=)`` override), so the model never supplies it.
-        Shared by the sync and async dispatch paths.
+        Model-supplied ``arguments`` are first validated and lax-coerced against the tool's
+        declared type hints via :func:`~aimu.tools.decorator.coerce_tool_arguments` (which
+        raises :class:`~aimu.tools.decorator.ToolArgumentError`, surfaced to the model as a
+        tool result by the dispatch path). Tools that declare a ``ToolContext`` parameter
+        (recorded in ``fn.__tool_injected__`` by ``@tool``) have it filled here with the
+        client's ``tool_context_deps`` (set by the agent from its ``deps=`` field /
+        ``run(deps=)`` override), so the model never supplies it. Shared by the sync and
+        async dispatch paths.
         """
-        kwargs = dict(arguments)
+        from aimu.tools.decorator import coerce_tool_arguments
+
+        kwargs = coerce_tool_arguments(fn, arguments)
         injected = getattr(fn, "__tool_injected__", None)
         if injected:
             from aimu.tools.context import ToolContext

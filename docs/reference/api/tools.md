@@ -8,6 +8,12 @@ In-process `@tool` decorator and cross-process `MCPClient`.
 
 ::: aimu.tools.ToolSignatureError
 
+## Argument validation
+
+::: aimu.tools.coerce_tool_arguments
+
+::: aimu.tools.ToolArgumentError
+
 ## MCP client
 
 ::: aimu.tools.MCPClient

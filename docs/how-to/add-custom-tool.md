@@ -54,6 +54,26 @@ def bad(x):                  # ❌ no hint, no default
 # ToolSignatureError: @aimu.tool: parameter 'x' on 'bad' has no type hint and no default...
 ```
 
+## Argument validation
+
+Before a tool runs, AIMU validates and coerces the arguments the model supplied against your function's type hints. This happens automatically for every `@tool` function, on both the sync and async surfaces. Three things can go wrong, and each is reported back to the model as a tool result (not raised as a Python exception) so the model can correct itself and retry:
+
+- **Coercible mismatch → coerced.** A model that returns `{"count": "5"}` for `count: int` gets `5`; `"true"` for a `bool` becomes `True`. Coercion is lax (Pydantic's `validate_python`), which absorbs the common case of a model stringifying a scalar.
+- **Uncoercible value → rejected.** `{"count": "abc"}` for `count: int` produces `invalid arguments for tool 'f': 'count' input should be a valid integer...`.
+- **Missing required / unknown argument → rejected.** Omitting a required parameter, or passing one not in the signature, is reported the same way (`missing required argument 'x'` / `unexpected argument 'y'`).
+
+```python
+@aimu.tool
+def set_volume(level: int) -> str:
+    """Set the volume (0-100)."""
+    return f"volume={level}"
+
+# Model calls set_volume(level="40")  ->  the tool runs with level == 40 (int)
+# Model calls set_volume(level="loud") ->  tool body never runs; the model is told 'level' must be an integer
+```
+
+The validation metadata (a Pydantic `TypeAdapter` per parameter) is built once at decoration time, so dispatch stays cheap. Tools that don't go through `@tool`, notably MCP `as_tools()` wrappers, carry no type hints locally and pass through unchanged; the MCP server validates them. To validate or coerce arguments yourself outside the dispatch loop, call `aimu.tools.coerce_tool_arguments(fn, arguments)`, which returns the coerced dict or raises `ToolArgumentError`.
+
 ## Optional arguments
 
 A parameter with a default value is optional in the generated spec:

@@ -16,7 +16,8 @@ dependencies = [
     "watchdog",
     "tinydb",
     "requests",
-    "python-dotenv"
+    "python-dotenv",
+    "pydantic>=2"
 ]
 
 [project.urls]

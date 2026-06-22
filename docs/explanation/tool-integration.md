@@ -83,10 +83,14 @@ Mechanically it's a scoped swap of `self.tools` that covers both request-spec bu
 
 When the model returns a tool call, `_call_plain_tool()` resolves the name against one lookup table built from the single registry, `{fn.__name__: fn for fn in self.tools}`:
 
-1. **Match → invoke the callable in-process.** For a `@tool` function that's a direct call; for an `as_tools()` wrapper it's a cross-process `call_tool()` behind the same calling convention.
+1. **Match → validate arguments, then invoke the callable in-process.** For a `@tool` function that's a direct call; for an `as_tools()` wrapper it's a cross-process `call_tool()` behind the same calling convention.
 2. **No match → a "tool not found" message is appended.** The model sees this and can decide what to do.
 
 Because it's one dict keyed by name, a **name collision resolves to the last entry in the list**. So to shadow an MCP tool with a local Python implementation, append the Python tool after `mcp.as_tools()`: `tools = mcp.as_tools() + [my_override]`.
+
+### Argument validation
+
+Both surfaces funnel model-supplied arguments through one helper, `_tool_call_kwargs()` on the shared `_ChatStateMixin`, which calls `coerce_tool_arguments()` before the tool runs. Each `@tool` function carries a Pydantic `TypeAdapter` per parameter (built once at decoration time), so dispatch validates and lax-coerces the arguments against the declared type hints: `"5"` becomes `5` for an `int` param, and uncoercible values, missing required arguments, or unknown arguments raise `ToolArgumentError`. The dispatch path catches that and appends it as a `tool` message (distinct from a tool that runs and crashes), so the model can self-correct. Because the coercion lives on the shared mixin, it applies identically to sync and async, and to the streaming and concurrent dispatch paths. Callables without `@tool` metadata (MCP `as_tools()` wrappers) pass through unchanged; their server validates.
 
 ## The single source of truth
 
@@ -113,6 +117,7 @@ If you can't decide, start with `@tool`. Switching to `MCPClient` later is a sma
 ## Failure modes that are now loud
 
 - **Bad `@tool` signature**: `ToolSignatureError` raised at decoration time. Variadic params (`*args` / `**kwargs`) and required params without type hints are the two cases.
+- **Invalid tool arguments at dispatch**: `ToolArgumentError` raised when the model's arguments can't be coerced to the declared types, omit a required parameter, or include an unknown one. Caught at dispatch and appended as a `tool` message so the model can retry (separate from a tool that runs and raises).
 - **MCP connection error**: `MCPConnectionError` raised at `MCPClient` construction or on `call_tool()` failure. `MCPClient.ping()` lets you verify a connection upfront.
 - **Tool not found at dispatch**: appended as a `tool` role message with the text `"Tool 'X' not found."`. The model sees this and can adjust.
 - **Async tool on the sync surface**: the sync `_handle_tool_calls` raises `ValueError` if a tool's `__tool_is_async__` flag is set. The message points the caller at `aimu.aio`.
