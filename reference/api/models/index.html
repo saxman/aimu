@@ -2108,6 +2108,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resilience" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resilience
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.models.FallbackClient" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FallbackClient
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.models.FallbackExhaustedError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FallbackExhaustedError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#provider-clients" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3360,6 +3393,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resilience" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resilience
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.models.FallbackClient" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FallbackClient
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.models.FallbackExhaustedError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FallbackExhaustedError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#provider-clients" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4469,6 +4535,196 @@ without repeating the equality check in user code.</p>
               Bases: <code><span title="str">str</span></code>, <code><span title="enum.Enum">Enum</span></code></p>
 
 
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="resilience">Resilience<a class="headerlink" href="#resilience" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.models.FallbackClient" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.models.FallbackClient</span>
+
+
+<a href="#aimu.models.FallbackClient" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FallbackClient</span><span class="p">(</span><span class="n">clients</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">retry_on</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">type</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="ne">Exception</span><span class="p">,),</span> <span class="n">system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="aimu.models.fallback._FallbackStateMixin">_FallbackStateMixin</span></code>, <code><a class="autorefs autorefs-internal" title="aimu.models.BaseModelClient (aimu.models.base.BaseModelClient)" href="#aimu.models.BaseModelClient">BaseModelClient</a></code></p>
+
+
+
+        <p>A <code>BaseModelClient</code> that delegates to an ordered list of clients with failover.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>clients</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Ordered client list; index 0 is preferred, later entries are fallbacks.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>retry_on</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="type">type</span>[<span title="BaseException">BaseException</span>], ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Exception types that trigger failover to the next client. Defaults to
+<code>(Exception,)</code> (fail over on any error). Narrow it (e.g. to timeout/connection
+errors) to let permanent errors surface immediately instead of being masked.</p>
+              </div>
+            </td>
+            <td>
+                  <code>(<span title="Exception">Exception</span>,)</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>system_message</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional system prompt for the shared conversation; synced into
+whichever client runs.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional label (currently informational only).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+        <p>Conversation state (<code>messages</code>, <code>system_message</code>, <code>tools</code>) lives on the
+<code>FallbackClient</code> and is loaded into whichever client runs, so history is preserved
+across a failover. Capability flags (<code>is_thinking_model</code> etc.) and <code>model</code> reflect
+the <strong>first</strong> client; use capability-compatible clients in one fallback set.</p>
+<p>Streaming caveat: failover only happens <em>before the first chunk is emitted</em>. If a
+client fails mid-stream (after yielding output), the error propagates rather than
+silently replaying from another client.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.models.FallbackExhaustedError" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.models.FallbackExhaustedError</span>
+
+
+<a href="#aimu.models.FallbackExhaustedError" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FallbackExhaustedError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="ne">BaseException</span><span class="p">]])</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="RuntimeError">RuntimeError</span></code></p>
+
+
+
+        <p>Raised when every client in a :class:<code>FallbackClient</code> failed.</p>
+<p>The most recent client's exception is chained as <code>__cause__</code>; the full list of
+<code>(client, exception)</code> pairs is available on <code>.errors</code> for inspection.</p>
 
 
 
