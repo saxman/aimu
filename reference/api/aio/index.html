@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -3648,7 +3648,7 @@
 
 
 <h1 id="aimuaio"><code>aimu.aio</code><a class="headerlink" href="#aimuaio" title="Permanent link">&para;</a></h1>
-<p>Async surface. Mirrors the sync API one-for-one — same class names, different namespace. See <a href="../../../how-to/use-async/">how-to: use async</a> for usage patterns and <a href="../../../explanation/async-design/">explanation: async design</a> for why the surface is shaped this way.</p>
+<p>Async surface. Mirrors the sync API one-for-one: same class names, different namespace. See <a href="../../../how-to/use-async/">how-to: use async</a> for usage patterns and <a href="../../../explanation/async-design/">explanation: async design</a> for why the surface is shaped this way.</p>
 <p>Differences from the sync surface:</p>
 <ul>
 <li>Every <code>run()</code>, <code>chat()</code>, <code>generate()</code> is <code>async def</code>.</li>
@@ -3676,7 +3676,7 @@
 
     <div class="doc doc-contents first">
 
-        <p>One-shot async chat — builds a fresh client, sends one message, returns the response.</p>
+        <p>One-shot async chat: builds a fresh client, sends one message, returns the response.</p>
 <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code>text = await aio.chat(&quot;Summarize this&quot;, model=&quot;anthropic:claude-sonnet-4-6&quot;)
 
@@ -3738,13 +3738,13 @@ OpenAI-compatible servers (an <code>hf:</code> default would need an explicit sy
 
         <p>Public factory for async provider-backed model clients.</p>
 <p>Accepts a provider <code>Model</code> enum member, a <code>"provider:model_id"</code> string, or
-— for in-process providers — an existing sync client to wrap.</p>
+for in-process providers, an existing sync client to wrap.</p>
 <p>Examples::</p>
 <div class="language-text highlight"><pre><span></span><code># Cloud providers (separate sync/async clients are cheap)
 client = AsyncModelClient(&quot;anthropic:claude-sonnet-4-6&quot;)
 client = AsyncModelClient(OllamaModel.QWEN_3_8B)
 
-# In-process providers — wrap an existing sync client to share weights
+# In-process providers: wrap an existing sync client to share weights
 sync_client = aimu.client(HuggingFaceModel.LLAMA_70B)
 async_client = AsyncModelClient(sync_client)
 </code></pre></div>
@@ -4459,7 +4459,7 @@ and an <code>ExceptionGroup</code> surfaces with all errors.</p>
 <code>async def run()</code> and <code>await</code>ed delegation to planner/executor.</p>
 <p>The scorer's <code>score()</code> is sync (it's a CPU/judge-call concern, not an
 AIMU-async concern). If you wire an LLM judge, that judge call blocks the
-event loop unless wrapped — use <code>asyncio.to_thread</code> from your scorer's
+event loop unless wrapped; use <code>asyncio.to_thread</code> from your scorer's
 <code>score()</code> if needed.</p>
 
 

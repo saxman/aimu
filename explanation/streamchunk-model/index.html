@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2541,7 +2541,7 @@
   <a href="#streaming-tools-a-unified-surface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Streaming tools — a unified surface
+        Streaming tools: a unified surface
       
     </span>
   </a>
@@ -2826,7 +2826,7 @@
   <a href="#streaming-tools-a-unified-surface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Streaming tools — a unified surface
+        Streaming tools: a unified surface
       
     </span>
   </a>
@@ -2865,7 +2865,7 @@
 
 
 <h1 id="streamchunk-model">StreamChunk model<a class="headerlink" href="#streamchunk-model" title="Permanent link">&para;</a></h1>
-<p>AIMU has exactly one chunk type for streaming output. Every streaming path — <code>client.chat()</code>, <code>Agent.run()</code>, <code>image_client.generate()</code>, streaming tools, every workflow <code>run()</code> — yields <code>StreamChunk</code> objects. This page explains why.</p>
+<p>AIMU has exactly one chunk type for streaming output. Every streaming path (<code>client.chat()</code>, <code>Agent.run()</code>, <code>image_client.generate()</code>, streaming tools, every workflow <code>run()</code>) yields <code>StreamChunk</code> objects. This page explains why.</p>
 <h2 id="the-shape">The shape<a class="headerlink" href="#the-shape" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">StreamChunk</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">phase</span><span class="p">:</span> <span class="n">StreamingContentType</span>
@@ -2908,10 +2908,10 @@
 <p>Earlier versions had three named tuples: <code>StreamChunk</code> for model clients, <code>AgentChunk</code> for agents, <code>ChainChunk</code> for chains. Each was nearly identical, just with different optional fields. The differences leaked:</p>
 <ul>
 <li>Code that processed <code>Agent.run(stream=True)</code> output couldn't be reused for <code>client.chat(stream=True)</code>.</li>
-<li><code>AgenticModelClient</code> had to convert <code>AgentChunk → StreamChunk</code> mid-stream, dropping the agent name and iteration.</li>
+<li><code>AgenticModelClient</code> had to convert <code>AgentChunk</code> to <code>StreamChunk</code> mid-stream, dropping the agent name and iteration.</li>
 <li>Users had to remember which class came out of which call site.</li>
 </ul>
-<p>The fix was to make the optional context fields (<code>agent</code>, <code>iteration</code>) part of the single type, defaulting to <code>None</code> and <code>0</code> for plain chats. The result: one type to learn, no conversion code, full context preserved through every layer. The historical <code>AgentChunk</code> and <code>ChainChunk</code> names were removed; <code>StreamChunk</code> is the only name.</p>
+<p>The fix was to make the optional context fields (<code>agent</code>, <code>iteration</code>) part of the single type, defaulting to <code>None</code> and <code>0</code> for plain chats. The result is one type to learn, no conversion code, full context preserved through every layer. The historical <code>AgentChunk</code> and <code>ChainChunk</code> names were removed; <code>StreamChunk</code> is the only name.</p>
 <h2 id="why-content-is-a-union-not-three-classes">Why <code>content</code> is a union, not three classes<a class="headerlink" href="#why-content-is-a-union-not-three-classes" title="Permanent link">&para;</a></h2>
 <p><code>content</code> is <code>str</code> for <code>THINKING</code> / <code>GENERATING</code> and <code>dict {"name", "arguments", "response"}</code> for <code>TOOL_CALLING</code> (where <code>arguments</code> is the parameter dict the model passed to the tool). A typed approach would model these as a discriminated union of three NamedTuples or Pydantic classes.</p>
 <p>We chose the union because:</p>
@@ -2926,7 +2926,7 @@
 <ul>
 <li>The phase is <em>inherent</em> to the chunk, not a separate event. A thinking token is text; a tool-call chunk is structured. Tagging the chunk with its phase is data, not control flow.</li>
 <li>Iteration over a single iterator beats subscribing to multiple handlers when the consumer is a UI render loop or a logging pipeline.</li>
-<li>One mental model — "consume an iterator of chunks" — covers everything from a CLI print loop to a Streamlit app.</li>
+<li>One mental model ("consume an iterator of chunks") covers everything from a CLI print loop to a Streamlit app.</li>
 </ul>
 <p>The <code>include=[...]</code> parameter on <code>chat()</code> and <code>generate()</code> is the only filtering primitive we need; it covers "skip thinking", "skip tool calls", and any combination.</p>
 <h2 id="phase-semantics">Phase semantics<a class="headerlink" href="#phase-semantics" title="Permanent link">&para;</a></h2>
@@ -2966,14 +2966,14 @@
 </tr>
 </tbody>
 </table>
-<p>For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING. For image generation, you see <code>IMAGE_GENERATING</code> chunks per denoising step (or coarse start/done pair on Gemini) — the last one of each image has <code>final=True</code> and carries the encoded <code>result</code>.</p>
-<h2 id="streaming-tools-a-unified-surface">Streaming tools — a unified surface<a class="headerlink" href="#streaming-tools-a-unified-surface" title="Permanent link">&para;</a></h2>
+<p>For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING. For image generation, you see <code>IMAGE_GENERATING</code> chunks per denoising step (or coarse start/done pair on Gemini); the last one of each image has <code>final=True</code> and carries the encoded <code>result</code>.</p>
+<h2 id="streaming-tools-a-unified-surface">Streaming tools: a unified surface<a class="headerlink" href="#streaming-tools-a-unified-surface" title="Permanent link">&para;</a></h2>
 <p>A <code>@tool</code>-decorated Python function may be <strong>plain</strong> (<code>def fn() -&gt; T</code>), <strong>async</strong> (<code>async def fn() -&gt; T</code>), a <strong>sync generator</strong> (<code>def fn(): yield ...; return T</code>), or an <strong>async generator</strong> (<code>async def fn(): yield ...</code>). Generator tools yield <code>StreamChunk</code> objects during execution; the agent's tool dispatcher forwards them through <code>agent.run(stream=True)</code>, so callers see per-step progress live without any side-channel callbacks. This is how the built-in <code>generate_image</code> tool delivers <code>IMAGE_GENERATING</code> chunks into the agent stream.</p>
-<p>The unification means <em>every</em> streaming source — model output, image generation, custom long-running tools — flows through the same <code>Iterator[StreamChunk]</code> shape and dispatches on the same <code>phase</code> field. UIs and loggers handle one type, not three.</p>
+<p>The unification means <em>every</em> streaming source (model output, image generation, custom long-running tools) flows through the same <code>Iterator[StreamChunk]</code> shape and dispatches on the same <code>phase</code> field. UIs and loggers handle one type, not three.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../how-to/stream-output/">How-to: stream output</a> — the practical patterns.</li>
-<li><a href="../../reference/stream-phases/">Stream phases reference</a> — the full enum.</li>
+<li><a href="../../how-to/stream-output/">How-to: stream output</a>: the practical patterns.</li>
+<li><a href="../../reference/stream-phases/">Stream phases reference</a>: the full enum.</li>
 </ul>
 
 

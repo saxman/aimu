@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2879,7 +2879,7 @@
 </tr>
 </tbody>
 </table>
-<p>The enum inherits from <code>str</code>, so members compare equal to their string values: <code>chunk.phase == "thinking"</code> is fine.</p>
+<p>The enum inherits from <code>str</code>, so members compare equal to their string values, so <code>chunk.phase == "thinking"</code> is fine.</p>
 <h2 id="helpers-on-streamchunk">Helpers on <code>StreamChunk</code><a class="headerlink" href="#helpers-on-streamchunk" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">()</span>             <span class="c1"># True for THINKING and GENERATING</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>        <span class="c1"># True for TOOL_CALLING</span>
@@ -2917,7 +2917,7 @@
 </table>
 <p><code>*</code> = "one or more chunks".</p>
 <h2 id="async-surface">Async surface<a class="headerlink" href="#async-surface" title="Permanent link">&para;</a></h2>
-<p><code>aimu.aio</code> yields the same <code>StreamChunk</code> type — <code>phase</code>, <code>content</code>, <code>agent</code>, <code>iteration</code> are unchanged. The consumption protocol differs: <code>Iterator[StreamChunk]</code> on the sync surface vs <code>AsyncIterator[StreamChunk]</code> on the async surface. Phase semantics and filtering are identical on both. See <a href="../../how-to/use-async/">how-to: use async</a>.</p>
+<p><code>aimu.aio</code> yields the same <code>StreamChunk</code> type; <code>phase</code>, <code>content</code>, <code>agent</code>, <code>iteration</code> are unchanged. The consumption protocol differs: <code>Iterator[StreamChunk]</code> on the sync surface vs <code>AsyncIterator[StreamChunk]</code> on the async surface. Phase semantics and filtering are identical on both. See <a href="../../how-to/use-async/">how-to: use async</a>.</p>
 <h2 id="filtering">Filtering<a class="headerlink" href="#filtering" title="Permanent link">&para;</a></h2>
 <p>Pass <code>include=[...]</code> to <code>chat()</code> or <code>generate()</code> to drop phases:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;generating&quot;</span><span class="p">])</span>
@@ -2927,12 +2927,12 @@
 <p>Accepts strings or enum members. Omitting <code>include=</code> yields all phases.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a> — why one chunk type instead of three</li>
-<li><a href="../../how-to/stream-output/">How-to: stream output</a> — practical patterns</li>
-<li><a href="../../how-to/generate-images/">How-to: generate images</a> — <code>IMAGE_GENERATING</code> chunks</li>
-<li><a href="../../how-to/generate-audio/">How-to: generate audio</a> — <code>AUDIO_GENERATING</code> chunks</li>
-<li><a href="../../how-to/generate-speech/">How-to: generate speech</a> — <code>SPEECH_GENERATING</code> chunks</li>
-<li><a href="../api/models/#aimu.models.StreamingContentType"><code>aimu.models.StreamingContentType</code></a> — API reference</li>
+<li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a>: why one chunk type instead of three</li>
+<li><a href="../../how-to/stream-output/">How-to: stream output</a>: practical patterns</li>
+<li><a href="../../how-to/generate-images/">How-to: generate images</a>: <code>IMAGE_GENERATING</code> chunks</li>
+<li><a href="../../how-to/generate-audio/">How-to: generate audio</a>: <code>AUDIO_GENERATING</code> chunks</li>
+<li><a href="../../how-to/generate-speech/">How-to: generate speech</a>: <code>SPEECH_GENERATING</code> chunks</li>
+<li><a href="../api/models/#aimu.models.StreamingContentType"><code>aimu.models.StreamingContentType</code></a>: API reference</li>
 </ul>
 
 

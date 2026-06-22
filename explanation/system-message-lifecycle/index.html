@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2547,7 +2547,7 @@
   <a href="#reset-change-the-prompt-and-drop-history" class="md-nav__link">
     <span class="md-ellipsis">
       
-        reset() — change the prompt and drop history
+        reset(): change the prompt and drop history
       
     </span>
   </a>
@@ -2793,7 +2793,7 @@
   <a href="#reset-change-the-prompt-and-drop-history" class="md-nav__link">
     <span class="md-ellipsis">
       
-        reset() — change the prompt and drop history
+        reset(): change the prompt and drop history
       
     </span>
   </a>
@@ -2863,7 +2863,7 @@
 <tr>
 <td><strong>Swap</strong></td>
 <td>A conversation is underway (<code>messages</code> non-empty)</td>
-<td>Rewrites the <code>{"role": "system"}</code> entry in <code>messages</code> in place — replacing its content, inserting one at index 0 if absent, or removing it when set to <code>None</code>.</td>
+<td>Rewrites the <code>{"role": "system"}</code> entry in <code>messages</code> in place: replacing its content, inserting one at index 0 if absent, or removing it when set to <code>None</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -2875,20 +2875,20 @@
 </span></code></pre></div>
 <p>Changing a chat's persona mid-conversation is the motivating use case: the model is re-conditioned on the new prompt for every subsequent turn while the full conversation history is preserved.</p>
 <h2 id="messages-is-the-source-of-truth"><code>messages</code> is the source of truth<a class="headerlink" href="#messages-is-the-source-of-truth" title="Permanent link">&para;</a></h2>
-<p>The active system prompt the model sees at request time is the system entry <strong>inside <code>messages</code></strong> — not <code>self._system_message</code>. <code>_system_message</code> is only a seed, consulted once (when <code>messages</code> is empty) to populate that entry on the first chat. This holds across every provider: the OpenAI-compatible and Ollama clients send the message list as-is, and the Anthropic client scans the list for the <code>role == "system"</code> entry and lifts it into its top-level <code>system=</code> param. So rewriting that one entry — which is exactly what the setter does — is the correct, provider-portable way to change the active prompt. See <a href="https://github.com/saxman/aimu/blob/main/aimu/models/_internal/chat_state.py"><code>aimu/models/_internal/chat_state.py</code></a>.</p>
+<p>The active system prompt the model sees at request time is the system entry <strong>inside <code>messages</code></strong>, not <code>self._system_message</code>. <code>_system_message</code> is only a seed, consulted once (when <code>messages</code> is empty) to populate that entry on the first chat. This holds across every provider: the OpenAI-compatible and Ollama clients send the message list as-is, and the Anthropic client scans the list for the <code>role == "system"</code> entry and lifts it into its top-level <code>system=</code> param. So rewriting that one entry (which is exactly what the setter does) is the correct, provider-portable way to change the active prompt. See <a href="https://github.com/saxman/aimu/blob/main/aimu/models/_internal/chat_state.py"><code>aimu/models/_internal/chat_state.py</code></a>.</p>
 <h2 id="the-deliberate-tradeoffs">The deliberate tradeoffs<a class="headerlink" href="#the-deliberate-tradeoffs" title="Permanent link">&para;</a></h2>
 <p>Allowing mid-conversation mutation has two consequences, both accepted on purpose:</p>
 <ul>
 <li><strong>The transcript becomes counterfactual.</strong> Prior assistant turns were generated under the <em>old</em> prompt but now sit beneath the new system entry. For a persona swap this is the intended, seamless behaviour; if you need an honest record of where the switch happened, append a steering user turn instead, or <code>reset()</code> to start fresh.</li>
-<li><strong>No guard against silent cross-agent mutation.</strong> Earlier versions raised <code>RuntimeError</code> if you reassigned <code>system_message</code> after a conversation started, which incidentally caught the case of one agent mutating a <code>ModelClient</code> whose conversation another agent owns. That guard is gone. Don't share a single live-conversation client across agents that each set <code>system_message</code> — give each agent its own client (as the prebuilt orchestrator agents do, one <code>ModelClient(model_client.model)</code> per worker).</li>
+<li><strong>No guard against silent cross-agent mutation.</strong> Earlier versions raised <code>RuntimeError</code> if you reassigned <code>system_message</code> after a conversation started, which incidentally caught the case of one agent mutating a <code>ModelClient</code> whose conversation another agent owns. That guard is gone. Don't share a single live-conversation client across agents that each set <code>system_message</code>; give each agent its own client (as the prebuilt orchestrator agents do, one <code>ModelClient(model_client.model)</code> per worker).</li>
 </ul>
-<h2 id="reset-change-the-prompt-and-drop-history"><code>reset()</code> — change the prompt <em>and</em> drop history<a class="headerlink" href="#reset-change-the-prompt-and-drop-history" title="Permanent link">&para;</a></h2>
+<h2 id="reset-change-the-prompt-and-drop-history"><code>reset()</code>: change the prompt <em>and</em> drop history<a class="headerlink" href="#reset-change-the-prompt-and-drop-history" title="Permanent link">&para;</a></h2>
 <p>When you want a clean slate rather than a seamless swap, <code>reset()</code> clears <code>messages</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>                       <span class="c1"># clears messages, preserves system_message (default)</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">system_message</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>    <span class="c1"># clears messages and clears system_message</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">system_message</span><span class="o">=</span><span class="s2">&quot;new&quot;</span><span class="p">)</span>   <span class="c1"># clears messages and replaces system_message</span>
 </span></code></pre></div>
-<p>The default — preserve — exists because reset between agent runs or benchmark rows usually keeps the same role. Pass <code>system_message=...</code> explicitly when you want to change it.</p>
+<p>The default (preserve) exists because reset between agent runs or benchmark rows usually keeps the same role. Pass <code>system_message=...</code> explicitly when you want to change it.</p>
 <h2 id="how-agents-and-workflows-interact-with-this">How agents and workflows interact with this<a class="headerlink" href="#how-agents-and-workflows-interact-with-this" title="Permanent link">&para;</a></h2>
 <p>Agents that take a <code>system_message</code> argument apply it via <code>reset()</code> before each run. From <a href="https://github.com/saxman/aimu/blob/main/aimu/agents/agent.py"><code>aimu/agents/agent.py</code></a>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">_prepare_run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -2898,12 +2898,12 @@
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">)</span>
 </span></code></pre></div>
 <p>This is why <code>Chain.from_client(client, [prompt1, prompt2])</code> works even though all steps share one client: each step's <code>Agent</code> resets at the start of its turn and applies its own <code>system_message</code>.</p>
-<p><code>SkillAgent</code> relies on the swap directly — it appends the discovered skill catalog to the active system prompt by assigning <code>system_message</code>, which rewrites the in-history entry without wiping the conversation.</p>
+<p><code>SkillAgent</code> relies on the swap directly: it appends the discovered skill catalog to the active system prompt by assigning <code>system_message</code>, which rewrites the in-history entry without wiping the conversation.</p>
 <p>Same story for <code>Benchmark</code>: it calls <code>client.reset()</code> between rows so each row starts with a clean conversation but the same role.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../how-to/switch-providers/">How-to: switch providers</a> — <code>system="..."</code> at construction time</li>
-<li><a href="../../reference/api/models/#aimu.models.BaseModelClient"><code>aimu.models.BaseModelClient.reset</code></a> — API reference</li>
+<li><a href="../../how-to/switch-providers/">How-to: switch providers</a>: <code>system="..."</code> at construction time</li>
+<li><a href="../../reference/api/models/#aimu.models.BaseModelClient"><code>aimu.models.BaseModelClient.reset</code></a>: API reference</li>
 </ul>
 
 

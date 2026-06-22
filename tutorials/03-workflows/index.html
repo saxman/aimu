@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -689,7 +689,7 @@
   <a href="#1-chain-sequential-pipeline" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Chain — sequential pipeline
+        1. Chain: sequential pipeline
       
     </span>
   </a>
@@ -700,7 +700,7 @@
   <a href="#2-router-classify-and-dispatch" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Router — classify and dispatch
+        2. Router: classify and dispatch
       
     </span>
   </a>
@@ -711,7 +711,7 @@
   <a href="#3-parallel-concurrent-workers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Parallel — concurrent workers
+        3. Parallel: concurrent workers
       
     </span>
   </a>
@@ -722,7 +722,7 @@
   <a href="#4-evaluatoroptimizer-iterate-with-critique" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. EvaluatorOptimizer — iterate with critique
+        4. EvaluatorOptimizer: iterate with critique
       
     </span>
   </a>
@@ -2804,7 +2804,7 @@
   <a href="#1-chain-sequential-pipeline" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Chain — sequential pipeline
+        1. Chain: sequential pipeline
       
     </span>
   </a>
@@ -2815,7 +2815,7 @@
   <a href="#2-router-classify-and-dispatch" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Router — classify and dispatch
+        2. Router: classify and dispatch
       
     </span>
   </a>
@@ -2826,7 +2826,7 @@
   <a href="#3-parallel-concurrent-workers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Parallel — concurrent workers
+        3. Parallel: concurrent workers
       
     </span>
   </a>
@@ -2837,7 +2837,7 @@
   <a href="#4-evaluatoroptimizer-iterate-with-critique" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. EvaluatorOptimizer — iterate with critique
+        4. EvaluatorOptimizer: iterate with critique
       
     </span>
   </a>
@@ -2888,7 +2888,7 @@
 
 <h1 id="workflows">Workflows<a class="headerlink" href="#workflows" title="Permanent link">&para;</a></h1>
 <p>In ~15 minutes you'll build the three load-bearing code-controlled patterns: <strong>Chain</strong>, <strong>Router</strong>, and <strong>Parallel</strong>. Each has a one-line <code>.from_client(client, ...)</code> factory.</p>
-<p>If you've done <a href="../02-first-agent-with-tools/">First agent with tools</a>, you've already used the <em>autonomous</em> path — the LLM decides what tools to call. Workflows are the opposite: the LLM is invoked at points <em>you</em> control. You pick which is right for a given problem.</p>
+<p>If you've done <a href="../02-first-agent-with-tools/">First agent with tools</a>, you've already used the <em>autonomous</em> path, where the LLM decides what tools to call. Workflows are the opposite: the LLM is invoked at points <em>you</em> control. You pick which is right for a given problem.</p>
 <h2 id="when-to-pick-a-workflow-over-an-agent">When to pick a workflow over an agent<a class="headerlink" href="#when-to-pick-a-workflow-over-an-agent" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2926,7 +2926,7 @@
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="1-chain-sequential-pipeline">1. Chain — sequential pipeline<a class="headerlink" href="#1-chain-sequential-pipeline" title="Permanent link">&para;</a></h2>
+<h2 id="1-chain-sequential-pipeline">1. Chain: sequential pipeline<a class="headerlink" href="#1-chain-sequential-pipeline" title="Permanent link">&para;</a></h2>
 <p>A <code>Chain</code> runs agents in order; each step's text output becomes the next step's input.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Chain</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
@@ -2940,7 +2940,7 @@
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>Chain.from_client(client, [prompt1, prompt2, ...])</code> builds three <code>Agent</code> instances sharing the same client, each with <code>reset_messages_on_run=True</code> so steps don't see each other's history.</p>
-<h2 id="2-router-classify-and-dispatch">2. Router — classify and dispatch<a class="headerlink" href="#2-router-classify-and-dispatch" title="Permanent link">&para;</a></h2>
+<h2 id="2-router-classify-and-dispatch">2. Router: classify and dispatch<a class="headerlink" href="#2-router-classify-and-dispatch" title="Permanent link">&para;</a></h2>
 <p>A <code>Router</code> runs a classifier first, then dispatches to the matching handler.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Router</span><span class="p">,</span> <span class="n">Agent</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
@@ -2958,8 +2958,8 @@
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="nb">print</span><span class="p">(</span><span class="n">router</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Factorise 42.&quot;</span><span class="p">))</span>                    <span class="c1"># → routed to math</span>
 </span></code></pre></div>
 <p>Route matching is case-insensitive, whitespace-stripped. Pass <code>fallback=Agent(...)</code> to handle unmatched routes.</p>
-<p>Handlers can be any <code>Runner</code> — agents <em>or</em> nested workflows. A router can dispatch to another router, a chain, or a parallel.</p>
-<h2 id="3-parallel-concurrent-workers">3. Parallel — concurrent workers<a class="headerlink" href="#3-parallel-concurrent-workers" title="Permanent link">&para;</a></h2>
+<p>Handlers can be any <code>Runner</code>, agents <em>or</em> nested workflows. A router can dispatch to another router, a chain, or a parallel.</p>
+<h2 id="3-parallel-concurrent-workers">3. Parallel: concurrent workers<a class="headerlink" href="#3-parallel-concurrent-workers" title="Permanent link">&para;</a></h2>
 <p>A <code>Parallel</code> runs workers concurrently via <code>ThreadPoolExecutor</code> and (optionally) feeds the joined output to an aggregator.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parallel</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
@@ -2979,8 +2979,8 @@
 </span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="nb">print</span><span class="p">(</span><span class="n">parallel</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">your_code_snippet</span><span class="p">))</span>
 </span></code></pre></div>
 <p>Without <code>aggregator_prompt=</code>, worker outputs are joined by <code>separator</code> (default <code>\n\n---\n\n</code>) and returned directly.</p>
-<h2 id="4-evaluatoroptimizer-iterate-with-critique">4. EvaluatorOptimizer — iterate with critique<a class="headerlink" href="#4-evaluatoroptimizer-iterate-with-critique" title="Permanent link">&para;</a></h2>
-<p>The fourth pattern is generate → critique → revise. There's no <code>.from_client()</code> factory — build it directly:</p>
+<h2 id="4-evaluatoroptimizer-iterate-with-critique">4. EvaluatorOptimizer: iterate with critique<a class="headerlink" href="#4-evaluatoroptimizer-iterate-with-critique" title="Permanent link">&para;</a></h2>
+<p>The fourth pattern is generate → critique → revise. There's no <code>.from_client()</code> factory, so build it directly:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluatorOptimizer</span><span class="p">,</span> <span class="n">Agent</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">eo</span> <span class="o">=</span> <span class="n">EvaluatorOptimizer</span><span class="p">(</span>
@@ -3019,10 +3019,10 @@
 <h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
 <p>You've now seen all four workflow patterns plus the autonomous <code>Agent</code>. Pick the right one per task; mix freely.</p>
 <ul>
-<li><strong><a href="../04-vision-and-streaming/">Vision and streaming</a></strong> — last tutorial.</li>
-<li><strong><a href="../../how-to/build-orchestrator/">How-to: build an orchestrator</a></strong> — when you want an LLM to dispatch to other agents <em>autonomously</em> via tools (a different pattern from <code>Router</code>, which dispatches in code).</li>
-<li><strong><a href="../../explanation/agents-vs-workflows/">Explanation: agents vs workflows</a></strong> — the design argument.</li>
-<li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/09%20-%20Workflows.ipynb">09 - Workflows</a> — interactive versions of every example here.</li>
+<li><strong><a href="../04-vision-and-streaming/">Vision and streaming</a></strong>: last tutorial.</li>
+<li><strong><a href="../../how-to/build-orchestrator/">How-to: build an orchestrator</a></strong>: when you want an LLM to dispatch to other agents <em>autonomously</em> via tools (a different pattern from <code>Router</code>, which dispatches in code).</li>
+<li><strong><a href="../../explanation/agents-vs-workflows/">Explanation: agents vs workflows</a></strong>: the design argument.</li>
+<li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/09%20-%20Workflows.ipynb">09 - Workflows</a>: interactive versions of every example here.</li>
 </ul>
 
 

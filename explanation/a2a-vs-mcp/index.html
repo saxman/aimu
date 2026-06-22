@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2789,8 +2789,8 @@
 <tbody>
 <tr>
 <td>Exposes</td>
-<td><strong>Tools</strong> — typed function calls</td>
-<td><strong>Agents</strong> — opaque, autonomous units of work</td>
+<td><strong>Tools</strong>: typed function calls</td>
+<td><strong>Agents</strong>: opaque, autonomous units of work</td>
 </tr>
 <tr>
 <td>Unit of work</td>
@@ -2814,12 +2814,12 @@
 </tr>
 </tbody>
 </table>
-<p>Use <strong>MCP</strong> when you want a remote process to contribute <em>capabilities</em> (a search tool, a database query) that <em>your</em> model decides how to orchestrate. Use <strong>A2A</strong> when the remote process <em>is itself an agent</em> — it has its own model, its own loop, its own judgment — and you want to delegate a whole task to it and get an answer back.</p>
+<p>Use <strong>MCP</strong> when you want a remote process to contribute <em>capabilities</em> (a search tool, a database query) that <em>your</em> model decides how to orchestrate. Use <strong>A2A</strong> when the remote process <em>is itself an agent</em> (it has its own model, its own loop, its own judgment) and you want to delegate a whole task to it and get an answer back.</p>
 <h2 id="both-are-optional-adapters-not-core-abstractions">Both are optional adapters, not core abstractions<a class="headerlink" href="#both-are-optional-adapters-not-core-abstractions" title="Permanent link">&para;</a></h2>
 <p>A2A lives behind the <code>a2a</code> extra (<code>pip install 'aimu[a2a]'</code>) and adapts entirely at the boundary. Nothing about A2A leaks into <code>Runner</code>, <code>Agent</code>, or the workflow classes:</p>
 <ul>
-<li><strong>Plain data.</strong> A2A <code>Message</code> / <code>Task</code> / <code>AgentCard</code> types exist only inside <code>aimu/agents/a2a/</code>. <code>runner.run()</code> still takes a <code>str</code> and returns a <code>str</code>. The adapters in <code>aimu/agents/a2a/_card.py</code> convert at the edge — the same role <code>aimu.tools.mcp_format</code> plays for MCP.</li>
-<li><strong>Composability through uniform interfaces.</strong> This is the strongest fit. A remote A2A agent is wrapped as <code>RemoteAgent</code>, which <em>is a</em> <code>Runner</code>. So it drops into <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>OrchestratorAgent.assemble(workers=[...])</code> with no special-casing, and — via the <code>Runner.as_tool()</code> method — into any local <code>Agent</code>'s tool list:</li>
+<li><strong>Plain data.</strong> A2A <code>Message</code> / <code>Task</code> / <code>AgentCard</code> types exist only inside <code>aimu/agents/a2a/</code>. <code>runner.run()</code> still takes a <code>str</code> and returns a <code>str</code>. The adapters in <code>aimu/agents/a2a/_card.py</code> convert at the edge, the same role <code>aimu.tools.mcp_format</code> plays for MCP.</li>
+<li><strong>Composability through uniform interfaces.</strong> This is the strongest fit. A remote A2A agent is wrapped as <code>RemoteAgent</code>, which <em>is a</em> <code>Runner</code>. So it drops into <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>OrchestratorAgent.assemble(workers=[...])</code> with no special-casing, and, via the <code>Runner.as_tool()</code> method, into any local <code>Agent</code>'s tool list:</li>
 </ul>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Chain</span><span class="p">,</span> <span class="n">RemoteAgent</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -2833,13 +2833,13 @@
 </span></code></pre></div>
 <p>This is the exact analog of <code>MCPClient.as_tools()</code>, lifted from the tool level to the agent level.
 - <strong>Progressive disclosure / direct paths.</strong> One obvious entry point per direction: <code>RemoteAgent.connect(url)</code> to consume, <code>serve_a2a(runner)</code> to expose. They sit beside the MCP equivalents on the same rung of the ladder.
-- <strong>Failures are apparent.</strong> <code>A2AConnectionError</code> is raised at connection time (and on a failed call), with the underlying cause chained via <code>raise ... from exc</code> — mirroring <code>MCPConnectionError</code>.</p>
+- <strong>Failures are apparent.</strong> <code>A2AConnectionError</code> is raised at connection time (and on a failed call), with the underlying cause chained via <code>raise ... from exc</code>, mirroring <code>MCPConnectionError</code>.</p>
 <h2 id="sync-and-async-mirroring-the-mcp-split">Sync and async, mirroring the MCP split<a class="headerlink" href="#sync-and-async-mirroring-the-mcp-split" title="Permanent link">&para;</a></h2>
-<p><code>aimu.agents.a2a.RemoteAgent</code> (sync) drives the async <code>a2a-sdk</code> client through an anyio blocking portal — the same mechanism <code>aimu.tools.MCPClient</code> uses, so synchronous code never has to touch <code>await</code>. <code>aimu.aio.a2a.RemoteAgent</code> (async) uses the SDK client natively (no portal), exactly as <code>aimu.aio.MCPClient</code> uses FastMCP's async <code>Client</code> directly. Real incremental streaming (<code>message/stream</code> → <code>StreamChunk</code>s) is available on the async surface; the sync surface returns the full response as a single <code>GENERATING</code> chunk.</p>
+<p><code>aimu.agents.a2a.RemoteAgent</code> (sync) drives the async <code>a2a-sdk</code> client through an anyio blocking portal, the same mechanism <code>aimu.tools.MCPClient</code> uses, so synchronous code never has to touch <code>await</code>. <code>aimu.aio.a2a.RemoteAgent</code> (async) uses the SDK client natively (no portal), exactly as <code>aimu.aio.MCPClient</code> uses FastMCP's async <code>Client</code> directly. Real incremental streaming (<code>message/stream</code> → <code>StreamChunk</code>s) is available on the async surface; the sync surface returns the full response as a single <code>GENERATING</code> chunk.</p>
 <h2 id="known-limitations-notes">Known limitations / notes<a class="headerlink" href="#known-limitations-notes" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Streaming is approximate.</strong> The map from A2A SSE status/artifact events to AIMU <code>StreamChunk</code> phases is lossy; the bundled server emits a single final message rather than incremental task-status updates.</li>
-<li><strong><code>RemoteAgent.messages</code></strong> is best-effort — it records the local <code>(user, assistant)</code> exchange, not the remote agent's internal transcript, which A2A keeps opaque by design.</li>
+<li><strong><code>RemoteAgent.messages</code></strong> is best-effort: it records the local <code>(user, assistant)</code> exchange, not the remote agent's internal transcript, which A2A keeps opaque by design.</li>
 <li><strong>SDK version pin.</strong> AIMU pins <code>a2a-sdk</code> to the <code>0.3.x</code> line, whose pydantic-native API matches the broader A2A ecosystem and reference samples. The <code>1.x</code> line is a protobuf/gRPC transport rework with a still-churning surface; migrating to it is a tracked follow-up, not a blocker for interop today.</li>
 </ul>
 

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2899,7 +2899,7 @@
 
 
 <h1 id="getting-started">Getting started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h1>
-<p>This is a 15-minute walkthrough from a fresh install to a working agent. By the end you'll know the three core entry points — <code>aimu.chat()</code>, <code>aimu.client()</code>, and <code>Agent</code> — and how to swap providers without changing call sites.</p>
+<p>This is a 15-minute walkthrough from a fresh install to a working agent. By the end you'll know the three core entry points (<code>aimu.chat()</code>, <code>aimu.client()</code>, and <code>Agent</code>) and how to swap providers without changing call sites.</p>
 <h2 id="1-install">1. Install<a class="headerlink" href="#1-install" title="Permanent link">&para;</a></h2>
 <p>Pick a backend. For this tutorial we'll use <strong>Ollama</strong> because it's local and free:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>ollama<span class="o">]</span>
@@ -2907,7 +2907,7 @@
 <p>Then pull a small tool-capable model:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ollama<span class="w"> </span>pull<span class="w"> </span>qwen3.5:9b
 </span></code></pre></div>
-<p>For cloud providers instead, use <code>pip install aimu[anthropic]</code> (or <code>[openai_compat]</code>) and set the corresponding API key in your environment. Every example below works identically — only the model string changes.</p>
+<p>For cloud providers instead, use <code>pip install aimu[anthropic]</code> (or <code>[openai_compat]</code>) and set the corresponding API key in your environment. Every example below works identically; only the model string changes.</p>
 <h2 id="2-your-first-chat">2. Your first chat<a class="headerlink" href="#2-your-first-chat" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
@@ -2922,11 +2922,11 @@
 </span></code></pre></div>
 <p>When the model is omitted, AIMU resolves a default in this order:</p>
 <ol>
-<li>The <strong><code>AIMU_LANGUAGE_MODEL</code></strong> env var (a <code>"provider:model_id"</code> string) — set it in your project's <code>.env</code> to pin a default: <code>AIMU_LANGUAGE_MODEL=ollama:qwen3.5:9b</code>.</li>
-<li>An <strong>already-available local model</strong> — a running Ollama server, a model already in your HuggingFace cache, or a running local OpenAI-compatible server (LM Studio, vLLM, llama-server, SGLang). The chosen model is logged.</li>
+<li>The <strong><code>AIMU_LANGUAGE_MODEL</code></strong> env var (a <code>"provider:model_id"</code> string). Set it in your project's <code>.env</code> to pin a default: <code>AIMU_LANGUAGE_MODEL=ollama:qwen3.5:9b</code>.</li>
+<li>An <strong>already-available local model</strong>: a running Ollama server, a model already in your HuggingFace cache, or a running local OpenAI-compatible server (LM Studio, vLLM, llama-server, SGLang). The chosen model is logged.</li>
 <li>Otherwise a <code>ValueError</code> listing how to fix it.</li>
 </ol>
-<p>AIMU never auto-selects a cloud provider (no surprise API bills) and never downloads weights implicitly. Passing <code>model=</code> explicitly — as every example here does — is always the clearest, most reproducible choice.</p>
+<p>AIMU never auto-selects a cloud provider (no surprise API bills) and never downloads weights implicitly. Passing <code>model=</code> explicitly (as every example here does) is always the clearest, most reproducible choice.</p>
 <h2 id="3-multi-turn-conversation">3. Multi-turn conversation<a class="headerlink" href="#3-multi-turn-conversation" title="Permanent link">&para;</a></h2>
 <p>For a conversation, build a reusable client with <code>aimu.client()</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
@@ -2937,7 +2937,7 @@
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;What did I just tell you?&quot;</span><span class="p">))</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># &#39;You told me your favourite colour is blue.&#39;</span>
 </span></code></pre></div>
-<p><code>client.chat()</code> accumulates history in <code>client.messages</code>. The system message is set at construction time and locks once the first chat is sent — call <code>client.reset()</code> if you need to start over.</p>
+<p><code>client.chat()</code> accumulates history in <code>client.messages</code>. The system message is set at construction time and locks once the first chat is sent. Call <code>client.reset()</code> if you need to start over.</p>
 <h2 id="4-streaming">4. Streaming<a class="headerlink" href="#4-streaming" title="Permanent link">&para;</a></h2>
 <p>For UIs and progress visibility, pass <code>stream=True</code>. You get an iterator of <code>StreamChunk</code> objects:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Tell me a short story&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -2961,7 +2961,7 @@
 </span></code></pre></div>
 <p>The rest of your code is unchanged. See <a href="../../how-to/switch-providers/">how-to: switch providers</a> for the full list.</p>
 <h2 id="6-your-first-agent">6. Your first agent<a class="headerlink" href="#6-your-first-agent" title="Permanent link">&para;</a></h2>
-<p>So far we've called <code>chat()</code> directly. An <code>Agent</code> adds a tool-using loop on top — it keeps calling <code>chat()</code> until the model stops invoking tools.</p>
+<p>So far we've called <code>chat()</code> directly. An <code>Agent</code> adds a tool-using loop on top: it keeps calling <code>chat()</code> until the model stops invoking tools.</p>
 <p>First, declare a tool:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
@@ -2991,9 +2991,9 @@
 </ul>
 <p>The next tutorials build on each:</p>
 <ul>
-<li><strong><a href="../02-first-agent-with-tools/">First agent with tools</a></strong> — deeper on <code>@tool</code> and built-in tools.</li>
-<li><strong><a href="../03-workflows/">Workflows</a></strong> — code-controlled patterns (chain / router / parallel) when you want the <em>flow</em> fixed.</li>
-<li><strong><a href="../04-vision-and-streaming/">Vision and streaming</a></strong> — image input plus the full <code>StreamChunk</code> API.</li>
+<li><strong><a href="../02-first-agent-with-tools/">First agent with tools</a></strong>: deeper on <code>@tool</code> and built-in tools.</li>
+<li><strong><a href="../03-workflows/">Workflows</a></strong>: code-controlled patterns (chain / router / parallel) when you want the <em>flow</em> fixed.</li>
+<li><strong><a href="../04-vision-and-streaming/">Vision and streaming</a></strong>: image input plus the full <code>StreamChunk</code> API.</li>
 </ul>
 <p>Or jump into <a href="../../how-to/">how-to guides</a> for specific tasks.</p>
 

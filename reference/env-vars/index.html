@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2846,7 +2846,7 @@
 
 
 <h1 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h1>
-<p>AIMU reads a small set of environment variables. All are loaded via <a href="https://github.com/theskumar/python-dotenv"><code>python-dotenv</code></a> — a <code>.env</code> file in your working directory is picked up automatically by the clients that need keys.</p>
+<p>AIMU reads a small set of environment variables. All are loaded via <a href="https://github.com/theskumar/python-dotenv"><code>python-dotenv</code></a>: a <code>.env</code> file in your working directory is picked up automatically by the clients that need keys.</p>
 <h2 id="api-keys">API keys<a class="headerlink" href="#api-keys" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2907,11 +2907,11 @@
 </tr>
 </tbody>
 </table>
-<p>The built-in <code>generate_image</code> tool constructs its image client lazily on first call, picking the provider and model from <code>AIMU_IMAGE_MODEL</code>. Accepts any string supported by <code>aimu.image_client()</code> — <code>"hf:&lt;repo&gt;"</code> or <code>"gemini:&lt;id_or_alias&gt;"</code>. Override per-agent by building your own tool with <code>make_image_tool(client)</code> instead of using the singleton.</p>
-<p>The built-in <code>generate_audio</code> tool follows the same pattern. <code>AIMU_AUDIO_MODEL</code> accepts any string supported by <code>aimu.audio_client()</code> — currently <code>"hf:&lt;repo&gt;"</code>. Override per-agent with <code>make_audio_tool(client)</code> instead of using the singleton.</p>
-<p>The built-in <code>generate_speech</code> tool follows the same pattern. <code>AIMU_SPEECH_MODEL</code> accepts any string supported by <code>aimu.speech_client()</code> — <code>"openai:&lt;model_id&gt;"</code> (requires <code>OPENAI_API_KEY</code>) or <code>"hf:&lt;repo_id&gt;"</code>. Override per-agent with <code>make_speech_tool(client)</code> instead of using the singleton.</p>
+<p>The built-in <code>generate_image</code> tool constructs its image client lazily on first call, picking the provider and model from <code>AIMU_IMAGE_MODEL</code>. Accepts any string supported by <code>aimu.image_client()</code>: <code>"hf:&lt;repo&gt;"</code> or <code>"gemini:&lt;id_or_alias&gt;"</code>. Override per-agent by building your own tool with <code>make_image_tool(client)</code> instead of using the singleton.</p>
+<p>The built-in <code>generate_audio</code> tool follows the same pattern. <code>AIMU_AUDIO_MODEL</code> accepts any string supported by <code>aimu.audio_client()</code>, currently <code>"hf:&lt;repo&gt;"</code>. Override per-agent with <code>make_audio_tool(client)</code> instead of using the singleton.</p>
+<p>The built-in <code>generate_speech</code> tool follows the same pattern. <code>AIMU_SPEECH_MODEL</code> accepts any string supported by <code>aimu.speech_client()</code>: <code>"openai:&lt;model_id&gt;"</code> (requires <code>OPENAI_API_KEY</code>) or <code>"hf:&lt;repo_id&gt;"</code>. Override per-agent with <code>make_speech_tool(client)</code> instead of using the singleton.</p>
 <h2 id="default-model-selection">Default model selection<a class="headerlink" href="#default-model-selection" title="Permanent link">&para;</a></h2>
-<p>These set the default <code>model=</code> for a modality's top-level helpers when the argument is omitted. Unlike the tool defaults above, they have <strong>no built-in fallback</strong> — if unset and no model is passed, the helper raises <code>ValueError</code> (AIMU never downloads weights implicitly).</p>
+<p>These set the default <code>model=</code> for a modality's top-level helpers when the argument is omitted. Unlike the tool defaults above, they have <strong>no built-in fallback</strong>. If unset and no model is passed, the helper raises <code>ValueError</code> (AIMU never downloads weights implicitly).</p>
 <table>
 <thead>
 <tr>
@@ -2933,7 +2933,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>AIMU_EMBEDDING_MODEL</code> accepts any string supported by <code>aimu.embedding_client()</code> — <code>"openai:&lt;model_id&gt;"</code> (requires <code>OPENAI_API_KEY</code>), <code>"ollama:&lt;model_id&gt;"</code>, or <code>"hf:&lt;repo_id&gt;"</code> (the <code>[hf]</code> extra).</p>
+<p><code>AIMU_EMBEDDING_MODEL</code> accepts any string supported by <code>aimu.embedding_client()</code>: <code>"openai:&lt;model_id&gt;"</code> (requires <code>OPENAI_API_KEY</code>), <code>"ollama:&lt;model_id&gt;"</code>, or <code>"hf:&lt;repo_id&gt;"</code> (the <code>[hf]</code> extra).</p>
 <h2 id="mcp-server-storage-paths">MCP server storage paths<a class="headerlink" href="#mcp-server-storage-paths" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2961,7 +2961,7 @@
 </tr>
 </tbody>
 </table>
-<p>When unset, MCP servers run with ephemeral state — fine for tests, not for production.</p>
+<p>When unset, MCP servers run with ephemeral state: fine for tests, not for production.</p>
 <h2 id="env-file-example"><code>.env</code> file example<a class="headerlink" href="#env-file-example" title="Permanent link">&para;</a></h2>
 <div class="language-ini highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Cloud API keys</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="na">ANTHROPIC_API_KEY</span><span class="o">=</span><span class="s">sk-ant-...</span>
@@ -2988,11 +2988,11 @@
 </span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="na">DOCUMENT_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/docs</span>
 </span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="na">PROMPT_CATALOG_PATH</span><span class="o">=</span><span class="s">./.aimu/prompts.db</span>
 </span></code></pre></div>
-<p>Place it in your project root. Don't commit it — add <code>.env</code> to <code>.gitignore</code>.</p>
+<p>Place it in your project root. Don't commit it; add <code>.env</code> to <code>.gitignore</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../provider-matrix/">Provider matrix</a> — which provider needs which key</li>
-<li><a href="../cli/">CLI</a> — runnable <code>python -m</code> entry points that read these vars</li>
+<li><a href="../provider-matrix/">Provider matrix</a>: which provider needs which key</li>
+<li><a href="../cli/">CLI</a>: runnable <code>python -m</code> entry points that read these vars</li>
 </ul>
 
 

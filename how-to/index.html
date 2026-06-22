@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2720,47 +2720,47 @@
 
 <h1 id="how-to-guides">How-to guides<a class="headerlink" href="#how-to-guides" title="Permanent link">&para;</a></h1>
 <p>Task-oriented recipes. Each guide answers a specific question: how do I do <em>this</em>?</p>
-<p>If you're new to AIMU, start with the <a href="../tutorials/">tutorials</a> instead — those build a working mental model. How-to guides assume you already know the basics and want the steps for a particular task.</p>
+<p>If you're new to AIMU, start with the <a href="../tutorials/">tutorials</a> instead; those build a working mental model. How-to guides assume you already know the basics and want the steps for a particular task.</p>
 <h2 id="working-with-models">Working with models<a class="headerlink" href="#working-with-models" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="switch-providers/">Switch providers</a> — change backends without changing call sites</li>
-<li><a href="add-new-model/">Add a new model</a> — register a model enum member</li>
-<li><a href="add-new-provider/">Add or update a provider</a> — write a provider client and wire it into the factory</li>
-<li><a href="stream-output/">Stream output</a> — <code>stream=True</code>, phase filtering, helpers</li>
-<li><a href="use-structured-output/">Get structured output</a> — <code>schema=</code> on <code>chat()</code> / <code>generate()</code> returns a typed dataclass/Pydantic object; native enforcement with a parse fallback</li>
-<li><a href="use-async/">Use async (<code>aio</code>)</a> — embed AIMU in async apps; <code>asyncio.TaskGroup</code>-backed <code>Parallel</code></li>
-<li><a href="handle-vision/">Handle vision input</a> — pass images via <code>images=</code></li>
-<li><a href="generate-images/">Generate images</a> — <code>aimu.image_client()</code> / <code>generate_image()</code> with HuggingFace <code>diffusers</code> + Google Nano Banana</li>
-<li><a href="generate-audio/">Generate audio</a> — <code>aimu.audio_client()</code> / <code>generate_audio()</code> with HuggingFace MusicGen, AudioLDM2, and Stable Audio</li>
-<li><a href="generate-speech/">Generate speech</a> — <code>aimu.speech_client()</code> / <code>generate_speech()</code> for TTS with HuggingFace MMS-TTS/BARK or OpenAI tts-1/tts-1-hd</li>
-<li><a href="use-embeddings/">Embed text</a> — <code>aimu.embedding_client()</code> / <code>embed()</code> with OpenAI, Ollama, or local HuggingFace sentence-transformers; plug into <code>SemanticMemoryStore</code></li>
-<li><a href="iterative-image-refinement/">Iterative image refinement</a> — a generate → evaluate → refine loop, built two ways (agent-directed vs code-directed)</li>
-<li><a href="iterative-text-refinement/">Iterative text refinement</a> — the GPU-free text twin of the above: generate → judge → refine across a code loop, an agent, a workflow class, and two search strategies</li>
+<li><a href="switch-providers/">Switch providers</a>: change backends without changing call sites</li>
+<li><a href="add-new-model/">Add a new model</a>: register a model enum member</li>
+<li><a href="add-new-provider/">Add or update a provider</a>: write a provider client and wire it into the factory</li>
+<li><a href="stream-output/">Stream output</a>: <code>stream=True</code>, phase filtering, helpers</li>
+<li><a href="use-structured-output/">Get structured output</a>: <code>schema=</code> on <code>chat()</code> / <code>generate()</code> returns a typed dataclass/Pydantic object; native enforcement with a parse fallback</li>
+<li><a href="use-async/">Use async (<code>aio</code>)</a>: embed AIMU in async apps; <code>asyncio.TaskGroup</code>-backed <code>Parallel</code></li>
+<li><a href="handle-vision/">Handle vision input</a>: pass images via <code>images=</code></li>
+<li><a href="generate-images/">Generate images</a>: <code>aimu.image_client()</code> / <code>generate_image()</code> with HuggingFace <code>diffusers</code> + Google Nano Banana</li>
+<li><a href="generate-audio/">Generate audio</a>: <code>aimu.audio_client()</code> / <code>generate_audio()</code> with HuggingFace MusicGen, AudioLDM2, and Stable Audio</li>
+<li><a href="generate-speech/">Generate speech</a>: <code>aimu.speech_client()</code> / <code>generate_speech()</code> for TTS with HuggingFace MMS-TTS/BARK or OpenAI tts-1/tts-1-hd</li>
+<li><a href="use-embeddings/">Embed text</a>: <code>aimu.embedding_client()</code> / <code>embed()</code> with OpenAI, Ollama, or local HuggingFace sentence-transformers; plug into <code>SemanticMemoryStore</code></li>
+<li><a href="iterative-image-refinement/">Iterative image refinement</a>: a generate → evaluate → refine loop, built two ways (agent-directed vs code-directed)</li>
+<li><a href="iterative-text-refinement/">Iterative text refinement</a>: the GPU-free text twin of the above; generate → judge → refine across a code loop, an agent, a workflow class, and two search strategies</li>
 </ul>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="add-custom-tool/">Add a custom tool</a> — <code>@tool</code> decorator rules and patterns</li>
-<li><a href="use-mcp-tools/">Use MCP tools</a> — cross-process tools via FastMCP</li>
+<li><a href="add-custom-tool/">Add a custom tool</a>: <code>@tool</code> decorator rules and patterns</li>
+<li><a href="use-mcp-tools/">Use MCP tools</a>: cross-process tools via FastMCP</li>
 </ul>
 <h2 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="use-skills/">Use skills</a> — <code>SkillAgent</code> and the <code>SKILL.md</code> format</li>
-<li><a href="build-orchestrator/">Build an orchestrator</a> — <code>OrchestratorAgent.assemble</code> or subclass</li>
-<li><a href="connect-agents-a2a/">Connect agents (A2A)</a> — consume a remote agent as a <code>Runner</code>, or expose one with <code>serve_a2a</code></li>
-<li><a href="plan-execute-evaluate/">Plan, execute, evaluate, replan</a> — <code>PlanExecuteEvaluator</code> for tasks with measurable success criteria</li>
+<li><a href="use-skills/">Use skills</a>: <code>SkillAgent</code> and the <code>SKILL.md</code> format</li>
+<li><a href="build-orchestrator/">Build an orchestrator</a>: <code>OrchestratorAgent.assemble</code> or subclass</li>
+<li><a href="connect-agents-a2a/">Connect agents (A2A)</a>: consume a remote agent as a <code>Runner</code>, or expose one with <code>serve_a2a</code></li>
+<li><a href="plan-execute-evaluate/">Plan, execute, evaluate, replan</a>: <code>PlanExecuteEvaluator</code> for tasks with measurable success criteria</li>
 </ul>
 <h2 id="memory-and-persistence">Memory and persistence<a class="headerlink" href="#memory-and-persistence" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="persist-conversations/">Persist conversations</a> — <code>ConversationManager</code></li>
-<li><a href="use-semantic-memory/">Use semantic memory</a> — <code>SemanticMemoryStore</code></li>
-<li><a href="use-document-memory/">Use document memory</a> — <code>DocumentStore</code></li>
-<li><a href="use-rag/">Retrieval-augmented generation</a> — <code>aimu.rag</code>: chunk, retrieve, rerank, and ground answers in your documents</li>
+<li><a href="persist-conversations/">Persist conversations</a>: <code>ConversationManager</code></li>
+<li><a href="use-semantic-memory/">Use semantic memory</a>: <code>SemanticMemoryStore</code></li>
+<li><a href="use-document-memory/">Use document memory</a>: <code>DocumentStore</code></li>
+<li><a href="use-rag/">Retrieval-augmented generation</a>: use <code>aimu.rag</code> to chunk, retrieve, rerank, and ground answers in your documents</li>
 </ul>
 <h2 id="prompts-and-evaluation">Prompts and evaluation<a class="headerlink" href="#prompts-and-evaluation" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="tune-prompts/">Tune prompts</a> — hill-climbing optimisation against labelled data</li>
-<li><a href="benchmark-models/">Benchmark models</a> — multi-model comparison harness</li>
-<li><a href="integrate-deepeval/">Integrate DeepEval</a> — use DeepEval metrics as scorers / judges</li>
+<li><a href="tune-prompts/">Tune prompts</a>: hill-climbing optimisation against labelled data</li>
+<li><a href="benchmark-models/">Benchmark models</a>: multi-model comparison harness</li>
+<li><a href="integrate-deepeval/">Integrate DeepEval</a>: use DeepEval metrics as scorers / judges</li>
 </ul>
 
 

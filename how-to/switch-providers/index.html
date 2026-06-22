@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2919,7 +2919,7 @@
 <p>Pass the result straight to <code>aimu.client(...)</code> / <code>aimu.image_client(...)</code> (both also accept an enum member):</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_model_enum</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">))</span>
 </span></code></pre></div>
-<p>A <strong>bare text name is often ambiguous</strong> — the same id ships under several providers (e.g. <code>QWEN_3_8B</code> is an Ollama, HuggingFace, and OpenAI-compat model). <code>resolve_model_enum</code> resolves the tie by preferring a provider where the model is <em>already available locally</em> (running Ollama → cached HuggingFace → reachable local server, tool-capable first), logging the choice at <code>WARNING</code>. If it isn't available anywhere, it raises <code>ValueError</code> listing the <code>"provider:model_id"</code> options — so pin the provider with the string form when you need a specific one. (<code>resolve_image_model_enum</code> has no local-availability notion and raises on the rare ambiguity.)</p>
+<p>A <strong>bare text name is often ambiguous</strong>: the same id ships under several providers (e.g. <code>QWEN_3_8B</code> is an Ollama, HuggingFace, and OpenAI-compat model). <code>resolve_model_enum</code> resolves the tie by preferring a provider where the model is <em>already available locally</em> (running Ollama → cached HuggingFace → reachable local server, tool-capable first), logging the choice at <code>WARNING</code>. If it isn't available anywhere, it raises <code>ValueError</code> listing the <code>"provider:model_id"</code> options, so pin the provider with the string form when you need a specific one. (<code>resolve_image_model_enum</code> has no local-availability notion and raises on the rare ambiguity.)</p>
 <h2 id="use-whatever-model-is-already-available-locally">Use whatever model is already available locally<a class="headerlink" href="#use-whatever-model-is-already-available-locally" title="Permanent link">&para;</a></h2>
 <p>Omit <code>model=</code> entirely and AIMU resolves a default: the <code>AIMU_LANGUAGE_MODEL</code> env var if set, otherwise the first <em>already-available</em> local model (running Ollama → cached HuggingFace → reachable local OpenAI-compat server, tool-capable preferred). A cloud provider is never auto-selected and weights are never downloaded.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">()</span>                          <span class="c1"># auto-resolved default (logs the pick at WARNING)</span>
@@ -2927,7 +2927,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AIMU_LANGUAGE_MODEL</span><span class="o">=</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="w">  </span><span class="c1"># pin the default deterministically</span>
 </span></code></pre></div>
 <p>To inspect or choose among what's available instead of taking the auto-pick:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">available_text_models</span><span class="p">()</span>            <span class="c1"># list[Model] — locally loadable models, provider-priority order</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">available_text_models</span><span class="p">()</span>            <span class="c1"># list[Model]: locally loadable models, provider-priority order</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_default_text_model_enum</span><span class="p">()</span>  <span class="c1"># the single auto-pick, as an enum member</span>
 </span></code></pre></div>
 <h2 id="provider-keys">Provider keys<a class="headerlink" href="#provider-keys" title="Permanent link">&para;</a></h2>
@@ -2943,17 +2943,17 @@
 <tr>
 <td><code>ollama</code></td>
 <td><code>aimu[ollama]</code></td>
-<td>—</td>
+<td>None</td>
 </tr>
 <tr>
 <td><code>hf</code></td>
 <td><code>aimu[hf]</code></td>
-<td>—</td>
+<td>None</td>
 </tr>
 <tr>
 <td><code>llamacpp</code></td>
 <td><code>aimu[llamacpp]</code></td>
-<td>— (<code>model_path=</code> required)</td>
+<td>None (<code>model_path=</code> required)</td>
 </tr>
 <tr>
 <td><code>anthropic</code></td>
@@ -2973,32 +2973,32 @@
 <tr>
 <td><code>lmstudio</code></td>
 <td><code>aimu[openai_compat]</code></td>
-<td>— (localhost:1234)</td>
+<td>None (localhost:1234)</td>
 </tr>
 <tr>
 <td><code>ollama-openai</code></td>
 <td><code>aimu[openai_compat]</code></td>
-<td>— (localhost:11434)</td>
+<td>None (localhost:11434)</td>
 </tr>
 <tr>
 <td><code>hf-openai</code></td>
 <td><code>aimu[openai_compat]</code></td>
-<td>— (localhost:8000)</td>
+<td>None (localhost:8000)</td>
 </tr>
 <tr>
 <td><code>vllm</code></td>
 <td><code>aimu[openai_compat]</code></td>
-<td>— (localhost:8000)</td>
+<td>None (localhost:8000)</td>
 </tr>
 <tr>
 <td><code>llamaserver</code></td>
 <td><code>aimu[openai_compat]</code></td>
-<td>— (localhost:8080)</td>
+<td>None (localhost:8080)</td>
 </tr>
 <tr>
 <td><code>sglang</code></td>
 <td><code>aimu[openai_compat]</code></td>
-<td>— (localhost:30000)</td>
+<td>None (localhost:30000)</td>
 </tr>
 </tbody>
 </table>

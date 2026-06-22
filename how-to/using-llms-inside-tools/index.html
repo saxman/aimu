@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2863,18 +2863,18 @@ function needs to make its own LLM call, sharing the agent's client would:</p>
 <li>Add the tool's messages to the agent's history (pollutes the agent's state).</li>
 </ol>
 <p><strong>The correct solution</strong>: use <code>client.generate()</code> for stateless calls from within tools.
-<code>generate()</code> does not touch <code>self.messages</code> — it builds a one-shot request and discards it.</p>
+<code>generate()</code> does not touch <code>self.messages</code>; it builds a one-shot request and discards it.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">eval_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3:8b&quot;</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s2">&quot;You are a concise evaluator.&quot;</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nd">@aimu</span><span class="o">.</span><span class="n">tool</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_result</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Score a result on a scale of 1-10.&quot;&quot;&quot;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="c1"># generate() is stateless — no history pollution, no second client needed</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="c1"># generate() is stateless: no history pollution, no second client needed</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">return</span> <span class="n">eval_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Score this 1-10: </span><span class="si">{</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>Warning: do not create multiple HuggingFace or LlamaCpp client instances for the same model.</strong></p>
 <p>As of v0.5.3, AIMU caches weights automatically (see below), so accidental double-loading
-is prevented. Before v0.5.3, each instance loaded weights independently — doubling VRAM for
+is prevented. Before v0.5.3, each instance loaded weights independently, doubling VRAM for
 every additional client.</p>
 <p>Cloud providers (Anthropic, OpenAI, Gemini, Ollama) make stateless API calls; multiple
 instances are fine for those.</p>
@@ -2886,7 +2886,7 @@ and construction kwargs. A second instance for the same model reuses the loaded 
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">c1</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;hf:Qwen/Qwen3-8B&quot;</span><span class="p">)</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">c2</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;hf:Qwen/Qwen3-8B&quot;</span><span class="p">)</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">assert</span> <span class="n">c1</span><span class="o">.</span><span class="n">_hf_model</span> <span class="ow">is</span> <span class="n">c2</span><span class="o">.</span><span class="n">_hf_model</span>  <span class="c1"># same object — no double load</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">assert</span> <span class="n">c1</span><span class="o">.</span><span class="n">_hf_model</span> <span class="ow">is</span> <span class="n">c2</span><span class="o">.</span><span class="n">_hf_model</span>  <span class="c1"># same object: no double load</span>
 </span></code></pre></div>
 <p>Weights remain in the registry for the process lifetime. To free VRAM:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">clear_hf_cache</span><span class="p">()</span>              <span class="c1"># clear all HuggingFace weights</span>

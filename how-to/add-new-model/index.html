@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2890,7 +2890,7 @@
 <p>To make a new model usable with <code>ModelClient</code>, add a member to that provider's <code>Model</code> enum. The member's value is a <code>ModelSpec</code> with the model id and capability flags.</p>
 <div class="admonition note">
 <p class="admonition-title">AIMU ships curated models only</p>
-<p>Every modality requires the model to be a member of its provider enum (or a hand-built spec — see <a href="#custom-models">Custom models</a>). Passing an arbitrary <code>"provider:some/unknown-repo"</code> string <strong>raises</strong> <code>ValueError</code>, rather than silently fabricating a spec with guessed capabilities. Capability flags (tools/thinking/vision, <code>pipeline_class</code>, <code>supports_negative_prompt</code>, voice/step defaults, …) can't be inferred reliably from a repo name, and a wrong guess causes hard-to-debug runtime failures. So the catalog is intentional: to use a new model, add it to the enum here.</p>
+<p>Every modality requires the model to be a member of its provider enum (or a hand-built spec, see <a href="#custom-models">Custom models</a>). Passing an arbitrary <code>"provider:some/unknown-repo"</code> string <strong>raises</strong> <code>ValueError</code>, rather than silently fabricating a spec with guessed capabilities. Capability flags (tools/thinking/vision, <code>pipeline_class</code>, <code>supports_negative_prompt</code>, voice/step defaults, and so on) can't be inferred reliably from a repo name, and a wrong guess causes hard-to-debug runtime failures. So the catalog is intentional: to use a new model, add it to the enum here.</p>
 </div>
 <h2 id="basic-case">Basic case<a class="headerlink" href="#basic-case" title="Permanent link">&para;</a></h2>
 <p>For most providers (<code>OllamaModel</code>, <code>AnthropicModel</code>, <code>OpenAIModel</code>, etc.) the enum value is a single <code>ModelSpec</code>:</p>
@@ -2903,7 +2903,7 @@
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">CLAUDE_OPUS_5</span> <span class="o">=</span> <span class="n">ModelSpec</span><span class="p">(</span><span class="s2">&quot;claude-opus-5&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">vision</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 <p>That's it. The model id (<code>"claude-opus-5"</code>) is what gets sent to the provider; the capability flags drive <code>is_tool_using_model</code>, <code>is_thinking_model</code>, <code>is_vision_model</code>, and the derived <code>TOOL_MODELS</code> / <code>THINKING_MODELS</code> / <code>VISION_MODELS</code> classproperties.</p>
-<p>A bare <code>ModelSpec</code> defaults the Anthropic reasoning request to <code>ThinkingStyle.ENABLED</code> (<code>budget_tokens</code>). New Claude reasoning models (Opus 4.7+ and Fable 5) require the adaptive request shape and <strong>400 on the <code>enabled</code> form</strong> — define those with a <code>ThinkingStyle.ADAPTIVE</code> extra (see <a href="#anthropic-provider-specific-extras">Anthropic provider-specific extras</a> below).</p>
+<p>A bare <code>ModelSpec</code> defaults the Anthropic reasoning request to <code>ThinkingStyle.ENABLED</code> (<code>budget_tokens</code>). New Claude reasoning models (Opus 4.7+ and Fable 5) require the adaptive request shape and <strong>400 on the <code>enabled</code> form</strong>, so define those with a <code>ThinkingStyle.ADAPTIVE</code> extra (see <a href="#anthropic-provider-specific-extras">Anthropic provider-specific extras</a> below).</p>
 <h2 id="with-custom-generation-kwargs">With custom generation kwargs<a class="headerlink" href="#with-custom-generation-kwargs" title="Permanent link">&para;</a></h2>
 <p>Some models work best with specific sampling parameters:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">QWEN_3_8B</span> <span class="o">=</span> <span class="n">ModelSpec</span><span class="p">(</span>
@@ -2939,10 +2939,10 @@
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="c1"># Enabled (default): thinking={&quot;type&quot;: &quot;enabled&quot;, &quot;budget_tokens&quot;: N}; the model always thinks.</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">CLAUDE_HAIKU_4_5</span> <span class="o">=</span> <span class="n">ModelSpec</span><span class="p">(</span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">vision</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Rule of thumb: Opus 4.7 and later, and Fable 5, are adaptive-only; Opus 4.6, Sonnet 4.6, and Haiku 4.5 use the budget form. Confirm a new model's support with the Models API (<code>client.models.retrieve(id).capabilities["thinking"]["types"]</code>) — <code>adaptive.supported</code> / <code>enabled.supported</code> tell you which shape to pick.</p>
+<p>Rule of thumb: Opus 4.7 and later, and Fable 5, are adaptive-only; Opus 4.6, Sonnet 4.6, and Haiku 4.5 use the budget form. Confirm a new model's support with the Models API (<code>client.models.retrieve(id).capabilities["thinking"]["types"]</code>); <code>adaptive.supported</code> / <code>enabled.supported</code> tell you which shape to pick.</p>
 <h2 id="image-audio-and-speech-models">Image, audio, and speech models<a class="headerlink" href="#image-audio-and-speech-models" title="Permanent link">&para;</a></h2>
 <p>The non-text modalities follow the same pattern with their own spec type and enum. Add a member to the provider enum in the relevant client module:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># aimu/models/providers/hf/image.py — diffusers text-to-image</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># aimu/models/providers/hf/image.py: diffusers text-to-image</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceImageModel</span><span class="p">(</span><span class="n">ImageModel</span><span class="p">):</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">SD_1_5</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span><span class="s2">&quot;runwayml/stable-diffusion-v1-5&quot;</span><span class="p">,</span> <span class="n">max_prompt_tokens</span><span class="o">=</span><span class="mi">77</span><span class="p">)</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">FLUX_2_KLEIN_4B</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span>
@@ -2955,29 +2955,29 @@
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="n">max_prompt_tokens</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>              <span class="c1"># T5-XXL encoder</span>
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="p">)</span>
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="c1"># aimu/models/providers/gemini/image.py — Gemini Nano Banana (cloud)</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="c1"># aimu/models/providers/gemini/image.py: Gemini Nano Banana (cloud)</span>
 </span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="k">class</span><span class="w"> </span><span class="nc">GeminiImageModel</span><span class="p">(</span><span class="n">ImageModel</span><span class="p">):</span>
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="n">NANO_BANANA</span> <span class="o">=</span> <span class="n">GeminiImageSpec</span><span class="p">(</span><span class="s2">&quot;gemini-2.5-flash-image&quot;</span><span class="p">)</span>   <span class="c1"># supports_negative_prompt defaults False</span>
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="c1"># aimu/models/providers/hf/audio.py — music / sound generation</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="c1"># aimu/models/providers/hf/audio.py: music / sound generation</span>
 </span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceAudioModel</span><span class="p">(</span><span class="n">AudioModel</span><span class="p">):</span>
 </span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>    <span class="n">MUSICGEN_SMALL</span> <span class="o">=</span> <span class="n">HuggingFaceAudioSpec</span><span class="p">(</span><span class="s2">&quot;facebook/musicgen-small&quot;</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">&quot;musicgen&quot;</span><span class="p">)</span>
 </span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>    <span class="n">AUDIOLDM2</span> <span class="o">=</span> <span class="n">HuggingFaceAudioSpec</span><span class="p">(</span><span class="s2">&quot;cvssp/audioldm2&quot;</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">&quot;audioldm2&quot;</span><span class="p">,</span> <span class="n">default_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
 </span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>
-</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="c1"># aimu/models/providers/hf/speech.py — text-to-speech</span>
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="c1"># aimu/models/providers/hf/speech.py: text-to-speech</span>
 </span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceSpeechModel</span><span class="p">(</span><span class="n">SpeechModel</span><span class="p">):</span>
 </span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>    <span class="n">BARK</span> <span class="o">=</span> <span class="n">HuggingFaceSpeechSpec</span><span class="p">(</span><span class="s2">&quot;suno/bark&quot;</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">&quot;bark&quot;</span><span class="p">,</span> <span class="n">default_voice</span><span class="o">=</span><span class="s2">&quot;v2/en_speaker_6&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Capability fields differ per modality — set the ones that matter for the model:</p>
+<p>Capability fields differ per modality; set the ones that matter for the model:</p>
 <ul>
 <li><strong><code>HuggingFaceImageSpec</code></strong>: <code>pipeline_class</code>, <code>img2img_pipeline_class</code>, <code>img2img_uses_strength</code>, <code>supports_negative_prompt</code>, <code>default_steps</code>/<code>default_guidance</code>/<code>default_width</code>/<code>default_height</code>, <code>default_negative_prompt</code>, <code>max_prompt_tokens</code>.</li>
 <li><strong><code>GeminiImageSpec</code></strong>: <code>supports_negative_prompt</code> (defaults <code>False</code>), <code>default_aspect_ratio</code>, <code>default_image_size</code>, <code>image_config_kwargs</code>.</li>
 <li><strong><code>HuggingFaceAudioSpec</code></strong>: <code>pipeline_type</code> (<code>"musicgen"</code> / <code>"audioldm2"</code> / <code>"stable_audio"</code>), <code>default_duration_s</code>, <code>default_steps</code>.</li>
 <li><strong><code>HuggingFaceSpeechSpec</code></strong> / <strong><code>OpenAISpeechSpec</code></strong>: <code>pipeline_type</code> (HF: <code>"tts_pipeline"</code> / <code>"speecht5"</code> / <code>"bark"</code>), <code>default_voice</code>, <code>default_speed</code>.</li>
 </ul>
-<p>Because these specs carry behaviour the runtime depends on (e.g. <code>pipeline_class</code>, <code>supports_negative_prompt</code>), the enum is the single source of truth — the string form (<code>"hf:&lt;repo&gt;"</code>, <code>"gemini:&lt;id&gt;"</code>) resolves to the <strong>same</strong> spec object as the enum member, and an unknown id raises.</p>
+<p>Because these specs carry behaviour the runtime depends on (e.g. <code>pipeline_class</code>, <code>supports_negative_prompt</code>), the enum is the single source of truth: the string form (<code>"hf:&lt;repo&gt;"</code>, <code>"gemini:&lt;id&gt;"</code>) resolves to the <strong>same</strong> spec object as the enum member, and an unknown id raises.</p>
 <h2 id="custom-models">Custom models<a class="headerlink" href="#custom-models" title="Permanent link">&para;</a></h2>
-<p>For a one-off model not worth adding to the catalog, construct the spec yourself and pass the object (not a string) to the client — an explicit, deliberate escape hatch where you supply every capability flag:</p>
+<p>For a one-off model not worth adding to the catalog, construct the spec yourself and pass the object (not a string) to the client. This is an explicit, deliberate escape hatch where you supply every capability flag:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageClient</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">HuggingFaceImageSpec</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
@@ -2998,8 +2998,8 @@
 <p>The model client is auto-pulled (Ollama, HuggingFace) or hits the cloud API on first use.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../reference/api/models/#aimu.models.ModelSpec"><code>aimu.models.ModelSpec</code></a> — the dataclass fields</li>
-<li><a href="../../reference/model-matrix/">Model matrix</a> — every shipped model with capability flags</li>
+<li><a href="../../reference/api/models/#aimu.models.ModelSpec"><code>aimu.models.ModelSpec</code></a>: the dataclass fields</li>
+<li><a href="../../reference/model-matrix/">Model matrix</a>: every shipped model with capability flags</li>
 </ul>
 
 

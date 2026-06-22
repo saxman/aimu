@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2948,7 +2948,7 @@
 <p>The decorator inspects parameters and types. Each parameter must satisfy:</p>
 <ul>
 <li>It has either a <strong>type hint</strong> or a <strong>default value</strong> (or both). Unhinted required params raise <code>ToolSignatureError</code>.</li>
-<li>It is <em>not</em> variadic. <code>*args</code> and <code>**kwargs</code> raise <code>ToolSignatureError</code> — declare each argument explicitly.</li>
+<li>It is <em>not</em> variadic. <code>*args</code> and <code>**kwargs</code> raise <code>ToolSignatureError</code>; declare each argument explicitly.</li>
 </ul>
 <p>Supported types map to JSON Schema like this:</p>
 <table>
@@ -3010,7 +3010,7 @@
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="o">...</span>
 </span></code></pre></div>
 <p>The model can call <code>search(query="...")</code> without <code>num_results</code>.</p>
-<p><code>Optional[T]</code> / <code>T | None</code> parameters unwrap to the inner type — the spec shows <code>string</code> rather than <code>string | null</code>:</p>
+<p><code>Optional[T]</code> / <code>T | None</code> parameters unwrap to the inner type: the spec shows <code>string</code> rather than <code>string | null</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nd">@aimu</span><span class="o">.</span><span class="n">tool</span>
@@ -3019,7 +3019,7 @@
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="o">...</span>
 </span></code></pre></div>
 <h2 id="combine-with-mcp-tools">Combine with MCP tools<a class="headerlink" href="#combine-with-mcp-tools" title="Permanent link">&para;</a></h2>
-<p>In-process <code>@tool</code> functions and cross-process MCP tools both end up as callables in one <code>tools</code> list — <code>MCPClient.as_tools()</code> turns a server's tools into callables you concatenate. On a name collision the <strong>last</strong> entry wins, so append a local tool after the MCP tools to shadow one:</p>
+<p>In-process <code>@tool</code> functions and cross-process MCP tools both end up as callables in one <code>tools</code> list; <code>MCPClient.as_tools()</code> turns a server's tools into callables you concatenate. On a name collision the <strong>last</strong> entry wins, so append a local tool after the MCP tools to shadow one:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
@@ -3028,7 +3028,7 @@
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="n">mcp</span><span class="o">.</span><span class="n">as_tools</span><span class="p">()</span> <span class="o">+</span> <span class="p">[</span><span class="n">letter_counter</span><span class="p">])</span>   <span class="c1"># both routes, one list</span>
 </span></code></pre></div>
 <h2 id="override-tools-for-a-single-call">Override tools for a single call<a class="headerlink" href="#override-tools-for-a-single-call" title="Permanent link">&para;</a></h2>
-<p><code>tools=</code> on the constructor / <code>client.tools</code> sets the <em>configured</em> tools. To use a different set for just one call — without mutating that state — pass <code>tools=</code> to <code>chat()</code> or <code>Agent.run()</code>:</p>
+<p><code>tools=</code> on the constructor / <code>client.tools</code> sets the <em>configured</em> tools. To use a different set for just one call (without mutating that state), pass <code>tools=</code> to <code>chat()</code> or <code>Agent.run()</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">search</span><span class="p">,</span> <span class="n">calculate</span><span class="p">]</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;just look this up&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">search</span><span class="p">])</span>  <span class="c1"># only search, this call</span>
@@ -3037,9 +3037,9 @@
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">search</span><span class="p">,</span> <span class="n">calculate</span><span class="p">])</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;quick lookup&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">search</span><span class="p">])</span>          <span class="c1"># override for the whole run</span>
 </span></code></pre></div>
-<p><code>tools=None</code> (default) uses the configured tools. Any other value — including <code>[]</code> to disable tools — replaces them for that call only and is restored afterward (MCP tools, being callables in <code>tools</code> via <code>as_tools()</code>, are included in the swap). On <code>Agent.run()</code> the override applies to every turn of the agentic loop.</p>
+<p><code>tools=None</code> (default) uses the configured tools. Any other value (including <code>[]</code> to disable tools) replaces them for that call only and is restored afterward (MCP tools, being callables in <code>tools</code> via <code>as_tools()</code>, are included in the swap). On <code>Agent.run()</code> the override applies to every turn of the agentic loop.</p>
 <h2 id="share-state-across-tool-calls-toolcontext">Share state across tool calls (<code>ToolContext</code>)<a class="headerlink" href="#share-state-across-tool-calls-toolcontext" title="Permanent link">&para;</a></h2>
-<p>Tools often need shared state — a store, a cache, a config object — that persists across calls within a run but shouldn't be a module-level global. Declare a parameter annotated as <code>ToolContext</code> (or <code>ToolContext[Deps]</code>) and the agent <strong>injects</strong> it at call time. That parameter is excluded from the tool's JSON schema, so the model never sees it and only fills in the remaining arguments.</p>
+<p>Tools often need shared state (a store, a cache, a config object) that persists across calls within a run but shouldn't be a module-level global. Declare a parameter annotated as <code>ToolContext</code> (or <code>ToolContext[Deps]</code>) and the agent <strong>injects</strong> it at call time. That parameter is excluded from the tool's JSON schema, so the model never sees it and only fills in the remaining arguments.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
@@ -3061,7 +3061,7 @@
 </span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Remember that the sky is blue.&quot;</span><span class="p">)</span>
 </span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="nb">print</span><span class="p">(</span><span class="n">deps</span><span class="o">.</span><span class="n">seen</span><span class="p">)</span>   <span class="c1"># {&quot;sky&quot;: &quot;blue&quot;}</span>
 </span></code></pre></div>
-<p>The value of <code>ctx.deps</code> comes from the <code>Agent</code>: its <code>deps=</code> field, or a per-run <code>agent.run(..., deps=...)</code> override (the override wins). When no deps are provided — for example a bare <code>client.chat()</code> call — <code>ctx.deps</code> is <code>None</code>.</p>
+<p>The value of <code>ctx.deps</code> comes from the <code>Agent</code>: its <code>deps=</code> field, or a per-run <code>agent.run(..., deps=...)</code> override (the override wins). When no deps are provided (for example a bare <code>client.chat()</code> call), <code>ctx.deps</code> is <code>None</code>.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Remember the meeting is Friday.&quot;</span><span class="p">,</span> <span class="n">deps</span><span class="o">=</span><span class="n">other_deps</span><span class="p">)</span>   <span class="c1"># per-run override</span>
 </span></code></pre></div>
 <h2 id="built-in-tools">Built-in tools<a class="headerlink" href="#built-in-tools" title="Permanent link">&para;</a></h2>
@@ -3102,7 +3102,7 @@
 </table>
 <p>See the <a href="../../reference/api/tools/"><code>aimu.tools</code> API reference</a> for the full list with descriptions.</p>
 <h2 id="streaming-tools-generators">Streaming tools (generators)<a class="headerlink" href="#streaming-tools-generators" title="Permanent link">&para;</a></h2>
-<p>For long-running tools, make the function a generator and yield <code>StreamChunk</code> objects during execution. The agent's <code>Agent.run(stream=True)</code> forwards each yielded chunk through its own stream so callers see progress live — no side channels, no callbacks.</p>
+<p>For long-running tools, make the function a generator and yield <code>StreamChunk</code> objects during execution. The agent's <code>Agent.run(stream=True)</code> forwards each yielded chunk through its own stream so callers see progress live, with no side channels and no callbacks.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">StreamChunk</span><span class="p">,</span> <span class="n">StreamingContentType</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
@@ -3119,16 +3119,16 @@
 <ol>
 <li><strong>The decorator detects it automatically.</strong> <code>@aimu.tool</code> sets <code>func.__tool_is_streaming__ = True</code> when the function is a generator (<code>inspect.isgeneratorfunction</code>) or async generator (<code>inspect.isasyncgenfunction</code>). No opt-in flag.</li>
 <li><strong>Yield any phase that fits.</strong> <code>GENERATING</code> for text progress, <code>IMAGE_GENERATING</code> for image-gen progress, future custom phases as needed. The agent forwards each chunk untouched (it only adds the <code>agent</code> and <code>iteration</code> metadata fields).</li>
-<li><strong>The result comes from one of three places</strong> — in priority order: the generator's <code>return</code> value (sync only — <code>StopIteration.value</code>); the last yielded chunk's <code>content["result"]</code> if it's a dict with that key (matches the <code>IMAGE_GENERATING</code> final-chunk convention); or <code>str(last_chunk.content)</code>.</li>
+<li><strong>The result comes from one of three places</strong>, in priority order: the generator's <code>return</code> value (sync only, via <code>StopIteration.value</code>); the last yielded chunk's <code>content["result"]</code> if it's a dict with that key (matches the <code>IMAGE_GENERATING</code> final-chunk convention); or <code>str(last_chunk.content)</code>.</li>
 </ol>
-<p>Async streaming tools are async generators (<code>async def + yield</code>); the async agent's <code>_handle_tool_calls_streamed</code> drains them with <code>async for</code>. Sync generator tools also work in the async surface — each <code>next()</code> is routed through <code>asyncio.to_thread</code> so the event loop stays free between yields.</p>
+<p>Async streaming tools are async generators (<code>async def + yield</code>); the async agent's <code>_handle_tool_calls_streamed</code> drains them with <code>async for</code>. Sync generator tools also work in the async surface: each <code>next()</code> is routed through <code>asyncio.to_thread</code> so the event loop stays free between yields.</p>
 <p>Streaming tools require <code>stream=True</code> on the calling <code>chat()</code> / <code>agent.run()</code>. The non-streaming dispatch path raises <code>ValueError</code> with a clear message pointing at <code>stream=True</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../explanation/tool-integration/">Explanation: tool integration</a> — dispatch order, precedence, when to pick in-process vs MCP</li>
-<li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a> — phases, content shapes, why one chunk type</li>
-<li><a href="../use-mcp-tools/">Use MCP tools</a> — cross-process tool servers</li>
-<li><a href="../generate-images/">Generate images</a> — the built-in <code>generate_image</code> streaming tool</li>
+<li><a href="../../explanation/tool-integration/">Explanation: tool integration</a>: dispatch order, precedence, when to pick in-process vs MCP</li>
+<li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a>: phases, content shapes, why one chunk type</li>
+<li><a href="../use-mcp-tools/">Use MCP tools</a>: cross-process tool servers</li>
+<li><a href="../generate-images/">Generate images</a>: the built-in <code>generate_image</code> streaming tool</li>
 </ul>
 
 

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2631,7 +2631,7 @@
   <a href="#decision-4-mcp-sync-mcpclient-stays-first-class" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision 4: MCP — sync MCPClient stays first-class
+        Decision 4: MCP, sync MCPClient stays first-class
       
     </span>
   </a>
@@ -2642,7 +2642,7 @@
   <a href="#decision-5-streaming-type-asymmetry-accept-it" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision 5: Streaming type asymmetry — accept it
+        Decision 5: Streaming type asymmetry, accept it
       
     </span>
   </a>
@@ -2826,7 +2826,7 @@
   <a href="#decision-4-mcp-sync-mcpclient-stays-first-class" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision 4: MCP — sync MCPClient stays first-class
+        Decision 4: MCP, sync MCPClient stays first-class
       
     </span>
   </a>
@@ -2837,7 +2837,7 @@
   <a href="#decision-5-streaming-type-asymmetry-accept-it" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision 5: Streaming type asymmetry — accept it
+        Decision 5: Streaming type asymmetry, accept it
       
     </span>
   </a>
@@ -2914,7 +2914,7 @@
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">reply</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Async — same names, different namespace</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Async (same names, different namespace)</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
@@ -2924,50 +2924,50 @@
 <p>This page records <em>why</em> the async surface looks like it does. Each decision was weighed against the <a href="../design-principles/">six design principles</a>; each names the alternatives that were considered and rejected.</p>
 <h2 id="decision-1-aimuaio-submodule-twin-classes">Decision 1: <code>aimu.aio</code> submodule (twin classes)<a class="headerlink" href="#decision-1-aimuaio-submodule-twin-classes" title="Permanent link">&para;</a></h2>
 <p>The async surface mirrors the public sync surface inside <code>aimu.aio</code> using the same class names. Switching paradigms is one import line + <code>await</code> keywords.</p>
-<p><strong>Why:</strong> preserves <a href="../design-principles/#4-progressive-disclosure">progressive disclosure</a> — the sync ladder is unchanged and new users never see async. Mirrors stdlib (<code>urllib.request</code> / <code>urllib.parse</code>, <code>concurrent.futures</code>).</p>
+<p><strong>Why:</strong> preserves <a href="../design-principles/#4-progressive-disclosure">progressive disclosure</a>; the sync ladder is unchanged and new users never see async. Mirrors stdlib (<code>urllib.request</code> / <code>urllib.parse</code>, <code>concurrent.futures</code>).</p>
 <p><strong>Rejected alternatives:</strong></p>
 <ul>
-<li><em>Method suffix</em> (<code>chat_async</code>, <code>run_async</code> on the existing classes). Python convention puts async-ness in the call site (<code>await</code>), not the method name — <code>asyncio</code>, <code>httpx</code>, <code>redis-py</code>, <code>aiohttp</code> all avoid <code>_async</code> suffix. The claimed "share one client across sync/async" benefit evaporates because <code>client.messages</code> isn't concurrency-safe.</li>
+<li><em>Method suffix</em> (<code>chat_async</code>, <code>run_async</code> on the existing classes). Python convention puts async-ness in the call site (<code>await</code>), not the method name: <code>asyncio</code>, <code>httpx</code>, <code>redis-py</code>, <code>aiohttp</code> all avoid <code>_async</code> suffix. The claimed "share one client across sync/async" benefit evaporates because <code>client.messages</code> isn't concurrency-safe.</li>
 <li><em>Async-only library, sync via <code>asyncio.run</code>.</em> Halves the codebase but adds <code>asyncio.run(...)</code> ceremony to every sync call site. Hurts casual sync users (notebooks, Streamlit) more than it helps maintainers.</li>
-<li><em>Smart context-detection</em> (same <code>client.chat()</code> routes by detecting a running loop). Return type becomes ambiguous (<code>str</code> vs coroutine); forgotten <code>await</code> silently returns a coroutine — violates <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>.</li>
-<li><em>Async-first with hidden sync facade.</em> Sync users would carry an invisible event-loop thread and see asyncio frames in tracebacks — violates <a href="../design-principles/#1-plain-python">plain Python</a>.</li>
+<li><em>Smart context-detection</em> (same <code>client.chat()</code> routes by detecting a running loop). Return type becomes ambiguous (<code>str</code> vs coroutine); forgotten <code>await</code> silently returns a coroutine, violating <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>.</li>
+<li><em>Async-first with hidden sync facade.</em> Sync users would carry an invisible event-loop thread and see asyncio frames in tracebacks, violating <a href="../design-principles/#1-plain-python">plain Python</a>.</li>
 </ul>
 <h2 id="decision-2-full-parity">Decision 2: Full parity<a class="headerlink" href="#decision-2-full-parity" title="Permanent link">&para;</a></h2>
 <p>Every sync class has an async twin in <code>aimu.aio</code>: <code>Agent</code>, <code>SkillAgent</code>, <code>Chain</code>, <code>Router</code>, <code>Parallel</code>, <code>EvaluatorOptimizer</code>, <code>PlanExecuteEvaluator</code>, <code>OrchestratorAgent</code>, <code>MCPClient</code>.</p>
 <p><strong>Why:</strong> preserves <a href="../design-principles/#3-composability-through-uniform-interfaces">composability through uniform interfaces</a> inside each world. Without full parity you can't drop an async <code>Agent</code> into an async <code>Chain</code>, and the substitutability principle breaks.</p>
-<p><strong>Rejected alternatives:</strong> "model client + <code>Parallel</code> only" (~800 LOC) and "model client only" (~400 LOC) both fail principle 3 — users would have to write their own structured concurrency over <code>agent.run()</code> calls, which is exactly what the library is supposed to factor out.</p>
+<p><strong>Rejected alternatives:</strong> "model client + <code>Parallel</code> only" (~800 LOC) and "model client only" (~400 LOC) both fail principle 3: users would have to write their own structured concurrency over <code>agent.run()</code> calls, which is exactly what the library is supposed to factor out.</p>
 <h2 id="decision-3-python-311-with-asynciotaskgroup">Decision 3: Python 3.11+ with <code>asyncio.TaskGroup</code><a class="headerlink" href="#decision-3-python-311-with-asynciotaskgroup" title="Permanent link">&para;</a></h2>
-<p>The Python floor is <code>&gt;=3.11</code>. <code>asyncio.TaskGroup</code>, <code>asyncio.timeout()</code>, and native <code>ExceptionGroup</code> are used inside <code>aimu.aio</code>. No <code>anyio</code> in new code. (The existing sync <code>MCPClient</code> still uses <code>anyio.start_blocking_portal()</code> — that's unchanged.)</p>
+<p>The Python floor is <code>&gt;=3.11</code>. <code>asyncio.TaskGroup</code>, <code>asyncio.timeout()</code>, and native <code>ExceptionGroup</code> are used inside <code>aimu.aio</code>. No <code>anyio</code> in new code. (The existing sync <code>MCPClient</code> still uses <code>anyio.start_blocking_portal()</code>; that's unchanged.)</p>
 <p><strong>Why:</strong> structured concurrency in plain stdlib. <code>TaskGroup</code> cancels in-flight siblings cleanly when one task fails and surfaces all errors as an <code>ExceptionGroup</code>. Python 3.10 EOL is October 2026; 3.11 has been stable since October 2022.</p>
-<p><strong>Behaviour change to note:</strong> async <code>Parallel</code> and async <code>concurrent_tool_calls=True</code> cancel sibling work on first failure. The sync <code>ThreadPoolExecutor</code> versions let all workers run to completion. The async semantics are arguably better for debugging — surface all failures at once, don't waste cycles after an unrecoverable error — but they <em>are</em> different from the sync semantics.</p>
+<p><strong>Behaviour change to note:</strong> async <code>Parallel</code> and async <code>concurrent_tool_calls=True</code> cancel sibling work on first failure. The sync <code>ThreadPoolExecutor</code> versions let all workers run to completion. The async semantics are arguably better for debugging (surface all failures at once, don't waste cycles after an unrecoverable error) but they <em>are</em> different from the sync semantics.</p>
 <p><strong>Rejected alternatives:</strong></p>
 <ul>
 <li><em>Stay on 3.10, use <code>asyncio.gather</code>.</em> Loses structured concurrency; only the first exception surfaces. Worse semantics than even the sync <code>ThreadPoolExecutor</code> version.</li>
 <li><em>Stay on 3.10, use <code>anyio.create_task_group()</code>.</em> Works on 3.10 and gets trio compatibility for free, but contributors must learn anyio idioms. With 3.11's stdlib <code>TaskGroup</code> available, anyio doesn't pull its weight in new code.</li>
 </ul>
-<h2 id="decision-4-mcp-sync-mcpclient-stays-first-class">Decision 4: MCP — sync <code>MCPClient</code> stays first-class<a class="headerlink" href="#decision-4-mcp-sync-mcpclient-stays-first-class" title="Permanent link">&para;</a></h2>
+<h2 id="decision-4-mcp-sync-mcpclient-stays-first-class">Decision 4: MCP, sync <code>MCPClient</code> stays first-class<a class="headerlink" href="#decision-4-mcp-sync-mcpclient-stays-first-class" title="Permanent link">&para;</a></h2>
 <p>Both surfaces expose an <code>MCPClient</code> class with the same construction signature (<code>config=</code> / <code>server=</code> / <code>file=</code>) and the same method names. Sync <code>aimu.tools.MCPClient</code> keeps the <code>anyio.start_blocking_portal()</code> machinery and emits <strong>no deprecation warning</strong>. Async <code>aimu.aio.MCPClient</code> is a thin parallel (~30 LOC) using FastMCP's <code>Client</code> directly. A single <code>aimu.tools.mcp_format.mcp_tools_to_openai</code> helper is shared.</p>
-<p><strong>Why:</strong> the sync wrapper exists precisely so sync users can use MCP tools <em>without</em> learning asyncio. That's <a href="../design-principles/#4-progressive-disclosure">progressive disclosure</a> working correctly — deprecating it would make the simple case harder. Symmetric class shape on both surfaces respects <a href="../design-principles/#3-composability-through-uniform-interfaces">uniform interfaces</a>.</p>
+<p><strong>Why:</strong> the sync wrapper exists precisely so sync users can use MCP tools <em>without</em> learning asyncio. That's <a href="../design-principles/#4-progressive-disclosure">progressive disclosure</a> working correctly: deprecating it would make the simple case harder. Symmetric class shape on both surfaces respects <a href="../design-principles/#3-composability-through-uniform-interfaces">uniform interfaces</a>.</p>
 <p><strong>Rejected alternatives:</strong></p>
 <ul>
 <li><em>Deprecate the sync wrapper.</em> The whole point is letting sync callers use MCP without <code>await</code>.</li>
-<li><em>No async wrapper at all — expose <code>fastmcp.Client</code> directly.</em> Asymmetric surface (sync users learn AIMU's <code>MCPClient</code>; async users learn FastMCP's).</li>
+<li><em>No async wrapper at all; expose <code>fastmcp.Client</code> directly.</em> Asymmetric surface (sync users learn AIMU's <code>MCPClient</code>; async users learn FastMCP's).</li>
 </ul>
-<h2 id="decision-5-streaming-type-asymmetry-accept-it">Decision 5: Streaming type asymmetry — accept it<a class="headerlink" href="#decision-5-streaming-type-asymmetry-accept-it" title="Permanent link">&para;</a></h2>
+<h2 id="decision-5-streaming-type-asymmetry-accept-it">Decision 5: Streaming type asymmetry, accept it<a class="headerlink" href="#decision-5-streaming-type-asymmetry-accept-it" title="Permanent link">&para;</a></h2>
 <p><code>aimu.chat(stream=True)</code> returns <code>Iterator[StreamChunk]</code>. <code>aio.chat(stream=True)</code> returns <code>AsyncIterator[StreamChunk]</code>. They are not unified.</p>
 <p><strong>Why:</strong> unifying them would need either <code>nest_asyncio</code> magic (violates <a href="../design-principles/#1-plain-python">plain Python</a>) or context-detection magic (violates <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>). The namespace boundary makes which one you get unambiguous: if you imported from <code>aimu.aio</code>, you <code>async for</code>; otherwise you <code>for</code>.</p>
 <h2 id="decision-6-async-tool-detection-at-decoration-time">Decision 6: Async tool detection at decoration time<a class="headerlink" href="#decision-6-async-tool-detection-at-decoration-time" title="Permanent link">&para;</a></h2>
-<p><code>@tool</code> records <code>func.__tool_is_async__ = inspect.iscoroutinefunction(func)</code> when the function is decorated. Sync <code>_handle_tool_calls()</code> raises <code>ValueError</code> if it encounters an async tool, with a message pointing the user at <code>aimu.aio</code>. Async <code>_handle_tool_calls()</code> accepts both — it <code>await</code>s async tools and routes sync ones through <code>asyncio.to_thread</code> to keep the event loop free.</p>
+<p><code>@tool</code> records <code>func.__tool_is_async__ = inspect.iscoroutinefunction(func)</code> when the function is decorated. Sync <code>_handle_tool_calls()</code> raises <code>ValueError</code> if it encounters an async tool, with a message pointing the user at <code>aimu.aio</code>. Async <code>_handle_tool_calls()</code> accepts both: it <code>await</code>s async tools and routes sync ones through <code>asyncio.to_thread</code> to keep the event loop free.</p>
 <p><strong>Why:</strong> same <code>@tool</code> function is usable on either surface as long as the surface and the tool's color match. Failures are visible at the dispatch site, not silent paradigm-crossing. Aligns with <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>.</p>
-<p><strong>Rejected alternative:</strong> sync dispatch auto-running async tools via <code>asyncio.run</code>. Silent paradigm crossing makes errors harder to localize — if a user mixes sync and async tools, that's a structural choice the library should not paper over.</p>
+<p><strong>Rejected alternative:</strong> sync dispatch auto-running async tools via <code>asyncio.run</code>. Silent paradigm crossing makes errors harder to localize. If a user mixes sync and async tools, that's a structural choice the library should not paper over.</p>
 <h2 id="decision-7-in-process-providers-wrap-an-existing-sync-client">Decision 7: In-process providers wrap an existing sync client<a class="headerlink" href="#decision-7-in-process-providers-wrap-an-existing-sync-client" title="Permanent link">&para;</a></h2>
 <p><code>AsyncHuggingFaceClient</code> and <code>AsyncLlamaCppClient</code> do not load model weights independently. They take an existing sync client in their constructor and route through <code>asyncio.to_thread</code>. Calling <code>aio.client(HuggingFaceModel.X)</code> directly raises a <code>ValueError</code> pointing the user at the correct pattern:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">sync_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">HuggingFaceModel</span><span class="o">.</span><span class="n">LLAMA_70B</span><span class="p">)</span>   <span class="c1"># loads weights once</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">sync_client</span><span class="p">)</span>                   <span class="c1"># wraps; shares weights</span>
 </span></code></pre></div>
 <p>State (<code>messages</code>, <code>system_message</code>, <code>tools</code>) is shared with the wrapped sync client. There is conceptually one client; the async wrapper just adds an awaitable interface.</p>
-<p><strong>Why:</strong> HF transformer models routinely weigh 10–100 GB. LlamaCpp GGUF files are similar. Twin construction would double the memory footprint and likely OOM the host. Even if memory were free, the GIL and the underlying CUDA stream serialize execution — there's no coroutine concurrency to gain from two "client" instances. Making the resource share explicit follows <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>: if you construct two clients, the second one tells you why that won't work.</p>
-<p><strong>Caveat to know:</strong> for in-process providers, "async" only buys event-loop integration (your async handler doesn't block on inference) — <em>not</em> coroutine-level concurrency. If you need batch throughput from one HF model, use <code>model.generate(input_ids=batched)</code> directly, not concurrent <code>await</code> calls.</p>
+<p><strong>Why:</strong> HF transformer models routinely weigh 10–100 GB. LlamaCpp GGUF files are similar. Twin construction would double the memory footprint and likely OOM the host. Even if memory were free, the GIL and the underlying CUDA stream serialize execution, so there's no coroutine concurrency to gain from two "client" instances. Making the resource share explicit follows <a href="../design-principles/#6-failures-are-apparent">failures are apparent</a>: if you construct two clients, the second one tells you why that won't work.</p>
+<p><strong>Caveat to know:</strong> for in-process providers, "async" only buys event-loop integration (your async handler doesn't block on inference), <em>not</em> coroutine-level concurrency. If you need batch throughput from one HF model, use <code>model.generate(input_ids=batched)</code> directly, not concurrent <code>await</code> calls.</p>
 <p><strong>Rejected alternatives:</strong></p>
 <ul>
 <li><em>Module-level weight cache keyed by <code>(model_id, kwargs)</code>.</em> Dedups transparently but hides global state; lifecycle becomes unclear (when does a cached tensor get freed?). Explicit wrapping makes the resource share obvious.</li>
@@ -2975,18 +2975,18 @@
 <li><em>Skip async support for in-process providers.</em> Forces an asymmetric mental model. Wrapping is cheap (~20 LOC per provider) and keeps the surface uniform.</li>
 </ul>
 <h2 id="what-follows-from-these-decisions">What follows from these decisions<a class="headerlink" href="#what-follows-from-these-decisions" title="Permanent link">&para;</a></h2>
-<p>The async surface is a strict mirror of the sync one — same names, same shapes, same <code>Runner</code> decision tree, same <code>StreamChunk</code> type. The two surfaces differ in three concrete places:</p>
+<p>The async surface is a strict mirror of the sync one: same names, same shapes, same <code>Runner</code> decision tree, same <code>StreamChunk</code> type. The two surfaces differ in three concrete places:</p>
 <ul>
 <li><strong>Construction site.</strong> <code>from aimu import aio</code> (or <code>aio.client(...)</code>) instead of top-level imports.</li>
 <li><strong>Call site.</strong> <code>await ...</code> and <code>async for ...</code>.</li>
-<li><strong>Concurrency primitive.</strong> <code>asyncio.TaskGroup</code> instead of <code>ThreadPoolExecutor</code> for <code>Parallel</code> and <code>concurrent_tool_calls=True</code>. This is the <em>only</em> place async delivers behaviourally different semantics — and it's strictly better for debugging.</li>
+<li><strong>Concurrency primitive.</strong> <code>asyncio.TaskGroup</code> instead of <code>ThreadPoolExecutor</code> for <code>Parallel</code> and <code>concurrent_tool_calls=True</code>. This is the <em>only</em> place async delivers behaviourally different semantics, and it's strictly better for debugging.</li>
 </ul>
 <p>For in-process providers (HuggingFace, LlamaCpp), one further difference: you must build a sync client first and wrap it.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../architecture/">Architecture</a> — the shared shape that both surfaces follow.</li>
-<li><a href="../design-principles/">Design principles</a> — the six principles each decision above was weighed against.</li>
-<li><a href="../streamchunk-model/">StreamChunk model</a> — the chunk type yielded by both <code>Iterator[StreamChunk]</code> (sync) and <code>AsyncIterator[StreamChunk]</code> (async).</li>
+<li><a href="../architecture/">Architecture</a>: the shared shape that both surfaces follow.</li>
+<li><a href="../design-principles/">Design principles</a>: the six principles each decision above was weighed against.</li>
+<li><a href="../streamchunk-model/">StreamChunk model</a>: the chunk type yielded by both <code>Iterator[StreamChunk]</code> (sync) and <code>AsyncIterator[StreamChunk]</code> (async).</li>
 </ul>
 
 

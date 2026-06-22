@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2676,18 +2676,18 @@
 
 <h1 id="tutorials">Tutorials<a class="headerlink" href="#tutorials" title="Permanent link">&para;</a></h1>
 <p>Hand-held end-to-end walkthroughs. Goal: get you to a working result so you trust the library and know where things live.</p>
-<p>Work through them in order — each builds on the previous. Total time end-to-end: about 50 minutes.</p>
+<p>Work through them in order; each builds on the previous. Total time end-to-end: about 50 minutes.</p>
 <ol>
-<li><strong><a href="01-getting-started/">Getting started</a></strong> <em>(~15 min)</em> — install AIMU, send your first message, build your first agent.</li>
-<li><strong><a href="02-first-agent-with-tools/">First agent with tools</a></strong> <em>(~10 min)</em> — <code>@tool</code> decorator and the agentic loop.</li>
-<li><strong><a href="03-workflows/">Workflows</a></strong> <em>(~15 min)</em> — <code>Chain.of</code>, <code>Router.of</code>, <code>Parallel.of</code> for code-controlled patterns.</li>
-<li><strong><a href="04-vision-and-streaming/">Vision and streaming</a></strong> <em>(~10 min)</em> — image input plus the <code>StreamChunk</code> API.</li>
+<li><strong><a href="01-getting-started/">Getting started</a></strong> <em>(~15 min)</em>: install AIMU, send your first message, build your first agent.</li>
+<li><strong><a href="02-first-agent-with-tools/">First agent with tools</a></strong> <em>(~10 min)</em>: <code>@tool</code> decorator and the agentic loop.</li>
+<li><strong><a href="03-workflows/">Workflows</a></strong> <em>(~15 min)</em>: <code>Chain.of</code>, <code>Router.of</code>, <code>Parallel.of</code> for code-controlled patterns.</li>
+<li><strong><a href="04-vision-and-streaming/">Vision and streaming</a></strong> <em>(~10 min)</em>: image input plus the <code>StreamChunk</code> API.</li>
 </ol>
 <p>Once you've finished, the <a href="../how-to/">how-to guides</a> cover specific tasks; the <a href="../explanation/">explanation pages</a> cover the <em>why</em> behind the design.</p>
 <h2 id="what-youll-need">What you'll need<a class="headerlink" href="#what-youll-need" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Python 3.10+</li>
-<li>One model backend. The tutorials use <strong>Ollama</strong> because it's local and free, but every snippet works with any provider — just swap the model string:</li>
+<li>One model backend. The tutorials use <strong>Ollama</strong> because it's local and free, but every snippet works with any provider; just swap the model string:</li>
 </ul>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>        <span class="c1"># local</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>  <span class="c1"># cloud</span>

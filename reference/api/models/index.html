@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -3879,10 +3879,10 @@ once for every provider.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional list of images for vision-capable models — same accepted forms as
+                <p>Optional list of images for vision-capable models, same accepted forms as
 :meth:<code>chat</code> (file path, <code>pathlib.Path</code>, <code>bytes</code>, http(s) URL, or data URL).
 Raises <code>ValueError</code> if the model does not support vision. Unlike :meth:<code>chat</code>,
-this does not touch <code>self.messages</code> — the call stays single-turn and stateless.</p>
+this does not touch <code>self.messages</code>; the call stays single-turn and stateless.</p>
               </div>
             </td>
             <td>
@@ -4300,17 +4300,17 @@ content:   shape depends on phase:
            - <code>dict {"name", "arguments", "response"}</code> for TOOL_CALLING
              (<code>arguments</code> is the dict the model passed to the tool).
            - <code>dict {"step", "total_steps", "image", "final", "result"}</code> for
-             IMAGE_GENERATING — <code>step</code> is 1-indexed, <code>image</code> is an optional
+             IMAGE_GENERATING: <code>step</code> is 1-indexed, <code>image</code> is an optional
              <code>PIL.Image</code> (None unless <code>preview_every</code> opted in this step),
              <code>final=True</code> marks the terminal chunk for one image, and <code>result</code>
              carries the encoded output (path / bytes / data-url per <code>format=</code>)
              on the final chunk.
            - <code>dict {"step", "total_steps", "final", "result", "duration_s"}</code> for
-             AUDIO_GENERATING — <code>step</code> is 1-indexed (1 of 1 for non-diffusers
+             AUDIO_GENERATING: <code>step</code> is 1-indexed (1 of 1 for non-diffusers
              models), <code>final=True</code> marks the terminal chunk per audio item, and
              <code>result</code> carries the encoded output on the final chunk.
            - <code>dict {"chunk_index", "total_chunks", "final", "result"}</code> for
-             SPEECH_GENERATING — <code>total_chunks</code> is <code>None</code> for streaming
+             SPEECH_GENERATING: <code>total_chunks</code> is <code>None</code> for streaming
              providers where the total is unknown upfront (OpenAI); <code>1</code> for
              single-pass providers (HuggingFace). <code>final=True</code> marks the
              terminal chunk; <code>result</code> carries the encoded output on the final

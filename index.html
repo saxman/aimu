@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2862,7 +2862,7 @@
 <img alt="AIMU" src="assets/aimu-horizontal-dark.svg#only-dark" width="400" /></p>
 </div>
 <h1 id="aimu">AIMU<a class="headerlink" href="#aimu" title="Permanent link">&para;</a></h1>
-<p><strong>AI Modeling Utilities</strong> — a lightweight Python library for building AI-powered applications with a consistent, provider-agnostic interface across text, images, audio, and speech.</p>
+<p><strong>AI Modeling Utilities</strong>: a lightweight Python library for building AI-powered applications with a consistent, provider-agnostic interface across text, images, audio, and speech.</p>
 <p>Language models are the primary building block, with the same interface extending to image generation, audio generation, and text-to-speech. AIMU separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a plain model client is accepted. Tool integration is structural (not a plugin), semantic and document memory can be dropped in, and a prompt-tuning loop optimises prompts against labelled data without ML machinery.</p>
 <hr />
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
@@ -2886,7 +2886,7 @@
 <ul>
 <li>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3 1 9l11 6 9-4.91V17h2V9M5 13.18v4L12 21l7-3.82v-4L12 17z"/></svg></span> <strong><a href="tutorials/">Tutorials</a></strong></p>
-<p>Hands-on walkthroughs. Start here if you're new — install to first working agent in 15 minutes.</p>
+<p>Hands-on walkthroughs. Start here if you're new: install to first working agent in 15 minutes.</p>
 </li>
 <li>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m21.71 20.29-1.42 1.42a1 1 0 0 1-1.41 0L7 9.85A3.8 3.8 0 0 1 6 10a4 4 0 0 1-3.78-5.3l2.54 2.54.53-.53 1.42-1.42.53-.53L4.7 2.22A4 4 0 0 1 10 6a3.8 3.8 0 0 1-.15 1l11.86 11.88a1 1 0 0 1 0 1.41M2.29 18.88a1 1 0 0 0 0 1.41l1.42 1.42a1 1 0 0 0 1.41 0l5.47-5.46-2.83-2.83M20 2l-4 2v2l-2.17 2.17 2 2L18 8h2l2-4Z"/></svg></span> <strong><a href="how-to/">How-to guides</a></strong></p>
@@ -2904,24 +2904,24 @@
 </div>
 <h2 id="whats-in-the-box">What's in the box<a class="headerlink" href="#whats-in-the-box" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Provider-agnostic clients</strong> — Ollama, HuggingFace, llama-cpp, Anthropic, OpenAI, Gemini, plus every OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve).</li>
-<li><strong>Text-to-image and image-to-image</strong> — <code>aimu.image_client()</code> and <code>aimu.generate_image()</code> parallel the text surface. HuggingFace <code>diffusers</code> for local generation (SD 1.5 / SDXL / SD 3.5 / FLUX 1 / FLUX 2 Klein), Google Nano Banana for cloud. Pass <code>reference_image=</code> to any <code>generate()</code> call for img2img. Drops into any chat agent via the built-in <code>generate_image</code> tool. See <a href="how-to/generate-images/">how-to: generate images</a>.</li>
-<li><strong>Text-to-audio</strong> — <code>aimu.audio_client()</code> and <code>aimu.generate_audio()</code> for music and sound generation (not TTS). HuggingFace MusicGen, AudioLDM2, and Stable Audio Open. See <a href="how-to/generate-audio/">how-to: generate audio</a>.</li>
-<li><strong>Text-to-speech</strong> — <code>aimu.speech_client()</code> and <code>aimu.generate_speech()</code> for TTS. HuggingFace MMS-TTS/BARK locally; OpenAI tts-1/tts-1-hd in the cloud. Live sentence-by-sentence narration in the Streamlit chatbot. See <a href="how-to/generate-speech/">how-to: generate speech</a>.</li>
-<li><strong>Agents and workflows</strong> — <code>Agent</code> for autonomous tool-using loops; <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>EvaluatorOptimizer</code> for code-controlled patterns from Anthropic's <em>Building Effective Agents</em>.</li>
-<li><strong>Tools</strong> — <code>@tool</code> decorator for plain Python functions, plus a synchronous <code>MCPClient</code> wrapper for cross-process tools.</li>
-<li><strong>Skills</strong> — filesystem-discovered <code>SKILL.md</code> files that auto-inject capabilities into a <code>SkillAgent</code>.</li>
-<li><strong>Memory</strong> — semantic facts (ChromaDB), path-based documents (Anthropic Memory API), and conversation history (TinyDB).</li>
-<li><strong>Prompt management</strong> — versioned SQLite catalog plus a hill-climbing tuner with classification, multi-class, extraction, and judged variants.</li>
-<li><strong>Evaluation</strong> — DeepEval integration and a multi-model benchmark harness with CSV / JSON / catalog export.</li>
-<li><strong>Optional async surface</strong> — <code>aimu.aio</code> mirrors the whole sync API (same class names, one-import-away). <code>Parallel</code> and <code>concurrent_tool_calls</code> use <code>asyncio.TaskGroup</code> for structured concurrency. See <a href="explanation/async-design/">async design</a>.</li>
+<li><strong>Provider-agnostic clients</strong>: Ollama, HuggingFace, llama-cpp, Anthropic, OpenAI, Gemini, plus every OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve).</li>
+<li><strong>Text-to-image and image-to-image</strong>: <code>aimu.image_client()</code> and <code>aimu.generate_image()</code> parallel the text surface. HuggingFace <code>diffusers</code> for local generation (SD 1.5 / SDXL / SD 3.5 / FLUX 1 / FLUX 2 Klein), Google Nano Banana for cloud. Pass <code>reference_image=</code> to any <code>generate()</code> call for img2img. Drops into any chat agent via the built-in <code>generate_image</code> tool. See <a href="how-to/generate-images/">how-to: generate images</a>.</li>
+<li><strong>Text-to-audio</strong>: <code>aimu.audio_client()</code> and <code>aimu.generate_audio()</code> for music and sound generation (not TTS). HuggingFace MusicGen, AudioLDM2, and Stable Audio Open. See <a href="how-to/generate-audio/">how-to: generate audio</a>.</li>
+<li><strong>Text-to-speech</strong>: <code>aimu.speech_client()</code> and <code>aimu.generate_speech()</code> for TTS. HuggingFace MMS-TTS/BARK locally; OpenAI tts-1/tts-1-hd in the cloud. Live sentence-by-sentence narration in the Streamlit chatbot. See <a href="how-to/generate-speech/">how-to: generate speech</a>.</li>
+<li><strong>Agents and workflows</strong>: <code>Agent</code> for autonomous tool-using loops; <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>EvaluatorOptimizer</code> for code-controlled patterns from Anthropic's <em>Building Effective Agents</em>.</li>
+<li><strong>Tools</strong>: <code>@tool</code> decorator for plain Python functions, plus a synchronous <code>MCPClient</code> wrapper for cross-process tools.</li>
+<li><strong>Skills</strong>: filesystem-discovered <code>SKILL.md</code> files that auto-inject capabilities into a <code>SkillAgent</code>.</li>
+<li><strong>Memory</strong>: semantic facts (ChromaDB), path-based documents (Anthropic Memory API), and conversation history (TinyDB).</li>
+<li><strong>Prompt management</strong>: versioned SQLite catalog plus a hill-climbing tuner with classification, multi-class, extraction, and judged variants.</li>
+<li><strong>Evaluation</strong>: DeepEval integration and a multi-model benchmark harness with CSV / JSON / catalog export.</li>
+<li><strong>Optional async surface</strong>: <code>aimu.aio</code> mirrors the whole sync API (same class names, one-import-away). <code>Parallel</code> and <code>concurrent_tool_calls</code> use <code>asyncio.TaskGroup</code> for structured concurrency. See <a href="explanation/async-design/">async design</a>.</li>
 </ul>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
-<p>The <a href="https://github.com/saxman/aimu/tree/main/examples"><code>examples/</code></a> directory ships larger, real-world programs organized by theme — <code>text-refinement/</code> and <code>image-refinement/</code> (the same generate → judge → refine loop in two modalities, each implemented as a code loop, an <code>Agent</code>, an <code>EvaluatorOptimizer</code> workflow, and simulated annealing), <code>news-summarizer/</code> (one task solved with <code>Agent</code>, <code>Chain</code>, <code>Parallel</code>, and <code>OrchestratorAgent</code>), and <code>skills/</code> (demo skills for <code>SkillAgent</code> discovery). See the <a href="examples/">examples overview</a>.</p>
+<p>The <a href="https://github.com/saxman/aimu/tree/main/examples"><code>examples/</code></a> directory ships larger, real-world programs organized by theme: <code>text-refinement/</code> and <code>image-refinement/</code> (the same generate → judge → refine loop in two modalities, each implemented as a code loop, an <code>Agent</code>, an <code>EvaluatorOptimizer</code> workflow, and simulated annealing), <code>news-summarizer/</code> (one task solved with <code>Agent</code>, <code>Chain</code>, <code>Parallel</code>, and <code>OrchestratorAgent</code>), and <code>skills/</code> (demo skills for <code>SkillAgent</code> discovery). See the <a href="examples/">examples overview</a>.</p>
 <h2 id="notebooks">Notebooks<a class="headerlink" href="#notebooks" title="Permanent link">&para;</a></h2>
-<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 22 runnable demos ordered to build up incrementally — from <code>01 - Model Client</code>, <code>03 - Structured Output</code>, and <code>06 - Tools</code> through <code>07 - Agents</code>, <code>11 - Embeddings</code>, <code>13 - RAG</code>, and the generative-modality and <code>22 - Async</code> notebooks. The numbered filenames are self-describing; browse the directory to run them.</p>
+<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 22 runnable demos ordered to build up incrementally, from <code>01 - Model Client</code>, <code>03 - Structured Output</code>, and <code>06 - Tools</code> through <code>07 - Agents</code>, <code>11 - Embeddings</code>, <code>13 - RAG</code>, and the generative-modality and <code>22 - Async</code> notebooks. The numbered filenames are self-describing; browse the directory to run them.</p>
 <h2 id="web-apps">Web apps<a class="headerlink" href="#web-apps" title="Permanent link">&para;</a></h2>
-<p>The <a href="https://github.com/saxman/aimu/tree/main/web"><code>web/</code></a> directory ships two Streamlit chat applications. <code>streamlit_chatbot_basic.py</code> (~70 lines) is a minimal showcase — provider/model selector, streaming chat, built-in tools — illustrating how little code a working AIMU chatbot takes. <code>streamlit_chatbot.py</code> is a full-featured version that adds image generation, audio generation, speech narration (live sentence-by-sentence TTS as the model streams), agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included.</p>
+<p>The <a href="https://github.com/saxman/aimu/tree/main/web"><code>web/</code></a> directory ships two Streamlit chat applications. <code>streamlit_chatbot_basic.py</code> (~70 lines) is a minimal showcase (provider/model selector, streaming chat, built-in tools) illustrating how little code a working AIMU chatbot takes. <code>streamlit_chatbot.py</code> is a full-featured version that adds image generation, audio generation, speech narration (live sentence-by-sentence TTS as the model streams), agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included.</p>
 
 
 

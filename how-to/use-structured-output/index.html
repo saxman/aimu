@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2904,10 +2904,10 @@ a string. <code>schema</code> may be a <strong>dataclass</strong> (dependency-fr
 <h2 id="how-it-works-native-with-a-parse-fallback">How it works: native, with a parse fallback<a class="headerlink" href="#how-it-works-native-with-a-parse-fallback" title="Permanent link">&para;</a></h2>
 <p>AIMU uses the best method the model supports, automatically:</p>
 <ul>
-<li><strong>Native enforcement</strong> when the model has <code>supports_structured_output=True</code> — the provider
+<li><strong>Native enforcement</strong> when the model has <code>supports_structured_output=True</code>: the provider
   constrains generation to the schema (OpenAI <code>response_format</code>, Ollama <code>format=</code>, Anthropic
   forced-tool). Check it with <code>client.supports_structured_output</code>.</li>
-<li><strong>Prompt-and-parse</strong> otherwise — the schema is appended to the prompt and the response is
+<li><strong>Prompt-and-parse</strong> otherwise: the schema is appended to the prompt and the response is
   parsed.</li>
 </ul>
 <p>Either way you get a validated instance or a <code>ValueError</code> (parsing failed). The choice is
@@ -2935,7 +2935,7 @@ provider failure surfaces rather than silently downgrading.</p>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">invoice</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Acme, $1,250.00, unpaid&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">Invoice</span><span class="p">)</span>  <span class="c1"># -&gt; Invoice</span>
 </span></code></pre></div>
-<p>Pydantic is optional — dataclasses work without it.</p>
+<p>Pydantic is optional; dataclasses work without it.</p>
 <h2 id="with-tools">With tools<a class="headerlink" href="#with-tools" title="Permanent link">&para;</a></h2>
 <p><code>schema=</code> composes with tool calling on OpenAI-compatible and parse-path providers: tools
 run in the loop, and the final answer obeys the schema.</p>
@@ -2945,7 +2945,7 @@ conflicts with offering action tools, so combining <code>schema=</code> with act
 composes with tools.</p>
 <h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><code>schema=</code> and <code>stream=True</code> are mutually exclusive</strong> — a typed object can't be streamed
+<li><strong><code>schema=</code> and <code>stream=True</code> are mutually exclusive</strong>: a typed object can't be streamed
   incrementally; passing both raises <code>ValueError</code>.</li>
 <li><strong><code>self.messages</code> stays plain.</strong> The typed object is a return value only; the assistant turn
   is stored as the plain JSON string, so conversation history remains provider-portable.</li>
@@ -2965,8 +2965,8 @@ llama-cpp use the prompt-and-parse path. See <a href="../../reference/api/aimu/"
 <code>parse_json_response</code> / <code>generate_json</code>, which back the coercion.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../stream-output/">Stream output</a> — note that streaming and <code>schema=</code> don't combine</li>
-<li><a href="../switch-providers/">Switch providers</a> — <code>supports_structured_output</code> varies by provider</li>
+<li><a href="../stream-output/">Stream output</a>: note that streaming and <code>schema=</code> don't combine</li>
+<li><a href="../switch-providers/">Switch providers</a>: <code>supports_structured_output</code> varies by provider</li>
 </ul>
 
 

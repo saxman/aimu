@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2931,7 +2931,7 @@
 
 
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
-<p>The whole library fits in your head. There are three load-bearing abstractions for text plus a parallel image-generation surface — nothing more.</p>
+<p>The whole library fits in your head. There are three load-bearing abstractions for text plus a parallel image-generation surface, nothing more.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌──────────────────────────────────────────────────────────────┐
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  Top-level: aimu.chat() / aimu.client() / resolve_model_string│
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│             aimu.image_client() / aimu.generate_image()      │
@@ -2948,7 +2948,7 @@
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   └─ GeminiImageClient       (Nano Banana, cloud)            │
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│  Each implements BaseImageClient (generate / _generate)      │
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├──────────────────────────────────────────────────────────────┤
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│  Runner (ABC)  — single interface for everything runnable    │
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│  Runner (ABC): single interface for everything runnable      │
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├─ Agent / SkillAgent / OrchestratorAgent                  │
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   │     (autonomous: LLM directs flow)                       │
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   └─ Chain / Router / Parallel /                             │
@@ -2971,14 +2971,14 @@
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">generate</span><span class="p">(</span><span class="n">prompt</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">StreamChunk</span><span class="p">]</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="n">system_message</span><span class="o">=</span><span class="s2">&quot;__keep__&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
-<p><code>chat()</code> and <code>generate()</code> are <strong>concrete</strong> on the base — they apply the <code>include=</code> stream filter and delegate to abstract <code>_chat()</code> / <code>_generate()</code> which each provider implements. This split means a new feature like <code>include=</code> lands in one place and works everywhere.</p>
-<p>Message history is a plain <code>list[dict]</code> in OpenAI format. There is no <code>Message</code> class — providers like Anthropic that need a different wire format adapt at request time, never mutating <code>self.messages</code>.</p>
+<p><code>chat()</code> and <code>generate()</code> are <strong>concrete</strong> on the base: they apply the <code>include=</code> stream filter and delegate to abstract <code>_chat()</code> / <code>_generate()</code> which each provider implements. This split means a new feature like <code>include=</code> lands in one place and works everywhere.</p>
+<p>Message history is a plain <code>list[dict]</code> in OpenAI format. There is no <code>Message</code> class. Providers like Anthropic that need a different wire format adapt at request time, never mutating <code>self.messages</code>.</p>
 <h2 id="the-factory-modelclient">The factory: <code>ModelClient</code><a class="headerlink" href="#the-factory-modelclient" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">ModelClient</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>            <span class="c1"># provider determined by enum type</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">ModelClient</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>   <span class="c1"># or by string prefix</span>
 </span></code></pre></div>
 <p><code>ModelClient</code> is the single public entry point. It dispatches by checking the <code>Model</code> enum type against a registry, instantiates the matching concrete client, and delegates every method to it.</p>
-<p>Provider client classes (<code>OllamaClient</code>, <code>AnthropicClient</code>, ...) still exist and can be imported, but <code>ModelClient</code> is the recommended path — it keeps your code provider-agnostic.</p>
+<p>Provider client classes (<code>OllamaClient</code>, <code>AnthropicClient</code>, ...) still exist and can be imported, but <code>ModelClient</code> is the recommended path: it keeps your code provider-agnostic.</p>
 <h2 id="model-definitions-modelspec-model-enum">Model definitions: <code>ModelSpec</code> + <code>Model</code> enum<a class="headerlink" href="#model-definitions-modelspec-model-enum" title="Permanent link">&para;</a></h2>
 <p>Each provider has a <code>Model</code> subclass listing the models it supports:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">AnthropicModel</span><span class="p">(</span><span class="n">Model</span><span class="p">):</span>
@@ -2989,9 +2989,9 @@
 <p><code>ModelSpec</code> is a frozen dataclass with the model id and capability flags (<code>tools</code>, <code>thinking</code>, <code>vision</code>, optional <code>generation_kwargs</code>). Equality and hash use <code>id</code> only, so a spec can hold a generation-kwargs dict and still serve as an enum value.</p>
 <p>Each enum member exposes:</p>
 <ul>
-<li><code>.value</code> — the provider id string (preserved for <code>provider.sdk(model="...")</code> calls)</li>
-<li><code>.spec</code> — the underlying <code>ModelSpec</code></li>
-<li><code>.supports_tools</code> / <code>.supports_thinking</code> / <code>.supports_vision</code> — mirrored flags</li>
+<li><code>.value</code>: the provider id string (preserved for <code>provider.sdk(model="...")</code> calls)</li>
+<li><code>.spec</code>: the underlying <code>ModelSpec</code></li>
+<li><code>.supports_tools</code> / <code>.supports_thinking</code> / <code>.supports_vision</code>: mirrored flags</li>
 <li>Classproperties <code>TOOL_MODELS</code> / <code>THINKING_MODELS</code> / <code>VISION_MODELS</code> derive automatically</li>
 </ul>
 <h2 id="agents-and-workflows-runner">Agents and workflows: <code>Runner</code><a class="headerlink" href="#agents-and-workflows-runner" title="Permanent link">&para;</a></h2>
@@ -3006,8 +3006,8 @@
 </span></code></pre></div>
 <p>There's a single <code>Runner</code> ABC. The autonomous-vs-code-controlled split survives as a <em>categorisation of concrete classes</em>, not a type hierarchy:</p>
 <ul>
-<li><strong>Autonomous</strong> — the LLM directs flow. <code>Agent</code> keeps looping until the model stops calling tools; <code>SkillAgent</code> and <code>OrchestratorAgent</code> extend that.</li>
-<li><strong>Code-controlled</strong> — code directs flow. <code>Chain</code> runs steps in a fixed order; <code>Router</code> classifies and dispatches; <code>Parallel</code> fans out; <code>EvaluatorOptimizer</code> iterates generate→critique; <code>PlanExecuteEvaluator</code> plans→executes→scores→replans.</li>
+<li><strong>Autonomous</strong>: the LLM directs flow. <code>Agent</code> keeps looping until the model stops calling tools; <code>SkillAgent</code> and <code>OrchestratorAgent</code> extend that.</li>
+<li><strong>Code-controlled</strong>: code directs flow. <code>Chain</code> runs steps in a fixed order; <code>Router</code> classifies and dispatches; <code>Parallel</code> fans out; <code>EvaluatorOptimizer</code> iterates generate→critique; <code>PlanExecuteEvaluator</code> plans→executes→scores→replans.</li>
 </ul>
 <p>All concrete classes live in <code>aimu.agents</code>. This is the <em>Building Effective Agents</em> taxonomy made concrete. See <a href="../agents-vs-workflows/">Agents vs workflows</a> for the underlying argument.</p>
 <h2 id="image-generation-a-parallel-surface-not-a-forced-fit">Image generation: a parallel surface, not a forced fit<a class="headerlink" href="#image-generation-a-parallel-surface-not-a-forced-fit" title="Permanent link">&para;</a></h2>
@@ -3042,21 +3042,21 @@
 </tr>
 </tbody>
 </table>
-<p><code>BaseImageClient</code> does <em>not</em> subclass <code>BaseModelClient</code> — text and image have disjoint contracts. <code>chat()</code>, <code>messages</code>, <code>system_message</code>, <code>tools</code>, and <code>StreamChunk</code> phases are meaningless for stateless text-to-image. Forcing the modalities into one class would expand the public surface and bleed irrelevant fields into image users' code.</p>
+<p><code>BaseImageClient</code> does <em>not</em> subclass <code>BaseModelClient</code>; text and image have disjoint contracts. <code>chat()</code>, <code>messages</code>, <code>system_message</code>, <code>tools</code>, and <code>StreamChunk</code> phases are meaningless for stateless text-to-image. Forcing the modalities into one class would expand the public surface and bleed irrelevant fields into image users' code.</p>
 <p>What the two surfaces share is <em>shape</em>, not implementation: the same factory-plus-concretes pattern, the same <code>provider:id</code> string format, the same per-provider extras (<code>[hf]</code> covers both HF text and HF image; <code>[google]</code> is image-only since text-side Gemini uses the OpenAI-compat endpoint), and the same dispatch story (enum / spec / string → concrete client via the factory).</p>
 <p>Tool integration is what unites them in practice: the built-in <code>generate_image</code> tool wraps an <code>ImageClient</code> and lets any text chat agent call image generation when the user asks. The agent loop doesn't know or care that the tool ultimately hits a cloud API or local GPU.</p>
 <p>See <a href="../../how-to/generate-images/">How-to: generate images</a> for the runnable patterns.</p>
 <h2 id="two-surfaces-one-shape">Two surfaces, one shape<a class="headerlink" href="#two-surfaces-one-shape" title="Permanent link">&para;</a></h2>
-<p>Everything above describes the <strong>sync</strong> surface — <code>aimu.client()</code>, <code>aimu.agents.Agent</code>, etc. AIMU also ships an opt-in <strong>async</strong> surface under <code>aimu.aio</code> that mirrors this shape one-for-one. Same class names, same <code>Runner</code> decision tree, same <code>StreamChunk</code> type, same <code>_ChatStateMixin</code> for state mechanics. The only differences are at the call site (<code>await</code>), the streaming type (<code>AsyncIterator[StreamChunk]</code>), and the concurrency primitive used by <code>Parallel</code> and <code>concurrent_tool_calls</code> (<code>asyncio.TaskGroup</code> instead of <code>ThreadPoolExecutor</code>).</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aimu.{chat, client, Agent, Chain, …}        # sync — default
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>aimu.aio.{chat, client, Agent, Chain, …}    # async — opt-in
+<p>Everything above describes the <strong>sync</strong> surface: <code>aimu.client()</code>, <code>aimu.agents.Agent</code>, etc. AIMU also ships an opt-in <strong>async</strong> surface under <code>aimu.aio</code> that mirrors this shape one-for-one. Same class names, same <code>Runner</code> decision tree, same <code>StreamChunk</code> type, same <code>_ChatStateMixin</code> for state mechanics. The only differences are at the call site (<code>await</code>), the streaming type (<code>AsyncIterator[StreamChunk]</code>), and the concurrency primitive used by <code>Parallel</code> and <code>concurrent_tool_calls</code> (<code>asyncio.TaskGroup</code> instead of <code>ThreadPoolExecutor</code>).</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aimu.{chat, client, Agent, Chain, …}        # sync (default)
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>aimu.aio.{chat, client, Agent, Chain, …}    # async (opt-in)
 </span></code></pre></div>
 <p>The sync ladder is unchanged for users who don't need async. See <a href="../async-design/">async design</a> for the design decisions.</p>
 <h2 id="streaming-one-chunk-type-everywhere">Streaming: one chunk type everywhere<a class="headerlink" href="#streaming-one-chunk-type-everywhere" title="Permanent link">&para;</a></h2>
-<p><code>StreamChunk(phase, content, agent=None, iteration=0)</code> is the single chunk type yielded by every streaming path — <code>client.chat()</code>, <code>Agent.run()</code>, every workflow <code>run()</code>. Earlier versions had separate <code>AgentChunk</code> and <code>ChainChunk</code> named tuples; both were collapsed into <code>StreamChunk</code>.</p>
+<p><code>StreamChunk(phase, content, agent=None, iteration=0)</code> is the single chunk type yielded by every streaming path: <code>client.chat()</code>, <code>Agent.run()</code>, every workflow <code>run()</code>. Earlier versions had separate <code>AgentChunk</code> and <code>ChainChunk</code> named tuples; both were collapsed into <code>StreamChunk</code>.</p>
 <p>The <code>agent</code> and <code>iteration</code> fields are populated by agents/workflows and default to <code>None</code> / <code>0</code> for plain chats. See <a href="../streamchunk-model/">StreamChunk model</a> for the design argument.</p>
 <h2 id="tool-integration-tool-and-mcpclient">Tool integration: <code>@tool</code> and <code>MCPClient</code><a class="headerlink" href="#tool-integration-tool-and-mcpclient" title="Permanent link">&para;</a></h2>
-<p>Two routes, both end up as callables in one registry — <code>client.tools</code> — from which the base client builds the OpenAI-format spec list it sends to the model:</p>
+<p>Two routes, both end up as callables in one registry (<code>client.tools</code>) from which the base client builds the OpenAI-format spec list it sends to the model:</p>
 <ul>
 <li><strong><code>@tool</code> decorator</strong> runs in-process. The decorator inspects the signature at decoration time and attaches a spec to <code>func.__tool_spec__</code>. The model client looks up tools by <code>__name__</code> and dispatches via direct function call.</li>
 <li><strong><code>MCPClient.as_tools()</code></strong> wraps a FastMCP server's tools as callables (each closes over the client and calls <code>call_tool(name, args)</code> cross-process), carrying <code>__tool_spec__</code> just like a <code>@tool</code> function. Add them to <code>client.tools</code>.</li>
@@ -3077,7 +3077,7 @@
 </tr>
 <tr>
 <td><code>aimu.aio</code></td>
-<td>Async mirror of the public sync surface — same class names, <code>async def</code> everywhere</td>
+<td>Async mirror of the public sync surface: same class names, <code>async def</code> everywhere</td>
 </tr>
 <tr>
 <td><code>aimu.models</code></td>
@@ -3116,8 +3116,8 @@
 <p>Each package has its own optional dependency. <code>aimu[all]</code> installs everything; piecewise install is supported and missing modules degrade gracefully via <code>HAS_*</code> flags.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../design-principles/">Design principles</a> — what AIMU deliberately doesn't do.</li>
-<li><a href="../agents-vs-workflows/">Agents vs workflows</a> — the taxonomy in detail.</li>
+<li><a href="../design-principles/">Design principles</a>: what AIMU deliberately doesn't do.</li>
+<li><a href="../agents-vs-workflows/">Agents vs workflows</a>: the taxonomy in detail.</li>
 </ul>
 
 

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -3036,7 +3036,7 @@ print(agent.run(&quot;How many r&#39;s in strawberry?&quot;))
     <div class="doc doc-contents ">
 
         <p>Return locally <em>available</em> text models as provider <code>Model</code> enum members.</p>
-<p>Discovery is download-free and cloud-free — it reports only what is loadable right
+<p>Discovery is download-free and cloud-free; it reports only what is loadable right
 now: models on a running Ollama server, models in the local HuggingFace cache, and
 models served by a reachable local OpenAI-compatible server. Order is provider
 priority (Ollama → HuggingFace cache → local servers), then enum-definition order
@@ -3064,7 +3064,7 @@ wrap an <code>hf:</code> in-process client directly).</p>
 
     <div class="doc doc-contents ">
 
-        <p>One-shot chat — builds a fresh client, sends one message, returns the response.</p>
+        <p>One-shot chat: builds a fresh client, sends one message, returns the response.</p>
 <p>For multi-turn conversations construct a :class:<code>ModelClient</code> with :func:<code>client</code> and
 call its <code>chat()</code> repeatedly.</p>
 <p><code>model</code> may be omitted to use the default resolved by :func:<code>client</code> (the
@@ -3158,7 +3158,7 @@ locally available model (tool-capable preferred; see :func:<code>available_text_
   up across every installed image-provider enum.</li>
 </ul>
 <p>A bare name present in more than one provider's enum is <strong>ambiguous</strong> and raises
-<code>ValueError</code> — pass an explicit <code>"provider:model_id"</code> string to disambiguate.
+<code>ValueError</code>: pass an explicit <code>"provider:model_id"</code> string to disambiguate.
 Parallel to :func:<code>aimu.resolve_model_enum</code> for the text modality.</p>
 
 
@@ -3187,13 +3187,13 @@ Parallel to :func:<code>aimu.resolve_model_enum</code> for the text modality.</p
 <li>a bare enum-member <em>name</em> (e.g. <code>"QWEN_3_8B"</code>), looked up across every installed
   provider's <code>Model</code> enum.</li>
 </ul>
-<p>A bare name that ships under more than one provider's enum (common for text — the same
+<p>A bare name that ships under more than one provider's enum (common for text, where the same
 id is offered by many providers) is <strong>ambiguous</strong>. Rather than blindly picking the
 highest-priority provider, ambiguity is resolved the way the omitted-<code>model</code> default is:
 prefer a provider where the model is <em>actually available locally</em> (running Ollama →
 cached HuggingFace → reachable local OpenAI-compat server, tool-capable first), logged at
 WARNING. If the ambiguous name is not available under any provider, a <code>ValueError</code> is
-raised listing the <code>"provider:model_id"</code> options — picking a provider for a model that
+raised listing the <code>"provider:model_id"</code> options; picking a provider for a model that
 isn't even loadable would be a blind guess. This availability tiebreaker only runs on the
 ambiguous path; enum / <code>"provider:model_id"</code> / unambiguous-name inputs do no I/O.</p>
 <p>Parallel to :func:<code>aimu.resolve_image_model_enum</code> for the image modality (which has no

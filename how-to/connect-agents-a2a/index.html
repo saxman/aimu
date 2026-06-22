@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2843,7 +2843,7 @@
 
 
 <h1 id="connect-agents-a2a">Connect agents (A2A)<a class="headerlink" href="#connect-agents-a2a" title="Permanent link">&para;</a></h1>
-<p>To call an agent that lives in another process — or to publish one of your agents for others to call — use AIMU's <a href="https://a2a-protocol.org/">Agent2Agent</a> interop. It is the agent-level analog of <a href="../use-mcp-tools/">MCP tools</a>: MCP shares <em>tools</em> across a process boundary, A2A shares whole <em>agents</em>.</p>
+<p>To call an agent that lives in another process, or to publish one of your agents for others to call, use AIMU's <a href="https://a2a-protocol.org/">Agent2Agent</a> interop. It is the agent-level analog of <a href="../use-mcp-tools/">MCP tools</a>: MCP shares <em>tools</em> across a process boundary, A2A shares whole <em>agents</em>.</p>
 <p>Requires the optional extra:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;aimu[a2a]&#39;</span>
 </span></code></pre></div>
@@ -2857,7 +2857,7 @@
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">remote</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Summarise the news&quot;</span><span class="p">))</span>  <span class="c1"># round-trips to the remote agent</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">remote</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>                            <span class="c1"># tear down the connection (or let it be GC&#39;d)</span>
 </span></code></pre></div>
-<p>Because <code>RemoteAgent</code> <em>is a</em> <code>Runner</code>, the remote agent composes exactly like a local one — no A2A-specific wiring:</p>
+<p>Because <code>RemoteAgent</code> <em>is a</em> <code>Runner</code>, the remote agent composes exactly like a local one, with no A2A-specific wiring:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Chain</span><span class="p">,</span> <span class="n">OrchestratorAgent</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
@@ -2918,10 +2918,10 @@
 </ul>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../use-mcp-tools/">Use MCP tools</a> — the tool-level counterpart</li>
-<li><a href="../build-orchestrator/">Build an orchestrator</a> — <code>assemble(workers=...)</code> accepts any <code>Runner</code>, local or remote</li>
-<li><a href="../../explanation/a2a-vs-mcp/">Explanation: A2A vs MCP</a> — agents over the wire vs tools over the wire</li>
-<li><a href="../../reference/api/agents/#aimu.agents.RemoteAgent"><code>aimu.agents.RemoteAgent</code></a> — API reference</li>
+<li><a href="../use-mcp-tools/">Use MCP tools</a>: the tool-level counterpart</li>
+<li><a href="../build-orchestrator/">Build an orchestrator</a>: <code>assemble(workers=...)</code> accepts any <code>Runner</code>, local or remote</li>
+<li><a href="../../explanation/a2a-vs-mcp/">Explanation: A2A vs MCP</a>: agents over the wire vs tools over the wire</li>
+<li><a href="../../reference/api/agents/#aimu.agents.RemoteAgent"><code>aimu.agents.RemoteAgent</code></a>: API reference</li>
 </ul>
 
 

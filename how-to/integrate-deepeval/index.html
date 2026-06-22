@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2867,8 +2867,8 @@
 <h1 id="integrate-deepeval">Integrate DeepEval<a class="headerlink" href="#integrate-deepeval" title="Permanent link">&para;</a></h1>
 <p><code>aimu[deepeval]</code> ships two adapters:</p>
 <ul>
-<li><strong><code>DeepEvalModel</code></strong> — wraps any AIMU <code>BaseModelClient</code> as a DeepEval judge (<code>DeepEvalBaseLLM</code>). Pass it as <code>model=</code> to any DeepEval metric.</li>
-<li><strong><code>DeepEvalScorer</code></strong> — wraps a list of DeepEval metrics as an AIMU <code>Scorer</code> for <code>JudgedPromptTuner</code> and <code>Benchmark</code>.</li>
+<li><strong><code>DeepEvalModel</code></strong>: wraps any AIMU <code>BaseModelClient</code> as a DeepEval judge (<code>DeepEvalBaseLLM</code>). Pass it as <code>model=</code> to any DeepEval metric.</li>
+<li><strong><code>DeepEvalScorer</code></strong>: wraps a list of DeepEval metrics as an AIMU <code>Scorer</code> for <code>JudgedPromptTuner</code> and <code>Benchmark</code>.</li>
 </ul>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>deepeval<span class="o">]</span>
@@ -2896,7 +2896,7 @@
 <p>Swap in a stronger cloud judge for harder evaluations:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">judge</span> <span class="o">=</span> <span class="n">DeepEvalModel</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">))</span>
 </span></code></pre></div>
-<p>Works with any metric — <code>GEval</code>, <code>AnswerRelevancyMetric</code>, <code>FaithfulnessMetric</code>, etc. — and any AIMU client (Ollama, HuggingFace, OpenAI, Anthropic, Gemini, OpenAI-compatible servers).</p>
+<p>Works with any metric (<code>GEval</code>, <code>AnswerRelevancyMetric</code>, <code>FaithfulnessMetric</code>, etc.) and any AIMU client (Ollama, HuggingFace, OpenAI, Anthropic, Gemini, OpenAI-compatible servers).</p>
 <h2 id="drive-prompt-tuning-with-deepeval-metrics">Drive prompt tuning with DeepEval metrics<a class="headerlink" href="#drive-prompt-tuning-with-deepeval-metrics" title="Permanent link">&para;</a></h2>
 <p><code>DeepEvalScorer</code> adapts one or more DeepEval metrics to AIMU's <code>Scorer</code> protocol so they plug into <code>JudgedPromptTuner</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">JudgedPromptTuner</span>
@@ -2915,7 +2915,7 @@
 </span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="n">tuner</span> <span class="o">=</span> <span class="n">JudgedPromptTuner</span><span class="p">(</span><span class="n">model_client</span><span class="o">=</span><span class="n">writer</span><span class="p">,</span> <span class="n">scorer</span><span class="o">=</span><span class="n">DeepEvalScorer</span><span class="p">([</span><span class="n">geval</span><span class="p">]))</span>
 </span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="n">best</span> <span class="o">=</span> <span class="n">tuner</span><span class="o">.</span><span class="n">tune</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">initial_prompt</span><span class="o">=</span><span class="s2">&quot;Answer in one sentence: </span><span class="si">{content}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>For multiple metrics, pass them all — <code>DeepEvalScorer</code> averages the per-metric scores:</p>
+<p>For multiple metrics, pass them all; <code>DeepEvalScorer</code> averages the per-metric scores:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">scorer</span> <span class="o">=</span> <span class="n">DeepEvalScorer</span><span class="p">([</span><span class="n">geval</span><span class="p">,</span> <span class="n">AnswerRelevancyMetric</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">DeepEvalModel</span><span class="p">(</span><span class="n">judge</span><span class="p">))])</span>
 </span></code></pre></div>
 <h2 id="use-deepeval-metrics-in-benchmarks">Use DeepEval metrics in benchmarks<a class="headerlink" href="#use-deepeval-metrics-in-benchmarks" title="Permanent link">&para;</a></h2>
@@ -2943,7 +2943,7 @@
 <ul>
 <li><a href="../../reference/api/evals/#aimu.evals.DeepEvalModel"><code>aimu.evals.DeepEvalModel</code></a> / <a href="../../reference/api/evals/#aimu.evals.DeepEvalScorer"><code>DeepEvalScorer</code></a></li>
 <li><a href="../benchmark-models/">Benchmark models</a></li>
-<li><a href="../tune-prompts/">Tune prompts</a> — full tuning workflow</li>
+<li><a href="../tune-prompts/">Tune prompts</a>: full tuning workflow</li>
 <li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/16%20-%20Evaluations.ipynb">16 - Evaluations</a></li>
 </ul>
 

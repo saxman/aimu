@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -1375,7 +1375,7 @@
   <a href="#per-agent-override-make_speech_tool" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Per-agent override — make_speech_tool
+        Per-agent override: make_speech_tool
       
     </span>
   </a>
@@ -2990,7 +2990,7 @@
   <a href="#per-agent-override-make_speech_tool" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Per-agent override — make_speech_tool
+        Per-agent override: make_speech_tool
       
     </span>
   </a>
@@ -3077,10 +3077,10 @@
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">)</span>
 </span></code></pre></div>
 <p><code>format=</code> selects how the audio is returned:
-- <code>"path"</code> (default) — saves a WAV file, returns the path string
-- <code>"bytes"</code> — raw WAV-encoded bytes
-- <code>"numpy"</code> — <code>(sample_rate: int, audio: np.ndarray)</code> tuple
-- <code>"data_url"</code> — <code>data:audio/wav;base64,...</code> for inline embedding</p>
+- <code>"path"</code> (default): saves a WAV file, returns the path string
+- <code>"bytes"</code>: raw WAV-encoded bytes
+- <code>"numpy"</code>: <code>(sample_rate: int, audio: np.ndarray)</code> tuple
+- <code>"data_url"</code>: <code>data:audio/wav;base64,...</code> for inline embedding</p>
 <h2 id="choosing-a-model">Choosing a model<a class="headerlink" href="#choosing-a-model" title="Permanent link">&para;</a></h2>
 <h3 id="openai">OpenAI<a class="headerlink" href="#openai" title="Permanent link">&para;</a></h3>
 <table>
@@ -3140,7 +3140,7 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">sr</span><span class="p">,</span> <span class="n">audio</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">&quot;42&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>BARK</strong> voice codes: <code>v2/en_speaker_6</code>, <code>v2/en_speaker_9</code>, etc. Pass as <code>voice=</code> to <code>generate</code>.</p>
-<p>Ad-hoc models via <code>"hf:&lt;repo_id&gt;"</code> — pipeline type inferred from known repo prefixes, defaults to <code>tts_pipeline</code>.</p>
+<p>Ad-hoc models via <code>"hf:&lt;repo_id&gt;"</code>: pipeline type inferred from known repo prefixes, defaults to <code>tts_pipeline</code>.</p>
 <h2 id="direct-client">Direct client<a class="headerlink" href="#direct-client" title="Permanent link">&para;</a></h2>
 <p>Build a client once, reuse it for multiple synthesis calls (weights load on first call):</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">speech_client</span>
@@ -3156,7 +3156,7 @@
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="n">OpenAISpeechModel</span><span class="o">.</span><span class="n">TTS_1_HD</span><span class="p">)</span>
 </span></code></pre></div>
-<p>For local HuggingFace TTS on a multi-GPU box, target a specific card with <code>model_kwargs={"device": "cuda:1"}</code>. TTS models are small, so there is no sharding default. (OpenAI TTS is a cloud API — placement doesn't apply.)</p>
+<p>For local HuggingFace TTS on a multi-GPU box, target a specific card with <code>model_kwargs={"device": "cuda:1"}</code>. TTS models are small, so there is no sharding default. (OpenAI TTS is a cloud API, so placement doesn't apply.)</p>
 <h3 id="per-call-kwargs">Per-call kwargs<a class="headerlink" href="#per-call-kwargs" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -3202,7 +3202,7 @@
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;The quick brown fox jumps over the lazy dog.&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">c</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;final&quot;</span><span class="p">]:</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done — saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done, saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="k">else</span><span class="p">:</span>
 </span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Chunk </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;chunk_index&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
@@ -3251,8 +3251,8 @@
 </span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>
 </span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="n">response</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Please say &#39;Welcome to AIMU&#39; in a friendly voice.&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>The tool uses a lazy module-level singleton — first call constructs a speech client from <code>AIMU_SPEECH_MODEL</code> (default: <code>"hf:microsoft/speecht5_tts"</code>), subsequent calls reuse it.</p>
-<h3 id="per-agent-override-make_speech_tool">Per-agent override — <code>make_speech_tool</code><a class="headerlink" href="#per-agent-override-make_speech_tool" title="Permanent link">&para;</a></h3>
+<p>The tool uses a lazy module-level singleton: the first call constructs a speech client from <code>AIMU_SPEECH_MODEL</code> (default: <code>"hf:microsoft/speecht5_tts"</code>), subsequent calls reuse it.</p>
+<h3 id="per-agent-override-make_speech_tool">Per-agent override: <code>make_speech_tool</code><a class="headerlink" href="#per-agent-override-make_speech_tool" title="Permanent link">&para;</a></h3>
 <p>When you need a specific voice or speed from the global singleton, or multiple agents should use different voices:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">speech_client</span>
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_speech_tool</span>
@@ -3279,7 +3279,7 @@
 </span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="k">return</span> <span class="n">results</span>
 </span></code></pre></div>
 <p><code>generate()</code> routes through <code>asyncio.to_thread</code> so the event loop stays free during API calls.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Async one-shot — pass a sync client as model</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Async one-shot: pass a sync client as model</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">speech_client</span>
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
 </span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
@@ -3287,11 +3287,11 @@
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../reference/stream-phases/">Reference: stream phases</a> — <code>SPEECH_GENERATING</code> chunk shape.</li>
-<li><a href="../../reference/env-vars/">Reference: env vars</a> — <code>AIMU_SPEECH_MODEL</code>.</li>
-<li><a href="../generate-audio/">Generate audio</a> — the music/sound surface, which this mirrors.</li>
-<li><a href="https://github.com/saxman/aimu/blob/main/notebooks/20%20-%20Speech.ipynb">Notebook 17 — Speech</a> — runnable TTS demo.</li>
-<li><a href="../transcribe-audio/">Transcribe audio</a> — the speech-to-text (ASR) surface.</li>
+<li><a href="../../reference/stream-phases/">Reference: stream phases</a>: <code>SPEECH_GENERATING</code> chunk shape.</li>
+<li><a href="../../reference/env-vars/">Reference: env vars</a>: <code>AIMU_SPEECH_MODEL</code>.</li>
+<li><a href="../generate-audio/">Generate audio</a>: the music/sound surface, which this mirrors.</li>
+<li><a href="https://github.com/saxman/aimu/blob/main/notebooks/20%20-%20Speech.ipynb">Notebook 17: Speech</a>: runnable TTS demo.</li>
+<li><a href="../transcribe-audio/">Transcribe audio</a>: the speech-to-text (ASR) surface.</li>
 </ul>
 
 

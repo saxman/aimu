@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2965,7 +2965,7 @@
 
 
 <h1 id="tool-integration">Tool integration<a class="headerlink" href="#tool-integration" title="Permanent link">&para;</a></h1>
-<p>AIMU exposes tools to a model in two ways. They look different but end up in the same place — a list of OpenAI-format tool specs that the model client passes to the provider. This page explains the two routes, the dispatch order, and when to pick which.</p>
+<p>AIMU exposes tools to a model in two ways. They look different but end up in the same place: a list of OpenAI-format tool specs that the model client passes to the provider. This page explains the two routes, the dispatch order, and when to pick which.</p>
 <h2 id="the-two-routes">The two routes<a class="headerlink" href="#the-two-routes" title="Permanent link">&para;</a></h2>
 <h3 id="in-process-tool-decorator">In-process: <code>@tool</code> decorator<a class="headerlink" href="#in-process-tool-decorator" title="Permanent link">&para;</a></h3>
 <p>Decorate a Python function:</p>
@@ -2984,7 +2984,7 @@
 </span></code></pre></div>
 <p>Dispatch is a direct function call. No serialization, no transport, no separate process. Best when you own the code, the dependencies are already in your agent's environment, and you want minimal overhead.</p>
 <h3 id="cross-process-mcpclient">Cross-process: <code>MCPClient</code><a class="headerlink" href="#cross-process-mcpclient" title="Permanent link">&para;</a></h3>
-<p>For tools that run elsewhere — a subprocess, a shared server, a remote machine — wrap them with <code>MCPClient</code>, then call <code>.as_tools()</code> to turn the server's tools into callables and add them to <code>client.tools</code>:</p>
+<p>For tools that run elsewhere (a subprocess, a shared server, a remote machine) wrap them with <code>MCPClient</code>, then call <code>.as_tools()</code> to turn the server's tools into callables and add them to <code>client.tools</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">mcp</span> <span class="o">=</span> <span class="n">MCPClient</span><span class="p">({</span>
@@ -2992,10 +2992,10 @@
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">})</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">model_client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="n">mcp</span><span class="o">.</span><span class="n">as_tools</span><span class="p">()</span>        <span class="c1"># or: builtin.web + mcp.as_tools()</span>
 </span></code></pre></div>
-<p>Each callable returned by <code>as_tools()</code> closes over the client, invokes <code>call_tool()</code> cross-process, and returns the result's text — but to the model client it looks like any other <code>@tool</code>. Arguments and results cross the process boundary as JSON via the <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>. Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.</p>
-<p>Keep a reference to the <code>MCPClient</code> (the <code>as_tools()</code> callables hold one, so the connection stays alive) for its lifetime — and to call <code>.ping()</code> or refresh the tool list. The list <code>as_tools()</code> returns is a snapshot; call it again to pick up server-side changes.</p>
+<p>Each callable returned by <code>as_tools()</code> closes over the client, invokes <code>call_tool()</code> cross-process, and returns the result's text, but to the model client it looks like any other <code>@tool</code>. Arguments and results cross the process boundary as JSON via the <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>. Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.</p>
+<p>Keep a reference to the <code>MCPClient</code> (the <code>as_tools()</code> callables hold one, so the connection stays alive) for its lifetime, and to call <code>.ping()</code> or refresh the tool list. The list <code>as_tools()</code> returns is a snapshot; call it again to pick up server-side changes.</p>
 <h2 id="how-they-coexist">How they coexist<a class="headerlink" href="#how-they-coexist" title="Permanent link">&para;</a></h2>
-<p>There is only one tool registry: <code>client.tools</code>. Both routes produce plain callables that live there — <code>@tool</code> functions directly, MCP tools via <code>as_tools()</code>. The base class assembles the request <code>tools</code> list in <code>_chat_setup()</code> from that one place:</p>
+<p>There is only one tool registry: <code>client.tools</code>. Both routes produce plain callables that live there: <code>@tool</code> functions directly, MCP tools via <code>as_tools()</code>. The base class assembles the request <code>tools</code> list in <code>_chat_setup()</code> from that one place:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># from aimu/models/_base/text.py</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">tools</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">supports_tools</span> <span class="ow">and</span> <span class="n">use_tools</span><span class="p">:</span>
@@ -3003,7 +3003,7 @@
 </span></code></pre></div>
 <p>The model sees one flat list and picks whichever it wants. There's no separate MCP reference on the client and no second assembly path.</p>
 <h2 id="per-call-tool-override">Per-call tool override<a class="headerlink" href="#per-call-tool-override" title="Permanent link">&para;</a></h2>
-<p><code>self.tools</code> is the client's <em>configured</em> set of Python tools. Sometimes you want a different set for a single call without mutating that state — a quick lookup that should only see <code>search</code>, a turn where tools should be off entirely. Both <code>chat()</code> and <code>Agent.run()</code> take a <code>tools=</code> keyword for exactly this:</p>
+<p><code>self.tools</code> is the client's <em>configured</em> set of Python tools. Sometimes you want a different set for a single call without mutating that state: a quick lookup that should only see <code>search</code>, a turn where tools should be off entirely. Both <code>chat()</code> and <code>Agent.run()</code> take a <code>tools=</code> keyword for exactly this:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">search</span><span class="p">,</span> <span class="n">calculate</span><span class="p">]</span>      <span class="c1"># configured set</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;normal question&quot;</span><span class="p">)</span>           <span class="c1"># sees search + calculate</span>
@@ -3014,8 +3014,8 @@
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;research task&quot;</span><span class="p">)</span>               <span class="c1"># uses configured tools</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;quick lookup&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">search</span><span class="p">])</span>  <span class="c1"># override for the whole run (every loop turn)</span>
 </span></code></pre></div>
-<p><code>tools=None</code> (the default) uses the configured <code>self.tools</code> — unchanged behaviour. Any other value, <em>including <code>[]</code></em> to disable tools, replaces them for the duration of that call and is restored afterward. Since MCP tools also live in <code>self.tools</code> (via <code>as_tools()</code>), the override covers them too. On an <code>Agent</code>, the override applies to every <code>chat()</code> in the agentic loop (the initial turn and all continuations), then the agent's configured tools are back in place.</p>
-<p>Mechanically it's a scoped swap of <code>self.tools</code> that covers both request-spec building and dispatch (both read <code>self.tools</code>). Like <code>self.messages</code>, it isn't safe across <em>concurrent</em> <code>chat()</code> calls on a shared client — which matches the existing single-conversation contract.</p>
+<p><code>tools=None</code> (the default) uses the configured <code>self.tools</code>, unchanged behaviour. Any other value, <em>including <code>[]</code></em> to disable tools, replaces them for the duration of that call and is restored afterward. Since MCP tools also live in <code>self.tools</code> (via <code>as_tools()</code>), the override covers them too. On an <code>Agent</code>, the override applies to every <code>chat()</code> in the agentic loop (the initial turn and all continuations), then the agent's configured tools are back in place.</p>
+<p>Mechanically it's a scoped swap of <code>self.tools</code> that covers both request-spec building and dispatch (both read <code>self.tools</code>). Like <code>self.messages</code>, it isn't safe across <em>concurrent</em> <code>chat()</code> calls on a shared client, which matches the existing single-conversation contract.</p>
 <h2 id="dispatch">Dispatch<a class="headerlink" href="#dispatch" title="Permanent link">&para;</a></h2>
 <p>When the model returns a tool call, <code>_call_plain_tool()</code> resolves the name against one lookup table built from the single registry, <code>{fn.__name__: fn for fn in self.tools}</code>:</p>
 <ol>
@@ -3068,10 +3068,10 @@
 <p>If you can't decide, start with <code>@tool</code>. Switching to <code>MCPClient</code> later is a small change: lift the function to a separate file, run it as an MCP server, and swap <code>tools=[fn]</code> for <code>tools=mcp.as_tools()</code>.</p>
 <h2 id="failure-modes-that-are-now-loud">Failure modes that are now loud<a class="headerlink" href="#failure-modes-that-are-now-loud" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Bad <code>@tool</code> signature</strong> — <code>ToolSignatureError</code> raised at decoration time. Variadic params (<code>*args</code> / <code>**kwargs</code>) and required params without type hints are the two cases.</li>
-<li><strong>MCP connection error</strong> — <code>MCPConnectionError</code> raised at <code>MCPClient</code> construction or on <code>call_tool()</code> failure. <code>MCPClient.ping()</code> lets you verify a connection upfront.</li>
-<li><strong>Tool not found at dispatch</strong> — appended as a <code>tool</code> role message with the text <code>"Tool 'X' not found."</code>. The model sees this and can adjust.</li>
-<li><strong>Async tool on the sync surface</strong> — the sync <code>_handle_tool_calls</code> raises <code>ValueError</code> if a tool's <code>__tool_is_async__</code> flag is set. The message points the caller at <code>aimu.aio</code>.</li>
+<li><strong>Bad <code>@tool</code> signature</strong>: <code>ToolSignatureError</code> raised at decoration time. Variadic params (<code>*args</code> / <code>**kwargs</code>) and required params without type hints are the two cases.</li>
+<li><strong>MCP connection error</strong>: <code>MCPConnectionError</code> raised at <code>MCPClient</code> construction or on <code>call_tool()</code> failure. <code>MCPClient.ping()</code> lets you verify a connection upfront.</li>
+<li><strong>Tool not found at dispatch</strong>: appended as a <code>tool</code> role message with the text <code>"Tool 'X' not found."</code>. The model sees this and can adjust.</li>
+<li><strong>Async tool on the sync surface</strong>: the sync <code>_handle_tool_calls</code> raises <code>ValueError</code> if a tool's <code>__tool_is_async__</code> flag is set. The message points the caller at <code>aimu.aio</code>.</li>
 </ul>
 <h2 id="async-tools">Async tools<a class="headerlink" href="#async-tools" title="Permanent link">&para;</a></h2>
 <p><code>@tool</code> records <code>func.__tool_is_async__ = inspect.iscoroutinefunction(func)</code> at decoration time. The same decorated function is usable on either surface:</p>
@@ -3089,15 +3089,15 @@
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Trim and lowercase.&quot;&quot;&quot;</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="o">...</span>
 </span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># Both work on aio.Agent — async awaited, sync runs in a worker thread</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># Both work on aio.Agent: async awaited, sync runs in a worker thread</span>
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">fetch</span><span class="p">,</span> <span class="n">normalize</span><span class="p">])</span>
 </span></code></pre></div>
 <p><code>concurrent_tool_calls=True</code> on the async surface uses <code>asyncio.TaskGroup</code> (structured concurrency, sibling cancellation on first failure) instead of <code>ThreadPoolExecutor</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../how-to/add-custom-tool/">How-to: add a custom tool</a> — <code>@tool</code> signature rules and patterns.</li>
-<li><a href="../../how-to/use-mcp-tools/">How-to: use MCP tools</a> — cross-process tool setup.</li>
-<li><a href="../architecture/">Architecture</a> — how <code>_chat_setup</code> and <code>_handle_tool_calls</code> fit into <code>BaseModelClient</code>.</li>
+<li><a href="../../how-to/add-custom-tool/">How-to: add a custom tool</a>: <code>@tool</code> signature rules and patterns.</li>
+<li><a href="../../how-to/use-mcp-tools/">How-to: use MCP tools</a>: cross-process tool setup.</li>
+<li><a href="../architecture/">Architecture</a>: how <code>_chat_setup</code> and <code>_handle_tool_calls</code> fit into <code>BaseModelClient</code>.</li>
 </ul>
 
 

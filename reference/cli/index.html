@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2878,7 +2878,7 @@
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">mcp</span> <span class="o">=</span> <span class="n">MCPClient</span><span class="p">({</span><span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;aimu&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span> <span class="s2">&quot;aimu.tools.mcp&quot;</span><span class="p">]}}})</span>
 </span></code></pre></div>
 <h2 id="a2a-agent-server">A2A agent server<a class="headerlink" href="#a2a-agent-server" title="Permanent link">&para;</a></h2>
-<p>Requires the <code>a2a</code> extra (<code>pip install 'aimu[a2a]'</code>). Exposes a single AIMU <code>Agent</code> over the Agent2Agent protocol — the agent-level analog of the tools server above (which serves <em>tools</em>; this serves a whole <em>agent</em>).</p>
+<p>Requires the <code>a2a</code> extra (<code>pip install 'aimu[a2a]'</code>). Exposes a single AIMU <code>Agent</code> over the Agent2Agent protocol: the agent-level analog of the tools server above (which serves <em>tools</em>; this serves a whole <em>agent</em>).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>aimu.agents.a2a<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-6<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>--system<span class="w"> </span><span class="s2">&quot;You are a helpful research assistant.&quot;</span><span class="w"> </span><span class="se">\</span>
@@ -2933,8 +2933,8 @@
 <p>Both demo a full-featured chat with streaming, tool calls, and persistent history.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../env-vars/">Environment variables</a> — every var these commands read</li>
-<li><a href="../../how-to/use-mcp-tools/">How-to: use MCP tools</a> — attaching MCP servers to a client</li>
+<li><a href="../env-vars/">Environment variables</a>: every var these commands read</li>
+<li><a href="../../how-to/use-mcp-tools/">How-to: use MCP tools</a>: attaching MCP servers to a client</li>
 </ul>
 
 

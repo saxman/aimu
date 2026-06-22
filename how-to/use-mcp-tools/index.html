@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2843,7 +2843,7 @@
 
 
 <h1 id="use-mcp-tools">Use MCP tools<a class="headerlink" href="#use-mcp-tools" title="Permanent link">&para;</a></h1>
-<p>For tools that live in a separate process — or to share a tool catalogue across many agents — wrap a <a href="https://gofastmcp.com">FastMCP 2.0</a> server with <code>MCPClient</code>, then call <code>.as_tools()</code> to add its tools to your model client's <code>tools</code> list.</p>
+<p>For tools that live in a separate process (or to share a tool catalogue across many agents), wrap a <a href="https://gofastmcp.com">FastMCP 2.0</a> server with <code>MCPClient</code>, then call <code>.as_tools()</code> to add its tools to your model client's <code>tools</code> list.</p>
 <h2 id="connect-to-a-tool-server">Connect to a tool server<a class="headerlink" href="#connect-to-a-tool-server" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
@@ -2862,9 +2862,9 @@
 <p><code>as_tools()</code> does one <code>list_tools()</code> round-trip and returns a callable per server tool, each carrying its <code>__tool_spec__</code>. They dispatch through the same path as in-process <code>@tool</code> functions, so MCP and Python tools are interchangeable from the client's point of view. Keep the <code>MCPClient</code> reference (or the callables, which hold one) alive for the connection's lifetime; call <code>as_tools()</code> again to refresh after the server's tool set changes.</p>
 <p><code>MCPClient</code> requires <em>exactly one</em> of:</p>
 <ul>
-<li><code>config={...}</code> — FastMCP server config dict (the form above)</li>
-<li><code>server=...</code> — an in-process <code>FastMCP</code> instance</li>
-<li><code>file="path/to/server.py"</code> — a local server script</li>
+<li><code>config={...}</code>: FastMCP server config dict (the form above)</li>
+<li><code>server=...</code>: an in-process <code>FastMCP</code> instance</li>
+<li><code>file="path/to/server.py"</code>: a local server script</li>
 </ul>
 <h2 id="call-a-tool-directly">Call a tool directly<a class="headerlink" href="#call-a-tool-directly" title="Permanent link">&para;</a></h2>
 <p>You can use <code>MCPClient</code> standalone, without an agent:</p>
@@ -2883,7 +2883,7 @@
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">})</span>
 </span></code></pre></div>
 <h2 id="combine-with-in-process-tools">Combine with in-process tools<a class="headerlink" href="#combine-with-in-process-tools" title="Permanent link">&para;</a></h2>
-<p>Both routes produce callables for the one <code>tools</code> list — concatenate them. On a name collision the <strong>last</strong> entry wins, so append a local override after the MCP tools to shadow one:</p>
+<p>Both routes produce callables for the one <code>tools</code> list; concatenate them. On a name collision the <strong>last</strong> entry wins, so append a local override after the MCP tools to shadow one:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="n">mcp_client</span><span class="o">.</span><span class="n">as_tools</span><span class="p">()</span> <span class="o">+</span> <span class="p">[</span><span class="n">my_local_tool</span><span class="p">]</span>   <span class="c1"># my_local_tool shadows a same-named MCP tool</span>
 </span></code></pre></div>
 <h2 id="loud-failures">Loud failures<a class="headerlink" href="#loud-failures" title="Permanent link">&para;</a></h2>
@@ -2897,9 +2897,9 @@
 <p>A subsequent <code>.ping()</code> or <code>.call_tool()</code> failure also raises <code>MCPConnectionError</code>, so you can re-establish the connection without silently broken state.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../add-custom-tool/">Add a custom tool</a> — the in-process <code>@tool</code> route</li>
-<li><a href="../../explanation/tool-integration/">Explanation: tool integration</a> — when to pick which route</li>
-<li><a href="../../reference/api/tools/#aimu.tools.MCPClient"><code>aimu.tools.MCPClient</code></a> — API reference</li>
+<li><a href="../add-custom-tool/">Add a custom tool</a>: the in-process <code>@tool</code> route</li>
+<li><a href="../../explanation/tool-integration/">Explanation: tool integration</a>: when to pick which route</li>
+<li><a href="../../reference/api/tools/#aimu.tools.MCPClient"><code>aimu.tools.MCPClient</code></a>: API reference</li>
 </ul>
 
 

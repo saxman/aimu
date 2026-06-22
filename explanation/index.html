@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2656,17 +2656,17 @@
 
 
 <h1 id="explanation">Explanation<a class="headerlink" href="#explanation" title="Permanent link">&para;</a></h1>
-<p>Understanding-oriented documentation. The <em>why</em> — what AIMU is, how its parts fit together, and what tradeoffs the design makes (and refuses to make).</p>
+<p>Understanding-oriented documentation. The <em>why</em>: what AIMU is, how its parts fit together, and what tradeoffs the design makes (and refuses to make).</p>
 <p>Read these when you want to know <em>why</em> the API looks the way it does, not just how to use it.</p>
 <ul>
-<li><strong><a href="architecture/">Architecture</a></strong> — the load-bearing shape: <code>BaseModelClient</code>, <code>Agent</code>, <code>Runner</code>, how providers dispatch.</li>
-<li><strong><a href="design-principles/">Design principles</a></strong> — what AIMU deliberately <em>doesn't</em> do, and why (the line that separates AIMU from LangChain / LangGraph / Strands / PydanticAI).</li>
-<li><strong><a href="agents-vs-workflows/">Agents vs workflows</a></strong> — Anthropic's taxonomy and when to pick which.</li>
-<li><strong><a href="streamchunk-model/">StreamChunk model</a></strong> — why one chunk type instead of three.</li>
-<li><strong><a href="system-message-lifecycle/">System message lifecycle</a></strong> — seeded before the first chat, then swapped in place mid-conversation; <code>reset()</code> clears history.</li>
-<li><strong><a href="tool-integration/">Tool integration</a></strong> — <code>@tool</code> vs MCP, dispatch order, when to pick which route.</li>
-<li><strong><a href="a2a-vs-mcp/">A2A vs MCP</a></strong> — sharing whole <em>agents</em> over the wire vs sharing <em>tools</em>; why both are optional, adapter-shaped, and composable through <code>Runner</code>.</li>
-<li><strong><a href="async-design/">Async design</a></strong> — why <code>aimu.aio</code> is a submodule (not method suffixes or smart routing), why <code>asyncio.TaskGroup</code>, and why in-process providers wrap an existing sync client.</li>
+<li><strong><a href="architecture/">Architecture</a></strong>: the load-bearing shape: <code>BaseModelClient</code>, <code>Agent</code>, <code>Runner</code>, how providers dispatch.</li>
+<li><strong><a href="design-principles/">Design principles</a></strong>: what AIMU deliberately <em>doesn't</em> do, and why (the line that separates AIMU from LangChain / LangGraph / Strands / PydanticAI).</li>
+<li><strong><a href="agents-vs-workflows/">Agents vs workflows</a></strong>: Anthropic's taxonomy and when to pick which.</li>
+<li><strong><a href="streamchunk-model/">StreamChunk model</a></strong>: why one chunk type instead of three.</li>
+<li><strong><a href="system-message-lifecycle/">System message lifecycle</a></strong>: seeded before the first chat, then swapped in place mid-conversation; <code>reset()</code> clears history.</li>
+<li><strong><a href="tool-integration/">Tool integration</a></strong>: <code>@tool</code> vs MCP, dispatch order, when to pick which route.</li>
+<li><strong><a href="a2a-vs-mcp/">A2A vs MCP</a></strong>: sharing whole <em>agents</em> over the wire vs sharing <em>tools</em>; why both are optional, adapter-shaped, and composable through <code>Runner</code>.</li>
+<li><strong><a href="async-design/">Async design</a></strong>: why <code>aimu.aio</code> is a submodule (not method suffixes or smart routing), why <code>asyncio.TaskGroup</code>, and why in-process providers wrap an existing sync client.</li>
 </ul>
 <p>For task-oriented usage, see <a href="../how-to/">how-to guides</a>. For the API surface, see <a href="../reference/">reference</a>.</p>
 

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2865,7 +2865,7 @@
 
 
 <h1 id="tune-prompts">Tune prompts<a class="headerlink" href="#tune-prompts" title="Permanent link">&para;</a></h1>
-<p><code>PromptTuner</code> runs a hill-climbing loop to automatically improve a prompt against labelled data. Each round: apply the current prompt to the data, evaluate, propose a mutation, keep it if it improves the score, otherwise revert. No ML machinery — just a model client and a scorer.</p>
+<p><code>PromptTuner</code> runs a hill-climbing loop to automatically improve a prompt against labelled data. Each round: apply the current prompt to the data, evaluate, propose a mutation, keep it if it improves the score, otherwise revert. No ML machinery, just a model client and a scorer.</p>
 <p>Four concrete tuners ship in <code>aimu.prompts</code>:</p>
 <table>
 <thead>
@@ -2963,7 +2963,7 @@
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Summarise the water cycle.&quot;</span><span class="p">,</span> <span class="s2">&quot;Explain photosynthesis briefly.&quot;</span><span class="p">]})</span>
 </span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">best</span> <span class="o">=</span> <span class="n">tuner</span><span class="o">.</span><span class="n">tune</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">initial_prompt</span><span class="o">=</span><span class="s2">&quot;Answer in one sentence: </span><span class="si">{content}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Or use a <code>DeepEvalScorer</code> to score with DeepEval metrics — see <a href="../integrate-deepeval/">Integrate DeepEval</a>.</p>
+<p>Or use a <code>DeepEvalScorer</code> to score with DeepEval metrics; see <a href="../integrate-deepeval/">Integrate DeepEval</a>.</p>
 <h2 id="save-versions-to-a-catalog">Save versions to a catalog<a class="headerlink" href="#save-versions-to-a-catalog" title="Permanent link">&para;</a></h2>
 <p>Pass <code>catalog=</code> and <code>prompt_name=</code> to persist every improvement:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptCatalog</span>
@@ -2986,7 +2986,7 @@
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../reference/api/prompts/"><code>aimu.prompts</code> API reference</a></li>
-<li><a href="../benchmark-models/">Benchmark models</a> — compare clients on a fixed prompt</li>
+<li><a href="../benchmark-models/">Benchmark models</a>: compare clients on a fixed prompt</li>
 <li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/15%20-%20Prompt%20Tuning.ipynb">15 - Prompt Tuning</a></li>
 </ul>
 

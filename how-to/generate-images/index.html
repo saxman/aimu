@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -1224,7 +1224,7 @@
   <a href="#intermediate-image-previews-preview_everyn" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Intermediate-image previews — preview_every=N
+        Intermediate-image previews: preview_every=N
       
     </span>
   </a>
@@ -1251,12 +1251,12 @@
   <a href="#direct-client-reuse-weights-api-client" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Direct client — reuse weights / API client
+        Direct client: reuse weights / API client
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Direct client — reuse weights / API client">
+    <nav class="md-nav" aria-label="Direct client: reuse weights / API client">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1302,7 +1302,7 @@
   <a href="#flux2-klein-native-img2img" class="md-nav__link">
     <span class="md-ellipsis">
       
-        FLUX.2 Klein — native img2img
+        FLUX.2 Klein: native img2img
       
     </span>
   </a>
@@ -1330,7 +1330,7 @@
   <a href="#per-agent-override-make_image_tool" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Per-agent override — make_image_tool
+        Per-agent override: make_image_tool
       
     </span>
   </a>
@@ -2917,7 +2917,7 @@
   <a href="#intermediate-image-previews-preview_everyn" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Intermediate-image previews — preview_every=N
+        Intermediate-image previews: preview_every=N
       
     </span>
   </a>
@@ -2944,12 +2944,12 @@
   <a href="#direct-client-reuse-weights-api-client" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Direct client — reuse weights / API client
+        Direct client: reuse weights / API client
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Direct client — reuse weights / API client">
+    <nav class="md-nav" aria-label="Direct client: reuse weights / API client">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2995,7 +2995,7 @@
   <a href="#flux2-klein-native-img2img" class="md-nav__link">
     <span class="md-ellipsis">
       
-        FLUX.2 Klein — native img2img
+        FLUX.2 Klein: native img2img
       
     </span>
   </a>
@@ -3023,7 +3023,7 @@
   <a href="#per-agent-override-make_image_tool" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Per-agent override — make_image_tool
+        Per-agent override: make_image_tool
       
     </span>
   </a>
@@ -3094,11 +3094,11 @@
 <li><strong>HuggingFace <code>diffusers</code></strong> for local generation (Stable Diffusion 1.5 / XL / 3.5, FLUX 1 dev / schnell, FLUX 2 Klein 4B / 9B)</li>
 <li><strong>Google Nano Banana</strong> (<code>gemini-2.5-flash-image</code>) via the cloud Gemini API</li>
 </ul>
-<p>Both providers support image-to-image generation via <code>reference_image=</code> on <code>generate()</code> — see <a href="#image-to-image">Image-to-image</a> below.</p>
+<p>Both providers support image-to-image generation via <code>reference_image=</code> on <code>generate()</code>; see <a href="#image-to-image">Image-to-image</a> below.</p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <p>Pick the providers you want. Both are opt-in extras:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[hf]&#39;</span><span class="w">         </span><span class="c1"># HuggingFace diffusers — local, GPU-friendly</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[google]&#39;</span><span class="w">     </span><span class="c1"># Google Nano Banana — cloud, fast first call</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[hf]&#39;</span><span class="w">         </span><span class="c1"># HuggingFace diffusers: local, GPU-friendly</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[google]&#39;</span><span class="w">     </span><span class="c1"># Google Nano Banana: cloud, fast first call</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[hf,google]&#39;</span><span class="w">  </span><span class="c1"># both</span>
 </span></code></pre></div>
 <p>The <code>[hf]</code> extra brings text + image (it already ships <code>torch</code> and <code>transformers</code> for the HuggingFace text client, plus <code>diffusers</code>, <code>safetensors</code>, and <code>Pillow</code> for image). <code>[google]</code> adds <code>google-genai</code> and <code>Pillow</code>.</p>
@@ -3130,11 +3130,11 @@
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;a fox&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">25</span><span class="p">):</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">c</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;final&quot;</span><span class="p">]:</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done — saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;result&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done&quot;</span><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done, saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;result&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done&quot;</span><span class="p">)</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="k">else</span><span class="p">:</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;step&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;total_steps&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="intermediate-image-previews-preview_everyn">Intermediate-image previews — <code>preview_every=N</code><a class="headerlink" href="#intermediate-image-previews-preview_everyn" title="Permanent link">&para;</a></h3>
+<h3 id="intermediate-image-previews-preview_everyn">Intermediate-image previews: <code>preview_every=N</code><a class="headerlink" href="#intermediate-image-previews-preview_everyn" title="Permanent link">&para;</a></h3>
 <p>Decoding latents to a PIL image at every step adds ~50–200 ms per call on GPU, so previews are opt-in. Pass <code>preview_every=N</code> to decode every Nth step (and always the final):</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;a fox&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">preview_every</span><span class="o">=</span><span class="mi">5</span>
@@ -3143,9 +3143,9 @@
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;image&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">c</span><span class="p">[</span><span class="s2">&quot;image&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;preview_step_</span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;step&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">.png&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Gemini Nano Banana ignores <code>preview_every</code> — its cloud API has no intermediate latents.</p>
+<p>Gemini Nano Banana ignores <code>preview_every</code>; its cloud API has no intermediate latents.</p>
 <h3 id="streaming-the-built-in-tool-through-an-agent">Streaming the built-in tool through an agent<a class="headerlink" href="#streaming-the-built-in-tool-through-an-agent" title="Permanent link">&para;</a></h3>
-<p>The built-in <code>generate_image</code> tool is itself a generator. When dispatched through <code>agent.run(stream=True)</code>, its progress chunks flow through the agent's own stream — no side channel:</p>
+<p>The built-in <code>generate_image</code> tool is itself a generator. When dispatched through <code>agent.run(stream=True)</code>, its progress chunks flow through the agent's own stream, with no side channel:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
@@ -3161,7 +3161,7 @@
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>To opt into intermediate previews from the agent path, build a bound tool with <code>make_image_tool(client, preview_every=N)</code> and pass that to the agent instead of <code>builtin.generate_image</code>.</p>
-<h2 id="direct-client-reuse-weights-api-client">Direct client — reuse weights / API client<a class="headerlink" href="#direct-client-reuse-weights-api-client" title="Permanent link">&para;</a></h2>
+<h2 id="direct-client-reuse-weights-api-client">Direct client: reuse weights / API client<a class="headerlink" href="#direct-client-reuse-weights-api-client" title="Permanent link">&para;</a></h2>
 <p>A fresh client per call reloads weights for HuggingFace; for Nano Banana it just rebuilds the API client. For repeated generation, build once and reuse:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">image_client</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
@@ -3180,19 +3180,19 @@
 <p>Per-provider knobs differ:</p>
 <ul>
 <li><strong>HuggingFace</strong>: <code>negative_prompt</code>, <code>width</code>, <code>height</code>, <code>num_inference_steps</code>, <code>guidance_scale</code>, <code>seed</code>, <code>reference_image</code>, <code>strength</code>. Defaults come from the <code>HuggingFaceImageSpec</code> (e.g. SD 1.5 → 25 steps, 512×512, guidance 7.5; FLUX schnell / FLUX 2 Klein → 4 steps, 1024×1024).</li>
-<li><strong>Gemini Nano Banana</strong>: <code>aspect_ratio</code> (e.g. <code>"1:1"</code>, <code>"16:9"</code>), <code>image_size</code>, <code>reference_image</code>. No <code>seed</code> — the API doesn't expose one.</li>
+<li><strong>Gemini Nano Banana</strong>: <code>aspect_ratio</code> (e.g. <code>"1:1"</code>, <code>"16:9"</code>), <code>image_size</code>, <code>reference_image</code>. No <code>seed</code>; the API doesn't expose one.</li>
 </ul>
 <p>Both share: <code>num_images=N</code>, <code>format=</code>, <code>output_dir=</code>, <code>reference_image=</code> (see <a href="#image-to-image">Image-to-image</a>).</p>
 <h3 id="prompt-length">Prompt length<a class="headerlink" href="#prompt-length" title="Permanent link">&para;</a></h3>
-<p>CLIP-based models (SD 1.5, SDXL) cap prompts at <strong>77 tokens</strong> and silently truncate the rest. Models with a T5 text encoder accept far more — SD 3.5 ≈ 256 tokens, FLUX ≈ 512. Each spec records this as <code>max_prompt_tokens</code>, and the client exposes it:</p>
+<p>CLIP-based models (SD 1.5, SDXL) cap prompts at <strong>77 tokens</strong> and silently truncate the rest. Models with a T5 text encoder accept far more: SD 3.5 ≈ 256 tokens, FLUX ≈ 512. Each spec records this as <code>max_prompt_tokens</code>, and the client exposes it:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">image_client</span><span class="p">(</span><span class="n">HuggingFaceImageModel</span><span class="o">.</span><span class="n">SD_3_5_MEDIUM</span><span class="p">)</span><span class="o">.</span><span class="n">max_prompt_tokens</span>  <span class="c1"># 256</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">image_client</span><span class="p">(</span><span class="n">HuggingFaceImageModel</span><span class="o">.</span><span class="n">SDXL_BASE</span><span class="p">)</span><span class="o">.</span><span class="n">max_prompt_tokens</span>      <span class="c1"># 77</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">image_client</span><span class="p">(</span><span class="n">GeminiImageModel</span><span class="o">.</span><span class="n">NANO_BANANA</span><span class="p">)</span><span class="o">.</span><span class="n">max_prompt_tokens</span>         <span class="c1"># None (uncapped cloud)</span>
 </span></code></pre></div>
-<p>Use it to size prompts to the model — e.g. a summarization step that condenses a long description to fit the budget (see the hotdog scripts in <code>examples/image-refinement/</code>).</p>
-<p>Note: ad-hoc <code>"hf:&lt;repo&gt;"</code> strings get the conservative 77-token default (the catalog isn't consulted) — pass the enum member to pick up the model's real budget.</p>
+<p>Use it to size prompts to the model, e.g. a summarization step that condenses a long description to fit the budget (see the hotdog scripts in <code>examples/image-refinement/</code>).</p>
+<p>Note: ad-hoc <code>"hf:&lt;repo&gt;"</code> strings get the conservative 77-token default (the catalog isn't consulted). Pass the enum member to pick up the model's real budget.</p>
 <h3 id="gpu-placement-huggingface">GPU placement (HuggingFace)<a class="headerlink" href="#gpu-placement-huggingface" title="Permanent link">&para;</a></h3>
-<p>Placement is <strong>automatic and memory-aware</strong>. On first generation the client measures the loaded pipeline's size and the <em>free</em> memory on each visible GPU — so it accounts for other processes already using the cards (e.g. a local LLM server) — then picks the cheapest strategy that fits:</p>
+<p>Placement is <strong>automatic and memory-aware</strong>. On first generation the client measures the loaded pipeline's size and the <em>free</em> memory on each visible GPU (so it accounts for other processes already using the cards, e.g. a local LLM server) then picks the cheapest strategy that fits:</p>
 <ol>
 <li><strong>Pin to the freest GPU</strong> when the whole pipeline fits there (fastest).</li>
 <li><strong>Model CPU offload</strong> when it doesn't fit one GPU but the largest single component does (components stream to GPU as needed).</li>
@@ -3219,14 +3219,14 @@
 </span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="c1"># 0.0 = nearly identical, 1.0 = ignore it entirely; default 0.75</span>
 </span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="n">img</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;a watercolor painting&quot;</span><span class="p">,</span> <span class="n">reference_image</span><span class="o">=</span><span class="s2">&quot;./photo.jpg&quot;</span><span class="p">,</span> <span class="n">strength</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 </span></code></pre></div>
-<p>The img2img pipeline is loaded lazily on the first call via <code>from_pipe()</code>, which derives it from the already-loaded txt2img pipeline — sharing all weights (UNet, VAE, encoders) at no extra VRAM cost. <code>width</code> and <code>height</code> are ignored in img2img mode; output size comes from the reference image.</p>
+<p>The img2img pipeline is loaded lazily on the first call via <code>from_pipe()</code>, which derives it from the already-loaded txt2img pipeline, sharing all weights (UNet, VAE, encoders) at no extra VRAM cost. <code>width</code> and <code>height</code> are ignored in img2img mode; output size comes from the reference image.</p>
 <p>For Gemini, <code>reference_image</code> triggers image editing: the reference and the prompt are sent together as a multipart request, and Nano Banana returns an edited version of the image.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Gemini image editing</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">client</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="s2">&quot;gemini:nano-banana&quot;</span><span class="p">)</span>
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">img</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;make it snowy&quot;</span><span class="p">,</span> <span class="n">reference_image</span><span class="o">=</span><span class="s2">&quot;./summer_scene.jpg&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="flux2-klein-native-img2img">FLUX.2 Klein — native img2img<a class="headerlink" href="#flux2-klein-native-img2img" title="Permanent link">&para;</a></h3>
-<p>FLUX.2 Klein uses a unified pipeline (<code>Flux2KleinPipeline</code>) that handles both txt2img and img2img in the same call. It does not use a <code>strength</code> parameter — it conditions on the reference image directly:</p>
+<h3 id="flux2-klein-native-img2img">FLUX.2 Klein: native img2img<a class="headerlink" href="#flux2-klein-native-img2img" title="Permanent link">&para;</a></h3>
+<p>FLUX.2 Klein uses a unified pipeline (<code>Flux2KleinPipeline</code>) that handles both txt2img and img2img in the same call. It does not use a <code>strength</code> parameter; it conditions on the reference image directly:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">image_client</span>
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="s2">&quot;hf:black-forest-labs/FLUX.2-klein-4B&quot;</span><span class="p">)</span>  <span class="c1"># 4-step distilled</span>
@@ -3234,7 +3234,7 @@
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="c1"># txt2img</span>
 </span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="n">img</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;a cat in a sunlit garden&quot;</span><span class="p">)</span>
 </span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="c1"># img2img — same client, same loaded weights</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="c1"># img2img: same client, same loaded weights</span>
 </span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="n">img</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;add snow to the scene&quot;</span><span class="p">,</span> <span class="n">reference_image</span><span class="o">=</span><span class="s2">&quot;./cat.jpg&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>FLUX.2 Klein generates in 4 steps (like FLUX.1 Schnell) with improved text rendering, better hand/face quality, and native img2img without a separate pipeline load.</p>
@@ -3260,8 +3260,8 @@
 </span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
 </span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="n">response</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Please make me a watercolor of a fox in a snowy forest.&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>The tool uses a lazy module-level singleton — first call constructs an image client based on <code>AIMU_IMAGE_MODEL</code> (default: SDXL base), subsequent calls reuse it.</p>
-<h3 id="per-agent-override-make_image_tool">Per-agent override — <code>make_image_tool</code><a class="headerlink" href="#per-agent-override-make_image_tool" title="Permanent link">&para;</a></h3>
+<p>The tool uses a lazy module-level singleton: the first call constructs an image client based on <code>AIMU_IMAGE_MODEL</code> (default: SDXL base), and subsequent calls reuse it.</p>
+<h3 id="per-agent-override-make_image_tool">Per-agent override: <code>make_image_tool</code><a class="headerlink" href="#per-agent-override-make_image_tool" title="Permanent link">&para;</a></h3>
 <p>When you want a different model from the global singleton (or several agents in one process shouldn't share a pipeline), bind a tool to a specific client:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">image_client</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_image_tool</span>
@@ -3275,7 +3275,7 @@
 <h2 id="skill-integration-deeper-optional">Skill integration (deeper, optional)<a class="headerlink" href="#skill-integration-deeper-optional" title="Permanent link">&para;</a></h2>
 <p>For <code>SkillAgent</code> users, drop a <code>SKILL.md</code> under <code>.agents/skills/image-generation/</code> with prompt-engineering guidance. Skills are filesystem-discovered (not shipped with AIMU); see <a href="https://github.com/saxman/aimu/tree/main/notebooks">notebooks/18 - Image Generation.ipynb</a> for a copyable example.</p>
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
-<p>The async surface mirrors the sync surface one-for-one. Because image providers either load weights in-process (HuggingFace) or hold an SDK client (Gemini), the factory follows the wrap pattern established for HF / LlamaCpp text clients — build a sync client first and pass it to <code>aio.image_client()</code>:</p>
+<p>The async surface mirrors the sync surface one-for-one. Because image providers either load weights in-process (HuggingFace) or hold an SDK client (Gemini), the factory follows the wrap pattern established for HF / LlamaCpp text clients: build a sync client first and pass it to <code>aio.image_client()</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">image_client</span>
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
@@ -3290,14 +3290,14 @@
 </span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>    <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span>
 </span></code></pre></div>
 <p>Async <code>generate()</code> routes through <code>asyncio.to_thread</code> so the event loop stays free during inference. On a single GPU, sibling <code>gather</code>-ed HF calls don't truly overlap on the device (CUDA streams + the GIL serialise), but the event loop stays free for other coroutines.</p>
-<p>For Gemini, the cloud SDK could be called natively async — kept as a follow-up for shape consistency with the in-process wrap pattern.</p>
+<p>For Gemini, the cloud SDK could be called natively async; that is kept as a follow-up for shape consistency with the in-process wrap pattern.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../reference/provider-matrix/">Reference: provider matrix</a> — image vs text provider tables.</li>
-<li><a href="../../reference/env-vars/">Reference: env vars</a> — <code>GOOGLE_API_KEY</code>, <code>AIMU_IMAGE_MODEL</code>.</li>
-<li><a href="https://github.com/saxman/aimu/tree/main/notebooks">Notebook 15 — Image Generation</a> — runnable end-to-end demo.</li>
-<li><a href="../add-custom-tool/">Add a custom tool</a> — to build your own image-generation tool variant.</li>
-<li><a href="../generate-audio/">Generate audio</a> — the audio surface, which mirrors this one.</li>
+<li><a href="../../reference/provider-matrix/">Reference: provider matrix</a>: image vs text provider tables.</li>
+<li><a href="../../reference/env-vars/">Reference: env vars</a>: <code>GOOGLE_API_KEY</code>, <code>AIMU_IMAGE_MODEL</code>.</li>
+<li><a href="https://github.com/saxman/aimu/tree/main/notebooks">Notebook 15: Image Generation</a>: runnable end-to-end demo.</li>
+<li><a href="../add-custom-tool/">Add a custom tool</a>: build your own image-generation tool variant.</li>
+<li><a href="../generate-audio/">Generate audio</a>: the audio surface, which mirrors this one.</li>
 </ul>
 
 

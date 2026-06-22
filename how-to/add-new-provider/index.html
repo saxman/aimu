@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -989,7 +989,7 @@
   <a href="#path-a-openai-compatible-endpoint-easiest" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Path A — OpenAI-compatible endpoint (easiest)
+        Path A: OpenAI-compatible endpoint (easiest)
       
     </span>
   </a>
@@ -1000,7 +1000,7 @@
   <a href="#path-b-native-sdk" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Path B — native SDK
+        Path B: native SDK
       
     </span>
   </a>
@@ -2833,7 +2833,7 @@
   <a href="#path-a-openai-compatible-endpoint-easiest" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Path A — OpenAI-compatible endpoint (easiest)
+        Path A: OpenAI-compatible endpoint (easiest)
       
     </span>
   </a>
@@ -2844,7 +2844,7 @@
   <a href="#path-b-native-sdk" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Path B — native SDK
+        Path B: native SDK
       
     </span>
   </a>
@@ -2943,17 +2943,17 @@
 
 
 <h1 id="add-or-update-a-provider">Add or update a provider<a class="headerlink" href="#add-or-update-a-provider" title="Permanent link">&para;</a></h1>
-<p>A <strong>provider</strong> is a backend AIMU talks to (Ollama, Anthropic, an OpenAI-compatible server, …). Adding one means writing a client class and wiring it into the factory. This is different from <a href="../add-new-model/">adding a new <em>model</em></a> — that's just a new member on an existing provider's <code>Model</code> enum.</p>
+<p>A <strong>provider</strong> is a backend AIMU talks to (Ollama, Anthropic, an OpenAI-compatible server, …). Adding one means writing a client class and wiring it into the factory. This is different from <a href="../add-new-model/">adding a new <em>model</em></a>, which is just a new member on an existing provider's <code>Model</code> enum.</p>
 <p>Provider clients live under <a href="https://github.com/saxman/aimu/tree/main/aimu/models/providers"><code>aimu/models/providers/</code></a>, one module per provider. The public surface is unchanged by where the file sits: users still reach your client through <code>aimu.client("yourprovider:model-id")</code>, <code>ModelClient(YourModel.X)</code>, or <code>from aimu.models import YourClient</code>.</p>
 <h2 id="1-decide-the-file-layout">1. Decide the file layout<a class="headerlink" href="#1-decide-the-file-layout" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Flat module</strong> — <code>providers/&lt;name&gt;.py</code>. The default, used by <code>anthropic.py</code>, <code>ollama.py</code>, <code>llamacpp.py</code>.</li>
-<li><strong>Subpackage</strong> — <code>providers/&lt;name&gt;/&lt;modality&gt;.py</code> — <strong>only</strong> when the provider ships <em>more than one</em> standalone modality client (the rule that gives <code>hf/</code>, <code>openai/</code>, <code>gemini/</code> their <code>text.py</code> / <code>image.py</code> / …). A single-client provider stays flat.</li>
+<li><strong>Flat module</strong>: <code>providers/&lt;name&gt;.py</code>. The default, used by <code>anthropic.py</code>, <code>ollama.py</code>, <code>llamacpp.py</code>.</li>
+<li><strong>Subpackage</strong>: <code>providers/&lt;name&gt;/&lt;modality&gt;.py</code>, <strong>only</strong> when the provider ships <em>more than one</em> standalone modality client (the rule that gives <code>hf/</code>, <code>openai/</code>, <code>gemini/</code> their <code>text.py</code> / <code>image.py</code> / …). A single-client provider stays flat.</li>
 </ul>
 <h2 id="2-write-the-client">2. Write the client<a class="headerlink" href="#2-write-the-client" title="Permanent link">&para;</a></h2>
 <p>There are two paths depending on the backend's API.</p>
-<h3 id="path-a-openai-compatible-endpoint-easiest">Path A — OpenAI-compatible endpoint (easiest)<a class="headerlink" href="#path-a-openai-compatible-endpoint-easiest" title="Permanent link">&para;</a></h3>
-<p>If the backend speaks the OpenAI REST API, you don't reimplement chat/streaming/tools — subclass <code>OpenAICompatClient</code> and supply a <code>base_url</code> + a <code>Model</code> enum. For a <em>local inference server</em>, add it alongside the others in <a href="https://github.com/saxman/aimu/blob/main/aimu/models/providers/openai_compat.py"><code>providers/openai_compat.py</code></a>:</p>
+<h3 id="path-a-openai-compatible-endpoint-easiest">Path A: OpenAI-compatible endpoint (easiest)<a class="headerlink" href="#path-a-openai-compatible-endpoint-easiest" title="Permanent link">&para;</a></h3>
+<p>If the backend speaks the OpenAI REST API, you don't reimplement chat/streaming/tools. Subclass <code>OpenAICompatClient</code> and supply a <code>base_url</code> + a <code>Model</code> enum. For a <em>local inference server</em>, add it alongside the others in <a href="https://github.com/saxman/aimu/blob/main/aimu/models/providers/openai_compat.py"><code>providers/openai_compat.py</code></a>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># aimu/models/providers/openai_compat.py</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyServerOpenAIModel</span><span class="p">(</span><span class="n">Model</span><span class="p">):</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">QWEN_3_8B</span> <span class="o">=</span> <span class="n">ModelSpec</span><span class="p">(</span><span class="s2">&quot;qwen3-8b&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -2965,9 +2965,9 @@
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">MyServerOpenAIModel</span><span class="p">,</span> <span class="n">base_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;http://localhost:9000/v1&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="n">base_url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
-<p>A <em>cloud</em> provider with its own identity and ≥2 modalities gets a subpackage instead — see how <code>OpenAIClient</code> lives in <code>providers/openai/text.py</code> and subclasses <code>OpenAICompatClient</code> via <code>from ..openai_compat import OpenAICompatClient</code>.</p>
-<h3 id="path-b-native-sdk">Path B — native SDK<a class="headerlink" href="#path-b-native-sdk" title="Permanent link">&para;</a></h3>
-<p>For a backend with its own SDK/wire format, subclass <code>BaseModelClient</code> and implement the three abstract methods plus the capability classproperties. <code>self.messages</code> always stays in OpenAI format; adapt to the provider's format at request time (never mutate <code>self.messages</code>). Reuse the shared helpers in <a href="https://github.com/saxman/aimu/tree/main/aimu/models/_internal"><code>aimu/models/_internal/</code></a> (<code>streaming</code>, <code>image_input</code>, …):</p>
+<p>A <em>cloud</em> provider with its own identity and ≥2 modalities gets a subpackage instead. See how <code>OpenAIClient</code> lives in <code>providers/openai/text.py</code> and subclasses <code>OpenAICompatClient</code> via <code>from ..openai_compat import OpenAICompatClient</code>.</p>
+<h3 id="path-b-native-sdk">Path B: native SDK<a class="headerlink" href="#path-b-native-sdk" title="Permanent link">&para;</a></h3>
+<p>For a backend with its own SDK/wire format, subclass <code>BaseModelClient</code> and implement the three abstract methods plus the capability classproperties. <code>self.messages</code> always stays in OpenAI format; adapt to the provider's format at request time (never mutate <code>self.messages</code>). Reuse the shared helpers in <a href="https://github.com/saxman/aimu/tree/main/aimu/models/_internal"><code>aimu/models/_internal/</code></a>, such as <code>streaming</code> and <code>image_input</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># aimu/models/providers/myprovider.py</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">..base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModelClient</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="n">ModelSpec</span><span class="p">,</span> <span class="n">StreamChunk</span><span class="p">,</span> <span class="n">StreamingContentType</span><span class="p">,</span> <span class="n">classproperty</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
@@ -2999,7 +2999,7 @@
 </span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_generate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prompt</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span> <span class="o">...</span>
 </span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_chat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">user_message</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">use_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span> <span class="o">...</span>
 </span></code></pre></div>
-<p><code>chat()</code> / <code>generate()</code> (and the <code>include=</code> stream filter) are concrete on the base — you only implement <code>_chat</code> / <code>_generate</code>. Use <code>self._chat_setup(...)</code> to build the request and <code>self._handle_tool_calls(...)</code> / <code>self._handle_tool_calls_streamed(...)</code> to dispatch tools uniformly. See <a href="https://github.com/saxman/aimu/blob/main/aimu/models/providers/anthropic.py"><code>providers/anthropic.py</code></a> for a full native example (including the OpenAI↔Anthropic format adapters).</p>
+<p><code>chat()</code> / <code>generate()</code> (and the <code>include=</code> stream filter) are concrete on the base; you only implement <code>_chat</code> / <code>_generate</code>. Use <code>self._chat_setup(...)</code> to build the request and <code>self._handle_tool_calls(...)</code> / <code>self._handle_tool_calls_streamed(...)</code> to dispatch tools uniformly. See <a href="https://github.com/saxman/aimu/blob/main/aimu/models/providers/anthropic.py"><code>providers/anthropic.py</code></a> for a full native example (including the OpenAI↔Anthropic format adapters).</p>
 <div class="admonition note">
 <p class="admonition-title">Provider-local helpers</p>
 <p>A helper used by <em>one</em> provider family lives with it (e.g. <code>providers/hf/_device.py</code>, <code>providers/_thinking.py</code>), not in <code>_internal/</code>. Put anything only your provider needs next to your provider.</p>
@@ -3028,13 +3028,13 @@
 <p>Add <code>aimu/aio/providers/myprovider.py</code>:</p>
 <ul>
 <li><strong>Native</strong> providers subclass <code>AsyncBaseModelClient</code> (async <code>_chat</code> / <code>_generate</code>; <code>asyncio.TaskGroup</code> for concurrent tool calls).</li>
-<li><strong>In-process</strong> providers (those that load weights, like HF/LlamaCpp) instead <em>wrap a sync client</em> — they don't load weights twice (Decision 7, see <a href="../../explanation/async-design/">async design</a>).</li>
+<li><strong>In-process</strong> providers (those that load weights, like HF/LlamaCpp) instead <em>wrap a sync client</em> so they don't load weights twice (Decision 7, see <a href="../../explanation/async-design/">async design</a>).</li>
 </ul>
 <p>Then wire <code>aimu/aio/_model_client.py</code> (same three edits as step 3) and export from <code>aimu/aio/__init__.py</code>.</p>
 <h2 id="6-tests">6. Tests<a class="headerlink" href="#6-tests" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Mock</strong> coverage: <code>tests/test_models_api.py</code> (no backend needed) — this is the canary that catches wiring/import breaks.</li>
-<li><strong>Live</strong> coverage flows through <code>tests/test_models.py</code>; add your provider to the dispatch in <code>tests/conftest.py</code> / <code>tests/helpers.py</code> so <code>--client=myprovider</code> resolves. Live tests are opt-in — bare <code>pytest</code> skips them.</li>
+<li><strong>Mock</strong> coverage: <code>tests/test_models_api.py</code> (no backend needed). This is the canary that catches wiring/import breaks.</li>
+<li><strong>Live</strong> coverage flows through <code>tests/test_models.py</code>; add your provider to the dispatch in <code>tests/conftest.py</code> / <code>tests/helpers.py</code> so <code>--client=myprovider</code> resolves. Live tests are opt-in; bare <code>pytest</code> skips them.</li>
 </ul>
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelClient</span><span class="p">,</span> <span class="n">resolve_model_string</span>
@@ -3048,9 +3048,9 @@
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../add-new-model/">Add a new model</a> — register a model on an <em>existing</em> provider</li>
-<li><a href="../../explanation/architecture/">Architecture</a> — the <code>BaseModelClient</code> contract and factory pattern</li>
-<li><a href="../use-async/">Use async (<code>aio</code>)</a> — the async surface your mirror plugs into</li>
+<li><a href="../add-new-model/">Add a new model</a>: register a model on an <em>existing</em> provider</li>
+<li><a href="../../explanation/architecture/">Architecture</a>: the <code>BaseModelClient</code> contract and factory pattern</li>
+<li><a href="../use-async/">Use async (<code>aio</code>)</a>: the async surface your mirror plugs into</li>
 </ul>
 
 

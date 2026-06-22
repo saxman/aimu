@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2843,7 +2843,7 @@
 
 
 <h1 id="agents-vs-workflows">Agents vs workflows<a class="headerlink" href="#agents-vs-workflows" title="Permanent link">&para;</a></h1>
-<p>AIMU follows the taxonomy from <em><a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a></em>. The split — autonomous agents vs code-controlled workflows — is the most important conceptual divide in the library, and worth understanding before you build anything non-trivial.</p>
+<p>AIMU follows the taxonomy from <em><a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a></em>. The split between autonomous agents and code-controlled workflows is the most important conceptual divide in the library, and worth understanding before you build anything non-trivial.</p>
 <p>In code, every runnable unit implements the single <code>Runner</code> ABC and is exported from <code>aimu.agents</code>. The agent-vs-workflow split is a <em>conceptual category</em> over concrete classes, not a type hierarchy: <code>Agent</code> / <code>SkillAgent</code> / <code>OrchestratorAgent</code> are agent-shaped; <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>EvaluatorOptimizer</code> / <code>PlanExecuteEvaluator</code> are workflow-shaped. The distinction lives in the docs.</p>
 <h2 id="the-distinction">The distinction<a class="headerlink" href="#the-distinction" title="Permanent link">&para;</a></h2>
 <p><strong>Agents</strong> are autonomous: the LLM directs the process. You give it tools and a goal; the LLM decides which tools to call, in what order, and when to stop. The control flow lives in the model's outputs.</p>
@@ -2896,9 +2896,9 @@
 </ul>
 <h2 id="why-the-split-matters">Why the split matters<a class="headerlink" href="#why-the-split-matters" title="Permanent link">&para;</a></h2>
 <p>The taxonomy isn't just nomenclature. It's a question about <em>who controls the loop</em>.</p>
-<p>Autonomous agents are powerful but expensive: every step the model decides is a round-trip, with full message history. They're also harder to reason about — when something goes wrong, you have to trace through what the model decided, not what your code did.</p>
+<p>Autonomous agents are powerful but expensive: every step the model decides is a round-trip, with full message history. They're also harder to reason about. When something goes wrong, you have to trace through what the model decided, not what your code did.</p>
 <p>Workflows are constrained but predictable. Each step has a known purpose. Failures are localised. Latency is bounded by the number of steps in the code, not by however many tool rounds the model wants.</p>
-<p>For most production systems, workflows do more of the work than people expect. Autonomous agents are best at the <em>leaves</em> — at points where the task genuinely is "use these tools to figure out what to do next".</p>
+<p>For most production systems, workflows do more of the work than people expect. Autonomous agents are best at the <em>leaves</em>, at points where the task genuinely is "use these tools to figure out what to do next".</p>
 <h2 id="in-aimu">In AIMU<a class="headerlink" href="#in-aimu" title="Permanent link">&para;</a></h2>
 <p>Both branches share the <code>Runner</code> interface (<code>run()</code>, <code>messages</code>), so they compose freely:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Workflow dispatching to an autonomous agent</span>
@@ -2914,13 +2914,13 @@
 <p>The <code>messages</code> property merges sub-agent message dicts recursively, so you can inspect the full nested execution regardless of which branch a turn went through.</p>
 <h2 id="the-orchestrator-pattern">The orchestrator pattern<a class="headerlink" href="#the-orchestrator-pattern" title="Permanent link">&para;</a></h2>
 <p><code>OrchestratorAgent</code> is a third pattern that sits between agents and workflows: an <em>autonomous</em> agent whose tools are other agents. The orchestrator LLM decides which worker agents to call (and in what order), but each worker runs its own agentic loop.</p>
-<p>This is most useful when the workers themselves benefit from tool use. A research orchestrator might have three workers (overview, examples, counterpoints), each of which can call web-search tools. The orchestrator decides which workers to dispatch — the workers decide how to do their work.</p>
+<p>This is most useful when the workers themselves benefit from tool use. A research orchestrator might have three workers (overview, examples, counterpoints), each of which can call web-search tools. The orchestrator decides which workers to dispatch; the workers decide how to do their work.</p>
 <p>Use <code>OrchestratorAgent.assemble(client, system_message, workers=[...])</code> for the simple case (each worker is auto-wrapped as a <code>@tool</code>), or subclass and call <code>self._init_orchestrator(...)</code> when you need custom tool signatures.</p>
 <h2 id="further-reading">Further reading<a class="headerlink" href="#further-reading" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a> — the original taxonomy.</li>
-<li><a href="../architecture/">Architecture</a> — how the <code>Runner</code> hierarchy is arranged in the codebase.</li>
-<li><a href="../../how-to/build-orchestrator/">How-to: build an orchestrator</a> — practical patterns.</li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a>: the original taxonomy.</li>
+<li><a href="../architecture/">Architecture</a>: how the <code>Runner</code> hierarchy is arranged in the codebase.</li>
+<li><a href="../../how-to/build-orchestrator/">How-to: build an orchestrator</a>: practical patterns.</li>
 </ul>
 
 

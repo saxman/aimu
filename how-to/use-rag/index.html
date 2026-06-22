@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2890,7 +2890,7 @@
 <p><code>aimu.rag</code> provides the primitives to ground a model's answers in your own documents:
 chunk text, store it, retrieve the relevant pieces for a query, and fold them into the
 prompt. They are <strong>plain functions over the <a href="../use-semantic-memory/"><code>MemoryStore</code></a>
-interface</strong> — there is no retriever/splitter/loader class hierarchy to learn.</p>
+interface</strong>. There is no retriever/splitter/loader class hierarchy to learn.</p>
 <h2 id="the-flow">The flow<a class="headerlink" href="#the-flow" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">SemanticMemoryStore</span>
@@ -2919,11 +2919,11 @@ words → characters).</p>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">chunks</span> <span class="o">=</span> <span class="n">split_text</span><span class="p">(</span><span class="n">long_text</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">chunk_overlap</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
 </span></code></pre></div>
 <ul>
-<li><strong><code>chunk_size</code> / <code>chunk_overlap</code></strong> — overlap repeats the tail of one chunk at the head
+<li><strong><code>chunk_size</code> / <code>chunk_overlap</code></strong>: overlap repeats the tail of one chunk at the head
   of the next so context isn't lost at boundaries. <code>chunk_overlap</code> must be smaller than
   <code>chunk_size</code>.</li>
-<li><strong><code>separators</code></strong> — override the hierarchy, e.g. <code>["\n## ", "\n", " ", ""]</code> for Markdown.</li>
-<li><strong><code>length_function</code></strong> — defaults to <code>len</code> (characters). Pass a tokenizer's counter for
+<li><strong><code>separators</code></strong>: override the hierarchy, e.g. <code>["\n## ", "\n", " ", ""]</code> for Markdown.</li>
+<li><strong><code>length_function</code></strong>: defaults to <code>len</code> (characters). Pass a tokenizer's counter for
   <strong>token-aware</strong> chunking:</li>
 </ul>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">tiktoken</span>
@@ -2967,22 +2967,22 @@ chunk it used, or <code>"No relevant context found."</code> when the store has n
 <h2 id="choosing-a-store">Choosing a store<a class="headerlink" href="#choosing-a-store" title="Permanent link">&para;</a></h2>
 <p>Any <code>MemoryStore</code> works with <code>ingest</code> / <code>retrieve</code>:</p>
 <ul>
-<li><a href="../use-semantic-memory/"><code>SemanticMemoryStore</code></a> — ChromaDB vector search; the usual
+<li><a href="../use-semantic-memory/"><code>SemanticMemoryStore</code></a>: ChromaDB vector search; the usual
   choice. Pair it with a chosen embedding model via <code>embedding_client=</code> (see
   <a href="../use-embeddings/">Embed text</a>).</li>
-<li><code>DocumentStore</code> — case-insensitive substring search; no embeddings, good for exact-term
+<li><code>DocumentStore</code>: case-insensitive substring search; no embeddings, good for exact-term
   lookup or when you can't run an embedding model.</li>
 </ul>
 <h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
 <p><code>aimu.rag</code> ships the chunk/retrieve/rerank primitives only. Document <strong>loaders</strong> (PDF,
-HTML, etc.) are intentionally not included — the built-in <code>read_file</code> and <code>get_webpage</code>
+HTML, etc.) are intentionally not included. The built-in <code>read_file</code> and <code>get_webpage</code>
 tools, or any library that returns text, feed <code>ingest</code> directly. Chunks are stored as
 plain strings (the <code>MemoryStore</code> contract), so per-chunk metadata (source, page) is not
 currently carried.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../use-embeddings/">Embed text</a> — pick the embedding model behind your vector store</li>
-<li><a href="../use-semantic-memory/">Use semantic memory</a> — the store interface RAG builds on</li>
+<li><a href="../use-embeddings/">Embed text</a>: pick the embedding model behind your vector store</li>
+<li><a href="../use-semantic-memory/">Use semantic memory</a>: the store interface RAG builds on</li>
 </ul>
 
 

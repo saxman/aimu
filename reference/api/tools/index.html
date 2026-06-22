@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -3212,18 +3212,18 @@
 tool spec to <code>func.__tool_spec__</code>. The function itself is unchanged and remains
 directly callable.</p>
 <p>Each parameter must either have a type hint or a default value. Variadic parameters
-(<code>*args</code> / <code>**kwargs</code>) are not supported — declare each argument explicitly.</p>
+(<code>*args</code> / <code>**kwargs</code>) are not supported; declare each argument explicitly.</p>
 <p>Supported parameter types: <code>str</code>, <code>int</code>, <code>float</code>, <code>bool</code>, <code>list</code>, <code>dict</code>,
 plus <code>Optional[T]</code> and <code>T | None</code> (which unwrap to the inner type).</p>
 <p>A tool may be plain (<code>def fn() -&gt; T</code>), async (<code>async def fn() -&gt; T</code>), a generator
 (<code>def fn(): yield ...; return T</code>), or an async generator (<code>async def fn(): yield ...</code>).
 Generator and async-generator tools stream :class:<code>~aimu.models.StreamChunk</code> objects
-during execution — the agent forwards each yielded chunk through its own stream and
+during execution; the agent forwards each yielded chunk through its own stream and
 treats the final yielded <code>TOOL_CALLING</code> chunk's <code>content["response"]</code> as the
 canonical tool result. The decorator sets discriminator attributes:</p>
 <ul>
-<li><code>func.__tool_is_async__</code> — True for <code>async def</code> <em>or</em> <code>async def</code> + <code>yield</code>.</li>
-<li><code>func.__tool_is_streaming__</code> — True for generator functions (sync or async).</li>
+<li><code>func.__tool_is_async__</code>: True for <code>async def</code> <em>or</em> <code>async def</code> + <code>yield</code>.</li>
+<li><code>func.__tool_is_streaming__</code>: True for generator functions (sync or async).</li>
 </ul>
 <p>Usage::</p>
 <div class="language-text highlight"><pre><span></span><code>import aimu
@@ -3356,7 +3356,7 @@ server is unreachable.</p>
 and returns the result's text content as a string. The callables carry
 <code>__tool_spec__</code> (OpenAI format), <code>__tool_is_async__ = False</code>, and
 <code>__tool_is_streaming__ = False</code>, so they drop straight into <code>client.tools</code> or
-<code>Agent(tools=...)</code> and dispatch through the same path as <code>@tool</code> functions —
+<code>Agent(tools=...)</code> and dispatch through the same path as <code>@tool</code> functions,
 no <code>model_client.mcp_client</code> reference needed::</p>
 <div class="language-text highlight"><pre><span></span><code>mcp = MCPClient(server=my_server)
 client.tools = builtin.web + mcp.as_tools()
@@ -3622,7 +3622,7 @@ when the HTML is stripped.</p>
 
         <p>Search the web using a SearXNG instance and return the top results.</p>
 <p>Each result includes its publication date when the search engine reports one
-(shown as a "Published:" line) — useful for judging how recent an article is.</p>
+(shown as a "Published:" line), useful for judging how recent an article is.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3899,7 +3899,7 @@ process-wide singleton.</p>
     <div class="doc doc-contents first">
 
         <p>Build <code>store_memory</code>, <code>search_memories</code>, and <code>list_memories</code> tools bound to <em>store</em>.</p>
-<p><em>store</em> may be any :class:<code>aimu.memory.MemoryStore</code> implementation —
+<p><em>store</em> may be any :class:<code>aimu.memory.MemoryStore</code> implementation:
 :class:<code>~aimu.memory.SemanticMemoryStore</code> (ChromaDB vector search),
 :class:<code>~aimu.memory.DocumentStore</code> (path-keyed), or a custom subclass.</p>
 <p>Unlike the image/audio/speech tools, there is no env-var singleton for memory
@@ -3940,7 +3940,7 @@ store = SemanticMemoryStore()
 ingest(store, my_documents)
 agent = Agent(client, tools=[make_retrieval_tool(store)])
 </code></pre></div>
-<p>Like :func:<code>make_memory_tools</code>, there is no env-var singleton — the store (and what was
+<p>Like :func:<code>make_memory_tools</code>, there is no env-var singleton; the store (and what was
 ingested into it) is a meaningful, explicit choice.</p>
 
 

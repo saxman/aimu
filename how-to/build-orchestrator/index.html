@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2824,8 +2824,8 @@
 <p><code>OrchestratorAgent</code> is the base for the <em>orchestrator + worker-tools</em> pattern: an orchestrator <code>Agent</code> dispatches to specialist worker agents via tool calls. The LLM decides which workers to call, in what order, and how many times.</p>
 <p>Two construction paths:</p>
 <ol>
-<li><strong><code>OrchestratorAgent.assemble(...)</code></strong> — no subclass. Each worker is auto-wrapped as a <code>@tool</code> named after the worker.</li>
-<li><strong>Subclass and call <code>self._init_orchestrator(...)</code></strong> — full control over each dispatch tool's name, description, and signature.</li>
+<li><strong><code>OrchestratorAgent.assemble(...)</code></strong>: no subclass. Each worker is auto-wrapped as a <code>@tool</code> named after the worker.</li>
+<li><strong>Subclass and call <code>self._init_orchestrator(...)</code></strong>: full control over each dispatch tool's name, description, and signature.</li>
 </ol>
 <h2 id="path-1-assemble">Path 1: <code>assemble</code><a class="headerlink" href="#path-1-assemble" title="Permanent link">&para;</a></h2>
 <p>When each worker can be dispatched by forwarding the user's task verbatim, <code>assemble()</code> removes all boilerplate:</p>
@@ -2849,7 +2849,7 @@
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">orchestrator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;How does retrieval-augmented generation work?&quot;</span><span class="p">))</span>
 </span></code></pre></div>
-<p>Each worker becomes a callable <code>@tool</code> (via <code>Runner.as_tool()</code>) named after the worker's <code>name</code> (sanitised); the tool description is the first line of its <code>system_message</code>. Workers can be <strong>any <code>Runner</code></strong>, not just an <code>Agent</code> — a <code>Chain</code> / <code>Router</code> / <code>Parallel</code> workflow, or a remote agent from <a href="../connect-agents-a2a/"><code>RemoteAgent.connect(...)</code></a> — so the orchestrator can delegate to a whole pipeline or a cross-process agent the same way it delegates to a single agent.</p>
+<p>Each worker becomes a callable <code>@tool</code> (via <code>Runner.as_tool()</code>) named after the worker's <code>name</code> (sanitised); the tool description is the first line of its <code>system_message</code>. Workers can be <strong>any <code>Runner</code></strong>, not just an <code>Agent</code> (a <code>Chain</code> / <code>Router</code> / <code>Parallel</code> workflow, or a remote agent from <a href="../connect-agents-a2a/"><code>RemoteAgent.connect(...)</code></a>), so the orchestrator can delegate to a whole pipeline or a cross-process agent the same way it delegates to a single agent.</p>
 <h2 id="path-2-subclass">Path 2: subclass<a class="headerlink" href="#path-2-subclass" title="Permanent link">&para;</a></h2>
 <p>When you need custom tool names, multi-argument tools, or pre/post-processing:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
@@ -2881,16 +2881,16 @@
 </span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>            <span class="n">concurrent_tool_calls</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>        <span class="p">)</span>
 </span></code></pre></div>
-<p><code>_init_orchestrator()</code> does three things: assigns the tool functions to <code>model_client.tools</code>, sets <code>concurrent_tool_calls</code>, and constructs the inner orchestrator <code>Agent</code>. The base class provides <code>run()</code> and <code>messages</code> — the subclass needs nothing else.</p>
+<p><code>_init_orchestrator()</code> does three things: assigns the tool functions to <code>model_client.tools</code>, sets <code>concurrent_tool_calls</code>, and constructs the inner orchestrator <code>Agent</code>. The base class provides <code>run()</code> and <code>messages</code>; the subclass needs nothing else.</p>
 <h2 id="concurrent-worker-dispatch">Concurrent worker dispatch<a class="headerlink" href="#concurrent-worker-dispatch" title="Permanent link">&para;</a></h2>
 <p>Pass <code>concurrent_tool_calls=True</code> so the orchestrator dispatches multiple tools in parallel when the model returns several tool calls in one turn. This is essential when workers do I/O (web search, API calls) and idle most of their time waiting.</p>
 <p>The prebuilt agents in <code>aimu.agents.prebuilt</code> enable this automatically when <code>worker_tools=</code> is provided.</p>
 <h2 id="prebuilt-orchestrators">Prebuilt orchestrators<a class="headerlink" href="#prebuilt-orchestrators" title="Permanent link">&para;</a></h2>
 <p><code>aimu.agents.prebuilt</code> includes three working orchestrators you can use directly or copy as a starting point:</p>
 <ul>
-<li><code>ResearchReportAgent</code> — orchestrator + <code>research_overview</code>, <code>find_examples</code>, <code>find_counterpoints</code></li>
-<li><code>CodeReviewAgent</code> — orchestrator + <code>review_security</code>, <code>review_performance</code>, <code>review_readability</code></li>
-<li><code>ContentCreationAgent</code> — orchestrator + <code>research_topic</code>, <code>create_outline</code>, <code>write_section</code></li>
+<li><code>ResearchReportAgent</code>: orchestrator + <code>research_overview</code>, <code>find_examples</code>, <code>find_counterpoints</code></li>
+<li><code>CodeReviewAgent</code>: orchestrator + <code>review_security</code>, <code>review_performance</code>, <code>review_readability</code></li>
+<li><code>ContentCreationAgent</code>: orchestrator + <code>research_topic</code>, <code>create_outline</code>, <code>write_section</code></li>
 </ul>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents.prebuilt</span><span class="w"> </span><span class="kn">import</span> <span class="n">ResearchReportAgent</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
@@ -2900,7 +2900,7 @@
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../tutorials/03-workflows/">Tutorial: workflows</a> — Chain, Router, Parallel, EvaluatorOptimizer</li>
+<li><a href="../../tutorials/03-workflows/">Tutorial: workflows</a>: Chain, Router, Parallel, EvaluatorOptimizer</li>
 <li><a href="../../reference/api/agents/#aimu.agents.OrchestratorAgent"><code>aimu.agents.OrchestratorAgent</code></a></li>
 <li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/11%20-%20Agent%20Examples.ipynb">11 - Agent Examples</a></li>
 </ul>

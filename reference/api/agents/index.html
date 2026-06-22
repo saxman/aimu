@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -3897,7 +3897,7 @@ returned dict points at the last step's messages.</p>
 
         <p>Wrap this runner as a <code>@tool</code>-style callable: <code>tool(task: str) -&gt; str</code>.</p>
 <p>The returned callable runs :meth:<code>run</code> and returns its string result, so any agent
-or workflow can call this runner as a tool — drop it into <code>Agent(tools=[...])</code> or
+or workflow can call this runner as a tool: drop it into <code>Agent(tools=[...])</code> or
 an :class:<code>OrchestratorAgent</code>'s worker list. Works for every concrete <code>Runner</code>
 (<code>Agent</code>, <code>Chain</code>, <code>Router</code>, a remote A2A agent, ...) since it only relies on
 <code>run()</code>.</p>
@@ -3968,16 +3968,16 @@ an :class:<code>OrchestratorAgent</code>'s worker list. Works for every concrete
 <p>Calls <code>model_client.chat()</code> repeatedly until the model produces a turn without
 invoking tools, or <code>max_iterations</code> is reached. The stop condition scans
 <code>model_client.messages</code> in reverse for a <code>"tool"</code> role message after the last
-<code>"user"</code> role — if found, the agent sends <code>continuation_prompt</code> and loops.</p>
+<code>"user"</code> role. If found, the agent sends <code>continuation_prompt</code> and loops.</p>
 <p>Tools are plain callables in <code>tools=</code>: functions decorated with
 <code>@aimu.tools.tool</code> for in-process tools, and/or <code>MCPClient(...).as_tools()</code> for
 cross-process FastMCP tools (each MCP tool becomes a callable). Mix them freely in
-one list — <code>tools=builtin.web + mcp.as_tools()</code>.</p>
+one list, <code>tools=builtin.web + mcp.as_tools()</code>.</p>
 <p>When <code>system_message</code> is set or <code>reset_messages_on_run</code> is True, the agent
 clears <code>model_client.messages</code> and re-applies <code>system_message</code> before every
 run. This isolates state when a client is shared (e.g. inside a :class:<code>Chain</code>).</p>
 <p><code>final_answer_prompt</code> (opt-in, default <code>None</code>) guarantees a final answer when the
-loop exhausts <code>max_iterations</code> while the model is still calling tools — instead of
+loop exhausts <code>max_iterations</code> while the model is still calling tools. Instead of
 returning whatever the last (possibly tool-only) turn produced, the agent sends this
 prompt once with tools disabled, forcing the model to synthesize an answer from the
 context it has gathered. This wrap-up turn is <em>not</em> counted against <code>max_iterations</code>
@@ -4037,10 +4037,10 @@ print(agent.run(&quot;How many r&#39;s in strawberry?&quot;))
 (default) uses them, any other value (including <code>[]</code> to disable Python tools for
 this run) replaces them for every <code>chat()</code> call in the loop and is restored
 afterward.</p>
-<p><code>deps</code> is a per-run override of the agent's <code>self.deps</code> field — the value injected
+<p><code>deps</code> is a per-run override of the agent's <code>self.deps</code> field, the value injected
 as <code>ctx.deps</code> into tools that declare a :class:<code>~aimu.tools.ToolContext</code> parameter.</p>
 <p><code>schema</code> (a dataclass or Pydantic v2 model) makes the run a single structured-output
-turn that returns a validated instance instead of looping with tools — use it for an
+turn that returns a validated instance instead of looping with tools. Use it for an
 agent whose job is to return a typed object (e.g. a critic's verdict). It is mutually
 exclusive with <code>stream=True</code> and with the tool-calling loop.</p>
 
@@ -4107,7 +4107,7 @@ result = agent.run(continuation_prompt)
         <p>Return a :class:<code>BaseModelClient</code> view of this agent.</p>
 <p>Each <code>chat()</code> call on the returned object runs the full agent loop, looping
 until the model stops calling tools. Use this only where an API expects a
-<code>BaseModelClient</code> — for direct use, call :meth:<code>run</code> instead.</p>
+<code>BaseModelClient</code>. For direct use, call :meth:<code>run</code> instead.</p>
 
 
     </div>
@@ -4326,7 +4326,7 @@ class ResearchAgent(OrchestratorAgent):
     <div class="doc doc-contents ">
 
         <p>Build a ready-to-run orchestrator from a list of worker runners.</p>
-<p>Each worker becomes a callable tool via :meth:<code>Runner.as_tool</code> — the orchestrator
+<p>Each worker becomes a callable tool via :meth:<code>Runner.as_tool</code>; the orchestrator
 dispatches by name. Workers may be any :class:<code>Runner</code> (an :class:<code>Agent</code>, a
 <code>Chain</code>/<code>Router</code>/<code>Parallel</code> workflow, or a remote A2A agent), not just
 <code>Agent</code> instances; tool names/descriptions come from each worker's <code>name</code> and
@@ -4799,13 +4799,13 @@ original task and decides whether it is accepted; if not, its feedback drives a 
 The loop stops when the evaluator accepts or <code>max_rounds</code> is reached.</p>
 <p>Acceptance is decided by one of three mechanisms, in priority order:</p>
 <ul>
-<li><code>stop_when</code> — a predicate over the evaluator's output (the raw text, or the typed
+<li><code>stop_when</code>: a predicate over the evaluator's output (the raw text, or the typed
   verdict when <code>verdict_schema</code> is set). The most flexible and robust option.</li>
-<li><code>verdict_schema</code> — a dataclass / Pydantic model the evaluator must return (via
+<li><code>verdict_schema</code>: a dataclass / Pydantic model the evaluator must return (via
   structured output). Acceptance reads its <code>passed</code> (bool) attribute and revision uses
   its <code>feedback</code> (str) attribute. Requires a structured-output-capable model; it raises
   on a malformed verdict rather than silently continuing.</li>
-<li><code>pass_keyword</code> (default) — accept when this substring appears in the evaluator's text.</li>
+<li><code>pass_keyword</code> (default): accept when this substring appears in the evaluator's text.</li>
 </ul>
 <p>Usage::</p>
 <div class="language-text highlight"><pre><span></span><code>eo = EvaluatorOptimizer(

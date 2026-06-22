@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -1319,7 +1319,7 @@
   <a href="#per-agent-override-make_audio_tool" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Per-agent override — make_audio_tool
+        Per-agent override: make_audio_tool
       
     </span>
   </a>
@@ -2934,7 +2934,7 @@
   <a href="#per-agent-override-make_audio_tool" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Per-agent override — make_audio_tool
+        Per-agent override: make_audio_tool
       
     </span>
   </a>
@@ -2997,7 +2997,7 @@
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[hf]&#39;</span>
 </span></code></pre></div>
-<p>The <code>[hf]</code> extra already ships <code>torch</code> and <code>transformers</code> for the HuggingFace text client. Audio adds <code>diffusers</code> (for AudioLDM2 / Stable Audio) and <code>soundfile</code> (for WAV encoding). All come in one extra — no separate install step.</p>
+<p>The <code>[hf]</code> extra already ships <code>torch</code> and <code>transformers</code> for the HuggingFace text client. Audio adds <code>diffusers</code> (for AudioLDM2 / Stable Audio) and <code>soundfile</code> (for WAV encoding). All come in one extra, with no separate install step.</p>
 <h2 id="one-shot">One-shot<a class="headerlink" href="#one-shot" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
@@ -3016,10 +3016,10 @@
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">)</span>
 </span></code></pre></div>
 <p><code>format=</code> selects how the audio is returned:
-- <code>"numpy"</code> (default) — <code>(sample_rate: int, audio: np.ndarray)</code> tuple, the native representation
-- <code>"path"</code> — saves a WAV file, returns the path string
-- <code>"bytes"</code> — raw WAV-encoded bytes
-- <code>"data_url"</code> — <code>data:audio/wav;base64,...</code> for inline embedding</p>
+- <code>"numpy"</code> (default): <code>(sample_rate: int, audio: np.ndarray)</code> tuple, the native representation
+- <code>"path"</code>: saves a WAV file, returns the path string
+- <code>"bytes"</code>: raw WAV-encoded bytes
+- <code>"data_url"</code>: <code>data:audio/wav;base64,...</code> for inline embedding</p>
 <h2 id="choosing-a-model">Choosing a model<a class="headerlink" href="#choosing-a-model" title="Permanent link">&para;</a></h2>
 <p>Three pipeline families ship in the <code>HuggingFaceAudioModel</code> enum:</p>
 <table>
@@ -3064,8 +3064,8 @@
 </tr>
 </tbody>
 </table>
-<p><strong>MusicGen</strong> (<code>musicgen</code>) is token-autoregressive — it generates directly at 32 kHz without a diffusion loop, so there are no inference steps. Duration maps to a token count (~50 tokens/s).</p>
-<p><strong>AudioLDM2</strong> and <strong>Stable Audio Open</strong> (<code>audioldm2</code> / <code>stable_audio</code>) use latent diffusion — they accept <code>num_inference_steps</code> and support step-by-step streaming progress.</p>
+<p><strong>MusicGen</strong> (<code>musicgen</code>) is token-autoregressive: it generates directly at 32 kHz without a diffusion loop, so there are no inference steps. Duration maps to a token count (~50 tokens/s).</p>
+<p><strong>AudioLDM2</strong> and <strong>Stable Audio Open</strong> (<code>audioldm2</code> / <code>stable_audio</code>) use latent diffusion: they accept <code>num_inference_steps</code> and support step-by-step streaming progress.</p>
 <h2 id="direct-client">Direct client<a class="headerlink" href="#direct-client" title="Permanent link">&para;</a></h2>
 <p>Build a client once, reuse it for multiple generations:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">audio_client</span>
@@ -3081,7 +3081,7 @@
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">audio_client</span><span class="p">(</span><span class="n">HuggingFaceAudioModel</span><span class="o">.</span><span class="n">MUSICGEN_MEDIUM</span><span class="p">)</span>
 </span></code></pre></div>
-<p>On a multi-GPU box, target a specific card with <code>model_kwargs={"device": "cuda:1"}</code> (default placement is <code>cuda:0</code>). These models are small enough to fit one card, so — unlike the image client — there is no sharding default.</p>
+<p>On a multi-GPU box, target a specific card with <code>model_kwargs={"device": "cuda:1"}</code> (default placement is <code>cuda:0</code>). These models are small enough to fit one card, so, unlike the image client, there is no sharding default.</p>
 <h3 id="per-call-kwargs">Per-call kwargs<a class="headerlink" href="#per-call-kwargs" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -3153,7 +3153,7 @@
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;summer thunderstorm&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">c</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;final&quot;</span><span class="p">]:</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done — saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done, saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="k">else</span><span class="p">:</span>
 </span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;step&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;total_steps&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
@@ -3205,8 +3205,8 @@
 </span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>
 </span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="n">response</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Make me a short lo-fi beat I can study to.&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>The tool uses a lazy module-level singleton — first call constructs an audio client from <code>AIMU_AUDIO_MODEL</code> (default: MusicGen small), subsequent calls reuse it.</p>
-<h3 id="per-agent-override-make_audio_tool">Per-agent override — <code>make_audio_tool</code><a class="headerlink" href="#per-agent-override-make_audio_tool" title="Permanent link">&para;</a></h3>
+<p>The tool uses a lazy module-level singleton: the first call constructs an audio client from <code>AIMU_AUDIO_MODEL</code> (default: MusicGen small), subsequent calls reuse it.</p>
+<h3 id="per-agent-override-make_audio_tool">Per-agent override: <code>make_audio_tool</code><a class="headerlink" href="#per-agent-override-make_audio_tool" title="Permanent link">&para;</a></h3>
 <p>When you need a different model from the global singleton, or multiple agents in one process should use different pipelines:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">audio_client</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_audio_tool</span>
@@ -3216,9 +3216,9 @@
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">medium_tool</span><span class="p">])</span>
 </span></code></pre></div>
-<p><code>make_audio_tool()</code> returns a fresh <code>@tool</code>-decorated callable bound to the supplied client; the singleton stays untouched. Pass <code>duration_s=</code> to fix the generation length, and <code>num_inference_steps=N</code> to override the default denoising step count (diffusers models only — AudioLDM2, Stable Audio; ignored by MusicGen).</p>
+<p><code>make_audio_tool()</code> returns a fresh <code>@tool</code>-decorated callable bound to the supplied client; the singleton stays untouched. Pass <code>duration_s=</code> to fix the generation length, and <code>num_inference_steps=N</code> to override the default denoising step count (diffusers models only, namely AudioLDM2 and Stable Audio; ignored by MusicGen).</p>
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
-<p>The async surface mirrors the sync surface one-for-one. HuggingFace models load weights in-process, so the factory follows the wrap pattern — build a sync client first and pass it to <code>aio.audio_client()</code>:</p>
+<p>The async surface mirrors the sync surface one-for-one. HuggingFace models load weights in-process, so the factory follows the wrap pattern: build a sync client first and pass it to <code>aio.audio_client()</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">audio_client</span>
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
@@ -3245,12 +3245,12 @@
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../reference/model-matrix/">Reference: model matrix</a> — audio model table with pipeline types and defaults.</li>
-<li><a href="../../reference/stream-phases/">Reference: stream phases</a> — <code>AUDIO_GENERATING</code> chunk shape.</li>
-<li><a href="../../reference/env-vars/">Reference: env vars</a> — <code>AIMU_AUDIO_MODEL</code>.</li>
-<li><a href="https://github.com/saxman/aimu/tree/main/notebooks">Notebook 16 — Audio Generation</a> — runnable end-to-end demo.</li>
-<li><a href="../generate-images/">Generate images</a> — the image surface, which this mirrors.</li>
-<li><a href="../generate-speech/">Generate speech</a> — the TTS surface (<code>aimu.speech_client()</code> / <code>aimu.generate_speech()</code>). Audio and speech are separate modalities: audio generates music/sounds from descriptive prompts; speech converts literal text to spoken audio.</li>
+<li><a href="../../reference/model-matrix/">Reference: model matrix</a>: audio model table with pipeline types and defaults.</li>
+<li><a href="../../reference/stream-phases/">Reference: stream phases</a>: <code>AUDIO_GENERATING</code> chunk shape.</li>
+<li><a href="../../reference/env-vars/">Reference: env vars</a>: <code>AIMU_AUDIO_MODEL</code>.</li>
+<li><a href="https://github.com/saxman/aimu/tree/main/notebooks">Notebook 16: Audio Generation</a>: runnable end-to-end demo.</li>
+<li><a href="../generate-images/">Generate images</a>: the image surface, which this mirrors.</li>
+<li><a href="../generate-speech/">Generate speech</a>: the TTS surface (<code>aimu.speech_client()</code> / <code>aimu.generate_speech()</code>). Audio and speech are separate modalities: audio generates music/sounds from descriptive prompts; speech converts literal text to spoken audio.</li>
 </ul>
 
 

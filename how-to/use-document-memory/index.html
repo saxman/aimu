@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.">
+        <meta name="description" content="AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.">
       
       
       
@@ -2887,7 +2887,7 @@
 
 
 <h1 id="use-document-memory">Use document memory<a class="headerlink" href="#use-document-memory" title="Permanent link">&para;</a></h1>
-<p><code>DocumentStore</code> is a path-based document store that mirrors <a href="https://docs.claude.com/en/api/memory">Anthropic's Managed Agents Memory API</a> — drop-in compatible naming for <code>write</code>, <code>read</code>, <code>edit</code>, <code>list</code>, <code>search</code>, <code>delete</code>.</p>
+<p><code>DocumentStore</code> is a path-based document store that mirrors <a href="https://docs.claude.com/en/api/memory">Anthropic's Managed Agents Memory API</a>, with drop-in compatible naming for <code>write</code>, <code>read</code>, <code>edit</code>, <code>list</code>, <code>search</code>, <code>delete</code>.</p>
 <h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocumentStore</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -2922,7 +2922,7 @@
 </ul>
 <p>This lets you swap the two stores in code that only needs the common interface.</p>
 <h2 id="use-as-in-process-agent-tools">Use as in-process agent tools<a class="headerlink" href="#use-as-in-process-agent-tools" title="Permanent link">&para;</a></h2>
-<p><code>make_memory_tools(store)</code> wraps the store as three <code>@tool</code>-decorated functions — <code>store_memory</code>, <code>search_memories</code>, and <code>list_memories</code> — that an agent can call directly without a separate MCP server process:</p>
+<p><code>make_memory_tools(store)</code> wraps the store as three <code>@tool</code>-decorated functions (<code>store_memory</code>, <code>search_memories</code>, and <code>list_memories</code>) that an agent can call directly without a separate MCP server process:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocumentStore</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_memory_tools</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
