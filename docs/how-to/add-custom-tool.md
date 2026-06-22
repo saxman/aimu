@@ -107,6 +107,39 @@ agent.run("quick lookup", tools=[search])          # override for the whole run
 
 `tools=None` (default) uses the configured tools. Any other value — including `[]` to disable tools — replaces them for that call only and is restored afterward (MCP tools, being callables in `tools` via `as_tools()`, are included in the swap). On `Agent.run()` the override applies to every turn of the agentic loop.
 
+## Share state across tool calls (`ToolContext`)
+
+Tools often need shared state — a store, a cache, a config object — that persists across calls within a run but shouldn't be a module-level global. Declare a parameter annotated as `ToolContext` (or `ToolContext[Deps]`) and the agent **injects** it at call time. That parameter is excluded from the tool's JSON schema, so the model never sees it and only fills in the remaining arguments.
+
+```python
+from dataclasses import dataclass, field
+
+import aimu
+from aimu import ToolContext
+from aimu.agents import Agent
+
+@dataclass
+class Deps:
+    seen: dict = field(default_factory=dict)
+
+@aimu.tool
+def remember(ctx: ToolContext[Deps], key: str, value: str) -> str:
+    """Store a value under a key."""   # the model only sees key + value; ctx is injected
+    ctx.deps.seen[key] = value
+    return "ok"
+
+deps = Deps()
+agent = Agent(aimu.client("ollama:qwen3.5:9b"), tools=[remember], deps=deps)
+agent.run("Remember that the sky is blue.")
+print(deps.seen)   # {"sky": "blue"}
+```
+
+The value of `ctx.deps` comes from the `Agent`: its `deps=` field, or a per-run `agent.run(..., deps=...)` override (the override wins). When no deps are provided — for example a bare `client.chat()` call — `ctx.deps` is `None`.
+
+```python
+agent.run("Remember the meeting is Friday.", deps=other_deps)   # per-run override
+```
+
 ## Built-in tools
 
 `aimu.tools.builtin` ships ready-made tools grouped by domain. Pass a group directly:

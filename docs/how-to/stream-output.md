@@ -91,6 +91,44 @@ async def main():
 
 `include=` works identically. The same applies to `await aio.Agent.run(stream=True)` and every async workflow's `run(stream=True)`. See [how-to: use async](use-async.md) for the full async surface walkthrough.
 
+## Trace a run
+
+Two helpers turn a run into something you can read or inspect, instead of re-implementing the phase-dispatch loop or reconstructing tool calls by hand.
+
+### `pretty_print` — render a stream to the console
+
+`pretty_print(stream)` consumes any `StreamChunk` iterator (`client.chat(stream=True)`, `Agent.run(stream=True)`, or any workflow run) and writes a readable transcript: tool calls flagged, generated text streamed inline, reasoning optional. It returns the concatenated `GENERATING` text, so you get the final answer as well as the printed transcript.
+
+```python
+import aimu
+from aimu.agents import Agent
+from aimu.tools import builtin
+
+agent = Agent(aimu.client("ollama:qwen3.5:9b"), tools=builtin.web)
+answer = aimu.pretty_print(agent.run("Search the web and summarize today's AI news", stream=True))
+```
+
+| Argument | Default | Effect |
+|---|---|---|
+| `file` | `sys.stdout` | Where to write |
+| `show_thinking` | `False` | Also print `THINKING` (reasoning) tokens |
+| `show_tools` | `True` | Print a `[tool] <name>` marker for each tool call |
+
+### `extract_tool_calls` — pull tool calls from a message history
+
+`extract_tool_calls(messages)` reconstructs the tool call/result pairs from an OpenAI-format message list **after** a run, with no streaming. Pass `client.messages`, or an entry from `agent.messages` (which is keyed by agent name). It returns a list of `{iteration, tool, arguments, result}` dicts and does not mutate the input.
+
+```python
+from aimu import extract_tool_calls
+
+agent.run("How many r's in strawberry?")
+for call in extract_tool_calls(agent.messages[agent.name]):
+    print(call["iteration"], call["tool"], call["arguments"], "->", call["result"])
+# 1 letter_counter {'word': 'strawberry', 'letter': 'r'} -> 3
+```
+
+`iteration` increments once per assistant turn that contains tool calls, so you can see how many rounds the agent took. `arguments` is the parsed argument dict (it handles models that emit `parameters` instead of `arguments`); `result` is the matching tool-role content, or `""` if none.
+
 ## See also
 
 - [Explanation: StreamChunk model](../explanation/streamchunk-model.md) — one chunk type for all contexts
