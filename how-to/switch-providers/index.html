@@ -956,6 +956,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#timeouts-and-retries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeouts and retries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#failure-modes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2856,6 +2867,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#timeouts-and-retries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeouts and retries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#failure-modes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3021,13 +3043,28 @@
 </span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;lmstudio:qwen3.5-9b&quot;</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;http://myserver:1234/v1&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Each provider client's constructor signature is in the <a href="../../reference/api/models/">API reference</a>.</p>
+<h2 id="timeouts-and-retries">Timeouts and retries<a class="headerlink" href="#timeouts-and-retries" title="Permanent link">&para;</a></h2>
+<p>Networked clients take <code>timeout</code> (seconds) and <code>max_retries</code>, forwarded straight to the provider SDK's own request timeout and bounded retry-on-transient-failure. AIMU adds no retry logic of its own.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Cloud and local OpenAI-compat servers: both supported</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4o&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;vllm:Qwen/Qwen3-8B&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span></code></pre></div>
+<p>These are SDK-native (the <code>anthropic</code> and <code>openai</code> SDKs implement timeout + retry), so the names and behavior match those SDKs exactly. Unset values fall back to each SDK's defaults.</p>
+<p>Two caveats:</p>
+<ul>
+<li><strong>Ollama</strong> (native provider) supports <code>timeout</code> but has no request-retry; passing <code>max_retries</code> raises <code>ValueError</code>. Use the <code>ollama-openai</code> provider (which routes through the OpenAI SDK) if you need retries against Ollama.</li>
+<li><strong>In-process providers</strong> (<code>hf:</code>, <code>llamacpp:</code>) run locally with no HTTP request, so they don't accept <code>timeout</code> / <code>max_retries</code> (passing them raises <code>TypeError</code>).</li>
+</ul>
 <h2 id="failure-modes">Failure modes<a class="headerlink" href="#failure-modes" title="Permanent link">&para;</a></h2>
 <p><code>aimu.client("foo:bar")</code> raises <code>ValueError</code> listing the available providers if the prefix is unknown, and raises with the available model ids if the prefix is valid but the id isn't:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;foo:bar&quot;</span><span class="p">)</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Unknown</span> <span class="n">provider</span> <span class="s1">&#39;foo&#39;</span><span class="o">.</span> <span class="n">Available</span> <span class="n">providers</span> <span class="p">(</span><span class="k">with</span> <span class="n">installed</span> <span class="n">deps</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;anthropic&#39;</span><span class="p">,</span> <span class="s1">&#39;ollama&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-nonsense&quot;</span><span class="p">)</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Provider</span> <span class="s1">&#39;anthropic&#39;</span> <span class="n">has</span> <span class="n">no</span> <span class="n">model</span> <span class="nb">id</span> <span class="s1">&#39;claude-nonsense&#39;</span><span class="o">.</span> <span class="n">Available</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;claude-fable-5&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-haiku-4-5&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-6&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-7&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-8&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-sonnet-4-6&#39;</span><span class="p">]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;foo:bar&quot;</span><span class="p">)</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Unknown</span> <span class="n">provider</span> <span class="s1">&#39;foo&#39;</span><span class="o">.</span> <span class="n">Available</span> <span class="n">providers</span> <span class="p">(</span><span class="k">with</span> <span class="n">installed</span> <span class="n">deps</span><span class="p">):</span> <span class="p">[</span><span class="s1">&#39;anthropic&#39;</span><span class="p">,</span> <span class="s1">&#39;ollama&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-nonsense&quot;</span><span class="p">)</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Provider</span> <span class="s1">&#39;anthropic&#39;</span> <span class="n">has</span> <span class="n">no</span> <span class="n">model</span> <span class="nb">id</span> <span class="s1">&#39;claude-nonsense&#39;</span><span class="o">.</span> <span class="n">Available</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;claude-fable-5&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-haiku-4-5&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-6&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-7&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-opus-4-8&#39;</span><span class="p">,</span> <span class="s1">&#39;claude-sonnet-4-6&#39;</span><span class="p">]</span>
 </span></code></pre></div>
 
 
