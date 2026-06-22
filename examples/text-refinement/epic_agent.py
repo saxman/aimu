@@ -4,7 +4,7 @@
 An AIMU Agent autonomously controls the loop via tool calls.
 Stops when the judge declares the sentence cannot get any more epic.
 
-The text-only twin of ``hotdog_agent.py`` — the diff from ``epic_loop.py`` is purely *who
+The text-only twin of ``hotdog_agent.py``; the diff from ``epic_loop.py`` is purely *who
 drives the loop*: here an ``Agent``'s tool-calling loop decides when to write and when to judge.
 
 Usage:
@@ -166,7 +166,7 @@ def main() -> None:
         result = agent.run(f"Begin. Start with the directive: {INITIAL_DIRECTION}")
         print(f"\nAgent final response:\n{result}")
     except KeyboardInterrupt:
-        print("\nInterrupted — writing partial results so far...")
+        print("\nInterrupted, writing partial results so far...")
     finally:
         # Reconstruct from the live conversation so an interrupted run still produces output.
         trace = parse_agent_trace(agent.model_client.messages)

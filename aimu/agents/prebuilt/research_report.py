@@ -16,9 +16,9 @@ class ResearchReportAgent(OrchestratorAgent):
     The orchestrator autonomously decides which workers to call (and how many
     times) via tool use:
 
-    - ``research_overview``  — broad background on the topic
-    - ``find_examples``      — concrete real-world examples
-    - ``find_counterpoints`` — counterarguments and limitations
+    - ``research_overview``  : broad background on the topic
+    - ``find_examples``      : concrete real-world examples
+    - ``find_counterpoints`` : counterarguments and limitations
 
     The model_client is used for the orchestrator; fresh client instances
     (same model, isolated message histories) are created for each worker.
@@ -34,7 +34,7 @@ class ResearchReportAgent(OrchestratorAgent):
         tool calls so all three workers can be dispatched in a single round-trip
         when the model supports it.
 
-    Usage — text-only workers (no live search)::
+    Usage, text-only workers (no live search)::
 
         from aimu.models import ModelClient, OllamaModel
         from aimu.agents.prebuilt import ResearchReportAgent
@@ -43,7 +43,7 @@ class ResearchReportAgent(OrchestratorAgent):
         agent = ResearchReportAgent(client)
         report = agent.run("What is retrieval-augmented generation?")
 
-    Usage — workers with live web search::
+    Usage, workers with live web search::
 
         from aimu.tools import builtin
 

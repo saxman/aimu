@@ -1,21 +1,21 @@
 """HuggingFace-backed text-to-speech (TTS) client.
 
-``HuggingFaceSpeechClient`` inherits :class:`BaseSpeechClient` — the public
+``HuggingFaceSpeechClient`` inherits :class:`BaseSpeechClient`: the public
 :meth:`generate` (format conversion, voice/speed plumbing) lives on the base;
 this subclass implements :meth:`_generate` to call the loaded pipeline and return
 ``(sample_rate, np.ndarray)`` pairs.
 
 Three pipeline backends are supported, selected by ``spec.pipeline_type``:
 
-- ``"tts_pipeline"`` — ``transformers.pipeline("text-to-speech")``.
+- ``"tts_pipeline"``: ``transformers.pipeline("text-to-speech")``.
   Works with any HF model in the TTS pipeline format (e.g. MMS-TTS).
   Returns ``{"audio": ndarray, "sampling_rate": int}``.
-- ``"speecht5"`` — ``SpeechT5ForTextToSpeech`` + ``SpeechT5HifiGan`` vocoder.
+- ``"speecht5"``: ``SpeechT5ForTextToSpeech`` + ``SpeechT5HifiGan`` vocoder.
   Fast, good English quality. Uses speaker embeddings (xvectors) for voice
   selection. Default embedding is index 7306 from the CMU Arctic xvectors
   dataset (loaded from ``datasets`` on first generate call). Pass ``voice="N"``
   to use a different index.
-- ``"bark"`` — ``BarkModel`` + ``AutoProcessor``.
+- ``"bark"``: ``BarkModel`` + ``AutoProcessor``.
   Zero-shot voice cloning via voice codes (``"v2/en_speaker_6"``, etc.).
 
 Usage::
@@ -285,7 +285,7 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
                 device = next(self._pipe.parameters()).device
                 speaker_embedding = torch.tensor(self._xvectors_cache[idx]["xvector"]).unsqueeze(0).to(device)
             except (ValueError, IndexError):
-                logger.warning("Invalid SpeechT5 voice index %r — using default embedding.", voice)
+                logger.warning("Invalid SpeechT5 voice index %r; using default embedding.", voice)
                 speaker_embedding = self._default_speaker_embedding
         else:
             speaker_embedding = self._default_speaker_embedding

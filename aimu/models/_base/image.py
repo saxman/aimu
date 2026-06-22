@@ -1,7 +1,7 @@
 """Image-modality base types: the image specs, the ``ImageModel`` enum, and ``BaseImageClient``.
 
-Disjoint from the text stack — image models have no concept of tools / thinking /
-vision-input — so ``BaseImageClient`` is its own ABC rather than a ``BaseModelClient``
+Disjoint from the text stack (image models have no concept of tools / thinking /
+vision-input), so ``BaseImageClient`` is its own ABC rather than a ``BaseModelClient``
 subclass. Only ``StreamChunk`` / ``StreamingContentType`` are shared (via ``.shared``).
 """
 
@@ -21,10 +21,10 @@ class ImageSpec:
     no concept of tools / thinking / vision-input. Provider-specific subclasses
     (:class:`HuggingFaceImageSpec`, :class:`GeminiImageSpec`) add their own defaults.
 
-    Equality and hash are by ``id`` only — matching :class:`ModelSpec` — so the spec
+    Equality and hash are by ``id`` only (matching :class:`ModelSpec`), so the spec
     can be used directly as an enum value even when carrying dict fields.
 
-    ``max_prompt_tokens`` is the model's text-encoder prompt budget — the image-side
+    ``max_prompt_tokens`` is the model's text-encoder prompt budget, the image-side
     analog of :class:`ModelSpec`'s capability flags. ``77`` is the CLIP default (SD,
     SDXL); T5-based models carry more (SD3 ≈ 256, FLUX-dev ≈ 512, PixArt-Σ ≈ 300);
     ``None`` means no practical cap (cloud providers that take natural-language prompts).
@@ -222,7 +222,7 @@ class BaseImageClient(ABC):
         marked ``final=True`` with the encoded ``result``. Providers that expose
         step-level callbacks override this to emit progress mid-generation.
 
-        ``preview_every`` is accepted but ignored at this default level — the base
+        ``preview_every`` is accepted but ignored at this default level; the base
         has no notion of intermediate steps. Subclasses honour it.
         """
         from .._internal.image_output import encode_image  # local import keeps base.py light

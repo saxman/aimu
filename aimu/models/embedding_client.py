@@ -2,9 +2,9 @@
 
 Exposes:
 
-- :func:`resolve_embedding_model_string` — parse ``"provider:model_id"`` for embedding
+- :func:`resolve_embedding_model_string`: parse ``"provider:model_id"`` for embedding
   providers.
-- :class:`EmbeddingClient` — factory :class:`BaseEmbeddingClient` that dispatches to the
+- :class:`EmbeddingClient`: factory :class:`BaseEmbeddingClient` that dispatches to the
   right concrete client based on the model enum / spec / string passed in.
 
 Mirrors the transcription-side dispatch (:class:`aimu.models.TranscriptionClient`).

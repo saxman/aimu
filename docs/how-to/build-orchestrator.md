@@ -4,8 +4,8 @@
 
 Two construction paths:
 
-1. **`OrchestratorAgent.assemble(...)`** — no subclass. Each worker is auto-wrapped as a `@tool` named after the worker.
-2. **Subclass and call `self._init_orchestrator(...)`** — full control over each dispatch tool's name, description, and signature.
+1. **`OrchestratorAgent.assemble(...)`**: no subclass. Each worker is auto-wrapped as a `@tool` named after the worker.
+2. **Subclass and call `self._init_orchestrator(...)`**: full control over each dispatch tool's name, description, and signature.
 
 ## Path 1: `assemble`
 
@@ -33,7 +33,7 @@ orchestrator = OrchestratorAgent.assemble(
 print(orchestrator.run("How does retrieval-augmented generation work?"))
 ```
 
-Each worker becomes a callable `@tool` (via `Runner.as_tool()`) named after the worker's `name` (sanitised); the tool description is the first line of its `system_message`. Workers can be **any `Runner`**, not just an `Agent` — a `Chain` / `Router` / `Parallel` workflow, or a remote agent from [`RemoteAgent.connect(...)`](connect-agents-a2a.md) — so the orchestrator can delegate to a whole pipeline or a cross-process agent the same way it delegates to a single agent.
+Each worker becomes a callable `@tool` (via `Runner.as_tool()`) named after the worker's `name` (sanitised); the tool description is the first line of its `system_message`. Workers can be **any `Runner`**, not just an `Agent` (a `Chain` / `Router` / `Parallel` workflow, or a remote agent from [`RemoteAgent.connect(...)`](connect-agents-a2a.md)), so the orchestrator can delegate to a whole pipeline or a cross-process agent the same way it delegates to a single agent.
 
 ## Path 2: subclass
 
@@ -70,7 +70,7 @@ class CodeReviewAgent(OrchestratorAgent):
         )
 ```
 
-`_init_orchestrator()` does three things: assigns the tool functions to `model_client.tools`, sets `concurrent_tool_calls`, and constructs the inner orchestrator `Agent`. The base class provides `run()` and `messages` — the subclass needs nothing else.
+`_init_orchestrator()` does three things: assigns the tool functions to `model_client.tools`, sets `concurrent_tool_calls`, and constructs the inner orchestrator `Agent`. The base class provides `run()` and `messages`; the subclass needs nothing else.
 
 ## Concurrent worker dispatch
 
@@ -82,9 +82,9 @@ The prebuilt agents in `aimu.agents.prebuilt` enable this automatically when `wo
 
 `aimu.agents.prebuilt` includes three working orchestrators you can use directly or copy as a starting point:
 
-- `ResearchReportAgent` — orchestrator + `research_overview`, `find_examples`, `find_counterpoints`
-- `CodeReviewAgent` — orchestrator + `review_security`, `review_performance`, `review_readability`
-- `ContentCreationAgent` — orchestrator + `research_topic`, `create_outline`, `write_section`
+- `ResearchReportAgent`: orchestrator + `research_overview`, `find_examples`, `find_counterpoints`
+- `CodeReviewAgent`: orchestrator + `review_security`, `review_performance`, `review_readability`
+- `ContentCreationAgent`: orchestrator + `research_topic`, `create_outline`, `write_section`
 
 ```python
 from aimu.agents.prebuilt import ResearchReportAgent
@@ -96,6 +96,6 @@ print(agent.run("What is retrieval-augmented generation?"))
 
 ## See also
 
-- [Tutorial: workflows](../tutorials/03-workflows.md) — Chain, Router, Parallel, EvaluatorOptimizer
+- [Tutorial: workflows](../tutorials/03-workflows.md): Chain, Router, Parallel, EvaluatorOptimizer
 - [`aimu.agents.OrchestratorAgent`](../reference/api/agents.md#aimu.agents.OrchestratorAgent)
 - Notebook [11 - Agent Examples](https://github.com/saxman/aimu/blob/main/notebooks/11%20-%20Agent%20Examples.ipynb)

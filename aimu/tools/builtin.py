@@ -292,7 +292,7 @@ def web_search(query: str, num_results: int = 5, time_range: str = "", categorie
     """Search the web using a SearXNG instance and return the top results.
 
     Each result includes its publication date when the search engine reports one
-    (shown as a "Published:" line) — useful for judging how recent an article is.
+    (shown as a "Published:" line), useful for judging how recent an article is.
 
     Args:
         query: The search query string.
@@ -439,8 +439,8 @@ def _get_image_client():
     """Return the lazy singleton :class:`ImageClient` for the built-in tool.
 
     Reads ``AIMU_IMAGE_MODEL`` from the environment. Raises ``ValueError`` if it is
-    unset — no model is downloaded implicitly. Accepts any model string supported by
-    :func:`aimu.image_client` — ``"hf:..."`` for HuggingFace diffusers, ``"gemini:..."``
+    unset; no model is downloaded implicitly. Accepts any model string supported by
+    :func:`aimu.image_client`: ``"hf:..."`` for HuggingFace diffusers, ``"gemini:..."``
     for Google Nano Banana.
     """
     global _image_client
@@ -455,17 +455,17 @@ def _get_image_client():
 def generate_image(prompt: str):
     """Generate an image from a text prompt and return the saved file path.
 
-    This is a **streaming tool** — a generator that yields
+    This is a **streaming tool**: a generator that yields
     :attr:`~aimu.models.StreamingContentType.IMAGE_GENERATING` chunks during
     denoising, then returns the saved file path. When called via the agent's
     streaming path (``agent.run(stream=True)``), each step chunk flows through
     the agent's own stream and into the chat UI live.
 
     Uses an :class:`aimu.ImageClient`. The model is controlled by the
-    ``AIMU_IMAGE_MODEL`` env var (required — pass any HF diffusers repo via
+    ``AIMU_IMAGE_MODEL`` env var (required; pass any HF diffusers repo via
     ``"hf:..."`` or ``"gemini:nano-banana"`` for Google Nano Banana); the tool raises
     if it is unset. Override per-agent by constructing your own tool with
-    :func:`make_image_tool` — it supports a ``preview_every=N`` kwarg for intermediate
+    :func:`make_image_tool`; it supports a ``preview_every=N`` kwarg for intermediate
     denoised-image previews.
 
     Args:
@@ -490,7 +490,7 @@ def make_image_tool(client, *, preview_every: Optional[int] = None, num_inferenc
     share a pipeline, or to opt into intermediate-image previews via
     ``preview_every=N`` (decode latents every N denoising steps).
 
-    The returned tool is a **streaming tool** (generator) — its progress chunks
+    The returned tool is a **streaming tool** (generator); its progress chunks
     flow through ``agent.run(stream=True)`` for live UI updates.
 
     Example::
@@ -532,12 +532,12 @@ def make_describe_image_tool(
 
     The bound tool sends an image (file path / bytes / URL) plus an instruction to
     ``client.chat(..., images=[...])`` and returns the text response. Useful right
-    after :func:`generate_image` — the agent can look at what it generated and
+    after :func:`generate_image`; the agent can look at what it generated and
     tell the user what's in it.
 
     **Why a factory, not a singleton.** Unlike ``generate_image`` (which is a
     fixed-purpose tool with an env-var default model), ``describe_image`` is most
-    useful when bound to the *same* model the agent is already using — same
+    useful when bound to the *same* model the agent is already using: same
     knowledge, same provider, no extra API key or model load. The agent's host
     code (e.g. the Streamlit chatbot, or your own ``Agent`` setup) creates this
     tool at agent-construction time, after picking a vision-capable chat client.
@@ -573,7 +573,7 @@ def make_describe_image_tool(
     def describe_image(image_path: str, instruction: str = default_instruction) -> str:
         """Look at an image and return a text description.
 
-        Use this when you (or the user) need to know what's in an image —
+        Use this when you (or the user) need to know what's in an image,
         right after ``generate_image``, or when the user references one by path.
 
         Args:
@@ -656,7 +656,7 @@ def _get_audio_client():
     """Return the lazy singleton :class:`AudioClient` for the built-in tool.
 
     Reads ``AIMU_AUDIO_MODEL`` from the environment. Raises ``ValueError`` if it is
-    unset — no model is downloaded implicitly. Accepts any ``"hf:<repo_id>"`` string
+    unset; no model is downloaded implicitly. Accepts any ``"hf:<repo_id>"`` string
     supported by :func:`aimu.audio_client`.
     """
     global _audio_client
@@ -671,7 +671,7 @@ def _get_audio_client():
 def generate_audio(prompt: str):
     """Generate an audio clip from a text prompt and return the saved file path.
 
-    This is a **streaming tool** — a generator that yields
+    This is a **streaming tool**: a generator that yields
     :attr:`~aimu.models.StreamingContentType.AUDIO_GENERATING` chunks during
     generation, then returns the saved WAV file path. When called via the agent's
     streaming path (``agent.run(stream=True)``), each step chunk flows through
@@ -702,7 +702,7 @@ def make_audio_tool(client, *, duration_s: Optional[float] = None, num_inference
     generation duration via ``duration_s`` or the denoising step count via
     ``num_inference_steps`` (diffusers models only).
 
-    The returned tool is a **streaming tool** (generator) — its progress chunks
+    The returned tool is a **streaming tool** (generator); its progress chunks
     flow through ``agent.run(stream=True)`` for live UI updates.
 
     Example::
@@ -751,7 +751,7 @@ def _get_speech_client():
     """Return the lazy singleton :class:`SpeechClient` for the built-in tool.
 
     Reads ``AIMU_SPEECH_MODEL`` from the environment. Raises ``ValueError`` if it is
-    unset — no model is downloaded implicitly. Accepts any ``"provider:model_id"``
+    unset; no model is downloaded implicitly. Accepts any ``"provider:model_id"``
     string supported by :func:`aimu.speech_client`.
     """
     global _speech_client
@@ -766,7 +766,7 @@ def _get_speech_client():
 def generate_speech(text: str):
     """Synthesise speech from text and return the saved WAV file path.
 
-    This is a **streaming tool** — a generator that yields
+    This is a **streaming tool**: a generator that yields
     :attr:`~aimu.models.StreamingContentType.SPEECH_GENERATING` chunks during
     generation, then returns the saved WAV file path.
 
@@ -793,7 +793,7 @@ def make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[flo
     :class:`aimu.BaseSpeechClient`. Use this when an agent needs a different
     model or voice from the default singleton.
 
-    The returned tool is a **streaming tool** — its progress chunks flow through
+    The returned tool is a **streaming tool**; its progress chunks flow through
     ``agent.run(stream=True)`` for live UI updates.
 
     Example::
@@ -830,7 +830,7 @@ def make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[flo
 
 # ---- Memory (semantic or document store) ------------------------------------
 #
-# Memory tools require an explicit store instance — there is no lazy singleton
+# Memory tools require an explicit store instance; there is no lazy singleton
 # because persistence semantics (ephemeral vs. on-disk, semantic vs. document,
 # persist_path, collection name) are caller-controlled. Use make_memory_tools()
 # to get @tool-decorated functions that close over your store instance.
@@ -839,7 +839,7 @@ def make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[flo
 def make_memory_tools(store):
     """Build ``store_memory``, ``search_memories``, and ``list_memories`` tools bound to *store*.
 
-    *store* may be any :class:`aimu.memory.MemoryStore` implementation —
+    *store* may be any :class:`aimu.memory.MemoryStore` implementation:
     :class:`~aimu.memory.SemanticMemoryStore` (ChromaDB vector search),
     :class:`~aimu.memory.DocumentStore` (path-keyed), or a custom subclass.
 
@@ -902,7 +902,7 @@ def make_retrieval_tool(store, *, n_results: int = 5):
         ingest(store, my_documents)
         agent = Agent(client, tools=[make_retrieval_tool(store)])
 
-    Like :func:`make_memory_tools`, there is no env-var singleton — the store (and what was
+    Like :func:`make_memory_tools`, there is no env-var singleton; the store (and what was
     ingested into it) is a meaningful, explicit choice.
     """
 
@@ -923,7 +923,7 @@ def make_retrieval_tool(store, *, n_results: int = 5):
     return retrieve_context
 
 
-# Curated subsets — pass one of these to ``tools=`` instead of importing every function.
+# Curated subsets: pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_webpage, web_search, wikipedia]
 fs = [list_directory, read_file]
 compute = [calculate, execute_python]
@@ -988,7 +988,7 @@ def make_transcription_tool(client):
 transcription = [transcribe_audio]
 
 # execute_python is in the compute subgroup for discoverability but intentionally
-# excluded from ALL_TOOLS — code execution is higher-risk than other builtins.
+# excluded from ALL_TOOLS; code execution is higher-risk than other builtins.
 # Opt in explicitly via ``tools=builtin.compute`` or ``make_tools(python_sandbox=True)``.
 ALL_TOOLS = [
     *misc,

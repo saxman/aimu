@@ -13,9 +13,9 @@ class ContentCreationAgent(OrchestratorAgent):
 
     The orchestrator autonomously decides the order and number of tool calls:
 
-    - ``research_topic``  — extract key facts and angles from the brief
-    - ``create_outline``  — build a structured outline from the research
-    - ``write_section``   — draft an individual content section
+    - ``research_topic``  : extract key facts and angles from the brief
+    - ``create_outline``  : build a structured outline from the research
+    - ``write_section``   : draft an individual content section
 
     The model_client is used for the orchestrator; fresh client instances
     (same model, isolated message histories) are created for each worker.

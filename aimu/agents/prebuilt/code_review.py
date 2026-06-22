@@ -13,9 +13,9 @@ class CodeReviewAgent(OrchestratorAgent):
 
     The orchestrator autonomously decides which reviewers to call via tool use:
 
-    - ``review_security``     — vulnerabilities and security issues
-    - ``review_performance``  — bottlenecks and algorithmic inefficiencies
-    - ``review_readability``  — naming, clarity, and maintainability
+    - ``review_security``     : vulnerabilities and security issues
+    - ``review_performance``  : bottlenecks and algorithmic inefficiencies
+    - ``review_readability``  : naming, clarity, and maintainability
 
     The model_client is used for the orchestrator; fresh client instances
     (same model, isolated message histories) are created for each reviewer.

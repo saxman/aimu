@@ -13,7 +13,7 @@ _O_SERIES_PREFIXES = ("o1", "o3", "o4")
 
 
 class OpenAIModel(Model):
-    # Standard GPT models — GPT-4o and GPT-4.1 accept audio via input_audio blocks
+    # Standard GPT models: GPT-4o and GPT-4.1 accept audio via input_audio blocks
     GPT_4O_MINI = ModelSpec("gpt-4o-mini", tools=True, vision=True, audio=True, structured_output=True)
     GPT_4O = ModelSpec("gpt-4o", tools=True, vision=True, audio=True, structured_output=True)
     GPT_4_1 = ModelSpec("gpt-4.1", tools=True, vision=True, audio=True, structured_output=True)

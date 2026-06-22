@@ -1,10 +1,10 @@
-"""News summarizer — demonstrates several AIMU agent/workflow patterns.
+"""News summarizer: demonstrates several AIMU agent/workflow patterns.
 
 Every method answers the same request ("summarize recent AI technical news") but
 wires the building blocks together differently, so the script doubles as a tour of
 AIMU's autonomous-agent and code-controlled-workflow surfaces:
 
-    agent         One autonomous Agent with web tools — the LLM drives the whole loop
+    agent         One autonomous Agent with web tools; the LLM drives the whole loop
                   (search -> read -> summarize) by itself.
     chain         Prompt-chaining workflow: research -> summarize -> format, where each
                   step's output feeds the next.
@@ -46,7 +46,7 @@ def search_recent_news(query: str, num_results: int = 8) -> str:
     """Search recent news articles for a query and return the top results.
 
     Restricted to news engines so results are news-grade and each one includes a
-    "Published:" date when the engine reports it — use those dates to confirm an article
+    "Published:" date when the engine reports it; use those dates to confirm an article
     is genuinely from the last day. Keep queries short (2-4 words); news engines match
     headlines, so long keyword-stuffed queries return nothing.
 
@@ -55,7 +55,7 @@ def search_recent_news(query: str, num_results: int = 8) -> str:
         num_results: Number of results to return (default 8).
     """
     # Prefer the freshest results (last day), but a day filter combined with a specific
-    # query often returns nothing on news engines — fall back to recent news without the
+    # query often returns nothing on news engines, so fall back to recent news without the
     # hard 24h cutoff and let the caller filter by each result's "Published:" date.
     results = builtin.web_search(query, num_results=num_results, time_range="day", categories="news")
     if results.strip() == "No results found.":
@@ -74,7 +74,7 @@ TOOLS = [search_recent_news, builtin.get_webpage, builtin.get_current_date_and_t
 GENERATE_KWARGS = {"max_tokens": 8192}
 
 # Tool-using agents need many loop iterations to search, fetch, and verify ~10 articles
-# before synthesizing — each search/fetch is one iteration. Generous so the agent isn't
+# before synthesizing; each search/fetch is one iteration. Generous so the agent isn't
 # cut off mid-gather.
 MAX_ITERATIONS = 100
 
@@ -89,7 +89,7 @@ SYSTEM = (
     "You are a news summarizer specializing in AI technical developments. "
     "Summarize concisely and always include a publication date and source link for every article. "
     "Use search_recent_news with SHORT queries (2-4 words, e.g. 'AI model release' or "
-    "'OpenAI') to find fresh, news-grade articles — long keyword-stuffed queries return "
+    "'OpenAI') to find fresh, news-grade articles; long keyword-stuffed queries return "
     "nothing. Read each result's 'Published:' date. If a search result has no date, fetch the article with get_webpage to read "
     "its 'Published:' metadata. Determine the current time with get_current_date_and_time, and use "
     "execute_python with the datetime module to check whether each publication time is within the "
@@ -109,7 +109,7 @@ TASK = (
 # model writes in the requested format directly (no post-processing). Keyed by --format.
 FORMAT_DIRECTIVE = {
     "text": (
-        " Write your final answer as plain text only: no Markdown — no '#' headings, no "
+        " Write your final answer as plain text only: no Markdown, no '#' headings, no "
         "'*'/'-' bullets or '**' emphasis, no backticks, and no '[label](url)' links. "
         "Write each source URL inline as plain text."
     ),
@@ -196,7 +196,7 @@ def resolve_output_dir(output_dir: str | None) -> Path:
 
 
 # --------------------------------------------------------------------------------------
-# Method builders — each returns a Runner ready to summarize `TASK`
+# Method builders: each returns a Runner ready to summarize `TASK`
 # --------------------------------------------------------------------------------------
 
 
@@ -225,7 +225,7 @@ def build_chain(model: str, fmt: str) -> Chain:
         system_message=(
             "Search the web for AI technical news published in the last 24 hours. "
             "For each article capture the title, source URL, publication time, and the key "
-            "facts. Return a raw bulleted list — do not polish it yet."
+            "facts. Return a raw bulleted list; do not polish it yet."
         ),
         name="researcher",
         tools=TOOLS,
@@ -389,7 +389,7 @@ def main() -> None:
 
     if not result.strip():
         _note(
-            "\nWarning: the run produced no final summary — the agent likely exhausted its "
+            "\nWarning: the run produced no final summary; the agent likely exhausted its "
             "iterations on tool calls without writing an answer (inspect trace.json below). "
             "Try a different --method or --model."
         )

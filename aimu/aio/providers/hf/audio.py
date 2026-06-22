@@ -25,7 +25,7 @@ from aimu.models.providers.hf.audio import HuggingFaceAudioClient
 class AsyncHuggingFaceAudioClient:
     """Async facade over a sync :class:`HuggingFaceAudioClient`.
 
-    Does *not* inherit ``AsyncBaseModelClient`` — audio generation has no message
+    Does *not* inherit ``AsyncBaseModelClient``; audio generation has no message
     history or tool-calling lifecycle, so the text-shaped base class doesn't apply.
     """
 

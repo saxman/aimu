@@ -75,9 +75,9 @@ agent = aio.Agent(client, "Use the tools.", tools=[fetch, normalize])
 reply = await agent.run("Fetch example.com and normalize the title.")
 ```
 
-The same `@aimu.tool` function can be used on either surface — the sync surface rejects async tools with a clear error, and the async surface accepts both.
+The same `@aimu.tool` function can be used on either surface: the sync surface rejects async tools with a clear error, and the async surface accepts both.
 
-## Parallel — the headline win
+## Parallel: the headline win
 
 `aio.Parallel` uses `asyncio.TaskGroup` instead of a thread pool. You get true coroutine concurrency, structured cancellation, and `ExceptionGroup` aggregation when multiple workers fail.
 
@@ -100,7 +100,7 @@ Behaviour change vs sync `Parallel`: if one worker raises, in-flight siblings ar
 
 ## Per-call timeouts
 
-Use `asyncio.timeout()` — no AIMU plumbing needed:
+Use `asyncio.timeout()`; no AIMU plumbing needed:
 
 ```python
 import asyncio
@@ -125,11 +125,11 @@ async def main():
         await mcp.aclose()
 ```
 
-The sync `aimu.tools.MCPClient` is unchanged and still supported — use it when you want MCP tools without writing async code at all.
+The sync `aimu.tools.MCPClient` is unchanged and still supported. Use it when you want MCP tools without writing async code at all.
 
 ## In-process providers (HuggingFace, LlamaCpp)
 
-These providers load model weights into memory. Constructing both a sync and async client for the same model would load weights twice — likely OOM'ing the host for any non-trivial model. The async surface enforces a wrapping pattern instead:
+These providers load model weights into memory. Constructing both a sync and async client for the same model would load weights twice, likely OOM'ing the host for any non-trivial model. The async surface enforces a wrapping pattern instead:
 
 ```python
 import aimu
@@ -144,11 +144,11 @@ State (`messages`, `system_message`, `tools`) is shared with the wrapped sync cl
 
 Calling `aio.client(HuggingFaceModel.X)` directly raises a `ValueError` pointing you at the pattern above.
 
-**Note:** for in-process providers, "async" only buys event-loop integration (your handler doesn't block on inference). It does *not* unlock coroutine-level concurrency — the GIL and CUDA stream serialize execution anyway. If you need batch throughput from one HF model, use `model.generate(input_ids=batched)` directly, not concurrent `await` calls.
+**Note:** for in-process providers, "async" only buys event-loop integration (your handler doesn't block on inference). It does *not* unlock coroutine-level concurrency; the GIL and CUDA stream serialize execution anyway. If you need batch throughput from one HF model, use `model.generate(input_ids=batched)` directly, not concurrent `await` calls.
 
 ## Mixing with sync code
 
-The two surfaces don't share class instances — `client.messages` isn't concurrency-safe, so a single client can't be used both ways simultaneously. If you have a sync handler that needs to spawn async work:
+The two surfaces don't share class instances: `client.messages` isn't concurrency-safe, so a single client can't be used both ways simultaneously. If you have a sync handler that needs to spawn async work:
 
 ```python
 import asyncio
@@ -174,10 +174,10 @@ result = asyncio.run(batch())
 
 - **You're writing a notebook or a CLI script.** Stick with the sync surface; it's one less concept.
 - **You don't have a running event loop.** Wrapping with `asyncio.run` is fine for one-shots, but if every call needs a wrap, you're not gaining anything over sync.
-- **You're using HuggingFace / LlamaCpp and want concurrency.** The async wrappers exist for event-loop integration, not parallelism — in-process inference is GIL-bound regardless of paradigm.
+- **You're using HuggingFace / LlamaCpp and want concurrency.** The async wrappers exist for event-loop integration, not parallelism; in-process inference is GIL-bound regardless of paradigm.
 
 ## See also
 
-- [Explanation: async design](../explanation/async-design.md) — why `aimu.aio` is shaped the way it is, with rejected alternatives.
-- [API reference: `aimu.aio`](../reference/api/aio.md) — the full async surface.
-- [Stream phases](../reference/stream-phases.md) — the same `StreamChunk` type yielded on both surfaces.
+- [Explanation: async design](../explanation/async-design.md): why `aimu.aio` is shaped the way it is, with rejected alternatives.
+- [API reference: `aimu.aio`](../reference/api/aio.md): the full async surface.
+- [Stream phases](../reference/stream-phases.md): the same `StreamChunk` type yielded on both surfaces.

@@ -1,8 +1,8 @@
 # Text refinement (the "epic" family)
 
-A **generate → judge → refine** loop over *text*: a model writes a sentence, a judge model scores
+A **generate, judge, refine** loop over *text*: a model writes a sentence, a judge model scores
 it and proposes a better rewrite, and the loop repeats until the judge is satisfied. The worked
-task is *"take a mundane sentence and make it as **epic** as possible"* — starting from
+task is *"take a mundane sentence and make it as **epic** as possible"*. Starting from
 `A man walks to the store to buy a carton of milk.`, each round makes it grander while keeping it
 **one grammatical sentence about the same errand**.
 
@@ -42,5 +42,5 @@ pytest examples/text-refinement/tests -q
 ## Learn more
 
 Full walkthrough: [Iterative text refinement](../../docs/how-to/iterative-text-refinement.md)
-(the *why* behind each variant, the greedy → hill-climbing → annealing progression, and the
+(the *why* behind each variant, the greedy to hill-climbing to annealing progression, and the
 one-to-one mapping back to the hotdog scripts).

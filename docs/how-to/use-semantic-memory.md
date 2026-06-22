@@ -1,6 +1,6 @@
 # Use semantic memory
 
-`SemanticMemoryStore` stores natural-language facts and retrieves them by semantic similarity. Backed by [ChromaDB](https://www.trychroma.com/) — cosine-similarity vector search, in-process, persisted to a directory.
+`SemanticMemoryStore` stores natural-language facts and retrieves them by semantic similarity. Backed by [ChromaDB](https://www.trychroma.com/): cosine-similarity vector search, in-process, persisted to a directory.
 
 ## Basic usage
 
@@ -41,7 +41,7 @@ store.delete("Paul has two cats")   # exact-string match; no-op if not present
 
 ## Use as in-process agent tools
 
-`make_memory_tools(store)` wraps the store as three `@tool`-decorated functions — `store_memory`, `search_memories`, and `list_memories` — that an agent can call directly without a separate MCP server process:
+`make_memory_tools(store)` wraps the store as three `@tool`-decorated functions (`store_memory`, `search_memories`, and `list_memories`) that an agent can call directly without a separate MCP server process:
 
 ```python
 from aimu.memory import SemanticMemoryStore
@@ -69,7 +69,7 @@ tools = make_tools(base_client, memory_store=store)
 agent = Agent(base_client, tools=tools)
 ```
 
-The store is always explicit — there is no env-var singleton — because `persist_path` and collection name are meaningful choices. For cross-process or multi-agent memory, use the MCP server instead.
+The store is always explicit (there is no env-var singleton) because `persist_path` and collection name are meaningful choices. For cross-process or multi-agent memory, use the MCP server instead.
 
 ## Expose as MCP tools
 
@@ -89,6 +89,6 @@ client.tools = mem.as_tools()
 
 ## See also
 
-- [Use document memory](use-document-memory.md) — path-based store mirroring Anthropic's Memory API
+- [Use document memory](use-document-memory.md): path-based store mirroring Anthropic's Memory API
 - [`aimu.memory.SemanticMemoryStore`](../reference/api/memory.md)
 - Notebook [12 - Memory](https://github.com/saxman/aimu/blob/main/notebooks/12%20-%20Memory.ipynb)

@@ -41,13 +41,13 @@ def encode_audio(
     """Encode a single audio array into the requested output format.
 
     Args:
-        audio: A ``numpy.ndarray`` — shape ``(samples,)`` for mono or
+        audio: A ``numpy.ndarray`` with shape ``(samples,)`` for mono or
             ``(channels, samples)`` for multi-channel (e.g. stereo from Stable Audio Open).
         sample_rate: Sampling rate in Hz (e.g. 32000 for MusicGen, 44100 for Stable Audio).
         format: One of ``"numpy"`` (return ``(sample_rate, audio)`` unchanged),
             ``"bytes"`` (WAV-encoded bytes), ``"data_url"`` (``data:audio/wav;base64,...``),
             or ``"path"`` (save WAV to ``output_dir`` and return the file path string).
-        prompt: The originating prompt — used only to seed the filename hash when
+        prompt: The originating prompt, used only to seed the filename hash when
             ``format="path"``. Not stored anywhere else.
         output_dir: Directory to save into when ``format="path"``. Defaults to
             ``<repo>/output/audio/``; created on demand.

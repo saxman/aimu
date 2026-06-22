@@ -2,14 +2,14 @@
 """Simulated-annealing variant of the epic-sentence refinement loop.
 
 ``epic_loop.py --strategy climbing`` is a strict hill-climber: it only advances on a *higher*
-score and reverts otherwise. This script generalises that into **simulated annealing** — the climber is the
+score and reverts otherwise. This script generalises that into **simulated annealing**: the climber is the
 ``T → 0`` limit of what's here. It keeps a ``current`` walk-state (distinct from the best-ever
 sentence) and, controlled by a falling *temperature*, will probabilistically accept a *worse*
 sentence to escape a local optimum, cooling into greedy behaviour over time.
 
 Acceptance (Metropolis rule), with ``Δ = new_score − current_score``:
 - ``Δ > 0`` (more epic): always accept.
-- ``Δ == 0`` (tie): always accept — a free sideways move (the deliberate opposite of the
+- ``Δ == 0`` (tie): always accept, a free sideways move (the deliberate opposite of the
   climber, which treats a tie as no progress).
 - ``Δ < 0`` (less epic): accept with probability ``exp(Δ / T)``. High ``T`` early ⇒ explores
   freely; as ``T`` cools toward 0 ⇒ behaves like the greedy climber.
@@ -18,7 +18,7 @@ The best-ever sentence is tracked separately and written to ``best.txt`` regardl
 
 The same cooling schedule also drives the **proposer's** LLM sampling temperature: the judge
 proposes refinement directions hot (diverse, exploratory) early and cold (conservative tweaks)
-late — see ``_proposer_temperature``. Only proposals are annealed; the **judge that assigns the
+late (see ``_proposer_temperature``). Only proposals are annealed; the **judge that assigns the
 score is always cold**, since the score is the objective and must stay stable.
 
 This is the text-only twin of ``hotdog_anneal.py``. The same honest caveats apply: the coarse
@@ -60,7 +60,7 @@ from _epic_common import (
 
 
 # Sampling-temperature band for the *proposer* (refinement-direction generation). The annealing
-# schedule slides the proposer between these — diverse/creative directions while hot,
+# schedule slides the proposer between these: diverse/creative directions while hot,
 # conservative tweaks once cooled. The judge (scoring) is never annealed; only proposals get it.
 PROPOSER_TEMP_HOT = 1.1
 PROPOSER_TEMP_COLD = 0.3
@@ -74,7 +74,7 @@ def _score(value: int | None) -> int:
 def _proposer_temperature(temperature: float, initial_temp: float) -> float:
     """Map the current annealing temperature to an LLM sampling temperature for proposals.
 
-    Shares the annealing *schedule* — via the cooling fraction ``f = T / T0`` (1 → 0) — but
+    Shares the annealing *schedule* (via the cooling fraction ``f = T / T0``, 1 → 0) but
     lives in the LLM's own units: hot early (``PROPOSER_TEMP_HOT``, diverse refinement
     directions) cooling to ``PROPOSER_TEMP_COLD`` (conservative tweaks).
     """
@@ -88,7 +88,7 @@ def _accept(delta: int, temperature: float, rng: random.Random) -> bool:
 
     Always accept a non-worsening move (``delta >= 0``, which covers both a more-epic sentence
     and a tie). Accept a worsening move (``delta < 0``) with probability ``exp(delta /
-    temperature)``. At ``temperature → 0`` worsening moves are never accepted — the pure-greedy
+    temperature)``. At ``temperature → 0`` worsening moves are never accepted, the pure-greedy
     (hill-climbing) limit.
     """
     if delta >= 0:
@@ -186,14 +186,14 @@ def run_anneal(
                 print(f"Staying at current (this score {parsed['score']} rejected).")
 
             # Propose the next refinement from the current sentence at the *annealed* proposer
-            # temperature — diverse directions while hot, conservative once cooled. The score
+            # temperature: diverse directions while hot, conservative once cooled. The score
             # itself stays cold.
             proposer_temp = _proposer_temperature(temperature, initial_temp)
             print(f"Proposing next refinement at sampling temperature {proposer_temp:.2f}.\n")
             direction = refine_sentence(judge_client, current["sentence"], rejected, temperature=proposer_temp)
             temperature *= cooling_rate
     except KeyboardInterrupt:
-        print("\nInterrupted — writing partial results so far...")
+        print("\nInterrupted, writing partial results so far...")
     finally:
         if best:
             best_path = write_best(output_dir, best)

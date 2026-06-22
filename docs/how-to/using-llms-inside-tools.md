@@ -9,7 +9,7 @@ function needs to make its own LLM call, sharing the agent's client would:
 2. Add the tool's messages to the agent's history (pollutes the agent's state).
 
 **The correct solution**: use `client.generate()` for stateless calls from within tools.
-`generate()` does not touch `self.messages` — it builds a one-shot request and discards it.
+`generate()` does not touch `self.messages`; it builds a one-shot request and discards it.
 
 ```python
 eval_client = aimu.client("ollama:qwen3:8b", system="You are a concise evaluator.")
@@ -17,14 +17,14 @@ eval_client = aimu.client("ollama:qwen3:8b", system="You are a concise evaluator
 @aimu.tool
 def evaluate_result(text: str) -> str:
     """Score a result on a scale of 1-10."""
-    # generate() is stateless — no history pollution, no second client needed
+    # generate() is stateless: no history pollution, no second client needed
     return eval_client.generate(f"Score this 1-10: {text}")
 ```
 
 **Warning: do not create multiple HuggingFace or LlamaCpp client instances for the same model.**
 
 As of v0.5.3, AIMU caches weights automatically (see below), so accidental double-loading
-is prevented. Before v0.5.3, each instance loaded weights independently — doubling VRAM for
+is prevented. Before v0.5.3, each instance loaded weights independently, doubling VRAM for
 every additional client.
 
 Cloud providers (Anthropic, OpenAI, Gemini, Ollama) make stateless API calls; multiple
@@ -41,7 +41,7 @@ import aimu
 c1 = aimu.client("hf:Qwen/Qwen3-8B")
 c2 = aimu.client("hf:Qwen/Qwen3-8B")
 
-assert c1._hf_model is c2._hf_model  # same object — no double load
+assert c1._hf_model is c2._hf_model  # same object: no double load
 ```
 
 Weights remain in the registry for the process lifetime. To free VRAM:

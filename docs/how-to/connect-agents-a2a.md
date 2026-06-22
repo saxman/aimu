@@ -1,6 +1,6 @@
 # Connect agents (A2A)
 
-To call an agent that lives in another process — or to publish one of your agents for others to call — use AIMU's [Agent2Agent](https://a2a-protocol.org/) interop. It is the agent-level analog of [MCP tools](use-mcp-tools.md): MCP shares *tools* across a process boundary, A2A shares whole *agents*.
+To call an agent that lives in another process, or to publish one of your agents for others to call, use AIMU's [Agent2Agent](https://a2a-protocol.org/) interop. It is the agent-level analog of [MCP tools](use-mcp-tools.md): MCP shares *tools* across a process boundary, A2A shares whole *agents*.
 
 Requires the optional extra:
 
@@ -23,7 +23,7 @@ print(remote.run("Summarise the news"))  # round-trips to the remote agent
 remote.close()                            # tear down the connection (or let it be GC'd)
 ```
 
-Because `RemoteAgent` *is a* `Runner`, the remote agent composes exactly like a local one — no A2A-specific wiring:
+Because `RemoteAgent` *is a* `Runner`, the remote agent composes exactly like a local one, with no A2A-specific wiring:
 
 ```python
 from aimu.agents import Agent, Chain, OrchestratorAgent
@@ -105,7 +105,7 @@ except A2AConnectionError as exc:
 
 ## See also
 
-- [Use MCP tools](use-mcp-tools.md) — the tool-level counterpart
-- [Build an orchestrator](build-orchestrator.md) — `assemble(workers=...)` accepts any `Runner`, local or remote
-- [Explanation: A2A vs MCP](../explanation/a2a-vs-mcp.md) — agents over the wire vs tools over the wire
-- [`aimu.agents.RemoteAgent`](../reference/api/agents.md#aimu.agents.RemoteAgent) — API reference
+- [Use MCP tools](use-mcp-tools.md): the tool-level counterpart
+- [Build an orchestrator](build-orchestrator.md): `assemble(workers=...)` accepts any `Runner`, local or remote
+- [Explanation: A2A vs MCP](../explanation/a2a-vs-mcp.md): agents over the wire vs tools over the wire
+- [`aimu.agents.RemoteAgent`](../reference/api/agents.md#aimu.agents.RemoteAgent): API reference

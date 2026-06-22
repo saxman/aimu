@@ -2,8 +2,8 @@
 
 Exposes:
 
-- :func:`resolve_audio_model_string` — parse ``"provider:model_id"`` for audio providers.
-- :class:`AudioClient` — factory :class:`BaseAudioClient` that dispatches to the right
+- :func:`resolve_audio_model_string`: parse ``"provider:model_id"`` for audio providers.
+- :class:`AudioClient`: factory :class:`BaseAudioClient` that dispatches to the right
   concrete client based on the model enum / spec / string passed in.
 
 Mirrors the image-side dispatch (:class:`aimu.models.ImageClient`,
@@ -47,7 +47,7 @@ def resolve_audio_model_string(model_str: str) -> AudioModel:
         resolve_audio_model_string("hf:cvssp/audioldm2")
 
     Note that string-form construction with arbitrary HuggingFace repo ids is
-    handled inside the concrete client's ``__init__`` — this function only matches
+    handled inside the concrete client's ``__init__``; this function only matches
     *exact* enum-member values. For ad-hoc repos pass the ``"hf:..."`` string
     directly to :class:`AudioClient` instead of calling this helper.
     """

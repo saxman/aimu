@@ -1,5 +1,5 @@
 site_name: AIMU
-site_description: AI Model Utilities — provider-agnostic LLM library with agents, workflows, and tools.
+site_description: AI Model Utilities, a provider-agnostic LLM library with agents, workflows, and tools.
 site_url: https://saxman.github.io/aimu/
 repo_url: https://github.com/saxman/aimu
 repo_name: saxman/aimu

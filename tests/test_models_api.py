@@ -53,7 +53,7 @@ def test_resolve_model_string_requires_colon():
 
 
 # ---------------------------------------------------------------------------
-# resolve_model_enum — enum passthrough / string / bare name / ambiguity
+# resolve_model_enum: enum passthrough / string / bare name / ambiguity
 # ---------------------------------------------------------------------------
 
 
@@ -276,7 +276,7 @@ def test_streaming_tool_result_falls_back_to_last_chunk_result_key():
 
     @tool
     def streamer(prompt: str):
-        """Tool with no return value — last chunk carries the result."""
+        """Tool with no return value; last chunk carries the result."""
         yield StreamChunk(
             StreamingContentType.IMAGE_GENERATING,
             {"step": 1, "total_steps": 1, "image": None, "final": True, "result": "/tmp/x.png"},
@@ -449,7 +449,7 @@ def test_system_message_swap_rewrites_history_entry_in_place():
     ]
     client.system_message = "new persona"
     assert client.messages[0] == {"role": "system", "content": "new persona"}
-    # Conversation history is preserved — only the system entry changed.
+    # Conversation history is preserved; only the system entry changed.
     assert len(client.messages) == 3
     assert client.messages[1:] == [
         {"role": "user", "content": "hello"},
@@ -586,7 +586,7 @@ def test_available_image_clients_no_duplicates():
 
 
 # ---------------------------------------------------------------------------
-# generate(images=) — stateless single-turn vision input
+# generate(images=): stateless single-turn vision input
 # ---------------------------------------------------------------------------
 
 _DATA_URL = "data:image/png;base64,iVBORw0KGgo="

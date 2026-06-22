@@ -1,4 +1,4 @@
-"""Async ``RemoteAgent`` — consume a remote A2A agent as an :class:`AsyncRunner`.
+"""Async ``RemoteAgent``: consume a remote A2A agent as an :class:`AsyncRunner`.
 
 Async twin of :class:`aimu.agents.a2a.RemoteAgent`. Where the sync client drives the
 ``a2a-sdk`` async client through an anyio portal, this one uses it natively (no portal),

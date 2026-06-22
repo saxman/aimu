@@ -128,7 +128,7 @@ def test_run_aggregates_score_and_pass_rate():
 
 
 def test_run_uses_chat_not_generate():
-    """If Benchmark called generate(), the stub raises — this test would fail."""
+    """If Benchmark called generate(), the stub raises; this test would fail."""
     df = pd.DataFrame({"content": ["a", "b"]})
     client = _StubChatClient(responder=lambda msg: "ok")
     bench = Benchmark(prompt="{content}", data=df, scorer=_SeqScorer([0.7, 0.7]))

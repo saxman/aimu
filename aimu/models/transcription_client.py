@@ -2,9 +2,9 @@
 
 Exposes:
 
-- :func:`resolve_transcription_model_string` — parse ``"provider:model_id"`` for
+- :func:`resolve_transcription_model_string`: parse ``"provider:model_id"`` for
   transcription providers.
-- :class:`TranscriptionClient` — factory :class:`BaseTranscriptionClient` that
+- :class:`TranscriptionClient`: factory :class:`BaseTranscriptionClient` that
   dispatches to the right concrete client based on the model enum / spec / string
   passed in.
 

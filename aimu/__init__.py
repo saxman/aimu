@@ -146,7 +146,7 @@ def chat(
     images: Optional[list] = None,
     include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
 ) -> Union[str, Iterator[StreamChunk]]:
-    """One-shot chat — builds a fresh client, sends one message, returns the response.
+    """One-shot chat: builds a fresh client, sends one message, returns the response.
 
     For multi-turn conversations construct a :class:`ModelClient` with :func:`client` and
     call its ``chat()`` repeatedly.
@@ -242,7 +242,7 @@ def generate_audio(
     format: str = "path",
     **kwargs: Any,
 ) -> Any:
-    """One-shot audio generation — builds a fresh audio client and returns one audio clip.
+    """One-shot audio generation: builds a fresh audio client and returns one audio clip.
 
     For multiple generations, construct a client with :func:`audio_client` and reuse it
     so weights are not reloaded per call.
@@ -300,7 +300,7 @@ def generate_speech(
     format: str = "path",
     **kwargs: Any,
 ) -> Any:
-    """One-shot speech synthesis — builds a fresh client and returns one audio clip.
+    """One-shot speech synthesis: builds a fresh client and returns one audio clip.
 
     For repeated synthesis, construct a client with :func:`speech_client` and
     reuse it so API clients aren't rebuilt per call.
@@ -389,7 +389,7 @@ def embed(
     model: Union[str, "EmbeddingModel", "EmbeddingSpec", None] = None,
     **kwargs: Any,
 ) -> Any:
-    """One-shot embedding — builds a fresh client and embeds one string or a list.
+    """One-shot embedding: builds a fresh client and embeds one string or a list.
 
     A single ``str`` returns one vector (``list[float]``); a list returns a list of
     vectors (``list[list[float]]``). For repeated embedding, construct a client with
@@ -525,7 +525,7 @@ def generate_image(
     format: str = "pil",
     **kwargs: Any,
 ) -> Any:
-    """One-shot image generation — builds a fresh image client and returns one image.
+    """One-shot image generation: builds a fresh image client and returns one image.
 
     For multiple generations, construct a client with :func:`image_client` and reuse it
     so weights / API clients aren't rebuilt per call.

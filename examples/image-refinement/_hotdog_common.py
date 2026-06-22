@@ -15,33 +15,33 @@ EVALUATOR_PROMPT = """\
 You are evaluating how visually "hot" this hotdog image is, and you are an
 EXTREMELY conservative, hard-to-impress judge.
 
-FIRST, a gate: the image must clearly show ONE single, well-formed hotdog. If it does not —
-no recognizable hotdog, a distorted/melted blob, or multiple hotdogs — it has FAILED the
+FIRST, a gate: the image must clearly show ONE single, well-formed hotdog. If it does not
+(no recognizable hotdog, a distorted/melted blob, or multiple hotdogs), it has FAILED the
 task no matter how hot it looks: output "SCORE: 1/10" and a CONTINUE telling the next image
 to restore a clear, single, well-formed hotdog.
 
-If a clear single hotdog IS present, score how hot the hotdog itself looks — the physical
-temperature it appears to embody — calibrated against the theoretical maximum temperature of
+If a clear single hotdog IS present, score how hot the hotdog itself looks (the physical
+temperature it appears to embody), calibrated against the theoretical maximum temperature of
 the universe (the Planck temperature, ~1.4x10^32 K): a 10 means the hotdog cannot conceivably
 be rendered any hotter. Rate from 1 to 10 where 1 = room temperature and 10 = maximally,
-impossibly hot. Be stingy: ordinary fire, embers, and char sit nowhere near the ceiling — far
-hotter things exist — so a merely flaming hotdog rates low, and when in doubt, rate lower.
+impossibly hot. Be stingy: ordinary fire, embers, and char sit nowhere near the ceiling (far
+hotter things exist), so a merely flaming hotdog rates low, and when in doubt, rate lower.
 Reserve high scores for a hotdog that itself embodies genuinely extreme heat.
 
 Your response MUST begin with the rating on its very first line, written exactly
 in this format with no other text on that line:
 SCORE: N/10
-where N is an integer from 1 to 10. Always include this line — never omit it, even
+where N is an integer from 1 to 10. Always include this line; never omit it, even
 when you decide the hotdog is done. For example, a fairly hot image: "SCORE: 4/10".
 
 After the SCORE line, decide whether the hotdog could possibly be rendered any
 hotter. As long as there is ANY hotter phenomenon it could embody, it is not done.
-Only when the rating is 10/10 — a clear single hotdog that cannot be hotter — output exactly:
+Only when the rating is 10/10 (a clear single hotdog that cannot be hotter) output exactly:
 DONE: <your reasoning>
 Otherwise output exactly:
-CONTINUE: <describe the next image as a step UP the temperature scale — what hotter, more
+CONTINUE: <describe the next image as a step UP the temperature scale: what hotter, more
 extreme phenomenon should the hotdog ITSELF embody, rendered as if made of or engulfed by
-that heat? It must stay a clearly recognizable single hotdog — do NOT replace the hotdog with
+that heat? It must stay a clearly recognizable single hotdog. Do NOT replace the hotdog with
 the phenomenon. Reach for the most striking, non-obvious escalation; don't just add more of
 the same fire or char.>
 The scene must depict exactly ONE single hotdog, never multiple hotdogs, a pile,
@@ -68,7 +68,7 @@ where N is an integer from 1 to 10, followed by your DONE: or CONTINUE: output.
 SUMMARIZER_PROMPT = """\
 Condense the following description into text-to-image prompt fragments.
 The prompt is already anchored to a single hotdog, so describe ONLY how to make that hotdog
-look hotter — do NOT restate the subject. Output ONLY comma-separated visual descriptors,
+look hotter; do NOT restate the subject. Output ONLY comma-separated visual descriptors,
 no full sentences, under {max_words} words. Preserve the description's most distinctive,
 specific imagery; put the most important details first, since image encoders truncate
 prompts past their limit.
@@ -81,14 +81,14 @@ prompts past their limit.
 # as an "avoid: ..." suffix after the budget has already been spent.
 SUMMARIZER_AVOID_CLAUSE = """\
 This model has no separate negative prompt. So also fold in a few positive descriptors that
-rule out these undesired qualities — phrase them affirmatively (e.g. a duplicate/pile becomes
+rule out these undesired qualities, phrased affirmatively (e.g. a duplicate/pile becomes
 "a single, solo hotdog"; deformed/blurry becomes "well-formed, crisp, undistorted"), never as
 a list of things to avoid, and stay within the word budget: {avoid}
 """
 
 
 # Positive subject anchor prepended to every generation. CLIP negative prompts
-# suppress a *concept*, not a *count* — listing "hotdogs" in the negative prompt
+# suppress a *concept*, not a *count*; listing "hotdogs" in the negative prompt
 # removes hotdogs entirely. Stating a singular subject in the positive prompt is
 # the reliable lever for "exactly one".
 SUBJECT_ANCHOR = "a single hotdog, one sausage in one bun, solo, centered, close-up shot"
@@ -116,7 +116,7 @@ def build_image_prompt(prompt: str) -> str:
     Diffusion text encoders (CLIP/T5) weight earlier tokens most heavily and truncate later
     ones, so the subject must come *first* to render reliably. Prepend the anchor unless the
     prompt already *starts* with it. Crucially, a ``single hotdog`` mention buried later still
-    gets the anchor — the summarizer is told to put the "hot" details first, which otherwise
+    gets the anchor: the summarizer is told to put the "hot" details first, which otherwise
     pushes the subject to the end and the model drifts to flames/lava with no hotdog.
     """
     if prompt.lower().lstrip().startswith("a single hotdog"):
@@ -127,7 +127,7 @@ def build_image_prompt(prompt: str) -> str:
 def prompt_word_budget(max_prompt_tokens: int) -> int:
     """A conservative word cap for a model's token budget (≈0.45×tokens, min 20).
 
-    English averages ~1.3 tokens/word, so 0.45×tokens words ≈ 0.6×tokens — comfortably
+    English averages ~1.3 tokens/word, so 0.45×tokens words ≈ 0.6×tokens, comfortably
     under the limit even if the model overshoots.
     """
     return max(20, int(max_prompt_tokens * 0.45))
@@ -150,12 +150,12 @@ def build_summarizer_prompt(max_prompt_tokens: int, avoid: str | None = None) ->
 def summarize_for_image(client, description: str, max_prompt_tokens: int, *, avoid: str | None = None) -> str:
     """Condense a free-form description into an image prompt that fits ``max_prompt_tokens``.
 
-    The second stage of the describe → summarize chain. Runs the budget-aware
-    summarizer instruction through a text ``client`` (the eval model is reused —
-    summarization is text-only) and returns the stripped prompt. Uses stateless
+    The second stage of the describe, summarize chain. Runs the budget-aware
+    summarizer instruction through a text ``client`` (the eval model is reused,
+    since summarization is text-only) and returns the stripped prompt. Uses stateless
     ``generate()`` so the call neither inherits nor pollutes prior conversation state.
 
-    ``avoid`` (when set) is folded into the summarizer instruction as positive constraints —
+    ``avoid`` (when set) is folded into the summarizer instruction as positive constraints;
     see :func:`build_summarizer_prompt` and :func:`negative_prompt_plan`.
     """
     instruction = build_summarizer_prompt(max_prompt_tokens, avoid=avoid)
@@ -183,11 +183,11 @@ def negative_prompt_plan(image_client, *, has_summarizer: bool = True) -> Negati
     The framework rejects ``negative_prompt`` for models with
     ``supports_negative_prompt=False`` (it raises), so callers must branch:
 
-    - Supports a negative prompt → pass it as the ``negative_prompt`` kwarg.
+    - Supports a negative prompt: pass it as the ``negative_prompt`` kwarg.
     - No support, has a token budget *and* a summarizer step (FLUX.2 Klein in the search
-      scripts) → fold avoidance into the summarizer as positive constraints (pre-budget).
+      scripts): fold avoidance into the summarizer as positive constraints (pre-budget).
     - No support otherwise (uncapped like Gemini Nano Banana, or a script with no summarizer
-      step like the EvaluatorOptimizer flow) → append a positive-constraint sentence to the
+      step like the EvaluatorOptimizer flow): append a positive-constraint sentence to the
       prose prompt.
 
     ``has_summarizer=False`` tells the plan the caller has no condensation step to fold into,
@@ -218,15 +218,15 @@ def _negative_summary_line(neg_plan: "NegativePromptPlan | None") -> str:
 
 
 # Asks the critic for a *fresh* refinement of the image a search is building on (the climber's
-# best, the annealer's current state). Used when a candidate fails to beat it — {avoid} lists
+# best, the annealer's current state). Used when a candidate fails to beat it; {avoid} lists
 # ideas already tried that didn't help, so the critic explores a different direction. The
 # wording deliberately enumerates no descriptor categories (so the model isn't caged into
 # flames/char/etc.) and frames the ask as escalating UP the temperature scale.
 REFINE_PROMPT = """\
 This is the image of a single hotdog to improve on. Propose ONE new way to make the hotdog
-ITSELF hotter — a step UP the temperature scale toward a hotter, more extreme phenomenon the
+ITSELF hotter: a step UP the temperature scale toward a hotter, more extreme phenomenon the
 hotdog could embody (rendered as if made of or engulfed by that heat). It must remain a
-clearly recognizable, well-formed single hotdog — do NOT replace it with the phenomenon.
+clearly recognizable, well-formed single hotdog. Do NOT replace it with the phenomenon.
 Reach for the most striking, non-obvious escalation; don't just pile on more of the same
 fire, char, or glow.{avoid}
 Output only the description.
@@ -238,8 +238,8 @@ def refine_image(eval_client, image_path, rejected: list[str], *, temperature: f
 
     Shared by the search scripts: the climber refines from its best image, the annealer from
     its current walk-state. ``temperature`` (when set) is the proposer's LLM sampling
-    temperature — higher for diverse ideas, lower for conservative ones; ``None`` uses the
-    model default. Stateless ``generate(images=)`` — no reset, no history kept.
+    temperature, higher for diverse ideas, lower for conservative ones; ``None`` uses the
+    model default. Stateless ``generate(images=)``, no reset, no history kept.
     """
     avoid = ""
     if rejected:
@@ -252,16 +252,16 @@ def refine_image(eval_client, image_path, rejected: list[str], *, temperature: f
 def suppress_benign_clip_warning(image_client) -> None:
     """Hide diffusers' CLIP-77 truncation warning, but only where it's benign.
 
-    Models with an encoder beyond CLIP (T5-based: SD3, FLUX — ``max_prompt_tokens`` > 77)
+    Models with an encoder beyond CLIP (T5-based: SD3, FLUX, ``max_prompt_tokens`` > 77)
     route the full prompt through T5, so CLIP truncating at 77 is by design and harmless.
-    For CLIP-only models (SDXL, SD 1.5 — ``max_prompt_tokens`` == 77) the same warning means
+    For CLIP-only models (SDXL, SD 1.5, ``max_prompt_tokens`` == 77) the same warning means
     prompt content was actually dropped, so it stays visible. Only the CLIP-77 message is
-    filtered — other diffusers warnings (e.g. T5's own ``max_sequence_length`` truncation,
+    filtered; other diffusers warnings (e.g. T5's own ``max_sequence_length`` truncation,
     which matters for every model) are left untouched.
     """
     max_tokens = image_client.max_prompt_tokens
     if max_tokens is None or max_tokens <= 77:
-        return  # CLIP-only (or cloud) model — the truncation warning is a real signal; keep it.
+        return  # CLIP-only (or cloud) model; the truncation warning is a real signal, so keep it.
 
     import logging
 
@@ -467,7 +467,7 @@ def build_collage(image_paths: list, output_dir: Path, *, scores: dict | None = 
 
     Each tile is badged with its iteration number (the file stem) and, when ``scores``
     maps the file's name to a hotness score, that score (``#03  7/10``). Tiles with no
-    score show just the iteration (``#03``). The badge is drawn on a copy — the saved
+    score show just the iteration (``#03``). The badge is drawn on a copy, so the saved
     ``NN.png`` originals are left untouched.
     """
     from math import ceil, sqrt
@@ -511,7 +511,7 @@ def collage_generated_images(output_dir: Path, trace: list[dict] | None = None) 
 
     Pass ``trace`` (the per-iteration log, whose entries carry ``image_path`` and
     ``score``) to badge each tile with its hotness score. Tiles with no matching trace
-    entry — e.g. a generation interrupted before evaluation — show just their iteration
+    entry (e.g. a generation interrupted before evaluation) show just their iteration
     number.
     """
     paths = sorted(

@@ -7,7 +7,7 @@ the per-agent factory escape hatch. No real audio weights required.
 from __future__ import annotations
 
 # Install audio stubs before importing aimu.tools.builtin's audio bits.
-from test_audio_api import _force_audio_stubs, _install_audio_stubs  # noqa: F401 — side effect + autouse fixture
+from test_audio_api import _force_audio_stubs, _install_audio_stubs  # noqa: F401 (side effect + autouse fixture)
 
 _install_audio_stubs()
 
@@ -144,7 +144,7 @@ def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# make_audio_tool — per-agent factory escape hatch
+# make_audio_tool: per-agent factory escape hatch
 # ---------------------------------------------------------------------------
 
 
@@ -207,7 +207,7 @@ def test_make_audio_tool_uses_its_client_not_singleton(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# make_tools — audio_client parameter
+# make_tools: audio_client parameter
 # ---------------------------------------------------------------------------
 
 

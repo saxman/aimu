@@ -2,7 +2,7 @@
 
 The image (diffusers), audio, and speech clients all load weights in-process and
 need placement logic: an optional single-GPU ``device`` hint, a ``cuda``/``mps``/CPU
-fallback, and — for the image client — **memory-aware auto-placement** that inspects
+fallback, and (for the image client) **memory-aware auto-placement** that inspects
 how many GPUs are present and how much memory each has *free* before deciding where
 to put a freshly loaded pipeline (see :func:`auto_place_pipeline`).
 
@@ -44,7 +44,7 @@ def cuda_free_memory() -> list[tuple[int, int]]:
     """Per-GPU free memory as ``[(device_index, free_bytes), ...]``, most-free first.
 
     Uses ``torch.cuda.mem_get_info`` so the figures reflect memory actually free
-    *right now* — accounting for other processes on the card (e.g. a local LLM
+    *right now*, accounting for other processes on the card (e.g. a local LLM
     server). Returns an empty list when CUDA/torch are unavailable.
     """
     try:
@@ -100,7 +100,7 @@ def move_to_device(obj: Any, hint: Optional[str] = None) -> Any:
     """Move a model/pipeline to ``hint`` (or the autodetected accelerator).
 
     Thin wrapper over ``obj.to(resolve_device(hint))``. Use this only on the
-    single-device path — when ``device_map`` is set, the loader owns placement and
+    single-device path. When ``device_map`` is set, the loader owns placement and
     ``.to()`` must not be called.
     """
     return obj.to(resolve_device(hint))

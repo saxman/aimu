@@ -2,7 +2,7 @@
 
 Mirrors ``aimu.models.providers.anthropic.AnthropicClient`` using
 ``anthropic.AsyncAnthropic``. Reuses the sync client's pure format adapters
-(message/tool/id conversion) via composition — they don't touch I/O.
+(message/tool/id conversion) via composition; they don't touch I/O.
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                 return json.dumps(block.input)
         return "{}"
 
-    # Pure helpers reused from sync client — no I/O involved.
+    # Pure helpers reused from sync client; no I/O involved.
     _update_generate_kwargs = _SyncAnthropicClient._update_generate_kwargs
     _thinking_kwargs = _SyncAnthropicClient._thinking_kwargs
     _openai_messages_to_anthropic = _SyncAnthropicClient._openai_messages_to_anthropic

@@ -4,11 +4,11 @@
 Code-controlled: Python directs the loop; the LLMs only generate and judge.
 Two acceptance strategies are available via --strategy:
 
-  greedy   (default) — always accept the judge's suggested directive and move on, even if the
+  greedy   (default): always accept the judge's suggested directive and move on, even if the
              new sentence scores lower than a previous one. Simple; the final sentence is
              whatever came last.
 
-  climbing — keep the best sentence seen so far and only advance on a strictly higher score.
+  climbing: keep the best sentence seen so far and only advance on a strictly higher score.
              A tie or lower score is discarded; the judge is asked for a different refinement
              of the current best (avoiding directions that already failed). Stops after
              --patience consecutive non-improvements. Guarantees the final sentence is at
@@ -16,7 +16,7 @@ Two acceptance strategies are available via --strategy:
 
 The agent-directed counterpart is hotdog_agent.py's text twin, epic_agent.py. For
 Metropolis-acceptance annealing see epic_anneal.py. This is the text-only twin of
-hotdog_loop.py — same lesson, no image generation, vision model, or GPU required (runs on
+hotdog_loop.py: same lesson, no image generation, vision model, or GPU required (runs on
 Ollama alone).
 
 Usage:
@@ -70,7 +70,7 @@ def run(
     print(f"Output directory: {output_dir}\n")
 
     direction = INITIAL_DIRECTION
-    # Climbing-only state — unused in greedy mode.
+    # Climbing-only state, unused in greedy mode.
     best: dict | None = None
     rejected: list[str] = []
     stale = 0
@@ -120,7 +120,7 @@ def run(
                 print(f"Reached maximum iterations ({max_iterations}). Stopping.")
                 break
 
-            # Acceptance rule — the only place the two strategies diverge.
+            # Acceptance rule: the only place the two strategies diverge.
             if strategy == "climbing":
                 if improved:
                     rejected = []
@@ -138,7 +138,7 @@ def run(
                 direction = parsed["next_direction"]
 
     except KeyboardInterrupt:
-        print("\nInterrupted — writing partial results so far...")
+        print("\nInterrupted, writing partial results so far...")
     finally:
         if strategy == "climbing" and best:
             best_path = write_best(output_dir, best)

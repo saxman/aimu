@@ -1,6 +1,6 @@
-"""Async MCP client — thin parallel to ``aimu.tools.MCPClient``.
+"""Async MCP client: thin parallel to ``aimu.tools.MCPClient``.
 
-Uses FastMCP's native async ``Client`` directly. No anyio portal — the caller
+Uses FastMCP's native async ``Client`` directly. No anyio portal; the caller
 already has an event loop. Construction signature mirrors the sync wrapper so
 users see the same shape on both surfaces.
 """

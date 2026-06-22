@@ -1,4 +1,4 @@
-"""Async Parallel workflow — the headline ``asyncio.TaskGroup`` win.
+"""Async Parallel workflow: the headline ``asyncio.TaskGroup`` win.
 
 Replaces the sync ``ThreadPoolExecutor`` with structured concurrency: a worker
 exception cancels its siblings cleanly, and all errors surface together as an

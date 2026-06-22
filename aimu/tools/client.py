@@ -101,7 +101,7 @@ class MCPClient:
         and returns the result's text content as a string. The callables carry
         ``__tool_spec__`` (OpenAI format), ``__tool_is_async__ = False``, and
         ``__tool_is_streaming__ = False``, so they drop straight into ``client.tools`` or
-        ``Agent(tools=...)`` and dispatch through the same path as ``@tool`` functions —
+        ``Agent(tools=...)`` and dispatch through the same path as ``@tool`` functions,
         no ``model_client.mcp_client`` reference needed::
 
             mcp = MCPClient(server=my_server)

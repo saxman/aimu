@@ -1,6 +1,6 @@
 """Tests for ToolContext dependency injection and Agent deps/schema support.
 
-All deterministic via MockModelClient — no backend needed.
+All deterministic via MockModelClient; no backend needed.
 """
 
 from dataclasses import dataclass, field

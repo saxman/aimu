@@ -1,4 +1,4 @@
-"""Async HuggingFace client — wraps an existing sync :class:`HuggingFaceClient`.
+"""Async HuggingFace client: wraps an existing sync :class:`HuggingFaceClient`.
 
 Per Decision 7 in the plan, this class does *not* load model weights independently.
 The async surface exists for event-loop integration, not coroutine concurrency
@@ -9,8 +9,8 @@ and pass it in::
     async_client = aio.client(sync_client)
 
 State (``messages``, ``system_message``, ``tools``) is shared with the wrapped sync
-client — there's conceptually one client; the async version just adds an awaitable
-interface.
+client (there's conceptually one client; the async version just adds an awaitable
+interface).
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from .._sync_tool_bridge import bridge_async_tools
 
 
 class AsyncHuggingFaceClient(AsyncBaseModelClient):
-    """Async wrapper around a sync :class:`HuggingFaceClient` — no weight reload."""
+    """Async wrapper around a sync :class:`HuggingFaceClient` (no weight reload)."""
 
     MODELS = HuggingFaceModel
 
@@ -163,7 +163,7 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
     async def _stream_via_thread(self, sync_iterator, restore: Optional[list] = None) -> AsyncIterator[StreamChunk]:
         """Yield from a sync iterator by hopping each ``next()`` to a worker thread.
 
-        Crude but correct — HF's streaming iterator is sync, so each chunk pull
+        Crude but correct: HF's streaming iterator is sync, so each chunk pull
         blocks until the next token is generated. ``asyncio.to_thread`` keeps the
         event loop free between chunks. ``restore``, when given, is the tools list
         to reinstate once the stream is exhausted (see :meth:`_install_bridged_tools`).

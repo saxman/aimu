@@ -28,11 +28,11 @@ Use `chunk.is_text()` and `chunk.is_tool_call()` to dispatch without writing out
 Pass `include=[...]` to drop unwanted phases:
 
 ```python
-# Only response tokens — skip thinking and tool calls
+# Only response tokens: skip thinking and tool calls
 for chunk in client.chat("hi", stream=True, include=["generating"]):
     print(chunk.content, end="")
 
-# Text only — thinking + generating, drop tool-call dicts
+# Text only: thinking + generating, drop tool-call dicts
 for chunk in client.chat("hi", stream=True, include=["thinking", "generating"]):
     print(chunk.content, end="")
 ```
@@ -77,7 +77,7 @@ For chains, `chunk.iteration` is the chain step (0 for step 0, 1 for step 1, …
 
 ## Streaming from the async surface
 
-Every async surface call that returns a stream produces an `AsyncIterator[StreamChunk]` instead of an `Iterator[StreamChunk]`. The chunk type is identical — only the consumption protocol differs. Use `async for`:
+Every async surface call that returns a stream produces an `AsyncIterator[StreamChunk]` instead of an `Iterator[StreamChunk]`. The chunk type is identical; only the consumption protocol differs. Use `async for`:
 
 ```python
 from aimu import aio
@@ -95,7 +95,7 @@ async def main():
 
 Two helpers turn a run into something you can read or inspect, instead of re-implementing the phase-dispatch loop or reconstructing tool calls by hand.
 
-### `pretty_print` — render a stream to the console
+### `pretty_print`: render a stream to the console
 
 `pretty_print(stream)` consumes any `StreamChunk` iterator (`client.chat(stream=True)`, `Agent.run(stream=True)`, or any workflow run) and writes a readable transcript: tool calls flagged, generated text streamed inline, reasoning optional. It returns the concatenated `GENERATING` text, so you get the final answer as well as the printed transcript.
 
@@ -114,7 +114,7 @@ answer = aimu.pretty_print(agent.run("Search the web and summarize today's AI ne
 | `show_thinking` | `False` | Also print `THINKING` (reasoning) tokens |
 | `show_tools` | `True` | Print a `[tool] <name>` marker for each tool call |
 
-### `extract_tool_calls` — pull tool calls from a message history
+### `extract_tool_calls`: pull tool calls from a message history
 
 `extract_tool_calls(messages)` reconstructs the tool call/result pairs from an OpenAI-format message list **after** a run, with no streaming. Pass `client.messages`, or an entry from `agent.messages` (which is keyed by agent name). It returns a list of `{iteration, tool, arguments, result}` dicts and does not mutate the input.
 
@@ -131,5 +131,5 @@ for call in extract_tool_calls(agent.messages[agent.name]):
 
 ## See also
 
-- [Explanation: StreamChunk model](../explanation/streamchunk-model.md) — one chunk type for all contexts
-- [Stream phases reference](../reference/stream-phases.md) — full enum
+- [Explanation: StreamChunk model](../explanation/streamchunk-model.md): one chunk type for all contexts
+- [Stream phases reference](../reference/stream-phases.md): full enum

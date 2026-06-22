@@ -7,7 +7,7 @@ the per-agent factory escape hatch. No diffusers install required.
 from __future__ import annotations
 
 # Install the diffusers stub before importing aimu.tools.builtin's image bits.
-from test_images_api import _force_diffusers_stub, _install_diffusers_stub  # noqa: F401 — side effect + autouse fixture
+from test_images_api import _force_diffusers_stub, _install_diffusers_stub  # noqa: F401 (side effect + autouse fixture)
 
 _install_diffusers_stub()
 
@@ -45,7 +45,7 @@ def test_generate_image_has_tool_spec():
 
 
 def test_generate_image_is_sync():
-    """The sync built-in must be a regular def, not async — async lives under aimu.aio.tools."""
+    """The sync built-in must be a regular def, not async; async lives under aimu.aio.tools."""
     assert builtin.generate_image.__tool_is_async__ is False
 
 
@@ -130,7 +130,7 @@ def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
     monkeypatch.setattr(builtin, "_image_client", HuggingFaceImageClient(HuggingFaceImageModel.SD_1_5))
     monkeypatch.setattr(builtin._get_image_client(), "generate", fake_stream)
 
-    # The tool is a generator — drain it, then read the return value via StopIteration.value.
+    # The tool is a generator: drain it, then read the return value via StopIteration.value.
     gen = builtin.generate_image("a cat")
     chunks = []
     try:
@@ -145,7 +145,7 @@ def test_tool_drains_generator_and_returns_path(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# make_image_tool — per-agent factory escape hatch
+# make_image_tool: per-agent factory escape hatch
 # ---------------------------------------------------------------------------
 
 
@@ -212,7 +212,7 @@ def test_make_image_tool_uses_its_client_not_singleton(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# make_describe_image_tool — vision-capable chat client binding
+# make_describe_image_tool: vision-capable chat client binding
 # ---------------------------------------------------------------------------
 
 
@@ -249,7 +249,7 @@ def test_describe_image_tool_spec_and_flags():
     assert "image_path" in spec["function"]["parameters"]["properties"]
     assert "instruction" in spec["function"]["parameters"]["properties"]
     assert spec["function"]["parameters"]["required"] == ["image_path"]
-    # Not a streaming tool — it's a plain function returning a string.
+    # Not a streaming tool; it's a plain function returning a string.
     assert tool_fn.__tool_is_streaming__ is False
     assert tool_fn.__tool_is_async__ is False
 
@@ -288,7 +288,7 @@ def test_describe_image_preserves_message_history():
     tool_fn = builtin.make_describe_image_tool(client)
     result = tool_fn("/tmp/cat.png")
     assert result == "looks like a cat"
-    # History restored exactly — including identity ordering.
+    # History restored exactly, including identity ordering.
     assert client.messages == original_messages
 
 
@@ -298,7 +298,7 @@ def test_describe_image_custom_instruction():
     out = tool_fn("/tmp/x.png", instruction="What text appears in this image?")
     _, kwargs = client.chat.call_args
     assert "What text appears" in out  # the stub echoes the instruction
-    # No assertion on use_tools — already covered above.
+    # No assertion on use_tools; already covered above.
     del kwargs  # silence linter
 
 
@@ -311,7 +311,7 @@ def test_describe_image_factory_default_instruction_override():
 
 
 # ---------------------------------------------------------------------------
-# make_tools — standard tool-list assembly
+# make_tools: standard tool-list assembly
 # ---------------------------------------------------------------------------
 
 

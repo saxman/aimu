@@ -22,7 +22,7 @@ print(agent.run("How many r's in strawberry?"))
 The decorator inspects parameters and types. Each parameter must satisfy:
 
 - It has either a **type hint** or a **default value** (or both). Unhinted required params raise `ToolSignatureError`.
-- It is *not* variadic. `*args` and `**kwargs` raise `ToolSignatureError` — declare each argument explicitly.
+- It is *not* variadic. `*args` and `**kwargs` raise `ToolSignatureError`; declare each argument explicitly.
 
 Supported types map to JSON Schema like this:
 
@@ -67,7 +67,7 @@ def search(query: str, num_results: int = 5) -> str:
 
 The model can call `search(query="...")` without `num_results`.
 
-`Optional[T]` / `T | None` parameters unwrap to the inner type — the spec shows `string` rather than `string | null`:
+`Optional[T]` / `T | None` parameters unwrap to the inner type: the spec shows `string` rather than `string | null`:
 
 ```python
 from typing import Optional
@@ -80,7 +80,7 @@ def lookup(name: Optional[str] = None) -> str:
 
 ## Combine with MCP tools
 
-In-process `@tool` functions and cross-process MCP tools both end up as callables in one `tools` list — `MCPClient.as_tools()` turns a server's tools into callables you concatenate. On a name collision the **last** entry wins, so append a local tool after the MCP tools to shadow one:
+In-process `@tool` functions and cross-process MCP tools both end up as callables in one `tools` list; `MCPClient.as_tools()` turns a server's tools into callables you concatenate. On a name collision the **last** entry wins, so append a local tool after the MCP tools to shadow one:
 
 ```python
 from aimu.tools import MCPClient
@@ -93,7 +93,7 @@ agent = Agent(client, tools=mcp.as_tools() + [letter_counter])   # both routes, 
 
 ## Override tools for a single call
 
-`tools=` on the constructor / `client.tools` sets the *configured* tools. To use a different set for just one call — without mutating that state — pass `tools=` to `chat()` or `Agent.run()`:
+`tools=` on the constructor / `client.tools` sets the *configured* tools. To use a different set for just one call (without mutating that state), pass `tools=` to `chat()` or `Agent.run()`:
 
 ```python
 client.tools = [search, calculate]
@@ -105,11 +105,11 @@ agent = Agent(client, tools=[search, calculate])
 agent.run("quick lookup", tools=[search])          # override for the whole run
 ```
 
-`tools=None` (default) uses the configured tools. Any other value — including `[]` to disable tools — replaces them for that call only and is restored afterward (MCP tools, being callables in `tools` via `as_tools()`, are included in the swap). On `Agent.run()` the override applies to every turn of the agentic loop.
+`tools=None` (default) uses the configured tools. Any other value (including `[]` to disable tools) replaces them for that call only and is restored afterward (MCP tools, being callables in `tools` via `as_tools()`, are included in the swap). On `Agent.run()` the override applies to every turn of the agentic loop.
 
 ## Share state across tool calls (`ToolContext`)
 
-Tools often need shared state — a store, a cache, a config object — that persists across calls within a run but shouldn't be a module-level global. Declare a parameter annotated as `ToolContext` (or `ToolContext[Deps]`) and the agent **injects** it at call time. That parameter is excluded from the tool's JSON schema, so the model never sees it and only fills in the remaining arguments.
+Tools often need shared state (a store, a cache, a config object) that persists across calls within a run but shouldn't be a module-level global. Declare a parameter annotated as `ToolContext` (or `ToolContext[Deps]`) and the agent **injects** it at call time. That parameter is excluded from the tool's JSON schema, so the model never sees it and only fills in the remaining arguments.
 
 ```python
 from dataclasses import dataclass, field
@@ -134,7 +134,7 @@ agent.run("Remember that the sky is blue.")
 print(deps.seen)   # {"sky": "blue"}
 ```
 
-The value of `ctx.deps` comes from the `Agent`: its `deps=` field, or a per-run `agent.run(..., deps=...)` override (the override wins). When no deps are provided — for example a bare `client.chat()` call — `ctx.deps` is `None`.
+The value of `ctx.deps` comes from the `Agent`: its `deps=` field, or a per-run `agent.run(..., deps=...)` override (the override wins). When no deps are provided (for example a bare `client.chat()` call), `ctx.deps` is `None`.
 
 ```python
 agent.run("Remember the meeting is Friday.", deps=other_deps)   # per-run override
@@ -162,7 +162,7 @@ See the [`aimu.tools` API reference](../reference/api/tools.md) for the full lis
 
 ## Streaming tools (generators)
 
-For long-running tools, make the function a generator and yield `StreamChunk` objects during execution. The agent's `Agent.run(stream=True)` forwards each yielded chunk through its own stream so callers see progress live — no side channels, no callbacks.
+For long-running tools, make the function a generator and yield `StreamChunk` objects during execution. The agent's `Agent.run(stream=True)` forwards each yielded chunk through its own stream so callers see progress live, with no side channels and no callbacks.
 
 ```python
 import aimu
@@ -182,15 +182,15 @@ Three rules cover the contract:
 
 1. **The decorator detects it automatically.** `@aimu.tool` sets `func.__tool_is_streaming__ = True` when the function is a generator (`inspect.isgeneratorfunction`) or async generator (`inspect.isasyncgenfunction`). No opt-in flag.
 2. **Yield any phase that fits.** `GENERATING` for text progress, `IMAGE_GENERATING` for image-gen progress, future custom phases as needed. The agent forwards each chunk untouched (it only adds the `agent` and `iteration` metadata fields).
-3. **The result comes from one of three places** — in priority order: the generator's `return` value (sync only — `StopIteration.value`); the last yielded chunk's `content["result"]` if it's a dict with that key (matches the `IMAGE_GENERATING` final-chunk convention); or `str(last_chunk.content)`.
+3. **The result comes from one of three places**, in priority order: the generator's `return` value (sync only, via `StopIteration.value`); the last yielded chunk's `content["result"]` if it's a dict with that key (matches the `IMAGE_GENERATING` final-chunk convention); or `str(last_chunk.content)`.
 
-Async streaming tools are async generators (`async def + yield`); the async agent's `_handle_tool_calls_streamed` drains them with `async for`. Sync generator tools also work in the async surface — each `next()` is routed through `asyncio.to_thread` so the event loop stays free between yields.
+Async streaming tools are async generators (`async def + yield`); the async agent's `_handle_tool_calls_streamed` drains them with `async for`. Sync generator tools also work in the async surface: each `next()` is routed through `asyncio.to_thread` so the event loop stays free between yields.
 
 Streaming tools require `stream=True` on the calling `chat()` / `agent.run()`. The non-streaming dispatch path raises `ValueError` with a clear message pointing at `stream=True`.
 
 ## See also
 
-- [Explanation: tool integration](../explanation/tool-integration.md) — dispatch order, precedence, when to pick in-process vs MCP
-- [Explanation: StreamChunk model](../explanation/streamchunk-model.md) — phases, content shapes, why one chunk type
-- [Use MCP tools](use-mcp-tools.md) — cross-process tool servers
-- [Generate images](generate-images.md) — the built-in `generate_image` streaming tool
+- [Explanation: tool integration](../explanation/tool-integration.md): dispatch order, precedence, when to pick in-process vs MCP
+- [Explanation: StreamChunk model](../explanation/streamchunk-model.md): phases, content shapes, why one chunk type
+- [Use MCP tools](use-mcp-tools.md): cross-process tool servers
+- [Generate images](generate-images.md): the built-in `generate_image` streaming tool

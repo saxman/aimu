@@ -1,4 +1,4 @@
-"""Async Parallel workflow tests — verifies ``asyncio.TaskGroup`` semantics.
+"""Async Parallel workflow tests: verifies ``asyncio.TaskGroup`` semantics.
 
 Two correctness goals:
 1. Workers actually overlap (wall-clock time < serial baseline).

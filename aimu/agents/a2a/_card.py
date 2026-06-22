@@ -3,7 +3,7 @@
 These helpers build an :class:`a2a.types.AgentCard` from any runner, construct a user
 ``Message`` for an outbound task, and flatten an A2A response/result back to plain text.
 They contain no sync/async coupling so both ``aimu.agents.a2a`` and ``aimu.aio.a2a``
-reuse them — the agent-level analog of :mod:`aimu.tools.mcp_format`.
+reuse them, the agent-level analog of :mod:`aimu.tools.mcp_format`.
 """
 
 from __future__ import annotations

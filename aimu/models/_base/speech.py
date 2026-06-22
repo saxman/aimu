@@ -18,7 +18,7 @@ class SpeechSpec:
     """Base descriptor for a single text-to-speech (TTS) model.
 
     Sibling to :class:`AudioSpec`; disjoint because TTS has no concept of
-    duration — it converts text to speech directly. Voice and speed defaults
+    duration; it converts text to speech directly. Voice and speed defaults
     live here so :class:`BaseSpeechClient` can resolve them without knowing
     the concrete subclass.
 
@@ -44,8 +44,8 @@ class HuggingFaceSpeechSpec(SpeechSpec):
     """Descriptor for a HuggingFace-backed TTS model.
 
     ``pipeline_type`` selects the loader/runner strategy:
-    - ``"tts_pipeline"`` — ``transformers.pipeline("text-to-speech")``.
-    - ``"bark"`` — ``BarkModel`` + ``AutoProcessor`` (zero-shot voice codes).
+    - ``"tts_pipeline"``: ``transformers.pipeline("text-to-speech")``.
+    - ``"bark"``: ``BarkModel`` + ``AutoProcessor`` (zero-shot voice codes).
 
     ``eq=False`` inherits :class:`SpeechSpec`'s id-only equality + hash.
     """

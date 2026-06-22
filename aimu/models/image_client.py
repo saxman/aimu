@@ -2,8 +2,8 @@
 
 Exposes:
 
-- :func:`resolve_image_model_string` — parse ``"provider:model_id"`` for image providers.
-- :class:`ImageClient` — factory ``BaseImageClient`` that dispatches to the right
+- :func:`resolve_image_model_string`: parse ``"provider:model_id"`` for image providers.
+- :class:`ImageClient`: factory ``BaseImageClient`` that dispatches to the right
   concrete client based on the model enum / spec / string passed in.
 
 Mirrors the text-side dispatch (:class:`aimu.models.ModelClient`,
@@ -59,7 +59,7 @@ def resolve_image_model_string(model_str: str) -> ImageModel:
         resolve_image_model_string("gemini:gemini-2.5-flash-image")
 
     Note that string-form construction with arbitrary repo ids / Gemini aliases
-    is handled inside each concrete client's ``__init__`` — this function only
+    is handled inside each concrete client's ``__init__``; this function only
     matches *exact* enum-member values. For ad-hoc HuggingFace repos or Gemini
     aliases, pass the ``"provider:..."`` string directly to :class:`ImageClient`
     instead of calling this helper.
@@ -94,7 +94,7 @@ def resolve_image_model_enum(model: Union[ImageModel, str]) -> ImageModel:
       up across every installed image-provider enum.
 
     A bare name present in more than one provider's enum is **ambiguous** and raises
-    ``ValueError`` — pass an explicit ``"provider:model_id"`` string to disambiguate.
+    ``ValueError``: pass an explicit ``"provider:model_id"`` string to disambiguate.
     Parallel to :func:`aimu.resolve_model_enum` for the text modality.
     """
     if isinstance(model, ImageModel):

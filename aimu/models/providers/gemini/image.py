@@ -1,6 +1,6 @@
 """Google Gemini image-generation client (Nano Banana) via the ``google-genai`` SDK.
 
-Inherits :class:`BaseImageClient` — public :meth:`generate` (format conversion,
+Inherits :class:`BaseImageClient`: public :meth:`generate` (format conversion,
 num_images plumbing) lives on the base; this subclass implements
 :meth:`_generate` to call ``genai.Client().models.generate_content`` with
 ``response_modalities=[Modality.IMAGE]`` and decode the returned inline_data.
@@ -38,7 +38,7 @@ class GeminiImageModel(ImageModel):
     Gemini API model id string.
     """
 
-    # "Nano Banana" — Gemini 2.5 Flash Image (GA).
+    # "Nano Banana": Gemini 2.5 Flash Image (GA).
     NANO_BANANA = GeminiImageSpec("gemini-2.5-flash-image")
     # The preview channel, retained for users who pinned it earlier.
     NANO_BANANA_PREVIEW = GeminiImageSpec("gemini-2.5-flash-image-preview")
@@ -176,7 +176,7 @@ class GeminiImageClient(BaseImageClient):
 
         feedback = getattr(response, "prompt_feedback", None)
         raise RuntimeError(
-            f"Gemini API returned no image data — the model may have refused the prompt. prompt_feedback={feedback!r}"
+            f"Gemini API returned no image data. The model may have refused the prompt. prompt_feedback={feedback!r}"
         )
 
     def _generate(

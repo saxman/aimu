@@ -1,6 +1,6 @@
 # Getting started
 
-This is a 15-minute walkthrough from a fresh install to a working agent. By the end you'll know the three core entry points — `aimu.chat()`, `aimu.client()`, and `Agent` — and how to swap providers without changing call sites.
+This is a 15-minute walkthrough from a fresh install to a working agent. By the end you'll know the three core entry points (`aimu.chat()`, `aimu.client()`, and `Agent`) and how to swap providers without changing call sites.
 
 ## 1. Install
 
@@ -16,7 +16,7 @@ Then pull a small tool-capable model:
 ollama pull qwen3.5:9b
 ```
 
-For cloud providers instead, use `pip install aimu[anthropic]` (or `[openai_compat]`) and set the corresponding API key in your environment. Every example below works identically — only the model string changes.
+For cloud providers instead, use `pip install aimu[anthropic]` (or `[openai_compat]`) and set the corresponding API key in your environment. Every example below works identically; only the model string changes.
 
 ## 2. Your first chat
 
@@ -41,11 +41,11 @@ response = aimu.chat("What is the capital of France?")
 
 When the model is omitted, AIMU resolves a default in this order:
 
-1. The **`AIMU_LANGUAGE_MODEL`** env var (a `"provider:model_id"` string) — set it in your project's `.env` to pin a default: `AIMU_LANGUAGE_MODEL=ollama:qwen3.5:9b`.
-2. An **already-available local model** — a running Ollama server, a model already in your HuggingFace cache, or a running local OpenAI-compatible server (LM Studio, vLLM, llama-server, SGLang). The chosen model is logged.
+1. The **`AIMU_LANGUAGE_MODEL`** env var (a `"provider:model_id"` string). Set it in your project's `.env` to pin a default: `AIMU_LANGUAGE_MODEL=ollama:qwen3.5:9b`.
+2. An **already-available local model**: a running Ollama server, a model already in your HuggingFace cache, or a running local OpenAI-compatible server (LM Studio, vLLM, llama-server, SGLang). The chosen model is logged.
 3. Otherwise a `ValueError` listing how to fix it.
 
-AIMU never auto-selects a cloud provider (no surprise API bills) and never downloads weights implicitly. Passing `model=` explicitly — as every example here does — is always the clearest, most reproducible choice.
+AIMU never auto-selects a cloud provider (no surprise API bills) and never downloads weights implicitly. Passing `model=` explicitly (as every example here does) is always the clearest, most reproducible choice.
 
 ## 3. Multi-turn conversation
 
@@ -61,7 +61,8 @@ print(client.chat("What did I just tell you?"))
 # 'You told me your favourite colour is blue.'
 ```
 
-`client.chat()` accumulates history in `client.messages`. The system message is set at construction time and locks once the first chat is sent — call `client.reset()` if you need to start over.
+`client.chat()` accumulates history in `client.messages`. The system message is set at construction time and locks once the first chat is sent. Call `client.reset()` if you need to start over.
+
 
 ## 4. Streaming
 
@@ -97,7 +98,7 @@ The rest of your code is unchanged. See [how-to: switch providers](../how-to/swi
 
 ## 6. Your first agent
 
-So far we've called `chat()` directly. An `Agent` adds a tool-using loop on top — it keeps calling `chat()` until the model stops invoking tools.
+So far we've called `chat()` directly. An `Agent` adds a tool-using loop on top: it keeps calling `chat()` until the model stops invoking tools.
 
 First, declare a tool:
 
@@ -137,8 +138,8 @@ You've now used the three load-bearing APIs:
 
 The next tutorials build on each:
 
-- **[First agent with tools](02-first-agent-with-tools.md)** — deeper on `@tool` and built-in tools.
-- **[Workflows](03-workflows.md)** — code-controlled patterns (chain / router / parallel) when you want the *flow* fixed.
-- **[Vision and streaming](04-vision-and-streaming.md)** — image input plus the full `StreamChunk` API.
+- **[First agent with tools](02-first-agent-with-tools.md)**: deeper on `@tool` and built-in tools.
+- **[Workflows](03-workflows.md)**: code-controlled patterns (chain / router / parallel) when you want the *flow* fixed.
+- **[Vision and streaming](04-vision-and-streaming.md)**: image input plus the full `StreamChunk` API.
 
 Or jump into [how-to guides](../how-to/index.md) for specific tasks.

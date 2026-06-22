@@ -1,6 +1,6 @@
 """Audio-modality base types: the audio specs, the ``AudioModel`` enum, and ``BaseAudioClient``.
 
-Music / sound generation (not TTS — that's :mod:`aimu.models._base.speech`). Disjoint
+Music / sound generation (not TTS, which lives in :mod:`aimu.models._base.speech`). Disjoint
 from text and image; only ``StreamChunk`` / ``StreamingContentType`` are shared.
 """
 
@@ -40,9 +40,9 @@ class HuggingFaceAudioSpec(AudioSpec):
     """Descriptor for a single HuggingFace-backed audio-generation model.
 
     ``pipeline_type`` selects the loader/runner strategy:
-    - ``"musicgen"`` — transformers ``MusicgenForConditionalGeneration``
-    - ``"audioldm2"`` — diffusers ``AudioLDM2Pipeline``
-    - ``"stable_audio"`` — diffusers ``StableAudioPipeline``
+    - ``"musicgen"``: transformers ``MusicgenForConditionalGeneration``
+    - ``"audioldm2"``: diffusers ``AudioLDM2Pipeline``
+    - ``"stable_audio"``: diffusers ``StableAudioPipeline``
 
     ``default_steps`` is ignored for ``"musicgen"`` (token-autoregressive, no denoising
     steps). ``eq=False`` inherits :class:`AudioSpec`'s id-only equality + hash.

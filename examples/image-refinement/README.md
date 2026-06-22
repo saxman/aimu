@@ -1,11 +1,11 @@
 # Image refinement (the "hotdog" family)
 
-A **generate → evaluate → refine** loop over *images*: a diffusion model generates an image, a
+A **generate, evaluate, refine** loop over *images*: a diffusion model generates an image, a
 vision model scores it and proposes a better prompt, and the loop repeats. The worked task is
-*"make the hottest hotdog imaginable"* — each round pushes toward a single, well-formed,
+*"make the hottest hotdog imaginable"*: each round pushes toward a single, well-formed,
 maximally-appetising hotdog while a vision evaluator gates on "is this still one hotdog?"
 
-This is the image counterpart of [`../text-refinement/`](../text-refinement/) — the same control-flow
+This is the image counterpart of [`../text-refinement/`](../text-refinement/), the same control-flow
 and search lessons, but with image-specific scaffolding (a diffusers pipeline, a vision evaluator, a
 token-budget prompt summarizer, negative prompts). All variants share `_hotdog_common.py`.
 

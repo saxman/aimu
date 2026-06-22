@@ -5,7 +5,7 @@
 This is the right pattern when:
 
 - The task has measurable success criteria you can express as text.
-- Single-shot prompting isn't reliable enough — you want the system to recognise failure and try a different approach.
+- Single-shot prompting isn't reliable enough, so you want the system to recognise failure and try a different approach.
 - You want to keep evaluation honest by using a separate (often stronger) judge model.
 
 ## Quick start
@@ -32,9 +32,9 @@ The factory builds a `SkillAgent` planner, an `Agent` executor with your tools, 
 
 ## Two criteria modes
 
-**User-supplied criteria** (recommended) — pass `criteria="..."` to `PlanExecuteEvaluator.from_client()` and the criteria string is included in the planner's prompt every round and used as the scorer's `reference` field on every row.
+**User-supplied criteria** (recommended): pass `criteria="..."` to `PlanExecuteEvaluator.from_client()` and the criteria string is included in the planner's prompt every round and used as the scorer's `reference` field on every row.
 
-**Planner-invented criteria** — pass `criteria=None`. The planner is asked to return its response in two sections:
+**Planner-invented criteria**: pass `criteria=None`. The planner is asked to return its response in two sections:
 
 ```
 ## Evaluation criteria
@@ -44,7 +44,7 @@ The factory builds a `SkillAgent` planner, an `Agent` executor with your tools, 
 <numbered steps>
 ```
 
-The workflow parses both. The criteria the planner produces is what the scorer uses for that round. This mode is more flexible for open-ended tasks but more vulnerable to drift — the planner can quietly soften its own criteria on replans. Use a separate (stronger) judge if you go this route.
+The workflow parses both. The criteria the planner produces is what the scorer uses for that round. This mode is more flexible for open-ended tasks but more vulnerable to drift, since the planner can quietly soften its own criteria on replans. Use a separate (stronger) judge if you go this route.
 
 ## Custom scorer
 
@@ -116,10 +116,10 @@ The loop exits when one of these is true:
 
 ## Streaming
 
-`run(stream=True)` yields a single `StreamChunk(GENERATING, final_output)` chunk after the loop completes. Intermediate plans and executions are not streamed — match `EvaluatorOptimizer`'s behaviour. Inspect `wf.last_attempts` for per-round visibility.
+`run(stream=True)` yields a single `StreamChunk(GENERATING, final_output)` chunk after the loop completes. Intermediate plans and executions are not streamed, matching `EvaluatorOptimizer`'s behaviour. Inspect `wf.last_attempts` for per-round visibility.
 
 ## Related
 
-- [`EvaluatorOptimizer`](../reference/api/agents.md#aimu.agents.EvaluatorOptimizer) — simpler generate → critique → revise loop. Use when revision is enough; use `PlanExecuteEvaluator` when you want full replanning + tool execution.
-- [Build an orchestrator](build-orchestrator.md) — autonomous LLM-directed dispatch to workers. Use when the *model* should pick which worker to call; use `PlanExecuteEvaluator` when the control flow is fixed (plan → execute → judge).
-- [Tune prompts](tune-prompts.md) — uses the same `Scorer` protocol for prompt-level optimisation against labelled data.
+- [`EvaluatorOptimizer`](../reference/api/agents.md#aimu.agents.EvaluatorOptimizer): simpler generate → critique → revise loop. Use when revision is enough; use `PlanExecuteEvaluator` when you want full replanning + tool execution.
+- [Build an orchestrator](build-orchestrator.md): autonomous LLM-directed dispatch to workers. Use when the *model* should pick which worker to call; use `PlanExecuteEvaluator` when the control flow is fixed (plan → execute → judge).
+- [Tune prompts](tune-prompts.md): uses the same `Scorer` protocol for prompt-level optimisation against labelled data.

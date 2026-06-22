@@ -5,16 +5,16 @@ The same generate → judge → refine loop as ``epic_loop.py`` and ``epic_agent
 expressed with the library's **EvaluatorOptimizer** workflow class instead of a hand-rolled
 loop or a single tool-calling agent. It composes two ``Agent``s:
 
-- the **generator** holds ``write_epic_sentence`` — it turns the task (or the judge's CONTINUE
+- the **generator** holds ``write_epic_sentence``: it turns the task (or the judge's CONTINUE
   directive) into a rewrite and replies with the sentence.
-- the **judge** holds ``judge_epicness`` — it scores that sentence and relays the verdict
+- the **judge** holds ``judge_epicness``: it scores that sentence and relays the verdict
   (``DONE`` or a ``CONTINUE`` directive) back verbatim.
 
 ``EvaluatorOptimizer`` stops when ``pass_keyword="DONE"`` appears in the judge's reply or
 ``max_rounds`` is hit, then returns the last generation.
 
 Unlike hotdog_evaluator.py, the artifact relayed between the two agents *is* plain text (the
-sentence itself), so the text relay is far less fragile than relaying an image file path — this
+sentence itself), so the text relay is far less fragile than relaying an image file path. This
 is the modality where the EvaluatorOptimizer shape fits most naturally. Two caveats of the shape
 still apply, both visible in the output:
 - The *final* generation is returned without being judged (the loop generates after the last
@@ -53,14 +53,14 @@ about the same event. The sentence to escalate is: {seed}
 
 When given the task or a refinement directive:
 1. Call write_epic_sentence with that directive.
-2. Reply with ONLY the exact sentence the tool returned — no other text.
+2. Reply with ONLY the exact sentence the tool returned, no other text.
 """
 
 JUDGE_SYSTEM_PROMPT = """\
 You judge how epic a rewritten sentence is, using your judge_epicness tool.
 
 1. Call judge_epicness with the sentence in the message you received.
-2. Reply with the tool's output copied EXACTLY — do not summarize, rephrase, or add commentary.
+2. Reply with the tool's output copied EXACTLY; do not summarize, rephrase, or add commentary.
 
 The tool replies either "DONE: <reasoning>" (the sentence cannot get more epic) or
 "CONTINUE: <directive>" (how to make it more epic). Relay whichever it returns verbatim.
@@ -147,7 +147,7 @@ def main() -> None:
         name="epic-judge",
         system_message=JUDGE_SYSTEM_PROMPT,
         tools=[judge_fn],
-        # Judge each sentence independently — don't let prior verdicts bias the next.
+        # Judge each sentence independently; don't let prior verdicts bias the next.
         reset_messages_on_run=True,
     )
 
@@ -167,7 +167,7 @@ def main() -> None:
         result = eo.run(INITIAL_TASK)
         print(f"\nWorkflow final response:\n{result}")
     except KeyboardInterrupt:
-        print("\nInterrupted — writing partial results so far...")
+        print("\nInterrupted, writing partial results so far...")
     finally:
         # Only judged records have a verdict; the final generation may be unjudged (an
         # EvaluatorOptimizer characteristic).

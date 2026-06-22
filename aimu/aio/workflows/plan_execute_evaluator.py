@@ -35,7 +35,7 @@ class PlanExecuteEvaluator(AsyncRunner):
 
     The scorer's ``score()`` is sync (it's a CPU/judge-call concern, not an
     AIMU-async concern). If you wire an LLM judge, that judge call blocks the
-    event loop unless wrapped — use ``asyncio.to_thread`` from your scorer's
+    event loop unless wrapped; use ``asyncio.to_thread`` from your scorer's
     ``score()`` if needed.
     """
 

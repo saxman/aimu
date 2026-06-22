@@ -13,7 +13,7 @@ Decision tree for picking the right class:
 
 All concrete classes implement the single :class:`Runner` interface
 (``run()`` + ``messages``). The "autonomous vs code-controlled" split is a
-conceptual categorisation of those concrete classes — autonomous agents
+conceptual categorisation of those concrete classes: autonomous agents
 (``Agent``, ``SkillAgent``, ``OrchestratorAgent``) let the LLM direct the
 flow; workflow patterns (``Chain``, ``Router``, ``Parallel``,
 ``EvaluatorOptimizer``, ``PlanExecuteEvaluator``) keep the flow fixed in
@@ -68,7 +68,7 @@ class Runner(ABC):
         """Wrap this runner as a ``@tool``-style callable: ``tool(task: str) -> str``.
 
         The returned callable runs :meth:`run` and returns its string result, so any agent
-        or workflow can call this runner as a tool — drop it into ``Agent(tools=[...])`` or
+        or workflow can call this runner as a tool: drop it into ``Agent(tools=[...])`` or
         an :class:`OrchestratorAgent`'s worker list. Works for every concrete ``Runner``
         (``Agent``, ``Chain``, ``Router``, a remote A2A agent, ...) since it only relies on
         ``run()``.
@@ -86,9 +86,7 @@ class Runner(ABC):
         if description is None:
             system_message = getattr(self, "system_message", None)
             description = (
-                system_message.splitlines()[0]
-                if system_message
-                else f"Delegate a task to the {safe_name} runner."
+                system_message.splitlines()[0] if system_message else f"Delegate a task to the {safe_name} runner."
             )
 
         def _dispatch(task: str) -> str:

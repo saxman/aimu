@@ -9,34 +9,34 @@ AIMU (AI Modeling Utilities) is a Python library for building AI-powered applica
 AIMU implements the taxonomy from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. Concretely, that means **one** `Runner` ABC (no type-level split between agents and workflows) and the following concrete classes, all exported from `aimu.agents` and composable via the shared interface:
 
 - **Autonomous** (the LLM directs flow):
-  - `Agent` — the augmented-LLM tool-calling loop.
-  - `SkillAgent` — `Agent` + filesystem-discovered skill injection.
-  - `OrchestratorAgent` — Anthropic's "orchestrator-workers" pattern, expressed as an autonomous orchestrator whose tools are other agents. Prebuilt examples in `aimu.agents.prebuilt` (`ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent`).
+  - `Agent`: the augmented-LLM tool-calling loop.
+  - `SkillAgent`: `Agent` + filesystem-discovered skill injection.
+  - `OrchestratorAgent`: Anthropic's "orchestrator-workers" pattern, expressed as an autonomous orchestrator whose tools are other agents. Prebuilt examples in `aimu.agents.prebuilt` (`ResearchReportAgent`, `CodeReviewAgent`, `ContentCreationAgent`).
 - **Code-controlled workflows** (Python directs flow):
-  - `Chain` — prompt chaining (step N's output → step N+1's input).
-  - `Router` — routing (classifier dispatches to a specialist handler).
-  - `Parallel` — parallelization (workers run concurrently, optional aggregator).
-  - `EvaluatorOptimizer` — generate → critique → revise loop.
-  - `PlanExecuteEvaluator` — AIMU's extension beyond Anthropic's original five: plan → execute with tools → score → replan on failure.
+  - `Chain`: prompt chaining (step N's output → step N+1's input).
+  - `Router`: routing (classifier dispatches to a specialist handler).
+  - `Parallel`: parallelization (workers run concurrently, optional aggregator).
+  - `EvaluatorOptimizer`: generate → critique → revise loop.
+  - `PlanExecuteEvaluator`: AIMU's extension beyond Anthropic's original five: plan → execute with tools → score → replan on failure.
 
-The agent-vs-workflow distinction is documentation-only — both inherit directly from `Runner`, so they compose freely (a `Router` can dispatch to an `Agent`; a `Chain` step can be an `OrchestratorAgent`). `agent.as_model_client()` adds one more composition path: any agent wraps as a `BaseModelClient`, so it slots anywhere a plain client is accepted (e.g. into a `Benchmark` or a `Chain` that consumes clients). `Runner.as_tool()` adds the inverse: any agent or workflow wraps as a `@tool`-style callable, so an autonomous `Agent` can call a *workflow* (or a remote agent) as a tool, and `OrchestratorAgent.assemble(workers=...)` accepts any `Runner`, not just `Agent`. A hill-climbing prompt tuner optimizes prompts against labelled data without ML machinery.
+The agent-vs-workflow distinction is documentation-only; both inherit directly from `Runner`, so they compose freely (a `Router` can dispatch to an `Agent`; a `Chain` step can be an `OrchestratorAgent`). `agent.as_model_client()` adds one more composition path: any agent wraps as a `BaseModelClient`, so it slots anywhere a plain client is accepted (e.g. into a `Benchmark` or a `Chain` that consumes clients). `Runner.as_tool()` adds the inverse: any agent or workflow wraps as a `@tool`-style callable, so an autonomous `Agent` can call a *workflow* (or a remote agent) as a tool, and `OrchestratorAgent.assemble(workers=...)` accepts any `Runner`, not just `Agent`. A hill-climbing prompt tuner optimizes prompts against labelled data without ML machinery.
 
 AIMU also ships an optional **async surface** under `aimu.aio` that mirrors the entire public sync API one-for-one (same class names, different namespace). Sync is the default; async is strictly opt-in. The async surface uses modern `asyncio.TaskGroup` for structured concurrency in `Parallel` and `concurrent_tool_calls`. See [docs/explanation/async-design.md](docs/explanation/async-design.md) for the seven design decisions behind this split.
 
-For **cross-process / cross-vendor** composition, an optional **A2A (Agent2Agent) interop** layer under `aimu.agents.a2a` (extra: `aimu[a2a]`) exposes any `Runner` as an HTTP server (`serve_a2a`) and consumes a remote agent as a local `Runner` (`RemoteAgent`). It mirrors the MCP-for-tools pattern at the agent level and is adapter-shaped — A2A types never leak into `Runner`/`Agent` core. Because `RemoteAgent` is a `Runner`, a remote agent composes (via `as_tool()`, as a workflow step, or an `assemble()` worker) exactly like a local one. See [docs/explanation/a2a-vs-mcp.md](docs/explanation/a2a-vs-mcp.md).
+For **cross-process / cross-vendor** composition, an optional **A2A (Agent2Agent) interop** layer under `aimu.agents.a2a` (extra: `aimu[a2a]`) exposes any `Runner` as an HTTP server (`serve_a2a`) and consumes a remote agent as a local `Runner` (`RemoteAgent`). It mirrors the MCP-for-tools pattern at the agent level and is adapter-shaped (A2A types never leak into `Runner`/`Agent` core). Because `RemoteAgent` is a `Runner`, a remote agent composes (via `as_tool()`, as a workflow step, or an `assemble()` worker) exactly like a local one. See [docs/explanation/a2a-vs-mcp.md](docs/explanation/a2a-vs-mcp.md).
 
 ## Design Principles
 
-These six principles drive every architectural decision in AIMU. When proposing changes, check the change against each one — if it violates a principle, it likely belongs in a wrapper above AIMU rather than in the library itself. Full rationale lives in [docs/explanation/design-principles.md](docs/explanation/design-principles.md).
+These six principles drive every architectural decision in AIMU. When proposing changes, check the change against each one. If it violates a principle, it likely belongs in a wrapper above AIMU rather than in the library itself. Full rationale lives in [docs/explanation/design-principles.md](docs/explanation/design-principles.md).
 
 1. **Plain Python.** Classes, functions, decorators, dataclasses, type hints. Every file is readable top-to-bottom. No framework metalanguage; no `Runnable` protocol, no LCEL, no graph DSL, no dependency-injection container.
 2. **Plain data.** Conversation state is a `list[dict]` in OpenAI message format. No `Message` / `AIMessage` / `ChatMessage` classes. Provider-specific formats (Anthropic blocks, Ollama image fields, HF PIL images) adapt at request time and never leak into `self.messages`.
 3. **Composability through uniform interfaces.** `BaseModelClient` for every provider, `Runner` for every agent and workflow, `MemoryStore` for every memory backend, `StreamChunk` for every streaming source. `agent.as_model_client()` exists specifically so agents are substitutable with plain clients.
 4. **Progressive disclosure.** `aimu.chat()` → `aimu.client()` → `Agent` → workflows → custom `BaseModelClient` subclass. Each layer optional; the top wraps the next. New entry points should fit somewhere on this ladder, not parallel to it.
-5. **Direct paths for common tasks.** Common operations have one obvious, ergonomic entry point: `aimu.chat()`, `Chain.from_client(...)`, `Agent(client, "system msg", tools=[...])`, `include=["generating"]`, `builtin.web`. The library does not offer parallel, equally-recommended ways to do the same job — if a second path exists, it's a power-user escape hatch (e.g. `Agent.from_config()`), not a documented alternative.
+5. **Direct paths for common tasks.** Common operations have one obvious, ergonomic entry point: `aimu.chat()`, `Chain.from_client(...)`, `Agent(client, "system msg", tools=[...])`, `include=["generating"]`, `builtin.web`. The library does not offer parallel, equally-recommended ways to do the same job. If a second path exists, it's a power-user escape hatch (e.g. `Agent.from_config()`), not a documented alternative.
 6. **Failures are apparent.** Errors raise at the layer where the cause is actionable, with messages that name the problem. `ToolSignatureError` at decoration time. `SkillLoadError` on discovery. `MCPConnectionError` on construction. Silent fallbacks are bugs; chained exceptions preserve the original cause via `raise ... from exc`.
 
-When reviewing a proposed change, ask which principle it serves and which (if any) it violates. The small public surface is itself a feature — keep it small.
+When reviewing a proposed change, ask which principle it serves and which (if any) it violates. The small public surface is itself a feature; keep it small.
 
 ## Development Commands
 
@@ -63,7 +63,7 @@ pip install -e '.[hf]'             # HuggingFace transformers (text) + diffusers
 pip install -e '.[anthropic]'      # Anthropic Claude models
 pip install -e '.[openai_compat]'  # OpenAI-compatible servers + cloud (OpenAI, Gemini, LM Studio, vLLM, etc.)
 pip install -e '.[llamacpp]'       # Local GGUF models via llama-cpp-python (no external service)
-pip install -e '.[google]'         # Google Gemini image generation (Nano Banana — google-genai SDK)
+pip install -e '.[google]'         # Google Gemini image generation (Nano Banana, google-genai SDK)
 pip install -e '.[deepeval]'      # DeepEval evaluation metrics
 ```
 
@@ -141,8 +141,8 @@ ruff format .
 
 The `web/` directory ships two Streamlit apps and a Gradio app:
 
-- **`streamlit_chatbot_basic.py`** — ~70-line showcase. Model/provider selector, streaming chat with `include=["generating"]`, built-in tools running silently. Start here to see how little code a working AIMU chatbot needs.
-- **`streamlit_chatbot.py`** — Full-featured version. Adds image generation, agentic mode, thinking display, tool-call expanders, generation parameter sliders, and conversation persistence. Intended as an extensible foundation.
+- **`streamlit_chatbot_basic.py`**: ~70-line showcase. Model/provider selector, streaming chat with `include=["generating"]`, built-in tools running silently. Start here to see how little code a working AIMU chatbot needs.
+- **`streamlit_chatbot.py`**: Full-featured version. Adds image generation, agentic mode, thinking display, tool-call expanders, generation parameter sliders, and conversation persistence. Intended as an extensible foundation.
 
 ```bash
 streamlit run web/streamlit_chatbot_basic.py   # showcase
@@ -155,20 +155,20 @@ python web/gradio_chatbot_basic.py                   # Gradio variant
 ### Top-Level API
 
 - **[aimu/__init__.py](aimu/__init__.py)** exposes the small public surface most users start from:
-  - `aimu.chat(user_message, *, model=None, system=None, generate_kwargs=None, stream=False, images=None, include=None)` — one-shot chat: builds a fresh client, sends one message, returns the response (or a `StreamChunk` iterator when `stream=True`).
-  - `aimu.client(model=None, *, system=None, **provider_kwargs)` — one-line constructor that returns a fully configured `ModelClient`. Use this for multi-turn chats.
-  - **Default model resolution (when `model` is omitted)** — `client()` / `chat()` / `agent()` resolve a text default via `aimu.models._internal.model_defaults.resolve_default_text_model()`: (1) the `AIMU_LANGUAGE_MODEL` env var (a `"provider:model_id"` string, read after `load_dotenv()`); else (2) an *already-available* local model — a running Ollama server (`ollama.list()`), a cached HuggingFace model (`huggingface_hub.scan_cache_dir()`, download-free), or a running local OpenAI-compat server probed at its default base_url (`models.list()`) — each restricted to ids matching a provider `Model` enum so capabilities are known, preferring tool-capable, logged at WARNING; else (3) a `ValueError` naming the remedies. A cloud provider is **never** auto-selected and weights are **never** downloaded implicitly. The async `aio.client()` reuses the same resolver with `include_hf_cache=False` (an `hf:` default would need an explicit sync-client wrap). The `ModelClient` factory itself still requires an explicit model — the default magic lives only at the ergonomic `aimu.*` layer.
-  - `aimu.resolve_model_string(s)` — parses a `"provider:model_id"` string and returns the matching `Model` enum member. Raises `ValueError` with the list of valid ids on miss.
-  - `aimu.resolve_model_enum(model)` / `aimu.resolve_image_model_enum(model)` — broaden the `resolve_*_model_string` lookups to also accept a `Model`/`ImageModel` enum member (returned unchanged) **and a bare enum-member name** (e.g. `"QWEN_3_8B"`, `"FLUX_2_KLEIN_4B"`, `"NANO_BANANA"`) searched across every installed provider enum. A `"provider:model_id"` string delegates to the string resolver. These are the resolvers scripts use to accept "enum member, bare name, or string" uniformly across text and image. **Ambiguous bare text names** (the same id ships under many providers) are resolved by `resolve_model_enum` the same way the omitted-`model` default is — prefer a provider where the model is *actually available locally* (running Ollama → cached HF → reachable local server, tool-capable first), logged at WARNING; if it's not available under any provider, `ValueError` lists the `"provider:model_id"` options. This availability tiebreaker runs **only on the ambiguous path** (enum / string / unambiguous-name inputs do no I/O). `resolve_image_model_enum` has no local-availability notion (and image catalogs don't collide), so it raises on the rare ambiguity.
-  - `aimu.available_text_models(*, include_hf_cache=True)` — discovery: returns *locally available* text models as `Model` enum members (running Ollama → cached HuggingFace → reachable local OpenAI-compat servers), in provider-priority order. Download-free and cloud-free (same probes as the default resolver). `aimu.resolve_default_text_model_enum(*, include_hf_cache=True)` returns the single auto-pick (env var → first available, tool-capable preferred) as an enum member — the enum-returning twin of the internal `resolve_default_text_model()` (which returns the `"provider:model_id"` string used by `client()`).
-  - `aimu.available_image_models()` / `available_audio_models()` / `available_speech_models()` / `available_transcription_models()` / `available_embedding_models()` — the modality analogs of `available_text_models()`. They **surface** locally available models (as provider enum members) but, unlike text, are **never auto-selected** — the modality entry points still require an explicit `model=` or env var (see the modality default note below). Discovery is download-free and cloud-free: image/audio/speech/transcription probe the HuggingFace cache only (no local server exists for these); embedding probes a running Ollama server then the HuggingFace cache (Ollama serves embedders, like text). Defined in `aimu.models._internal.model_defaults`, re-exported from `aimu.models` and top-level `aimu`.
-  - `aimu.parse_json_response(text, schema=None)` — parse JSON from an LLM response string using three extraction strategies (raw parse, fenced block, `{…}` substring). Pass a dataclass class or Pydantic v2 `BaseModel` as `schema` to coerce into a typed object. Raises `ValueError` on failure.
-  - `aimu.generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)` — call `client.generate()` and parse the result as JSON, retrying on parse failure. Convenience wrapper around `parse_json_response`.
-  - `aimu.extract_tool_calls(messages)` — extract tool call/result pairs from an OpenAI-format message list (e.g. `agent.model_client.messages`). Returns `list[dict]` with keys `iteration`, `tool`, `arguments`, `result`. Replaces the manual reconstruction boilerplate common in agentic scripts.
-  - `aimu.clear_hf_cache(model=None)` — release cached HuggingFace model weights across all modalities (text, image, audio, speech) and free GPU memory. Pass a model enum member to clear just that model; pass `None` to clear all. See HuggingFace client sections for caching details.
-  - `aimu.clear_llamacpp_cache(model=None)` — same for LlamaCpp.
+  - `aimu.chat(user_message, *, model=None, system=None, generate_kwargs=None, stream=False, images=None, include=None)`: one-shot chat: builds a fresh client, sends one message, returns the response (or a `StreamChunk` iterator when `stream=True`).
+  - `aimu.client(model=None, *, system=None, **provider_kwargs)`: one-line constructor that returns a fully configured `ModelClient`. Use this for multi-turn chats.
+  - **Default model resolution (when `model` is omitted)**: `client()` / `chat()` / `agent()` resolve a text default via `aimu.models._internal.model_defaults.resolve_default_text_model()`: (1) the `AIMU_LANGUAGE_MODEL` env var (a `"provider:model_id"` string, read after `load_dotenv()`); else (2) an *already-available* local model (a running Ollama server (`ollama.list()`), a cached HuggingFace model (`huggingface_hub.scan_cache_dir()`, download-free), or a running local OpenAI-compat server probed at its default base_url (`models.list()`)), each restricted to ids matching a provider `Model` enum so capabilities are known, preferring tool-capable, logged at WARNING; else (3) a `ValueError` naming the remedies. A cloud provider is **never** auto-selected and weights are **never** downloaded implicitly. The async `aio.client()` reuses the same resolver with `include_hf_cache=False` (an `hf:` default would need an explicit sync-client wrap). The `ModelClient` factory itself still requires an explicit model; the default magic lives only at the ergonomic `aimu.*` layer.
+  - `aimu.resolve_model_string(s)`: parses a `"provider:model_id"` string and returns the matching `Model` enum member. Raises `ValueError` with the list of valid ids on miss.
+  - `aimu.resolve_model_enum(model)` / `aimu.resolve_image_model_enum(model)`: broaden the `resolve_*_model_string` lookups to also accept a `Model`/`ImageModel` enum member (returned unchanged) **and a bare enum-member name** (e.g. `"QWEN_3_8B"`, `"FLUX_2_KLEIN_4B"`, `"NANO_BANANA"`) searched across every installed provider enum. A `"provider:model_id"` string delegates to the string resolver. These are the resolvers scripts use to accept "enum member, bare name, or string" uniformly across text and image. **Ambiguous bare text names** (the same id ships under many providers) are resolved by `resolve_model_enum` the same way the omitted-`model` default is: prefer a provider where the model is *actually available locally* (running Ollama → cached HF → reachable local server, tool-capable first), logged at WARNING; if it's not available under any provider, `ValueError` lists the `"provider:model_id"` options. This availability tiebreaker runs **only on the ambiguous path** (enum / string / unambiguous-name inputs do no I/O). `resolve_image_model_enum` has no local-availability notion (and image catalogs don't collide), so it raises on the rare ambiguity.
+  - `aimu.available_text_models(*, include_hf_cache=True)`: discovery: returns *locally available* text models as `Model` enum members (running Ollama → cached HuggingFace → reachable local OpenAI-compat servers), in provider-priority order. Download-free and cloud-free (same probes as the default resolver). `aimu.resolve_default_text_model_enum(*, include_hf_cache=True)` returns the single auto-pick (env var → first available, tool-capable preferred) as an enum member, the enum-returning twin of the internal `resolve_default_text_model()` (which returns the `"provider:model_id"` string used by `client()`).
+  - `aimu.available_image_models()` / `available_audio_models()` / `available_speech_models()` / `available_transcription_models()` / `available_embedding_models()`: the modality analogs of `available_text_models()`. They **surface** locally available models (as provider enum members) but, unlike text, are **never auto-selected**; the modality entry points still require an explicit `model=` or env var (see the modality default note below). Discovery is download-free and cloud-free: image/audio/speech/transcription probe the HuggingFace cache only (no local server exists for these); embedding probes a running Ollama server then the HuggingFace cache (Ollama serves embedders, like text). Defined in `aimu.models._internal.model_defaults`, re-exported from `aimu.models` and top-level `aimu`.
+  - `aimu.parse_json_response(text, schema=None)`: parse JSON from an LLM response string using three extraction strategies (raw parse, fenced block, `{…}` substring). Pass a dataclass class or Pydantic v2 `BaseModel` as `schema` to coerce into a typed object. Raises `ValueError` on failure.
+  - `aimu.generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`: call `client.generate()` and parse the result as JSON, retrying on parse failure. Convenience wrapper around `parse_json_response`.
+  - `aimu.extract_tool_calls(messages)`: extract tool call/result pairs from an OpenAI-format message list (e.g. `agent.model_client.messages`). Returns `list[dict]` with keys `iteration`, `tool`, `arguments`, `result`. Replaces the manual reconstruction boilerplate common in agentic scripts.
+  - `aimu.clear_hf_cache(model=None)`: release cached HuggingFace model weights across all modalities (text, image, audio, speech) and free GPU memory. Pass a model enum member to clear just that model; pass `None` to clear all. See HuggingFace client sections for caching details.
+  - `aimu.clear_llamacpp_cache(model=None)`: same for LlamaCpp.
   - Re-exports: `BaseModelClient`, `Model`, `ModelClient`, `ModelSpec`, `StreamChunk`, `StreamingContentType`.
-  - `aimu.aio` — async submodule. Imported by default (one-line `from . import aio`) so users can `from aimu import aio` without a separate install. See "Async Surface" below.
+  - `aimu.aio`: async submodule. Imported by default (one-line `from . import aio`) so users can `from aimu import aio` without a separate install. See "Async Surface" below.
 
 Model-string format: `"provider:model_id"`. Provider keys (when their optional dep is installed): `ollama`, `hf`, `anthropic`, `openai`, `gemini`, `lmstudio`, `ollama-openai`, `hf-openai`, `vllm`, `llamaserver`, `sglang`, `llamacpp`. The id is matched against the provider's `Model` enum; colons inside the id (e.g. `qwen3.5:9b`) are preserved.
 
@@ -191,34 +191,34 @@ async def main():
 
 **Layout** (mirrors `aimu.{models,agents,tools}` one-for-one):
 
-- **[aimu/aio/__init__.py](aimu/aio/__init__.py)** — exports `chat`, `client`, `AsyncModelClient`, `Agent`, `SkillAgent`, `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`, `PlanExecuteEvaluator`, `OrchestratorAgent`, `MCPClient`, `AsyncRunner`, and (when the `a2a` extra is installed, guarded by `HAS_A2A`) `RemoteAgent`, `serve_a2a`, `build_a2a_app`, `A2AConnectionError`.
-- **[aimu/aio/_base.py](aimu/aio/_base.py)** — `AsyncBaseModelClient` (ABC). Concrete `async def chat()`/`generate()` apply the `include` filter; abstract `_chat()`/`_generate()` are coroutines. `_handle_tool_calls()` uses `asyncio.TaskGroup` when `concurrent_tool_calls=True`.
-- **[aimu/aio/_model_client.py](aimu/aio/_model_client.py)** — `AsyncModelClient` factory + top-level `client()`/`chat()`. Refuses direct construction with `HuggingFaceModel`/`LlamaCppModel` (see "In-process providers" below).
-- **[aimu/aio/_mcp_client.py](aimu/aio/_mcp_client.py)** — async `MCPClient` (~30 LOC). Uses FastMCP's native async `Client` directly (no anyio portal). Construct via the `connect()` classmethod factory: `mcp = await MCPClient.connect(server=...)`.
-- **[aimu/aio/providers/](aimu/aio/providers/)** — async provider clients:
-  - `anthropic.py` — `AsyncAnthropicClient` using `anthropic.AsyncAnthropic`. Reuses sync class's pure format adapters via composition.
-  - `openai_compat.py` — `AsyncOpenAICompatClient` using `openai.AsyncOpenAI`, plus `Async*Client` subclasses for OpenAI, Gemini, LM Studio, Ollama-OpenAI, HF-OpenAI, vLLM, llama-server, SGLang.
-  - `ollama.py` — `AsyncOllamaClient` using `ollama.AsyncClient`.
-  - `hf.py` — `AsyncHuggingFaceClient` wraps a sync `HuggingFaceClient`; see "In-process providers".
-  - `llamacpp.py` — `AsyncLlamaCppClient` wraps a sync `LlamaCppClient`; see "In-process providers".
-- **[aimu/aio/agent.py](aimu/aio/agent.py)** — `AsyncRunner` ABC + async `Agent`. Same loop semantics as sync; streaming returns `AsyncIterator[StreamChunk]`.
-- **[aimu/aio/skill_agent.py](aimu/aio/skill_agent.py)** — async `SkillAgent`. `_setup_skills_async()` constructs an `aio.MCPClient` for skill discovery and adds `await mcp.as_tools()` to `model_client.tools`. It reimplements the streamed loop (rather than delegating to `Agent._run_streamed`) so `_prepare_run` runs once, before skills are added.
-- **[aimu/aio/agentic_client.py](aimu/aio/agentic_client.py)** — internal `_AsyncAgenticView` for `Agent.as_model_client()`.
-- **[aimu/aio/orchestrator_agent.py](aimu/aio/orchestrator_agent.py)** — async `OrchestratorAgent` + `assemble()`. Worker dispatch wrappers are `async def`; tool dispatch awaits them under `asyncio.TaskGroup` when `concurrent_tool_calls=True`.
-- **[aimu/aio/workflows/](aimu/aio/workflows/)** — async workflow patterns:
-  - `chain.py` — async `Chain`, sequential `await` loop.
-  - `router.py` — async `Router`.
-  - `parallel.py` — async `Parallel`. **The headline change**: `asyncio.TaskGroup` replaces `ThreadPoolExecutor`. Structured concurrency: sibling cancellation on first failure, `ExceptionGroup` aggregation.
-  - `evaluator.py` — async `EvaluatorOptimizer`.
-  - `plan_execute_evaluator.py` — async `PlanExecuteEvaluator`.
+- **[aimu/aio/__init__.py](aimu/aio/__init__.py)**: exports `chat`, `client`, `AsyncModelClient`, `Agent`, `SkillAgent`, `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`, `PlanExecuteEvaluator`, `OrchestratorAgent`, `MCPClient`, `AsyncRunner`, and (when the `a2a` extra is installed, guarded by `HAS_A2A`) `RemoteAgent`, `serve_a2a`, `build_a2a_app`, `A2AConnectionError`.
+- **[aimu/aio/_base.py](aimu/aio/_base.py)**: `AsyncBaseModelClient` (ABC). Concrete `async def chat()`/`generate()` apply the `include` filter; abstract `_chat()`/`_generate()` are coroutines. `_handle_tool_calls()` uses `asyncio.TaskGroup` when `concurrent_tool_calls=True`.
+- **[aimu/aio/_model_client.py](aimu/aio/_model_client.py)**: `AsyncModelClient` factory + top-level `client()`/`chat()`. Refuses direct construction with `HuggingFaceModel`/`LlamaCppModel` (see "In-process providers" below).
+- **[aimu/aio/_mcp_client.py](aimu/aio/_mcp_client.py)**: async `MCPClient` (~30 LOC). Uses FastMCP's native async `Client` directly (no anyio portal). Construct via the `connect()` classmethod factory: `mcp = await MCPClient.connect(server=...)`.
+- **[aimu/aio/providers/](aimu/aio/providers/)**: async provider clients:
+  - `anthropic.py`: `AsyncAnthropicClient` using `anthropic.AsyncAnthropic`. Reuses sync class's pure format adapters via composition.
+  - `openai_compat.py`: `AsyncOpenAICompatClient` using `openai.AsyncOpenAI`, plus `Async*Client` subclasses for OpenAI, Gemini, LM Studio, Ollama-OpenAI, HF-OpenAI, vLLM, llama-server, SGLang.
+  - `ollama.py`: `AsyncOllamaClient` using `ollama.AsyncClient`.
+  - `hf.py`: `AsyncHuggingFaceClient` wraps a sync `HuggingFaceClient`; see "In-process providers".
+  - `llamacpp.py`: `AsyncLlamaCppClient` wraps a sync `LlamaCppClient`; see "In-process providers".
+- **[aimu/aio/agent.py](aimu/aio/agent.py)**: `AsyncRunner` ABC + async `Agent`. Same loop semantics as sync; streaming returns `AsyncIterator[StreamChunk]`.
+- **[aimu/aio/skill_agent.py](aimu/aio/skill_agent.py)**: async `SkillAgent`. `_setup_skills_async()` constructs an `aio.MCPClient` for skill discovery and adds `await mcp.as_tools()` to `model_client.tools`. It reimplements the streamed loop (rather than delegating to `Agent._run_streamed`) so `_prepare_run` runs once, before skills are added.
+- **[aimu/aio/agentic_client.py](aimu/aio/agentic_client.py)**: internal `_AsyncAgenticView` for `Agent.as_model_client()`.
+- **[aimu/aio/orchestrator_agent.py](aimu/aio/orchestrator_agent.py)**: async `OrchestratorAgent` + `assemble()`. Worker dispatch wrappers are `async def`; tool dispatch awaits them under `asyncio.TaskGroup` when `concurrent_tool_calls=True`.
+- **[aimu/aio/workflows/](aimu/aio/workflows/)**: async workflow patterns:
+  - `chain.py`: async `Chain`, sequential `await` loop.
+  - `router.py`: async `Router`.
+  - `parallel.py`: async `Parallel`. **The headline change**: `asyncio.TaskGroup` replaces `ThreadPoolExecutor`. Structured concurrency: sibling cancellation on first failure, `ExceptionGroup` aggregation.
+  - `evaluator.py`: async `EvaluatorOptimizer`.
+  - `plan_execute_evaluator.py`: async `PlanExecuteEvaluator`.
 
 **Shared infrastructure** (used by both sync and async surfaces, no duplication):
 
-- **[aimu/models/_internal/chat_state.py](aimu/models/_internal/chat_state.py)** — `_ChatStateMixin` provides `system_message` lifecycle (always-live setter that swaps the in-history system entry), `reset()`, `_append_user_turn()`, `_collect_python_tool_specs()`, and the capability properties (`is_thinking_model`, etc.). Both `BaseModelClient` and `AsyncBaseModelClient` inherit it. No state mechanics are duplicated.
-- **[aimu/models/_internal/streaming.py](aimu/models/_internal/streaming.py)** — `resolve_include()`, `filter_chunks()` (sync), `afilter_chunks()` (async).
-- **[aimu/models/_internal/json.py](aimu/models/_internal/json.py)** — `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. Utilities for getting structured data out of model responses. Exported from `aimu.models` and top-level `aimu`.
-- **[aimu/tools/mcp_format.py](aimu/tools/mcp_format.py)** — `mcp_tools_to_openai(tool_specs)` (spec conversion) and `mcp_content_to_text(tool_response)` (flatten a `call_tool` result to a string), shared by sync `MCPClient` and async `aio.MCPClient` (`get_tools()` / `as_tools()`).
-- Provider format adapters (`_openai_messages_to_anthropic`, `_openai_tools_to_anthropic`, `_adapt_messages_for_ollama`, `_split_thinking`, `_ThinkingParser`, `_build_user_content_blocks`) are pure data transforms — reused by async providers via composition, no duplication.
+- **[aimu/models/_internal/chat_state.py](aimu/models/_internal/chat_state.py)**: `_ChatStateMixin` provides `system_message` lifecycle (always-live setter that swaps the in-history system entry), `reset()`, `_append_user_turn()`, `_collect_python_tool_specs()`, and the capability properties (`is_thinking_model`, etc.). Both `BaseModelClient` and `AsyncBaseModelClient` inherit it. No state mechanics are duplicated.
+- **[aimu/models/_internal/streaming.py](aimu/models/_internal/streaming.py)**: `resolve_include()`, `filter_chunks()` (sync), `afilter_chunks()` (async).
+- **[aimu/models/_internal/json.py](aimu/models/_internal/json.py)**: `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. Utilities for getting structured data out of model responses. Exported from `aimu.models` and top-level `aimu`.
+- **[aimu/tools/mcp_format.py](aimu/tools/mcp_format.py)**: `mcp_tools_to_openai(tool_specs)` (spec conversion) and `mcp_content_to_text(tool_response)` (flatten a `call_tool` result to a string), shared by sync `MCPClient` and async `aio.MCPClient` (`get_tools()` / `as_tools()`).
+- Provider format adapters (`_openai_messages_to_anthropic`, `_openai_tools_to_anthropic`, `_adapt_messages_for_ollama`, `_split_thinking`, `_ThinkingParser`, `_build_user_content_blocks`) are pure data transforms, reused by async providers via composition, no duplication.
 
 **`@tool` decorator and async tools**:
 
@@ -229,11 +229,11 @@ async def main():
 
 **Streaming type asymmetry**:
 
-- `client.chat(stream=True)` (sync) returns `Iterator[StreamChunk]` — consume with `for`.
-- `await client.chat(stream=True)` (async) returns `AsyncIterator[StreamChunk]` — consume with `async for`.
-- The `StreamChunk` named tuple itself is identical on both surfaces. They cannot be unified without a hidden event loop (rejected — see async-design.md).
+- `client.chat(stream=True)` (sync) returns `Iterator[StreamChunk]`: consume with `for`.
+- `await client.chat(stream=True)` (async) returns `AsyncIterator[StreamChunk]`: consume with `async for`.
+- The `StreamChunk` named tuple itself is identical on both surfaces. They cannot be unified without a hidden event loop (rejected; see async-design.md).
 
-**In-process providers — wrap an existing sync client (Decision 7)**:
+**In-process providers: wrap an existing sync client (Decision 7)**:
 
 `AsyncHuggingFaceClient` and `AsyncLlamaCppClient` do *not* load model weights independently. They take an existing sync client in their constructor and route through `asyncio.to_thread`. Constructing directly with a model enum raises a clear error:
 
@@ -243,11 +243,11 @@ async_client = aio.client(sync_client)                  # wraps; shares state
 # aio.client(HuggingFaceModel.LLAMA_70B)  # ValueError pointing at the pattern above
 ```
 
-State (`messages`, `system_message`, `tools`) is shared with the wrapped sync client — there is conceptually one client; the async version just exposes an awaitable interface. For in-process providers, "async" buys event-loop integration (handler doesn't block on inference) but *not* coroutine-level concurrency (the GIL and CUDA stream serialize execution).
+State (`messages`, `system_message`, `tools`) is shared with the wrapped sync client; there is conceptually one client, and the async version just exposes an awaitable interface. For in-process providers, "async" buys event-loop integration (handler doesn't block on inference) but *not* coroutine-level concurrency (the GIL and CUDA stream serialize execution).
 
 **MCP integration**:
 
-- The sync `aimu.tools.MCPClient` (anyio portal wrapper) is **kept first-class** — no deprecation. It exists so sync users can use MCP tools without writing async code.
+- The sync `aimu.tools.MCPClient` (anyio portal wrapper) is **kept first-class**; no deprecation. It exists so sync users can use MCP tools without writing async code.
 - The async `aimu.aio.MCPClient` is a thin parallel using FastMCP's `Client` directly. Same construction signature (`config=`/`server=`/`file=`); use `await MCPClient.connect(...)` to construct + connect.
 - Both `MCPClient.get_tools()` implementations delegate to `aimu.tools.mcp_format.mcp_tools_to_openai()`; `as_tools()` (sync + async) builds callables over those specs and shares `mcp_content_to_text()`.
 
@@ -258,27 +258,27 @@ State (`messages`, `system_message`, `tools`) is shared with the wrapped sync cl
 The codebase uses an abstract base class pattern for model clients:
 
 - **[aimu/models/base.py](aimu/models/base.py)**: Defines `BaseModelClient` abstract base class with:
-  - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None, include=None, tools=None, audio=None, schema=None)`: Multi-turn chat with message history; returns `str`, `Iterator[StreamChunk]`, or — when `schema=` is set — a validated dataclass/Pydantic instance. Concrete clients implement `_chat()`; the public `chat()` is provided by the base and applies the `include` stream filter and the `schema=` structured-output path (see "Structured Output").
+  - `chat(user_message, generate_kwargs, use_tools=True, stream=False, images=None, include=None, tools=None, audio=None, schema=None)`: Multi-turn chat with message history; returns `str`, `Iterator[StreamChunk]`, or (when `schema=` is set) a validated dataclass/Pydantic instance. Concrete clients implement `_chat()`; the public `chat()` is provided by the base and applies the `include` stream filter and the `schema=` structured-output path (see "Structured Output").
   - `generate(prompt, generate_kwargs, stream=False, images=None, include=None, audio=None, schema=None)`: Single-turn stateless generation. Concrete clients implement `_generate()`; the public `generate()` is provided by the base. Accepts `images=` for one-shot vision or `audio=` for one-shot audio input (same forms as `chat`) **without** touching `self.messages`, and `schema=` for structured output. The base validates the respective capability flag (raises `ValueError` for non-vision / non-audio models). Passing both `images=` and `audio=` raises `ValueError`.
   - `images=` (vision-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, http(s) URLs, or `data:image/...` URLs. Available on both `chat()` (stateful) and `generate()` (stateless).
-  - `audio=` (audio-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, `https://` URLs (fetched eagerly — `input_audio` has no remote-URL field), or `data:audio/...;base64,...` URLs. Stored in `self.messages` as OpenAI `input_audio` content blocks. Available on both `chat()` and `generate()`. Mutually exclusive with `images=` per turn.
+  - `audio=` (audio-capable models only) accepts file paths, `pathlib.Path`, raw `bytes`, `https://` URLs (fetched eagerly, since `input_audio` has no remote-URL field), or `data:audio/...;base64,...` URLs. Stored in `self.messages` as OpenAI `input_audio` content blocks. Available on both `chat()` and `generate()`. Mutually exclusive with `images=` per turn.
   - `include=` (streaming only): optional iterable of `StreamingContentType` values (or their string equivalents `"thinking"`, `"tool_calling"`, `"generating"`, `"done"`) selecting which phases to yield. Defaults to all phases.
-  - `tools=` (per-call override): `None` (default) uses the client's configured `self.tools`; any other value — including `[]` to disable tools for the call — replaces them for that single call and is restored afterward (MCP tools live in `self.tools` via `as_tools()`, so they are included in the swap). Implemented as a scoped swap of `self.tools` via `_ChatStateMixin._tools_override` (covers both request-spec building and dispatch, since both read `self.tools`); the streaming path wraps stream *consumption* so the override stays live across lazy iteration. Not safe across concurrent `chat()` calls on a shared client — same contract as `self.messages`. `ModelClient`/`AsyncModelClient` need no special handling: `tools` is a delegating property, so the swap propagates to the inner client. Threaded through `Agent.run(tools=...)` (see below).
+  - `tools=` (per-call override): `None` (default) uses the client's configured `self.tools`; any other value (including `[]` to disable tools for the call) replaces them for that single call and is restored afterward (MCP tools live in `self.tools` via `as_tools()`, so they are included in the swap). Implemented as a scoped swap of `self.tools` via `_ChatStateMixin._tools_override` (covers both request-spec building and dispatch, since both read `self.tools`); the streaming path wraps stream *consumption* so the override stays live across lazy iteration. Not safe across concurrent `chat()` calls on a shared client; same contract as `self.messages`. `ModelClient`/`AsyncModelClient` need no special handling: `tools` is a delegating property, so the swap propagates to the inner client. Threaded through `Agent.run(tools=...)` (see below).
   - `reset(system_message="__keep__")`: clears the conversation history. Default keeps the existing system message; pass `None` to clear it or a new string to replace it.
   - `_chat_setup()`: Prepares messages and tools before a chat call; normalizes `images=` into OpenAI-format `image_url` content blocks, or `audio=` into OpenAI-format `input_audio` content blocks.
   - `_handle_tool_calls()`: Universal tool calling logic (MCP or Python functions).
   - `is_thinking_model` / `is_tool_using_model` / `is_vision_model` / `is_audio_model`: Read-only capability properties derived from `model.supports_thinking` / `model.supports_tools` / `model.supports_vision` / `model.supports_audio`.
   - `system_message` property: the setter is always live. Assigning it mid-conversation rewrites the system entry in `self.messages` in place (re-conditioning the model on the new prompt while preserving history); before the first `chat()` it just seeds the value. See "Message History Management" below for the re-condition semantics and the shared-client caveat.
   - Message history stored in `self.messages` (OpenAI-style format; user messages with images are content-block lists).
-  - MCP tools integrate by adding `MCPClient(...).as_tools()` callables to `self.tools` — there is no separate `mcp_client` attribute (one tool registry).
-  - `concurrent_tool_calls: bool = False` — when `True`, multiple tool calls returned in a single model response execute concurrently via `ThreadPoolExecutor`; results are always appended in original order.
+  - MCP tools integrate by adding `MCPClient(...).as_tools()` callables to `self.tools`; there is no separate `mcp_client` attribute (one tool registry).
+  - `concurrent_tool_calls: bool = False`: when `True`, multiple tool calls returned in a single model response execute concurrently via `ThreadPoolExecutor`; results are always appended in original order.
 
 - **Supporting types in base.py**:
   - `StreamingContentType(str, Enum)`: `THINKING`, `TOOL_CALLING`, `GENERATING`, `DONE`; string values (`"thinking"`, etc.).
-  - `StreamChunk(NamedTuple)`: `(phase, content, agent=None, iteration=0)`. The single chunk type used everywhere — `client.chat(stream=True)`, `Agent.run(stream=True)`, `image_client.generate(stream=True)`, streaming tools, all workflow runs. `content` shape depends on phase:
+  - `StreamChunk(NamedTuple)`: `(phase, content, agent=None, iteration=0)`. The single chunk type used everywhere: `client.chat(stream=True)`, `Agent.run(stream=True)`, `image_client.generate(stream=True)`, streaming tools, all workflow runs. `content` shape depends on phase:
     - `str` for `THINKING` / `GENERATING` (token).
     - `dict {"name", "arguments", "response"}` for `TOOL_CALLING` (``arguments`` is the dict the model passed to the tool).
-    - `dict {"step", "total_steps", "image", "final", "result"}` for `IMAGE_GENERATING` — emitted by image clients during denoising (HF diffusers per step; Gemini coarse start/done). ``image`` is an optional ``PIL.Image`` (None unless ``preview_every`` opted in); ``final=True`` marks the terminal chunk per image; ``result`` carries the encoded output (path / bytes / data-url per ``format=``) on the final chunk.
+    - `dict {"step", "total_steps", "image", "final", "result"}` for `IMAGE_GENERATING`, emitted by image clients during denoising (HF diffusers per step; Gemini coarse start/done). ``image`` is an optional ``PIL.Image`` (None unless ``preview_every`` opted in); ``final=True`` marks the terminal chunk per image; ``result`` carries the encoded output (path / bytes / data-url per ``format=``) on the final chunk.
 
     Helpers `is_text()` / `is_tool_call()` / `is_image_progress()` dispatch on phase.
   - `ModelSpec`: frozen dataclass with `id: str`, `tools: bool`, `thinking: bool`, `vision: bool`, `audio: bool`, `structured_output: bool`, `generation_kwargs: dict | None`. Equality and hash use `id` only, so it can hold a dict and still be used as an enum value. Each `Model` enum member's value is a `ModelSpec`.
@@ -304,8 +304,8 @@ The codebase uses an abstract base class pattern for model clients:
     - `VLLMOpenAIClient`: vLLM (default: `localhost:8000`)
     - `LlamaServerOpenAIClient`: llama.cpp llama-server (default: `localhost:8080`)
     - `SGLangOpenAIClient`: SGLang (default: `localhost:30000`)
-  - [aimu/models/providers/openai/text.py](aimu/models/providers/openai/text.py): `OpenAIClient` — [OpenAI](https://platform.openai.com/) cloud API (GPT-4o, GPT-4.1, o-series); reads `OPENAI_API_KEY`. Subclasses `OpenAICompatClient`.
-  - [aimu/models/providers/gemini/text.py](aimu/models/providers/gemini/text.py): `GeminiClient` — [Google Gemini](https://ai.google.dev/) via Google's OpenAI-compat endpoint; reads `GOOGLE_API_KEY`. Subclasses `OpenAICompatClient`.
+  - [aimu/models/providers/openai/text.py](aimu/models/providers/openai/text.py): `OpenAIClient`: [OpenAI](https://platform.openai.com/) cloud API (GPT-4o, GPT-4.1, o-series); reads `OPENAI_API_KEY`. Subclasses `OpenAICompatClient`.
+  - [aimu/models/providers/gemini/text.py](aimu/models/providers/gemini/text.py): `GeminiClient`: [Google Gemini](https://ai.google.dev/) via Google's OpenAI-compat endpoint; reads `GOOGLE_API_KEY`. Subclasses `OpenAICompatClient`.
   - [aimu/models/providers/llamacpp.py](aimu/models/providers/llamacpp.py): `LlamaCppClient` for local GGUF models via llama-cpp-python (requires `llamacpp` extra):
     - Loads GGUF files in-process; no external service required
     - Constructor takes `model_path` (GGUF file path) plus `n_ctx`, `n_gpu_layers`, `chat_format`, `verbose`
@@ -320,7 +320,7 @@ The codebase uses an abstract base class pattern for model clients:
 
 - **HuggingFace model weight caching**: All four in-process HuggingFace clients (`HuggingFaceClient`, `HuggingFaceImageClient`, `HuggingFaceAudioClient`, `HuggingFaceSpeechClient`) maintain a module-level `_model_registry` dict keyed on `(spec.id, *sorted_model_kwargs)`. A second client instance with the same model and kwargs reuses already-loaded weights rather than calling `from_pretrained()` again. For the eager-loading text client, the cache is checked in `__init__`; for the lazy-loading modality clients, it is checked in their respective `_load_pipeline()` / `_ensure_loaded()` methods. Use `aimu.clear_hf_cache(model=None)` to evict entries and free VRAM. `LlamaCppClient` has the same pattern with cache key `(model_path, n_ctx, n_gpu_layers, chat_format)` and `aimu.clear_llamacpp_cache()`. **Note**: creating clients with different `model_kwargs` (e.g. different `device_map`) produces separate cache entries and loads weights independently.
 
-- **`aimu/models/_internal/json.py`** — utilities for processing model output: `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. All three are exported from `aimu.models` and re-exported from top-level `aimu`. See Top-Level API section for details.
+- **`aimu/models/_internal/json.py`**: utilities for processing model output: `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. All three are exported from `aimu.models` and re-exported from top-level `aimu`. See Top-Level API section for details.
 
 - **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK. `model_client.py` performs the same guarded imports independently to avoid a circular import with `__init__.py`. The `aimu/evals/` package uses the same guarded-import pattern with `HAS_DEEPEVAL`.
 
@@ -328,18 +328,18 @@ The codebase uses an abstract base class pattern for model clients:
 
 AIMU supports two tool registration routes that can be combined on the same client:
 
-- **`@tool` decorator** ([aimu/tools/decorator.py](aimu/tools/decorator.py)): mark any plain Python function as a tool. The decorator is defined in `aimu.tools` and **re-exported at the top level as `aimu.tool`** — `@aimu.tool` is the single recommended/documented form (it's namespaced, so it can't be silently shadowed by another library's `tool` decorator); `from aimu.tools import tool` remains valid for code already inside `aimu.tools`. Both names are the same object. The decorator inspects the signature and docstring at decoration time and attaches an OpenAI-format spec at `func.__tool_spec__`. Hand decorated functions to an agent via `Agent(client, tools=[fn1, fn2])` (or set `client.tools = [fn1, fn2]` directly). Type-to-JSON mapping covers `str`/`int`/`float`/`bool`/`list`/`dict` plus subscripted generics (`list[str]`, `dict[str, int]`) and `Optional[T]` / `T | None`. The first paragraph of the docstring becomes the tool description; required vs. optional args are derived from default values. All tools (in-process `@tool` and MCP `as_tools()` callables) live in `self.tools`; dispatch is one by-name lookup and a name collision resolves to the last entry in the list.
+- **`@tool` decorator** ([aimu/tools/decorator.py](aimu/tools/decorator.py)): mark any plain Python function as a tool. The decorator is defined in `aimu.tools` and **re-exported at the top level as `aimu.tool`**: `@aimu.tool` is the single recommended/documented form (it's namespaced, so it can't be silently shadowed by another library's `tool` decorator); `from aimu.tools import tool` remains valid for code already inside `aimu.tools`. Both names are the same object. The decorator inspects the signature and docstring at decoration time and attaches an OpenAI-format spec at `func.__tool_spec__`. Hand decorated functions to an agent via `Agent(client, tools=[fn1, fn2])` (or set `client.tools = [fn1, fn2]` directly). Type-to-JSON mapping covers `str`/`int`/`float`/`bool`/`list`/`dict` plus subscripted generics (`list[str]`, `dict[str, int]`) and `Optional[T]` / `T | None`. The first paragraph of the docstring becomes the tool description; required vs. optional args are derived from default values. All tools (in-process `@tool` and MCP `as_tools()` callables) live in `self.tools`; dispatch is one by-name lookup and a name collision resolves to the last entry in the list.
 
   **Validation (raises `ToolSignatureError`):**
-  - `*args` / `**kwargs` (variadic parameters) — declare each argument explicitly
+  - `*args` / `**kwargs` (variadic parameters): declare each argument explicitly
   - parameter with no type hint *and* no default value
   - Missing return annotation is a warning, not an error.
 
-  **Async detection**: the decorator also sets `func.__tool_is_async__ = inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)` — true for plain `async def` tools and for `async def + yield` (async generator) tools.
+  **Async detection**: the decorator also sets `func.__tool_is_async__ = inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)`: true for plain `async def` tools and for `async def + yield` (async generator) tools.
 
   **Streaming tools**: the decorator sets `func.__tool_is_streaming__ = inspect.isgeneratorfunction(func) or inspect.isasyncgenfunction(func)`. Generator tools may yield zero-or-more `StreamChunk` objects during execution; the agent forwards each yielded chunk through `agent.run(stream=True)` so callers see progress live. The tool's *response* (what goes into the tool message in the conversation history) is resolved in priority order:
-  1. The generator's `return` value (captured via `StopIteration.value`) — sync generators only.
-  2. The last yielded chunk's `content["result"]` if it's a dict with that key — the convention used by `IMAGE_GENERATING` final chunks.
+  1. The generator's `return` value (captured via `StopIteration.value`); sync generators only.
+  2. The last yielded chunk's `content["result"]` if it's a dict with that key, the convention used by `IMAGE_GENERATING` final chunks.
   3. `str(last_chunk.content)` as a last resort.
 
   Streaming tools are dispatched via `BaseModelClient._handle_tool_calls_streamed` (and the async sibling on `AsyncBaseModelClient`); the non-streaming `_handle_tool_calls` path rejects them with a clear `ValueError` pointing at `stream=True`. Concurrent dispatch (`concurrent_tool_calls=True`) falls back to sequential when any tool in the batch is streaming, to avoid interleaving chunks from concurrent generators.
@@ -349,35 +349,35 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - Constructor requires *exactly one* of `config=`, `server=`, or `file=`. Wrong count or connection failure raises `MCPConnectionError` with the original exception chained.
   - `ping()`: verifies the connection is alive (calls `list_tools()`); raises `MCPConnectionError` if dead.
   - `get_tools()`: Returns tools in OpenAI function calling format
-  - `as_tools()`: Returns the server's tools as `@tool`-style callables (each closes over the client, calls `call_tool()` cross-process, returns the result's text via `mcp_content_to_text()`, and carries `__tool_spec__` + `__tool_is_async__=False` + `__tool_is_streaming__=False`). This is the integration path: `client.tools = mcp.as_tools()` (or `builtin.web + mcp.as_tools()`). Snapshot — call again to refresh; keep the `MCPClient` (or the callables, which hold a ref) alive for the connection.
+  - `as_tools()`: Returns the server's tools as `@tool`-style callables (each closes over the client, calls `call_tool()` cross-process, returns the result's text via `mcp_content_to_text()`, and carries `__tool_spec__` + `__tool_is_async__=False` + `__tool_is_streaming__=False`). This is the integration path: `client.tools = mcp.as_tools()` (or `builtin.web + mcp.as_tools()`). Snapshot; call again to refresh, and keep the `MCPClient` (or the callables, which hold a ref) alive for the connection.
   - `call_tool()`: Synchronous tool execution; wraps backend errors in `MCPConnectionError`
   - `list_tools()`: Returns available tool names
-  - **No `model_client.mcp_client` attribute** — MCP tools integrate by becoming callables in `model_client.tools` via `as_tools()`, dispatched through the same path as `@tool` functions. There is one tool registry.
+  - **No `model_client.mcp_client` attribute**: MCP tools integrate by becoming callables in `model_client.tools` via `as_tools()`, dispatched through the same path as `@tool` functions. There is one tool registry.
 
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: built-in general-purpose tools, each decorated with `@tool` for direct in-process use. Pass an entire subgroup with `tools=builtin.web + [my_tool]`:
-  - **`builtin.web`** — `get_weather`, `get_webpage`, `search`, `wikipedia`
-  - **`builtin.fs`** — `list_directory`, `read_file`
-  - **`builtin.compute`** — `calculate`, `execute_python` (sandboxed Python REPL — see below)
-  - **`builtin.misc`** — `echo`, `get_current_date_and_time`
-  - **`builtin.ALL_TOOLS`** — flat list of every built-in (kept for back-compat)
-  - **`make_memory_tools(store)`** — factory that returns `[store_memory, search_memories, list_memories]` as `@tool`-decorated functions closing over the provided `MemoryStore` instance. No lazy singleton — the store is always explicit because `persist_path` and backend are meaningful choices. Pass the result directly to `Agent(client, tools=make_memory_tools(store))` or via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use `aimu.memory.mcp` / `aimu.memory.document_mcp` instead.
+  - **`builtin.web`**: `get_weather`, `get_webpage`, `search`, `wikipedia`
+  - **`builtin.fs`**: `list_directory`, `read_file`
+  - **`builtin.compute`**: `calculate`, `execute_python` (sandboxed Python REPL; see below)
+  - **`builtin.misc`**: `echo`, `get_current_date_and_time`
+  - **`builtin.ALL_TOOLS`**: flat list of every built-in (kept for back-compat)
+  - **`make_memory_tools(store)`**: factory that returns `[store_memory, search_memories, list_memories]` as `@tool`-decorated functions closing over the provided `MemoryStore` instance. No lazy singleton; the store is always explicit because `persist_path` and backend are meaningful choices. Pass the result directly to `Agent(client, tools=make_memory_tools(store))` or via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use `aimu.memory.mcp` / `aimu.memory.document_mcp` instead.
 
   Tool reference:
   - `echo(echo_string)`: Returns input string
   - `get_current_date_and_time()`: Returns ISO format datetime
   - `get_weather(location)`: Current weather via Open-Meteo API (city name or coordinates)
   - `calculate(expression)`: Safe arithmetic expression evaluator
-  - `execute_python(code)`: Sandboxed Python REPL. Executes `code` in a fresh `exec()` namespace per call; captures stdout and returns the last expression value. Allowed imports: `math`, `statistics`, `json`, `re`, `itertools`, `functools`, `datetime`, and `numpy`/`pandas`/`scipy`/`matplotlib` when installed. Filesystem (`open`, `os`, `pathlib`) and subprocess access are blocked. **Not in `ALL_TOOLS` by default** — opt in via `tools=builtin.compute` or `make_tools(..., python_sandbox=True)`.
+  - `execute_python(code)`: Sandboxed Python REPL. Executes `code` in a fresh `exec()` namespace per call; captures stdout and returns the last expression value. Allowed imports: `math`, `statistics`, `json`, `re`, `itertools`, `functools`, `datetime`, and `numpy`/`pandas`/`scipy`/`matplotlib` when installed. Filesystem (`open`, `os`, `pathlib`) and subprocess access are blocked. **Not in `ALL_TOOLS` by default**; opt in via `tools=builtin.compute` or `make_tools(..., python_sandbox=True)`.
   - `get_webpage(url)`: Fetches page and returns visible text with HTML stripped
   - `search(query, num_results)`: Web search via SearXNG (`SEARXNG_BASE_URL` env var)
   - `wikipedia(query)`: Wikipedia article summary
   - `list_directory(path)`: Lists files and subdirectories
   - `read_file(path, max_lines)`: Reads local file contents
 
-- **[aimu/tools/mcp.py](aimu/tools/mcp.py)**: thin FastMCP server that registers `builtin.ALL_TOOLS` for cross-process use. Run standalone: `python -m aimu.tools.mcp`. Single source of truth — the same callables back both routes.
+- **[aimu/tools/mcp.py](aimu/tools/mcp.py)**: thin FastMCP server that registers `builtin.ALL_TOOLS` for cross-process use. Run standalone: `python -m aimu.tools.mcp`. Single source of truth; the same callables back both routes.
 
 - **Tool Calling Flow**:
-  1. If model supports tools, `_chat_setup` builds the request `tools` list from `__tool_spec__` of every callable in `self.tools` (both `@tool` functions and `as_tools()` wrappers — there is no separate MCP path)
+  1. If model supports tools, `_chat_setup` builds the request `tools` list from `__tool_spec__` of every callable in `self.tools` (both `@tool` functions and `as_tools()` wrappers; there is no separate MCP path)
   2. Model returns tool calls in response
   3. `_call_plain_tool()` dispatches each call via one by-name lookup `{fn.__name__: fn for fn in self.tools}`: a match is invoked in-process (a `@tool` directly, an `as_tools()` wrapper cross-process behind the same calling convention); a miss appends a "not found" tool message. Name collision resolves to the **last** entry in `self.tools` (list order), so append a local tool after `mcp.as_tools()` to shadow one.
   4. Tool results added to message history with role "tool"
@@ -426,12 +426,12 @@ AIMU supports two tool registration routes that can be combined on the same clie
 
 ### Retrieval-Augmented Generation (RAG)
 
-- **[aimu/rag/](aimu/rag/)**: chunk / retrieve / rerank primitives as **plain functions over the `MemoryStore` interface** — deliberately *no* `BaseRetriever` / `BaseSplitter` / `BaseLoader` class hierarchy. The retriever interface already exists as `MemoryStore.search()`; a parallel retriever tree would violate "composability through uniform interfaces" and "no parallel inheritance trees for the same concept" (see `docs/explanation/design-principles.md`). If polymorphism is ever needed, the idiomatic move is a `typing.Protocol`, not an ABC subtree.
-  - **[aimu/rag/splitter.py](aimu/rag/splitter.py)**: `split_text(text, *, chunk_size=1000, chunk_overlap=200, separators=None, length_function=len)` — recursive separator-based chunking. Tries the largest separator that keeps pieces under `chunk_size` (default hierarchy: `["\n\n", "\n", ". ", " ", ""]`), recursing into oversized pieces; `""` is the base case (character split) so no chunk exceeds `chunk_size`. `_merge` greedily packs splits with `chunk_overlap` carried at piece granularity. `length_function` defaults to `len` (chars); pass a tokenizer's counter for token-aware chunking. Empty/whitespace input → `[]`; `chunk_overlap >= chunk_size` raises `ValueError`.
+- **[aimu/rag/](aimu/rag/)**: chunk / retrieve / rerank primitives as **plain functions over the `MemoryStore` interface**: deliberately *no* `BaseRetriever` / `BaseSplitter` / `BaseLoader` class hierarchy. The retriever interface already exists as `MemoryStore.search()`; a parallel retriever tree would violate "composability through uniform interfaces" and "no parallel inheritance trees for the same concept" (see `docs/explanation/design-principles.md`). If polymorphism is ever needed, the idiomatic move is a `typing.Protocol`, not an ABC subtree.
+  - **[aimu/rag/splitter.py](aimu/rag/splitter.py)**: `split_text(text, *, chunk_size=1000, chunk_overlap=200, separators=None, length_function=len)`: recursive separator-based chunking. Tries the largest separator that keeps pieces under `chunk_size` (default hierarchy: `["\n\n", "\n", ". ", " ", ""]`), recursing into oversized pieces; `""` is the base case (character split) so no chunk exceeds `chunk_size`. `_merge` greedily packs splits with `chunk_overlap` carried at piece granularity. `length_function` defaults to `len` (chars); pass a tokenizer's counter for token-aware chunking. Empty/whitespace input → `[]`; `chunk_overlap >= chunk_size` raises `ValueError`.
   - **[aimu/rag/pipeline.py](aimu/rag/pipeline.py)**: `ingest(store, documents, *, chunk_size, chunk_overlap, separators, length_function) -> int` (splits one-or-many docs, calls `store.store()` per chunk, returns count); `retrieve(store, query, *, n_results=5, **search_kwargs) -> list[str]` (RAG-named pass-through to `store.search()`, forwarding e.g. `max_distance=`); `format_context(chunks, *, separator="\n\n", numbered=False) -> str`.
   - **[aimu/rag/rerank.py](aimu/rag/rerank.py)**: `rerank(query, documents, *, model="cross-encoder/ms-marco-MiniLM-L-6-v2", top_n=None)` via `sentence_transformers.CrossEncoder`; lazy-imported (raises `ImportError` pointing at the `[hf]` extra if absent) and weight-cached in a module-level registry. Empty input returns `[]` without loading the model.
   - RAG-as-augmentation is a **workflow you compose** (`ingest` → `retrieve` → `format_context` → `chat`), not a new abstraction. `make_retrieval_tool(store, *, n_results=5)` in [aimu/tools/builtin.py](aimu/tools/builtin.py) wraps `retrieve` + `format_context` as a `retrieve_context(query)` agent tool (numbered context; "No relevant context found." when empty), next to `make_memory_tools`.
-  - **Out of scope (by design)**: document loaders (`builtin.fs.read_file` / `get_webpage` cover ingestion sources) and per-chunk metadata (chunks are plain strings per the `MemoryStore` `store(content: str)` contract — the higher-leverage future change for citations/filtering would be widening that value type, *not* adding loader/retriever classes).
+  - **Out of scope (by design)**: document loaders (`builtin.fs.read_file` / `get_webpage` cover ingestion sources) and per-chunk metadata (chunks are plain strings per the `MemoryStore` `store(content: str)` contract. The higher-leverage future change for citations/filtering would be widening that value type, *not* adding loader/retriever classes).
   - **Tests**: `tests/test_rag.py` (mock-only): splitter (size, overlap, hard-cut, token-aware via `length_function`, custom separators, guards), `ingest`/`retrieve` over a deterministic substring store, `format_context`, `rerank` with a stubbed `CrossEncoder`, and `make_retrieval_tool` spec + output.
 
 ### Agent Skills
@@ -442,7 +442,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
     - Logs discovered count and paths at `INFO` level on first access
     - `catalog_prompt()`: Returns XML-formatted skill listing for system prompt injection. Each entry includes a `<tools>` block listing the names of script-derived tools (`{skill}__{script_stem}`) so the model can call them directly without first invoking `activate_skill`.
     - `get_skill_body(name)`: Returns full SKILL.md instructions body; raises `SkillNotFoundError` (subclass of `KeyError`) if the name is unknown.
-    - Malformed `SKILL.md` files raise `SkillLoadError` (subclass of `ValueError`) on parse — no longer silently skipped.
+    - Malformed `SKILL.md` files raise `SkillLoadError` (subclass of `ValueError`) on parse; no longer silently skipped.
   - **[aimu/skills/skill.py](aimu/skills/skill.py)**: `AgentSkill` dataclass with `name`, `description`, `path`, `load_body()`, `script_tool_names()`.
   - **[aimu/skills/mcp.py](aimu/skills/mcp.py)**: `build_skills_server(manager)` creates a FastMCP server
     - Registers `activate_skill(name)` tool
@@ -451,13 +451,13 @@ AIMU supports two tool registration routes that can be combined on the same clie
 
 ### Agentic Workflows
 
-AIMU follows the taxonomy from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. All runnable units share **one** `Runner` ABC with `run(task, stream=False)` and a `messages` property — there is no type-level split between agents and workflows. The agent-vs-workflow distinction is a *categorisation of concrete classes*, not a type hierarchy; it lives in the module docstring at the top of [aimu/agents/base.py](aimu/agents/base.py), which carries a decision tree for picking the right class.
+AIMU follows the taxonomy from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. All runnable units share **one** `Runner` ABC with `run(task, stream=False)` and a `messages` property; there is no type-level split between agents and workflows. The agent-vs-workflow distinction is a *categorisation of concrete classes*, not a type hierarchy; it lives in the module docstring at the top of [aimu/agents/base.py](aimu/agents/base.py), which carries a decision tree for picking the right class.
 
 The mapping from Anthropic's patterns to AIMU's concrete classes:
 
 | Anthropic pattern | AIMU class | Category | Module |
 |---|---|---|---|
-| Augmented LLM (base building block) | `BaseModelClient` / `ModelClient` | — | `aimu.models` |
+| Augmented LLM (base building block) | `BaseModelClient` / `ModelClient` | n/a | `aimu.models` |
 | Autonomous agent (open-ended tool loop) | `Agent` | autonomous | `aimu.agents.agent` |
 | Autonomous agent + skill discovery | `SkillAgent` | autonomous | `aimu.agents.skill_agent` |
 | Orchestrator-workers | `OrchestratorAgent` (+ `assemble()` factory) | autonomous (workers as tools) | `aimu.agents.orchestrator_agent` |
@@ -468,25 +468,25 @@ The mapping from Anthropic's patterns to AIMU's concrete classes:
 | *AIMU extension*: plan → execute → score → replan | `PlanExecuteEvaluator` (+ `from_client()`) | code-controlled | `aimu.agents.workflows.plan_execute_evaluator` |
 
 **Notes on the mapping**:
-- Anthropic places "orchestrator-workers" under *workflows*. AIMU implements it as an autonomous `OrchestratorAgent` because the dispatch decision (which worker to call, with what task) lives inside the orchestrator LLM's tool-calling loop — i.e., the LLM directs the flow within the orchestrator. The workers are wrapped as `@tool`-decorated callables (`OrchestratorAgent.assemble()` does this automatically) so the orchestrator's `concurrent_tool_calls=True` overlaps worker execution. Each worker still runs its own agentic loop.
-- `PlanExecuteEvaluator` is not in Anthropic's original five patterns — it composes the planner (a `SkillAgent`), executor (an `Agent`), and a `Scorer` into a plan → execute → judge → replan loop, useful for tasks with measurable success criteria.
+- Anthropic places "orchestrator-workers" under *workflows*. AIMU implements it as an autonomous `OrchestratorAgent` because the dispatch decision (which worker to call, with what task) lives inside the orchestrator LLM's tool-calling loop (i.e., the LLM directs the flow within the orchestrator). The workers are wrapped as `@tool`-decorated callables (`OrchestratorAgent.assemble()` does this automatically) so the orchestrator's `concurrent_tool_calls=True` overlaps worker execution. Each worker still runs its own agentic loop.
+- `PlanExecuteEvaluator` is not in Anthropic's original five patterns; it composes the planner (a `SkillAgent`), executor (an `Agent`), and a `Scorer` into a plan → execute → judge → replan loop, useful for tasks with measurable success criteria.
 - All concrete classes are re-exported from `aimu.agents` (`from aimu.agents import Agent, Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator, OrchestratorAgent, SkillAgent`).
 - The async mirror under `aimu.aio` re-implements the same set of classes (same names, `async def run()`) with `asyncio.TaskGroup` replacing `ThreadPoolExecutor` in `Parallel` and `concurrent_tool_calls`.
 
-See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflows.md) for the *why* — when each one is the right tool, and how the split shapes API choices.
+See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflows.md) for the *why*: when each one is the right tool, and how the split shapes API choices.
 
 - **[aimu/agents/base.py](aimu/agents/base.py)**: Single `Runner` ABC for the agent/workflow hierarchy
-  - `Runner(ABC)`: abstract `run(task, generate_kwargs, stream=False, images=None)` and `messages` property. Every concrete agent and workflow inherits directly from `Runner` — the agent-vs-workflow distinction is documentation only.
+  - `Runner(ABC)`: abstract `run(task, generate_kwargs, stream=False, images=None)` and `messages` property. Every concrete agent and workflow inherits directly from `Runner`; the agent-vs-workflow distinction is documentation only.
   - `Runner.as_tool(*, name=None, description=None) -> Callable`: concrete (non-abstract) method that wraps `self.run(task)` as a `@tool`-decorated callable (`tool(task: str) -> str`). Lets any agent or workflow be handed to another agent as a tool. `name` defaults to `self.name` (sanitised); `description` to the first line of `self.system_message` if present (covers `Agent`/`SkillAgent`), else a generic delegation string (workflows have no `system_message`). `AsyncRunner.as_tool()` is the async twin (the dispatch is `async def`, so the `@tool` decorator marks it `__tool_is_async__=True`). `OrchestratorAgent.assemble()` builds its worker tools via this method.
   - `MessageHistory`: type alias for `dict[str, list[dict]]`, the return type of `.messages` across the hierarchy; exported from `aimu.agents`.
 
 - **[aimu/agents/agent.py](aimu/agents/agent.py)**: `Agent(Runner)` for autonomous, multi-round tool execution
-  - Constructor: `Agent(model_client, system_message=None, name=None, tools=None, max_iterations=10, continuation_prompt=..., reset_messages_on_run=False, final_answer_prompt=None)`. `system_message` is the second positional argument. `name` is optional — auto-derived from `id(agent)` as `"agent-{hex}"` when unset.
+  - Constructor: `Agent(model_client, system_message=None, name=None, tools=None, max_iterations=10, continuation_prompt=..., reset_messages_on_run=False, final_answer_prompt=None)`. `system_message` is the second positional argument. `name` is optional, auto-derived from `id(agent)` as `"agent-{hex}"` when unset.
   - Wraps any `BaseModelClient`; runs `chat()` in a loop until no tools are called.
   - Stop condition: scans `model_client.messages` in reverse; if a `"tool"` role message is found before the last `"user"` message, the agent sends `continuation_prompt` and loops again.
-  - `final_answer_prompt` (opt-in, default `None`): guarantees a final answer when the loop exhausts `max_iterations` while the model is still calling tools. Instead of returning whatever the last (possibly tool-only) turn produced — the empty-output failure mode — the agent sends this prompt **once with tools disabled** (`chat(..., tools=[])`), forcing synthesis from the gathered context. The trigger is the post-loop `_last_turn_called_tools()` check (no new counter); it fires only on the cap-with-pending-tools path, a natural finish is unaffected, and the wrap-up turn is **not** counted against `max_iterations`. Mirrored in `aio.Agent`; forwarded by `OrchestratorAgent._init_orchestrator()` / `assemble(..., final_answer_prompt=...)` to the inner agent (sync + async).
+  - `final_answer_prompt` (opt-in, default `None`): guarantees a final answer when the loop exhausts `max_iterations` while the model is still calling tools. Instead of returning whatever the last (possibly tool-only) turn produced (the empty-output failure mode), the agent sends this prompt **once with tools disabled** (`chat(..., tools=[])`), forcing synthesis from the gathered context. The trigger is the post-loop `_last_turn_called_tools()` check (no new counter); it fires only on the cap-with-pending-tools path, a natural finish is unaffected, and the wrap-up turn is **not** counted against `max_iterations`. Mirrored in `aio.Agent`; forwarded by `OrchestratorAgent._init_orchestrator()` / `assemble(..., final_answer_prompt=...)` to the inner agent (sync + async).
   - `tools: list[Callable]` field accepts Python functions decorated with `@aimu.tool`; `_prepare_run()` copies them to `model_client.tools` before each run. Combine freely with `MCPClient(...).as_tools()` for cross-process tools (just concatenate into the `tools` list).
-  - `run(task, generate_kwargs, stream=False, images=None, tools=None)`: returns final response string or `Iterator[StreamChunk]`. Streamed chunks carry `agent` (the agent name) and `iteration` (loop index) fields. `tools=` is a per-run override of the agent's configured `self.tools`: `None` uses them; any other value (including `[]` to disable Python tools) replaces them for the run. Implemented by threading `tools=` into every `model_client.chat()` call in the loop (initial turn + continuations), so it reuses the self-restoring `chat()` override rather than adding state — `_prepare_run()` is unchanged and there is no leak (after the run, `model_client.tools` reflects the agent's configured tools). Not added to the `Runner` ABC or workflow classes (they compose sub-runners and have no single tool list); `_AgenticView` is intentionally not wired up because its loop's `_prepare_run()` would clobber a view-level swap.
+  - `run(task, generate_kwargs, stream=False, images=None, tools=None)`: returns final response string or `Iterator[StreamChunk]`. Streamed chunks carry `agent` (the agent name) and `iteration` (loop index) fields. `tools=` is a per-run override of the agent's configured `self.tools`: `None` uses them; any other value (including `[]` to disable Python tools) replaces them for the run. Implemented by threading `tools=` into every `model_client.chat()` call in the loop (initial turn + continuations), so it reuses the self-restoring `chat()` override rather than adding state; `_prepare_run()` is unchanged and there is no leak (after the run, `model_client.tools` reflects the agent's configured tools). Not added to the `Runner` ABC or workflow classes (they compose sub-runners and have no single tool list); `_AgenticView` is intentionally not wired up because its loop's `_prepare_run()` would clobber a view-level swap.
   - `as_model_client() -> BaseModelClient`: returns a `BaseModelClient` view (internal `_AgenticView`) whose `chat()` runs the full agent loop. Use this to drop an agent into an API that expects a model client; for direct use call `run()` instead.
   - `messages` property: returns `{name: snapshot}` where `snapshot` is a copy of `model_client.messages` taken at the end of the most recent `run()` call; stable even when agents share a `ModelClient` and `_prepare_run()` clears the live messages.
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `final_answer_prompt`).
@@ -498,7 +498,7 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
   - `_prepare_run()` resets the `_skills_setup_done` flag when messages are cleared, so skills are re-injected on each fresh run
   - `from_config(config, model_client)`: factory from plain dict (keys: `name`, `system_message`, `max_iterations`, `continuation_prompt`, `skill_dirs`); omit `skill_dirs` to auto-discover
 
-- **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `_AgenticView(BaseModelClient)` is the internal class returned by `Agent.as_model_client()`. It is *not* part of the public API; use the method instead of importing the class. The legacy public name `AgenticModelClient` has been removed — call sites should switch to `agent.as_model_client()`.
+- **[aimu/agents/agentic_client.py](aimu/agents/agentic_client.py)**: `_AgenticView(BaseModelClient)` is the internal class returned by `Agent.as_model_client()`. It is *not* part of the public API; use the method instead of importing the class. The legacy public name `AgenticModelClient` has been removed; call sites should switch to `agent.as_model_client()`.
 
 - **[aimu/agents/workflows/chain.py](aimu/agents/workflows/chain.py)**: `Chain(Runner)`: **Prompt Chaining** pattern (re-exported from `aimu.agents`)
   - Output of step N (accumulated `GENERATING` chunks) becomes task input to step N+1
@@ -525,7 +525,7 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
 
 - **[aimu/agents/workflows/evaluator.py](aimu/agents/workflows/evaluator.py)**: `EvaluatorOptimizer(Runner)`: **Evaluator-Optimizer** pattern (re-exported from `aimu.agents`)
   - `generator` produces output; `evaluator` reviews it against the original task
-  - Acceptance is decided by one of three mechanisms (priority order): `stop_when` (a predicate over the evaluator's output — raw text, or the typed verdict when `verdict_schema` is set); `verdict_schema` (a dataclass / Pydantic model the evaluator returns via `Agent.run(schema=...)` — acceptance reads its `passed` bool, revision uses its `feedback` str; `passed_attr`/`feedback_attr` configurable; a malformed verdict raises); or `pass_keyword` (default substring match in the evaluator's text). The loop also stops at `max_rounds`.
+  - Acceptance is decided by one of three mechanisms (priority order): `stop_when` (a predicate over the evaluator's output: raw text, or the typed verdict when `verdict_schema` is set); `verdict_schema` (a dataclass / Pydantic model the evaluator returns via `Agent.run(schema=...)`; acceptance reads its `passed` bool, revision uses its `feedback` str; `passed_attr`/`feedback_attr` configurable; a malformed verdict raises); or `pass_keyword` (default substring match in the evaluator's text). The loop also stops at `max_rounds`.
   - `run(stream=True)` yields a single GENERATING chunk with the final output (intermediate drafts not streamed)
   - `messages` property: merges `generator.messages` + `evaluator.messages`
 
@@ -540,9 +540,9 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
 - **[aimu/agents/orchestrator_agent.py](aimu/agents/orchestrator_agent.py)**: `OrchestratorAgent(Runner, ABC)` base class for orchestrator agents
   - Two construction paths:
     1. **Subclass**: define worker `Agent` instances and `@tool`-decorated dispatch functions in `__init__`, then call `self._init_orchestrator(model_client, *, name, system_message, tools=[...], concurrent_tool_calls=False, final_answer_prompt=None)` (renamed from the legacy `_setup_orchestrator`) to wire everything together.
-    2. **Factory**: `OrchestratorAgent.assemble(client, system_message, *, workers: list[Runner], name="orchestrator", concurrent_tool_calls=True, final_answer_prompt=None)`. Each worker is auto-wrapped as a `@tool` via `Runner.as_tool()` (named after the worker's `name`, described from its `system_message`). Workers may be **any `Runner`** — an `Agent`, a `Chain`/`Router`/`Parallel` workflow, or a remote A2A `RemoteAgent` — not just `Agent` instances. No subclass needed.
+    2. **Factory**: `OrchestratorAgent.assemble(client, system_message, *, workers: list[Runner], name="orchestrator", concurrent_tool_calls=True, final_answer_prompt=None)`. Each worker is auto-wrapped as a `@tool` via `Runner.as_tool()` (named after the worker's `name`, described from its `system_message`). Workers may be **any `Runner`** (an `Agent`, a `Chain`/`Router`/`Parallel` workflow, or a remote A2A `RemoteAgent`), not just `Agent` instances. No subclass needed.
   - `final_answer_prompt` (both construction paths) is forwarded to the inner orchestrator `Agent`, so an orchestrator that exhausts its iterations while still dispatching to workers still produces a final answer (see `Agent.final_answer_prompt`).
-  - Provides `run(task, generate_kwargs, stream, images)` and `messages` — subclasses need not re-implement them
+  - Provides `run(task, generate_kwargs, stream, images)` and `messages`; subclasses need not re-implement them
   - Exported from `aimu.agents`
 
 - **[aimu/agents/prebuilt/](aimu/agents/prebuilt/)**: Ready-to-use `OrchestratorAgent` subclasses demonstrating the orchestrator + worker tools pattern
@@ -557,14 +557,14 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
 
 ### Agent-to-Agent (A2A) Interop
 
-Optional cross-process / cross-vendor agent interop under **[aimu/agents/a2a/](aimu/agents/a2a/)** (extra: `aimu[a2a]`; guarded `HAS_A2A` flag exported from `aimu.agents`). The agent-level analog of the MCP-for-tools surface (`aimu.tools.MCPClient` / `python -m aimu.tools.mcp`): MCP shares *tools*, A2A shares whole *agents*. Backed by `a2a-sdk` pinned to the `0.3.x` line (pydantic-native; the `1.x` protobuf/gRPC rework is a tracked future migration). **A2A types never leak into `Runner`/`Agent` core** — they adapt only at the boundary (`run()` still takes/returns `str`).
+Optional cross-process / cross-vendor agent interop under **[aimu/agents/a2a/](aimu/agents/a2a/)** (extra: `aimu[a2a]`; guarded `HAS_A2A` flag exported from `aimu.agents`). The agent-level analog of the MCP-for-tools surface (`aimu.tools.MCPClient` / `python -m aimu.tools.mcp`): MCP shares *tools*, A2A shares whole *agents*. Backed by `a2a-sdk` pinned to the `0.3.x` line (pydantic-native; the `1.x` protobuf/gRPC rework is a tracked future migration). **A2A types never leak into `Runner`/`Agent` core**; they adapt only at the boundary (`run()` still takes/returns `str`).
 
 - **[aimu/agents/a2a/_card.py](aimu/agents/a2a/_card.py)**: pure adapters shared by sync + async, server + client (the agent-level analog of `aimu/tools/mcp_format.py`): `build_agent_card()`, `make_send_request()`/`make_stream_request()`, `result_to_text()`/`parts_to_text()`, `runner_name()`/`runner_description()`.
 - **[aimu/agents/a2a/client.py](aimu/agents/a2a/client.py)**: `RemoteAgent(Runner)` + `A2AConnectionError`. `RemoteAgent.connect(url, *, name=None, agent_card_path="/.well-known/agent-card.json", timeout=60.0)` resolves the remote agent card and returns a local `Runner`. The sync client drives the async `a2a-sdk` through an anyio blocking portal (same mechanism as `aimu.tools.MCPClient`); it sends to the URL you connected to (`A2AClient(..., url=url)`), not the card's advertised url, so a card behind a proxy still works. `run(stream=True)` yields the full response as a single `GENERATING` chunk on the sync surface. `RemoteAgent.system_message` is set to the card's description so the inherited `as_tool()` produces a meaningful tool description. `messages` is best-effort (the local `(user, assistant)` exchange, not the remote transcript). `close()`/`__del__` tear down the portal + httpx client; `__deepcopy__` returns self (holds a live connection).
 - **[aimu/agents/a2a/server.py](aimu/agents/a2a/server.py)**: `serve_a2a(runner, *, host, port, url=None, name=None, description=None, skills=None, **uvicorn_kwargs)` (blocking) and `build_a2a_app(runner, *, url, ...)` (returns a Starlette ASGI app, used by tests/embedding). Internal `_RunnerExecutor(AgentExecutor)` offloads the blocking sync `runner.run` via `asyncio.to_thread`. The card advertises `streaming=True` (the `DefaultRequestHandler` serves the SSE endpoint, emitting the final message as one event).
 - **[aimu/agents/a2a/__main__.py](aimu/agents/a2a/__main__.py)**: `python -m aimu.agents.a2a --model ... --system ... --name ... --host ... --port ...` builds an `Agent` and serves it (agent-level analog of `python -m aimu.tools.mcp`).
-- **Async twin** under **[aimu/aio/a2a/](aimu/aio/a2a/)** (exported from `aimu.aio` when `HAS_A2A`): `RemoteAgent(AsyncRunner)` uses the `a2a-sdk` async client natively (no portal — mirrors `aimu.aio.MCPClient`) and supports real incremental `message/stream` streaming mapped to `StreamChunk`s; async `serve_a2a`/`build_a2a_app` await `runner.run` directly. Reuses the sync `_card.py` helpers and `A2AConnectionError`.
-- **Composition payoff**: because `RemoteAgent` is a `Runner`, a remote agent drops into `Chain`/`Router`/`Parallel`/`assemble(workers=[...])` and into any local agent's tools via `remote.as_tool()` with no A2A-specific wiring — the direct analog of `MCPClient.as_tools()`, at the agent level.
+- **Async twin** under **[aimu/aio/a2a/](aimu/aio/a2a/)** (exported from `aimu.aio` when `HAS_A2A`): `RemoteAgent(AsyncRunner)` uses the `a2a-sdk` async client natively (no portal, mirrors `aimu.aio.MCPClient`) and supports real incremental `message/stream` streaming mapped to `StreamChunk`s; async `serve_a2a`/`build_a2a_app` await `runner.run` directly. Reuses the sync `_card.py` helpers and `A2AConnectionError`.
+- **Composition payoff**: because `RemoteAgent` is a `Runner`, a remote agent drops into `Chain`/`Router`/`Parallel`/`assemble(workers=[...])` and into any local agent's tools via `remote.as_tool()` with no A2A-specific wiring; the direct analog of `MCPClient.as_tools()`, at the agent level.
 - **Tests**: `tests/test_a2a.py` (sync) and `tests/test_aio_a2a.py` (async), both gated on `pytest.importorskip("a2a")`. Mock-only unit tests (card helpers, `result_to_text`, app routes via Starlette `TestClient`) plus a real HTTP round-trip (uvicorn in a background thread) proving `RemoteAgent` composes as tool / `Chain` step / orchestrator worker, and the streaming + dead-URL paths.
 
 ### Evaluations & Benchmarking
@@ -646,19 +646,19 @@ Optional cross-process / cross-vendor agent interop under **[aimu/agents/a2a/](a
 
 ### Key Design Patterns
 
-These are *implementation* patterns — the *how*. The *why* lives in the "Design Principles" section above.
+These are *implementation* patterns: the *how*. The *why* lives in the "Design Principles" section above.
 
 1. **Single public construction path**: `ModelClient` is the factory. Provider clients are still importable but no longer the recommended public surface. The top-level `aimu.client()` and `aimu.chat()` wrap `ModelClient` for one-line use.
 2. **Optional Dependencies**: Graceful degradation when model backends aren't installed. `HAS_*` flags expose installation state; missing optional deps don't break the import of the package.
 3. **Tool Calling Abstraction**: The base class handles tool calls uniformly across providers. Concrete clients implement `_chat` / `_generate`; the public `chat` / `generate` wrap them with the `include` filter. `@tool` functions and `MCPClient.as_tools()` callables share one `self.tools` registry and dispatch through one by-name lookup (last entry wins on name collision).
-4. **Streaming chunk type**: All clients support streaming via `chat(..., stream=True)`, `generate(..., stream=True)`, and image clients via `generate(..., stream=True)`. They yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, IMAGE_GENERATING, DONE); see the `StreamChunk` entry above for content shapes per phase. Streaming tools (generator functions decorated with `@tool`) yield their own chunks that flow through the agent's stream — see "Streaming tools" below. Use `chunk.is_text()` / `chunk.is_tool_call()` / `chunk.is_image_progress()` to dispatch on phase.
+4. **Streaming chunk type**: All clients support streaming via `chat(..., stream=True)`, `generate(..., stream=True)`, and image clients via `generate(..., stream=True)`. They yield `StreamChunk(phase, content, agent, iteration)` named tuples. `phase` is a `StreamingContentType` (THINKING, TOOL_CALLING, GENERATING, IMAGE_GENERATING, DONE); see the `StreamChunk` entry above for content shapes per phase. Streaming tools (generator functions decorated with `@tool`) yield their own chunks that flow through the agent's stream; see "Streaming tools" below. Use `chunk.is_text()` / `chunk.is_tool_call()` / `chunk.is_image_progress()` to dispatch on phase.
 5. **Model Capability Flags**: `supports_tools`, `supports_thinking`, `supports_vision`, `supports_audio`, and `supports_structured_output` are encoded on the `ModelSpec` value of each `Model` enum member and mirrored as attributes for direct read access. `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` / `AUDIO_MODELS` / `STRUCTURED_MODELS` classproperties are derived automatically.
 
 ## Important Implementation Notes
 
 ### Adding New Models
 
-**Curated-catalog policy (all modalities).** AIMU ships specs for best-of-class models only. A model must be a member of its provider enum (or a hand-built spec object passed explicitly). Passing an arbitrary `"provider:some/unknown-repo"` string **raises `ValueError`** — the clients never fabricate a spec with guessed capabilities, because a wrong guess (`pipeline_class`, `supports_negative_prompt`, tool/thinking/vision flags, voice/step defaults) causes hard-to-debug runtime failures. The string form resolves to the *same* spec object as the enum member; unknown ids raise. This is enforced in each provider's `_parse_model_string` (text's `resolve_model_string` was always strict). See [docs/how-to/add-new-model.md](docs/how-to/add-new-model.md).
+**Curated-catalog policy (all modalities).** AIMU ships specs for best-of-class models only. A model must be a member of its provider enum (or a hand-built spec object passed explicitly). Passing an arbitrary `"provider:some/unknown-repo"` string **raises `ValueError`**; the clients never fabricate a spec with guessed capabilities, because a wrong guess (`pipeline_class`, `supports_negative_prompt`, tool/thinking/vision flags, voice/step defaults) causes hard-to-debug runtime failures. The string form resolves to the *same* spec object as the enum member; unknown ids raise. This is enforced in each provider's `_parse_model_string` (text's `resolve_model_string` was always strict). See [docs/how-to/add-new-model.md](docs/how-to/add-new-model.md).
 
 When adding new models to a client:
 1. Add an enum member to the client's `Model` class with a `ModelSpec(id, tools=..., thinking=..., vision=..., audio=..., generation_kwargs=...)` value. Example: `QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)`.
@@ -666,7 +666,7 @@ When adding new models to a client:
 3. For HuggingFace models, the enum value is a tuple `(ModelSpec(...), ToolCallFormat.XXX[, think_opener_in_prompt])` because HF carries provider-specific extras alongside the spec.
 4. Test with `pytest tests/test_models.py --client=<client> --model=<MODEL_NAME>`
 
-**Other modalities** use the same pattern with their own spec type and enum: image (`HuggingFaceImageSpec`/`GeminiImageSpec` in `HuggingFaceImageModel`/`GeminiImageModel`), audio (`HuggingFaceAudioSpec` in `HuggingFaceAudioModel`), speech (`HuggingFaceSpeechSpec`/`OpenAISpeechSpec` in `HuggingFaceSpeechModel`/`OpenAISpeechModel`). For a one-off custom model, construct the spec object and pass it to the factory (`ImageClient(spec)`) — the explicit escape hatch — rather than a string. Test with the modality's live suite (e.g. `pytest tests/test_images.py --image-client=hf --image-model=<NAME>`).
+**Other modalities** use the same pattern with their own spec type and enum: image (`HuggingFaceImageSpec`/`GeminiImageSpec` in `HuggingFaceImageModel`/`GeminiImageModel`), audio (`HuggingFaceAudioSpec` in `HuggingFaceAudioModel`), speech (`HuggingFaceSpeechSpec`/`OpenAISpeechSpec` in `HuggingFaceSpeechModel`/`OpenAISpeechModel`). For a one-off custom model, construct the spec object and pass it to the factory (`ImageClient(spec)`), the explicit escape hatch, rather than a string. Test with the modality's live suite (e.g. `pytest tests/test_images.py --image-client=hf --image-model=<NAME>`).
 
 ### Tool Calling Compatibility
 
@@ -678,7 +678,7 @@ When adding new models to a client:
 ### Message History Management
 
 - System message is automatically prepended to `messages` on the first `chat()` call if `system_message` is set.
-- `system_message` is **mutable at any time** — the setter is always live. Before the first `chat()` it seeds the value (injected on the first call). Mid-conversation, assigning it **swaps the `{"role": "system"}` entry in `messages` in place** (rewriting it, inserting one if absent, or removing it on `None`), so the change takes effect on the next request. The model is re-conditioned on the new prompt for every subsequent turn — useful for changing a chat's persona mid-conversation — while the conversation history is preserved. This means the active system prompt is always the system entry in `messages`; `self._system_message` is only a seed consulted once when `messages` is empty (see `aimu/models/_internal/chat_state.py`). Note the deliberate tradeoff: prior assistant turns remain in the transcript even though they were generated under the old prompt (a counterfactual but seamless record), and there is no longer a guard against silently re-conditioning a `ModelClient` shared by another agent's in-flight conversation — don't share a live-conversation client across agents that each set `system_message`. To change the prompt *and* drop history, use `reset(system_message="new")` instead.
+- `system_message` is **mutable at any time**; the setter is always live. Before the first `chat()` it seeds the value (injected on the first call). Mid-conversation, assigning it **swaps the `{"role": "system"}` entry in `messages` in place** (rewriting it, inserting one if absent, or removing it on `None`), so the change takes effect on the next request. The model is re-conditioned on the new prompt for every subsequent turn (useful for changing a chat's persona mid-conversation) while the conversation history is preserved. This means the active system prompt is always the system entry in `messages`; `self._system_message` is only a seed consulted once when `messages` is empty (see `aimu/models/_internal/chat_state.py`). Note the deliberate tradeoff: prior assistant turns remain in the transcript even though they were generated under the old prompt (a counterfactual but seamless record), and there is no longer a guard against silently re-conditioning a `ModelClient` shared by another agent's in-flight conversation; don't share a live-conversation client across agents that each set `system_message`. To change the prompt *and* drop history, use `reset(system_message="new")` instead.
 - Message history persists across `chat()` calls on the same client instance.
 - Use `ConversationManager` to persist conversations across sessions.
 
@@ -691,8 +691,8 @@ Models with `supports_thinking=True` support extended reasoning:
 - Thinking content may also be stored in the messages dict under a "thinking" key
 
 `supports_thinking` is the universal flag; *how* reasoning is requested is provider-specific and handled inside each client (Anthropic `thinking` param, HuggingFace `enable_thinking` template kwarg, `<think>`-tag parsing for OpenAI-compat/Ollama/llama-cpp, `reasoning_effort` for OpenAI o-series). The Anthropic client distinguishes two request shapes via a `ThinkingStyle` enum carried on each `AnthropicModel` member (analogous to HuggingFace's `ToolCallFormat`):
-- **`ThinkingStyle.ENABLED`** — `thinking={"type": "enabled", "budget_tokens": N}`; the model always thinks up to the budget. Opus 4.6, Sonnet 4.6, Haiku 4.5.
-- **`ThinkingStyle.ADAPTIVE`** — `thinking={"type": "adaptive", "display": "summarized"}`; the model decides per request whether and how much to think (it may not think on simple prompts), and `temperature`/`top_p`/`top_k` are dropped. Required by Opus 4.7+ and Fable 5, which reject the `enabled` form with a 400. `display="summarized"` is set so reasoning still surfaces as `THINKING` chunks (the API default `"omitted"` yields empty thinking text).
+- **`ThinkingStyle.ENABLED`**: `thinking={"type": "enabled", "budget_tokens": N}`; the model always thinks up to the budget. Opus 4.6, Sonnet 4.6, Haiku 4.5.
+- **`ThinkingStyle.ADAPTIVE`**: `thinking={"type": "adaptive", "display": "summarized"}`; the model decides per request whether and how much to think (it may not think on simple prompts), and `temperature`/`top_p`/`top_k` are dropped. Required by Opus 4.7+ and Fable 5, which reject the `enabled` form with a 400. `display="summarized"` is set so reasoning still surfaces as `THINKING` chunks (the API default `"omitted"` yields empty thinking text).
 
 Because adaptive models may legitimately emit no thinking on trivial prompts, tests that assert thinking-presence use a multi-step reasoning prompt and treat adaptive models like the other "doesn't consistently emit thinking" models in the tool-call assertions.
 
@@ -701,7 +701,7 @@ Because adaptive models may legitimately emit no thinking on trivial prompts, te
 Models with `supports_vision=True` accept images alongside the user prompt:
 - Pass `images=[...]` to `chat()` (stateful, persisted in `self.messages`) **or** to `generate()` (stateless single-turn, not persisted). Each item may be a file path string, `pathlib.Path`, raw `bytes`, an `http(s)://` URL, or a `data:image/...;base64,...` URL
 - Internally normalized to OpenAI-format content blocks (`{"type": "image_url", "image_url": {"url": ...}}`); for `chat()` these live in `self.messages`, for `generate()` they're built into a one-off request message and discarded. Helpers live in [aimu/models/_internal/image_input.py](aimu/models/_internal/image_input.py) (`_normalize_image`, `_build_user_content_blocks`, plus per-provider adapters)
-- Vision support is validated once at the public layer: `_ChatStateMixin._require_vision()` raises `ValueError` for a non-vision model — called from `_append_user_turn()` (the `chat` path) and from `BaseModelClient.generate()` / `AsyncBaseModelClient.generate()` (the `generate` path)
+- Vision support is validated once at the public layer: `_ChatStateMixin._require_vision()` raises `ValueError` for a non-vision model; called from `_append_user_turn()` (the `chat` path) and from `BaseModelClient.generate()` / `AsyncBaseModelClient.generate()` (the `generate` path)
 - Per-provider adaptation is shared between `chat` and `generate`: `generate(images=...)` reuses the same pure adapters (`_build_user_content_blocks`, `_openai_blocks_to_anthropic`, `_ollama_split_message` via `OllamaClient._extract_ollama_images`, HF's `_extract_pil_images` template path) rather than duplicating per-provider request building
 - Per-provider adaptation happens at request time without mutating `self.messages`:
   - `OpenAICompatClient` (and subclasses): pass-through (the `openai` SDK speaks `image_url` blocks natively)
@@ -714,11 +714,11 @@ Models with `supports_vision=True` accept images alongside the user prompt:
 
 ### Audio Input
 
-`audio=` on `chat()` and `generate()` is the parallel surface for audio-capable text models (same stateful/stateless split as vision). Stored internally as OpenAI `input_audio` content blocks — the canonical format for audio in OpenAI message format.
+`audio=` on `chat()` and `generate()` is the parallel surface for audio-capable text models (same stateful/stateless split as vision). Stored internally as OpenAI `input_audio` content blocks; the canonical format for audio in OpenAI message format.
 
-- Pass `audio=[...]` to `chat()` (stateful, persisted in `self.messages`) or `generate()` (stateless single-turn, not persisted). Each item may be a file path string, `pathlib.Path`, raw `bytes`, an `https://` URL (fetched eagerly — `input_audio` has no remote-URL field), or a `data:audio/...;base64,...` URL. Accepted format strings: `wav`, `mp3`, `ogg`, `flac`, `m4a`, `webm`.
+- Pass `audio=[...]` to `chat()` (stateful, persisted in `self.messages`) or `generate()` (stateless single-turn, not persisted). Each item may be a file path string, `pathlib.Path`, raw `bytes`, an `https://` URL (fetched eagerly, since `input_audio` has no remote-URL field), or a `data:audio/...;base64,...` URL. Accepted format strings: `wav`, `mp3`, `ogg`, `flac`, `m4a`, `webm`.
 - `images=` and `audio=` are mutually exclusive per turn. Passing both raises `ValueError` at the public layer.
-- Audio support is validated once at the public layer: `_ChatStateMixin._require_audio()` raises `ValueError` for non-audio models — called from `_append_user_turn()` (the `chat` path) and from `BaseModelClient.generate()` (the `generate` path).
+- Audio support is validated once at the public layer: `_ChatStateMixin._require_audio()` raises `ValueError` for non-audio models; called from `_append_user_turn()` (the `chat` path) and from `BaseModelClient.generate()` (the `generate` path).
 - Normalization lives in `aimu/models/_internal/audio_input.py` (mirrors `image_input.py`): `_normalize_audio()`, `_build_audio_content_blocks()`, `_extract_audio_arrays()` (HuggingFace processor path), `_replace_audio_with_placeholder()`.
 - Per-provider adaptation at request time:
   - `OpenAICompatClient` (and subclasses, including OpenAI and Gemini): pass-through (`input_audio` is already OpenAI format)
@@ -734,16 +734,16 @@ Models with `supports_vision=True` accept images alongside the user prompt:
 `schema=` on `chat()` / `generate()` (sync and async) returns a validated instance of a **dataclass or Pydantic v2 model** instead of a string. One additive parameter; no new public class, no breakage.
 
 - **Auto-escalate, branching on the static capability flag** (not on catching a runtime error):
-  - `supports_structured_output=True` → native provider enforcement. The base converts the schema to a JSON Schema once ([aimu/models/_internal/structured.py](aimu/models/_internal/structured.py): `schema_to_json_schema`, reusing the `@tool` decorator's type map) and threads it as `response_format` (a dict) to the provider's `_chat`/`_generate`. If the native call itself errors, it **raises** — it does not cascade to parse (that would mask a provider error).
+  - `supports_structured_output=True` → native provider enforcement. The base converts the schema to a JSON Schema once ([aimu/models/_internal/structured.py](aimu/models/_internal/structured.py): `schema_to_json_schema`, reusing the `@tool` decorator's type map) and threads it as `response_format` (a dict) to the provider's `_chat`/`_generate`. If the native call itself errors, it **raises**; it does not cascade to parse (that would mask a provider error).
   - `supports_structured_output=False` → the base appends a JSON-Schema instruction to the prompt and parses the result. Providers never receive `response_format` on this path.
   - Either way the base coerces the returned text via `parse_json_response(text, schema)`; parse failure raises `ValueError`.
 - **Per-provider native envelope** (only these three accept `response_format`; async mirrors + the `ModelClient`/`AsyncModelClient` factories forward it; HuggingFace/llama-cpp are parse-path and untouched):
   - `OpenAICompatClient` (OpenAI, Gemini): `response_format={"type":"json_schema","json_schema":{"name", "schema", "strict": False}}` via `_with_response_format()`. `strict: False` so arbitrary user schemas (optional fields, defaults) don't trip OpenAI strict-mode's subset rules.
-  - `OllamaClient`: native `format=<json schema>` on `ollama.chat`/`generate` — grammar-enforced for *any* Ollama model.
+  - `OllamaClient`: native `format=<json schema>` on `ollama.chat`/`generate`, grammar-enforced for *any* Ollama model.
   - `AnthropicClient`: forced single tool whose `input_schema` is the JSON Schema (`tool_choice={"type":"tool","name":...}`), returning the tool input as a JSON string for uniform coercion. Thinking is incompatible with a forced `tool_choice`, so the structured path routes around `_thinking_kwargs`.
 - **Invariants/guards**: `self.messages` stays plain strings (the typed object is return-only). `schema=` + `stream=True` raises `ValueError`. On Anthropic, `schema=` + active `tools=` raises (its native mode *is* a forced tool, which conflicts with action tools); OpenAI-compat and parse-path providers compose `schema=` with tools fine.
 - **Capability flag**: `ModelSpec.structured_output: bool = False` → `supports_structured_output` property (on `_ChatStateMixin`) + `STRUCTURED_MODELS` classproperty. Set on the OpenAI, Gemini, Ollama (all models), and Anthropic catalogs.
-- **`Agent.run(schema=...)`** (sync + async): pass a dataclass / Pydantic v2 model to make the run a single structured-output turn that returns a validated instance instead of running the tool-calling loop — for an agent whose job is to return a typed object (e.g. a critic's verdict). Mutually exclusive with `stream=True` and with the tool loop. `EvaluatorOptimizer(verdict_schema=...)` uses this to get a typed `Verdict(passed, feedback)` from its evaluator.
+- **`Agent.run(schema=...)`** (sync + async): pass a dataclass / Pydantic v2 model to make the run a single structured-output turn that returns a validated instance instead of running the tool-calling loop, for an agent whose job is to return a typed object (e.g. a critic's verdict). Mutually exclusive with `stream=True` and with the tool loop. `EvaluatorOptimizer(verdict_schema=...)` uses this to get a typed `Verdict(passed, feedback)` from its evaluator.
 - **Deferred**: a `strict=True` (native-or-raise) knob; native HuggingFace/llama-cpp enforcement (would need an `xgrammar`/`outlines` backend). `generate_json` remains the older prompt-and-parse-with-retries convenience.
 - **Tests**: `tests/test_structured_api.py` (schema helper, base native/parse logic via fakes, OpenAI envelope, Ollama `format=`, Anthropic forced-tool + tools-conflict, guards, plain-messages invariant) and `tests/test_aio_structured_api.py` (async mirror).
 
@@ -770,15 +770,15 @@ Models with `supports_vision=True` accept images alongside the user prompt:
 
 ### Image Generation
 
-AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFaceImageClient`) and Google's Gemini Nano Banana (`GeminiImageClient`) as a **parallel surface** to the text chat client. The image hierarchy mirrors the text one (one base class, one factory class, per-provider concrete clients), but the modality interfaces are disjoint — `chat()` / `messages` / `StreamChunk` are meaningless for stateless text-to-image, so `BaseImageClient` is its own ABC rather than a subclass of `BaseModelClient`. The two surfaces live side-by-side: `aimu.client()` / `ModelClient` for text, `aimu.image_client()` / `ImageClient` for image.
+AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFaceImageClient`) and Google's Gemini Nano Banana (`GeminiImageClient`) as a **parallel surface** to the text chat client. The image hierarchy mirrors the text one (one base class, one factory class, per-provider concrete clients), but the modality interfaces are disjoint: `chat()` / `messages` / `StreamChunk` are meaningless for stateless text-to-image, so `BaseImageClient` is its own ABC rather than a subclass of `BaseModelClient`. The two surfaces live side-by-side: `aimu.client()` / `ModelClient` for text, `aimu.image_client()` / `ImageClient` for image.
 
-- **[aimu/models/base.py](aimu/models/base.py)** — base classes (text ↔ image parallel):
-  - `ImageSpec` (sibling to `ModelSpec`): minimal common spec with `id` and `max_prompt_tokens` (the text-encoder prompt budget — image analog of `ModelSpec`'s capability flags; `77` = CLIP default, `256`/`512` for T5 models, `None` = no cap for cloud); hashed/equal by id only. Subclassed with `@dataclass(eq=False)` so the parent's id-only equality isn't shadowed by the dataclass-default per-field `__eq__`. `BaseImageClient` exposes `max_prompt_tokens`.
+- **[aimu/models/base.py](aimu/models/base.py)**: base classes (text ↔ image parallel):
+  - `ImageSpec` (sibling to `ModelSpec`): minimal common spec with `id` and `max_prompt_tokens` (the text-encoder prompt budget, the image analog of `ModelSpec`'s capability flags; `77` = CLIP default, `256`/`512` for T5 models, `None` = no cap for cloud); hashed/equal by id only. Subclassed with `@dataclass(eq=False)` so the parent's id-only equality isn't shadowed by the dataclass-default per-field `__eq__`. `BaseImageClient` exposes `max_prompt_tokens`.
   - `HuggingFaceImageSpec(ImageSpec)`: adds `pipeline_class` (resolved lazily via `getattr(diffusers, name)`), `img2img_pipeline_class` (diffusers class for image-to-image; `None` for ad-hoc strings), `img2img_uses_strength` (bool, default `True`; `False` for unified pipelines like `Flux2KleinPipeline` that accept `image=` directly without a `strength` param), `default_steps`, `default_guidance`, `default_width`, `default_height`, `default_negative_prompt`, `pipeline_kwargs`.
   - `GeminiImageSpec(ImageSpec)`: adds `default_aspect_ratio`, `default_image_size`, `image_config_kwargs` (consumed by the SDK's `ImageConfig`); overrides `max_prompt_tokens` default to `None` (cloud models take natural-language prompts).
   - `ImageModel(Enum)` (sibling to `Model`): each member's value is an `ImageSpec` (or subclass); `__init__` sets `_value_=spec.id` and stores `self.spec=spec`. Provider enums (`HuggingFaceImageModel`, `GeminiImageModel`) inherit this.
   - `BaseImageClient(ABC)` (sibling to `BaseModelClient`): concrete `generate(prompt, *, num_images, format, output_dir, stream, preview_every, reference_image=None, **kwargs)` does `num_images` validation + format conversion via `encode_image()`. `reference_image` accepts the same input forms as vision input (path string, `pathlib.Path`, raw bytes, data URL, http(s) URL, or PIL Image); when set, the call becomes image-to-image. Subclasses implement `_generate(prompt, *, num_images, reference_image=None, **kwargs) -> list[Image]` returning PIL images.
-- **[aimu/models/image_client.py](aimu/models/image_client.py)** — `ImageClient` factory (sibling to `ModelClient`) + `resolve_image_model_string()` + `resolve_image_model_enum()` (enum / `"provider:id"` string / bare enum-member name, parallel to the text `resolve_model_enum`). Accepts a provider enum / spec / `"provider:id"` string; dispatches to the right concrete client. String-form (`"hf:<repo>"`, `"gemini:<id_or_alias>"`) supports ad-hoc model ids not in the enums, by routing on the prefix before falling back to enum lookup.
+- **[aimu/models/image_client.py](aimu/models/image_client.py)**: `ImageClient` factory (sibling to `ModelClient`) + `resolve_image_model_string()` + `resolve_image_model_enum()` (enum / `"provider:id"` string / bare enum-member name, parallel to the text `resolve_model_enum`). Accepts a provider enum / spec / `"provider:id"` string; dispatches to the right concrete client. String-form (`"hf:<repo>"`, `"gemini:<id_or_alias>"`) supports ad-hoc model ids not in the enums, by routing on the prefix before falling back to enum lookup.
 
 - **[aimu/models/_internal/image_output.py](aimu/models/_internal/image_output.py)**: `encode_image(image, format, *, prompt="", output_dir=None)` is the shared format-conversion helper. Sibling to `image_input.py` (which decodes images for vision *input*); this one encodes images for diffusion *output*.
   - `format="pil"` → return PIL Image unchanged.
@@ -790,89 +790,89 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
 - **[aimu/models/providers/hf/image.py](aimu/models/providers/hf/image.py)**: `HuggingFaceImageClient` + `HuggingFaceImageModel` enum.
   - `HuggingFaceImageModel` catalog: `SD_1_5`, `SDXL_BASE`, `SD_3_5_MEDIUM`, `FLUX_1_DEV`, `FLUX_1_SCHNELL`, `FLUX_2_KLEIN_4B`, `FLUX_2_KLEIN_9B`. Each member's value is a `HuggingFaceImageSpec`. The two Klein models use `Flux2KleinPipeline` (diffusers 0.37+), which is a unified pipeline: the same class handles txt2img (`image=None`) and img2img (`image=<PIL>`). Klein sets `img2img_uses_strength=False` because it conditions on the reference image directly rather than blending via a noise `strength` scalar.
   - `HuggingFaceImageClient(model, model_kwargs=None)` accepts a `HuggingFaceImageModel` member, a `HuggingFaceImageSpec`, or a `"hf:<repo_id>"` string (for ad-hoc HF models not in the enum; defaults to `DiffusionPipeline` auto-detect loader).
-  - Lazy pipeline load on first `generate()` call: `pipeline_cls = getattr(diffusers, spec.pipeline_class); self._pipe = pipeline_cls.from_pretrained(spec.id, **kwargs)`. Placement is **memory-aware and automatic** via `_hf_device.auto_place_pipeline()`: it measures the loaded pipeline's size and each GPU's *free* memory (`torch.cuda.mem_get_info`, so other processes like a local LLM server are accounted for), then picks the cheapest fit — pin to the freest GPU → `enable_model_cpu_offload` (largest component fits) → `enable_sequential_cpu_offload` (always fits). Falls back to CUDA/MPS/CPU with no CUDA or missing `accelerate` (offload needs it). Override with `model_kwargs={"device": "cuda:1"}` (pin) or `model_kwargs={"device_map": ...}` (hand to diffusers/accelerate). `torch_dtype` also defaults per-device via `_hf_device.default_torch_dtype()` (bf16 on CUDA, fp16 on MPS, fp32 on CPU) unless the caller sets it — avoids `"auto"` silently resolving to fp32 (which doubles VRAM).
-  - `generate(prompt, *, negative_prompt=None, width=None, height=None, num_inference_steps=None, guidance_scale=None, seed=None, num_images=1, format="pil", output_dir=None, stream=False, preview_every=None, reference_image=None, strength=None)`. Unset params fall back to `spec.default_*`. Seed plumbed through `torch.Generator`. Returns a single image (or list when `num_images > 1`) in the chosen format. When `reference_image` is provided, the client calls `_get_img2img_pipeline()` which lazily derives the img2img pipeline from the loaded txt2img pipeline via `from_pipe()` (shared weights, no extra VRAM). `strength` defaults to `0.75` for FLUX.1-style pipelines (not used for Klein — `img2img_uses_strength=False`). `width` and `height` are dropped from the pipeline call in img2img mode; output size is derived from the reference image.
-  - `stream=True` returns an `Iterator[StreamChunk]` with phase `IMAGE_GENERATING`. Implemented via `callback_on_step_end` on the diffusers pipeline: a background thread runs the pipeline, the callback pushes per-step chunks onto a `queue.Queue`, and the public generator drains the queue. `preview_every=N` opts into per-step latent-decoded previews — when set, the callback decodes via `pipe.vae.decode` every N steps and includes the PIL in the chunk (~50–200 ms per decode on GPU). Final chunks (one per image when `num_images > 1`) carry `final=True` and the encoded `result` per `format=`.
+  - Lazy pipeline load on first `generate()` call: `pipeline_cls = getattr(diffusers, spec.pipeline_class); self._pipe = pipeline_cls.from_pretrained(spec.id, **kwargs)`. Placement is **memory-aware and automatic** via `_hf_device.auto_place_pipeline()`: it measures the loaded pipeline's size and each GPU's *free* memory (`torch.cuda.mem_get_info`, so other processes like a local LLM server are accounted for), then picks the cheapest fit: pin to the freest GPU → `enable_model_cpu_offload` (largest component fits) → `enable_sequential_cpu_offload` (always fits). Falls back to CUDA/MPS/CPU with no CUDA or missing `accelerate` (offload needs it). Override with `model_kwargs={"device": "cuda:1"}` (pin) or `model_kwargs={"device_map": ...}` (hand to diffusers/accelerate). `torch_dtype` also defaults per-device via `_hf_device.default_torch_dtype()` (bf16 on CUDA, fp16 on MPS, fp32 on CPU) unless the caller sets it; avoids `"auto"` silently resolving to fp32 (which doubles VRAM).
+  - `generate(prompt, *, negative_prompt=None, width=None, height=None, num_inference_steps=None, guidance_scale=None, seed=None, num_images=1, format="pil", output_dir=None, stream=False, preview_every=None, reference_image=None, strength=None)`. Unset params fall back to `spec.default_*`. Seed plumbed through `torch.Generator`. Returns a single image (or list when `num_images > 1`) in the chosen format. When `reference_image` is provided, the client calls `_get_img2img_pipeline()` which lazily derives the img2img pipeline from the loaded txt2img pipeline via `from_pipe()` (shared weights, no extra VRAM). `strength` defaults to `0.75` for FLUX.1-style pipelines (not used for Klein, where `img2img_uses_strength=False`). `width` and `height` are dropped from the pipeline call in img2img mode; output size is derived from the reference image.
+  - `stream=True` returns an `Iterator[StreamChunk]` with phase `IMAGE_GENERATING`. Implemented via `callback_on_step_end` on the diffusers pipeline: a background thread runs the pipeline, the callback pushes per-step chunks onto a `queue.Queue`, and the public generator drains the queue. `preview_every=N` opts into per-step latent-decoded previews: when set, the callback decodes via `pipe.vae.decode` every N steps and includes the PIL in the chunk (~50–200 ms per decode on GPU). Final chunks (one per image when `num_images > 1`) carry `final=True` and the encoded `result` per `format=`.
   - `import diffusers` is a hard module-load import so `HAS_HF_IMAGE` accurately reflects "the optional dep is installed" (matches the HF convention).
 
-- **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points parallel to `client()` / `chat()`:
-  - `aimu.image_client(model=None, **kwargs) -> HuggingFaceImageClient` — one-line constructor.
-  - `aimu.generate_image(prompt, *, model=None, format="pil", **kwargs)` — one-shot.
-  - When `model` is omitted, image/audio/speech entry points read their env var (`AIMU_IMAGE_MODEL` / `AIMU_AUDIO_MODEL` / `AIMU_SPEECH_MODEL`) via `resolve_default_modality_model()`; **unset raises `ValueError`** (these modalities are never auto-selected — a wrong silent pick is costly — and weights are never downloaded implicitly). The error message lists any locally available models (via the modality `available_*_models()` discovery probe) so the explicit choice is easy; discovery failing never masks the real error.
+- **[aimu/__init__.py](aimu/__init__.py)**: top-level entry points parallel to `client()` / `chat()`:
+  - `aimu.image_client(model=None, **kwargs) -> HuggingFaceImageClient`: one-line constructor.
+  - `aimu.generate_image(prompt, *, model=None, format="pil", **kwargs)`: one-shot.
+  - When `model` is omitted, image/audio/speech entry points read their env var (`AIMU_IMAGE_MODEL` / `AIMU_AUDIO_MODEL` / `AIMU_SPEECH_MODEL`) via `resolve_default_modality_model()`; **unset raises `ValueError`** (these modalities are never auto-selected, since a wrong silent pick is costly, and weights are never downloaded implicitly). The error message lists any locally available models (via the modality `available_*_models()` discovery probe) so the explicit choice is easy; discovery failing never masks the real error.
   - Both raise `ImportError` with a helpful install hint when `HAS_HF_IMAGE` is False.
 
-- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — chat integration via a built-in **streaming** `@tool`:
-  - `generate_image(prompt: str)` is a **generator tool** (decorated with `@tool`) — it yields `IMAGE_GENERATING` chunks during denoising and returns the saved file path as its final value. The agent's `_handle_tool_calls_streamed` forwards the yielded chunks through the agent's stream so callers see live progress.
-  - Backed by a lazy module-level singleton `_image_client` constructed on first call via `aimu.image_client()`. The model comes from the `AIMU_IMAGE_MODEL` env var (**required** — the tool raises `ValueError` if unset; no default is downloaded).
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: chat integration via a built-in **streaming** `@tool`:
+  - `generate_image(prompt: str)` is a **generator tool** (decorated with `@tool`): it yields `IMAGE_GENERATING` chunks during denoising and returns the saved file path as its final value. The agent's `_handle_tool_calls_streamed` forwards the yielded chunks through the agent's stream so callers see live progress.
+  - Backed by a lazy module-level singleton `_image_client` constructed on first call via `aimu.image_client()`. The model comes from the `AIMU_IMAGE_MODEL` env var (**required**; the tool raises `ValueError` if unset; no default is downloaded).
   - `make_image_tool(client, *, preview_every=None)` factory binds a fresh streaming tool to a caller-supplied image client, with optional intermediate-image previews every N denoising steps (HF only; Gemini ignores it).
-  - `make_describe_image_tool(client, *, default_instruction=...)` builds a `describe_image(image_path, instruction=...)` tool bound to a **vision-capable chat client** (raises `ValueError` if `client.model.supports_vision` is False). The tool snapshots `client.messages` before the vision call and restores it afterwards, so the agent's conversation log isn't polluted with one-off image-Q&A turns; `use_tools=False` is passed to prevent recursive tool calls during the vision call. This is a factory rather than a lazy singleton because the most useful binding is to the *same* model the agent is already running — same knowledge, same provider, no extra API key. The Streamlit chatbot appends this tool to the agent's tool list automatically when the active chat model is vision-capable.
+  - `make_describe_image_tool(client, *, default_instruction=...)` builds a `describe_image(image_path, instruction=...)` tool bound to a **vision-capable chat client** (raises `ValueError` if `client.model.supports_vision` is False). The tool snapshots `client.messages` before the vision call and restores it afterwards, so the agent's conversation log isn't polluted with one-off image-Q&A turns; `use_tools=False` is passed to prevent recursive tool calls during the vision call. This is a factory rather than a lazy singleton because the most useful binding is to the *same* model the agent is already running: same knowledge, same provider, no extra API key. The Streamlit chatbot appends this tool to the agent's tool list automatically when the active chat model is vision-capable.
   - New subgroup `image = [generate_image]` next to `web`, `fs`, `compute`, `misc`. Appended to `ALL_TOOLS`.
 
-- **Skill integration (deeper, optional)** — for `SkillAgent` users, drop a `SKILL.md` under `.agents/skills/image-generation/` listing `generate_image` and adding prompt-engineering guidance (composition, style descriptors, negative-prompt hints). Skills are filesystem-discovered, not shipped with the library; see `notebooks/18 - Image Generation.ipynb` for a copyable example.
+- **Skill integration (deeper, optional)**: for `SkillAgent` users, drop a `SKILL.md` under `.agents/skills/image-generation/` listing `generate_image` and adding prompt-engineering guidance (composition, style descriptors, negative-prompt hints). Skills are filesystem-discovered, not shipped with the library; see `notebooks/18 - Image Generation.ipynb` for a copyable example.
 
-- **Async twin** — full mirror under `aimu.aio`:
-  - **[aimu/aio/providers/hf_image.py](aimu/aio/providers/hf_image.py)**: `AsyncHuggingFaceImageClient` wraps a sync `HuggingFaceImageClient` (no second weight load). Properties (`model`, `spec`, `pipeline`, `model_kwargs`) delegate to `self._sync`. `generate()` is `async` and routes through `asyncio.to_thread`. Does *not* inherit `AsyncBaseModelClient` — diffusion has no chat lifecycle to inherit.
-  - **[aimu/aio/image.py](aimu/aio/image.py)**: `aio.image_client(sync_client)` factory + `aio.generate_image(prompt, *, model, ...)` one-shot. The factory refuses direct enum / string / `HuggingFaceImageSpec` construction with a helpful error pointing at the wrap pattern — same shape as the HF/LlamaCpp refusal in `aimu/aio/_model_client.py:140-143`.
+- **Async twin**: full mirror under `aimu.aio`:
+  - **[aimu/aio/providers/hf_image.py](aimu/aio/providers/hf_image.py)**: `AsyncHuggingFaceImageClient` wraps a sync `HuggingFaceImageClient` (no second weight load). Properties (`model`, `spec`, `pipeline`, `model_kwargs`) delegate to `self._sync`. `generate()` is `async` and routes through `asyncio.to_thread`. Does *not* inherit `AsyncBaseModelClient`; diffusion has no chat lifecycle to inherit.
+  - **[aimu/aio/image.py](aimu/aio/image.py)**: `aio.image_client(sync_client)` factory + `aio.generate_image(prompt, *, model, ...)` one-shot. The factory refuses direct enum / string / `HuggingFaceImageSpec` construction with a helpful error pointing at the wrap pattern; same shape as the HF/LlamaCpp refusal in `aimu/aio/_model_client.py:140-143`.
   - **[aimu/aio/tools/builtin.py](aimu/aio/tools/builtin.py)**: async `@tool async def generate_image(prompt: str) -> str` using its own lazy `AsyncHuggingFaceImageClient` singleton; `make_async_image_tool(client)` accepts either a sync `HuggingFaceImageClient` or an existing `AsyncHuggingFaceImageClient`. Re-exports the rest of `aimu.tools.builtin` so async agents get a complete namespace.
 
-- **Cloud image provider — Google Nano Banana (`gemini-2.5-flash-image`)**:
+- **Cloud image provider: Google Nano Banana (`gemini-2.5-flash-image`)**:
   - **[aimu/models/providers/gemini/image.py](aimu/models/providers/gemini/image.py)**: `GeminiImageClient` + `GeminiImageModel` enum (`NANO_BANANA`, `NANO_BANANA_PREVIEW`). Sits next to the Gemini text client in `aimu/models/providers/gemini/`; both share the `aimu.image_client()` / `aimu.generate_image()` (image) and `aimu.client()` (text) surfaces.
-  - **[aimu/models/base.py](aimu/models/base.py)**: `GeminiImageSpec` sits next to `HuggingFaceImageSpec`. Disjoint fields — cloud API has no `pipeline_class`, `default_steps`, or `default_guidance`. Carries `id`, `default_aspect_ratio`, `default_image_size`, `image_config_kwargs`. Hashed and equal by `id` only.
-  - Uses `google.genai.Client().models.generate_content(model=..., contents=..., config=GenerateContentConfig(response_modalities=[Modality.IMAGE], image_config=ImageConfig(...)))`. Without a reference image, `contents=[prompt]` (bare string). With `reference_image`, `contents` becomes a `genai_types.Content` with two parts (text + `inlineData` PNG blob), enabling image editing. The response's first inline-data part is decoded to a PIL image; `encode_image()` handles the format conversion (`pil`/`bytes`/`path`/`data_url`) — same helper diffusers uses, no duplication.
+  - **[aimu/models/base.py](aimu/models/base.py)**: `GeminiImageSpec` sits next to `HuggingFaceImageSpec`. Disjoint fields: cloud API has no `pipeline_class`, `default_steps`, or `default_guidance`. Carries `id`, `default_aspect_ratio`, `default_image_size`, `image_config_kwargs`. Hashed and equal by `id` only.
+  - Uses `google.genai.Client().models.generate_content(model=..., contents=..., config=GenerateContentConfig(response_modalities=[Modality.IMAGE], image_config=ImageConfig(...)))`. Without a reference image, `contents=[prompt]` (bare string). With `reference_image`, `contents` becomes a `genai_types.Content` with two parts (text + `inlineData` PNG blob), enabling image editing. The response's first inline-data part is decoded to a PIL image; `encode_image()` handles the format conversion (`pil`/`bytes`/`path`/`data_url`), the same helper diffusers uses, no duplication.
   - Auth: reads `GOOGLE_API_KEY` from env (or `.env` via `python-dotenv`), or accepts `api_key=` in `model_kwargs`. Raises `RuntimeError` with a clear hint if neither is set.
   - `num_images > 1` issues N separate API calls (Nano Banana returns one image per call). Aspect ratio defaults to the spec's `default_aspect_ratio` if set; otherwise the model picks based on the prompt.
   - **Dispatch via `aimu.image_client()`**: `"gemini:nano-banana"` / `"gemini:gemini-2.5-flash-image"` / `GeminiImageModel.NANO_BANANA` / `GeminiImageSpec(...)` all route to `GeminiImageClient`; `"hf:..."` / `HuggingFaceImageModel.*` / `HuggingFaceImageSpec(...)` route to `HuggingFaceImageClient`. The factory raises `ImportError` with the install hint when the relevant `HAS_*` flag is False.
-  - **Async**: `aio.image_client(sync_gemini_client)` returns an `AsyncGeminiImageClient` that wraps via `asyncio.to_thread`. Cloud calls aren't GIL/CUDA-bound so a native async path (`google.genai.aio`) would be slightly faster — kept as a follow-up for surface consistency with the in-process wrap pattern.
+  - **Async**: `aio.image_client(sync_gemini_client)` returns an `AsyncGeminiImageClient` that wraps via `asyncio.to_thread`. Cloud calls aren't GIL/CUDA-bound so a native async path (`google.genai.aio`) would be slightly faster, but is kept as a follow-up for surface consistency with the in-process wrap pattern.
   - Lives under the `[google]` extra (`google-genai`, `Pillow`); `HAS_GEMINI_IMAGE` is set independently of `HAS_HF_IMAGE` so users who only want one of the two providers install accordingly. `HAS_HF_IMAGE` requires the `[hf]` extra (`diffusers`, `safetensors`, `Pillow`, plus torch/transformers shared with HF text).
 
-- **Tests** — mirror the text-side `test_models.py` / `test_models_api.py` split:
+- **Tests**: mirror the text-side `test_models.py` / `test_models_api.py` split:
   - `tests/test_images_api.py` (mock-only, single file for both providers): stubs `diffusers` in `sys.modules` (with a `_FakePipeline` that has `from_pipe()`, returning PIL images) and patches `genai.Client` per-test via the `fake_genai` fixture. Covers spec equality-by-id, the shared `encode_image` format matrix, `HuggingFaceImageClient` construction + string parsing + lazy load + per-call kwarg threading + seed plumbing + unknown-pipeline error, img2img via `reference_image=` (PIL/path/bytes input, `from_pipe()` caching, `strength` default, `width`/`height` omitted, streaming path, no-img2img-class error, `FLUX_2_KLEIN_4B` unified-pipeline path without `strength`), `GeminiImageClient` construction + alias resolution + API-key resolution + aspect-ratio threading + `reference_image` multipart-content path + backward-compat plain-string path, and the top-level `aimu.image_client()` / `aimu.generate_image()` dispatch for both providers. The `_install_diffusers_stub` helper is re-used by `test_image_tools.py` and `test_aio_image_api.py`.
   - `tests/test_image_tools.py` (mock-only): patches the singleton; asserts `generate_image.__tool_spec__` shape, `make_image_tool` returns a fresh tool bound to its client, env var honoured.
   - `tests/test_aio_image_api.py` (mock-only): refusal of direct enum/string construction for both `HuggingFaceImageClient` and `GeminiImageClient`, `AsyncHuggingFaceImageClient` / `AsyncGeminiImageClient` share state with wrapped sync clients, async tool detected via `__tool_is_async__`.
-  - `tests/test_images.py` (live, opt-in): parametrized across image providers — the analog of `tests/test_models.py` for the image modality. Reads `--image-client` (`hf` / `gemini` / `all`) and `--image-model` (enum member name or `all`) from `conftest.py`; `helpers.resolve_image_model_params()` builds the parametrize list, `helpers.create_real_image_client()` constructs the concrete client. Cross-provider tests (PIL output, format matrix, num_images) run on every parametrized client; provider-specific tests (`seed=` reproducibility for HF, `aspect_ratio=` for Gemini) skip with a clear message when the active client doesn't support them. Skipped entirely when `--image-client` is omitted. Example: `pytest tests/test_images.py --image-client=hf --image-model=SD_1_5`.
+  - `tests/test_images.py` (live, opt-in): parametrized across image providers, the analog of `tests/test_models.py` for the image modality. Reads `--image-client` (`hf` / `gemini` / `all`) and `--image-model` (enum member name or `all`) from `conftest.py`; `helpers.resolve_image_model_params()` builds the parametrize list, `helpers.create_real_image_client()` constructs the concrete client. Cross-provider tests (PIL output, format matrix, num_images) run on every parametrized client; provider-specific tests (`seed=` reproducibility for HF, `aspect_ratio=` for Gemini) skip with a clear message when the active client doesn't support them. Skipped entirely when `--image-client` is omitted. Example: `pytest tests/test_images.py --image-client=hf --image-model=SD_1_5`.
 
 ### Audio Generation
 
-AIMU supports text-to-audio generation via HuggingFace as a **parallel surface** to the text and image clients. The hierarchy mirrors the image one (one base class, one factory class, per-provider concrete clients), but the interface is disjoint from both text and image — `BaseAudioClient` is its own ABC. The two modality surfaces live side-by-side: `aimu.client()` / `ModelClient` for text, `aimu.image_client()` / `ImageClient` for image, `aimu.audio_client()` / `AudioClient` for audio.
+AIMU supports text-to-audio generation via HuggingFace as a **parallel surface** to the text and image clients. The hierarchy mirrors the image one (one base class, one factory class, per-provider concrete clients), but the interface is disjoint from both text and image; `BaseAudioClient` is its own ABC. The two modality surfaces live side-by-side: `aimu.client()` / `ModelClient` for text, `aimu.image_client()` / `ImageClient` for image, `aimu.audio_client()` / `AudioClient` for audio.
 
 Scope: music and sound generation (not TTS). Three pipeline families ship under `HuggingFaceAudioModel`: `MUSICGEN_SMALL/MEDIUM/LARGE` (token-autoregressive via `transformers`), `AUDIOLDM2` (latent diffusion, 16 kHz), `STABLE_AUDIO_OPEN` (latent diffusion, 44.1 kHz stereo).
 
 Key files and their roles:
 
-- **[aimu/models/base.py](aimu/models/base.py)** — extended with audio base types (parallel to image types):
+- **[aimu/models/base.py](aimu/models/base.py)**: extended with audio base types (parallel to image types):
   - `AUDIO_GENERATING` added to `StreamingContentType`. Content shape: `{"step": int, "total_steps": int, "final": bool, "result": Any, "duration_s": float}`.
   - `StreamChunk.is_audio_progress()` helper (parallel to `is_image_progress()`).
   - `AudioSpec` (id-only base, parallel to `ImageSpec`), `HuggingFaceAudioSpec(AudioSpec)` (adds `pipeline_type`, `default_duration_s`, `default_steps`), `AudioModel(Enum)` base, `BaseAudioClient(ABC)`.
-  - `BaseAudioClient.generate(prompt, *, duration_s, num_inference_steps, num_audio, format, output_dir, seed, stream)` — validates args, dispatches to `_generate()` or `_generate_streamed()`, encodes output via `encode_audio()`.
+  - `BaseAudioClient.generate(prompt, *, duration_s, num_inference_steps, num_audio, format, output_dir, seed, stream)`: validates args, dispatches to `_generate()` or `_generate_streamed()`, encodes output via `encode_audio()`.
 
-- **[aimu/models/_internal/audio_output.py](aimu/models/_internal/audio_output.py)** — `encode_audio(audio, sample_rate, format, *, prompt, output_dir)` (parallel to `image_output.py`):
+- **[aimu/models/_internal/audio_output.py](aimu/models/_internal/audio_output.py)**: `encode_audio(audio, sample_rate, format, *, prompt, output_dir)` (parallel to `image_output.py`):
   - `"numpy"` → `(sample_rate, audio)` unchanged.
   - `"bytes"` → WAV bytes via `soundfile.write` into `BytesIO`.
   - `"data_url"` → `data:audio/wav;base64,...`.
   - `"path"` → saves WAV to `paths.output/"audio"/{timestamp}-{hash}.wav`, returns path string.
 
-- **[aimu/models/providers/hf/audio.py](aimu/models/providers/hf/audio.py)** — `HuggingFaceAudioClient` + `HuggingFaceAudioModel` enum:
-  - Lazy pipeline load (same pattern as `HuggingFaceImageClient`). Auto-detects CUDA/MPS via the shared `_hf_device.py` helpers; `model_kwargs={"device": "cuda:1"}` targets a specific GPU. No sharding default — audio models are small enough for one card.
+- **[aimu/models/providers/hf/audio.py](aimu/models/providers/hf/audio.py)**: `HuggingFaceAudioClient` + `HuggingFaceAudioModel` enum:
+  - Lazy pipeline load (same pattern as `HuggingFaceImageClient`). Auto-detects CUDA/MPS via the shared `_hf_device.py` helpers; `model_kwargs={"device": "cuda:1"}` targets a specific GPU. No sharding default; audio models are small enough for one card.
   - Constructor accepts `HuggingFaceAudioModel` member, `HuggingFaceAudioSpec`, or `"hf:<repo_id>"` string (pipeline type inferred from known repo prefixes, defaulting to `"musicgen"`).
   - Three loader methods dispatched by `spec.pipeline_type`: `_load_musicgen()` (transformers `AutoProcessor` + `MusicgenForConditionalGeneration`), `_load_audioldm2()` (diffusers `AudioLDM2Pipeline`), `_load_stable_audio()` (diffusers `StableAudioPipeline`).
   - Three generator methods: `_run_musicgen()` (duration → `max_new_tokens = int(duration_s * 50)`), `_run_audioldm2()`, `_run_stable_audio()`. All return `list[(sample_rate, ndarray)]`.
-  - Streaming for diffusers models: background thread + `queue.Queue` + `callback_on_step_end`, draining into `AUDIO_GENERATING` chunks. MusicGen yields one final chunk (no per-step API). No intermediate audio decode (unlike image latent previews) — intermediate chunks carry step/total_steps/`final=False`/`result=None`.
+  - Streaming for diffusers models: background thread + `queue.Queue` + `callback_on_step_end`, draining into `AUDIO_GENERATING` chunks. MusicGen yields one final chunk (no per-step API). No intermediate audio decode (unlike image latent previews); intermediate chunks carry step/total_steps/`final=False`/`result=None`.
   - `import soundfile` is a hard module-load import so `HAS_HF_AUDIO` accurately reflects installed state.
 
-- **[aimu/models/audio_client.py](aimu/models/audio_client.py)** — `AudioClient` factory + `resolve_audio_model_string()` (parallel to `image_client.py`). Accepts model enum / spec / `"hf:<repo_id>"` string. Only `"hf:"` prefix registered; additional providers added as the surface grows.
+- **[aimu/models/audio_client.py](aimu/models/audio_client.py)**: `AudioClient` factory + `resolve_audio_model_string()` (parallel to `image_client.py`). Accepts model enum / spec / `"hf:<repo_id>"` string. Only `"hf:"` prefix registered; additional providers added as the surface grows.
 
-- **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points parallel to `client()` / `image_client()`:
-  - `aimu.audio_client(model, **kwargs)` — one-line constructor.
-  - `aimu.generate_audio(prompt, *, model, format="numpy", **kwargs)` — one-shot.
+- **[aimu/__init__.py](aimu/__init__.py)**: top-level entry points parallel to `client()` / `image_client()`:
+  - `aimu.audio_client(model, **kwargs)`: one-line constructor.
+  - `aimu.generate_audio(prompt, *, model, format="numpy", **kwargs)`: one-shot.
   - Both raise `ImportError` with install hint when `HAS_HF_AUDIO` is False.
 
-- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_audio` generator tool + `make_audio_tool()` factory (parallel to image equivalents):
-  - `generate_audio(prompt: str)` is a generator `@tool` yielding `AUDIO_GENERATING` chunks and returning the saved file path. Backed by a lazy `_audio_client` singleton; model via `AIMU_AUDIO_MODEL` env var (**required**; the tool raises if unset — no default is downloaded).
-  - `make_audio_tool(client, *, duration_s=None)` — binds a fresh tool to a caller-supplied client.
-  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None, python_sandbox=False)` — `audio_client` and `speech_client` kwargs replace their respective singletons when provided; `memory_store` appends `make_memory_tools(store)` when set; `python_sandbox=True` appends `execute_python`.
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: `generate_audio` generator tool + `make_audio_tool()` factory (parallel to image equivalents):
+  - `generate_audio(prompt: str)` is a generator `@tool` yielding `AUDIO_GENERATING` chunks and returning the saved file path. Backed by a lazy `_audio_client` singleton; model via `AIMU_AUDIO_MODEL` env var (**required**; the tool raises if unset; no default is downloaded).
+  - `make_audio_tool(client, *, duration_s=None)`: binds a fresh tool to a caller-supplied client.
+  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None, python_sandbox=False)`: `audio_client` and `speech_client` kwargs replace their respective singletons when provided; `memory_store` appends `make_memory_tools(store)` when set; `python_sandbox=True` appends `execute_python`.
   - New subgroup `audio = [generate_audio]` (parallel to `image`); included in `ALL_TOOLS`.
 
-- **Async twin** — full mirror under `aimu.aio`:
+- **Async twin**: full mirror under `aimu.aio`:
   - **[aimu/aio/providers/hf_audio.py](aimu/aio/providers/hf_audio.py)**: `AsyncHuggingFaceAudioClient` wraps a sync `HuggingFaceAudioClient` via `asyncio.to_thread`. Properties delegate to the wrapped sync client; no second weight load.
   - **[aimu/aio/audio.py](aimu/aio/audio.py)**: `AsyncAudioClient` factory + `aio.audio_client(sync_client)` + `aio.generate_audio(prompt, *, model, ...)`. The factory refuses direct enum/string construction with a pointer to the wrap pattern.
   - **[aimu/aio/tools/builtin.py](aimu/aio/tools/builtin.py)**: re-exports sync tools from `aimu.tools.builtin`. Async-native `generate_image` lives here; the `generate_audio` tool in `aimu.tools.builtin` is a sync generator and is re-exported as-is (dispatched via `asyncio.to_thread` by the async agent).
@@ -885,48 +885,48 @@ Key files and their roles:
 
 ### Speech Generation
 
-AIMU supports text-to-speech (TTS) generation as a **parallel surface** to the text, image, and audio clients. The hierarchy mirrors audio: one base ABC (`BaseSpeechClient`), one factory class (`SpeechClient`), per-provider concrete clients. Speech is distinct from audio — audio generates music and sounds from a descriptive prompt; speech converts literal text to spoken audio. `BaseSpeechClient` is scoped to TTS only; STT uses `BaseTranscriptionClient` (see "Transcription (Speech-to-Text)" below).
+AIMU supports text-to-speech (TTS) generation as a **parallel surface** to the text, image, and audio clients. The hierarchy mirrors audio: one base ABC (`BaseSpeechClient`), one factory class (`SpeechClient`), per-provider concrete clients. Speech is distinct from audio: audio generates music and sounds from a descriptive prompt; speech converts literal text to spoken audio. `BaseSpeechClient` is scoped to TTS only; STT uses `BaseTranscriptionClient` (see "Transcription (Speech-to-Text)" below).
 
-Two providers ship: **HuggingFace** for local generation (MMS-TTS, BARK), **OpenAI** for cloud TTS (tts-1, tts-1-hd). Both reuse `encode_audio()` for output — no new encoder needed.
+Two providers ship: **HuggingFace** for local generation (MMS-TTS, BARK), **OpenAI** for cloud TTS (tts-1, tts-1-hd). Both reuse `encode_audio()` for output; no new encoder needed.
 
 Key files and their roles:
 
-- **[aimu/models/base.py](aimu/models/base.py)** — extended with speech base types (parallel to audio types):
+- **[aimu/models/base.py](aimu/models/base.py)**: extended with speech base types (parallel to audio types):
   - `SPEECH_GENERATING` added to `StreamingContentType`. Content shape: `{"chunk_index": int, "total_chunks": int | None, "final": bool, "result": Any}`. `total_chunks=None` for OpenAI streaming (unknown upfront); `total_chunks=N` for HuggingFace (single-pass).
   - `StreamChunk.is_speech_progress()` helper (parallel to `is_audio_progress()`).
   - `SpeechSpec` dataclass with `id`, `default_voice`, `default_speed`; id-only `__hash__` and `__eq__`.
   - `HuggingFaceSpeechSpec(SpeechSpec)` with `@dataclass(eq=False)`, adds `pipeline_type` (`"tts_pipeline"` | `"bark"`).
   - `OpenAISpeechSpec(SpeechSpec)` with `@dataclass(eq=False)`.
-  - `SpeechModel(Enum)` base — `__init__` sets `_value_ = spec.id` and stores `self.spec`.
+  - `SpeechModel(Enum)` base: `__init__` sets `_value_ = spec.id` and stores `self.spec`.
   - `BaseSpeechClient(ABC)`: concrete `generate(text, *, voice, speed, num_audio, format, output_dir, stream)` validates args, resolves voice/speed from spec defaults, delegates to abstract `_generate()`, encodes output via `encode_audio()`.
 
-- **[aimu/models/providers/hf/speech.py](aimu/models/providers/hf/speech.py)** — `HuggingFaceSpeechClient` + `HuggingFaceSpeechModel` enum:
+- **[aimu/models/providers/hf/speech.py](aimu/models/providers/hf/speech.py)**: `HuggingFaceSpeechClient` + `HuggingFaceSpeechModel` enum:
   - `HuggingFaceSpeechModel` members: `MMS_TTS_ENG` (`facebook/mms-tts-eng`, `tts_pipeline`), `SPEECHT5` (`microsoft/speecht5_tts`, `speecht5`), `BARK` (`suno/bark`, `bark`).
-  - Lazy pipeline load on first `generate()` call; auto-moves to CUDA/MPS via the shared `_hf_device.py` helpers. `model_kwargs={"device": "cuda:1"}` targets a specific GPU (no sharding default — TTS models are small). The SpeechT5/BARK loaders move to the accelerator by default; the MMS-TTS `pipeline` stays on CPU unless a `device` hint is given.
+  - Lazy pipeline load on first `generate()` call; auto-moves to CUDA/MPS via the shared `_hf_device.py` helpers. `model_kwargs={"device": "cuda:1"}` targets a specific GPU (no sharding default; TTS models are small). The SpeechT5/BARK loaders move to the accelerator by default; the MMS-TTS `pipeline` stays on CPU unless a `device` hint is given.
   - Constructor accepts `HuggingFaceSpeechModel` member, `HuggingFaceSpeechSpec`, or `"hf:<repo_id>"` string (pipeline type inferred from known repo prefixes).
   - Three loader methods: `_load_tts_pipeline()` (HuggingFace `pipeline("text-to-speech", ...)`), `_load_speecht5()` (`SpeechT5ForTextToSpeech` + `SpeechT5HifiGan` vocoder + default CMU Arctic speaker embedding from `datasets`), `_load_bark()` (`BarkProcessor` + `BarkModel`). All return `(sample_rate, np.ndarray)`.
   - SpeechT5 voice selection: `voice=None` uses the pre-loaded default embedding (CMU Arctic index 7306); `voice="N"` loads index N from the xvectors dataset (cached on the client after first lookup). Sample rate: 16 kHz.
   - `import soundfile` is a hard module-load import so `HAS_HF_SPEECH` accurately reflects installed state.
 
-- **[aimu/models/providers/openai/speech.py](aimu/models/providers/openai/speech.py)** — `OpenAISpeechClient` + `OpenAISpeechModel` enum:
+- **[aimu/models/providers/openai/speech.py](aimu/models/providers/openai/speech.py)**: `OpenAISpeechClient` + `OpenAISpeechModel` enum:
   - `OpenAISpeechModel` members: `TTS_1` (`tts-1`), `TTS_1_HD` (`tts-1-hd`).
   - Auth via `OPENAI_API_KEY` env var. Uses `openai.audio.speech.create()` with `response_format="pcm"` (raw 24 kHz 16-bit PCM), decoded to `float32` via `np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0`.
-  - Streaming via `client.audio.with_streaming_response.speech.create(...)` — yields HTTP byte chunks as `SPEECH_GENERATING` progress chunks with `total_chunks=None`.
+  - Streaming via `client.audio.with_streaming_response.speech.create(...)`: yields HTTP byte chunks as `SPEECH_GENERATING` progress chunks with `total_chunks=None`.
 
-- **[aimu/models/speech_client.py](aimu/models/speech_client.py)** — `SpeechClient` factory + `resolve_speech_model_string()` (parallel to `audio_client.py`). Accepts model enum / spec / `"provider:model_id"` string; dispatches on `"hf:"` or `"openai:"` prefix.
+- **[aimu/models/speech_client.py](aimu/models/speech_client.py)**: `SpeechClient` factory + `resolve_speech_model_string()` (parallel to `audio_client.py`). Accepts model enum / spec / `"provider:model_id"` string; dispatches on `"hf:"` or `"openai:"` prefix.
 
-- **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points:
-  - `aimu.speech_client(model, **kwargs)` — one-line constructor.
-  - `aimu.generate_speech(text, *, model, format="path", **kwargs)` — one-shot.
+- **[aimu/__init__.py](aimu/__init__.py)**: top-level entry points:
+  - `aimu.speech_client(model, **kwargs)`: one-line constructor.
+  - `aimu.generate_speech(text, *, model, format="path", **kwargs)`: one-shot.
   - Both raise `ImportError` with install hint when neither `HAS_HF_SPEECH` nor `HAS_OPENAI_SPEECH` is True.
 
-- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `generate_speech` generator tool + `make_speech_tool()` factory:
-  - `generate_speech(text: str)` is a generator `@tool` yielding `SPEECH_GENERATING` chunks and returning the saved WAV path. Backed by a lazy `_speech_client` singleton; model via `AIMU_SPEECH_MODEL` env var (**required**; the tool raises if unset — no default is downloaded).
-  - `make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[float] = None)` — binds a fresh tool to a caller-supplied client.
-  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None)` — `speech_client` kwarg replaces the default singleton when provided; `memory_store` appends `make_memory_tools(store)` when set.
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: `generate_speech` generator tool + `make_speech_tool()` factory:
+  - `generate_speech(text: str)` is a generator `@tool` yielding `SPEECH_GENERATING` chunks and returning the saved WAV path. Backed by a lazy `_speech_client` singleton; model via `AIMU_SPEECH_MODEL` env var (**required**; the tool raises if unset; no default is downloaded).
+  - `make_speech_tool(client, *, voice: Optional[str] = None, speed: Optional[float] = None)`: binds a fresh tool to a caller-supplied client.
+  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None)`: `speech_client` kwarg replaces the default singleton when provided; `memory_store` appends `make_memory_tools(store)` when set.
   - Subgroup `speech = [generate_speech]` (parallel to `audio`, `image`); included in `ALL_TOOLS`.
 
-- **Async twin** — full mirror under `aimu.aio`:
+- **Async twin**: full mirror under `aimu.aio`:
   - **[aimu/aio/providers/hf_speech.py](aimu/aio/providers/hf_speech.py)**: `AsyncHuggingFaceSpeechClient` wraps a sync `HuggingFaceSpeechClient` via `asyncio.to_thread`. Properties delegate to the wrapped sync client; no second weight load.
   - **[aimu/aio/providers/openai_speech.py](aimu/aio/providers/openai_speech.py)**: `AsyncOpenAISpeechClient` wraps a sync `OpenAISpeechClient` via `asyncio.to_thread`.
   - **[aimu/aio/speech.py](aimu/aio/speech.py)**: `AsyncSpeechClient` factory + `aio.speech_client(sync_client)` + `aio.generate_speech(text, *, model, ...)`. The factory refuses direct enum/string construction with a pointer to the wrap pattern. `generate_speech` accepts both existing sync clients and enum/string model identifiers (mirrors sync surface).
@@ -947,36 +947,36 @@ Two providers ship: **OpenAI** for cloud ASR (whisper-1, gpt-4o-transcribe, gpt-
 
 Key files and their roles:
 
-- **[aimu/models/base.py](aimu/models/base.py)** — extended with transcription base types:
+- **[aimu/models/base.py](aimu/models/base.py)**: extended with transcription base types:
   - `TranscriptionSpec` dataclass with `id`, `default_language`, `supports_timestamps`, `supports_translation`; id-only `__hash__` and `__eq__`.
   - `HuggingFaceTranscriptionSpec(TranscriptionSpec)` with `@dataclass(eq=False)` (no additional fields in the first catalog).
   - `OpenAITranscriptionSpec(TranscriptionSpec)` with `@dataclass(eq=False)`.
-  - `TranscriptionModel(Enum)` base — `__init__` sets `_value_ = spec.id` and stores `self.spec`.
-  - `BaseTranscriptionClient(ABC)`: concrete `transcribe(audio, *, language, response_format, prompt, temperature) -> str | dict` validates args, normalises `audio` input (same forms as `audio=` on `chat()` — file path, raw bytes, `https://` URL, `data:audio/...` URL), delegates to abstract `_transcribe()`.
+  - `TranscriptionModel(Enum)` base: `__init__` sets `_value_ = spec.id` and stores `self.spec`.
+  - `BaseTranscriptionClient(ABC)`: concrete `transcribe(audio, *, language, response_format, prompt, temperature) -> str | dict` validates args, normalises `audio` input (same forms as `audio=` on `chat()`: file path, raw bytes, `https://` URL, `data:audio/...` URL), delegates to abstract `_transcribe()`.
   - `response_format` options: `"text"` (default, plain string), `"json"` (dict with `text` key), `"verbose_json"` (dict with `text`, `segments` start/end/text, `language`, `duration`). `"verbose_json"` requires `supports_timestamps=True` on the spec.
 
-- **[aimu/models/providers/openai/transcription.py](aimu/models/providers/openai/transcription.py)** — `OpenAITranscriptionClient` + `OpenAITranscriptionModel` enum:
+- **[aimu/models/providers/openai/transcription.py](aimu/models/providers/openai/transcription.py)**: `OpenAITranscriptionClient` + `OpenAITranscriptionModel` enum:
   - `OpenAITranscriptionModel` members: `WHISPER_1` (`whisper-1`, timestamps+translation), `GPT_4O_TRANSCRIBE` (`gpt-4o-transcribe`, timestamps only), `GPT_4O_MINI_TRANSCRIBE` (`gpt-4o-mini-transcribe`, timestamps only).
   - Auth via `OPENAI_API_KEY` env var. Uses `openai.audio.transcriptions.create()` from the same `openai` SDK as `OpenAICompatClient`.
 
-- **[aimu/models/providers/hf/transcription.py](aimu/models/providers/hf/transcription.py)** — `HuggingFaceTranscriptionClient` + `HuggingFaceTranscriptionModel` enum:
+- **[aimu/models/providers/hf/transcription.py](aimu/models/providers/hf/transcription.py)**: `HuggingFaceTranscriptionClient` + `HuggingFaceTranscriptionModel` enum:
   - `HuggingFaceTranscriptionModel` members: `WHISPER_TINY` (`openai/whisper-tiny`), `WHISPER_BASE` (`openai/whisper-base`), `WHISPER_SMALL` (`openai/whisper-small`), `WHISPER_MEDIUM` (`openai/whisper-medium`), `WHISPER_LARGE_V3` (`openai/whisper-large-v3`), `DISTIL_WHISPER_LARGE_V3` (`distil-whisper/distil-large-v3`). All have `supports_timestamps=True, supports_translation=True`.
   - Lazy pipeline load on first `transcribe()` call via `transformers.pipeline("automatic-speech-recognition", ...)`; auto-moves to CUDA/MPS via the shared `_hf_device.py` helpers.
-  - Module-level weight caching via `_model_registry` keyed on `(spec.id, *sorted_model_kwargs)` — same pattern as all other HF clients.
+  - Module-level weight caching via `_model_registry` keyed on `(spec.id, *sorted_model_kwargs)`, the same pattern as all other HF clients.
 
-- **[aimu/models/transcription_client.py](aimu/models/transcription_client.py)** — `TranscriptionClient` factory + `resolve_transcription_model_string()` (parallel to `speech_client.py`). Accepts model enum / spec / `"provider:model_id"` string; dispatches on `"hf:"` or `"openai:"` prefix.
+- **[aimu/models/transcription_client.py](aimu/models/transcription_client.py)**: `TranscriptionClient` factory + `resolve_transcription_model_string()` (parallel to `speech_client.py`). Accepts model enum / spec / `"provider:model_id"` string; dispatches on `"hf:"` or `"openai:"` prefix.
 
-- **[aimu/__init__.py](aimu/__init__.py)** — top-level entry points:
-  - `aimu.transcription_client(model=None, **kwargs)` — one-line constructor; reads `AIMU_TRANSCRIPTION_MODEL` env var when `model=` is omitted.
-  - `aimu.transcribe(audio, *, model=None, **kwargs)` — one-shot.
+- **[aimu/__init__.py](aimu/__init__.py)**: top-level entry points:
+  - `aimu.transcription_client(model=None, **kwargs)`: one-line constructor; reads `AIMU_TRANSCRIPTION_MODEL` env var when `model=` is omitted.
+  - `aimu.transcribe(audio, *, model=None, **kwargs)`: one-shot.
   - Both raise `ImportError` with install hint when neither `HAS_HF_TRANSCRIPTION` nor `HAS_OPENAI_TRANSCRIPTION` is True.
 
-- **[aimu/tools/builtin.py](aimu/tools/builtin.py)** — `transcribe_audio` tool + `make_transcription_tool()` factory:
-  - `transcribe_audio(audio_path: str) -> str` is a `@tool`-decorated function returning the transcribed text. Backed by a lazy `_transcription_client` singleton; model via `AIMU_TRANSCRIPTION_MODEL` env var (**required**; the tool raises if unset — no default is downloaded).
-  - `make_transcription_tool(client)` — binds a fresh tool to a caller-supplied client.
+- **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: `transcribe_audio` tool + `make_transcription_tool()` factory:
+  - `transcribe_audio(audio_path: str) -> str` is a `@tool`-decorated function returning the transcribed text. Backed by a lazy `_transcription_client` singleton; model via `AIMU_TRANSCRIPTION_MODEL` env var (**required**; the tool raises if unset; no default is downloaded).
+  - `make_transcription_tool(client)`: binds a fresh tool to a caller-supplied client.
   - Subgroup `transcription = [transcribe_audio]` (parallel to `audio`, `speech`, `image`); included in `ALL_TOOLS`.
 
-- **Async twin** — full mirror under `aimu.aio`:
+- **Async twin**: full mirror under `aimu.aio`:
   - `AsyncTranscriptionClient` wraps a sync `BaseTranscriptionClient` via `asyncio.to_thread`. Properties delegate to the wrapped sync client; no second weight load.
   - `aio.transcription_client(sync_client)` factory refuses direct enum/string construction with a pointer to the wrap pattern (same as every other aio modality).
   - `await aio.transcribe(audio, *, model, ...)` one-shot (same signature as sync `aimu.transcribe()` plus `await`).
@@ -995,28 +995,28 @@ AIMU provides a dedicated text-embedding surface via `aimu.embedding_client()` a
 
 Three providers ship: **OpenAI** (cloud), **Ollama** (local server), **HuggingFace** (local, via `sentence-transformers`).
 
-- **[aimu/models/_base/embedding.py](aimu/models/_base/embedding.py)** — base types (parallel to `_base/audio.py`):
+- **[aimu/models/_base/embedding.py](aimu/models/_base/embedding.py)**: base types (parallel to `_base/audio.py`):
   - `EmbeddingSpec` (id-only equality/hash): `id`, `dimensions`, `max_input_tokens`. Subclasses `OpenAIEmbeddingSpec`, `OllamaEmbeddingSpec`, `HuggingFaceEmbeddingSpec` (adds `normalize: bool = True`), all `@dataclass(eq=False)`.
-  - `EmbeddingModel(Enum)` base — `__init__` sets `_value_ = spec.id` and stores `self.spec`.
+  - `EmbeddingModel(Enum)` base: `__init__` sets `_value_ = spec.id` and stores `self.spec`.
   - `BaseEmbeddingClient(ABC)`: concrete `embed(texts, **kwargs)` normalizes a single `str` to one vector (`list[float]`) and a list to a list of vectors (`list[list[float]]`, order preserved); empty list → `[]`; non-string items raise `ValueError`. Delegates to abstract `_embed(texts: list[str], **kwargs) -> list[list[float]]`. Exposes `dimensions` (from the spec).
 - **[aimu/models/providers/openai/embedding.py](aimu/models/providers/openai/embedding.py)**: `OpenAIEmbeddingClient` + `OpenAIEmbeddingModel` (`TEXT_EMBEDDING_3_SMALL/LARGE`, `TEXT_EMBEDDING_ADA_002`). Uses `openai.embeddings.create()`; reads `OPENAI_API_KEY`. `dimensions=` (OpenAI's vector-truncation param) is forwarded via `embed(..., dimensions=N)`.
 - **[aimu/models/providers/ollama.py](aimu/models/providers/ollama.py)**: `OllamaEmbeddingClient` + `OllamaEmbeddingModel` (`nomic-embed-text`, `mxbai-embed-large`, `bge-m3`, `all-minilm`). Uses `ollama.embed()`; pulls the model on construction (same as `OllamaClient`).
-- **[aimu/models/providers/hf/embedding.py](aimu/models/providers/hf/embedding.py)**: `HuggingFaceEmbeddingClient` + `HuggingFaceEmbeddingModel` (MiniLM-L6-v2, BGE small/base/large-en-v1.5, GTE-large, E5-large-v2, mxbai-embed-large-v1). Backed by `sentence_transformers.SentenceTransformer` so each model's own pooling/normalization config is honoured (avoids hand-rolled pooling that is silently wrong per model). Lazy load + module-level `_model_registry` weight cache (same pattern as the other HF clients; cleared by `aimu.clear_hf_cache()`, which includes `models.providers.hf.embedding`). `_embed` defaults `normalize_embeddings` to `spec.normalize` (overridable per call). Hard `import sentence_transformers` so `HAS_HF_EMBEDDING` reflects installed state. Retrieval-tuned models (BGE / E5) expect `"query: "` / `"passage: "` prefixes for asymmetric retrieval — the client does not auto-prepend; pass prefixed strings when needed.
+- **[aimu/models/providers/hf/embedding.py](aimu/models/providers/hf/embedding.py)**: `HuggingFaceEmbeddingClient` + `HuggingFaceEmbeddingModel` (MiniLM-L6-v2, BGE small/base/large-en-v1.5, GTE-large, E5-large-v2, mxbai-embed-large-v1). Backed by `sentence_transformers.SentenceTransformer` so each model's own pooling/normalization config is honoured (avoids hand-rolled pooling that is silently wrong per model). Lazy load + module-level `_model_registry` weight cache (same pattern as the other HF clients; cleared by `aimu.clear_hf_cache()`, which includes `models.providers.hf.embedding`). `_embed` defaults `normalize_embeddings` to `spec.normalize` (overridable per call). Hard `import sentence_transformers` so `HAS_HF_EMBEDDING` reflects installed state. Retrieval-tuned models (BGE / E5) expect `"query: "` / `"passage: "` prefixes for asymmetric retrieval; the client does not auto-prepend, so pass prefixed strings when needed.
 - **[aimu/models/embedding_client.py](aimu/models/embedding_client.py)**: `EmbeddingClient` factory + `resolve_embedding_model_string()` (mirrors `transcription_client.py`). Dispatches on `"openai:"` / `"ollama:"` / `"hf:"`.
-- **[aimu/__init__.py](aimu/__init__.py)**: `aimu.embedding_client(model=None, **kwargs)` and `aimu.embed(texts, *, model=None, **kwargs)`. When `model` is omitted, reads `AIMU_EMBEDDING_MODEL` via `resolve_default_modality_model()`; unset raises `ValueError` listing any locally available embedders (running Ollama → HF cache, via `available_embedding_models()`) — never auto-selected, since a mismatched embedder silently corrupts a persisted vector store; no implicit download.
-- **Memory integration**: `SemanticMemoryStore(embedding_client=...)` adapts the client to a ChromaDB `EmbeddingFunction` (`_EmbeddingClientFunction`, which returns `NotImplemented` from `get_config()` to skip config persistence). Default `None` keeps ChromaDB's built-in embedder — unchanged behaviour. A custom embedding model isn't persisted in the collection config, so reopen a persistent store with the same `embedding_client=`.
+- **[aimu/__init__.py](aimu/__init__.py)**: `aimu.embedding_client(model=None, **kwargs)` and `aimu.embed(texts, *, model=None, **kwargs)`. When `model` is omitted, reads `AIMU_EMBEDDING_MODEL` via `resolve_default_modality_model()`; unset raises `ValueError` listing any locally available embedders (running Ollama → HF cache, via `available_embedding_models()`); never auto-selected, since a mismatched embedder silently corrupts a persisted vector store; no implicit download.
+- **Memory integration**: `SemanticMemoryStore(embedding_client=...)` adapts the client to a ChromaDB `EmbeddingFunction` (`_EmbeddingClientFunction`, which returns `NotImplemented` from `get_config()` to skip config persistence). Default `None` keeps ChromaDB's built-in embedder, unchanged behaviour. A custom embedding model isn't persisted in the collection config, so reopen a persistent store with the same `embedding_client=`.
 - **Async** ([aimu/aio/embedding.py](aimu/aio/embedding.py)): `aio.embedding_client(sync_client)` wraps any sync `BaseEmbeddingClient` via `asyncio.to_thread` (one provider-agnostic wrapper, since all embedding clients share `embed()`); refuses enum/string construction with a pointer to the wrap pattern. `aio.embed(texts, *, model=...)` accepts a sync client or builds one via `aimu.embedding_client(model)`.
 - **Optional dep flags**: `HAS_OPENAI_EMBEDDING`, `HAS_OLLAMA_EMBEDDING`, `HAS_HF_EMBEDDING` (the last requires `sentence-transformers`, added to the `[hf]` extra). `available_embedding_clients()` returns installed provider clients.
 - **Tests**: `tests/test_embeddings_api.py` (mock-only; HF tests stub `sentence_transformers` and import the provider fresh), `tests/test_aio_embeddings_api.py` (wrap refusal, state sharing, async embed), `tests/test_embeddings.py` (live, opt-in; `--embedding-client` / `--embedding-model` flags).
 
 ### Token Usage Surfacing
 
-`client.last_usage` holds token counts for the most recent **non-streaming** `chat()` / `generate()` as `{"input_tokens", "output_tokens", "total_tokens"}`, or `None` when the provider/server omitted usage. Normalizers live in [aimu/models/_internal/usage.py](aimu/models/_internal/usage.py) (`usage_from_openai` / `usage_from_anthropic` / `usage_from_ollama`); each provider sets `self.last_usage` after its final response. Captured for Anthropic, OpenAI-compat (incl. OpenAI/Gemini/local servers), and Ollama, on both sync and async surfaces; delegated through the `ModelClient` / `AsyncModelClient` wrappers (mirroring `last_thinking`). Streaming paths reset it to `None` (streaming usage capture is a deferred follow-up), as does `reset()`. In-process providers (HuggingFace, LlamaCpp) leave it `None`. Token counts only — dollar cost is intentionally not computed (it would need a maintained per-model price table).
+`client.last_usage` holds token counts for the most recent **non-streaming** `chat()` / `generate()` as `{"input_tokens", "output_tokens", "total_tokens"}`, or `None` when the provider/server omitted usage. Normalizers live in [aimu/models/_internal/usage.py](aimu/models/_internal/usage.py) (`usage_from_openai` / `usage_from_anthropic` / `usage_from_ollama`); each provider sets `self.last_usage` after its final response. Captured for Anthropic, OpenAI-compat (incl. OpenAI/Gemini/local servers), and Ollama, on both sync and async surfaces; delegated through the `ModelClient` / `AsyncModelClient` wrappers (mirroring `last_thinking`). Streaming paths reset it to `None` (streaming usage capture is a deferred follow-up), as does `reset()`. In-process providers (HuggingFace, LlamaCpp) leave it `None`. Token counts only; dollar cost is intentionally not computed (it would need a maintained per-model price table).
 
 ### Cloud Provider Client Notes
 
 - **`OpenAIClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://api.openai.com/v1`; reads `OPENAI_API_KEY`. Overrides `_update_generate_kwargs` to rename `max_tokens → max_completion_tokens` and force `temperature=1` for o-series models (o1/o3/o4 prefix). Lives in [aimu/models/providers/openai/text.py](aimu/models/providers/openai/text.py).
-- **`AnthropicClient`** (`aimu[anthropic]`): full implementation using the native `anthropic` SDK; reads `ANTHROPIC_API_KEY`. `self.messages` is always stored in OpenAI format; conversion to Anthropic format (`_openai_messages_to_anthropic`) and tool format conversion (`_openai_tools_to_anthropic`) happen at call time. After `_handle_tool_calls()` assigns random IDs, `_patch_tool_ids()` replaces them with Anthropic's original `tool_use` block IDs so that tool results are correctly matched. Thinking is native (not `<think>` tag parsing) and `_thinking_kwargs()` builds the request per the model's `ThinkingStyle`: `ENABLED` → `{"type": "enabled", "budget_tokens": N}` (Opus 4.6, Sonnet 4.6, Haiku 4.5); `ADAPTIVE` → `{"type": "adaptive", "display": "summarized"}` with sampling params stripped (Opus 4.7, Opus 4.8, Fable 5 — the `enabled` form 400s on these). Catalog: `CLAUDE_FABLE_5`, `CLAUDE_OPUS_4_8`, `CLAUDE_OPUS_4_7`, `CLAUDE_OPUS_4_6`, `CLAUDE_SONNET_4_6`, `CLAUDE_HAIKU_4_5`. See "Thinking Models" above for the `ThinkingStyle` rationale.
+- **`AnthropicClient`** (`aimu[anthropic]`): full implementation using the native `anthropic` SDK; reads `ANTHROPIC_API_KEY`. `self.messages` is always stored in OpenAI format; conversion to Anthropic format (`_openai_messages_to_anthropic`) and tool format conversion (`_openai_tools_to_anthropic`) happen at call time. After `_handle_tool_calls()` assigns random IDs, `_patch_tool_ids()` replaces them with Anthropic's original `tool_use` block IDs so that tool results are correctly matched. Thinking is native (not `<think>` tag parsing) and `_thinking_kwargs()` builds the request per the model's `ThinkingStyle`: `ENABLED` → `{"type": "enabled", "budget_tokens": N}` (Opus 4.6, Sonnet 4.6, Haiku 4.5); `ADAPTIVE` → `{"type": "adaptive", "display": "summarized"}` with sampling params stripped (Opus 4.7, Opus 4.8, Fable 5, which 400 on the `enabled` form). Catalog: `CLAUDE_FABLE_5`, `CLAUDE_OPUS_4_8`, `CLAUDE_OPUS_4_7`, `CLAUDE_OPUS_4_6`, `CLAUDE_SONNET_4_6`, `CLAUDE_HAIKU_4_5`. See "Thinking Models" above for the `ThinkingStyle` rationale.
 - **`GeminiClient`** (`aimu[openai_compat]`): thin subclass of `OpenAICompatClient` pointing at `https://generativelanguage.googleapis.com/v1beta/openai/`; reads `GOOGLE_API_KEY`. Gemini 2.5 thinking models emit `<think>` tags on this endpoint, so `_ThinkingParser` works as-is. Lives in [aimu/models/providers/gemini/text.py](aimu/models/providers/gemini/text.py).
 - Test with `pytest tests/test_models.py --client=openai` (or `anthropic`, `gemini`)
 
@@ -1025,7 +1025,7 @@ Three providers ship: **OpenAI** (cloud), **Ollama** (local server), **HuggingFa
 ```
 aimu/
 ├── __init__.py          # Top-level API (aimu.chat, aimu.client, resolve_model_string) + `from . import aio`
-├── aio/                 # Async surface — mirrors public sync API one-for-one (opt-in)
+├── aio/                 # Async surface: mirrors public sync API one-for-one (opt-in)
 │   ├── __init__.py      # Exports chat, client, AsyncModelClient, Agent, SkillAgent, Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator, OrchestratorAgent, MCPClient
 │   ├── _base.py         # AsyncBaseModelClient (uses asyncio.TaskGroup for concurrent_tool_calls)
 │   ├── _model_client.py # AsyncModelClient factory + top-level client()/chat()
@@ -1035,14 +1035,14 @@ aimu/
 │   ├── agentic_client.py # internal _AsyncAgenticView for Agent.as_model_client()
 │   ├── orchestrator_agent.py # async OrchestratorAgent + assemble()
 │   ├── a2a/             # async A2A interop (a2a extra): RemoteAgent + serve_a2a (native async client)
-│   │   ├── client.py        # async RemoteAgent(AsyncRunner) — native a2a-sdk client + message/stream
+│   │   ├── client.py        # async RemoteAgent(AsyncRunner): native a2a-sdk client + message/stream
 │   │   └── server.py        # async serve_a2a/build_a2a_app (awaits runner.run directly)
 │   ├── providers/       # Async provider clients (mirrors aimu/models/providers/)
 │   │   ├── anthropic.py      # AsyncAnthropicClient (anthropic.AsyncAnthropic)
 │   │   ├── openai_compat.py  # AsyncOpenAICompatClient base + local-server subclasses
 │   │   ├── ollama.py         # AsyncOllamaClient (ollama.AsyncClient)
-│   │   ├── llamacpp.py       # AsyncLlamaCppClient (wraps sync LlamaCppClient — Decision 7)
-│   │   ├── hf/               # HuggingFace async clients (wrap sync — Decision 7)
+│   │   ├── llamacpp.py       # AsyncLlamaCppClient (wraps sync LlamaCppClient, Decision 7)
+│   │   ├── hf/               # HuggingFace async clients (wrap sync, Decision 7)
 │   │   │   ├── text.py           # AsyncHuggingFaceClient
 │   │   │   ├── image.py          # AsyncHuggingFaceImageClient
 │   │   │   ├── audio.py          # AsyncHuggingFaceAudioClient
@@ -1085,21 +1085,21 @@ aimu/
 │   ├── transcription_client.py # TranscriptionClient factory + resolve_transcription_model_string
 │   ├── embedding_client.py # EmbeddingClient factory + resolve_embedding_model_string
 │   ├── _internal/       # Private cross-cutting helpers (never re-exported)
-│   │   ├── chat_state.py    # _ChatStateMixin — system_message/reset/append (shared sync+async)
-│   │   ├── streaming.py     # resolve_include, filter_chunks, afilter_chunks — stream helpers
+│   │   ├── chat_state.py    # _ChatStateMixin: system_message/reset/append (shared sync+async)
+│   │   ├── streaming.py     # resolve_include, filter_chunks, afilter_chunks: stream helpers
 │   │   ├── json.py          # parse_json_response, generate_json, extract_tool_calls
-│   │   ├── usage.py         # usage_from_openai/anthropic/ollama — normalize token usage → client.last_usage
+│   │   ├── usage.py         # usage_from_openai/anthropic/ollama: normalize token usage → client.last_usage
 │   │   ├── model_defaults.py # default-model resolution + local-availability discovery (env + local probes); backs available_text_models / resolve_default_text_model_enum
 │   │   ├── image_input.py   # vision-input normalization (_normalize_image, per-provider adapters)
-│   │   ├── image_output.py  # encode_image() — diffusion-output format conversion
-│   │   └── audio_output.py  # encode_audio() — audio/speech-output conversion (WAV); reused by speech
+│   │   ├── image_output.py  # encode_image(): diffusion-output format conversion
+│   │   └── audio_output.py  # encode_audio(): audio/speech-output conversion (WAV); reused by speech
 │   └── providers/       # Concrete provider clients, one module per provider
 │       ├── anthropic.py     # AnthropicClient + AnthropicModel
 │       ├── ollama.py        # OllamaClient + OllamaModel (native API) + OllamaEmbeddingClient + OllamaEmbeddingModel
 │       ├── llamacpp.py      # LlamaCppClient + LlamaCppModel (requires llamacpp extra)
 │       ├── openai_compat.py # OpenAICompatClient base + local-server subclasses
 │       │                    #   (LMStudio/OllamaOpenAI/HFOpenAI/VLLM/LlamaServer/SGLang) (requires openai package)
-│       ├── _thinking.py     # _split_thinking / _ThinkingParser — used by llamacpp + openai_compat
+│       ├── _thinking.py     # _split_thinking / _ThinkingParser: used by llamacpp + openai_compat
 │       ├── hf/              # HuggingFace in-process clients, by modality
 │       │   ├── _device.py       # GPU-placement helpers (HF-only): device hint, cuda/mps fallback, memory-aware auto_place_pipeline()
 │       │   ├── text.py          # HuggingFaceClient, HuggingFaceModel, ToolCallFormat
@@ -1120,7 +1120,7 @@ aimu/
 │   ├── decorator.py     # @tool decorator + ToolSignatureError; sets __tool_is_async__ flag
 │   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech/transcription subgroups (incl. lazy generate_image, generate_audio, generate_speech, transcribe_audio) + make_memory_tools() factory
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping() + .as_tools()
-│   ├── mcp_format.py    # mcp_tools_to_openai() + mcp_content_to_text() — shared by sync & async MCPClient (get_tools/as_tools)
+│   ├── mcp_format.py    # mcp_tools_to_openai() + mcp_content_to_text(): shared by sync & async MCPClient (get_tools/as_tools)
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
 ├── agents/              # Agents and workflow patterns (single Runner ABC)
 │   ├── base.py          # Runner ABC (+ Runner.as_tool()) + MessageHistory + decision-tree docstring
@@ -1129,7 +1129,7 @@ aimu/
 │   ├── agentic_client.py # Internal _AgenticView (not public; use Agent.as_model_client())
 │   ├── orchestrator_agent.py # OrchestratorAgent + _init_orchestrator() + assemble(workers: list[Runner])
 │   ├── a2a/             # A2A interop (a2a extra; guarded HAS_A2A): RemoteAgent + serve_a2a
-│   │   ├── _card.py         # pure A2A<->AIMU adapters (card build, message build, text extract) — shared sync+async
+│   │   ├── _card.py         # pure A2A<->AIMU adapters (card build, message build, text extract): shared sync+async
 │   │   ├── client.py        # RemoteAgent(Runner) + A2AConnectionError (anyio portal over a2a-sdk)
 │   │   ├── server.py        # serve_a2a() + build_a2a_app() wrapping any Runner as an A2A server
 │   │   └── __main__.py      # python -m aimu.agents.a2a (serve an Agent from the CLI)
@@ -1243,4 +1243,4 @@ examples/                       # Runnable, real-world programs (kept out of the
 - MCP tools tested with mock FastMCP servers
 - `test_models_api.py` covers the public model surface (top-level `resolve_model_string`, `ModelSpec`, `StreamChunk` helpers, `system_message` lifecycle, `include=` stream filter) with mocks only; no backend required. Workflow factory and orchestrator coverage lives in each workflow's dedicated test file.
 - **Async tests** (`test_aio_*.py`) use `pytest-asyncio` in `asyncio_mode = "auto"`. Session-scoped event loop (`asyncio_default_fixture_loop_scope = "session"`, `asyncio_default_test_loop_scope = "session"`) so a single live `httpx.AsyncClient` survives across multiple tests parametrized on the same fixture. Async mocks live in `tests/helpers_aio.py` (`MockAsyncModelClient`, `resolve_async_model_params`, `create_real_async_model_client`).
-- The `test_aio_workflow_parallel.py` correctness pair (`test_parallel_overlaps_workers` + `test_parallel_cancels_siblings_on_failure`) validates the `asyncio.TaskGroup` win — overlap < 0.9s for two 0.5s workers, and sibling cancellation + `ExceptionGroup` on first failure.
+- The `test_aio_workflow_parallel.py` correctness pair (`test_parallel_overlaps_workers` + `test_parallel_cancels_siblings_on_failure`) validates the `asyncio.TaskGroup` win: overlap < 0.9s for two 0.5s workers, and sibling cancellation + `ExceptionGroup` on first failure.

@@ -1,6 +1,6 @@
 # Architecture
 
-The whole library fits in your head. There are three load-bearing abstractions for text plus a parallel image-generation surface — nothing more.
+The whole library fits in your head. There are three load-bearing abstractions for text plus a parallel image-generation surface, nothing more.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -19,7 +19,7 @@ The whole library fits in your head. There are three load-bearing abstractions f
 │   └─ GeminiImageClient       (Nano Banana, cloud)            │
 │  Each implements BaseImageClient (generate / _generate)      │
 ├──────────────────────────────────────────────────────────────┤
-│  Runner (ABC)  — single interface for everything runnable    │
+│  Runner (ABC): single interface for everything runnable      │
 │   ├─ Agent / SkillAgent / OrchestratorAgent                  │
 │   │     (autonomous: LLM directs flow)                       │
 │   └─ Chain / Router / Parallel /                             │
@@ -47,9 +47,9 @@ class BaseModelClient(ABC):
     def reset(system_message="__keep__") -> None
 ```
 
-`chat()` and `generate()` are **concrete** on the base — they apply the `include=` stream filter and delegate to abstract `_chat()` / `_generate()` which each provider implements. This split means a new feature like `include=` lands in one place and works everywhere.
+`chat()` and `generate()` are **concrete** on the base: they apply the `include=` stream filter and delegate to abstract `_chat()` / `_generate()` which each provider implements. This split means a new feature like `include=` lands in one place and works everywhere.
 
-Message history is a plain `list[dict]` in OpenAI format. There is no `Message` class — providers like Anthropic that need a different wire format adapt at request time, never mutating `self.messages`.
+Message history is a plain `list[dict]` in OpenAI format. There is no `Message` class. Providers like Anthropic that need a different wire format adapt at request time, never mutating `self.messages`.
 
 ## The factory: `ModelClient`
 
@@ -60,7 +60,7 @@ ModelClient("ollama:qwen3.5:9b")   # or by string prefix
 
 `ModelClient` is the single public entry point. It dispatches by checking the `Model` enum type against a registry, instantiates the matching concrete client, and delegates every method to it.
 
-Provider client classes (`OllamaClient`, `AnthropicClient`, ...) still exist and can be imported, but `ModelClient` is the recommended path — it keeps your code provider-agnostic.
+Provider client classes (`OllamaClient`, `AnthropicClient`, ...) still exist and can be imported, but `ModelClient` is the recommended path: it keeps your code provider-agnostic.
 
 ## Model definitions: `ModelSpec` + `Model` enum
 
@@ -77,9 +77,9 @@ class AnthropicModel(Model):
 
 Each enum member exposes:
 
-- `.value` — the provider id string (preserved for `provider.sdk(model="...")` calls)
-- `.spec` — the underlying `ModelSpec`
-- `.supports_tools` / `.supports_thinking` / `.supports_vision` — mirrored flags
+- `.value`: the provider id string (preserved for `provider.sdk(model="...")` calls)
+- `.spec`: the underlying `ModelSpec`
+- `.supports_tools` / `.supports_thinking` / `.supports_vision`: mirrored flags
 - Classproperties `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` derive automatically
 
 ## Agents and workflows: `Runner`
@@ -98,8 +98,8 @@ class Runner(ABC):
 
 There's a single `Runner` ABC. The autonomous-vs-code-controlled split survives as a *categorisation of concrete classes*, not a type hierarchy:
 
-- **Autonomous** — the LLM directs flow. `Agent` keeps looping until the model stops calling tools; `SkillAgent` and `OrchestratorAgent` extend that.
-- **Code-controlled** — code directs flow. `Chain` runs steps in a fixed order; `Router` classifies and dispatches; `Parallel` fans out; `EvaluatorOptimizer` iterates generate→critique; `PlanExecuteEvaluator` plans→executes→scores→replans.
+- **Autonomous**: the LLM directs flow. `Agent` keeps looping until the model stops calling tools; `SkillAgent` and `OrchestratorAgent` extend that.
+- **Code-controlled**: code directs flow. `Chain` runs steps in a fixed order; `Router` classifies and dispatches; `Parallel` fans out; `EvaluatorOptimizer` iterates generate→critique; `PlanExecuteEvaluator` plans→executes→scores→replans.
 
 All concrete classes live in `aimu.agents`. This is the *Building Effective Agents* taxonomy made concrete. See [Agents vs workflows](agents-vs-workflows.md) for the underlying argument.
 
@@ -115,7 +115,7 @@ Image generation lives next to the text client, not inside it. The shape mirrors
 | `ModelClient` (factory) | `ImageClient` (factory) |
 | `aimu.client()` / `aimu.chat()` | `aimu.image_client()` / `aimu.generate_image()` |
 
-`BaseImageClient` does *not* subclass `BaseModelClient` — text and image have disjoint contracts. `chat()`, `messages`, `system_message`, `tools`, and `StreamChunk` phases are meaningless for stateless text-to-image. Forcing the modalities into one class would expand the public surface and bleed irrelevant fields into image users' code.
+`BaseImageClient` does *not* subclass `BaseModelClient`; text and image have disjoint contracts. `chat()`, `messages`, `system_message`, `tools`, and `StreamChunk` phases are meaningless for stateless text-to-image. Forcing the modalities into one class would expand the public surface and bleed irrelevant fields into image users' code.
 
 What the two surfaces share is *shape*, not implementation: the same factory-plus-concretes pattern, the same `provider:id` string format, the same per-provider extras (`[hf]` covers both HF text and HF image; `[google]` is image-only since text-side Gemini uses the OpenAI-compat endpoint), and the same dispatch story (enum / spec / string → concrete client via the factory).
 
@@ -125,24 +125,24 @@ See [How-to: generate images](../how-to/generate-images.md) for the runnable pat
 
 ## Two surfaces, one shape
 
-Everything above describes the **sync** surface — `aimu.client()`, `aimu.agents.Agent`, etc. AIMU also ships an opt-in **async** surface under `aimu.aio` that mirrors this shape one-for-one. Same class names, same `Runner` decision tree, same `StreamChunk` type, same `_ChatStateMixin` for state mechanics. The only differences are at the call site (`await`), the streaming type (`AsyncIterator[StreamChunk]`), and the concurrency primitive used by `Parallel` and `concurrent_tool_calls` (`asyncio.TaskGroup` instead of `ThreadPoolExecutor`).
+Everything above describes the **sync** surface: `aimu.client()`, `aimu.agents.Agent`, etc. AIMU also ships an opt-in **async** surface under `aimu.aio` that mirrors this shape one-for-one. Same class names, same `Runner` decision tree, same `StreamChunk` type, same `_ChatStateMixin` for state mechanics. The only differences are at the call site (`await`), the streaming type (`AsyncIterator[StreamChunk]`), and the concurrency primitive used by `Parallel` and `concurrent_tool_calls` (`asyncio.TaskGroup` instead of `ThreadPoolExecutor`).
 
 ```
-aimu.{chat, client, Agent, Chain, …}        # sync — default
-aimu.aio.{chat, client, Agent, Chain, …}    # async — opt-in
+aimu.{chat, client, Agent, Chain, …}        # sync (default)
+aimu.aio.{chat, client, Agent, Chain, …}    # async (opt-in)
 ```
 
 The sync ladder is unchanged for users who don't need async. See [async design](async-design.md) for the design decisions.
 
 ## Streaming: one chunk type everywhere
 
-`StreamChunk(phase, content, agent=None, iteration=0)` is the single chunk type yielded by every streaming path — `client.chat()`, `Agent.run()`, every workflow `run()`. Earlier versions had separate `AgentChunk` and `ChainChunk` named tuples; both were collapsed into `StreamChunk`.
+`StreamChunk(phase, content, agent=None, iteration=0)` is the single chunk type yielded by every streaming path: `client.chat()`, `Agent.run()`, every workflow `run()`. Earlier versions had separate `AgentChunk` and `ChainChunk` named tuples; both were collapsed into `StreamChunk`.
 
 The `agent` and `iteration` fields are populated by agents/workflows and default to `None` / `0` for plain chats. See [StreamChunk model](streamchunk-model.md) for the design argument.
 
 ## Tool integration: `@tool` and `MCPClient`
 
-Two routes, both end up as callables in one registry — `client.tools` — from which the base client builds the OpenAI-format spec list it sends to the model:
+Two routes, both end up as callables in one registry (`client.tools`) from which the base client builds the OpenAI-format spec list it sends to the model:
 
 - **`@tool` decorator** runs in-process. The decorator inspects the signature at decoration time and attaches a spec to `func.__tool_spec__`. The model client looks up tools by `__name__` and dispatches via direct function call.
 - **`MCPClient.as_tools()`** wraps a FastMCP server's tools as callables (each closes over the client and calls `call_tool(name, args)` cross-process), carrying `__tool_spec__` just like a `@tool` function. Add them to `client.tools`.
@@ -154,7 +154,7 @@ Both kinds coexist in the same list and dispatch through one by-name lookup; on 
 | Package | Role |
 |---|---|
 | `aimu` | Top-level `chat()`, `client()`, `image_client()`, `generate_image()`, re-exports |
-| `aimu.aio` | Async mirror of the public sync surface — same class names, `async def` everywhere |
+| `aimu.aio` | Async mirror of the public sync surface: same class names, `async def` everywhere |
 | `aimu.models` | Text: `ModelClient`, `BaseModelClient`, `ModelSpec`, `StreamChunk`, provider clients. Image: `ImageClient`, `BaseImageClient`, `ImageSpec`, `HuggingFaceImageClient`, `GeminiImageClient` |
 | `aimu.agents` | `Runner` ABC; `Agent`, `SkillAgent`, `OrchestratorAgent`; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` |
 | `aimu.tools` | `@tool` decorator, `MCPClient`, `builtin.*` tool groups |
@@ -168,5 +168,5 @@ Each package has its own optional dependency. `aimu[all]` installs everything; p
 
 ## See also
 
-- [Design principles](design-principles.md) — what AIMU deliberately doesn't do.
-- [Agents vs workflows](agents-vs-workflows.md) — the taxonomy in detail.
+- [Design principles](design-principles.md): what AIMU deliberately doesn't do.
+- [Agents vs workflows](agents-vs-workflows.md): the taxonomy in detail.

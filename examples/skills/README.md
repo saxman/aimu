@@ -34,5 +34,5 @@ agent.run("Write a haiku about autumn.")
 
 ## Learn more
 
-- [08 - Agent Skills](../../notebooks/08%20-%20Agent%20Skills.ipynb) — discovery, the skills MCP server, `SkillAgent`
+- [08 - Agent Skills](../../notebooks/08%20-%20Agent%20Skills.ipynb): discovery, the skills MCP server, `SkillAgent`
 - [Use skills](../../docs/how-to/use-skills.md)

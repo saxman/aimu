@@ -94,12 +94,12 @@ def extract_tool_calls(messages: list[dict]) -> list[dict]:
 
     Returns a list of dicts with keys:
 
-    - ``iteration`` — int, incremented each time an assistant turn contains
+    - ``iteration``: int, incremented each time an assistant turn contains
       tool calls.
-    - ``tool`` — the function name.
-    - ``arguments`` — the parsed argument dict (handles both ``arguments``
+    - ``tool``: the function name.
+    - ``arguments``: the parsed argument dict (handles both ``arguments``
       and ``parameters`` key names).
-    - ``result`` — the matching tool-role message content, or ``""`` if none.
+    - ``result``: the matching tool-role message content, or ``""`` if none.
 
     Does not mutate ``messages``.
 

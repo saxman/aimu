@@ -1,8 +1,8 @@
 """Bridge async tools onto the sync tool dispatcher used by wrapped in-process clients.
 
 The async wrappers around in-process sync clients (:class:`AsyncHuggingFaceClient`,
-:class:`AsyncLlamaCppClient`) run the sync client's ``_chat`` loop — including its tool
-dispatch — inside a worker thread via ``asyncio.to_thread``. That sync dispatcher
+:class:`AsyncLlamaCppClient`) run the sync client's ``_chat`` loop (including its tool
+dispatch) inside a worker thread via ``asyncio.to_thread``. That sync dispatcher
 (:meth:`BaseModelClient._handle_tool_calls`) deliberately refuses ``async def`` tools.
 But the async surface routinely attaches async tools (e.g. ``await aio.MCPClient.as_tools()``).
 
@@ -13,7 +13,7 @@ awaiting the ``to_thread`` future), so there is no deadlock. The sync dispatcher
 sees only sync callables and dispatches them through its normal path.
 
 This keeps the sync surface untouched and avoids duplicating each provider's chat
-orchestration in the async wrapper — only tool dispatch needs to cross back to the loop.
+orchestration in the async wrapper; only tool dispatch needs to cross back to the loop.
 """
 
 from __future__ import annotations

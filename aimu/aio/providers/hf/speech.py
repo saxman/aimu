@@ -25,7 +25,7 @@ from aimu.models.providers.hf.speech import HuggingFaceSpeechClient
 class AsyncHuggingFaceSpeechClient:
     """Async facade over a sync :class:`HuggingFaceSpeechClient`.
 
-    Does *not* inherit ``AsyncBaseModelClient`` — speech generation has no message
+    Does *not* inherit ``AsyncBaseModelClient``; speech generation has no message
     history or tool-calling lifecycle, so the text-shaped base class doesn't apply.
     """
 

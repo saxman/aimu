@@ -1,4 +1,4 @@
-"""Live audio-generation tests parametrized by provider — opt in via CLI flags.
+"""Live audio-generation tests parametrized by provider; opt in via CLI flags.
 
 Mirrors :mod:`tests/test_images.py` for the audio modality. Same shape:
 ``pytest_generate_tests`` reads the CLI flags, ``audio_client`` is a session-scoped

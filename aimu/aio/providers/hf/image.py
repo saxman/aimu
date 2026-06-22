@@ -25,7 +25,7 @@ from aimu.models.providers.hf.image import HuggingFaceImageClient
 class AsyncHuggingFaceImageClient:
     """Async facade over a sync :class:`HuggingFaceImageClient`.
 
-    Does *not* inherit ``AsyncBaseModelClient`` — image generation has no message
+    Does *not* inherit ``AsyncBaseModelClient``; image generation has no message
     history or tool-calling lifecycle, so the text-shaped base class doesn't apply.
     """
 

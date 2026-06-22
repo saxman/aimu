@@ -132,7 +132,7 @@ class HuggingFaceModel(Model):
 
     Each member's value is a ``(ModelSpec, ToolCallFormat, think_opener_in_prompt)``
     tuple. ``think_opener_in_prompt=True`` for models like Qwen 3.5 whose chat template
-    appends ``<think>\\n`` to the prompt — the model generates *inside* the thinking
+    appends ``<think>\\n`` to the prompt; the model generates *inside* the thinking
     block and only emits the closing ``</think>``.
     """
 
@@ -175,7 +175,7 @@ class HuggingFaceModel(Model):
         ToolCallFormat.XML,
     )
 
-    # Google — Gemma 4 supports vision and audio input (natively multimodal)
+    # Google: Gemma 4 supports vision and audio input (natively multimodal)
     GEMMA_4_E4B = (
         ModelSpec(
             "google/gemma-4-E4B-it",
@@ -198,7 +198,7 @@ class HuggingFaceModel(Model):
     )
     GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", vision=True)
 
-    # NVIDIA — Nemotron-H is the multimodal Hybrid series (Mamba + Transformer)
+    # NVIDIA: Nemotron-H is the multimodal Hybrid series (Mamba + Transformer)
     NEMOTRON_H_8B = (
         ModelSpec(
             "nvidia/Nemotron-H-8B-Instruct-HF",
@@ -266,7 +266,7 @@ class HuggingFaceModel(Model):
         ToolCallFormat.XML,
     )
 
-    # Meta — Llama 3.2 uses unsloth's repo because the official one is gated
+    # Meta: Llama 3.2 uses unsloth's repo because the official one is gated
     LLAMA_3_2_3B = (
         ModelSpec("unsloth/Llama-3.2-3B-Instruct", tools=True),
         ToolCallFormat.JSON_OBJECT,
@@ -358,7 +358,7 @@ class HuggingFaceClient(BaseModelClient):
 
     def __del__(self):
         # If the registry still holds a reference, deleting this client's attributes
-        # won't free the weights — skip the gc/cache flush too.
+        # won't free the weights, so skip the gc/cache flush too.
         cache_key = getattr(self, "_cache_key", None)
         if cache_key is not None and cache_key in _model_registry:
             return
@@ -590,11 +590,11 @@ class HuggingFaceClient(BaseModelClient):
                 if opened:
                     # The think block was opened but truncated before </think>
                     # (e.g. token budget exhausted). The buffered content is
-                    # thinking, not a final answer — keep it as last_thinking and
+                    # thinking, not a final answer, so keep it as last_thinking and
                     # the pending THINKING tokens, and emit nothing as generation.
                     self.last_thinking = self.last_thinking.strip() or None
                     return iter([])
-                # No <think> opener and no </think> — genuinely not a thinking turn.
+                # No <think> opener and no </think>: genuinely not a thinking turn.
                 self.last_thinking = None
                 self._pending_thinking_tokens = []
                 return iter(buffered)
@@ -711,7 +711,7 @@ class HuggingFaceClient(BaseModelClient):
             # Thinking-only turn: the model opened a <think> block but generation
             # ended before </think> (e.g. token budget exhausted, common with
             # sampling), so _generate_streaming returned an empty iterator. Mirror
-            # _generate_sync — surface the buffered thinking via _pending_thinking_tokens
+            # _generate_sync: surface the buffered thinking via _pending_thinking_tokens
             # below and finish with empty generated content, rather than letting an
             # unguarded next() raise StopIteration (PEP 479 RuntimeError) on this generator.
             pass

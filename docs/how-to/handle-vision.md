@@ -16,28 +16,28 @@ client.chat("Compare these two photos.", images=["a.png", "b.png"])
 
 ## Stateless single-turn (`generate`)
 
-Use `generate(images=...)` for a one-shot vision call that **does not touch conversation history** — ideal for "look once and answer" tasks (captioning, scoring, classification) where you don't want the image and reply accumulating in `self.messages`:
+Use `generate(images=...)` for a one-shot vision call that **does not touch conversation history**, ideal for "look once and answer" tasks (captioning, scoring, classification) where you don't want the image and reply accumulating in `self.messages`:
 
 ```python
 client = aimu.client("openai:gpt-4o-mini")
 
-# Each call is independent — no history kept, no reset() needed between calls.
+# Each call is independent: no history kept, no reset() needed between calls.
 caption = client.generate("Caption this image in one sentence.", images=["./cat.jpg"])
 score = client.generate("Rate this image's quality 1-10.", images=["./cat.jpg"])
 
 assert client.messages == []   # generate() never mutates message state
 ```
 
-`chat(images=...)` is the stateful path — the turn persists so you can ask follow-ups. `generate(images=...)` is the stateless path — each call stands alone. Both accept the same image forms and raise `ValueError` for a non-vision model. (Before, one-shot vision required a `client.reset()` + `chat()` dance to avoid polluting history; `generate(images=...)` removes that.)
+`chat(images=...)` is the stateful path: the turn persists so you can ask follow-ups. `generate(images=...)` is the stateless path: each call stands alone. Both accept the same image forms and raise `ValueError` for a non-vision model. (Before, one-shot vision required a `client.reset()` + `chat()` dance to avoid polluting history; `generate(images=...)` removes that.)
 
 ## Accepted image forms
 
 Each item in `images=[...]` may be any of:
 
-- **File path** as `str` or `pathlib.Path` — read from disk and base64-encoded
-- **Raw `bytes`** — encoded directly
-- **`http(s)://` URL** — passed through to providers that support it
-- **`data:image/...;base64,...` URL** — passed through
+- **File path** as `str` or `pathlib.Path`: read from disk and base64-encoded
+- **Raw `bytes`**: encoded directly
+- **`http(s)://` URL**: passed through to providers that support it
+- **`data:image/...;base64,...` URL**: passed through
 
 ```python
 from pathlib import Path
@@ -81,13 +81,13 @@ AIMU keeps `self.messages` in OpenAI format always (`image_url` content blocks) 
 
 `images=` is forwarded through every agent and workflow. Only the *initial* turn carries images; continuation prompts (after a tool call) are text-only.
 
-- `Agent.run("task", images=[...])` — attaches to the initial turn
-- `Chain.run("task", images=[...])` — forwards to step 0
-- `Router.run("task", images=[...])` — forwards to the dispatched handler
-- `Parallel.run("task", images=[...])` — forwards to every worker
-- `EvaluatorOptimizer.run("task", images=[...])` — forwards only to the initial generator turn
+- `Agent.run("task", images=[...])`: attaches to the initial turn
+- `Chain.run("task", images=[...])`: forwards to step 0
+- `Router.run("task", images=[...])`: forwards to the dispatched handler
+- `Parallel.run("task", images=[...])`: forwards to every worker
+- `EvaluatorOptimizer.run("task", images=[...])`: forwards only to the initial generator turn
 
 ## See also
 
 - Notebook [04 - Vision](https://github.com/saxman/aimu/blob/main/notebooks/04%20-%20Vision.ipynb)
-- [Model matrix](../reference/model-matrix.md) — `supports_vision` column
+- [Model matrix](../reference/model-matrix.md): `supports_vision` column

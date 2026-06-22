@@ -4,11 +4,11 @@
 Code-controlled: Python directs the loop; the LLMs only evaluate and evolve the prompt.
 Two acceptance strategies are available via --strategy:
 
-  greedy   (default) — always accept the evaluator's suggestion and move on, even if the
+  greedy   (default): always accept the evaluator's suggestion and move on, even if the
              new image scores lower than a previous one. Simple; the final image is whatever
              came last.
 
-  climbing — keep the best image seen so far and only advance on a strictly higher score.
+  climbing: keep the best image seen so far and only advance on a strictly higher score.
              A tie or lower score is discarded; the evaluator is asked for a different
              refinement of the current best (avoiding ideas that already failed). Stops
              after --patience consecutive non-improvements. Guarantees the final image is
@@ -86,7 +86,7 @@ def run(
         return summarize_for_image(eval_client, idea, max_prompt_tokens, avoid=neg_plan.summarizer_avoid)
 
     prompt = "a hot hotdog"
-    # Climbing-only state — unused in greedy mode.
+    # Climbing-only state, unused in greedy mode.
     best: dict | None = None
     rejected: list[str] = []
     candidate_idea: str | None = None
@@ -166,7 +166,7 @@ def run(
                     print(f"Summarized → next prompt: {prompt}\n")
 
     except KeyboardInterrupt:
-        print("\nInterrupted — writing partial results so far...")
+        print("\nInterrupted, writing partial results so far...")
     finally:
         if strategy == "climbing" and best:
             shutil.copyfile(best["image_path"], output_dir / "best.png")

@@ -19,7 +19,7 @@ from aimu.models import StreamChunk, StreamingContentType
 from helpers_aio import create_real_async_model_client, resolve_async_model_params
 
 # A multi-step reasoning prompt so adaptive-thinking models (e.g. Anthropic Opus 4.7+,
-# Fable 5) actually engage thinking — they may emit none on trivial prompts. Mirrors
+# Fable 5) actually engage thinking; they may emit none on trivial prompts. Mirrors
 # ``_THINKING_PROMPT`` in tests/test_models.py.
 _THINKING_PROMPT = (
     "Compute the sum of all integers from 1 to 200 that are divisible by 7. Show your work, then state the final total."
@@ -212,7 +212,7 @@ async def test_generate_streamed_exclude_thinking(async_model_client):
 
 
 # ---------------------------------------------------------------------------
-# Tool calling — via aio.MCPClient
+# Tool calling: via aio.MCPClient
 # ---------------------------------------------------------------------------
 
 

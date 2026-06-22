@@ -22,19 +22,19 @@ class Agent(Runner):
     Calls ``model_client.chat()`` repeatedly until the model produces a turn without
     invoking tools, or ``max_iterations`` is reached. The stop condition scans
     ``model_client.messages`` in reverse for a ``"tool"`` role message after the last
-    ``"user"`` role — if found, the agent sends ``continuation_prompt`` and loops.
+    ``"user"`` role. If found, the agent sends ``continuation_prompt`` and loops.
 
     Tools are plain callables in ``tools=``: functions decorated with
     ``@aimu.tools.tool`` for in-process tools, and/or ``MCPClient(...).as_tools()`` for
     cross-process FastMCP tools (each MCP tool becomes a callable). Mix them freely in
-    one list — ``tools=builtin.web + mcp.as_tools()``.
+    one list, ``tools=builtin.web + mcp.as_tools()``.
 
     When ``system_message`` is set or ``reset_messages_on_run`` is True, the agent
     clears ``model_client.messages`` and re-applies ``system_message`` before every
     run. This isolates state when a client is shared (e.g. inside a :class:`Chain`).
 
     ``final_answer_prompt`` (opt-in, default ``None``) guarantees a final answer when the
-    loop exhausts ``max_iterations`` while the model is still calling tools — instead of
+    loop exhausts ``max_iterations`` while the model is still calling tools. Instead of
     returning whatever the last (possibly tool-only) turn produced, the agent sends this
     prompt once with tools disabled, forcing the model to synthesize an answer from the
     context it has gathered. This wrap-up turn is *not* counted against ``max_iterations``
@@ -103,11 +103,11 @@ class Agent(Runner):
         this run) replaces them for every ``chat()`` call in the loop and is restored
         afterward.
 
-        ``deps`` is a per-run override of the agent's ``self.deps`` field — the value injected
+        ``deps`` is a per-run override of the agent's ``self.deps`` field, the value injected
         as ``ctx.deps`` into tools that declare a :class:`~aimu.tools.ToolContext` parameter.
 
         ``schema`` (a dataclass or Pydantic v2 model) makes the run a single structured-output
-        turn that returns a validated instance instead of looping with tools — use it for an
+        turn that returns a validated instance instead of looping with tools. Use it for an
         agent whose job is to return a typed object (e.g. a critic's verdict). It is mutually
         exclusive with ``stream=True`` and with the tool-calling loop.
         """
@@ -219,7 +219,7 @@ class Agent(Runner):
 
         Each ``chat()`` call on the returned object runs the full agent loop, looping
         until the model stops calling tools. Use this only where an API expects a
-        ``BaseModelClient`` — for direct use, call :meth:`run` instead.
+        ``BaseModelClient``. For direct use, call :meth:`run` instead.
         """
         from aimu.agents.agentic_client import _AgenticView
 

@@ -15,7 +15,7 @@ import importlib
 
 import pytest
 
-from test_speech_api import _force_speech_stubs, _install_speech_stubs  # noqa: F401 — side effect + autouse fixture
+from test_speech_api import _force_speech_stubs, _install_speech_stubs  # noqa: F401 (side effect + autouse fixture)
 
 _install_speech_stubs()
 
@@ -53,7 +53,7 @@ from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeech
 
 
 # ---------------------------------------------------------------------------
-# Wrap refusal — direct enum / string construction
+# Wrap refusal: direct enum / string construction
 # ---------------------------------------------------------------------------
 
 
@@ -78,7 +78,7 @@ def test_aio_speech_client_refuses_random_type():
 
 
 # ---------------------------------------------------------------------------
-# AsyncHuggingFaceSpeechClient — construction and state sharing
+# AsyncHuggingFaceSpeechClient: construction and state sharing
 # ---------------------------------------------------------------------------
 
 
@@ -113,7 +113,7 @@ def test_async_hf_speech_client_shares_model_kwargs():
 
 
 # ---------------------------------------------------------------------------
-# AsyncOpenAISpeechClient — construction and state sharing
+# AsyncOpenAISpeechClient: construction and state sharing
 # ---------------------------------------------------------------------------
 
 
@@ -142,7 +142,7 @@ def test_async_openai_speech_client_shares_spec():
 
 
 # ---------------------------------------------------------------------------
-# AsyncSpeechClient factory — wraps correct inner client
+# AsyncSpeechClient factory: wraps correct inner client
 # ---------------------------------------------------------------------------
 
 
@@ -203,7 +203,7 @@ async def test_async_aio_speech_client_generate(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Streaming path — stream=True returns AsyncIterator
+# Streaming path: stream=True returns AsyncIterator
 # ---------------------------------------------------------------------------
 
 

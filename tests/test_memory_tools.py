@@ -1,6 +1,6 @@
 """Mock-only unit tests for make_memory_tools and its make_tools integration.
 
-No ChromaDB or heavy deps required — uses an in-memory MemoryStore stub.
+No ChromaDB or heavy deps required; uses an in-memory MemoryStore stub.
 """
 
 from __future__ import annotations

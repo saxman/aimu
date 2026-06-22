@@ -1,6 +1,6 @@
 # Use MCP tools
 
-For tools that live in a separate process — or to share a tool catalogue across many agents — wrap a [FastMCP 2.0](https://gofastmcp.com) server with `MCPClient`, then call `.as_tools()` to add its tools to your model client's `tools` list.
+For tools that live in a separate process (or to share a tool catalogue across many agents), wrap a [FastMCP 2.0](https://gofastmcp.com) server with `MCPClient`, then call `.as_tools()` to add its tools to your model client's `tools` list.
 
 ## Connect to a tool server
 
@@ -24,9 +24,9 @@ client.chat("Use the mytools to do something.")
 
 `MCPClient` requires *exactly one* of:
 
-- `config={...}` — FastMCP server config dict (the form above)
-- `server=...` — an in-process `FastMCP` instance
-- `file="path/to/server.py"` — a local server script
+- `config={...}`: FastMCP server config dict (the form above)
+- `server=...`: an in-process `FastMCP` instance
+- `file="path/to/server.py"`: a local server script
 
 ## Call a tool directly
 
@@ -57,7 +57,7 @@ mcp_client = MCPClient({
 
 ## Combine with in-process tools
 
-Both routes produce callables for the one `tools` list — concatenate them. On a name collision the **last** entry wins, so append a local override after the MCP tools to shadow one:
+Both routes produce callables for the one `tools` list; concatenate them. On a name collision the **last** entry wins, so append a local override after the MCP tools to shadow one:
 
 ```python
 client.tools = mcp_client.as_tools() + [my_local_tool]   # my_local_tool shadows a same-named MCP tool
@@ -79,6 +79,6 @@ A subsequent `.ping()` or `.call_tool()` failure also raises `MCPConnectionError
 
 ## See also
 
-- [Add a custom tool](add-custom-tool.md) — the in-process `@tool` route
-- [Explanation: tool integration](../explanation/tool-integration.md) — when to pick which route
-- [`aimu.tools.MCPClient`](../reference/api/tools.md#aimu.tools.MCPClient) — API reference
+- [Add a custom tool](add-custom-tool.md): the in-process `@tool` route
+- [Explanation: tool integration](../explanation/tool-integration.md): when to pick which route
+- [`aimu.tools.MCPClient`](../reference/api/tools.md#aimu.tools.MCPClient): API reference

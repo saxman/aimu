@@ -1,4 +1,4 @@
-"""hotdog_img2img.py — iterative hotdog refinement via image-to-image + strength annealing.
+"""hotdog_img2img.py: iterative hotdog refinement via image-to-image + strength annealing.
 
 Strategy: hill climbing in image space with strength annealing.
 
@@ -6,7 +6,7 @@ Strategy: hill climbing in image space with strength annealing.
   so a bad round never pulls the next generation in the wrong direction.
 - `strength` starts high (explore: big changes from the reference) and anneals toward
   a floor (exploit: polish what's already working). The schedule is linear.
-- The first iteration is always plain txt2img — there is no reference image yet.
+- The first iteration is always plain txt2img; there is no reference image yet.
   All subsequent iterations use img2img conditioned on the current best.
 - On acceptance (new best): the new image becomes the reference, `rejected` clears,
   staleness resets. The evaluator's CONTINUE description drives the next prompt.
@@ -101,7 +101,7 @@ def run(
         print(f"Strength    : {initial_strength:.2f} → {final_strength:.2f} (linear over {anneal_steps} steps)")
     else:
         print(
-            f"Strength    : not supported by {image_model_name} — annealing schedule has no effect. "
+            f"Strength    : not supported by {image_model_name}; annealing schedule has no effect. "
             f"The script will still run hill climbing in image space, but all img2img iterations "
             f"condition on the reference at a fixed model-determined degree."
         )
@@ -188,11 +188,11 @@ def run(
             trace.append(record)
 
             if action == "DONE":
-                print("\nEvaluator satisfied — stopping.")
+                print("\nEvaluator satisfied; stopping.")
                 break
 
             if stale >= patience:
-                print("\nPatience exhausted — stopping.")
+                print("\nPatience exhausted; stopping.")
                 break
 
             # Derive next prompt

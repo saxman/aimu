@@ -48,7 +48,7 @@ Pass the result straight to `aimu.client(...)` / `aimu.image_client(...)` (both 
 client = aimu.client(aimu.resolve_model_enum(args.model))
 ```
 
-A **bare text name is often ambiguous** — the same id ships under several providers (e.g. `QWEN_3_8B` is an Ollama, HuggingFace, and OpenAI-compat model). `resolve_model_enum` resolves the tie by preferring a provider where the model is *already available locally* (running Ollama → cached HuggingFace → reachable local server, tool-capable first), logging the choice at `WARNING`. If it isn't available anywhere, it raises `ValueError` listing the `"provider:model_id"` options — so pin the provider with the string form when you need a specific one. (`resolve_image_model_enum` has no local-availability notion and raises on the rare ambiguity.)
+A **bare text name is often ambiguous**: the same id ships under several providers (e.g. `QWEN_3_8B` is an Ollama, HuggingFace, and OpenAI-compat model). `resolve_model_enum` resolves the tie by preferring a provider where the model is *already available locally* (running Ollama → cached HuggingFace → reachable local server, tool-capable first), logging the choice at `WARNING`. If it isn't available anywhere, it raises `ValueError` listing the `"provider:model_id"` options, so pin the provider with the string form when you need a specific one. (`resolve_image_model_enum` has no local-availability notion and raises on the rare ambiguity.)
 
 ## Use whatever model is already available locally
 
@@ -65,7 +65,7 @@ export AIMU_LANGUAGE_MODEL="ollama:qwen3.5:9b"  # pin the default deterministica
 To inspect or choose among what's available instead of taking the auto-pick:
 
 ```python
-aimu.available_text_models()            # list[Model] — locally loadable models, provider-priority order
+aimu.available_text_models()            # list[Model]: locally loadable models, provider-priority order
 aimu.resolve_default_text_model_enum()  # the single auto-pick, as an enum member
 ```
 
@@ -73,18 +73,18 @@ aimu.resolve_default_text_model_enum()  # the single auto-pick, as an enum membe
 
 | Provider key | Extra | API key env var |
 |---|---|---|
-| `ollama` | `aimu[ollama]` | — |
-| `hf` | `aimu[hf]` | — |
-| `llamacpp` | `aimu[llamacpp]` | — (`model_path=` required) |
+| `ollama` | `aimu[ollama]` | None |
+| `hf` | `aimu[hf]` | None |
+| `llamacpp` | `aimu[llamacpp]` | None (`model_path=` required) |
 | `anthropic` | `aimu[anthropic]` | `ANTHROPIC_API_KEY` |
 | `openai` | `aimu[openai_compat]` | `OPENAI_API_KEY` |
 | `gemini` | `aimu[openai_compat]` | `GOOGLE_API_KEY` |
-| `lmstudio` | `aimu[openai_compat]` | — (localhost:1234) |
-| `ollama-openai` | `aimu[openai_compat]` | — (localhost:11434) |
-| `hf-openai` | `aimu[openai_compat]` | — (localhost:8000) |
-| `vllm` | `aimu[openai_compat]` | — (localhost:8000) |
-| `llamaserver` | `aimu[openai_compat]` | — (localhost:8080) |
-| `sglang` | `aimu[openai_compat]` | — (localhost:30000) |
+| `lmstudio` | `aimu[openai_compat]` | None (localhost:1234) |
+| `ollama-openai` | `aimu[openai_compat]` | None (localhost:11434) |
+| `hf-openai` | `aimu[openai_compat]` | None (localhost:8000) |
+| `vllm` | `aimu[openai_compat]` | None (localhost:8000) |
+| `llamaserver` | `aimu[openai_compat]` | None (localhost:8080) |
+| `sglang` | `aimu[openai_compat]` | None (localhost:30000) |
 
 See the [provider matrix](../reference/provider-matrix.md) for full details.
 

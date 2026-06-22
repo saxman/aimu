@@ -40,7 +40,7 @@ def encode_image(
         format: One of ``"pil"`` (return image unchanged), ``"bytes"`` (PNG bytes),
             ``"data_url"`` (``data:image/png;base64,...``), or ``"path"`` (save to
             ``output_dir`` and return the file path string).
-        prompt: The originating prompt — used only to seed the filename hash when
+        prompt: The originating prompt, used only to seed the filename hash when
             ``format="path"``. Not stored anywhere else.
         output_dir: Directory to save into when ``format="path"``. Defaults to
             ``<repo>/output/images/``; created on demand.

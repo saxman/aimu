@@ -5,20 +5,20 @@ This is the same generate → evaluate → refine loop as ``hotdog_loop.py`` and
 ``hotdog_agent.py``, but expressed with the library's **EvaluatorOptimizer** workflow
 instead of a hand-rolled loop or a single tool-calling agent. It composes two ``Agent``s:
 
-- the **generator** holds ``generate_hotdog_image`` — it distils the task (or the critic's
+- the **generator** holds ``generate_hotdog_image``: it distils the task (or the critic's
   refinement feedback) into a short prompt, generates an image, and replies with the path.
-- the **evaluator** holds ``evaluate_hotness`` — it reads that path, runs the vision model,
+- the **evaluator** holds ``evaluate_hotness``: it reads that path, runs the vision model,
   and relays the verdict (``DONE`` or a ``CONTINUE`` description) back verbatim.
 
 ``EvaluatorOptimizer`` stops when ``pass_keyword="DONE"`` appears in the evaluator's reply or
 ``max_rounds`` is hit, then returns the last generation.
 
 Why this is a *composition* and not a direct fit: ``EvaluatorOptimizer`` orchestrates text
-``Runner``s — it shuttles each step's output to the next as a **string** (see
+``Runner``s, shuttling each step's output to the next as a **string** (see
 ``aimu/agents/workflows/evaluator.py``). Image generation and vision evaluation therefore have
 to live *inside the agents' tools*; the image path and the verdict travel between the two
 agents as plain text. That round-trip is more indirect (and more fragile) than the variable
-hand-off in ``hotdog_loop.py`` — which is exactly the trade-off worth seeing. ``evaluate_hotness``
+hand-off in ``hotdog_loop.py``, which is exactly the trade-off worth seeing. ``evaluate_hotness``
 falls back to the most recent image if the relayed path doesn't resolve, to keep that text
 relay from breaking the run. Prompt summarization (token-budget fitting) folds into the
 generator agent's own prompt-writing rather than a separate step.
@@ -62,9 +62,9 @@ You generate images of a single hotdog, aiming to make it look as visually HOT a
 When given a task or refinement feedback:
 1. Distil it into a short image-generation prompt{budget_clause}.
 2. Call generate_hotdog_image with that prompt.
-3. Reply with ONLY the exact file path the tool returned — no other text.
+3. Reply with ONLY the exact file path the tool returned, no other text.
 
-The scene must always depict exactly ONE single hotdog — never multiple.
+The scene must always depict exactly ONE single hotdog, never multiple.
 """
 
 EVALUATOR_SYSTEM_PROMPT = """\
@@ -72,7 +72,7 @@ You judge how visually hot a generated hotdog image is, using your evaluate_hotn
 
 The message you receive contains a file path to the latest hotdog image.
 1. Call evaluate_hotness with that path.
-2. Reply with the tool's output copied EXACTLY — do not summarize, rephrase, or add commentary.
+2. Reply with the tool's output copied EXACTLY; do not summarize, rephrase, or add commentary.
 
 The tool replies either "DONE: <reasoning>" (the hotdog cannot get hotter) or
 "CONTINUE: <description>" (how to make it hotter). Relay whichever it returns verbatim.
@@ -184,7 +184,7 @@ def main() -> None:
         name="hotdog-evaluator",
         system_message=EVALUATOR_SYSTEM_PROMPT,
         tools=[evaluate_fn],
-        # Judge each image independently — don't let prior verdicts bias the next.
+        # Judge each image independently; don't let prior verdicts bias the next.
         reset_messages_on_run=True,
     )
 
@@ -204,7 +204,7 @@ def main() -> None:
         result = eo.run(INITIAL_TASK)
         print(f"\nWorkflow final response:\n{result}")
     except KeyboardInterrupt:
-        print("\nInterrupted — writing partial results so far...")
+        print("\nInterrupted, writing partial results so far...")
     finally:
         # Only evaluated records have a verdict; the final generation may be unevaluated
         # (an EvaluatorOptimizer characteristic). The collage scans files, so it includes all.

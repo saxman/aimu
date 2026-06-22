@@ -1,6 +1,6 @@
 """Tests for aimu.agents.PlanExecuteEvaluator.
 
-All tests use ``MockModelClient`` from helpers — no backend required. The
+All tests use ``MockModelClient`` from helpers; no backend required. The
 ``Scorer`` is mocked directly so we don't need a judge model for the loop
 logic itself.
 """
@@ -130,7 +130,7 @@ def test_pass_on_round_two_after_replan():
     assert executor_c._call_count == 2
 
     # SkillAgent resets its client between runs, so only the latest user message
-    # survives in planner_c.messages — and that's round 2's, which must contain
+    # survives in planner_c.messages, and that's round 2's, which must contain
     # round 1's feedback.
     planner_user_messages = [m["content"] for m in planner_c.messages if m["role"] == "user"]
     assert len(planner_user_messages) == 1
@@ -141,7 +141,7 @@ def test_pass_on_round_two_after_replan():
 
 
 def test_max_rounds_exhaustion_returns_best_attempt():
-    """Three rounds, scores [0.4, 0.6, 0.5] — round 2 wins on score."""
+    """Three rounds, scores [0.4, 0.6, 0.5]; round 2 wins on score."""
     wf, _, _, _ = _make_workflow(
         planner_responses=["p1", "p2", "p3"],
         executor_responses=["o1", "o2", "o3"],
@@ -187,7 +187,7 @@ def test_user_supplied_criteria_passed_to_planner_and_scorer():
     wf.run("task")
 
     # The latest round's planner prompt contains the criteria (SkillAgent resets
-    # between runs, so the round-1 prompt isn't preserved in client.messages —
+    # between runs, so the round-1 prompt isn't preserved in client.messages,
     # but we know it was passed because the workflow built the same way per round).
     planner_user_messages = [m["content"] for m in planner_c.messages if m["role"] == "user"]
     assert any(criteria in msg for msg in planner_user_messages)
@@ -349,7 +349,7 @@ def test_parser_falls_back_when_no_plan_header():
 
 
 def test_parser_handles_missing_criteria_header():
-    """Plan header present, criteria header missing — still split correctly."""
+    """Plan header present, criteria header missing; still split correctly."""
     text = "some preamble\n\n## Plan\n1. do it"
     criteria, plan = _parse_planner_output(text)
     assert plan == "1. do it"

@@ -2,7 +2,7 @@
 
 In ~15 minutes you'll build the three load-bearing code-controlled patterns: **Chain**, **Router**, and **Parallel**. Each has a one-line `.from_client(client, ...)` factory.
 
-If you've done [First agent with tools](02-first-agent-with-tools.md), you've already used the *autonomous* path — the LLM decides what tools to call. Workflows are the opposite: the LLM is invoked at points *you* control. You pick which is right for a given problem.
+If you've done [First agent with tools](02-first-agent-with-tools.md), you've already used the *autonomous* path, where the LLM decides what tools to call. Workflows are the opposite: the LLM is invoked at points *you* control. You pick which is right for a given problem.
 
 ## When to pick a workflow over an agent
 
@@ -24,7 +24,7 @@ import aimu
 client = aimu.client("ollama:qwen3.5:9b")
 ```
 
-## 1. Chain — sequential pipeline
+## 1. Chain: sequential pipeline
 
 A `Chain` runs agents in order; each step's text output becomes the next step's input.
 
@@ -43,7 +43,7 @@ print(result)
 
 `Chain.from_client(client, [prompt1, prompt2, ...])` builds three `Agent` instances sharing the same client, each with `reset_messages_on_run=True` so steps don't see each other's history.
 
-## 2. Router — classify and dispatch
+## 2. Router: classify and dispatch
 
 A `Router` runs a classifier first, then dispatches to the matching handler.
 
@@ -66,9 +66,9 @@ print(router.run("Factorise 42."))                    # → routed to math
 
 Route matching is case-insensitive, whitespace-stripped. Pass `fallback=Agent(...)` to handle unmatched routes.
 
-Handlers can be any `Runner` — agents *or* nested workflows. A router can dispatch to another router, a chain, or a parallel.
+Handlers can be any `Runner`, agents *or* nested workflows. A router can dispatch to another router, a chain, or a parallel.
 
-## 3. Parallel — concurrent workers
+## 3. Parallel: concurrent workers
 
 A `Parallel` runs workers concurrently via `ThreadPoolExecutor` and (optionally) feeds the joined output to an aggregator.
 
@@ -93,9 +93,9 @@ print(parallel.run(your_code_snippet))
 
 Without `aggregator_prompt=`, worker outputs are joined by `separator` (default `\n\n---\n\n`) and returned directly.
 
-## 4. EvaluatorOptimizer — iterate with critique
+## 4. EvaluatorOptimizer: iterate with critique
 
-The fourth pattern is generate → critique → revise. There's no `.from_client()` factory — build it directly:
+The fourth pattern is generate → critique → revise. There's no `.from_client()` factory, so build it directly:
 
 ```python
 from aimu.agents import EvaluatorOptimizer, Agent
@@ -144,7 +144,7 @@ The `messages` property merges sub-agent message dicts recursively, so you can s
 
 You've now seen all four workflow patterns plus the autonomous `Agent`. Pick the right one per task; mix freely.
 
-- **[Vision and streaming](04-vision-and-streaming.md)** — last tutorial.
-- **[How-to: build an orchestrator](../how-to/build-orchestrator.md)** — when you want an LLM to dispatch to other agents *autonomously* via tools (a different pattern from `Router`, which dispatches in code).
-- **[Explanation: agents vs workflows](../explanation/agents-vs-workflows.md)** — the design argument.
-- Notebook [09 - Workflows](https://github.com/saxman/aimu/blob/main/notebooks/09%20-%20Workflows.ipynb) — interactive versions of every example here.
+- **[Vision and streaming](04-vision-and-streaming.md)**: last tutorial.
+- **[How-to: build an orchestrator](../how-to/build-orchestrator.md)**: when you want an LLM to dispatch to other agents *autonomously* via tools (a different pattern from `Router`, which dispatches in code).
+- **[Explanation: agents vs workflows](../explanation/agents-vs-workflows.md)**: the design argument.
+- Notebook [09 - Workflows](https://github.com/saxman/aimu/blob/main/notebooks/09%20-%20Workflows.ipynb): interactive versions of every example here.

@@ -1,7 +1,7 @@
 """Async ``ModelClient`` factory mirroring ``aimu.models.model_client.ModelClient``.
 
 Accepts either a provider ``Model`` enum member, a ``"provider:model_id"`` string,
-or — for in-process providers (HuggingFace, LlamaCpp) — an existing sync client to
+or, for in-process providers (HuggingFace, LlamaCpp), an existing sync client to
 wrap (so model weights are loaded only once). See Decision 7 in the plan.
 """
 
@@ -107,7 +107,7 @@ class AsyncModelClient(AsyncBaseModelClient):
     """Public factory for async provider-backed model clients.
 
     Accepts a provider ``Model`` enum member, a ``"provider:model_id"`` string, or
-    — for in-process providers — an existing sync client to wrap.
+    for in-process providers, an existing sync client to wrap.
 
     Examples::
 
@@ -115,7 +115,7 @@ class AsyncModelClient(AsyncBaseModelClient):
         client = AsyncModelClient("anthropic:claude-sonnet-4-6")
         client = AsyncModelClient(OllamaModel.QWEN_3_8B)
 
-        # In-process providers — wrap an existing sync client to share weights
+        # In-process providers: wrap an existing sync client to share weights
         sync_client = aimu.client(HuggingFaceModel.LLAMA_70B)
         async_client = AsyncModelClient(sync_client)
     """
@@ -304,7 +304,7 @@ async def chat(
     images: Optional[list] = None,
     include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
 ) -> Union[str, AsyncIterator[StreamChunk]]:
-    """One-shot async chat — builds a fresh client, sends one message, returns the response.
+    """One-shot async chat: builds a fresh client, sends one message, returns the response.
 
     Example::
 

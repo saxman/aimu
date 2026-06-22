@@ -66,7 +66,7 @@ llamacpp = [
     "llama-cpp-python",
 ]
 google = [
-    # Google Gemini image generation (Nano Banana — GeminiImageClient)
+    # Google Gemini image generation (Nano Banana, via GeminiImageClient)
     "google-genai>=1.0",
     "Pillow",
 ]
@@ -76,7 +76,7 @@ deepeval = [
 a2a = [
     # Agent-to-Agent protocol interop (RemoteAgent client + serve_a2a server).
     # Pinned to the 0.3.x line: pydantic-native API. The 1.x line is a protobuf/gRPC
-    # transport rework with a churning surface — a future migration, tracked in docs.
+    # transport rework with a churning surface, a future migration, tracked in docs.
     "a2a-sdk>=0.3.24,<0.4",
     "uvicorn>=0.30",
 ]

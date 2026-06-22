@@ -1,4 +1,4 @@
-"""Async HuggingFace transcription client — wraps sync via asyncio.to_thread (Decision 7)."""
+"""Async HuggingFace transcription client: wraps sync via asyncio.to_thread (Decision 7)."""
 
 from __future__ import annotations
 

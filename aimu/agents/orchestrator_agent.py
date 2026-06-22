@@ -51,7 +51,7 @@ class OrchestratorAgent(Runner, ABC):
         Call at the end of the subclass ``__init__``, after every ``@tool`` dispatch
         function is defined. ``final_answer_prompt`` (opt-in) is forwarded to the inner
         :class:`Agent` to guarantee a final answer if the orchestrator exhausts its
-        iterations while still dispatching to workers — see :class:`Agent`.
+        iterations while still dispatching to workers (see :class:`Agent`).
         """
         model_client.tools = list(tools)
         model_client.concurrent_tool_calls = concurrent_tool_calls
@@ -72,7 +72,7 @@ class OrchestratorAgent(Runner, ABC):
     ) -> "OrchestratorAgent":
         """Build a ready-to-run orchestrator from a list of worker runners.
 
-        Each worker becomes a callable tool via :meth:`Runner.as_tool` — the orchestrator
+        Each worker becomes a callable tool via :meth:`Runner.as_tool`; the orchestrator
         dispatches by name. Workers may be any :class:`Runner` (an :class:`Agent`, a
         ``Chain``/``Router``/``Parallel`` workflow, or a remote A2A agent), not just
         ``Agent`` instances; tool names/descriptions come from each worker's ``name`` and

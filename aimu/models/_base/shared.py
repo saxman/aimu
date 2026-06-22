@@ -35,17 +35,17 @@ class StreamChunk(NamedTuple):
                    - ``dict {"name", "arguments", "response"}`` for TOOL_CALLING
                      (``arguments`` is the dict the model passed to the tool).
                    - ``dict {"step", "total_steps", "image", "final", "result"}`` for
-                     IMAGE_GENERATING — ``step`` is 1-indexed, ``image`` is an optional
+                     IMAGE_GENERATING: ``step`` is 1-indexed, ``image`` is an optional
                      ``PIL.Image`` (None unless ``preview_every`` opted in this step),
                      ``final=True`` marks the terminal chunk for one image, and ``result``
                      carries the encoded output (path / bytes / data-url per ``format=``)
                      on the final chunk.
                    - ``dict {"step", "total_steps", "final", "result", "duration_s"}`` for
-                     AUDIO_GENERATING — ``step`` is 1-indexed (1 of 1 for non-diffusers
+                     AUDIO_GENERATING: ``step`` is 1-indexed (1 of 1 for non-diffusers
                      models), ``final=True`` marks the terminal chunk per audio item, and
                      ``result`` carries the encoded output on the final chunk.
                    - ``dict {"chunk_index", "total_chunks", "final", "result"}`` for
-                     SPEECH_GENERATING — ``total_chunks`` is ``None`` for streaming
+                     SPEECH_GENERATING: ``total_chunks`` is ``None`` for streaming
                      providers where the total is unknown upfront (OpenAI); ``1`` for
                      single-pass providers (HuggingFace). ``final=True`` marks the
                      terminal chunk; ``result`` carries the encoded output on the final

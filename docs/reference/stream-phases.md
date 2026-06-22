@@ -12,7 +12,7 @@
 | `SPEECH_GENERATING` | `"speech_generating"` | Per-chunk speech-generation progress (one final chunk for HuggingFace single-pass; N chunks for OpenAI HTTP stream) | `dict {"chunk_index": int, "total_chunks": int \| None, "final": bool, "result": str \| bytes \| ... \| None}` |
 | `DONE` | `"done"` | Terminal marker (rarely yielded; reserved) | `str` (usually empty) |
 
-The enum inherits from `str`, so members compare equal to their string values: `chunk.phase == "thinking"` is fine.
+The enum inherits from `str`, so members compare equal to their string values, so `chunk.phase == "thinking"` is fine.
 
 ## Helpers on `StreamChunk`
 
@@ -39,7 +39,7 @@ These avoid sprinkling phase comparisons through your code.
 
 ## Async surface
 
-`aimu.aio` yields the same `StreamChunk` type — `phase`, `content`, `agent`, `iteration` are unchanged. The consumption protocol differs: `Iterator[StreamChunk]` on the sync surface vs `AsyncIterator[StreamChunk]` on the async surface. Phase semantics and filtering are identical on both. See [how-to: use async](../how-to/use-async.md).
+`aimu.aio` yields the same `StreamChunk` type; `phase`, `content`, `agent`, `iteration` are unchanged. The consumption protocol differs: `Iterator[StreamChunk]` on the sync surface vs `AsyncIterator[StreamChunk]` on the async surface. Phase semantics and filtering are identical on both. See [how-to: use async](../how-to/use-async.md).
 
 ## Filtering
 
@@ -55,9 +55,9 @@ Accepts strings or enum members. Omitting `include=` yields all phases.
 
 ## See also
 
-- [Explanation: StreamChunk model](../explanation/streamchunk-model.md) — why one chunk type instead of three
-- [How-to: stream output](../how-to/stream-output.md) — practical patterns
-- [How-to: generate images](../how-to/generate-images.md) — `IMAGE_GENERATING` chunks
-- [How-to: generate audio](../how-to/generate-audio.md) — `AUDIO_GENERATING` chunks
-- [How-to: generate speech](../how-to/generate-speech.md) — `SPEECH_GENERATING` chunks
-- [`aimu.models.StreamingContentType`](api/models.md#aimu.models.StreamingContentType) — API reference
+- [Explanation: StreamChunk model](../explanation/streamchunk-model.md): why one chunk type instead of three
+- [How-to: stream output](../how-to/stream-output.md): practical patterns
+- [How-to: generate images](../how-to/generate-images.md): `IMAGE_GENERATING` chunks
+- [How-to: generate audio](../how-to/generate-audio.md): `AUDIO_GENERATING` chunks
+- [How-to: generate speech](../how-to/generate-speech.md): `SPEECH_GENERATING` chunks
+- [`aimu.models.StreamingContentType`](api/models.md#aimu.models.StreamingContentType): API reference

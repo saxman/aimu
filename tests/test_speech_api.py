@@ -45,7 +45,7 @@ def _install_speech_stubs(monkeypatch=None, force=False):
     """Install minimal stubs for soundfile, transformers, openai before importing speech clients.
 
     ``test_audio_api`` and ``test_speech_api`` both stub ``transformers`` but with different
-    fakes (MusicGen vs. SpeechT5/Bark/pipeline), and they share the ``_aimu_stub`` marker — so
+    fakes (MusicGen vs. SpeechT5/Bark/pipeline), and they share the ``_aimu_stub`` marker, so
     whichever is imported first during collection wins and the other's polite guard skips, leaving
     the wrong stub in ``sys.modules``. Pass ``force=True`` (from the autouse fixture below) to
     overwrite whatever is present; pass ``monkeypatch`` so the override is scoped to one test and
@@ -64,7 +64,7 @@ def _install_speech_stubs(monkeypatch=None, force=False):
         else:
             sys.modules[name] = mod
 
-    # soundfile — needed by encode_audio (imported by hf_speech_client)
+    # soundfile: needed by encode_audio (imported by hf_speech_client)
     if force or not getattr(sys.modules.get("soundfile"), "_aimu_stub", False):
         sf_stub = _make_stub_module("soundfile")
 
@@ -74,7 +74,7 @@ def _install_speech_stubs(monkeypatch=None, force=False):
         sf_stub.write = _sf_write
         _set("soundfile", sf_stub)
 
-    # diffusers — stub before transformers to prevent the real diffusers from
+    # diffusers: stub before transformers to prevent the real diffusers from
     # calling importlib.util.find_spec("transformers") on our stub (which has
     # __spec__=None and triggers a ValueError).
     try:
@@ -181,7 +181,7 @@ def _install_speech_stubs(monkeypatch=None, force=False):
         tr_stub.SpeechT5HifiGan = _FakeSpeechT5HifiGan
         _set("transformers", tr_stub)
 
-    # datasets — needed by SpeechT5 for speaker embeddings
+    # datasets: needed by SpeechT5 for speaker embeddings
     if force or not getattr(sys.modules.get("datasets"), "_aimu_stub", False):
         ds_stub = _make_stub_module("datasets")
 
@@ -476,7 +476,7 @@ def test_hf_speech_client_bark_string_resolves_to_enum_spec():
 
 
 def test_hf_speech_client_unknown_id_raises():
-    # Arbitrary repos are not supported via string — curated enum models only.
+    # Arbitrary repos are not supported via string; curated enum models only.
     with pytest.raises(ValueError, match="curated models only"):
         HuggingFaceSpeechClient("hf:someorg/custom-tts")
 
@@ -561,7 +561,7 @@ def test_hf_speech_client_num_audio():
 def _register_openai_speech():
     if getattr(aimu.models, "HAS_OPENAI_SPEECH", False):
         return
-    # Piggyback on HAS_OPENAI_COMPAT — openai SDK already present
+    # Piggyback on HAS_OPENAI_COMPAT; openai SDK already present
     mod = importlib.import_module("aimu.models.providers.openai.speech")
     aimu.models.OpenAISpeechClient = mod.OpenAISpeechClient
     aimu.models.OpenAISpeechModel = mod.OpenAISpeechModel
@@ -630,7 +630,7 @@ def test_openai_speech_client_voice_param_forwarded(monkeypatch):
     """voice= kwarg should be used; spec default is 'alloy'."""
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     client = OpenAISpeechClient(OpenAISpeechModel.TTS_1)
-    # Just verify it doesn't error — fake client ignores the voice value
+    # Just verify it doesn't error; fake client ignores the voice value
     sr, audio = client.generate("Hello", voice="nova", format="numpy")
     assert sr == 24000
 

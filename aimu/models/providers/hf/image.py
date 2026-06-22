@@ -1,6 +1,6 @@
 """HuggingFace ``diffusers``-backed text-to-image client.
 
-``HuggingFaceImageClient`` inherits :class:`BaseImageClient` — the public
+``HuggingFaceImageClient`` inherits :class:`BaseImageClient`: the public
 :meth:`generate` (format conversion, num_images plumbing) lives on the base;
 this subclass just implements :meth:`_generate` to call the loaded diffusers
 pipeline and return PIL Images.
@@ -105,7 +105,7 @@ class HuggingFaceImageModel(ImageModel):
         default_height=1024,
         max_prompt_tokens=256,  # T5-XXL encoder
     )
-    # FLUX.2 Klein: unified pipeline — same class handles txt2img and img2img.
+    # FLUX.2 Klein: unified pipeline; same class handles txt2img and img2img.
     # Distilled to 4 steps. ``strength`` is not a parameter (direct image conditioning).
     FLUX_2_KLEIN_4B = HuggingFaceImageSpec(
         "black-forest-labs/FLUX.2-klein-4B",
@@ -174,11 +174,11 @@ class HuggingFaceImageClient(BaseImageClient):
     Placement is automatic by default: on first generation the client measures the
     loaded pipeline's size and the *free* memory on each visible GPU (so it accounts
     for other processes, e.g. a local LLM server), then picks the cheapest strategy
-    that fits — pin to the freest GPU, else model CPU offload, else sequential CPU
+    that fits: pin to the freest GPU, else model CPU offload, else sequential CPU
     offload (see :func:`aimu.models.providers.hf._device.auto_place_pipeline`). Override it:
 
-    - ``model_kwargs={"device": "cuda:1"}`` — pin the whole pipeline to one GPU.
-    - ``model_kwargs={"device_map": "balanced"}`` — hand placement to diffusers/
+    - ``model_kwargs={"device": "cuda:1"}``: pin the whole pipeline to one GPU.
+    - ``model_kwargs={"device_map": "balanced"}``: hand placement to diffusers/
       accelerate (or any other diffusers-supported ``device_map`` value).
 
     CPU offload requires ``accelerate``; without it, an oversized model is pinned to
@@ -239,10 +239,10 @@ class HuggingFaceImageClient(BaseImageClient):
         pipe = pipeline_cls.from_pretrained(self.spec.id, **kwargs)
 
         # Placement precedence (most → least explicit):
-        #   1. ``device_map`` in model_kwargs — caller shards manually; diffusers owns
+        #   1. ``device_map`` in model_kwargs: caller shards manually; diffusers owns
         #      placement, so ``.to()`` must not be called afterward.
-        #   2. ``device`` hint — pin the whole pipeline to one GPU.
-        #   3. neither — auto-plan from the live free VRAM across all visible GPUs.
+        #   2. ``device`` hint: pin the whole pipeline to one GPU.
+        #   3. neither: auto-plan from the live free VRAM across all visible GPUs.
         if "device_map" in kwargs:
             if device is not None:
                 logger.warning("Ignoring device=%r because device_map=%r was set.", device, kwargs["device_map"])

@@ -1,7 +1,7 @@
 """Pure state mechanics for chat model clients.
 
 Shared by sync ``BaseModelClient`` and async ``AsyncBaseModelClient``. Contains no
-I/O — only the bits that mutate ``self.messages`` and ``self._system_message``.
+I/O, only the bits that mutate ``self.messages`` and ``self._system_message``.
 Subclasses provide the underlying attributes via their own ``__init__``.
 """
 
@@ -133,7 +133,7 @@ class _ChatStateMixin:
     def _tools_override(self, tools: Optional[list]) -> Iterator[None]:
         """Temporarily replace ``self.tools`` for the span of a single ``chat()`` call.
 
-        ``tools=None`` is a no-op — the client's configured ``self.tools`` are used.
+        ``tools=None`` is a no-op; the client's configured ``self.tools`` are used.
         Any other value (including ``[]`` to disable tools for one call) replaces the
         registered tool callables for the duration of the call and is restored afterwards.
         Since MCP tools also live in ``self.tools`` (via ``MCPClient.as_tools()``), the
@@ -141,7 +141,7 @@ class _ChatStateMixin:
         (``_collect_python_tool_specs``) and dispatch (``_call_plain_tool``), since both
         read ``self.tools``.
 
-        Not safe across concurrent ``chat()`` calls on a shared client — but neither is
+        Not safe across concurrent ``chat()`` calls on a shared client, but neither is
         ``self.messages``, so this matches the existing single-conversation contract.
         """
         if tools is None:
@@ -158,8 +158,8 @@ class _ChatStateMixin:
         """Model-supplied arguments plus any framework-injected ``ToolContext`` parameters.
 
         Tools that declare a ``ToolContext`` parameter (recorded in ``fn.__tool_injected__`` by
-        ``@tool``) have it filled here with the client's ``tool_context_deps`` — set by the agent
-        from its ``deps=`` field / ``run(deps=)`` override — so the model never supplies it.
+        ``@tool``) have it filled here with the client's ``tool_context_deps`` (set by the agent
+        from its ``deps=`` field / ``run(deps=)`` override), so the model never supplies it.
         Shared by the sync and async dispatch paths.
         """
         kwargs = dict(arguments)

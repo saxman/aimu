@@ -9,12 +9,12 @@ image/audio/speech equivalents), these helpers resolve a default. The policy:
   capability flags are known; otherwise raise.
 - **Image / audio / speech / transcription / embedding**: env var only (``AIMU_IMAGE_MODEL`` /
   ``AIMU_AUDIO_MODEL`` / ``AIMU_SPEECH_MODEL`` / ``AIMU_TRANSCRIPTION_MODEL`` /
-  ``AIMU_EMBEDDING_MODEL``); raise when unset. These are never auto-selected — a wrong silent
+  ``AIMU_EMBEDDING_MODEL``); raise when unset. These are never auto-selected, since a wrong silent
   pick is costly (an image-style swing, or a persisted vector store corrupted by a mismatched
   embedder). The unset error *does* list any locally available models (the ``available_*_models``
   discovery probes) to make the explicit choice easy.
 
-AIMU never auto-selects a cloud provider and never *downloads* weights implicitly — every
+AIMU never auto-selects a cloud provider and never *downloads* weights implicitly; every
 HuggingFace probe is cache-only.
 """
 
@@ -182,7 +182,7 @@ def _openai_compat_members() -> list:
         try:
             probe = openai.OpenAI(base_url=base_url, api_key="not-needed", timeout=0.5, max_retries=0)
             served = {m.id for m in probe.models.list().data}
-        except Exception:  # connection refused / not running — skip
+        except Exception:  # connection refused / not running: skip
             continue
         members.extend(m for m in enum if m.value in served)
     return members
@@ -212,7 +212,7 @@ def _openai_compat_served_text_models() -> Optional[str]:
 def available_text_models(*, include_hf_cache: bool = True) -> list:
     """Return locally *available* text models as provider ``Model`` enum members.
 
-    Discovery is download-free and cloud-free — it reports only what is loadable right
+    Discovery is download-free and cloud-free; it reports only what is loadable right
     now: models on a running Ollama server, models in the local HuggingFace cache, and
     models served by a reachable local OpenAI-compatible server. Order is provider
     priority (Ollama → HuggingFace cache → local servers), then enum-definition order
@@ -234,7 +234,7 @@ def available_text_models(*, include_hf_cache: bool = True) -> list:
 # --- Per-modality local discovery (surface choices; never auto-select) ----------------
 #
 # Unlike text, these helpers feed only the discovery surface (``aimu.available_*_models``)
-# and the unset-env error message — they are never auto-selected. Image / audio / speech /
+# and the unset-env error message; they are never auto-selected. Image / audio / speech /
 # transcription have no local server, so discovery is the HuggingFace cache only; embedding
 # adds the Ollama probe (Ollama serves embedding models like text models). Cloud providers
 # (OpenAI, Gemini) are never discovered.
@@ -405,7 +405,7 @@ def resolve_default_modality_model(env_var: str) -> str:
 
     AIMU never auto-selects one of these (a wrong silent pick is costly: an image-style
     swing, or a persisted vector store corrupted by a mismatched embedder) and never
-    downloads weights implicitly. So an unset env var is a clear, actionable error — but
+    downloads weights implicitly. So an unset env var is a clear, actionable error, but
     the message lists any locally available models to make the explicit choice easy.
     """
     _load_dotenv()

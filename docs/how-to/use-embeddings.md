@@ -9,7 +9,7 @@ Turn text into fixed-length vectors with `embedding_client().embed()` or the one
 ```python
 import aimu
 
-# One-shot — a single string returns one vector (list[float])
+# One-shot: a single string returns one vector (list[float])
 vector = aimu.embed("The quick brown fox", model="openai:text-embedding-3-small")
 
 # Reusable client (better for many inputs)
@@ -49,13 +49,13 @@ aimu.embedding_client("ollama:nomic-embed-text")        # local server (ollama p
 aimu.embedding_client("hf:BAAI/bge-small-en-v1.5")      # local sentence-transformers ([hf] extra)
 ```
 
-- **OpenAI** (cloud) — reads `OPENAI_API_KEY`.
-- **Ollama** (local server) — pull the model first, e.g. `ollama pull nomic-embed-text`.
-- **HuggingFace** (local) — backed by `sentence-transformers` (the `[hf]` extra), so each
+- **OpenAI** (cloud): reads `OPENAI_API_KEY`.
+- **Ollama** (local server): pull the model first, e.g. `ollama pull nomic-embed-text`.
+- **HuggingFace** (local): backed by `sentence-transformers` (the `[hf]` extra), so each
   model's own pooling/normalization config is honoured. Weights download on first use and
   are cached; free them with `aimu.clear_hf_cache()`. Retrieval-tuned models (BGE / E5)
-  expect `"query: "` / `"passage: "` prefixes for asymmetric retrieval — pass already-prefixed
-  strings when you need that; symmetric similarity does not.
+  expect `"query: "` / `"passage: "` prefixes for asymmetric retrieval (pass already-prefixed
+  strings when you need that; symmetric similarity does not).
 
 ## Available models
 
@@ -77,7 +77,7 @@ export AIMU_EMBEDDING_MODEL="openai:text-embedding-3-small"
 ```
 
 Then `aimu.embedding_client()` and `aimu.embed()` resolve the model without an explicit
-argument. No model is ever downloaded implicitly — if the var is unset and no model is
+argument. No model is ever downloaded implicitly; if the var is unset and no model is
 passed, a `ValueError` is raised.
 
 ## Pluggable embeddings in semantic memory
@@ -117,5 +117,5 @@ asyncio.run(main())
 
 ## See also
 
-- [Use semantic memory](use-semantic-memory.md) — store and retrieve facts by meaning
+- [Use semantic memory](use-semantic-memory.md): store and retrieve facts by meaning
 - Notebook [11 - Embeddings](https://github.com/saxman/aimu/blob/main/notebooks/11%20-%20Embeddings.ipynb)

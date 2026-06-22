@@ -148,13 +148,13 @@ def resolve_model_enum(model: Union[Model, str]) -> Model:
     - a bare enum-member *name* (e.g. ``"QWEN_3_8B"``), looked up across every installed
       provider's ``Model`` enum.
 
-    A bare name that ships under more than one provider's enum (common for text — the same
+    A bare name that ships under more than one provider's enum (common for text, where the same
     id is offered by many providers) is **ambiguous**. Rather than blindly picking the
     highest-priority provider, ambiguity is resolved the way the omitted-``model`` default is:
     prefer a provider where the model is *actually available locally* (running Ollama →
     cached HuggingFace → reachable local OpenAI-compat server, tool-capable first), logged at
     WARNING. If the ambiguous name is not available under any provider, a ``ValueError`` is
-    raised listing the ``"provider:model_id"`` options — picking a provider for a model that
+    raised listing the ``"provider:model_id"`` options; picking a provider for a model that
     isn't even loadable would be a blind guess. This availability tiebreaker only runs on the
     ambiguous path; enum / ``"provider:model_id"`` / unambiguous-name inputs do no I/O.
 
@@ -264,7 +264,7 @@ class ModelClient(BaseModelClient):
             )
 
         # Mirror non-mutable attributes so callers can read them directly on this wrapper.
-        # super().__init__() is intentionally not called — it would reset inner client state.
+        # super().__init__() is intentionally not called; it would reset inner client state.
         self.model = self._client.model
         self.model_kwargs = self._client.model_kwargs
         self.default_generate_kwargs = self._client.default_generate_kwargs

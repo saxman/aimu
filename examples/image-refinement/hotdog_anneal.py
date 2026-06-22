@@ -2,14 +2,14 @@
 """Simulated-annealing variant of the hotdog heating loop.
 
 `hotdog_climbing.py` is a strict hill-climber: it only ever advances on a *higher*
-score and reverts otherwise. This script generalises that into **simulated annealing** — the
+score and reverts otherwise. This script generalises that into **simulated annealing**: the
 climber is the ``T → 0`` limit of what's here. It keeps a ``current`` walk-state (distinct
 from the best-ever image) and, controlled by a falling *temperature*, will probabilistically
 accept a *worse* image to escape a local optimum, cooling into greedy behaviour over time.
 
 Acceptance (Metropolis rule), with ``Δ = new_score − current_score``:
 - ``Δ > 0`` (hotter): always accept.
-- ``Δ == 0`` (tie): always accept — a free sideways move (the deliberate opposite of the
+- ``Δ == 0`` (tie): always accept, a free sideways move (the deliberate opposite of the
   climber, which treats a tie as no progress).
 - ``Δ < 0`` (cooler): accept with probability ``exp(Δ / T)``. High ``T`` early ⇒ explores
   freely; as ``T`` cools toward 0 ⇒ behaves like the greedy climber.
@@ -18,15 +18,15 @@ The best-ever image is tracked separately and copied to ``best.png`` regardless 
 
 The same cooling schedule also drives the **proposer's** LLM sampling temperature: the critic
 proposes refinement ideas hot (diverse, exploratory) early and cold (conservative tweaks) late
-— see ``_proposer_temperature``. Only proposals are annealed; the **judge** (scoring) is always
+(see ``_proposer_temperature``). Only proposals are annealed; the **judge** (scoring) is always
 cold, since the score is the objective and must stay stable.
 
 Honest caveats for this domain:
-- The judge is a coarse, conservative integer 1–10, so ``Δ`` is almost always ``0`` or ``±1``
-  — annealing's fine temperature control is blunted (mostly "always accept ties, accept −1
+- The judge is a coarse, conservative integer 1–10, so ``Δ`` is almost always ``0`` or ``±1``,
+  so annealing's fine temperature control is blunted (mostly "always accept ties, accept −1
   with probability ``p(T)``").
 - Each step is a full image generation + vision eval, so runs are short (tens of steps, not
-  thousands); annealing's asymptotic guarantees don't apply — the practical win over the
+  thousands); annealing's asymptotic guarantees don't apply, so the practical win over the
   climber is local-optimum escape, not convergence.
 - The "neighbourhood" is the critic's prompt refinement, not a local perturbation of the
   previous image (no img2img). Annealing happens in prompt space.
@@ -68,7 +68,7 @@ from _hotdog_common import (
 
 
 # Sampling-temperature band for the *proposer* (refinement-idea generation). The annealing
-# schedule slides the proposer between these — diverse/creative ideas while hot, conservative
+# schedule slides the proposer between these: diverse/creative ideas while hot, conservative
 # tweaks once cooled. The judge (scoring) is never annealed; only proposals get this.
 PROPOSER_TEMP_HOT = 1.1
 PROPOSER_TEMP_COLD = 0.3
@@ -82,7 +82,7 @@ def _score(value: int | None) -> int:
 def _proposer_temperature(temperature: float, initial_temp: float) -> float:
     """Map the current annealing temperature to an LLM sampling temperature for proposals.
 
-    Shares the annealing *schedule* — via the cooling fraction ``f = T / T0`` (1 → 0) — but
+    Shares the annealing *schedule* (via the cooling fraction ``f = T / T0``, 1 → 0) but
     lives in the LLM's own units: hot early (``PROPOSER_TEMP_HOT``, diverse refinement ideas)
     cooling to ``PROPOSER_TEMP_COLD`` (conservative tweaks). ``f`` depends only on how far the
     run has cooled (``cooling_rate ** (i-1)``), not on ``T0``'s absolute value.
@@ -97,7 +97,7 @@ def _accept(delta: int, temperature: float, rng: random.Random) -> bool:
 
     Always accept a non-worsening move (``delta >= 0``, which covers both a hotter image and a
     tie). Accept a worsening move (``delta < 0``) with probability ``exp(delta / temperature)``.
-    At ``temperature → 0`` worsening moves are never accepted — the pure-greedy (hill-climbing)
+    At ``temperature → 0`` worsening moves are never accepted, the pure-greedy (hill-climbing)
     limit.
     """
     if delta >= 0:
@@ -130,7 +130,7 @@ def run_anneal(
 
     # Summarize each candidate idea down to the image model's token budget (None → direct).
     # The plan decides whether NEGATIVE_PROMPT rides as a kwarg, folds into the summarizer,
-    # or appends to the prompt — based on the model's spec.
+    # or appends to the prompt, based on the model's spec.
     neg_plan = negative_prompt_plan(image_client)
     max_prompt_tokens = image_client.max_prompt_tokens
     summarizer_instruction = (
@@ -217,7 +217,7 @@ def run_anneal(
                 print(f"Staying at current (iteration's score {parsed['score']} rejected).")
 
             # Propose the next refinement from the current image at the *annealed* proposer
-            # temperature — diverse ideas while hot, conservative once cooled. Routing both the
+            # temperature: diverse ideas while hot, conservative once cooled. Routing both the
             # accept and reject paths through the proposer (rather than reusing the evaluator's
             # cold CONTINUE suggestion) is what lets the schedule actually drive proposal
             # diversity early, when the temperature is highest. The score itself stays cold.
@@ -229,7 +229,7 @@ def run_anneal(
             candidate_prompt = to_prompt(next_idea)
             temperature *= cooling_rate
     except KeyboardInterrupt:
-        print("\nInterrupted — writing partial results so far...")
+        print("\nInterrupted, writing partial results so far...")
     finally:
         # Mark the winner and emit the same artifacts as the other scripts, even on interrupt.
         if best:

@@ -63,7 +63,7 @@ def _install_diffusers_stub(monkeypatch=None, force=False):
     """Install a fake ``diffusers`` module so HF image tests don't need real weights.
 
     Also rebinds the ``diffusers`` name inside any already-loaded
-    ``aimu.models.providers.hf.image`` module — when the real ``diffusers``
+    ``aimu.models.providers.hf.image`` module, when the real ``diffusers``
     is installed and gets imported first (e.g. by an earlier test importing
     ``aimu``), the stub in ``sys.modules`` doesn't reach the module's local binding.
 
@@ -232,7 +232,7 @@ def test_resolve_image_model_enum_rejects_bad_type():
 
 
 def test_hf_spec_equality_by_id():
-    """HuggingFaceImageSpec equality uses id only — dict fields stay hashable."""
+    """HuggingFaceImageSpec equality uses id only; dict fields stay hashable."""
     a = HuggingFaceImageSpec("repo/x", default_steps=10)
     b = HuggingFaceImageSpec("repo/x", default_steps=999)
     c = HuggingFaceImageSpec("repo/y")
@@ -332,7 +332,7 @@ def test_gemini_model_value_is_api_id():
 
 
 # ---------------------------------------------------------------------------
-# encode_image — shared format conversion helper
+# encode_image: shared format conversion helper
 # ---------------------------------------------------------------------------
 
 
@@ -377,7 +377,7 @@ def test_encode_image_invalid_format_raises():
 
 
 # ===========================================================================
-# HuggingFaceImageClient — construction
+# HuggingFaceImageClient: construction
 # ===========================================================================
 
 
@@ -401,7 +401,7 @@ def test_hf_client_accepts_known_hf_string():
 
 
 def test_hf_client_rejects_unknown_repo_id():
-    # Arbitrary repos are not supported via string — curated enum models only.
+    # Arbitrary repos are not supported via string; curated enum models only.
     with pytest.raises(ValueError, match="curated models only"):
         HuggingFaceImageClient("hf:custom/repo-id")
 
@@ -434,7 +434,7 @@ def test_hf_client_lazy_pipeline_not_loaded_at_init():
 
 
 # ---------------------------------------------------------------------------
-# HuggingFaceImageClient — generate()
+# HuggingFaceImageClient: generate()
 # ---------------------------------------------------------------------------
 
 
@@ -522,7 +522,7 @@ def test_hf_unknown_pipeline_class_raises_clear_error():
 
 
 # ===========================================================================
-# GeminiImageClient — mock plumbing
+# GeminiImageClient: mock plumbing
 # ===========================================================================
 
 
@@ -593,7 +593,7 @@ def fake_genai(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# GeminiImageClient — model-string parsing
+# GeminiImageClient: model-string parsing
 # ---------------------------------------------------------------------------
 
 
@@ -623,7 +623,7 @@ def test_gemini_model_string_empty_id_rejected(fake_genai):
 
 
 # ---------------------------------------------------------------------------
-# GeminiImageClient — API-key resolution
+# GeminiImageClient: API-key resolution
 # ---------------------------------------------------------------------------
 
 
@@ -641,7 +641,7 @@ def test_gemini_api_key_via_model_kwargs_overrides_env(monkeypatch, fake_genai):
 
 
 # ---------------------------------------------------------------------------
-# GeminiImageClient — generate()
+# GeminiImageClient: generate()
 # ---------------------------------------------------------------------------
 
 
@@ -762,7 +762,7 @@ def test_top_level_generate_image_one_shot_hf():
 
 
 # ===========================================================================
-# Streaming (IMAGE_GENERATING) — both providers
+# Streaming (IMAGE_GENERATING): both providers
 # ===========================================================================
 
 
@@ -839,7 +839,7 @@ def test_gemini_stream_num_images_two_pairs(fake_genai):
 
 
 # ===========================================================================
-# reference_image — HuggingFace img2img
+# reference_image: HuggingFace img2img
 # ===========================================================================
 
 
@@ -945,7 +945,7 @@ def test_hf_img2img_streamed_uses_img2img_pipeline():
 
 
 # ===========================================================================
-# reference_image — Gemini image editing
+# reference_image: Gemini image editing
 # ===========================================================================
 
 
@@ -989,7 +989,7 @@ def test_gemini_with_reference_image_path_input(fake_genai, tmp_path):
 
 
 # ===========================================================================
-# FLUX.2 Klein — catalog and img2img (no strength)
+# FLUX.2 Klein: catalog and img2img (no strength)
 # ===========================================================================
 
 

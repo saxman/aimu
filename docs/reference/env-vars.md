@@ -1,6 +1,6 @@
 # Environment variables
 
-AIMU reads a small set of environment variables. All are loaded via [`python-dotenv`](https://github.com/theskumar/python-dotenv) — a `.env` file in your working directory is picked up automatically by the clients that need keys.
+AIMU reads a small set of environment variables. All are loaded via [`python-dotenv`](https://github.com/theskumar/python-dotenv): a `.env` file in your working directory is picked up automatically by the clients that need keys.
 
 ## API keys
 
@@ -21,22 +21,22 @@ If missing, the text clients construct successfully but the first request raises
 | `AIMU_AUDIO_MODEL` | `aimu.tools.builtin.generate_audio` (lazy singleton) | `hf:facebook/musicgen-small` |
 | `AIMU_SPEECH_MODEL` | `aimu.tools.builtin.generate_speech` (lazy singleton) | `hf:microsoft/speecht5_tts` |
 
-The built-in `generate_image` tool constructs its image client lazily on first call, picking the provider and model from `AIMU_IMAGE_MODEL`. Accepts any string supported by `aimu.image_client()` — `"hf:<repo>"` or `"gemini:<id_or_alias>"`. Override per-agent by building your own tool with `make_image_tool(client)` instead of using the singleton.
+The built-in `generate_image` tool constructs its image client lazily on first call, picking the provider and model from `AIMU_IMAGE_MODEL`. Accepts any string supported by `aimu.image_client()`: `"hf:<repo>"` or `"gemini:<id_or_alias>"`. Override per-agent by building your own tool with `make_image_tool(client)` instead of using the singleton.
 
-The built-in `generate_audio` tool follows the same pattern. `AIMU_AUDIO_MODEL` accepts any string supported by `aimu.audio_client()` — currently `"hf:<repo>"`. Override per-agent with `make_audio_tool(client)` instead of using the singleton.
+The built-in `generate_audio` tool follows the same pattern. `AIMU_AUDIO_MODEL` accepts any string supported by `aimu.audio_client()`, currently `"hf:<repo>"`. Override per-agent with `make_audio_tool(client)` instead of using the singleton.
 
-The built-in `generate_speech` tool follows the same pattern. `AIMU_SPEECH_MODEL` accepts any string supported by `aimu.speech_client()` — `"openai:<model_id>"` (requires `OPENAI_API_KEY`) or `"hf:<repo_id>"`. Override per-agent with `make_speech_tool(client)` instead of using the singleton.
+The built-in `generate_speech` tool follows the same pattern. `AIMU_SPEECH_MODEL` accepts any string supported by `aimu.speech_client()`: `"openai:<model_id>"` (requires `OPENAI_API_KEY`) or `"hf:<repo_id>"`. Override per-agent with `make_speech_tool(client)` instead of using the singleton.
 
 ## Default model selection
 
-These set the default `model=` for a modality's top-level helpers when the argument is omitted. Unlike the tool defaults above, they have **no built-in fallback** — if unset and no model is passed, the helper raises `ValueError` (AIMU never downloads weights implicitly).
+These set the default `model=` for a modality's top-level helpers when the argument is omitted. Unlike the tool defaults above, they have **no built-in fallback**. If unset and no model is passed, the helper raises `ValueError` (AIMU never downloads weights implicitly).
 
 | Variable | Used by | Default |
 |---|---|---|
 | `AIMU_TRANSCRIPTION_MODEL` | `aimu.transcription_client()` / `aimu.transcribe()` | None (raises if unset) |
 | `AIMU_EMBEDDING_MODEL` | `aimu.embedding_client()` / `aimu.embed()` | None (raises if unset) |
 
-`AIMU_EMBEDDING_MODEL` accepts any string supported by `aimu.embedding_client()` — `"openai:<model_id>"` (requires `OPENAI_API_KEY`), `"ollama:<model_id>"`, or `"hf:<repo_id>"` (the `[hf]` extra).
+`AIMU_EMBEDDING_MODEL` accepts any string supported by `aimu.embedding_client()`: `"openai:<model_id>"` (requires `OPENAI_API_KEY`), `"ollama:<model_id>"`, or `"hf:<repo_id>"` (the `[hf]` extra).
 
 ## MCP server storage paths
 
@@ -46,7 +46,7 @@ These set the default `model=` for a modality's top-level helpers when the argum
 | `DOCUMENT_STORE_PATH` | `python -m aimu.memory.document_mcp` (DocumentStore server) | None (in-memory) |
 | `PROMPT_CATALOG_PATH` | `python -m aimu.prompts.mcp` (PromptCatalog server) | `prompts.db` in cwd |
 
-When unset, MCP servers run with ephemeral state — fine for tests, not for production.
+When unset, MCP servers run with ephemeral state: fine for tests, not for production.
 
 ## `.env` file example
 
@@ -77,9 +77,9 @@ DOCUMENT_STORE_PATH=./.aimu/docs
 PROMPT_CATALOG_PATH=./.aimu/prompts.db
 ```
 
-Place it in your project root. Don't commit it — add `.env` to `.gitignore`.
+Place it in your project root. Don't commit it; add `.env` to `.gitignore`.
 
 ## See also
 
-- [Provider matrix](provider-matrix.md) — which provider needs which key
-- [CLI](cli.md) — runnable `python -m` entry points that read these vars
+- [Provider matrix](provider-matrix.md): which provider needs which key
+- [CLI](cli.md): runnable `python -m` entry points that read these vars

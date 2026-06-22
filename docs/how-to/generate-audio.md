@@ -12,7 +12,7 @@ The scope is music and sound generation, not text-to-speech.
 pip install -e '.[hf]'
 ```
 
-The `[hf]` extra already ships `torch` and `transformers` for the HuggingFace text client. Audio adds `diffusers` (for AudioLDM2 / Stable Audio) and `soundfile` (for WAV encoding). All come in one extra — no separate install step.
+The `[hf]` extra already ships `torch` and `transformers` for the HuggingFace text client. Audio adds `diffusers` (for AudioLDM2 / Stable Audio) and `soundfile` (for WAV encoding). All come in one extra, with no separate install step.
 
 ## One-shot
 
@@ -35,10 +35,10 @@ data = aimu.generate_audio(
 ```
 
 `format=` selects how the audio is returned:
-- `"numpy"` (default) — `(sample_rate: int, audio: np.ndarray)` tuple, the native representation
-- `"path"` — saves a WAV file, returns the path string
-- `"bytes"` — raw WAV-encoded bytes
-- `"data_url"` — `data:audio/wav;base64,...` for inline embedding
+- `"numpy"` (default): `(sample_rate: int, audio: np.ndarray)` tuple, the native representation
+- `"path"`: saves a WAV file, returns the path string
+- `"bytes"`: raw WAV-encoded bytes
+- `"data_url"`: `data:audio/wav;base64,...` for inline embedding
 
 ## Choosing a model
 
@@ -52,9 +52,9 @@ Three pipeline families ship in the `HuggingFaceAudioModel` enum:
 | `AUDIOLDM2` | `cvssp/audioldm2` | `audioldm2` | Diffusion model; general sound |
 | `STABLE_AUDIO_OPEN` | `stabilityai/stable-audio-open-1.0` | `stable_audio` | Diffusion model; 44.1 kHz stereo |
 
-**MusicGen** (`musicgen`) is token-autoregressive — it generates directly at 32 kHz without a diffusion loop, so there are no inference steps. Duration maps to a token count (~50 tokens/s).
+**MusicGen** (`musicgen`) is token-autoregressive: it generates directly at 32 kHz without a diffusion loop, so there are no inference steps. Duration maps to a token count (~50 tokens/s).
 
-**AudioLDM2** and **Stable Audio Open** (`audioldm2` / `stable_audio`) use latent diffusion — they accept `num_inference_steps` and support step-by-step streaming progress.
+**AudioLDM2** and **Stable Audio Open** (`audioldm2` / `stable_audio`) use latent diffusion: they accept `num_inference_steps` and support step-by-step streaming progress.
 
 ## Direct client
 
@@ -78,7 +78,7 @@ from aimu.models import HuggingFaceAudioModel
 client = audio_client(HuggingFaceAudioModel.MUSICGEN_MEDIUM)
 ```
 
-On a multi-GPU box, target a specific card with `model_kwargs={"device": "cuda:1"}` (default placement is `cuda:0`). These models are small enough to fit one card, so — unlike the image client — there is no sharding default.
+On a multi-GPU box, target a specific card with `model_kwargs={"device": "cuda:1"}` (default placement is `cuda:0`). These models are small enough to fit one card, so, unlike the image client, there is no sharding default.
 
 ### Per-call kwargs
 
@@ -118,7 +118,7 @@ client = audio_client("hf:cvssp/audioldm2")
 for chunk in client.generate("summer thunderstorm", stream=True, num_inference_steps=20):
     c = chunk.content
     if c["final"]:
-        print(f"\nDone — saved to {c['result']}")
+        print(f"\nDone, saved to {c['result']}")
     else:
         print(f"Step {c['step']}/{c['total_steps']}", end="\r")
 ```
@@ -183,9 +183,9 @@ agent = Agent(
 response = agent.run("Make me a short lo-fi beat I can study to.")
 ```
 
-The tool uses a lazy module-level singleton — first call constructs an audio client from `AIMU_AUDIO_MODEL` (default: MusicGen small), subsequent calls reuse it.
+The tool uses a lazy module-level singleton: the first call constructs an audio client from `AIMU_AUDIO_MODEL` (default: MusicGen small), subsequent calls reuse it.
 
-### Per-agent override — `make_audio_tool`
+### Per-agent override: `make_audio_tool`
 
 When you need a different model from the global singleton, or multiple agents in one process should use different pipelines:
 
@@ -199,11 +199,11 @@ medium_tool = make_audio_tool(medium, duration_s=15.0, num_inference_steps=100)
 agent = Agent(text_client, tools=[medium_tool])
 ```
 
-`make_audio_tool()` returns a fresh `@tool`-decorated callable bound to the supplied client; the singleton stays untouched. Pass `duration_s=` to fix the generation length, and `num_inference_steps=N` to override the default denoising step count (diffusers models only — AudioLDM2, Stable Audio; ignored by MusicGen).
+`make_audio_tool()` returns a fresh `@tool`-decorated callable bound to the supplied client; the singleton stays untouched. Pass `duration_s=` to fix the generation length, and `num_inference_steps=N` to override the default denoising step count (diffusers models only, namely AudioLDM2 and Stable Audio; ignored by MusicGen).
 
 ## Async
 
-The async surface mirrors the sync surface one-for-one. HuggingFace models load weights in-process, so the factory follows the wrap pattern — build a sync client first and pass it to `aio.audio_client()`:
+The async surface mirrors the sync surface one-for-one. HuggingFace models load weights in-process, so the factory follows the wrap pattern: build a sync client first and pass it to `aio.audio_client()`:
 
 ```python
 import asyncio
@@ -236,9 +236,9 @@ path = await aio.generate_audio(
 
 ## See also
 
-- [Reference: model matrix](../reference/model-matrix.md) — audio model table with pipeline types and defaults.
-- [Reference: stream phases](../reference/stream-phases.md) — `AUDIO_GENERATING` chunk shape.
-- [Reference: env vars](../reference/env-vars.md) — `AIMU_AUDIO_MODEL`.
-- [Notebook 16 — Audio Generation](https://github.com/saxman/aimu/tree/main/notebooks) — runnable end-to-end demo.
-- [Generate images](generate-images.md) — the image surface, which this mirrors.
-- [Generate speech](generate-speech.md) — the TTS surface (`aimu.speech_client()` / `aimu.generate_speech()`). Audio and speech are separate modalities: audio generates music/sounds from descriptive prompts; speech converts literal text to spoken audio.
+- [Reference: model matrix](../reference/model-matrix.md): audio model table with pipeline types and defaults.
+- [Reference: stream phases](../reference/stream-phases.md): `AUDIO_GENERATING` chunk shape.
+- [Reference: env vars](../reference/env-vars.md): `AIMU_AUDIO_MODEL`.
+- [Notebook 16: Audio Generation](https://github.com/saxman/aimu/tree/main/notebooks): runnable end-to-end demo.
+- [Generate images](generate-images.md): the image surface, which this mirrors.
+- [Generate speech](generate-speech.md): the TTS surface (`aimu.speech_client()` / `aimu.generate_speech()`). Audio and speech are separate modalities: audio generates music/sounds from descriptive prompts; speech converts literal text to spoken audio.

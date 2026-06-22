@@ -1,6 +1,6 @@
 # Agents vs workflows
 
-AIMU follows the taxonomy from *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. The split — autonomous agents vs code-controlled workflows — is the most important conceptual divide in the library, and worth understanding before you build anything non-trivial.
+AIMU follows the taxonomy from *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. The split between autonomous agents and code-controlled workflows is the most important conceptual divide in the library, and worth understanding before you build anything non-trivial.
 
 In code, every runnable unit implements the single `Runner` ABC and is exported from `aimu.agents`. The agent-vs-workflow split is a *conceptual category* over concrete classes, not a type hierarchy: `Agent` / `SkillAgent` / `OrchestratorAgent` are agent-shaped; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` / `PlanExecuteEvaluator` are workflow-shaped. The distinction lives in the docs.
 
@@ -34,11 +34,11 @@ Rules of thumb:
 
 The taxonomy isn't just nomenclature. It's a question about *who controls the loop*.
 
-Autonomous agents are powerful but expensive: every step the model decides is a round-trip, with full message history. They're also harder to reason about — when something goes wrong, you have to trace through what the model decided, not what your code did.
+Autonomous agents are powerful but expensive: every step the model decides is a round-trip, with full message history. They're also harder to reason about. When something goes wrong, you have to trace through what the model decided, not what your code did.
 
 Workflows are constrained but predictable. Each step has a known purpose. Failures are localised. Latency is bounded by the number of steps in the code, not by however many tool rounds the model wants.
 
-For most production systems, workflows do more of the work than people expect. Autonomous agents are best at the *leaves* — at points where the task genuinely is "use these tools to figure out what to do next".
+For most production systems, workflows do more of the work than people expect. Autonomous agents are best at the *leaves*, at points where the task genuinely is "use these tools to figure out what to do next".
 
 ## In AIMU
 
@@ -62,12 +62,12 @@ The `messages` property merges sub-agent message dicts recursively, so you can i
 
 `OrchestratorAgent` is a third pattern that sits between agents and workflows: an *autonomous* agent whose tools are other agents. The orchestrator LLM decides which worker agents to call (and in what order), but each worker runs its own agentic loop.
 
-This is most useful when the workers themselves benefit from tool use. A research orchestrator might have three workers (overview, examples, counterpoints), each of which can call web-search tools. The orchestrator decides which workers to dispatch — the workers decide how to do their work.
+This is most useful when the workers themselves benefit from tool use. A research orchestrator might have three workers (overview, examples, counterpoints), each of which can call web-search tools. The orchestrator decides which workers to dispatch; the workers decide how to do their work.
 
 Use `OrchestratorAgent.assemble(client, system_message, workers=[...])` for the simple case (each worker is auto-wrapped as a `@tool`), or subclass and call `self._init_orchestrator(...)` when you need custom tool signatures.
 
 ## Further reading
 
-- [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) — the original taxonomy.
-- [Architecture](architecture.md) — how the `Runner` hierarchy is arranged in the codebase.
-- [How-to: build an orchestrator](../how-to/build-orchestrator.md) — practical patterns.
+- [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents): the original taxonomy.
+- [Architecture](architecture.md): how the `Runner` hierarchy is arranged in the codebase.
+- [How-to: build an orchestrator](../how-to/build-orchestrator.md): practical patterns.

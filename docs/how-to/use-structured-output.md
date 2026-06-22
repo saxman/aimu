@@ -21,10 +21,10 @@ person = client.chat("Extract the person: Ada Lovelace, 36.", schema=Person)
 
 AIMU uses the best method the model supports, automatically:
 
-- **Native enforcement** when the model has `supports_structured_output=True` — the provider
+- **Native enforcement** when the model has `supports_structured_output=True`: the provider
   constrains generation to the schema (OpenAI `response_format`, Ollama `format=`, Anthropic
   forced-tool). Check it with `client.supports_structured_output`.
-- **Prompt-and-parse** otherwise — the schema is appended to the prompt and the response is
+- **Prompt-and-parse** otherwise: the schema is appended to the prompt and the response is
   parsed.
 
 Either way you get a validated instance or a `ValueError` (parsing failed). The choice is
@@ -65,7 +65,7 @@ class Invoice(BaseModel):
 invoice = client.chat("Acme, $1,250.00, unpaid", schema=Invoice)  # -> Invoice
 ```
 
-Pydantic is optional — dataclasses work without it.
+Pydantic is optional; dataclasses work without it.
 
 ## With tools
 
@@ -79,7 +79,7 @@ composes with tools.
 
 ## Constraints
 
-- **`schema=` and `stream=True` are mutually exclusive** — a typed object can't be streamed
+- **`schema=` and `stream=True` are mutually exclusive**: a typed object can't be streamed
   incrementally; passing both raises `ValueError`.
 - **`self.messages` stays plain.** The typed object is a return value only; the assistant turn
   is stored as the plain JSON string, so conversation history remains provider-portable.
@@ -105,5 +105,5 @@ llama-cpp use the prompt-and-parse path. See [parse helpers](../reference/api/ai
 
 ## See also
 
-- [Stream output](stream-output.md) — note that streaming and `schema=` don't combine
-- [Switch providers](switch-providers.md) — `supports_structured_output` varies by provider
+- [Stream output](stream-output.md): note that streaming and `schema=` don't combine
+- [Switch providers](switch-providers.md): `supports_structured_output` varies by provider

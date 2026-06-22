@@ -504,7 +504,7 @@ def test_orchestrator_agent_assemble_factory():
 
 
 # ---------------------------------------------------------------------------
-# Runner.as_tool() — any runner (agent or workflow) usable as a tool
+# Runner.as_tool(): any runner (agent or workflow) usable as a tool
 # ---------------------------------------------------------------------------
 
 
@@ -739,7 +739,7 @@ def test_agent_without_final_answer_prompt_returns_last_turn_at_cap():
     result = agent.run("gather forever")
 
     # No wrap-up: returns whatever the last (tool-only) turn produced, and tools were
-    # never disabled — this is the empty-output failure the feature fixes.
+    # never disabled. This is the empty-output failure the feature fixes.
     assert result == ""
     assert all(seen for seen in client.tools_seen)
 

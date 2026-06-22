@@ -46,7 +46,7 @@ SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 
 # Preview slider bounds. Slider value of 0 maps to "off" (preview_every=None);
 # 1..PREVIEW_MAX maps to that integer step frequency. Max chosen to be larger
-# than the default step count of every shipped HF model — values that exceed
+# than the default step count of every shipped HF model; values that exceed
 # total_steps simply never fire mid-way (only the final chunk carries a preview).
 PREVIEW_MAX = 25
 
@@ -220,7 +220,7 @@ def stream_chat_response(streamed_response, speech_client=None, narrate=False):
 
     for chunk_idx, chunk in enumerate(streamed_response):
         if chunk.phase == StreamingContentType.IMAGE_GENERATING:
-            # Reset text-coalescing state — next text chunk should start fresh.
+            # Reset text-coalescing state; next text chunk should start fresh.
             current_type = None
             content = chunk.content
             step = content.get("step", 0)
@@ -327,7 +327,7 @@ def stream_chat_response(streamed_response, speech_client=None, narrate=False):
         if chunk.phase == StreamingContentType.GENERATING and narrate and speech_client is not None:
             generated_text += chunk.content
         if current_text:
-            # Defer box creation until we have non-empty text — avoids rendering
+            # Defer box creation until we have non-empty text; avoids rendering
             # an empty "Thinking" expander when a thinking phase yields nothing.
             if current_box is None:
                 current_box = (
@@ -361,7 +361,7 @@ if "model_client" not in st.session_state:
     if IMAGE_CLIENT_CLASSES:
         default_image_cls = IMAGE_CLIENT_CLASSES[0]
         default_image_model = next(iter(default_image_cls.MODELS))
-        # Construct without going through _rebuild_image_client — base_client doesn't exist yet.
+        # Construct without going through _rebuild_image_client; base_client doesn't exist yet.
         client, err = _construct_image_client(default_image_cls, default_image_model)
         st.session_state.image_client_class = default_image_cls
         st.session_state.image_model = default_image_model
@@ -434,7 +434,7 @@ with st.sidebar:
 
     # These checks must run before the sliders are rendered so that _set_slider_defaults can update
     # session state keys that are bound to slider widgets without triggering a StreamlitAPIException.
-    # Use base_client for isinstance checks — model_client may be an agentic view.
+    # Use base_client for isinstance checks; model_client may be an agentic view.
     if not isinstance(st.session_state.base_client, model_client):
         _rebuild_client(model_client, model_client.TOOL_MODELS[0], agentic_mode, max_iterations)
         st.rerun()
@@ -458,7 +458,7 @@ with st.sidebar:
         "repeat_penalty", min_value=0.9, max_value=1.5, step=0.1, key="slider_repeat_penalty"
     )
 
-    # Image generation — client/model selectors + preview-step slider.
+    # Image generation: client/model selectors + preview-step slider.
     if IMAGE_CLIENT_CLASSES:
         st.markdown("---")
         st.markdown("**Image generation**")
@@ -490,7 +490,7 @@ with st.sidebar:
         if st.session_state.image_client_error:
             st.error(f"Image client unavailable: {st.session_state.image_client_error}")
 
-        # Preview slider — 0 means off. Disabled when the active client is Gemini
+        # Preview slider: 0 means off. Disabled when the active client is Gemini
         # (cloud API has no intermediate latents to decode).
         is_gemini = type(st.session_state.image_client).__name__ == "GeminiImageClient"
         current_preview = st.session_state.get("preview_every") or 0
@@ -504,7 +504,7 @@ with st.sidebar:
             help=(
                 "0 = off (fastest). When >0, intermediate denoised images are decoded via "
                 "the pipeline's VAE every N steps and shown live. Each decode adds ~50–200 ms "
-                "on GPU. Disabled for Gemini Nano Banana — the cloud API has no intermediate steps."
+                "on GPU. Disabled for Gemini Nano Banana; the cloud API has no intermediate steps."
             ),
         )
         selected_preview = None if preview_raw == 0 else preview_raw
@@ -521,7 +521,7 @@ with st.sidebar:
             )
             st.rerun()
 
-        # Denoising steps slider — 0 maps to "use model default".
+        # Denoising steps slider: 0 maps to "use model default".
         is_hf_image = type(st.session_state.image_client).__name__ == "HuggingFaceImageClient"
         current_image_steps = st.session_state.get("image_steps") or 0
         image_steps_raw = st.slider(
@@ -550,7 +550,7 @@ with st.sidebar:
             )
             st.rerun()
 
-    # Audio generation — client/model selectors + duration slider.
+    # Audio generation: client/model selectors + duration slider.
     if AUDIO_CLIENT_CLASSES:
         st.markdown("---")
         st.markdown("**Audio generation**")
@@ -581,7 +581,7 @@ with st.sidebar:
         if st.session_state.audio_client_error:
             st.error(f"Audio client unavailable: {st.session_state.audio_client_error}")
 
-        # Denoising steps slider — 0 maps to "use model default". Only meaningful
+        # Denoising steps slider: 0 maps to "use model default". Only meaningful
         # for diffusers-backed models (AudioLDM2, StableAudio); MusicGen ignores it.
         is_diffusers_audio = type(st.session_state.audio_client).__name__ == "HuggingFaceAudioClient" and (
             st.session_state.audio_model is not None

@@ -44,10 +44,10 @@ sr, audio = aimu.generate_speech(
 ```
 
 `format=` selects how the audio is returned:
-- `"path"` (default) — saves a WAV file, returns the path string
-- `"bytes"` — raw WAV-encoded bytes
-- `"numpy"` — `(sample_rate: int, audio: np.ndarray)` tuple
-- `"data_url"` — `data:audio/wav;base64,...` for inline embedding
+- `"path"` (default): saves a WAV file, returns the path string
+- `"bytes"`: raw WAV-encoded bytes
+- `"numpy"`: `(sample_rate: int, audio: np.ndarray)` tuple
+- `"data_url"`: `data:audio/wav;base64,...` for inline embedding
 
 ## Choosing a model
 
@@ -76,7 +76,7 @@ sr, audio = client.generate("Hello!", voice="42", format="numpy")
 
 **BARK** voice codes: `v2/en_speaker_6`, `v2/en_speaker_9`, etc. Pass as `voice=` to `generate`.
 
-Ad-hoc models via `"hf:<repo_id>"` — pipeline type inferred from known repo prefixes, defaults to `tts_pipeline`.
+Ad-hoc models via `"hf:<repo_id>"`: pipeline type inferred from known repo prefixes, defaults to `tts_pipeline`.
 
 ## Direct client
 
@@ -100,7 +100,7 @@ from aimu.models import OpenAISpeechModel
 client = speech_client(OpenAISpeechModel.TTS_1_HD)
 ```
 
-For local HuggingFace TTS on a multi-GPU box, target a specific card with `model_kwargs={"device": "cuda:1"}`. TTS models are small, so there is no sharding default. (OpenAI TTS is a cloud API — placement doesn't apply.)
+For local HuggingFace TTS on a multi-GPU box, target a specific card with `model_kwargs={"device": "cuda:1"}`. TTS models are small, so there is no sharding default. (OpenAI TTS is a cloud API, so placement doesn't apply.)
 
 ### Per-call kwargs
 
@@ -131,7 +131,7 @@ client = speech_client("openai:tts-1")
 for chunk in client.generate("The quick brown fox jumps over the lazy dog.", stream=True):
     c = chunk.content
     if c["final"]:
-        print(f"\nDone — saved to {c['result']}")
+        print(f"\nDone, saved to {c['result']}")
     else:
         print(f"Chunk {c['chunk_index']}", end="\r")
 ```
@@ -193,9 +193,9 @@ agent = Agent(
 response = agent.run("Please say 'Welcome to AIMU' in a friendly voice.")
 ```
 
-The tool uses a lazy module-level singleton — first call constructs a speech client from `AIMU_SPEECH_MODEL` (default: `"hf:microsoft/speecht5_tts"`), subsequent calls reuse it.
+The tool uses a lazy module-level singleton: the first call constructs a speech client from `AIMU_SPEECH_MODEL` (default: `"hf:microsoft/speecht5_tts"`), subsequent calls reuse it.
 
-### Per-agent override — `make_speech_tool`
+### Per-agent override: `make_speech_tool`
 
 When you need a specific voice or speed from the global singleton, or multiple agents should use different voices:
 
@@ -233,7 +233,7 @@ async def narrate(lines):
 `generate()` routes through `asyncio.to_thread` so the event loop stays free during API calls.
 
 ```python
-# Async one-shot — pass a sync client as model
+# Async one-shot: pass a sync client as model
 from aimu import aio, speech_client
 
 sync = speech_client("openai:tts-1")
@@ -242,8 +242,8 @@ wav = await aio.generate_speech("Hello!", model=sync, format="bytes")
 
 ## See also
 
-- [Reference: stream phases](../reference/stream-phases.md) — `SPEECH_GENERATING` chunk shape.
-- [Reference: env vars](../reference/env-vars.md) — `AIMU_SPEECH_MODEL`.
-- [Generate audio](generate-audio.md) — the music/sound surface, which this mirrors.
-- [Notebook 17 — Speech](https://github.com/saxman/aimu/blob/main/notebooks/20%20-%20Speech.ipynb) — runnable TTS demo.
-- [Transcribe audio](transcribe-audio.md) — the speech-to-text (ASR) surface.
+- [Reference: stream phases](../reference/stream-phases.md): `SPEECH_GENERATING` chunk shape.
+- [Reference: env vars](../reference/env-vars.md): `AIMU_SPEECH_MODEL`.
+- [Generate audio](generate-audio.md): the music/sound surface, which this mirrors.
+- [Notebook 17: Speech](https://github.com/saxman/aimu/blob/main/notebooks/20%20-%20Speech.ipynb): runnable TTS demo.
+- [Transcribe audio](transcribe-audio.md): the speech-to-text (ASR) surface.

@@ -3,8 +3,8 @@
 Mirrors the MCP pattern (``aimu.tools.MCPClient`` / ``python -m aimu.tools.mcp``) at the
 *agent* level: MCP exposes tools across a process boundary, A2A exposes whole agents.
 
-- :class:`RemoteAgent` — consume a remote A2A agent as a local ``Runner``.
-- :func:`serve_a2a` / :func:`build_a2a_app` — expose any AIMU ``Runner`` as an A2A server.
+- :class:`RemoteAgent`: consume a remote A2A agent as a local ``Runner``.
+- :func:`serve_a2a` / :func:`build_a2a_app`: expose any AIMU ``Runner`` as an A2A server.
 
 Requires the ``a2a`` extra (``pip install 'aimu[a2a]'``). ``HAS_A2A`` reports availability.
 """

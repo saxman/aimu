@@ -1,4 +1,4 @@
-"""Async test helpers — mock async model client and live-backend dispatch.
+"""Async test helpers: mock async model client and live-backend dispatch.
 
 Mirrors :class:`helpers.MockModelClient` and the ``create_real_*`` helpers but
 for the async surface (``aimu.aio``).
@@ -196,7 +196,7 @@ def create_real_async_model_client(request):
 
     Mirrors :func:`helpers.create_real_model_client`. For in-process providers
     (HF, LlamaCpp) the async client is built by wrapping a fresh sync client
-    (Decision 7 — see docs/explanation/async-design.md).
+    (Decision 7; see docs/explanation/async-design.md).
     """
     from aimu.models.providers.ollama import OllamaModel
 

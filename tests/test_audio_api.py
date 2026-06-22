@@ -27,7 +27,7 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
-# Stubs — must be installed before aimu.models.providers.hf.audio is imported
+# Stubs: must be installed before aimu.models.providers.hf.audio is imported
 # ---------------------------------------------------------------------------
 
 
@@ -54,7 +54,7 @@ def _install_audio_stubs(monkeypatch=None, force=False):  # noqa: PLR0912
     """Install fake soundfile, transformers, and diffusers modules.
 
     Pass ``monkeypatch`` (from the autouse fixture below) to scope the stubs to a
-    single test and restore the real modules afterwards — no cross-file pollution.
+    single test and restore the real modules afterwards (no cross-file pollution).
     Pass ``force=True`` to overwrite whatever is present regardless of the guard.
 
     Called once at import time with neither argument purely so module-level
@@ -173,7 +173,7 @@ def _install_audio_stubs(monkeypatch=None, force=False):  # noqa: PLR0912
 
         _install_diffusers_stub(monkeypatch=monkeypatch, force=force)
     except ImportError:
-        pass  # Running without test_images_api — image stubs not needed here.
+        pass  # Running without test_images_api; image stubs not needed here.
 
     # Add audio pipeline classes to whatever diffusers stub is in sys.modules.
     if "diffusers" not in sys.modules:
@@ -311,12 +311,12 @@ from aimu.models.base import StreamingContentType  # noqa: E402
 
 
 # ===========================================================================
-# Shared infrastructure — HuggingFaceAudioSpec equality
+# Shared infrastructure: HuggingFaceAudioSpec equality
 # ===========================================================================
 
 
 def test_hf_audio_spec_equality_by_id():
-    """HuggingFaceAudioSpec equality uses id only — other fields don't affect it."""
+    """HuggingFaceAudioSpec equality uses id only; other fields don't affect it."""
     a = HuggingFaceAudioSpec("facebook/musicgen-small", pipeline_type="musicgen", default_duration_s=10.0)
     b = HuggingFaceAudioSpec("facebook/musicgen-small", pipeline_type="musicgen", default_duration_s=30.0)
     c = HuggingFaceAudioSpec("facebook/musicgen-medium", pipeline_type="musicgen")
@@ -338,7 +338,7 @@ def test_hf_audio_model_spec_pipeline_types():
 
 
 # ---------------------------------------------------------------------------
-# encode_audio — shared format conversion helper
+# encode_audio: shared format conversion helper
 # ---------------------------------------------------------------------------
 
 
@@ -393,7 +393,7 @@ def test_encode_audio_invalid_format_raises():
 
 
 # ===========================================================================
-# HuggingFaceAudioClient — construction
+# HuggingFaceAudioClient: construction
 # ===========================================================================
 
 
@@ -443,7 +443,7 @@ def test_hf_audio_client_lazy_pipeline_not_loaded_at_init():
 
 
 # ---------------------------------------------------------------------------
-# String parsing — resolves a known id to the curated enum spec
+# String parsing: resolves a known id to the curated enum spec
 # ---------------------------------------------------------------------------
 
 
@@ -466,13 +466,13 @@ def test_hf_audio_string_stable_audio_resolves_to_enum_spec():
 
 
 def test_hf_audio_string_unknown_id_raises():
-    # Arbitrary repos are not supported via string — curated enum models only.
+    # Arbitrary repos are not supported via string; curated enum models only.
     with pytest.raises(ValueError, match="curated models only"):
         HuggingFaceAudioClient("hf:someorg/custom-audio-model")
 
 
 # ---------------------------------------------------------------------------
-# HuggingFaceAudioClient — generate() non-streaming
+# HuggingFaceAudioClient: generate() non-streaming
 # ---------------------------------------------------------------------------
 
 
@@ -506,7 +506,7 @@ def test_hf_generate_musicgen_num_audio_returns_list():
     assert isinstance(result, tuple)  # single → scalar
 
     # For num_audio > 1, client sends num_audio prompts; stub returns list.
-    # With our stub always returning 1-item, this would return a list of 1. That's OK —
+    # With our stub always returning 1-item, this would return a list of 1. That's OK;
     # the important thing is that the return type is list when num_audio > 1.
     results = client.generate("ambient", format="numpy", num_audio=1)
     # Should still be a tuple (single) when num_audio=1
@@ -589,12 +589,12 @@ def test_hf_generate_num_audio_zero_rejected():
 
 
 # ===========================================================================
-# Streaming — AUDIO_GENERATING chunks
+# Streaming: AUDIO_GENERATING chunks
 # ===========================================================================
 
 
 def test_musicgen_stream_emits_single_final_chunk():
-    """MusicGen is token-autoregressive — streaming yields one final chunk."""
+    """MusicGen is token-autoregressive; streaming yields one final chunk."""
     client = HuggingFaceAudioClient(HuggingFaceAudioModel.MUSICGEN_SMALL)
     chunks = list(client.generate("test", stream=True, format="path"))
 

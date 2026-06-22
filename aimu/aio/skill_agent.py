@@ -1,4 +1,4 @@
-"""Async :class:`SkillAgent` — :class:`Agent` extended with skill discovery."""
+"""Async :class:`SkillAgent`: :class:`Agent` extended with skill discovery."""
 
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ class SkillAgent(Agent):
     async def run(self, task, generate_kwargs=None, stream=False, images=None, tools=None):
         # Prepare + async skill setup must complete before the loop. The streamed path is
         # reimplemented here (rather than delegating to Agent._run_streamed) so _prepare_run
-        # — which resets model_client.tools — runs exactly once, before skills are added.
+        # (which resets model_client.tools) runs exactly once, before skills are added.
         self._prepare_run()
         await self._setup_skills_async()
         if stream:

@@ -62,7 +62,7 @@ def test_reset_clears_last_usage():
 
 
 # ---------------------------------------------------------------------------
-# Provider capture (OpenAI-compat with a stubbed SDK — no network)
+# Provider capture (OpenAI-compat with a stubbed SDK; no network)
 # ---------------------------------------------------------------------------
 
 
@@ -76,7 +76,7 @@ def _make_openai_compat_client():
     client = LMStudioOpenAIClient(LMStudioOpenAIModel.MISTRAL_7B)
     # Replace the real SDK object with a fully-fake namespace. Touching the real client's
     # lazy `.chat`/`.embeddings` attrs imports `openai.resources.*`, which sibling mock-test
-    # modules stub in sys.modules — so we never touch the real SDK here.
+    # modules stub in sys.modules, so we never touch the real SDK here.
     client._client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=None)))
     return client
 

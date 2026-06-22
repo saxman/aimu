@@ -1,6 +1,6 @@
 # Persist conversations
 
-`ConversationManager` saves chat message history to disk so it survives process restarts. It's backed by [TinyDB](https://tinydb.readthedocs.io) — a single JSON file, no server.
+`ConversationManager` saves chat message history to disk so it survives process restarts. It's backed by [TinyDB](https://tinydb.readthedocs.io): a single JSON file, no server.
 
 ## Basic usage
 

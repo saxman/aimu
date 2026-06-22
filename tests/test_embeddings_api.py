@@ -102,7 +102,7 @@ def _openai_client():
     from aimu.models.providers.openai.embedding import OpenAIEmbeddingClient
 
     client = OpenAIEmbeddingClient(OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL)
-    # Replace the real SDK object with a fake namespace — touching the real client's lazy
+    # Replace the real SDK object with a fake namespace; touching the real client's lazy
     # `.embeddings` attr imports `openai.resources.*`, which sibling mock tests stub.
     client._client = SimpleNamespace(embeddings=SimpleNamespace(create=None))
     return client
@@ -218,7 +218,7 @@ def test_top_level_embed_dispatch(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# HuggingFace provider (stubbed sentence-transformers — works whether or not it's installed)
+# HuggingFace provider (stubbed sentence-transformers, works whether or not it's installed)
 # ---------------------------------------------------------------------------
 
 

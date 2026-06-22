@@ -39,7 +39,7 @@ def pytest_addoption(parser):
         default=None,
         help=(
             "Image client to test live: 'hf', 'gemini', or 'all'. Required to enable "
-            "live tests in tests/test_images.py — omit to skip them."
+            "live tests in tests/test_images.py; omit to skip them."
         ),
     )
 
@@ -59,7 +59,7 @@ def pytest_addoption(parser):
         default=None,
         help=(
             "Audio client to test live: 'hf' or 'all'. Required to enable "
-            "live tests in tests/test_audio.py — omit to skip them."
+            "live tests in tests/test_audio.py; omit to skip them."
         ),
     )
 
@@ -79,7 +79,7 @@ def pytest_addoption(parser):
         default=None,
         help=(
             "Speech client to test live: 'hf', 'openai', or 'all'. Required to enable "
-            "live tests in tests/test_speech.py — omit to skip them."
+            "live tests in tests/test_speech.py; omit to skip them."
         ),
     )
 
@@ -99,7 +99,7 @@ def pytest_addoption(parser):
         default=None,
         help=(
             "Embedding client to test live: 'openai', 'ollama', 'hf', or 'all'. Required to "
-            "enable live tests in tests/test_embeddings.py — omit to skip them."
+            "enable live tests in tests/test_embeddings.py; omit to skip them."
         ),
     )
 

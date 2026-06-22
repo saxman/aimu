@@ -26,7 +26,7 @@ def tool(func: Callable) -> Callable:
     directly callable.
 
     Each parameter must either have a type hint or a default value. Variadic parameters
-    (``*args`` / ``**kwargs``) are not supported — declare each argument explicitly.
+    (``*args`` / ``**kwargs``) are not supported; declare each argument explicitly.
 
     Supported parameter types: ``str``, ``int``, ``float``, ``bool``, ``list``, ``dict``,
     plus ``Optional[T]`` and ``T | None`` (which unwrap to the inner type).
@@ -34,12 +34,12 @@ def tool(func: Callable) -> Callable:
     A tool may be plain (``def fn() -> T``), async (``async def fn() -> T``), a generator
     (``def fn(): yield ...; return T``), or an async generator (``async def fn(): yield ...``).
     Generator and async-generator tools stream :class:`~aimu.models.StreamChunk` objects
-    during execution — the agent forwards each yielded chunk through its own stream and
+    during execution; the agent forwards each yielded chunk through its own stream and
     treats the final yielded ``TOOL_CALLING`` chunk's ``content["response"]`` as the
     canonical tool result. The decorator sets discriminator attributes:
 
-    - ``func.__tool_is_async__`` — True for ``async def`` *or* ``async def`` + ``yield``.
-    - ``func.__tool_is_streaming__`` — True for generator functions (sync or async).
+    - ``func.__tool_is_async__``: True for ``async def`` *or* ``async def`` + ``yield``.
+    - ``func.__tool_is_streaming__``: True for generator functions (sync or async).
 
     Usage::
 
@@ -108,7 +108,7 @@ def _build_spec(func: Callable) -> tuple[dict, list[str]]:
         if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
             raise ToolSignatureError(
                 f"@aimu.tool: function '{func.__name__}' uses variadic parameter '*{name}'. "
-                "Declare each argument explicitly — variadic args cannot be described as JSON Schema."
+                "Declare each argument explicitly. Variadic args cannot be described as JSON Schema."
             )
         annotation = hints.get(name, param.annotation)
         if _is_injected(annotation):

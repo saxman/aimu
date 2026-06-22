@@ -1,6 +1,6 @@
 # Use document memory
 
-`DocumentStore` is a path-based document store that mirrors [Anthropic's Managed Agents Memory API](https://docs.claude.com/en/api/memory) — drop-in compatible naming for `write`, `read`, `edit`, `list`, `search`, `delete`.
+`DocumentStore` is a path-based document store that mirrors [Anthropic's Managed Agents Memory API](https://docs.claude.com/en/api/memory), with drop-in compatible naming for `write`, `read`, `edit`, `list`, `search`, `delete`.
 
 ## Basic usage
 
@@ -50,7 +50,7 @@ This lets you swap the two stores in code that only needs the common interface.
 
 ## Use as in-process agent tools
 
-`make_memory_tools(store)` wraps the store as three `@tool`-decorated functions — `store_memory`, `search_memories`, and `list_memories` — that an agent can call directly without a separate MCP server process:
+`make_memory_tools(store)` wraps the store as three `@tool`-decorated functions (`store_memory`, `search_memories`, and `list_memories`) that an agent can call directly without a separate MCP server process:
 
 ```python
 from aimu.memory import DocumentStore

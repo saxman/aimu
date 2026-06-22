@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from test_audio_api import _force_audio_stubs, _install_audio_stubs  # noqa: F401 — side effect + autouse fixture
+from test_audio_api import _force_audio_stubs, _install_audio_stubs  # noqa: F401 (side effect + autouse fixture)
 
 _install_audio_stubs()
 

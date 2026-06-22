@@ -5,7 +5,7 @@ from _epic_common import parse_judge_response, write_summary
 
 
 # ---------------------------------------------------------------------------
-# Prompt contracts — rewording must not break the parser or drop the gate
+# Prompt contracts: rewording must not break the parser or drop the gate
 # ---------------------------------------------------------------------------
 
 
@@ -39,7 +39,7 @@ def test_generator_prompt_anchors_seed_and_single_sentence():
 
 
 # ---------------------------------------------------------------------------
-# parse_judge_response — same contract as hotdog's parse_evaluator_response
+# parse_judge_response: same contract as hotdog's parse_evaluator_response
 # ---------------------------------------------------------------------------
 
 
@@ -96,7 +96,7 @@ def test_parse_does_not_match_done_mid_sentence():
 
 
 # ---------------------------------------------------------------------------
-# generate_sentence / evaluate_sentence / refine_sentence — stateless, text-only
+# generate_sentence / evaluate_sentence / refine_sentence: stateless, text-only
 # ---------------------------------------------------------------------------
 
 
@@ -412,7 +412,7 @@ def test_agent_make_tools_increments_and_judges(tmp_path):
     assert sentence == "The hero strode forth for milk."
 
     result = judge_fn(sentence)
-    # evaluate_sentence is stateless — no reset() dance.
+    # evaluate_sentence is stateless; no reset() dance.
     judge_client.reset.assert_not_called()
     assert "CONTINUE" in result
 
@@ -493,7 +493,7 @@ def test_anneal_accept_uphill_and_ties_always():
 
     rng = random.Random(0)
     assert _accept(2, 0.01, rng) is True  # uphill, even at near-zero T
-    assert _accept(0, 0.01, rng) is True  # tie — a free sideways move
+    assert _accept(0, 0.01, rng) is True  # tie: a free sideways move
 
 
 def test_anneal_accept_downhill_greedy_at_zero_temperature():

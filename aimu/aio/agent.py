@@ -61,9 +61,7 @@ class AsyncRunner(ABC):
         if description is None:
             system_message = getattr(self, "system_message", None)
             description = (
-                system_message.splitlines()[0]
-                if system_message
-                else f"Delegate a task to the {safe_name} runner."
+                system_message.splitlines()[0] if system_message else f"Delegate a task to the {safe_name} runner."
             )
 
         async def _dispatch(task: str) -> str:

@@ -3,8 +3,8 @@
 The text-only sibling of ``_hotdog_common.py``. The hotdog family iteratively makes an *image*
 hotter; this family iteratively makes a *sentence* more epic. The control-flow lesson is
 identical (code loop / agent / workflow class; greedy / hill-climb / anneal) but the modality
-is pure text, so none of the image machinery — diffusers, vision eval, token-budget
-summarizer, negative prompt, collage — is needed. What remains is just the orchestration and
+is pure text, so none of the image machinery (diffusers, vision eval, token-budget
+summarizer, negative prompt, collage) is needed. What remains is just the orchestration and
 search, which is the point of having a GPU-free twin.
 """
 
@@ -31,35 +31,35 @@ You are evaluating how EPIC this sentence is, and you are an EXTREMELY conservat
 hard-to-impress judge.
 
 FIRST, a gate: the text must be ONE single grammatical sentence that still describes the SAME
-mundane event as the original — a man going to a store to buy milk. If it does not — it is
-multiple sentences, a fragment, ungrammatical, or it has drifted into a different event (no
-man, no store, no buying milk) — it has FAILED the task no matter how grand it sounds: output
+mundane event as the original, a man going to a store to buy milk. If it does not (it is
+multiple sentences, a fragment, ungrammatical, or it has drifted into a different event: no
+man, no store, no buying milk) it has FAILED the task no matter how grand it sounds: output
 "SCORE: 1/10" and a CONTINUE telling the next attempt to restore a single grammatical sentence
 about that same errand.
 
-If a valid single sentence about the errand IS present, score how EPIC it feels — the sense of
-mythic, cinematic, world-shaking grandeur it embodies — calibrated against the most grandiose
+If a valid single sentence about the errand IS present, score how EPIC it feels (the sense of
+mythic, cinematic, world-shaking grandeur it embodies), calibrated against the most grandiose
 myth conceivable: a 10 means the sentence could not possibly be made any more epic. Rate from 1
 to 10 where 1 = flat and mundane and 10 = maximally, impossibly epic. Be stingy: ordinary
-"dramatic" wording, a few adjectives, or a single grand metaphor sit nowhere near the ceiling —
-far grander framings exist — so a merely florid sentence rates low, and when in doubt, rate
+"dramatic" wording, a few adjectives, or a single grand metaphor sit nowhere near the ceiling
+(far grander framings exist), so a merely florid sentence rates low, and when in doubt, rate
 lower. Reserve high scores for a sentence that turns a trip for milk into something of
 genuinely cosmic, legendary weight.
 
 Your response MUST begin with the rating on its very first line, written exactly in this format
 with no other text on that line:
 SCORE: N/10
-where N is an integer from 1 to 10. Always include this line — never omit it, even when you
+where N is an integer from 1 to 10. Always include this line; never omit it, even when you
 decide the sentence is done. For example, a fairly epic sentence: "SCORE: 4/10".
 
 After the SCORE line, decide whether the sentence could possibly be made any more epic. As long
 as there is ANY grander framing it could embody, it is not done. Only when the rating is 10/10
-— a valid single sentence about the errand that cannot be made more epic — output exactly:
+(a valid single sentence about the errand that cannot be made more epic) output exactly:
 DONE: <your reasoning>
 Otherwise output exactly:
-CONTINUE: <describe how the next rewrite should escalate UP the epic scale — what grander, more
+CONTINUE: <describe how the next rewrite should escalate UP the epic scale: what grander, more
 mythic register the SAME errand should be told in. It must stay ONE grammatical sentence about
-a man going to a store for milk — do NOT drop the errand or split it into multiple sentences.
+a man going to a store for milk; do NOT drop the errand or split it into multiple sentences.
 Reach for the most striking, non-obvious escalation; don't just pile on more adjectives.>
 """
 
@@ -78,7 +78,7 @@ where N is an integer from 1 to 10, followed by your DONE: or CONTINUE: output.
 # drift): the seed errand and the single-sentence rule are restated every call so the rewrite
 # escalates the *register* without abandoning what literally happens.
 GENERATOR_PROMPT = """\
-You rewrite a single mundane sentence to make it sound EPIC — mythic, cinematic, grand — while
+You rewrite a single mundane sentence to make it sound EPIC (mythic, cinematic, grand) while
 keeping it ONE grammatical sentence about the exact same event.
 
 The original errand is:
@@ -87,7 +87,7 @@ The original errand is:
 Rewrite directive: {direction}
 
 Rules:
-- Output ONLY the rewritten sentence — no preamble, no quotation marks, no explanation.
+- Output ONLY the rewritten sentence, with no preamble, no quotation marks, no explanation.
 - It must remain ONE single grammatical sentence.
 - It must still describe the same event: a man going to a store to buy milk. Render it grandly;
   do not change what literally happens.
@@ -101,8 +101,8 @@ REFINE_PROMPT = """\
 This is the current epic rewrite of "a man going to a store to buy milk" to improve on:
 "{sentence}"
 
-Propose ONE new way to make it MORE epic — a step UP the scale toward a grander, more mythic
-register for the SAME errand. It must remain ONE grammatical sentence about that errand — do
+Propose ONE new way to make it MORE epic: a step UP the scale toward a grander, more mythic
+register for the SAME errand. It must remain ONE grammatical sentence about that errand; do
 NOT drop the errand or split it into multiple sentences. Reach for the most striking,
 non-obvious escalation; don't just pile on more adjectives.{avoid}
 Output only the directive describing the next rewrite.
@@ -193,7 +193,7 @@ def refine_sentence(judge_client, sentence: str, rejected: list[str], *, tempera
 
     Shared by the search scripts: the climber refines from its best sentence, the annealer from
     its current walk-state. ``temperature`` (when set) is the proposer's LLM sampling
-    temperature; ``None`` uses the model default. Stateless ``generate()`` — no history kept.
+    temperature; ``None`` uses the model default. Stateless ``generate()``, no history kept.
     The text twin of hotdog's ``refine_image`` (no ``images=``).
     """
     avoid = ""
@@ -259,7 +259,7 @@ def write_summary(
     Records the constant inputs (seed sentence, the two model names, the judge instruction)
     once at the top, then per iteration the rewrite directive, the sentence produced, its score,
     and the judge's full response. The text analog of hotdog's ``write_summary`` (no image paths,
-    negative prompt, or summarizer line — none of which exist for text).
+    negative prompt, or summarizer line, none of which exist for text).
     """
     path = output_dir / "summary.txt"
 

@@ -32,7 +32,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         self.model_keep_alive_seconds = model_keep_alive_seconds
         self.default_generate_kwargs = dict(model.generation_kwargs)
 
-        # Model pull happens lazily on first request — `ollama.AsyncClient` doesn't
+        # Model pull happens lazily on first request; `ollama.AsyncClient` doesn't
         # expose a separate pull. Users who want eager pull can call
         # `ollama.pull(model.value)` themselves.
         self._client = ollama.AsyncClient()

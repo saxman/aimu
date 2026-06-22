@@ -215,7 +215,7 @@ def main() -> None:
         result = agent.run("Begin the hotdog heating experiment. Start with 'a hot hotdog'.")
         print(f"\nAgent final response:\n{result}")
     except KeyboardInterrupt:
-        print("\nInterrupted — writing partial results so far...")
+        print("\nInterrupted, writing partial results so far...")
     finally:
         # Reconstruct from the live conversation (not agent.messages, whose snapshot is
         # only set when run() finishes) so an interrupted run still produces output.

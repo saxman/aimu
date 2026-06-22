@@ -3,7 +3,7 @@
 The async wrappers around in-process sync clients (HuggingFace, LlamaCpp) run the
 sync ``_chat`` loop in a worker thread, whose tool dispatcher can't await async
 tools. ``bridge_async_tools`` wraps each async tool as a sync callable that runs the
-coroutine back on the main loop. These tests exercise that bridge directly — no model
+coroutine back on the main loop. These tests exercise that bridge directly; no model
 weights required.
 """
 

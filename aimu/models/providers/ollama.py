@@ -29,7 +29,7 @@ class OllamaModel(Model):
     QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True, structured_output=True)
     QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True, structured_output=True)
     QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True, structured_output=True)
-    # Google — these weights support audio; add audio=True once Ollama API exposes audio input
+    # Google: these weights support audio; add audio=True once Ollama API exposes audio input
     GEMMA_4_E4B = ModelSpec(
         "gemma4:e4b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True
     )
@@ -46,7 +46,7 @@ class OllamaModel(Model):
     # NVIDIA
     NEMOTRON_CASCADE_2_30B = ModelSpec("nemotron-cascade-2:30b", tools=True, thinking=True, structured_output=True)
     NEMOTRON_3_NANO_30B = ModelSpec("nemotron-3-nano:30b", tools=True, thinking=True, structured_output=True)
-    # Zhipu AI — doesn't use tools when expected
+    # Zhipu AI: doesn't use tools when expected
     GLM_4_7_FLASH_31B_Q4 = ModelSpec("glm-4.7-flash:q4_K_M", thinking=True, structured_output=True)
     # OpenAI
     GPT_OSS_20B = ModelSpec("gpt-oss:20b", tools=True, thinking=True, structured_output=True)
@@ -58,9 +58,9 @@ class OllamaModel(Model):
     PHI_4_14B = ModelSpec("phi4:14b", structured_output=True)
     # DeepSeek
     DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True, structured_output=True)
-    # HuggingFace — tool call responses don't always look correct
+    # HuggingFace: tool call responses don't always look correct
     SMOLLM2_1_7B = ModelSpec("smollm2:1.7b", structured_output=True)
-    # Meta — don't reliably use tools when expected
+    # Meta: don't reliably use tools when expected
     LLAMA_3_2_3B = ModelSpec("llama3.2:3b", structured_output=True)
     LLAMA_3_1_8B = ModelSpec("llama3.1:8b", structured_output=True)
 

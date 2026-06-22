@@ -1,19 +1,19 @@
 """HuggingFace-backed text-to-audio (music/sound) client.
 
-``HuggingFaceAudioClient`` inherits :class:`BaseAudioClient` — the public
+``HuggingFaceAudioClient`` inherits :class:`BaseAudioClient`: the public
 :meth:`generate` (format conversion, num_audio plumbing) lives on the base;
 this subclass implements :meth:`_generate` to call the loaded pipeline and return
 ``(sample_rate, np.ndarray)`` pairs.
 
 Three pipeline backends are supported, selected by ``spec.pipeline_type``:
 
-- ``"musicgen"`` — ``transformers`` ``MusicgenForConditionalGeneration``.
+- ``"musicgen"``: ``transformers`` ``MusicgenForConditionalGeneration``.
   Token-autoregressive; duration is controlled via ``max_new_tokens``.
   No denoising steps; streaming yields a single final chunk.
-- ``"audioldm2"`` — ``diffusers`` ``AudioLDM2Pipeline``.
+- ``"audioldm2"``: ``diffusers`` ``AudioLDM2Pipeline``.
   Latent diffusion; ``audio_length_in_s`` controls duration.
   Streaming yields one chunk per denoising step.
-- ``"stable_audio"`` — ``diffusers`` ``StableAudioPipeline``.
+- ``"stable_audio"``: ``diffusers`` ``StableAudioPipeline``.
   Latent diffusion; ``audio_end_in_s`` controls duration. Produces stereo output.
   Streaming yields one chunk per denoising step.
 
@@ -255,7 +255,7 @@ class HuggingFaceAudioClient(BaseAudioClient):
         max_new_tokens = int(duration_s * _MUSICGEN_TOKENS_PER_SECOND)
         audio_values = self._pipe.generate(**inputs, max_new_tokens=max_new_tokens, **gen_kwargs)
 
-        # audio_values: (batch, channels, samples) — squeeze channel dim for mono.
+        # audio_values: (batch, channels, samples); squeeze channel dim for mono.
         results = []
         for i in range(audio_values.shape[0]):
             arr = audio_values[i].cpu().numpy()
@@ -378,14 +378,14 @@ class HuggingFaceAudioClient(BaseAudioClient):
         For MusicGen: single final chunk (token-autoregressive, no denoising steps).
         For AudioLDM2 / Stable Audio Open: one AUDIO_GENERATING chunk per denoising
         step via ``callback_on_step_end``, then final chunks carrying encoded results.
-        No intermediate audio decoding — intermediate chunks carry step progress only.
+        No intermediate audio decoding; intermediate chunks carry step progress only.
         """
         from ..._internal.audio_output import encode_audio
 
         ptype = self.spec.pipeline_type
 
         if ptype == "musicgen":
-            # MusicGen has no step callbacks — run blocking and emit one final chunk.
+            # MusicGen has no step callbacks; run blocking and emit one final chunk.
             results = self._run_musicgen(prompt, duration_s=duration_s, num_audio=num_audio, seed=seed)
             for sr, audio in results:
                 encoded = encode_audio(audio, sr, format=format, prompt=prompt, output_dir=output_dir)

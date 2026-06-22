@@ -1,6 +1,6 @@
 # First agent with tools
 
-In ~10 minutes you'll build an agent that uses three tools — built-in and custom — to answer a multi-step question.
+In ~10 minutes you'll build an agent that uses three tools, built-in and custom, to answer a multi-step question.
 
 If you haven't done [Getting started](01-getting-started.md), do that first.
 
@@ -74,8 +74,8 @@ def letter_counter(word: str, letter: str) -> int:
 Three things to notice:
 
 1. **Type hints are required** for every parameter (or a default value). Missing both raises `ToolSignatureError`.
-2. **The first paragraph of the docstring becomes the tool description.** Be specific — this is what the model reads to decide whether to call it.
-3. **The function is unchanged** — `letter_counter("hi", "i")` still works directly. The decorator only attaches an OpenAI-format spec at `func.__tool_spec__`.
+2. **The first paragraph of the docstring becomes the tool description.** Be specific: this is what the model reads to decide whether to call it.
+3. **The function is unchanged.** `letter_counter("hi", "i")` still works directly. The decorator only attaches an OpenAI-format spec at `func.__tool_spec__`.
 
 Add it to the agent's tools:
 
@@ -115,7 +115,7 @@ for msg in client.messages:
         print(f"[{role}] {msg['content'][:80]}")
 ```
 
-This is OpenAI's message format — there's no proprietary wrapper.
+This is OpenAI's message format; there's no proprietary wrapper.
 
 ## 5. Stream the agent
 
@@ -141,9 +141,9 @@ You now know:
 - The agent loop: keep calling `chat()` until the model stops calling tools.
 - How to inspect the message trail.
 
-Up next: **[Workflows](03-workflows.md)** — when you want the orchestration *fixed in code* rather than directed by the LLM.
+Up next: **[Workflows](03-workflows.md)**, when you want the orchestration *fixed in code* rather than directed by the LLM.
 
 ### See also
 
-- [How-to: add a custom tool](../how-to/add-custom-tool.md) — full `@tool` signature rules
-- [How-to: build an orchestrator](../how-to/build-orchestrator.md) — multi-agent pattern when one model dispatches to others
+- [How-to: add a custom tool](../how-to/add-custom-tool.md): full `@tool` signature rules
+- [How-to: build an orchestrator](../how-to/build-orchestrator.md): multi-agent pattern when one model dispatches to others

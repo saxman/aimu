@@ -178,10 +178,10 @@ class BaseModelClient(_ChatStateMixin, ABC):
             prompt: The text to generate from.
             generate_kwargs: Provider-specific generation parameters.
             stream: If True, return an iterator of :class:`StreamChunk` instead of a string.
-            images: Optional list of images for vision-capable models — same accepted forms as
+            images: Optional list of images for vision-capable models, same accepted forms as
                 :meth:`chat` (file path, ``pathlib.Path``, ``bytes``, http(s) URL, or data URL).
                 Raises ``ValueError`` if the model does not support vision. Unlike :meth:`chat`,
-                this does not touch ``self.messages`` — the call stays single-turn and stateless.
+                this does not touch ``self.messages``; the call stays single-turn and stateless.
             include: Optional iterable of stream phases to yield. Has no effect when ``stream=False``.
             audio: Optional list of audio clips for audio-capable models. Each entry may be a
                 file path (str or ``pathlib.Path``), raw ``bytes``, a ``data:audio/...;base64,...``
@@ -422,7 +422,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
     def _call_plain_tool(self, tc: dict, tc_id: str) -> dict:
         """Dispatch a single non-streaming tool call. Returns the tool message dict.
 
-        Every tool — in-process ``@tool`` functions and MCP tools alike — lives in
+        Every tool (in-process ``@tool`` functions and MCP tools alike) lives in
         ``self.tools`` as a callable (MCP tools are wrapped by ``MCPClient.as_tools()``),
         so dispatch is a single by-name lookup.
         """
@@ -438,7 +438,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
             if getattr(fn, "__tool_is_streaming__", False):
                 raise ValueError(
                     f"Tool '{tc['name']}' is a generator (streaming) tool. Streaming tools "
-                    "require the streaming dispatch path — call chat() / agent.run() with "
+                    "require the streaming dispatch path: call chat() / agent.run() with "
                     "stream=True. For non-streaming use, convert the tool to a plain function."
                 )
             try:
@@ -457,7 +457,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         }
 
     def _handle_tool_calls(self, tool_calls: list[dict]) -> None:
-        """Non-streaming tool dispatch — used by non-streaming ``_chat`` paths.
+        """Non-streaming tool dispatch, used by non-streaming ``_chat`` paths.
 
         Streaming (generator) tools are rejected here; call ``chat(stream=True)``
         to dispatch them via :meth:`_handle_tool_calls_streamed`.
@@ -477,13 +477,13 @@ class BaseModelClient(_ChatStateMixin, ABC):
         self.messages.extend(results)
 
     def _handle_tool_calls_streamed(self, tool_calls: list[dict]) -> Iterator[StreamChunk]:
-        """Streaming tool dispatch — generator version used by streaming ``_chat``.
+        """Streaming tool dispatch: generator version used by streaming ``_chat``.
 
         For each tool call, yields zero-or-more in-flight :class:`StreamChunk` objects
         (when the tool is a generator function decorated with ``@tool``) followed by a
         final ``TOOL_CALLING`` chunk with the tool's canonical response.
 
-        **Result extraction for streaming tools** — in priority order:
+        **Result extraction for streaming tools**, in priority order:
 
         1. The generator's ``return`` value (captured via ``StopIteration.value``).
         2. The last yielded chunk's ``content["result"]`` if it's a dict with that key

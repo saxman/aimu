@@ -5,15 +5,15 @@ AIMU has a parallel image-generation surface to the text chat client. The shape 
 - **HuggingFace `diffusers`** for local generation (Stable Diffusion 1.5 / XL / 3.5, FLUX 1 dev / schnell, FLUX 2 Klein 4B / 9B)
 - **Google Nano Banana** (`gemini-2.5-flash-image`) via the cloud Gemini API
 
-Both providers support image-to-image generation via `reference_image=` on `generate()` — see [Image-to-image](#image-to-image) below.
+Both providers support image-to-image generation via `reference_image=` on `generate()`; see [Image-to-image](#image-to-image) below.
 
 ## Install
 
 Pick the providers you want. Both are opt-in extras:
 
 ```bash
-pip install -e '.[hf]'         # HuggingFace diffusers — local, GPU-friendly
-pip install -e '.[google]'     # Google Nano Banana — cloud, fast first call
+pip install -e '.[hf]'         # HuggingFace diffusers: local, GPU-friendly
+pip install -e '.[google]'     # Google Nano Banana: cloud, fast first call
 pip install -e '.[hf,google]'  # both
 ```
 
@@ -55,12 +55,12 @@ client = aimu.image_client("hf:runwayml/stable-diffusion-v1-5")
 for chunk in client.generate("a fox", stream=True, num_inference_steps=25):
     c = chunk.content
     if c["final"]:
-        print(f"\nDone — saved to {c['result']}" if c.get("result") else "\nDone")
+        print(f"\nDone, saved to {c['result']}" if c.get("result") else "\nDone")
     else:
         print(f"Step {c['step']}/{c['total_steps']}", end="\r")
 ```
 
-### Intermediate-image previews — `preview_every=N`
+### Intermediate-image previews: `preview_every=N`
 
 Decoding latents to a PIL image at every step adds ~50–200 ms per call on GPU, so previews are opt-in. Pass `preview_every=N` to decode every Nth step (and always the final):
 
@@ -73,11 +73,11 @@ for chunk in client.generate(
         c["image"].save(f"preview_step_{c['step']}.png")
 ```
 
-Gemini Nano Banana ignores `preview_every` — its cloud API has no intermediate latents.
+Gemini Nano Banana ignores `preview_every`; its cloud API has no intermediate latents.
 
 ### Streaming the built-in tool through an agent
 
-The built-in `generate_image` tool is itself a generator. When dispatched through `agent.run(stream=True)`, its progress chunks flow through the agent's own stream — no side channel:
+The built-in `generate_image` tool is itself a generator. When dispatched through `agent.run(stream=True)`, its progress chunks flow through the agent's own stream, with no side channel:
 
 ```python
 from aimu.agents import Agent
@@ -97,7 +97,7 @@ for chunk in agent.run("draw me a fox", stream=True):
 
 To opt into intermediate previews from the agent path, build a bound tool with `make_image_tool(client, preview_every=N)` and pass that to the agent instead of `builtin.generate_image`.
 
-## Direct client — reuse weights / API client
+## Direct client: reuse weights / API client
 
 A fresh client per call reloads weights for HuggingFace; for Nano Banana it just rebuilds the API client. For repeated generation, build once and reuse:
 
@@ -123,13 +123,13 @@ client = image_client(GeminiImageModel.NANO_BANANA)
 Per-provider knobs differ:
 
 - **HuggingFace**: `negative_prompt`, `width`, `height`, `num_inference_steps`, `guidance_scale`, `seed`, `reference_image`, `strength`. Defaults come from the `HuggingFaceImageSpec` (e.g. SD 1.5 → 25 steps, 512×512, guidance 7.5; FLUX schnell / FLUX 2 Klein → 4 steps, 1024×1024).
-- **Gemini Nano Banana**: `aspect_ratio` (e.g. `"1:1"`, `"16:9"`), `image_size`, `reference_image`. No `seed` — the API doesn't expose one.
+- **Gemini Nano Banana**: `aspect_ratio` (e.g. `"1:1"`, `"16:9"`), `image_size`, `reference_image`. No `seed`; the API doesn't expose one.
 
 Both share: `num_images=N`, `format=`, `output_dir=`, `reference_image=` (see [Image-to-image](#image-to-image)).
 
 ### Prompt length
 
-CLIP-based models (SD 1.5, SDXL) cap prompts at **77 tokens** and silently truncate the rest. Models with a T5 text encoder accept far more — SD 3.5 ≈ 256 tokens, FLUX ≈ 512. Each spec records this as `max_prompt_tokens`, and the client exposes it:
+CLIP-based models (SD 1.5, SDXL) cap prompts at **77 tokens** and silently truncate the rest. Models with a T5 text encoder accept far more: SD 3.5 ≈ 256 tokens, FLUX ≈ 512. Each spec records this as `max_prompt_tokens`, and the client exposes it:
 
 ```python
 image_client(HuggingFaceImageModel.SD_3_5_MEDIUM).max_prompt_tokens  # 256
@@ -137,13 +137,13 @@ image_client(HuggingFaceImageModel.SDXL_BASE).max_prompt_tokens      # 77
 image_client(GeminiImageModel.NANO_BANANA).max_prompt_tokens         # None (uncapped cloud)
 ```
 
-Use it to size prompts to the model — e.g. a summarization step that condenses a long description to fit the budget (see the hotdog scripts in `examples/image-refinement/`).
+Use it to size prompts to the model, e.g. a summarization step that condenses a long description to fit the budget (see the hotdog scripts in `examples/image-refinement/`).
 
-Note: ad-hoc `"hf:<repo>"` strings get the conservative 77-token default (the catalog isn't consulted) — pass the enum member to pick up the model's real budget.
+Note: ad-hoc `"hf:<repo>"` strings get the conservative 77-token default (the catalog isn't consulted). Pass the enum member to pick up the model's real budget.
 
 ### GPU placement (HuggingFace)
 
-Placement is **automatic and memory-aware**. On first generation the client measures the loaded pipeline's size and the *free* memory on each visible GPU — so it accounts for other processes already using the cards (e.g. a local LLM server) — then picks the cheapest strategy that fits:
+Placement is **automatic and memory-aware**. On first generation the client measures the loaded pipeline's size and the *free* memory on each visible GPU (so it accounts for other processes already using the cards, e.g. a local LLM server) then picks the cheapest strategy that fits:
 
 1. **Pin to the freest GPU** when the whole pipeline fits there (fastest).
 2. **Model CPU offload** when it doesn't fit one GPU but the largest single component does (components stream to GPU as needed).
@@ -178,7 +178,7 @@ img = client.generate("a cyberpunk city, neon lights", reference_image="./photo.
 img = client.generate("a watercolor painting", reference_image="./photo.jpg", strength=0.5)
 ```
 
-The img2img pipeline is loaded lazily on the first call via `from_pipe()`, which derives it from the already-loaded txt2img pipeline — sharing all weights (UNet, VAE, encoders) at no extra VRAM cost. `width` and `height` are ignored in img2img mode; output size comes from the reference image.
+The img2img pipeline is loaded lazily on the first call via `from_pipe()`, which derives it from the already-loaded txt2img pipeline, sharing all weights (UNet, VAE, encoders) at no extra VRAM cost. `width` and `height` are ignored in img2img mode; output size comes from the reference image.
 
 For Gemini, `reference_image` triggers image editing: the reference and the prompt are sent together as a multipart request, and Nano Banana returns an edited version of the image.
 
@@ -188,9 +188,9 @@ client = image_client("gemini:nano-banana")
 img = client.generate("make it snowy", reference_image="./summer_scene.jpg")
 ```
 
-### FLUX.2 Klein — native img2img
+### FLUX.2 Klein: native img2img
 
-FLUX.2 Klein uses a unified pipeline (`Flux2KleinPipeline`) that handles both txt2img and img2img in the same call. It does not use a `strength` parameter — it conditions on the reference image directly:
+FLUX.2 Klein uses a unified pipeline (`Flux2KleinPipeline`) that handles both txt2img and img2img in the same call. It does not use a `strength` parameter; it conditions on the reference image directly:
 
 ```python
 from aimu import image_client
@@ -200,7 +200,7 @@ client = image_client("hf:black-forest-labs/FLUX.2-klein-4B")  # 4-step distille
 # txt2img
 img = client.generate("a cat in a sunlit garden")
 
-# img2img — same client, same loaded weights
+# img2img: same client, same loaded weights
 img = client.generate("add snow to the scene", reference_image="./cat.jpg")
 ```
 
@@ -209,6 +209,7 @@ FLUX.2 Klein generates in 4 steps (like FLUX.1 Schnell) with improved text rende
 ## As an agent tool
 
 The built-in `generate_image` tool lets any chat LLM call image generation when the user asks. The LLM decides *when* to call it; the tool saves a PNG and returns the path so it appears in the conversation history.
+
 
 ```python
 import os
@@ -232,9 +233,9 @@ agent = Agent(
 response = agent.run("Please make me a watercolor of a fox in a snowy forest.")
 ```
 
-The tool uses a lazy module-level singleton — first call constructs an image client based on `AIMU_IMAGE_MODEL` (default: SDXL base), subsequent calls reuse it.
+The tool uses a lazy module-level singleton: the first call constructs an image client based on `AIMU_IMAGE_MODEL` (default: SDXL base), and subsequent calls reuse it.
 
-### Per-agent override — `make_image_tool`
+### Per-agent override: `make_image_tool`
 
 When you want a different model from the global singleton (or several agents in one process shouldn't share a pipeline), bind a tool to a specific client:
 
@@ -256,7 +257,7 @@ For `SkillAgent` users, drop a `SKILL.md` under `.agents/skills/image-generation
 
 ## Async
 
-The async surface mirrors the sync surface one-for-one. Because image providers either load weights in-process (HuggingFace) or hold an SDK client (Gemini), the factory follows the wrap pattern established for HF / LlamaCpp text clients — build a sync client first and pass it to `aio.image_client()`:
+The async surface mirrors the sync surface one-for-one. Because image providers either load weights in-process (HuggingFace) or hold an SDK client (Gemini), the factory follows the wrap pattern established for HF / LlamaCpp text clients: build a sync client first and pass it to `aio.image_client()`:
 
 ```python
 import asyncio
@@ -275,12 +276,12 @@ async def make_two():
 
 Async `generate()` routes through `asyncio.to_thread` so the event loop stays free during inference. On a single GPU, sibling `gather`-ed HF calls don't truly overlap on the device (CUDA streams + the GIL serialise), but the event loop stays free for other coroutines.
 
-For Gemini, the cloud SDK could be called natively async — kept as a follow-up for shape consistency with the in-process wrap pattern.
+For Gemini, the cloud SDK could be called natively async; that is kept as a follow-up for shape consistency with the in-process wrap pattern.
 
 ## See also
 
-- [Reference: provider matrix](../reference/provider-matrix.md) — image vs text provider tables.
-- [Reference: env vars](../reference/env-vars.md) — `GOOGLE_API_KEY`, `AIMU_IMAGE_MODEL`.
-- [Notebook 15 — Image Generation](https://github.com/saxman/aimu/tree/main/notebooks) — runnable end-to-end demo.
-- [Add a custom tool](add-custom-tool.md) — to build your own image-generation tool variant.
-- [Generate audio](generate-audio.md) — the audio surface, which mirrors this one.
+- [Reference: provider matrix](../reference/provider-matrix.md): image vs text provider tables.
+- [Reference: env vars](../reference/env-vars.md): `GOOGLE_API_KEY`, `AIMU_IMAGE_MODEL`.
+- [Notebook 15: Image Generation](https://github.com/saxman/aimu/tree/main/notebooks): runnable end-to-end demo.
+- [Add a custom tool](add-custom-tool.md): build your own image-generation tool variant.
+- [Generate audio](generate-audio.md): the audio surface, which mirrors this one.

@@ -2,8 +2,8 @@
 
 ``RemoteAgent`` is the agent-level analog of :class:`aimu.tools.MCPClient`: it wraps a
 cross-process A2A agent behind AIMU's uniform ``Runner`` interface, so a remote agent
-drops straight into a ``Chain`` / ``Router`` / ``OrchestratorAgent`` worker list, or — via
-``Runner.as_tool()`` — into any local ``Agent``'s tool set, with no A2A-specific wiring.
+drops straight into a ``Chain`` / ``Router`` / ``OrchestratorAgent`` worker list, or (via
+``Runner.as_tool()``) into any local ``Agent``'s tool set, with no A2A-specific wiring.
 
 The ``a2a-sdk`` client is async; like :class:`MCPClient` this sync wrapper drives it
 through an anyio blocking portal so the public surface stays synchronous.

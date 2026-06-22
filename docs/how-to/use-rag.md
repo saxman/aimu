@@ -3,7 +3,7 @@
 `aimu.rag` provides the primitives to ground a model's answers in your own documents:
 chunk text, store it, retrieve the relevant pieces for a query, and fold them into the
 prompt. They are **plain functions over the [`MemoryStore`](use-semantic-memory.md)
-interface** — there is no retriever/splitter/loader class hierarchy to learn.
+interface**. There is no retriever/splitter/loader class hierarchy to learn.
 
 ## The flow
 
@@ -40,11 +40,11 @@ from aimu.rag import split_text
 chunks = split_text(long_text, chunk_size=1000, chunk_overlap=200)
 ```
 
-- **`chunk_size` / `chunk_overlap`** — overlap repeats the tail of one chunk at the head
+- **`chunk_size` / `chunk_overlap`**: overlap repeats the tail of one chunk at the head
   of the next so context isn't lost at boundaries. `chunk_overlap` must be smaller than
   `chunk_size`.
-- **`separators`** — override the hierarchy, e.g. `["\n## ", "\n", " ", ""]` for Markdown.
-- **`length_function`** — defaults to `len` (characters). Pass a tokenizer's counter for
+- **`separators`**: override the hierarchy, e.g. `["\n## ", "\n", " ", ""]` for Markdown.
+- **`length_function`**: defaults to `len` (characters). Pass a tokenizer's counter for
   **token-aware** chunking:
 
   ```python
@@ -106,21 +106,21 @@ chunk it used, or `"No relevant context found."` when the store has nothing rele
 
 Any `MemoryStore` works with `ingest` / `retrieve`:
 
-- [`SemanticMemoryStore`](use-semantic-memory.md) — ChromaDB vector search; the usual
+- [`SemanticMemoryStore`](use-semantic-memory.md): ChromaDB vector search; the usual
   choice. Pair it with a chosen embedding model via `embedding_client=` (see
   [Embed text](use-embeddings.md)).
-- `DocumentStore` — case-insensitive substring search; no embeddings, good for exact-term
+- `DocumentStore`: case-insensitive substring search; no embeddings, good for exact-term
   lookup or when you can't run an embedding model.
 
 ## Scope
 
 `aimu.rag` ships the chunk/retrieve/rerank primitives only. Document **loaders** (PDF,
-HTML, etc.) are intentionally not included — the built-in `read_file` and `get_webpage`
+HTML, etc.) are intentionally not included. The built-in `read_file` and `get_webpage`
 tools, or any library that returns text, feed `ingest` directly. Chunks are stored as
 plain strings (the `MemoryStore` contract), so per-chunk metadata (source, page) is not
 currently carried.
 
 ## See also
 
-- [Embed text](use-embeddings.md) — pick the embedding model behind your vector store
-- [Use semantic memory](use-semantic-memory.md) — the store interface RAG builds on
+- [Embed text](use-embeddings.md): pick the embedding model behind your vector store
+- [Use semantic memory](use-semantic-memory.md): the store interface RAG builds on

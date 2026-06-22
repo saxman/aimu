@@ -2,8 +2,8 @@
 
 `aimu[deepeval]` ships two adapters:
 
-- **`DeepEvalModel`** — wraps any AIMU `BaseModelClient` as a DeepEval judge (`DeepEvalBaseLLM`). Pass it as `model=` to any DeepEval metric.
-- **`DeepEvalScorer`** — wraps a list of DeepEval metrics as an AIMU `Scorer` for `JudgedPromptTuner` and `Benchmark`.
+- **`DeepEvalModel`**: wraps any AIMU `BaseModelClient` as a DeepEval judge (`DeepEvalBaseLLM`). Pass it as `model=` to any DeepEval metric.
+- **`DeepEvalScorer`**: wraps a list of DeepEval metrics as an AIMU `Scorer` for `JudgedPromptTuner` and `Benchmark`.
 
 ## Install
 
@@ -40,7 +40,7 @@ Swap in a stronger cloud judge for harder evaluations:
 judge = DeepEvalModel(aimu.client("anthropic:claude-sonnet-4-6"))
 ```
 
-Works with any metric — `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, etc. — and any AIMU client (Ollama, HuggingFace, OpenAI, Anthropic, Gemini, OpenAI-compatible servers).
+Works with any metric (`GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`, etc.) and any AIMU client (Ollama, HuggingFace, OpenAI, Anthropic, Gemini, OpenAI-compatible servers).
 
 ## Drive prompt tuning with DeepEval metrics
 
@@ -64,7 +64,7 @@ tuner = JudgedPromptTuner(model_client=writer, scorer=DeepEvalScorer([geval]))
 best = tuner.tune(df, initial_prompt="Answer in one sentence: {content}")
 ```
 
-For multiple metrics, pass them all — `DeepEvalScorer` averages the per-metric scores:
+For multiple metrics, pass them all; `DeepEvalScorer` averages the per-metric scores:
 
 ```python
 scorer = DeepEvalScorer([geval, AnswerRelevancyMetric(model=DeepEvalModel(judge))])
@@ -106,5 +106,5 @@ For benchmark data with a `reference` column, `DeepEvalScorer` populates `LLMTes
 
 - [`aimu.evals.DeepEvalModel`](../reference/api/evals.md#aimu.evals.DeepEvalModel) / [`DeepEvalScorer`](../reference/api/evals.md#aimu.evals.DeepEvalScorer)
 - [Benchmark models](benchmark-models.md)
-- [Tune prompts](tune-prompts.md) — full tuning workflow
+- [Tune prompts](tune-prompts.md): full tuning workflow
 - Notebook [16 - Evaluations](https://github.com/saxman/aimu/blob/main/notebooks/16%20-%20Evaluations.ipynb)

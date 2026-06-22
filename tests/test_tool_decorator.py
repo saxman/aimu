@@ -207,7 +207,7 @@ def test_python_tool_spec_appears_in_chat_setup_tools():
 
 def test_duplicate_tool_name_last_in_list_wins():
     """All tools (Python @tool + MCP via as_tools()) live in self.tools as callables, and
-    dispatch builds {fn.__name__: fn}. On a name collision the last entry in the list wins —
+    dispatch builds {fn.__name__: fn}. On a name collision the last entry in the list wins,
     so to override an MCP tool with a local Python one, append the Python tool after it."""
 
     @tool

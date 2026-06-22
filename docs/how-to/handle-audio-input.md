@@ -21,23 +21,23 @@ Use `generate(audio=...)` for a one-shot audio call that **does not touch conver
 ```python
 client = aimu.client("openai:gpt-4o")
 
-# Each call is independent — no history kept, no reset() needed between calls.
+# Each call is independent: no history kept, no reset() needed between calls.
 lang = client.generate("What language is spoken here?", audio=["./clip.mp3"])
 tone = client.generate("Describe the speaker's tone.", audio=["./clip.mp3"])
 
 assert client.messages == []   # generate() never mutates message state
 ```
 
-`chat(audio=...)` is the stateful path — the turn persists so you can ask follow-ups. `generate(audio=...)` is the stateless path — each call stands alone.
+`chat(audio=...)` is the stateful path: the turn persists so you can ask follow-ups. `generate(audio=...)` is the stateless path: each call stands alone.
 
 ## Accepted audio forms
 
 Each item in `audio=[...]` may be any of:
 
-- **File path** as `str` or `pathlib.Path` — read from disk and base64-encoded
-- **Raw `bytes`** — encoded directly (defaults to `wav` format)
-- **`https://` URL** — fetched eagerly (the `input_audio` block has no remote-URL field)
-- **`data:audio/...;base64,...` URL** — passed through; format extracted from MIME type
+- **File path** as `str` or `pathlib.Path`: read from disk and base64-encoded
+- **Raw `bytes`**: encoded directly (defaults to `wav` format)
+- **`https://` URL**: fetched eagerly (the `input_audio` block has no remote-URL field)
+- **`data:audio/...;base64,...` URL**: passed through; format extracted from MIME type
 
 Supported format strings (inferred from extension or MIME type): `wav`, `mp3`, `ogg`, `flac`, `m4a`, `webm`.
 
@@ -83,7 +83,7 @@ client.chat("describe", images=["photo.jpg"], audio=["clip.wav"])
 
 ## Multi-turn conversations
 
-Audio blocks persist in `self.messages` as `input_audio` content — the model can refer back to earlier turns:
+Audio blocks persist in `self.messages` as `input_audio` content, so the model can refer back to earlier turns:
 
 ```python
 client = aimu.client("openai:gpt-4o")
@@ -121,5 +121,5 @@ AIMU keeps `self.messages` in OpenAI format always (`input_audio` content blocks
 ## See also
 
 - Notebook [05 - Audio Input](https://github.com/saxman/aimu/blob/main/notebooks/05%20-%20Audio%20Input.ipynb)
-- [Handle vision input](handle-vision.md) — parallel surface for image input
-- [Model matrix](../reference/model-matrix.md) — `supports_audio` column
+- [Handle vision input](handle-vision.md): parallel surface for image input
+- [Model matrix](../reference/model-matrix.md): `supports_audio` column

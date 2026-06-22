@@ -19,7 +19,7 @@ mcp = MCPClient({"mcpServers": {"aimu": {"command": "python", "args": ["-m", "ai
 
 ## A2A agent server
 
-Requires the `a2a` extra (`pip install 'aimu[a2a]'`). Exposes a single AIMU `Agent` over the Agent2Agent protocol — the agent-level analog of the tools server above (which serves *tools*; this serves a whole *agent*).
+Requires the `a2a` extra (`pip install 'aimu[a2a]'`). Exposes a single AIMU `Agent` over the Agent2Agent protocol: the agent-level analog of the tools server above (which serves *tools*; this serves a whole *agent*).
 
 ```bash
 python -m aimu.agents.a2a \
@@ -99,5 +99,5 @@ Both demo a full-featured chat with streaming, tool calls, and persistent histor
 
 ## See also
 
-- [Environment variables](env-vars.md) — every var these commands read
-- [How-to: use MCP tools](../how-to/use-mcp-tools.md) — attaching MCP servers to a client
+- [Environment variables](env-vars.md): every var these commands read
+- [How-to: use MCP tools](../how-to/use-mcp-tools.md): attaching MCP servers to a client

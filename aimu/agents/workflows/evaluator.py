@@ -21,13 +21,13 @@ class EvaluatorOptimizer(Runner):
 
     Acceptance is decided by one of three mechanisms, in priority order:
 
-    * ``stop_when`` — a predicate over the evaluator's output (the raw text, or the typed
+    * ``stop_when``: a predicate over the evaluator's output (the raw text, or the typed
       verdict when ``verdict_schema`` is set). The most flexible and robust option.
-    * ``verdict_schema`` — a dataclass / Pydantic model the evaluator must return (via
+    * ``verdict_schema``: a dataclass / Pydantic model the evaluator must return (via
       structured output). Acceptance reads its ``passed`` (bool) attribute and revision uses
       its ``feedback`` (str) attribute. Requires a structured-output-capable model; it raises
       on a malformed verdict rather than silently continuing.
-    * ``pass_keyword`` (default) — accept when this substring appears in the evaluator's text.
+    * ``pass_keyword`` (default): accept when this substring appears in the evaluator's text.
 
     Usage::
 

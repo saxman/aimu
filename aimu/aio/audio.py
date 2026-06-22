@@ -2,9 +2,9 @@
 
 Exposes:
 
-- :class:`AsyncAudioClient` — factory paralleling the sync :class:`AudioClient`,
+- :class:`AsyncAudioClient`: factory paralleling the sync :class:`AudioClient`,
   wrapping an existing sync :class:`BaseAudioClient` (any provider).
-- :func:`audio_client` / :func:`generate_audio` — convenience functions matching
+- :func:`audio_client` / :func:`generate_audio`: convenience functions matching
   the shape of :func:`aimu.audio_client` / :func:`aimu.generate_audio`.
 
 Because audio providers load weights in-process (HuggingFace transformers/diffusers),
@@ -83,7 +83,7 @@ class AsyncAudioClient:
         """Generate one or more audio clips. Forwarded to the inner async provider client.
 
         When ``stream=True`` is in ``**kwargs``, the inner client returns an
-        ``AsyncIterator[StreamChunk]`` — consume with ``async for``.
+        ``AsyncIterator[StreamChunk]``, consumed with ``async for``.
         """
         return await self._client.generate(prompt, **kwargs)
 
@@ -111,7 +111,7 @@ async def generate_audio(
 ) -> Any:
     """One-shot async audio generation.
 
-    Accepts either an existing sync audio client (preferred — weights reused across
+    Accepts either an existing sync audio client (preferred, weights reused across
     calls) or a model enum/spec/string (constructs a fresh sync client inside, which
     loads weights each call).
 

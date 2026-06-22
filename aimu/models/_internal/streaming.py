@@ -1,6 +1,6 @@
 """Stream-chunk utilities shared by sync and async model surfaces.
 
-Pure stateless helpers — no I/O, no provider knowledge. Lifted out of
+Pure stateless helpers: no I/O, no provider knowledge. Lifted out of
 ``BaseModelClient`` so the async surface can reuse them.
 """
 

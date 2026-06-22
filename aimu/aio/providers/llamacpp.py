@@ -1,6 +1,6 @@
-"""Async LlamaCpp client — wraps an existing sync :class:`LlamaCppClient`.
+"""Async LlamaCpp client: wraps an existing sync :class:`LlamaCppClient`.
 
-Same pattern as :mod:`aimu.aio.providers.hf` — see Decision 7. GGUF weights load
+Same pattern as :mod:`aimu.aio.providers.hf` (see Decision 7). GGUF weights load
 once via the sync client; this class adds an awaitable interface on top.
 """
 
@@ -17,7 +17,7 @@ from ._sync_tool_bridge import bridge_async_tools
 
 
 class AsyncLlamaCppClient(AsyncBaseModelClient):
-    """Async wrapper around a sync :class:`LlamaCppClient` — no weight reload."""
+    """Async wrapper around a sync :class:`LlamaCppClient` (no weight reload)."""
 
     MODELS = LlamaCppModel
 

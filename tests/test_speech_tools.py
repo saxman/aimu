@@ -10,7 +10,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
-from test_speech_api import (  # noqa: F401 — _force_speech_stubs is an autouse fixture
+from test_speech_api import (  # noqa: F401 (_force_speech_stubs is an autouse fixture)
     _force_speech_stubs,
     _install_speech_stubs,
     _register_hf_speech,
@@ -204,7 +204,7 @@ def test_make_speech_tool_threads_voice_and_speed(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# make_tools — speech_client parameter
+# make_tools: speech_client parameter
 # ---------------------------------------------------------------------------
 
 

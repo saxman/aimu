@@ -1,6 +1,6 @@
 # `aimu.aio`
 
-Async surface. Mirrors the sync API one-for-one — same class names, different namespace. See [how-to: use async](../../how-to/use-async.md) for usage patterns and [explanation: async design](../../explanation/async-design.md) for why the surface is shaped this way.
+Async surface. Mirrors the sync API one-for-one: same class names, different namespace. See [how-to: use async](../../how-to/use-async.md) for usage patterns and [explanation: async design](../../explanation/async-design.md) for why the surface is shaped this way.
 
 Differences from the sync surface:
 

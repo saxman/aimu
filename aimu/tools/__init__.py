@@ -2,13 +2,13 @@
 
 There are two routes for exposing tools to an agent:
 
-* **In-process** — decorate a Python function with ``@tool``. Pass the function to
+* **In-process**: decorate a Python function with ``@tool``. Pass the function to
   ``Agent(client, tools=[fn])`` or set ``model_client.tools = [fn]``. This is the
   default and recommended path for code you control.
 
-* **Cross-process** — wrap an MCP server (or external command) with :class:`MCPClient`.
+* **Cross-process**: wrap an MCP server (or external command) with :class:`MCPClient`.
   Use this only when you need to integrate a tool server you don't control. For
-  *sharing* AIMU tools across processes, register them on a FastMCP server yourself —
+  *sharing* AIMU tools across processes, register them on a FastMCP server yourself;
   there's no second framework to learn.
 
 Built-in tools live in :mod:`aimu.tools.builtin` and are grouped by domain

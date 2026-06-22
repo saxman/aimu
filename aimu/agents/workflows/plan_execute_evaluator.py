@@ -26,7 +26,7 @@ _DEFAULT_PLANNER_SYSTEM = (
 
 _DEFAULT_EXECUTOR_SYSTEM = (
     "You execute the plan you receive. Use available tools. Return only the "
-    "final artifact or answer — not a summary of what you did."
+    "final artifact or answer, not a summary of what you did."
 )
 
 _PLAN_HEADER_RE = re.compile(r"^\s*##\s*Plan\s*$", re.MULTILINE | re.IGNORECASE)

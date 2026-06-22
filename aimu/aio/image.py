@@ -2,9 +2,9 @@
 
 Exposes:
 
-- :class:`AsyncImageClient` — factory paralleling the sync :class:`ImageClient`,
+- :class:`AsyncImageClient`: factory paralleling the sync :class:`ImageClient`,
   wrapping an existing sync :class:`BaseImageClient` (any provider).
-- :func:`image_client` / :func:`generate_image` — convenience functions matching
+- :func:`image_client` / :func:`generate_image`: convenience functions matching
   the shape of :func:`aimu.image_client` / :func:`aimu.generate_image`.
 
 Because image providers either load weights in-process (HuggingFace) or hold a
@@ -137,7 +137,7 @@ async def generate_image(
 ) -> Any:
     """One-shot async image generation across HF diffusers or Google Gemini.
 
-    Accepts either an existing sync image client (preferred — weights / API client
+    Accepts either an existing sync image client (preferred, weights / API client
     reused across calls) or a model spec/string (constructs a fresh sync client
     inside, which loads weights each call for diffusers).
 

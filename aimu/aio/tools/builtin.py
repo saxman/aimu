@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from aimu.tools.builtin import (  # noqa: F401 — re-exports
+from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     calculate,
     compute,
     echo,
@@ -34,8 +34,8 @@ def _get_async_image_client():
     """Lazy singleton :class:`AsyncImageClient` for the async built-in tool.
 
     Reads ``AIMU_IMAGE_MODEL`` from the environment. Raises ``ValueError`` if it is
-    unset — no model is downloaded implicitly. Accepts any model string supported by
-    :func:`aimu.aio.image_client` — ``"hf:..."`` / ``"gemini:..."``.
+    unset (no model is downloaded implicitly). Accepts any model string supported by
+    :func:`aimu.aio.image_client`: ``"hf:..."`` / ``"gemini:..."``.
     """
     global _async_image_client
     if _async_image_client is None:
@@ -50,7 +50,7 @@ def _get_async_image_client():
 async def generate_image(prompt: str):
     """Generate an image from a text prompt and return the saved file path.
 
-    **Streaming async tool** — async generator yielding
+    **Streaming async tool**: async generator yielding
     :attr:`~aimu.models.StreamingContentType.IMAGE_GENERATING` chunks during
     denoising. When dispatched by ``aio.Agent.run(stream=True)``, chunks flow
     through the agent's own stream and into the UI live.
@@ -71,7 +71,7 @@ async def generate_image(prompt: str):
         if isinstance(content, dict) and content.get("final"):
             final_result = content.get("result")
     # Final chunk's content["result"] is picked up by _handle_tool_calls_streamed
-    # as the canonical tool response — no return-value needed (PEP 525 async
+    # as the canonical tool response; no return-value needed (PEP 525 async
     # generators don't carry return values anyway).
     del final_result
 
@@ -80,8 +80,8 @@ def make_async_image_tool(client, *, preview_every: Optional[int] = None):
     """Build an async streaming ``generate_image`` tool bound to a specific client.
 
     Pass a sync :class:`aimu.BaseImageClient` (e.g.
-    :class:`HuggingFaceImageClient`, :class:`GeminiImageClient`) — it'll be
-    wrapped automatically — or an existing :class:`aimu.aio.AsyncImageClient`.
+    :class:`HuggingFaceImageClient`, :class:`GeminiImageClient`), which will be
+    wrapped automatically, or an existing :class:`aimu.aio.AsyncImageClient`.
     ``preview_every=N`` opts into intermediate denoised-image previews (HF only;
     Gemini ignores it).
     """
@@ -93,14 +93,14 @@ def make_async_image_tool(client, *, preview_every: Optional[int] = None):
         client = _aio_image_client(client)
     elif not isinstance(client, AsyncImageClient):
         # Permit the per-provider async classes (AsyncHuggingFaceImageClient,
-        # AsyncGeminiImageClient) directly — they expose .generate() too.
+        # AsyncGeminiImageClient) directly; they expose .generate() too.
         pass
 
     @tool
     async def generate_image(prompt: str):
         """Generate an image from a text prompt and return the saved file path.
 
-        Async streaming tool — yields progress chunks during generation.
+        Async streaming tool: yields progress chunks during generation.
 
         Args:
             prompt: A description of the desired image.

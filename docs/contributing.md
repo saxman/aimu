@@ -85,7 +85,7 @@ Add a member to the provider's `Model` enum with a `ModelSpec(id, tools=..., thi
 ## Pull requests
 
 - One concern per PR. Splitting a refactor across multiple PRs makes review tractable.
-- Include or update tests. Each module has a dedicated test file (`tests/test_models_api.py`, `tests/test_tool_decorator.py`, `tests/test_workflow_chain.py`, etc.) — add new behavioural tests next to the existing ones for the surface you're touching.
+- Include or update tests. Each module has a dedicated test file (`tests/test_models_api.py`, `tests/test_tool_decorator.py`, `tests/test_workflow_chain.py`, etc.). Add new behavioural tests next to the existing ones for the surface you're touching.
 - Update docs when adding a public API. New `@tool`-decorated function? Add it to `builtin.<group>`. New workflow? Add a tutorial or how-to.
 - Run `ruff check .` and `pytest` before pushing.
 

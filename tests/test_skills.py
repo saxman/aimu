@@ -146,7 +146,7 @@ def test_skill_manager_skips_dir_without_skill_md(tmp_path):
 
 
 def test_skill_manager_raises_on_missing_description(tmp_path):
-    """Malformed SKILL.md is no longer silently skipped — SkillLoadError is raised."""
+    """Malformed SKILL.md is no longer silently skipped; SkillLoadError is raised."""
     import pytest
 
     from aimu.skills import SkillLoadError
@@ -341,7 +341,7 @@ def test_skill_manager_default_paths_discover_skill(tmp_path, monkeypatch):
     # Override the default dirs so the test doesn't touch real home/project paths
     monkeypatch.setattr(skills_module, "_DEFAULT_SKILL_DIRS", [str(project_skills)])
 
-    mgr = SkillManager()  # no skill_dirs — should use defaults
+    mgr = SkillManager()  # no skill_dirs, should use defaults
     assert "auto-skill" in mgr.skills
 
 

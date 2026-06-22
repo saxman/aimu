@@ -1,6 +1,6 @@
 # Tune prompts
 
-`PromptTuner` runs a hill-climbing loop to automatically improve a prompt against labelled data. Each round: apply the current prompt to the data, evaluate, propose a mutation, keep it if it improves the score, otherwise revert. No ML machinery — just a model client and a scorer.
+`PromptTuner` runs a hill-climbing loop to automatically improve a prompt against labelled data. Each round: apply the current prompt to the data, evaluate, propose a mutation, keep it if it improves the score, otherwise revert. No ML machinery, just a model client and a scorer.
 
 Four concrete tuners ship in `aimu.prompts`:
 
@@ -92,7 +92,7 @@ df = pd.DataFrame({"content": ["Summarise the water cycle.", "Explain photosynth
 best = tuner.tune(df, initial_prompt="Answer in one sentence: {content}")
 ```
 
-Or use a `DeepEvalScorer` to score with DeepEval metrics — see [Integrate DeepEval](integrate-deepeval.md).
+Or use a `DeepEvalScorer` to score with DeepEval metrics; see [Integrate DeepEval](integrate-deepeval.md).
 
 ## Save versions to a catalog
 
@@ -123,5 +123,5 @@ Subclass `PromptTuner` and implement `apply_prompt`, `evaluate`, `mutation_promp
 ## See also
 
 - [`aimu.prompts` API reference](../reference/api/prompts.md)
-- [Benchmark models](benchmark-models.md) — compare clients on a fixed prompt
+- [Benchmark models](benchmark-models.md): compare clients on a fixed prompt
 - Notebook [15 - Prompt Tuning](https://github.com/saxman/aimu/blob/main/notebooks/15%20-%20Prompt%20Tuning.ipynb)

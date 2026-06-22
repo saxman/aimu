@@ -112,7 +112,7 @@ def _openai_audio_blocks_to_anthropic(blocks: list[dict]) -> list[dict]:
     become Anthropic ``audio`` blocks with a ``base64`` source.
 
     Note: verify the exact Anthropic audio block structure against the live API at
-    implementation time — the shape used here matches the documented Anthropic pattern.
+    implementation time; the shape used here matches the documented Anthropic pattern.
     """
     out: list[dict] = []
     for block in blocks:

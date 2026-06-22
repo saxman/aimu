@@ -1,4 +1,4 @@
-"""Live image-generation tests parametrized by provider — opt in via CLI flags.
+"""Live image-generation tests parametrized by provider; opt in via CLI flags.
 
 Mirrors :mod:`tests/test_models.py` for the image modality. Same shape:
 ``pytest_generate_tests`` reads the CLI flags, ``image_client`` is a session-scoped
@@ -19,7 +19,7 @@ Usage:
 
       pytest tests/test_images.py --image-client=hf
 
-- Run every model on every installed provider (heavy — pulls multiple HF weights)::
+- Run every model on every installed provider (heavy; pulls multiple HF weights)::
 
       pytest tests/test_images.py --image-client=all
 
@@ -129,7 +129,7 @@ def test_generate_num_images_returns_list(image_client):
 
 
 def test_hf_seed_reproducible(image_client):
-    """Same seed → same bytes. HuggingFace diffusers only — Gemini has no seed API."""
+    """Same seed → same bytes. HuggingFace diffusers only; Gemini has no seed API."""
     from aimu.models.providers.hf.image import HuggingFaceImageClient
 
     if not isinstance(image_client, HuggingFaceImageClient):
@@ -145,7 +145,7 @@ def test_hf_seed_reproducible(image_client):
 def test_gemini_aspect_ratio_accepted(image_client):
     """aspect_ratio kwarg threads through to the Gemini ImageConfig.
 
-    HuggingFace ignores aspect_ratio — its API takes explicit width/height — so
+    HuggingFace ignores aspect_ratio (its API takes explicit width/height), so
     this test is Gemini-only.
     """
     from aimu.models.providers.gemini.image import GeminiImageClient

@@ -11,7 +11,7 @@ _NEUTRAL_NEG_PLAN = NegativePromptPlan(generate_kwargs={}, summarizer_avoid=None
 
 
 # ---------------------------------------------------------------------------
-# build_image_prompt — the subject anchor must lead the prompt
+# build_image_prompt: the subject anchor must lead the prompt
 # ---------------------------------------------------------------------------
 
 
@@ -419,7 +419,7 @@ def test_evaluator_make_tools_records(tmp_path):
     assert records[0]["evaluator_response"] is None  # not yet evaluated
 
     result = evaluate_fn(path1)
-    # evaluate_image uses stateless generate(images=) — no reset() dance.
+    # evaluate_image uses stateless generate(images=); no reset() dance.
     vision_client.reset.assert_not_called()
     assert "CONTINUE" in result
     # The matching record is filled in with the parsed verdict.
@@ -495,11 +495,11 @@ def test_anneal_accept_uphill_and_ties_always():
 
     rng = random.Random(0)
     assert _accept(2, 0.01, rng) is True  # uphill, even at near-zero T
-    assert _accept(0, 0.01, rng) is True  # tie — a free sideways move
+    assert _accept(0, 0.01, rng) is True  # tie: a free sideways move
 
 
 def test_anneal_accept_downhill_greedy_at_zero_temperature():
-    """At T = 0 a worsening move is never accepted — the pure-greedy (climber) limit."""
+    """At T = 0 a worsening move is never accepted: the pure-greedy (climber) limit."""
     import random
 
     from hotdog_anneal import _accept
@@ -571,7 +571,7 @@ def test_refine_image_without_temperature_uses_model_default(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Collage — tiles are badged with their score
+# Collage: tiles are badged with their score
 # ---------------------------------------------------------------------------
 
 

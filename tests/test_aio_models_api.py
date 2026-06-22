@@ -99,7 +99,7 @@ def test_aio_client_rejects_hf_model_enum_with_guidance():
 
 
 # ---------------------------------------------------------------------------
-# Streaming tool dispatch — async generators
+# Streaming tool dispatch: async generators
 # ---------------------------------------------------------------------------
 
 
@@ -109,7 +109,7 @@ async def test_async_streaming_tool_yields_forward_through_dispatch():
 
     @tool
     async def slow_tool(x: str):
-        """Async streaming tool with no return value — last chunk carries result."""
+        """Async streaming tool with no return value; last chunk carries result."""
         yield StreamChunk(StreamingContentType.GENERATING, "working...")
         yield StreamChunk(
             StreamingContentType.IMAGE_GENERATING,
@@ -172,7 +172,7 @@ async def test_async_plain_tool_still_works_via_streamed_dispatch():
 
 
 # ---------------------------------------------------------------------------
-# generate(images=) — stateless single-turn vision input (async mirror)
+# generate(images=): stateless single-turn vision input (async mirror)
 # ---------------------------------------------------------------------------
 
 _DATA_URL = "data:image/png;base64,iVBORw0KGgo="
@@ -205,7 +205,7 @@ async def test_async_generate_images_rejected_for_non_vision_model():
 
 
 class _AsyncToolsRecordingClient(MockAsyncModelClient):
-    """Records ``self.tools`` seen inside ``_chat`` — proxy for what the override exposes."""
+    """Records ``self.tools`` seen inside ``_chat`` (proxy for what the override exposes)."""
 
     def __init__(self, responses):
         super().__init__(responses)
@@ -244,7 +244,7 @@ async def test_async_chat_tools_override_applies_across_streamed_consumption():
     client.tools = [object()]
 
     stream = await client.chat("hi", stream=True, tools=[override_tool])
-    assert client.tools_seen is None  # lazy — not yet consumed
+    assert client.tools_seen is None  # lazy, not yet consumed
     async for _ in stream:
         pass
     assert client.tools_seen == [override_tool]

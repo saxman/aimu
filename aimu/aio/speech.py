@@ -2,9 +2,9 @@
 
 Exposes:
 
-- :class:`AsyncSpeechClient` — factory paralleling the sync :class:`SpeechClient`,
+- :class:`AsyncSpeechClient`: factory paralleling the sync :class:`SpeechClient`,
   wrapping an existing sync :class:`BaseSpeechClient` (any provider).
-- :func:`speech_client` / :func:`generate_speech` — convenience functions matching
+- :func:`speech_client` / :func:`generate_speech`: convenience functions matching
   the shape of :func:`aimu.speech_client` / :func:`aimu.generate_speech`.
 
 Direct enum / string construction is refused with a helpful error pointing at the
@@ -102,7 +102,7 @@ class AsyncSpeechClient:
         """Generate speech. Forwarded to the inner async provider client.
 
         When ``stream=True`` is in ``**kwargs``, the inner client returns an
-        ``AsyncIterator[StreamChunk]`` — consume with ``async for``.
+        ``AsyncIterator[StreamChunk]``, consumed with ``async for``.
         """
         return await self._client.generate(text, **kwargs)
 
@@ -134,9 +134,9 @@ async def generate_speech(
     """One-shot async speech generation.
 
     ``model`` may be an existing sync :class:`HuggingFaceSpeechClient` or
-    :class:`OpenAISpeechClient` (preferred — state reused across calls), a
+    :class:`OpenAISpeechClient` (preferred, since state is reused across calls), a
     :class:`HuggingFaceSpeechModel` / :class:`OpenAISpeechModel` enum member, or
-    a ``"provider:model_id"`` string — same dispatch as :func:`aimu.generate_speech`.
+    a ``"provider:model_id"`` string (same dispatch as :func:`aimu.generate_speech`).
 
     When ``model`` is omitted, the ``AIMU_SPEECH_MODEL`` env var is used; if it is unset a
     ``ValueError`` is raised (no model is downloaded implicitly).

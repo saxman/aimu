@@ -247,7 +247,7 @@ async def test_async_agent_streamed_final_answer_prompt_forces_wrap_up():
 
 
 # ---------------------------------------------------------------------------
-# AsyncRunner.as_tool() — any async runner usable as a tool
+# AsyncRunner.as_tool(): any async runner usable as a tool
 # ---------------------------------------------------------------------------
 
 

@@ -121,7 +121,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         ``images`` / ``audio`` accept the same forms as :meth:`chat` and raise ``ValueError``
         for models that don't support the respective modality. The call stays stateless
         (does not touch ``self.messages``). Passing both raises ``ValueError``. ``schema``
-        mirrors the sync surface — see :meth:`chat`.
+        mirrors the sync surface; see :meth:`chat`.
         """
         if images and audio:
             raise ValueError("Pass either images= or audio= per call, not both.")
@@ -156,7 +156,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         ``tools`` override and ``schema`` (structured output: native when
         ``supports_structured_output`` else prompt-and-parse; mutually exclusive with
         ``stream=True``; Anthropic native + active tools raises). Streaming returns an
-        ``AsyncIterator[StreamChunk]`` — consume with ``async for``.
+        ``AsyncIterator[StreamChunk]``, consumed with ``async for``.
         """
         if schema is not None:
             if stream:
@@ -291,7 +291,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         """Dispatch a single non-streaming tool call. Returns the tool message dict.
 
         Awaits async tools directly; routes sync tools through ``asyncio.to_thread``.
-        Every tool — in-process ``@tool`` functions and MCP tools alike — lives in
+        Every tool (in-process ``@tool`` functions and MCP tools alike) lives in
         ``self.tools`` as a callable (MCP tools are wrapped by ``aio.MCPClient.as_tools()``),
         so dispatch is a single by-name lookup. Generator (streaming) tools are rejected here.
         """
@@ -301,7 +301,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             if getattr(fn, "__tool_is_streaming__", False):
                 raise ValueError(
                     f"Tool '{tc['name']}' is a generator (streaming) tool. Streaming tools "
-                    "require the streaming dispatch path — call chat() / agent.run() with "
+                    "require the streaming dispatch path: call chat() / agent.run() with "
                     "stream=True. For non-streaming use, convert the tool to a plain function."
                 )
             try:
@@ -324,7 +324,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         }
 
     async def _handle_tool_calls(self, tool_calls: list[dict]) -> None:
-        """Non-streaming async tool dispatch — used by non-streaming ``_chat`` paths.
+        """Non-streaming async tool dispatch, used by non-streaming ``_chat`` paths.
 
         Streaming (generator) tools are rejected; call ``chat(stream=True)`` to
         dispatch them via :meth:`_handle_tool_calls_streamed`.
@@ -342,12 +342,12 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         self.messages.extend(results)
 
     async def _handle_tool_calls_streamed(self, tool_calls: list[dict]) -> AsyncIterator[StreamChunk]:
-        """Async streaming tool dispatch — used by streaming ``_chat`` paths.
+        """Async streaming tool dispatch, used by streaming ``_chat`` paths.
 
         Mirrors :meth:`BaseModelClient._handle_tool_calls_streamed` on the sync
         surface. Async generator tools (``async def fn(): yield ...``) are drained
         via ``async for``; sync generator tools are dispatched through
-        ``asyncio.to_thread`` (one step at a time — the thread re-enters per
+        ``asyncio.to_thread`` (one step at a time, the thread re-enters per
         ``next()`` so the event loop stays free between yields).
 
         Result extraction priority for streaming tools (matching the sync version):
@@ -395,14 +395,14 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                     last_content: Any = None
                     kwargs = self._tool_call_kwargs(fn, tc["arguments"])
                     if getattr(fn, "__tool_is_async__", False):
-                        # Async generator tool — drain with `async for`.
+                        # Async generator tool, drained with `async for`.
                         agen = fn(**kwargs)
                         async for chunk in agen:
                             yield chunk
                             last_content = chunk.content
                         # Async generators have no return-value channel.
                     else:
-                        # Sync generator dispatched in the async surface — pull steps
+                        # Sync generator dispatched in the async surface: pull steps
                         # via to_thread so the event loop stays free between yields.
                         gen = fn(**kwargs)
                         _SENTINEL = object()

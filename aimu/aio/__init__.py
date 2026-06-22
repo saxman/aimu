@@ -19,7 +19,7 @@ Quick start::
 
 **Streaming types differ between surfaces.** ``aimu.chat(stream=True)`` returns
 ``Iterator[StreamChunk]``; ``aio.chat(stream=True)`` returns
-``AsyncIterator[StreamChunk]``. They cannot unify without a hidden event loop —
+``AsyncIterator[StreamChunk]``. They cannot unify without a hidden event loop;
 this asymmetry is by design.
 
 **Per-call timeouts** use ``asyncio.timeout()``:
@@ -35,7 +35,7 @@ weights twice. Instead, build a sync client first and pass it to ``aio.client()`
     async_client = aio.client(sync_client)                  # wraps; shares weights
 
 **Structured concurrency.** ``aio.Parallel`` and ``concurrent_tool_calls=True``
-use ``asyncio.TaskGroup`` — if one worker raises, siblings are cancelled and an
+use ``asyncio.TaskGroup``: if one worker raises, siblings are cancelled and an
 ``ExceptionGroup`` surfaces with all failures.
 """
 

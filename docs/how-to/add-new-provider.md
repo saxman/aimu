@@ -1,21 +1,21 @@
 # Add or update a provider
 
-A **provider** is a backend AIMU talks to (Ollama, Anthropic, an OpenAI-compatible server, …). Adding one means writing a client class and wiring it into the factory. This is different from [adding a new *model*](add-new-model.md) — that's just a new member on an existing provider's `Model` enum.
+A **provider** is a backend AIMU talks to (Ollama, Anthropic, an OpenAI-compatible server, …). Adding one means writing a client class and wiring it into the factory. This is different from [adding a new *model*](add-new-model.md), which is just a new member on an existing provider's `Model` enum.
 
 Provider clients live under [`aimu/models/providers/`](https://github.com/saxman/aimu/tree/main/aimu/models/providers), one module per provider. The public surface is unchanged by where the file sits: users still reach your client through `aimu.client("yourprovider:model-id")`, `ModelClient(YourModel.X)`, or `from aimu.models import YourClient`.
 
 ## 1. Decide the file layout
 
-- **Flat module** — `providers/<name>.py`. The default, used by `anthropic.py`, `ollama.py`, `llamacpp.py`.
-- **Subpackage** — `providers/<name>/<modality>.py` — **only** when the provider ships *more than one* standalone modality client (the rule that gives `hf/`, `openai/`, `gemini/` their `text.py` / `image.py` / …). A single-client provider stays flat.
+- **Flat module**: `providers/<name>.py`. The default, used by `anthropic.py`, `ollama.py`, `llamacpp.py`.
+- **Subpackage**: `providers/<name>/<modality>.py`, **only** when the provider ships *more than one* standalone modality client (the rule that gives `hf/`, `openai/`, `gemini/` their `text.py` / `image.py` / …). A single-client provider stays flat.
 
 ## 2. Write the client
 
 There are two paths depending on the backend's API.
 
-### Path A — OpenAI-compatible endpoint (easiest)
+### Path A: OpenAI-compatible endpoint (easiest)
 
-If the backend speaks the OpenAI REST API, you don't reimplement chat/streaming/tools — subclass `OpenAICompatClient` and supply a `base_url` + a `Model` enum. For a *local inference server*, add it alongside the others in [`providers/openai_compat.py`](https://github.com/saxman/aimu/blob/main/aimu/models/providers/openai_compat.py):
+If the backend speaks the OpenAI REST API, you don't reimplement chat/streaming/tools. Subclass `OpenAICompatClient` and supply a `base_url` + a `Model` enum. For a *local inference server*, add it alongside the others in [`providers/openai_compat.py`](https://github.com/saxman/aimu/blob/main/aimu/models/providers/openai_compat.py):
 
 ```python
 # aimu/models/providers/openai_compat.py
@@ -30,11 +30,11 @@ class MyServerOpenAIClient(OpenAICompatClient):
         super().__init__(model, base_url=base_url, **kwargs)
 ```
 
-A *cloud* provider with its own identity and ≥2 modalities gets a subpackage instead — see how `OpenAIClient` lives in `providers/openai/text.py` and subclasses `OpenAICompatClient` via `from ..openai_compat import OpenAICompatClient`.
+A *cloud* provider with its own identity and ≥2 modalities gets a subpackage instead. See how `OpenAIClient` lives in `providers/openai/text.py` and subclasses `OpenAICompatClient` via `from ..openai_compat import OpenAICompatClient`.
 
-### Path B — native SDK
+### Path B: native SDK
 
-For a backend with its own SDK/wire format, subclass `BaseModelClient` and implement the three abstract methods plus the capability classproperties. `self.messages` always stays in OpenAI format; adapt to the provider's format at request time (never mutate `self.messages`). Reuse the shared helpers in [`aimu/models/_internal/`](https://github.com/saxman/aimu/tree/main/aimu/models/_internal) (`streaming`, `image_input`, …):
+For a backend with its own SDK/wire format, subclass `BaseModelClient` and implement the three abstract methods plus the capability classproperties. `self.messages` always stays in OpenAI format; adapt to the provider's format at request time (never mutate `self.messages`). Reuse the shared helpers in [`aimu/models/_internal/`](https://github.com/saxman/aimu/tree/main/aimu/models/_internal), such as `streaming` and `image_input`:
 
 ```python
 # aimu/models/providers/myprovider.py
@@ -69,7 +69,7 @@ class MyProviderClient(BaseModelClient):
     def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None): ...
 ```
 
-`chat()` / `generate()` (and the `include=` stream filter) are concrete on the base — you only implement `_chat` / `_generate`. Use `self._chat_setup(...)` to build the request and `self._handle_tool_calls(...)` / `self._handle_tool_calls_streamed(...)` to dispatch tools uniformly. See [`providers/anthropic.py`](https://github.com/saxman/aimu/blob/main/aimu/models/providers/anthropic.py) for a full native example (including the OpenAI↔Anthropic format adapters).
+`chat()` / `generate()` (and the `include=` stream filter) are concrete on the base; you only implement `_chat` / `_generate`. Use `self._chat_setup(...)` to build the request and `self._handle_tool_calls(...)` / `self._handle_tool_calls_streamed(...)` to dispatch tools uniformly. See [`providers/anthropic.py`](https://github.com/saxman/aimu/blob/main/aimu/models/providers/anthropic.py) for a full native example (including the OpenAI↔Anthropic format adapters).
 
 !!! note "Provider-local helpers"
     A helper used by *one* provider family lives with it (e.g. `providers/hf/_device.py`, `providers/_thinking.py`), not in `_internal/`. Put anything only your provider needs next to your provider.
@@ -105,14 +105,14 @@ In [`aimu/models/__init__.py`](https://github.com/saxman/aimu/blob/main/aimu/mod
 Add `aimu/aio/providers/myprovider.py`:
 
 - **Native** providers subclass `AsyncBaseModelClient` (async `_chat` / `_generate`; `asyncio.TaskGroup` for concurrent tool calls).
-- **In-process** providers (those that load weights, like HF/LlamaCpp) instead *wrap a sync client* — they don't load weights twice (Decision 7, see [async design](../explanation/async-design.md)).
+- **In-process** providers (those that load weights, like HF/LlamaCpp) instead *wrap a sync client* so they don't load weights twice (Decision 7, see [async design](../explanation/async-design.md)).
 
 Then wire `aimu/aio/_model_client.py` (same three edits as step 3) and export from `aimu/aio/__init__.py`.
 
 ## 6. Tests
 
-- **Mock** coverage: `tests/test_models_api.py` (no backend needed) — this is the canary that catches wiring/import breaks.
-- **Live** coverage flows through `tests/test_models.py`; add your provider to the dispatch in `tests/conftest.py` / `tests/helpers.py` so `--client=myprovider` resolves. Live tests are opt-in — bare `pytest` skips them.
+- **Mock** coverage: `tests/test_models_api.py` (no backend needed). This is the canary that catches wiring/import breaks.
+- **Live** coverage flows through `tests/test_models.py`; add your provider to the dispatch in `tests/conftest.py` / `tests/helpers.py` so `--client=myprovider` resolves. Live tests are opt-in; bare `pytest` skips them.
 
 ## Verify
 
@@ -131,6 +131,6 @@ pytest tests/test_models.py --client=myprovider   # live (needs the backend)
 
 ## See also
 
-- [Add a new model](add-new-model.md) — register a model on an *existing* provider
-- [Architecture](../explanation/architecture.md) — the `BaseModelClient` contract and factory pattern
-- [Use async (`aio`)](use-async.md) — the async surface your mirror plugs into
+- [Add a new model](add-new-model.md): register a model on an *existing* provider
+- [Architecture](../explanation/architecture.md): the `BaseModelClient` contract and factory pattern
+- [Use async (`aio`)](use-async.md): the async surface your mirror plugs into

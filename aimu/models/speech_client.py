@@ -2,8 +2,8 @@
 
 Exposes:
 
-- :func:`resolve_speech_model_string` — parse ``"provider:model_id"`` for speech providers.
-- :class:`SpeechClient` — factory :class:`BaseSpeechClient` that dispatches to the right
+- :func:`resolve_speech_model_string`: parse ``"provider:model_id"`` for speech providers.
+- :class:`SpeechClient`: factory :class:`BaseSpeechClient` that dispatches to the right
   concrete client based on the model enum / spec / string passed in.
 
 Mirrors the audio-side dispatch (:class:`aimu.models.AudioClient`,
