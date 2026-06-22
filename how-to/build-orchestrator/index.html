@@ -16,7 +16,7 @@
         <link rel="prev" href="../using-llms-inside-tools/">
       
       
-        <link rel="next" href="../plan-execute-evaluate/">
+        <link rel="next" href="../connect-agents-a2a/">
       
       
         
@@ -695,6 +695,8 @@
       
         
           
+        
+      
         
       
         
@@ -1591,6 +1593,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../connect-agents-a2a/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connect agents (A2A)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plan-execute-evaluate/" class="md-nav__link">
         
   
@@ -2348,6 +2378,8 @@
       
         
       
+        
+      
     
     
     
@@ -2557,6 +2589,34 @@
     
   
     Tool integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/a2a-vs-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A2A vs MCP
   
 
     
@@ -2789,7 +2849,7 @@
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">orchestrator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;How does retrieval-augmented generation work?&quot;</span><span class="p">))</span>
 </span></code></pre></div>
-<p>Each worker becomes a callable <code>@tool</code> named after the worker's <code>name</code> (sanitised). The tool description is the first line of the worker's <code>system_message</code>.</p>
+<p>Each worker becomes a callable <code>@tool</code> (via <code>Runner.as_tool()</code>) named after the worker's <code>name</code> (sanitised); the tool description is the first line of its <code>system_message</code>. Workers can be <strong>any <code>Runner</code></strong>, not just an <code>Agent</code> — a <code>Chain</code> / <code>Router</code> / <code>Parallel</code> workflow, or a remote agent from <a href="../connect-agents-a2a/"><code>RemoteAgent.connect(...)</code></a> — so the orchestrator can delegate to a whole pipeline or a cross-process agent the same way it delegates to a single agent.</p>
 <h2 id="path-2-subclass">Path 2: subclass<a class="headerlink" href="#path-2-subclass" title="Permanent link">&para;</a></h2>
 <p>When you need custom tool names, multi-argument tools, or pre/post-processing:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
