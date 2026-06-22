@@ -72,6 +72,14 @@ class Parallel(AsyncRunner):
             result.update(self.aggregator.messages)
         return result
 
+    def restore(self, messages: list[dict], worker: int = 0) -> None:
+        """Restore one worker's state from a saved message list.
+
+        *worker* selects which worker by index (default 0). Other workers and the
+        aggregator start fresh on the next ``run()``. See :meth:`aimu.aio.Agent.restore`.
+        """
+        self.workers[worker].restore(messages)
+
     async def _run_workers(
         self,
         task: str,

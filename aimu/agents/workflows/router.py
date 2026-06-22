@@ -112,6 +112,20 @@ class Router(Runner):
             result.update(self.fallback.messages)
         return result
 
+    def restore(self, messages: list[dict], route: Optional[str] = None) -> None:
+        """Restore one sub-runner's state from a saved message list.
+
+        ``route=None`` (default) restores the routing classifier; a route key restores
+        that handler (raises ``KeyError`` listing the routes on a miss). Other sub-runners
+        start fresh on the next ``run()``. See :meth:`Agent.restore` for the full pattern.
+        """
+        if route is None:
+            self.routing_agent.restore(messages)
+            return
+        if route not in self.handlers:
+            raise KeyError(f"Unknown route '{route}'. Available routes: {sorted(self.handlers)}")
+        self.handlers[route].restore(messages)
+
     @classmethod
     def from_config(
         cls,

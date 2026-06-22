@@ -77,6 +77,14 @@ class Chain(AsyncRunner):
             result.update(agent.messages)
         return result
 
+    def restore(self, messages: list[dict], step: int = 0) -> None:
+        """Restore a chain step's state from a saved message list.
+
+        *step* selects which step's agent to restore (default 0). Subsequent steps start
+        fresh on the next ``run()``. See :meth:`aimu.aio.Agent.restore` for the pattern.
+        """
+        self.agents[step].restore(messages)
+
     @classmethod
     def from_config(cls, configs: list[dict[str, Any]], client: AsyncBaseModelClient) -> Chain:
         from ..agent import Agent

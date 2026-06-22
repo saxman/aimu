@@ -82,3 +82,12 @@ class OrchestratorAgent(AsyncRunner, ABC):
     @property
     def messages(self) -> MessageHistory:
         return self._orchestrator.messages
+
+    def restore(self, messages: list[dict]) -> None:
+        """Restore the inner orchestrator agent's state from a saved message list.
+
+        Workers are invoked as tools, so their own state is not part of the orchestrator's
+        history; restore a worker directly if it needs resuming. See
+        :meth:`aimu.aio.Agent.restore` for the full save/restore pattern.
+        """
+        self._orchestrator.restore(messages)

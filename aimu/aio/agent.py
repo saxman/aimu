@@ -206,6 +206,18 @@ class Agent(AsyncRunner):
     def messages(self) -> MessageHistory:
         return {self.name: self._last_messages}
 
+    def restore(self, messages: list[dict]) -> None:
+        """Restore agent state from a saved message list for resuming after failure.
+
+        Mirrors sync :meth:`aimu.agents.Agent.restore`: clears the client (preserving the
+        ``system_message`` value) and strips any leading system message from *messages* so
+        it isn't prepended twice on the next ``chat()``. Save the live partial state from a
+        failed run via ``agent.model_client.messages`` (not the post-run ``agent.messages``).
+        """
+        self.model_client.reset()
+        stripped = [m for m in messages if m.get("role") != "system"]
+        self.model_client.messages = stripped
+
     def _last_turn_called_tools(self) -> bool:
         for msg in reversed(self.model_client.messages):
             if msg.get("role") == "user":

@@ -31,6 +31,13 @@ class EvaluatorOptimizer(AsyncRunner):
         result.update(self.evaluator.messages)
         return result
 
+    def restore(self, messages: list[dict]) -> None:
+        """Restore the generator's state from a saved message list.
+
+        The evaluator starts fresh on the next round. See :meth:`aimu.aio.Agent.restore`.
+        """
+        self.generator.restore(messages)
+
     async def run(
         self,
         task: str,

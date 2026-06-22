@@ -1,9 +1,11 @@
-"""Tests for Agent.restore(), EvaluatorOptimizer.restore(), Chain.restore(step=)."""
+"""Tests for restore() across runners: Agent, Chain, EvaluatorOptimizer, Router, Parallel, OrchestratorAgent."""
 
 from __future__ import annotations
 
+import pytest
+
 from helpers import MockModelClient
-from aimu.agents import Agent
+from aimu.agents import Agent, OrchestratorAgent, Parallel, Router
 from aimu.agents.workflows.evaluator import EvaluatorOptimizer
 from aimu.agents.workflows.chain import Chain
 
@@ -115,3 +117,85 @@ def test_chain_restore_specific_step():
 
     assert c1.messages == []  # step 0 untouched
     assert "Hello" in [m["content"] for m in c2.messages]
+
+
+# ---------------------------------------------------------------------------
+# Router.restore
+# ---------------------------------------------------------------------------
+
+
+def test_router_restore_handler_by_route():
+    rc = MockModelClient([])
+    hc = MockModelClient([])
+    routing = Agent(rc, system_message="Classify", name="rc")
+    handler = Agent(hc, system_message="Handle", name="coder")
+    router = Router(routing_agent=routing, handlers={"coder": handler})
+
+    router.restore(_messages_with_system(system="Handle"), route="coder")
+
+    assert "Hello" in [m["content"] for m in hc.messages]
+    assert rc.messages == []  # routing agent untouched
+
+
+def test_router_restore_defaults_to_routing_agent():
+    rc = MockModelClient([])
+    hc = MockModelClient([])
+    routing = Agent(rc, system_message="Classify", name="rc")
+    handler = Agent(hc, system_message="Handle", name="coder")
+    router = Router(routing_agent=routing, handlers={"coder": handler})
+
+    router.restore(_messages_with_system(system="Classify"))
+
+    assert "Hello" in [m["content"] for m in rc.messages]
+    assert hc.messages == []
+
+
+def test_router_restore_unknown_route_raises_keyerror():
+    routing = Agent(MockModelClient([]), system_message="Classify", name="rc")
+    handler = Agent(MockModelClient([]), system_message="Handle", name="coder")
+    router = Router(routing_agent=routing, handlers={"coder": handler})
+
+    with pytest.raises(KeyError):
+        router.restore(_messages_with_system(), route="missing")
+
+
+# ---------------------------------------------------------------------------
+# Parallel.restore
+# ---------------------------------------------------------------------------
+
+
+def test_parallel_restore_worker_by_index():
+    c0 = MockModelClient([])
+    c1 = MockModelClient([])
+    parallel = Parallel(workers=[Agent(c0, system_message="W0", name="w0"), Agent(c1, system_message="W1", name="w1")])
+
+    parallel.restore(_messages_with_system(system="W1"), worker=1)
+
+    assert "Hello" in [m["content"] for m in c1.messages]
+    assert c0.messages == []  # other workers untouched
+
+
+def test_parallel_restore_defaults_to_first_worker():
+    c0 = MockModelClient([])
+    c1 = MockModelClient([])
+    parallel = Parallel(workers=[Agent(c0, system_message="W0", name="w0"), Agent(c1, system_message="W1", name="w1")])
+
+    parallel.restore(_messages_with_system(system="W0"))
+
+    assert "Hello" in [m["content"] for m in c0.messages]
+    assert c1.messages == []
+
+
+# ---------------------------------------------------------------------------
+# OrchestratorAgent.restore
+# ---------------------------------------------------------------------------
+
+
+def test_orchestrator_restore_delegates_to_inner_orchestrator():
+    orch_client = MockModelClient([])
+    worker = Agent(MockModelClient([]), system_message="Work", name="w")
+    orchestrator = OrchestratorAgent.assemble(orch_client, "Orchestrate the work.", workers=[worker])
+
+    orchestrator.restore(_messages_with_system(system="Orchestrate the work."))
+
+    assert "Hello" in [m["content"] for m in orch_client.messages]

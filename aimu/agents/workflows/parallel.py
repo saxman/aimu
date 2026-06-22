@@ -77,6 +77,15 @@ class Parallel(Runner):
             result.update(self.aggregator.messages)
         return result
 
+    def restore(self, messages: list[dict], worker: int = 0) -> None:
+        """Restore one worker's state from a saved message list.
+
+        *worker* selects which worker by index (default 0), mirroring ``Chain.restore``'s
+        ``step``. Other workers and the aggregator start fresh on the next ``run()``. See
+        :meth:`Agent.restore` for the full save/restore pattern.
+        """
+        self.workers[worker].restore(messages)
+
     def _run_workers(
         self,
         task: str,
