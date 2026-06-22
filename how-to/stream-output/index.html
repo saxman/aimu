@@ -1113,6 +1113,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#trace-a-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trace a run
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Trace a run">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pretty_print-render-a-stream-to-the-console" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pretty_print — render a stream to the console
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extract_tool_calls-pull-tool-calls-from-a-message-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        extract_tool_calls — pull tool calls from a message history
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2834,6 +2873,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#trace-a-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trace a run
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Trace a run">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pretty_print-render-a-stream-to-the-console" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pretty_print — render a stream to the console
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extract_tool_calls-pull-tool-calls-from-a-message-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        extract_tool_calls — pull tool calls from a message history
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2956,6 +3034,53 @@
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>            <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>include=</code> works identically. The same applies to <code>await aio.Agent.run(stream=True)</code> and every async workflow's <code>run(stream=True)</code>. See <a href="../use-async/">how-to: use async</a> for the full async surface walkthrough.</p>
+<h2 id="trace-a-run">Trace a run<a class="headerlink" href="#trace-a-run" title="Permanent link">&para;</a></h2>
+<p>Two helpers turn a run into something you can read or inspect, instead of re-implementing the phase-dispatch loop or reconstructing tool calls by hand.</p>
+<h3 id="pretty_print-render-a-stream-to-the-console"><code>pretty_print</code> — render a stream to the console<a class="headerlink" href="#pretty_print-render-a-stream-to-the-console" title="Permanent link">&para;</a></h3>
+<p><code>pretty_print(stream)</code> consumes any <code>StreamChunk</code> iterator (<code>client.chat(stream=True)</code>, <code>Agent.run(stream=True)</code>, or any workflow run) and writes a readable transcript: tool calls flagged, generated text streamed inline, reasoning optional. It returns the concatenated <code>GENERATING</code> text, so you get the final answer as well as the printed transcript.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="n">builtin</span><span class="o">.</span><span class="n">web</span><span class="p">)</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">pretty_print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Search the web and summarize today&#39;s AI news&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file</code></td>
+<td><code>sys.stdout</code></td>
+<td>Where to write</td>
+</tr>
+<tr>
+<td><code>show_thinking</code></td>
+<td><code>False</code></td>
+<td>Also print <code>THINKING</code> (reasoning) tokens</td>
+</tr>
+<tr>
+<td><code>show_tools</code></td>
+<td><code>True</code></td>
+<td>Print a <code>[tool] &lt;name&gt;</code> marker for each tool call</td>
+</tr>
+</tbody>
+</table>
+<h3 id="extract_tool_calls-pull-tool-calls-from-a-message-history"><code>extract_tool_calls</code> — pull tool calls from a message history<a class="headerlink" href="#extract_tool_calls-pull-tool-calls-from-a-message-history" title="Permanent link">&para;</a></h3>
+<p><code>extract_tool_calls(messages)</code> reconstructs the tool call/result pairs from an OpenAI-format message list <strong>after</strong> a run, with no streaming. Pass <code>client.messages</code>, or an entry from <code>agent.messages</code> (which is keyed by agent name). It returns a list of <code>{iteration, tool, arguments, result}</code> dicts and does not mutate the input.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_tool_calls</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;How many r&#39;s in strawberry?&quot;</span><span class="p">)</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">for</span> <span class="n">call</span> <span class="ow">in</span> <span class="n">extract_tool_calls</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">messages</span><span class="p">[</span><span class="n">agent</span><span class="o">.</span><span class="n">name</span><span class="p">]):</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">call</span><span class="p">[</span><span class="s2">&quot;iteration&quot;</span><span class="p">],</span> <span class="n">call</span><span class="p">[</span><span class="s2">&quot;tool&quot;</span><span class="p">],</span> <span class="n">call</span><span class="p">[</span><span class="s2">&quot;arguments&quot;</span><span class="p">],</span> <span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span> <span class="n">call</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">])</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># 1 letter_counter {&#39;word&#39;: &#39;strawberry&#39;, &#39;letter&#39;: &#39;r&#39;} -&gt; 3</span>
+</span></code></pre></div>
+<p><code>iteration</code> increments once per assistant turn that contains tool calls, so you can see how many rounds the agent took. <code>arguments</code> is the parsed argument dict (it handles models that emit <code>parameters</code> instead of <code>arguments</code>); <code>result</code> is the matching tool-role content, or <code>""</code> if none.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a> — one chunk type for all contexts</li>
