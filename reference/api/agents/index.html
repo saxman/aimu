@@ -2136,6 +2136,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.agents.OrchestratorAgent.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2248,6 +2259,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.agents.Router.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.agents.Router.from_config" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2280,6 +2302,17 @@
     <span class="md-ellipsis">
       
         from_client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.agents.Parallel.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
       
     </span>
   </a>
@@ -3423,6 +3456,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.agents.OrchestratorAgent.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3535,6 +3579,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.agents.Router.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.agents.Router.from_config" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3567,6 +3622,17 @@
     <span class="md-ellipsis">
       
         from_client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.agents.Parallel.restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore
       
     </span>
   </a>
@@ -4344,6 +4410,29 @@ print(orch.run(&quot;Quantum computing&quot;))
 
 </div>
 
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.agents.OrchestratorAgent.restore" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">restore</span>
+
+
+<a href="#aimu.agents.OrchestratorAgent.restore" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Restore the inner orchestrator agent's state from a saved message list.</p>
+<p>Workers are invoked as tools, so their own state is not part of the orchestrator's
+history; restore a worker directly if it needs resuming. See :meth:<code>Agent.restore</code>
+for the full save/restore pattern.</p>
+
+
+    </div>
+
+</div>
+
 
 
   </div>
@@ -4628,6 +4717,29 @@ Handlers may be any :class:<code>Runner</code> (agent or nested workflow).</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="aimu.agents.Router.restore" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">restore</span>
+
+
+<a href="#aimu.agents.Router.restore" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">route</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Restore one sub-runner's state from a saved message list.</p>
+<p><code>route=None</code> (default) restores the routing classifier; a route key restores
+that handler (raises <code>KeyError</code> listing the routes on a miss). Other sub-runners
+start fresh on the next <code>run()</code>. See :meth:<code>Agent.restore</code> for the full pattern.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="aimu.agents.Router.from_config" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">from_config</span>
 
@@ -4736,6 +4848,29 @@ submission order. Workers may be any :class:<code>Runner</code>.</p>
     <div class="doc doc-contents ">
 
         <p>Build a Parallel using <code>client</code> for all workers (and aggregator).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.agents.Parallel.restore" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">restore</span>
+
+
+<a href="#aimu.agents.Parallel.restore" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">worker</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Restore one worker's state from a saved message list.</p>
+<p><em>worker</em> selects which worker by index (default 0), mirroring <code>Chain.restore</code>'s
+<code>step</code>. Other workers and the aggregator start fresh on the next <code>run()</code>. See
+:meth:<code>Agent.restore</code> for the full save/restore pattern.</p>
 
 
     </div>
