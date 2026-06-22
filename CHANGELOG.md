@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Agents and workflows
+
+- **New** `Runner.as_tool(*, name=None, description=None)` (sync and `aimu.aio`) — wraps any agent or workflow as a `@tool`-style callable (`tool(task: str) -> str`) that delegates to `run()`. This is the seam that lets an autonomous `Agent` call *any* `Runner` — including a `Chain` / `Router` / `Parallel` workflow or a remote A2A agent — not just other agents. The name defaults to the runner's `name` (sanitised), the description to the first line of its `system_message` (or a generic fallback for workflows).
+- **Change** `OrchestratorAgent.assemble(workers=...)` now accepts `list[Runner]` (was `list[Agent]`) on both surfaces, wrapping each worker via `Runner.as_tool()`. Worker dispatch can now target a workflow or a remote agent, not only an `Agent`. Existing `Agent`-only call sites are unaffected; the internal `_wrap_worker_as_tool` helper is removed in favour of `as_tool()`.
+
+### A2A interop (new optional `a2a` extra)
+
+- **New** `aimu.agents.a2a` — Agent2Agent protocol interop, the agent-level analog of the MCP tool surface (`aimu.tools.MCPClient` / `python -m aimu.tools.mcp`). Install with `pip install 'aimu[a2a]'`; `aimu.agents.HAS_A2A` reports availability. A2A types never leak into `Runner` / `Agent` core — they adapt at the boundary.
+  - **Consume:** `RemoteAgent.connect(url)` resolves a remote agent card and returns a local `Runner`. Because it *is a* `Runner`, a remote A2A agent composes like any local one — into `Chain` / `Router` / `Parallel` / `OrchestratorAgent.assemble(workers=[...])`, or into an `Agent`'s tool list via `remote.as_tool()` — with no A2A-specific wiring. The sync client drives the async `a2a-sdk` through an anyio portal (mirroring `MCPClient`); `aimu.aio.a2a.RemoteAgent` uses it natively and supports incremental `message/stream` streaming.
+  - **Expose:** `serve_a2a(runner)` (blocking) / `build_a2a_app(runner)` (returns a Starlette ASGI app) wrap any `Runner` as an A2A server with an agent card at `/.well-known/agent-card.json`. CLI: `python -m aimu.agents.a2a --model ... --system ... --port 9000`.
+  - Pinned to the `a2a-sdk` `0.3.x` line (pydantic-native API matching the A2A ecosystem); the protobuf `1.x` line is a tracked future migration. Connection / call failures raise `A2AConnectionError`.
+
+### Documentation
+
+- **New** notebook `23 - Composing Agents (A2A)`, explanation page *A2A vs MCP*, and how-to *Connect agents (A2A)*.
+
 ## v0.9.1 (2026-06-16) — EvaluatorOptimizer revision-prompt fix
 
 ### Agents and workflows

@@ -121,6 +121,7 @@ nav:
       - Retrieval-augmented generation: how-to/use-rag.md
       - Use LLMs inside tools: how-to/using-llms-inside-tools.md
       - Build an orchestrator: how-to/build-orchestrator.md
+      - Connect agents (A2A): how-to/connect-agents-a2a.md
       - Plan, execute, evaluate, replan: how-to/plan-execute-evaluate.md
       - Tune prompts: how-to/tune-prompts.md
       - Benchmark models: how-to/benchmark-models.md
@@ -152,6 +153,7 @@ nav:
       - StreamChunk model: explanation/streamchunk-model.md
       - System message lifecycle: explanation/system-message-lifecycle.md
       - Tool integration: explanation/tool-integration.md
+      - A2A vs MCP: explanation/a2a-vs-mcp.md
       - Async design: explanation/async-design.md
   - Changelog: changelog.md
   - Contributing: contributing.md

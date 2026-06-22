@@ -19,9 +19,11 @@ AIMU implements the taxonomy from Anthropic's *[Building Effective Agents](https
   - `EvaluatorOptimizer` — generate → critique → revise loop.
   - `PlanExecuteEvaluator` — AIMU's extension beyond Anthropic's original five: plan → execute with tools → score → replan on failure.
 
-The agent-vs-workflow distinction is documentation-only — both inherit directly from `Runner`, so they compose freely (a `Router` can dispatch to an `Agent`; a `Chain` step can be an `OrchestratorAgent`). `agent.as_model_client()` adds one more composition path: any agent wraps as a `BaseModelClient`, so it slots anywhere a plain client is accepted (e.g. into a `Benchmark` or a `Chain` that consumes clients). A hill-climbing prompt tuner optimizes prompts against labelled data without ML machinery.
+The agent-vs-workflow distinction is documentation-only — both inherit directly from `Runner`, so they compose freely (a `Router` can dispatch to an `Agent`; a `Chain` step can be an `OrchestratorAgent`). `agent.as_model_client()` adds one more composition path: any agent wraps as a `BaseModelClient`, so it slots anywhere a plain client is accepted (e.g. into a `Benchmark` or a `Chain` that consumes clients). `Runner.as_tool()` adds the inverse: any agent or workflow wraps as a `@tool`-style callable, so an autonomous `Agent` can call a *workflow* (or a remote agent) as a tool, and `OrchestratorAgent.assemble(workers=...)` accepts any `Runner`, not just `Agent`. A hill-climbing prompt tuner optimizes prompts against labelled data without ML machinery.
 
 AIMU also ships an optional **async surface** under `aimu.aio` that mirrors the entire public sync API one-for-one (same class names, different namespace). Sync is the default; async is strictly opt-in. The async surface uses modern `asyncio.TaskGroup` for structured concurrency in `Parallel` and `concurrent_tool_calls`. See [docs/explanation/async-design.md](docs/explanation/async-design.md) for the seven design decisions behind this split.
+
+For **cross-process / cross-vendor** composition, an optional **A2A (Agent2Agent) interop** layer under `aimu.agents.a2a` (extra: `aimu[a2a]`) exposes any `Runner` as an HTTP server (`serve_a2a`) and consumes a remote agent as a local `Runner` (`RemoteAgent`). It mirrors the MCP-for-tools pattern at the agent level and is adapter-shaped — A2A types never leak into `Runner`/`Agent` core. Because `RemoteAgent` is a `Runner`, a remote agent composes (via `as_tool()`, as a workflow step, or an `assemble()` worker) exactly like a local one. See [docs/explanation/a2a-vs-mcp.md](docs/explanation/a2a-vs-mcp.md).
 
 ## Design Principles
 
@@ -189,7 +191,7 @@ async def main():
 
 **Layout** (mirrors `aimu.{models,agents,tools}` one-for-one):
 
-- **[aimu/aio/__init__.py](aimu/aio/__init__.py)** — exports `chat`, `client`, `AsyncModelClient`, `Agent`, `SkillAgent`, `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`, `PlanExecuteEvaluator`, `OrchestratorAgent`, `MCPClient`, `AsyncRunner`.
+- **[aimu/aio/__init__.py](aimu/aio/__init__.py)** — exports `chat`, `client`, `AsyncModelClient`, `Agent`, `SkillAgent`, `Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`, `PlanExecuteEvaluator`, `OrchestratorAgent`, `MCPClient`, `AsyncRunner`, and (when the `a2a` extra is installed, guarded by `HAS_A2A`) `RemoteAgent`, `serve_a2a`, `build_a2a_app`, `A2AConnectionError`.
 - **[aimu/aio/_base.py](aimu/aio/_base.py)** — `AsyncBaseModelClient` (ABC). Concrete `async def chat()`/`generate()` apply the `include` filter; abstract `_chat()`/`_generate()` are coroutines. `_handle_tool_calls()` uses `asyncio.TaskGroup` when `concurrent_tool_calls=True`.
 - **[aimu/aio/_model_client.py](aimu/aio/_model_client.py)** — `AsyncModelClient` factory + top-level `client()`/`chat()`. Refuses direct construction with `HuggingFaceModel`/`LlamaCppModel` (see "In-process providers" below).
 - **[aimu/aio/_mcp_client.py](aimu/aio/_mcp_client.py)** — async `MCPClient` (~30 LOC). Uses FastMCP's native async `Client` directly (no anyio portal). Construct via the `connect()` classmethod factory: `mcp = await MCPClient.connect(server=...)`.
@@ -475,6 +477,7 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
 
 - **[aimu/agents/base.py](aimu/agents/base.py)**: Single `Runner` ABC for the agent/workflow hierarchy
   - `Runner(ABC)`: abstract `run(task, generate_kwargs, stream=False, images=None)` and `messages` property. Every concrete agent and workflow inherits directly from `Runner` — the agent-vs-workflow distinction is documentation only.
+  - `Runner.as_tool(*, name=None, description=None) -> Callable`: concrete (non-abstract) method that wraps `self.run(task)` as a `@tool`-decorated callable (`tool(task: str) -> str`). Lets any agent or workflow be handed to another agent as a tool. `name` defaults to `self.name` (sanitised); `description` to the first line of `self.system_message` if present (covers `Agent`/`SkillAgent`), else a generic delegation string (workflows have no `system_message`). `AsyncRunner.as_tool()` is the async twin (the dispatch is `async def`, so the `@tool` decorator marks it `__tool_is_async__=True`). `OrchestratorAgent.assemble()` builds its worker tools via this method.
   - `MessageHistory`: type alias for `dict[str, list[dict]]`, the return type of `.messages` across the hierarchy; exported from `aimu.agents`.
 
 - **[aimu/agents/agent.py](aimu/agents/agent.py)**: `Agent(Runner)` for autonomous, multi-round tool execution
@@ -537,7 +540,7 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
 - **[aimu/agents/orchestrator_agent.py](aimu/agents/orchestrator_agent.py)**: `OrchestratorAgent(Runner, ABC)` base class for orchestrator agents
   - Two construction paths:
     1. **Subclass**: define worker `Agent` instances and `@tool`-decorated dispatch functions in `__init__`, then call `self._init_orchestrator(model_client, *, name, system_message, tools=[...], concurrent_tool_calls=False, final_answer_prompt=None)` (renamed from the legacy `_setup_orchestrator`) to wire everything together.
-    2. **Factory**: `OrchestratorAgent.assemble(client, system_message, *, workers=[agent1, agent2, ...], name="orchestrator", concurrent_tool_calls=True, final_answer_prompt=None)`. Each worker is auto-wrapped as a `@tool` named after the worker's `name`, with description taken from the worker's `system_message`. No subclass needed.
+    2. **Factory**: `OrchestratorAgent.assemble(client, system_message, *, workers: list[Runner], name="orchestrator", concurrent_tool_calls=True, final_answer_prompt=None)`. Each worker is auto-wrapped as a `@tool` via `Runner.as_tool()` (named after the worker's `name`, described from its `system_message`). Workers may be **any `Runner`** — an `Agent`, a `Chain`/`Router`/`Parallel` workflow, or a remote A2A `RemoteAgent` — not just `Agent` instances. No subclass needed.
   - `final_answer_prompt` (both construction paths) is forwarded to the inner orchestrator `Agent`, so an orchestrator that exhausts its iterations while still dispatching to workers still produces a final answer (see `Agent.final_answer_prompt`).
   - Provides `run(task, generate_kwargs, stream, images)` and `messages` — subclasses need not re-implement them
   - Exported from `aimu.agents`
@@ -551,6 +554,18 @@ See [docs/explanation/agents-vs-workflows.md](docs/explanation/agents-vs-workflo
 
 - All agents/workflows use the public `chat()` / `chat(..., stream=True)` API only; no changes to `ModelClient` subclasses
 - `messages` is composable: nested workflows (e.g. a `Router` dispatching to a `Chain`) merge recursively, so all sub-agent names appear at the top level
+
+### Agent-to-Agent (A2A) Interop
+
+Optional cross-process / cross-vendor agent interop under **[aimu/agents/a2a/](aimu/agents/a2a/)** (extra: `aimu[a2a]`; guarded `HAS_A2A` flag exported from `aimu.agents`). The agent-level analog of the MCP-for-tools surface (`aimu.tools.MCPClient` / `python -m aimu.tools.mcp`): MCP shares *tools*, A2A shares whole *agents*. Backed by `a2a-sdk` pinned to the `0.3.x` line (pydantic-native; the `1.x` protobuf/gRPC rework is a tracked future migration). **A2A types never leak into `Runner`/`Agent` core** — they adapt only at the boundary (`run()` still takes/returns `str`).
+
+- **[aimu/agents/a2a/_card.py](aimu/agents/a2a/_card.py)**: pure adapters shared by sync + async, server + client (the agent-level analog of `aimu/tools/mcp_format.py`): `build_agent_card()`, `make_send_request()`/`make_stream_request()`, `result_to_text()`/`parts_to_text()`, `runner_name()`/`runner_description()`.
+- **[aimu/agents/a2a/client.py](aimu/agents/a2a/client.py)**: `RemoteAgent(Runner)` + `A2AConnectionError`. `RemoteAgent.connect(url, *, name=None, agent_card_path="/.well-known/agent-card.json", timeout=60.0)` resolves the remote agent card and returns a local `Runner`. The sync client drives the async `a2a-sdk` through an anyio blocking portal (same mechanism as `aimu.tools.MCPClient`); it sends to the URL you connected to (`A2AClient(..., url=url)`), not the card's advertised url, so a card behind a proxy still works. `run(stream=True)` yields the full response as a single `GENERATING` chunk on the sync surface. `RemoteAgent.system_message` is set to the card's description so the inherited `as_tool()` produces a meaningful tool description. `messages` is best-effort (the local `(user, assistant)` exchange, not the remote transcript). `close()`/`__del__` tear down the portal + httpx client; `__deepcopy__` returns self (holds a live connection).
+- **[aimu/agents/a2a/server.py](aimu/agents/a2a/server.py)**: `serve_a2a(runner, *, host, port, url=None, name=None, description=None, skills=None, **uvicorn_kwargs)` (blocking) and `build_a2a_app(runner, *, url, ...)` (returns a Starlette ASGI app, used by tests/embedding). Internal `_RunnerExecutor(AgentExecutor)` offloads the blocking sync `runner.run` via `asyncio.to_thread`. The card advertises `streaming=True` (the `DefaultRequestHandler` serves the SSE endpoint, emitting the final message as one event).
+- **[aimu/agents/a2a/__main__.py](aimu/agents/a2a/__main__.py)**: `python -m aimu.agents.a2a --model ... --system ... --name ... --host ... --port ...` builds an `Agent` and serves it (agent-level analog of `python -m aimu.tools.mcp`).
+- **Async twin** under **[aimu/aio/a2a/](aimu/aio/a2a/)** (exported from `aimu.aio` when `HAS_A2A`): `RemoteAgent(AsyncRunner)` uses the `a2a-sdk` async client natively (no portal — mirrors `aimu.aio.MCPClient`) and supports real incremental `message/stream` streaming mapped to `StreamChunk`s; async `serve_a2a`/`build_a2a_app` await `runner.run` directly. Reuses the sync `_card.py` helpers and `A2AConnectionError`.
+- **Composition payoff**: because `RemoteAgent` is a `Runner`, a remote agent drops into `Chain`/`Router`/`Parallel`/`assemble(workers=[...])` and into any local agent's tools via `remote.as_tool()` with no A2A-specific wiring — the direct analog of `MCPClient.as_tools()`, at the agent level.
+- **Tests**: `tests/test_a2a.py` (sync) and `tests/test_aio_a2a.py` (async), both gated on `pytest.importorskip("a2a")`. Mock-only unit tests (card helpers, `result_to_text`, app routes via Starlette `TestClient`) plus a real HTTP round-trip (uvicorn in a background thread) proving `RemoteAgent` composes as tool / `Chain` step / orchestrator worker, and the streaming + dead-URL paths.
 
 ### Evaluations & Benchmarking
 
@@ -1019,6 +1034,9 @@ aimu/
 │   ├── skill_agent.py   # async SkillAgent
 │   ├── agentic_client.py # internal _AsyncAgenticView for Agent.as_model_client()
 │   ├── orchestrator_agent.py # async OrchestratorAgent + assemble()
+│   ├── a2a/             # async A2A interop (a2a extra): RemoteAgent + serve_a2a (native async client)
+│   │   ├── client.py        # async RemoteAgent(AsyncRunner) — native a2a-sdk client + message/stream
+│   │   └── server.py        # async serve_a2a/build_a2a_app (awaits runner.run directly)
 │   ├── providers/       # Async provider clients (mirrors aimu/models/providers/)
 │   │   ├── anthropic.py      # AsyncAnthropicClient (anthropic.AsyncAnthropic)
 │   │   ├── openai_compat.py  # AsyncOpenAICompatClient base + local-server subclasses
@@ -1105,11 +1123,16 @@ aimu/
 │   ├── mcp_format.py    # mcp_tools_to_openai() + mcp_content_to_text() — shared by sync & async MCPClient (get_tools/as_tools)
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
 ├── agents/              # Agents and workflow patterns (single Runner ABC)
-│   ├── base.py          # Runner ABC + MessageHistory + decision-tree docstring
+│   ├── base.py          # Runner ABC (+ Runner.as_tool()) + MessageHistory + decision-tree docstring
 │   ├── agent.py         # Agent (agentic loop) + as_model_client()
 │   ├── skill_agent.py   # SkillAgent (Agent + skill discovery/injection)
 │   ├── agentic_client.py # Internal _AgenticView (not public; use Agent.as_model_client())
-│   ├── orchestrator_agent.py # OrchestratorAgent + _init_orchestrator() + assemble()
+│   ├── orchestrator_agent.py # OrchestratorAgent + _init_orchestrator() + assemble(workers: list[Runner])
+│   ├── a2a/             # A2A interop (a2a extra; guarded HAS_A2A): RemoteAgent + serve_a2a
+│   │   ├── _card.py         # pure A2A<->AIMU adapters (card build, message build, text extract) — shared sync+async
+│   │   ├── client.py        # RemoteAgent(Runner) + A2AConnectionError (anyio portal over a2a-sdk)
+│   │   ├── server.py        # serve_a2a() + build_a2a_app() wrapping any Runner as an A2A server
+│   │   └── __main__.py      # python -m aimu.agents.a2a (serve an Agent from the CLI)
 │   ├── workflows/       # Code-controlled workflow patterns (re-exported from aimu.agents)
 │   │   ├── chain.py     # Chain + Chain.from_client() (prompt chaining)
 │   │   ├── router.py    # Router + Router.from_client() (routing)

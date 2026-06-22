@@ -62,8 +62,9 @@ Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_
 ### Agents and workflows
 
 - **[Autonomous agents](https://saxman.github.io/aimu/tutorials/02-first-agent-with-tools/).** An `Agent` runs a tool-using loop until the model stops calling tools, while `OrchestratorAgent` coordinates sub-agents and ships three prebuilt variants (`CodeReviewAgent`, `ContentCreationAgent`, `ResearchReportAgent`).
-- **[Code-controlled workflows](https://saxman.github.io/aimu/tutorials/03-workflows/).** Build pipelines from `Chain`, `Router`, `Parallel`, and `EvaluatorOptimizer`, each with a `from_client()` factory, then compose them freely so workflows take agents as steps and agents take workflows as tools.
+- **[Code-controlled workflows](https://saxman.github.io/aimu/tutorials/03-workflows/).** Build pipelines from `Chain`, `Router`, `Parallel`, and `EvaluatorOptimizer`, each with a `from_client()` factory, then compose them freely: workflows take agents as steps, and `runner.as_tool()` hands any agent or workflow to another agent as a tool.
 - **[Interchangeable clients](https://saxman.github.io/aimu/explanation/agents-vs-workflows/).** Calling `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients substitute for each other.
+- **[A2A interop](https://saxman.github.io/aimu/how-to/connect-agents-a2a/).** With the optional `a2a` extra, `serve_a2a(runner)` exposes any agent or workflow over the Agent2Agent protocol, and `RemoteAgent.connect(url)` consumes a remote agent as a local `Runner` — so it composes (as a tool, a workflow step, or an orchestrator worker) exactly like a local one. The agent-level analog of MCP for tools.
 - **[Tracing](https://saxman.github.io/aimu/how-to/stream-output/).** See exactly what a run did: `extract_tool_calls(messages)` returns a clean list of `{iteration, tool, arguments, result}` records from any message history, and `pretty_print(stream)` renders a live run to the console with reasoning, tool calls, and output labelled.
 - **[Resumable runs](https://saxman.github.io/aimu/how-to/using-llms-inside-tools/).** Persist a run's message history and rebuild its state later with `runner.restore(messages)`, which handles system-message de-duplication so an `Agent`, `EvaluatorOptimizer`, or `Chain` can survive a crash or restart.
 
@@ -314,7 +315,7 @@ asyncio.run(main())
 
 ### Notebooks
 
-The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, numbered `01`–`22` and ordered to build up incrementally, from the model client, tools, and agents through workflows, memory, RAG, the generative modalities, and the async surface. The filenames are self-describing; open the directory to browse and run them.
+The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, numbered `01`–`23` and ordered to build up incrementally, from the model client, tools, and agents through workflows, memory, RAG, the generative modalities, the async surface, and agent composition / A2A interop. The filenames are self-describing; open the directory to browse and run them.
 
 ### Examples
 

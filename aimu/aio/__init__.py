@@ -126,4 +126,13 @@ __all__ = [
     "speech_client",
     "transcribe",
     "transcription_client",
+    "HAS_A2A",
 ]
+
+# Optional async A2A interop (requires the `a2a` extra).
+from .a2a import HAS_A2A  # noqa: E402
+
+if HAS_A2A:
+    from .a2a import A2AConnectionError, RemoteAgent, build_a2a_app, serve_a2a  # noqa: E402
+
+    __all__ += ["RemoteAgent", "A2AConnectionError", "serve_a2a", "build_a2a_app"]

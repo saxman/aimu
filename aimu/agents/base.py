@@ -22,8 +22,9 @@ code. The distinction lives in the docs, not in the type hierarchy.
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.models.base import StreamChunk
 
@@ -62,3 +63,39 @@ class Runner(ABC):
         returned dict points at the last step's messages.
         """
         ...
+
+    def as_tool(self, *, name: Optional[str] = None, description: Optional[str] = None) -> Callable:
+        """Wrap this runner as a ``@tool``-style callable: ``tool(task: str) -> str``.
+
+        The returned callable runs :meth:`run` and returns its string result, so any agent
+        or workflow can call this runner as a tool — drop it into ``Agent(tools=[...])`` or
+        an :class:`OrchestratorAgent`'s worker list. Works for every concrete ``Runner``
+        (``Agent``, ``Chain``, ``Router``, a remote A2A agent, ...) since it only relies on
+        ``run()``.
+
+        ``name`` defaults to ``self.name`` (sanitised to a valid identifier) or ``"runner"``.
+        ``description`` defaults to the first line of ``self.system_message`` when present
+        (``Agent`` / ``SkillAgent``), else a generic delegation string (workflows have no
+        ``system_message``).
+        """
+        from aimu.tools.decorator import tool
+
+        resolved_name = name or getattr(self, "name", None) or "runner"
+        safe_name = re.sub(r"\W+", "_", resolved_name).strip("_") or "runner"
+
+        if description is None:
+            system_message = getattr(self, "system_message", None)
+            description = (
+                system_message.splitlines()[0]
+                if system_message
+                else f"Delegate a task to the {safe_name} runner."
+            )
+
+        def _dispatch(task: str) -> str:
+            return self.run(task)
+
+        _dispatch.__name__ = safe_name
+        _dispatch.__qualname__ = safe_name
+        _dispatch.__doc__ = description
+        _dispatch.__annotations__ = {"task": str, "return": str}
+        return tool(_dispatch)

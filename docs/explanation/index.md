@@ -10,6 +10,7 @@ Read these when you want to know *why* the API looks the way it does, not just h
 - **[StreamChunk model](streamchunk-model.md)** — why one chunk type instead of three.
 - **[System message lifecycle](system-message-lifecycle.md)** — seeded before the first chat, then swapped in place mid-conversation; `reset()` clears history.
 - **[Tool integration](tool-integration.md)** — `@tool` vs MCP, dispatch order, when to pick which route.
+- **[A2A vs MCP](a2a-vs-mcp.md)** — sharing whole *agents* over the wire vs sharing *tools*; why both are optional, adapter-shaped, and composable through `Runner`.
 - **[Async design](async-design.md)** — why `aimu.aio` is a submodule (not method suffixes or smart routing), why `asyncio.TaskGroup`, and why in-process providers wrap an existing sync client.
 
 For task-oriented usage, see [how-to guides](../how-to/index.md). For the API surface, see [reference](../reference/index.md).

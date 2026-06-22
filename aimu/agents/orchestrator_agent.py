@@ -65,16 +65,18 @@ class OrchestratorAgent(Runner, ABC):
         model_client: BaseModelClient,
         system_message: str,
         *,
-        workers: list[Agent],
+        workers: list[Runner],
         name: str = "orchestrator",
         concurrent_tool_calls: bool = True,
         final_answer_prompt: Optional[str] = None,
     ) -> "OrchestratorAgent":
-        """Build a ready-to-run orchestrator from a list of worker agents.
+        """Build a ready-to-run orchestrator from a list of worker runners.
 
-        Each worker becomes a callable tool — the orchestrator dispatches by name.
-        Tool descriptions are taken from the worker's ``system_message`` (truncated to
-        one line) so callers don't need to write ``@tool`` wrappers manually.
+        Each worker becomes a callable tool via :meth:`Runner.as_tool` — the orchestrator
+        dispatches by name. Workers may be any :class:`Runner` (an :class:`Agent`, a
+        ``Chain``/``Router``/``Parallel`` workflow, or a remote A2A agent), not just
+        ``Agent`` instances; tool names/descriptions come from each worker's ``name`` and
+        (when present) ``system_message``.
 
         Example::
 
@@ -84,11 +86,7 @@ class OrchestratorAgent(Runner, ABC):
                                               workers=[researcher, critic])
             print(orch.run("Quantum computing"))
         """
-        from aimu.tools.decorator import tool
-
-        tool_fns: list[Callable] = []
-        for worker in workers:
-            tool_fns.append(_wrap_worker_as_tool(worker, tool))
+        tool_fns: list[Callable] = [worker.as_tool() for worker in workers]
 
         instance = cls.__new__(cls)  # bypass ABC instantiation if cls is OrchestratorAgent
         instance._init_orchestrator(
@@ -113,28 +111,3 @@ class OrchestratorAgent(Runner, ABC):
     @property
     def messages(self) -> MessageHistory:
         return self._orchestrator.messages
-
-
-def _wrap_worker_as_tool(worker: Agent, tool_decorator: Callable) -> Callable:
-    """Build a ``@tool``-decorated function that dispatches to ``worker.run(task)``.
-
-    The function name is the worker's ``name`` (sanitised); the description is the
-    worker's ``system_message`` (truncated to one line).
-    """
-    import re
-
-    safe_name = re.sub(r"\W+", "_", worker.name or "worker").strip("_") or "worker"
-    description = (worker.system_message or f"Dispatch a task to the {safe_name} worker.").splitlines()[0]
-
-    def _dispatch(task: str) -> str:
-        return worker.run(task)
-
-    _dispatch.__name__ = safe_name
-    _dispatch.__doc__ = description
-    _dispatch.__annotations__ = {"task": str, "return": str}
-    return tool_decorator(_dispatch)
-
-
-# Make OrchestratorAgent.assemble usable without a subclass: instantiate the ABC directly
-# via __new__ only inside assemble(); regular instantiation still requires a subclass per
-# the original pattern, since assemble() is the documented escape hatch.

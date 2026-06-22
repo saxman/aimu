@@ -44,6 +44,37 @@ class AsyncRunner(ABC):
         """Message histories of all sub-runners, keyed by runner name."""
         ...
 
+    def as_tool(self, *, name: Optional[str] = None, description: Optional[str] = None) -> Callable:
+        """Wrap this async runner as an async ``@tool``-style callable: ``await tool(task)``.
+
+        Async mirror of :meth:`aimu.agents.base.Runner.as_tool`. The returned callable is an
+        ``async def`` delegating to ``await self.run(task)``, so the ``@tool`` decorator marks
+        it ``__tool_is_async__ = True`` and the async agent loop awaits it directly.
+        """
+        import re
+
+        from aimu.tools.decorator import tool
+
+        resolved_name = name or getattr(self, "name", None) or "runner"
+        safe_name = re.sub(r"\W+", "_", resolved_name).strip("_") or "runner"
+
+        if description is None:
+            system_message = getattr(self, "system_message", None)
+            description = (
+                system_message.splitlines()[0]
+                if system_message
+                else f"Delegate a task to the {safe_name} runner."
+            )
+
+        async def _dispatch(task: str) -> str:
+            return await self.run(task)
+
+        _dispatch.__name__ = safe_name
+        _dispatch.__qualname__ = safe_name
+        _dispatch.__doc__ = description
+        _dispatch.__annotations__ = {"task": str, "return": str}
+        return tool(_dispatch)
+
 
 @dataclass
 class Agent(AsyncRunner):

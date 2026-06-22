@@ -504,6 +504,52 @@ def test_orchestrator_agent_assemble_factory():
 
 
 # ---------------------------------------------------------------------------
+# Runner.as_tool() — any runner (agent or workflow) usable as a tool
+# ---------------------------------------------------------------------------
+
+
+def test_runner_as_tool_dispatches_to_run():
+    """as_tool() wraps run() as a @tool callable named/described from the agent."""
+    agent = Agent(MockModelClient(["agent reply"]), system_message="Research the topic.\nMore detail.", name="alpha")
+    fn = agent.as_tool()
+    assert fn.__name__ == "alpha"
+    assert fn.__tool_spec__["function"]["name"] == "alpha"
+    # Description is the first line of the system message.
+    assert fn.__tool_spec__["function"]["description"] == "Research the topic."
+    assert fn.__tool_spec__["function"]["parameters"]["properties"] == {"task": {"type": "string"}}
+    assert fn.__tool_is_async__ is False
+    assert fn("anything") == "agent reply"
+
+
+def test_runner_as_tool_workflow_generic_description():
+    """A workflow has no system_message, so as_tool() falls back to a generic description."""
+    chain = Chain(agents=[Agent(MockModelClient(["step out"]))], name="my chain")
+    fn = chain.as_tool()
+    assert fn.__name__ == "my_chain"  # sanitised
+    assert fn.__tool_spec__["function"]["description"] == "Delegate a task to the my_chain runner."
+    assert fn("go") == "step out"
+
+
+def test_runner_as_tool_custom_name_and_description():
+    agent = Agent(MockModelClient(["x"]), name="alpha")
+    fn = agent.as_tool(name="custom name", description="Do the thing.")
+    assert fn.__name__ == "custom_name"
+    assert fn.__tool_spec__["function"]["description"] == "Do the thing."
+
+
+def test_orchestrator_assemble_accepts_workflow_worker():
+    """assemble() accepts any Runner as a worker, including a Chain workflow."""
+    client = MockModelClient(["done"])
+    chain = Chain(agents=[Agent(MockModelClient(["chain result"]))], name="researcher")
+    agent_worker = Agent(MockModelClient(["agent result"]), system_message="Critique.", name="critic")
+
+    orch = OrchestratorAgent.assemble(client, "Use the workers.", workers=[chain, agent_worker])
+    tool_names = {t.__name__ for t in client.tools}
+    assert tool_names == {"researcher", "critic"}
+    assert orch.run("task") == "done"
+
+
+# ---------------------------------------------------------------------------
 # Agent forwards streaming-tool chunks through run(stream=True)
 # ---------------------------------------------------------------------------
 

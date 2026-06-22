@@ -1,6 +1,6 @@
 # CLI
 
-AIMU's CLI surface is a handful of `python -m` entry points that run the bundled FastMCP servers.
+AIMU's CLI surface is a handful of `python -m` entry points: the bundled FastMCP tool/memory/prompt servers, plus an A2A agent server.
 
 ## Tools server
 
@@ -16,6 +16,29 @@ Connect from another process:
 from aimu.tools import MCPClient
 mcp = MCPClient({"mcpServers": {"aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]}}})
 ```
+
+## A2A agent server
+
+Requires the `a2a` extra (`pip install 'aimu[a2a]'`). Exposes a single AIMU `Agent` over the Agent2Agent protocol — the agent-level analog of the tools server above (which serves *tools*; this serves a whole *agent*).
+
+```bash
+python -m aimu.agents.a2a \
+    --model anthropic:claude-sonnet-4-6 \
+    --system "You are a helpful research assistant." \
+    --port 9000
+```
+
+Flags: `--model` (defaults to `AIMU_LANGUAGE_MODEL` / a locally available model), `--system`, `--name`, `--host` (default `127.0.0.1`), `--port` (default `9000`).
+
+Connect from another process:
+
+```python
+from aimu.agents import RemoteAgent
+remote = RemoteAgent.connect("http://localhost:9000")
+print(remote.run("Summarise the latest on small language models."))
+```
+
+To serve an arbitrary `Runner` (a workflow, a custom agent) rather than a plain `Agent`, call `aimu.agents.serve_a2a(runner, port=9000)` from your own script instead of this CLI.
 
 ## Semantic memory server
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from abc import ABC
 from typing import Any, AsyncIterator, Callable, Optional, Union
 
@@ -47,17 +46,18 @@ class OrchestratorAgent(AsyncRunner, ABC):
         model_client: AsyncBaseModelClient,
         system_message: str,
         *,
-        workers: list[Agent],
+        workers: list[AsyncRunner],
         name: str = "orchestrator",
         concurrent_tool_calls: bool = True,
         final_answer_prompt: Optional[str] = None,
     ) -> "OrchestratorAgent":
-        """Build a ready-to-run async orchestrator from a list of worker agents."""
-        from aimu.tools.decorator import tool
+        """Build a ready-to-run async orchestrator from a list of worker runners.
 
-        tool_fns: list[Callable] = []
-        for worker in workers:
-            tool_fns.append(_wrap_worker_as_tool(worker, tool))
+        Each worker becomes an async callable tool via :meth:`AsyncRunner.as_tool`. Workers
+        may be any :class:`AsyncRunner` (an async ``Agent``, a workflow, or a remote A2A
+        agent), not just ``Agent`` instances.
+        """
+        tool_fns: list[Callable] = [worker.as_tool() for worker in workers]
 
         instance = cls.__new__(cls)
         instance._init_orchestrator(
@@ -82,17 +82,3 @@ class OrchestratorAgent(AsyncRunner, ABC):
     @property
     def messages(self) -> MessageHistory:
         return self._orchestrator.messages
-
-
-def _wrap_worker_as_tool(worker: Agent, tool_decorator: Callable) -> Callable:
-    """Build an async ``@tool``-decorated function that dispatches to ``await worker.run(task)``."""
-    safe_name = re.sub(r"\W+", "_", worker.name or "worker").strip("_") or "worker"
-    description = (worker.system_message or f"Dispatch a task to the {safe_name} worker.").splitlines()[0]
-
-    async def _dispatch(task: str) -> str:
-        return await worker.run(task)
-
-    _dispatch.__name__ = safe_name
-    _dispatch.__doc__ = description
-    _dispatch.__annotations__ = {"task": str, "return": str}
-    return tool_decorator(_dispatch)

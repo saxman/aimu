@@ -33,7 +33,7 @@ orchestrator = OrchestratorAgent.assemble(
 print(orchestrator.run("How does retrieval-augmented generation work?"))
 ```
 
-Each worker becomes a callable `@tool` named after the worker's `name` (sanitised). The tool description is the first line of the worker's `system_message`.
+Each worker becomes a callable `@tool` (via `Runner.as_tool()`) named after the worker's `name` (sanitised); the tool description is the first line of its `system_message`. Workers can be **any `Runner`**, not just an `Agent` — a `Chain` / `Router` / `Parallel` workflow, or a remote agent from [`RemoteAgent.connect(...)`](connect-agents-a2a.md) — so the orchestrator can delegate to a whole pipeline or a cross-process agent the same way it delegates to a single agent.
 
 ## Path 2: subclass
 

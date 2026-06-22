@@ -244,3 +244,45 @@ async def test_async_agent_streamed_final_answer_prompt_forces_wrap_up():
     generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING and c.content]
     assert any(c.content == "STREAMED SUMMARY" for c in generating)
     assert client.tools_seen[-1] == []
+
+
+# ---------------------------------------------------------------------------
+# AsyncRunner.as_tool() — any async runner usable as a tool
+# ---------------------------------------------------------------------------
+
+
+async def test_async_runner_as_tool_dispatches_to_run():
+    from aimu.aio import Agent as AsyncAgent
+
+    agent = AsyncAgent(MockAsyncModelClient(["agent reply"]), system_message="Research.\nMore.", name="alpha")
+    fn = agent.as_tool()
+    assert fn.__name__ == "alpha"
+    assert fn.__tool_spec__["function"]["description"] == "Research."
+    assert fn.__tool_is_async__ is True
+    assert await fn("anything") == "agent reply"
+
+
+async def test_async_runner_as_tool_workflow_generic_description():
+    from aimu.aio import Agent as AsyncAgent
+    from aimu.aio import Chain as AsyncChain
+
+    chain = AsyncChain(agents=[AsyncAgent(MockAsyncModelClient(["step out"]))], name="my chain")
+    fn = chain.as_tool()
+    assert fn.__name__ == "my_chain"
+    assert fn.__tool_spec__["function"]["description"] == "Delegate a task to the my_chain runner."
+    assert await fn("go") == "step out"
+
+
+async def test_async_orchestrator_assemble_accepts_workflow_worker():
+    from aimu.aio import Agent as AsyncAgent
+    from aimu.aio import Chain as AsyncChain
+    from aimu.aio import OrchestratorAgent as AsyncOrchestratorAgent
+
+    client = MockAsyncModelClient(["done"])
+    chain = AsyncChain(agents=[AsyncAgent(MockAsyncModelClient(["chain result"]))], name="researcher")
+    agent_worker = AsyncAgent(MockAsyncModelClient(["agent result"]), system_message="Critique.", name="critic")
+
+    orch = AsyncOrchestratorAgent.assemble(client, "Use the workers.", workers=[chain, agent_worker])
+    tool_names = {t.__name__ for t in client.tools}
+    assert tool_names == {"researcher", "critic"}
+    assert await orch.run("task") == "done"

@@ -44,3 +44,14 @@ Differences from the sync surface:
 ## Tools
 
 ::: aimu.aio.MCPClient
+
+## A2A interop
+
+Async twin of `aimu.agents.a2a` (requires the `a2a` extra). `aimu.aio.a2a.RemoteAgent` uses the
+`a2a-sdk` async client natively (no anyio portal) and supports incremental `message/stream` streaming.
+
+::: aimu.aio.RemoteAgent
+
+::: aimu.aio.serve_a2a
+
+::: aimu.aio.build_a2a_app

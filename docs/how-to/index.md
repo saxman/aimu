@@ -29,6 +29,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 
 - [Use skills](use-skills.md) — `SkillAgent` and the `SKILL.md` format
 - [Build an orchestrator](build-orchestrator.md) — `OrchestratorAgent.assemble` or subclass
+- [Connect agents (A2A)](connect-agents-a2a.md) — consume a remote agent as a `Runner`, or expose one with `serve_a2a`
 - [Plan, execute, evaluate, replan](plan-execute-evaluate.md) — `PlanExecuteEvaluator` for tasks with measurable success criteria
 
 ## Memory and persistence
