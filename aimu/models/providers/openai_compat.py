@@ -21,6 +21,7 @@ import openai
 from ..base import BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType, classproperty
 from .._internal.audio_input import _build_audio_content_blocks
 from .._internal.image_input import _build_user_content_blocks
+from .._internal.sdk_config import sdk_client_kwargs
 from .._internal.usage import usage_from_openai
 from ._thinking import _ThinkingParser, _split_thinking
 
@@ -42,10 +43,12 @@ class OpenAICompatClient(BaseModelClient):
         api_key: str = "not-needed",
         system_message: Optional[str] = None,
         model_kwargs: Optional[dict] = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
     ):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
-        self._client = openai.OpenAI(base_url=base_url, api_key=api_key)
+        self._client = openai.OpenAI(base_url=base_url, api_key=api_key, **sdk_client_kwargs(timeout, max_retries))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

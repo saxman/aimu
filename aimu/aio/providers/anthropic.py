@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 
 from aimu.models.providers.anthropic import AnthropicClient as _SyncAnthropicClient
 from aimu.models.providers.anthropic import AnthropicModel
+from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.usage import usage_from_anthropic
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 
@@ -49,11 +50,15 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         model: AnthropicModel,
         model_kwargs: Optional[dict] = None,
         system_message: Optional[str] = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
     ):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
         load_dotenv()
-        self._client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        self._client = anthropic.AsyncAnthropic(
+            api_key=os.environ.get("ANTHROPIC_API_KEY"), **sdk_client_kwargs(timeout, max_retries)
+        )
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

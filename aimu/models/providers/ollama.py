@@ -68,14 +68,28 @@ class OllamaModel(Model):
 class OllamaClient(BaseModelClient):
     MODELS = OllamaModel
 
-    def __init__(self, model: OllamaModel, system_message: Optional[str] = None, model_keep_alive_seconds: int = 60):
+    def __init__(
+        self,
+        model: OllamaModel,
+        system_message: Optional[str] = None,
+        model_keep_alive_seconds: int = 60,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
+    ):
         super().__init__(model, None, system_message)
+
+        if max_retries is not None:
+            raise ValueError(
+                "Ollama's native client has no request-retry support. Omit max_retries, "
+                "or use the 'ollama-openai' provider, which routes through the OpenAI SDK and supports it."
+            )
 
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds
         self.default_generate_kwargs = dict(model.generation_kwargs)
 
-        ollama.pull(model.value)
+        self._client = ollama.Client(**({"timeout": timeout} if timeout is not None else {}))
+        self._client.pull(model.value)
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -121,7 +135,7 @@ class OllamaClient(BaseModelClient):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs, images=gen_images)
 
-        response = ollama.generate(
+        response = self._client.generate(
             model=self.model.value,
             prompt=prompt,
             images=gen_images,
@@ -160,7 +174,7 @@ class OllamaClient(BaseModelClient):
         generate_kwargs: dict,
         images: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
-        response = ollama.generate(
+        response = self._client.generate(
             model=self.model.value,
             prompt=prompt,
             images=images,
@@ -197,7 +211,7 @@ class OllamaClient(BaseModelClient):
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
 
-        response = ollama.chat(
+        response = self._client.chat(
             model=self.model.value,
             messages=_adapt_messages_for_ollama(self.messages),
             options=generate_kwargs,
@@ -224,7 +238,7 @@ class OllamaClient(BaseModelClient):
             if response["message"].thinking:
                 self.messages[-1 - len(tool_calls)]["thinking"] = response["message"].thinking
 
-            response = ollama.chat(
+            response = self._client.chat(
                 model=self.model.value,
                 messages=_adapt_messages_for_ollama(self.messages),
                 options=generate_kwargs,
@@ -246,7 +260,7 @@ class OllamaClient(BaseModelClient):
 
     def _chat_streamed(self, generate_kwargs: dict, tools: list) -> Iterator[StreamChunk]:
         self.last_usage = None
-        response = ollama.chat(
+        response = self._client.chat(
             model=self.model.value,
             messages=_adapt_messages_for_ollama(self.messages),
             options=generate_kwargs,
@@ -284,7 +298,7 @@ class OllamaClient(BaseModelClient):
                 self.messages[msgs_before]["thinking"] = thinking
                 thinking = ""
 
-            response = ollama.chat(
+            response = self._client.chat(
                 model=self.model.value,
                 messages=_adapt_messages_for_ollama(self.messages),
                 options=generate_kwargs,

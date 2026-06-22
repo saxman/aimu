@@ -26,6 +26,8 @@ class AsyncGeminiClient(AsyncOpenAICompatClient):
         api_key: Optional[str] = None,
         system_message: Optional[str] = None,
         model_kwargs: Optional[dict] = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
     ):
         from dotenv import load_dotenv
 
@@ -36,4 +38,6 @@ class AsyncGeminiClient(AsyncOpenAICompatClient):
             api_key=api_key or os.environ.get("GOOGLE_API_KEY", "not-needed"),
             system_message=system_message,
             model_kwargs=model_kwargs,
+            timeout=timeout,
+            max_retries=max_retries,
         )

@@ -40,9 +40,17 @@ class GeminiClient(OpenAICompatClient):
         model: GeminiModel,
         system_message: Optional[str] = None,
         model_kwargs: Optional[dict] = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
     ):
         load_dotenv()
         api_key = os.environ.get("GOOGLE_API_KEY", "not-set")
         super().__init__(
-            model, base_url=GEMINI_BASE_URL, api_key=api_key, system_message=system_message, model_kwargs=model_kwargs
+            model,
+            base_url=GEMINI_BASE_URL,
+            api_key=api_key,
+            system_message=system_message,
+            model_kwargs=model_kwargs,
+            timeout=timeout,
+            max_retries=max_retries,
         )

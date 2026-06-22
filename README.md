@@ -52,6 +52,7 @@ Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_
 - **[Structured output](https://saxman.github.io/aimu/how-to/use-structured-output/).** Pass `schema=` (a dataclass or Pydantic model) to `chat()` or `generate()` to get a validated, typed object back, with native enforcement on OpenAI, Ollama, and Anthropic and a prompt-and-parse fallback (`parse_json_response`, `generate_json`) elsewhere.
 - **[Embeddings](https://saxman.github.io/aimu/how-to/use-embeddings/).** Map text to vectors with `aimu.embedding_client()` / `aimu.embed()` over OpenAI, Ollama, and local HuggingFace `sentence-transformers`, where a string returns one vector and a list returns a list of vectors.
 - **[Local weight reuse](https://saxman.github.io/aimu/reference/api/models/).** HuggingFace clients across every modality (text, image, audio, speech) and llama-cpp share loaded weights through a process-level registry, so a second client for the same model skips the load, and `aimu.clear_hf_cache()` / `aimu.clear_llamacpp_cache()` free VRAM on demand.
+- **[Timeouts and retries](https://saxman.github.io/aimu/how-to/switch-providers/).** Pass `timeout=` and `max_retries=` to any networked client (`aimu.client(model, timeout=30, max_retries=5)`); they forward straight to the provider SDK's own request timeout and bounded retry on transient failures, no extra machinery.
 
 ### Generative modalities
 

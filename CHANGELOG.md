@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Models
+
+- **New** `timeout` and `max_retries` on the networked model clients (sync + `aimu.aio`), forwarded verbatim to the underlying SDK so requests get a bounded timeout and automatic retry on transient failures: `aimu.client("anthropic:claude-sonnet-4-6", timeout=30, max_retries=5)`. Supported by Anthropic, OpenAI, Gemini, and every local OpenAI-compat server (LM Studio, vLLM, llama-server, SGLang, Ollama-OpenAI, HF-Serve) via the `anthropic`/`openai` SDKs' native support. Ollama's native client supports `timeout` (the sync `OllamaClient` now holds an `ollama.Client` instance rather than calling module-level functions) but has no request-retry, so passing `max_retries` to it raises `ValueError` pointing at the `ollama-openai` provider. In-process providers (HuggingFace, LlamaCpp) are not networked and don't accept these kwargs. No retry/backoff machinery is implemented in AIMU; this is pure passthrough to the SDKs.
+
 ### Tools
 
 - **New** runtime tool-argument validation. Model-supplied tool-call arguments are now validated and lax-coerced against each `@tool` function's type hints before the tool runs (sync, `aimu.aio`, and the streaming / concurrent dispatch paths alike, via the shared `_ChatStateMixin._tool_call_kwargs`). A coercible mismatch is coerced (`"5"` → `5` for an `int` param); an uncoercible value, a missing required argument, or an unknown argument raises the new `ToolArgumentError`, which the dispatcher reports back to the model as a tool result so it can self-correct (distinct from a tool that runs and crashes). A Pydantic `TypeAdapter` per parameter is built once at decoration time, so dispatch stays cheap. The validator is exposed as `aimu.tools.coerce_tool_arguments(fn, arguments)`. MCP `as_tools()` wrappers carry no local type hints and pass through unchanged (their server validates). `pydantic>=2`, previously a transitive dependency, is now a declared core dependency.

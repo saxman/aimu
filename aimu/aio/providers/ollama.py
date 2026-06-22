@@ -27,15 +27,24 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         model: OllamaModel,
         system_message: Optional[str] = None,
         model_keep_alive_seconds: int = 60,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
     ):
         super().__init__(model, None, system_message)
+
+        if max_retries is not None:
+            raise ValueError(
+                "Ollama's native client has no request-retry support. Omit max_retries, "
+                "or use the 'ollama-openai' provider, which routes through the OpenAI SDK and supports it."
+            )
+
         self.model_keep_alive_seconds = model_keep_alive_seconds
         self.default_generate_kwargs = dict(model.generation_kwargs)
 
         # Model pull happens lazily on first request; `ollama.AsyncClient` doesn't
         # expose a separate pull. Users who want eager pull can call
         # `ollama.pull(model.value)` themselves.
-        self._client = ollama.AsyncClient()
+        self._client = ollama.AsyncClient(**({"timeout": timeout} if timeout is not None else {}))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

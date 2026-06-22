@@ -9,6 +9,7 @@ from typing import Any, Iterator, Optional, Union
 import anthropic
 from dotenv import load_dotenv
 
+from .._internal.sdk_config import sdk_client_kwargs
 from ..base import BaseModelClient, Model, ModelSpec, StreamingContentType, StreamChunk, classproperty
 from .._internal.image_input import _build_user_content_blocks, _openai_blocks_to_anthropic
 from .._internal.usage import usage_from_anthropic
@@ -87,11 +88,15 @@ class AnthropicClient(BaseModelClient):
         model: AnthropicModel,
         model_kwargs: Optional[dict] = None,
         system_message: Optional[str] = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
     ):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
         load_dotenv()
-        self._client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        self._client = anthropic.Anthropic(
+            api_key=os.environ.get("ANTHROPIC_API_KEY"), **sdk_client_kwargs(timeout, max_retries)
+        )
 
     # ------------------------------------------------------------------ #
     # Capability class properties                                          #

@@ -114,6 +114,26 @@ aimu.client("lmstudio:qwen3.5-9b", base_url="http://myserver:1234/v1")
 
 Each provider client's constructor signature is in the [API reference](../reference/api/models.md).
 
+## Timeouts and retries
+
+Networked clients take `timeout` (seconds) and `max_retries`, forwarded straight to the provider SDK's own request timeout and bounded retry-on-transient-failure. AIMU adds no retry logic of its own.
+
+```python
+import aimu
+
+# Cloud and local OpenAI-compat servers: both supported
+client = aimu.client("anthropic:claude-sonnet-4-6", timeout=30, max_retries=5)
+client = aimu.client("openai:gpt-4o", timeout=30, max_retries=5)
+client = aimu.client("vllm:Qwen/Qwen3-8B", timeout=30, max_retries=5)
+```
+
+These are SDK-native (the `anthropic` and `openai` SDKs implement timeout + retry), so the names and behavior match those SDKs exactly. Unset values fall back to each SDK's defaults.
+
+Two caveats:
+
+- **Ollama** (native provider) supports `timeout` but has no request-retry; passing `max_retries` raises `ValueError`. Use the `ollama-openai` provider (which routes through the OpenAI SDK) if you need retries against Ollama.
+- **In-process providers** (`hf:`, `llamacpp:`) run locally with no HTTP request, so they don't accept `timeout` / `max_retries` (passing them raises `TypeError`).
+
 ## Failure modes
 
 `aimu.client("foo:bar")` raises `ValueError` listing the available providers if the prefix is unknown, and raises with the available model ids if the prefix is valid but the id isn't:

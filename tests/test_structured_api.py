@@ -154,14 +154,20 @@ def test_ollama_threads_format(monkeypatch):
     from aimu.models.providers import ollama as ollama_mod
     from aimu.models.providers.ollama import OllamaClient, OllamaModel
 
-    monkeypatch.setattr(ollama_mod.ollama, "pull", lambda *a, **k: None)
     captured = {}
 
-    def fake_generate(**kwargs):
-        captured.update(kwargs)
-        return {"response": '{"name": "Ada", "age": 36}'}
+    class FakeClient:
+        def __init__(self, **kw):
+            pass
 
-    monkeypatch.setattr(ollama_mod.ollama, "generate", fake_generate)
+        def pull(self, *a, **k):
+            return None
+
+        def generate(self, **kwargs):
+            captured.update(kwargs)
+            return {"response": '{"name": "Ada", "age": 36}'}
+
+    monkeypatch.setattr(ollama_mod.ollama, "Client", FakeClient)
 
     client = OllamaClient(OllamaModel.LLAMA_3_2_3B)  # non-thinking → dict response is enough
     out = client.generate("Extract: Ada, 36", schema=Person)

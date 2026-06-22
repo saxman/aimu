@@ -17,6 +17,7 @@ import openai
 
 from aimu.models._internal.audio_input import _build_audio_content_blocks
 from aimu.models._internal.image_input import _build_user_content_blocks
+from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.usage import usage_from_openai
 from aimu.models.providers._thinking import _ThinkingParser, _split_thinking
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
@@ -52,10 +53,12 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         api_key: str = "not-needed",
         system_message: Optional[str] = None,
         model_kwargs: Optional[dict] = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
     ):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
-        self._client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
+        self._client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key, **sdk_client_kwargs(timeout, max_retries))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -279,11 +282,9 @@ class AsyncLMStudioOpenAIClient(AsyncOpenAICompatClient):
         self,
         model: LMStudioOpenAIModel,
         base_url: str = "http://localhost:1234/v1",
-        api_key: str = "not-needed",
-        system_message: Optional[str] = None,
-        model_kwargs: Optional[dict] = None,
+        **kwargs,
     ):
-        super().__init__(model, base_url, api_key, system_message, model_kwargs)
+        super().__init__(model, base_url=base_url, **kwargs)
 
 
 class AsyncOllamaOpenAIClient(AsyncOpenAICompatClient):
@@ -293,11 +294,9 @@ class AsyncOllamaOpenAIClient(AsyncOpenAICompatClient):
         self,
         model: OllamaOpenAIModel,
         base_url: str = "http://localhost:11434/v1",
-        api_key: str = "not-needed",
-        system_message: Optional[str] = None,
-        model_kwargs: Optional[dict] = None,
+        **kwargs,
     ):
-        super().__init__(model, base_url, api_key, system_message, model_kwargs)
+        super().__init__(model, base_url=base_url, **kwargs)
 
 
 class AsyncHFOpenAIClient(AsyncOpenAICompatClient):
@@ -307,11 +306,9 @@ class AsyncHFOpenAIClient(AsyncOpenAICompatClient):
         self,
         model: HFOpenAIModel,
         base_url: str = "http://localhost:8000/v1",
-        api_key: str = "not-needed",
-        system_message: Optional[str] = None,
-        model_kwargs: Optional[dict] = None,
+        **kwargs,
     ):
-        super().__init__(model, base_url, api_key, system_message, model_kwargs)
+        super().__init__(model, base_url=base_url, **kwargs)
 
 
 class AsyncVLLMOpenAIClient(AsyncOpenAICompatClient):
@@ -321,11 +318,9 @@ class AsyncVLLMOpenAIClient(AsyncOpenAICompatClient):
         self,
         model: VLLMOpenAIModel,
         base_url: str = "http://localhost:8000/v1",
-        api_key: str = "not-needed",
-        system_message: Optional[str] = None,
-        model_kwargs: Optional[dict] = None,
+        **kwargs,
     ):
-        super().__init__(model, base_url, api_key, system_message, model_kwargs)
+        super().__init__(model, base_url=base_url, **kwargs)
 
 
 class AsyncLlamaServerOpenAIClient(AsyncOpenAICompatClient):
@@ -335,11 +330,9 @@ class AsyncLlamaServerOpenAIClient(AsyncOpenAICompatClient):
         self,
         model: LlamaServerOpenAIModel,
         base_url: str = "http://localhost:8080/v1",
-        api_key: str = "not-needed",
-        system_message: Optional[str] = None,
-        model_kwargs: Optional[dict] = None,
+        **kwargs,
     ):
-        super().__init__(model, base_url, api_key, system_message, model_kwargs)
+        super().__init__(model, base_url=base_url, **kwargs)
 
 
 class AsyncSGLangOpenAIClient(AsyncOpenAICompatClient):
@@ -349,8 +342,6 @@ class AsyncSGLangOpenAIClient(AsyncOpenAICompatClient):
         self,
         model: SGLangOpenAIModel,
         base_url: str = "http://localhost:30000/v1",
-        api_key: str = "not-needed",
-        system_message: Optional[str] = None,
-        model_kwargs: Optional[dict] = None,
+        **kwargs,
     ):
-        super().__init__(model, base_url, api_key, system_message, model_kwargs)
+        super().__init__(model, base_url=base_url, **kwargs)
