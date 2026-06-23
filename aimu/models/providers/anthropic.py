@@ -90,9 +90,14 @@ class AnthropicClient(BaseModelClient):
         system_message: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        cache_prompt: bool = False,
     ):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
+        # Opt-in Anthropic prompt caching: marks the system prompt and tools with ephemeral
+        # cache_control breakpoints at request time (see the format adapters). Below the
+        # provider's minimum cacheable size the API silently skips caching, so it's safe on.
+        self.cache_prompt = cache_prompt
         load_dotenv()
         self._client = anthropic.Anthropic(
             api_key=os.environ.get("ANTHROPIC_API_KEY"), **sdk_client_kwargs(timeout, max_retries)
@@ -288,6 +293,12 @@ class AnthropicClient(BaseModelClient):
             else:
                 ant_messages.append({"role": role, "content": list(blocks)})
 
+        # Opt-in prompt caching: mark the system prompt with an ephemeral cache breakpoint.
+        # Returned as a text-block list (the API accepts str or list for system=); a
+        # non-empty list stays truthy so the request sites' NOT_GIVEN guard is unaffected.
+        if getattr(self, "cache_prompt", False) and system_str:
+            return [{"type": "text", "text": system_str, "cache_control": {"type": "ephemeral"}}], ant_messages
+
         return system_str, ant_messages
 
     def _openai_tools_to_anthropic(self, tools: list[dict]) -> list[dict]:
@@ -296,7 +307,7 @@ class AnthropicClient(BaseModelClient):
         OpenAI: [{"type": "function", "function": {"name", "description", "parameters"}}]
         Anthropic: [{"name", "description", "input_schema"}]
         """
-        return [
+        ant_tools = [
             {
                 "name": t["function"]["name"],
                 "description": t["function"].get("description", ""),
@@ -304,6 +315,11 @@ class AnthropicClient(BaseModelClient):
             }
             for t in tools
         ]
+        # Opt-in prompt caching: one ephemeral breakpoint on the last tool caches the whole
+        # tools array (every definition up to and including the breakpoint).
+        if ant_tools and getattr(self, "cache_prompt", False):
+            ant_tools[-1] = {**ant_tools[-1], "cache_control": {"type": "ephemeral"}}
+        return ant_tools
 
     def _patch_tool_ids(self, msgs_before: int, tool_use_blocks: list) -> None:
         """Replace the random IDs assigned by _handle_tool_calls() with the

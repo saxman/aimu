@@ -52,9 +52,13 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         system_message: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        cache_prompt: bool = False,
     ):
         super().__init__(model, model_kwargs, system_message)
         self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
+        # Opt-in prompt caching; the cache-marking format adapters are inherited from the
+        # sync client via composition, so only the flag needs setting here.
+        self.cache_prompt = cache_prompt
         load_dotenv()
         self._client = anthropic.AsyncAnthropic(
             api_key=os.environ.get("ANTHROPIC_API_KEY"), **sdk_client_kwargs(timeout, max_retries)

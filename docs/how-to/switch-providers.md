@@ -170,6 +170,28 @@ Notes:
 
 Combine the two layers: `max_retries`/`timeout` give in-SDK retry against one provider, `FallbackClient` gives cross-provider failover on top.
 
+## Anthropic prompt caching
+
+An agent resends the same large prefix to the model every turn: its system prompt and tool schemas. On Anthropic you can cache that prefix (cheaper, faster) by opting in with `cache_prompt=True`:
+
+```python
+import aimu
+from aimu.agents import Agent
+
+client = aimu.client("anthropic:claude-sonnet-4-6", cache_prompt=True)
+agent = Agent(client, "You are a helpful assistant with a long, detailed system prompt...", tools=[...])
+
+agent.run("First question")    # writes the cache (system prompt + tools)
+agent.run("Second question")   # reads it back — most of the prefix is cached
+```
+
+`cache_prompt=True` marks the system prompt and the tool definitions with Anthropic's `cache_control` ephemeral breakpoints at request time. Notes:
+
+- **Anthropic only.** It's a provider-specific kwarg; passing it to another provider raises `TypeError`.
+- **Safe to leave on.** Below Anthropic's minimum cacheable size (1024 tokens; 2048 for Haiku) the API simply doesn't cache — no error.
+- **Observe it.** When the response reports caching, `client.last_usage` includes `cache_creation_input_tokens` (first call, writing the cache) and `cache_read_input_tokens` (later calls, reading it).
+- Conversation messages aren't cached (they change every turn); the win is the stable system-prompt + tools prefix.
+
 ## Failure modes
 
 `aimu.client("foo:bar")` raises `ValueError` listing the available providers if the prefix is unknown, and raises with the available model ids if the prefix is valid but the id isn't:

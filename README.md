@@ -54,6 +54,7 @@ Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_
 - **[Local weight reuse](https://saxman.github.io/aimu/reference/api/models/).** HuggingFace clients across every modality (text, image, audio, speech) and llama-cpp share loaded weights through a process-level registry, so a second client for the same model skips the load, and `aimu.clear_hf_cache()` / `aimu.clear_llamacpp_cache()` free VRAM on demand.
 - **[Timeouts and retries](https://saxman.github.io/aimu/how-to/switch-providers/).** Pass `timeout=` and `max_retries=` to any networked client (`aimu.client(model, timeout=30, max_retries=5)`); they forward straight to the provider SDK's own request timeout and bounded retry on transient failures, no extra machinery.
 - **[Provider failover](https://saxman.github.io/aimu/how-to/switch-providers/#provider-failover).** Wrap an ordered list of clients in a `FallbackClient` (`FallbackClient([primary, backup])`); it tries each in turn on error, preserving conversation history across the switch. Since it's itself a `BaseModelClient`, it drops into an `Agent`, a workflow, or a benchmark unchanged.
+- **[Anthropic prompt caching](https://saxman.github.io/aimu/how-to/switch-providers/#anthropic-prompt-caching).** Opt in with `aimu.client("anthropic:...", cache_prompt=True)` to cache the system prompt and tool schemas (the prefix an agent resends every turn) for cheaper, faster calls; cache token counts surface in `client.last_usage`.
 
 ### Generative modalities
 

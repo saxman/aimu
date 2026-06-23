@@ -41,11 +41,23 @@ def usage_from_openai(response: Any) -> Optional[dict]:
 
 
 def usage_from_anthropic(response: Any) -> Optional[dict]:
-    """Extract usage from an Anthropic Messages API response."""
+    """Extract usage from an Anthropic Messages API response.
+
+    Adds ``cache_creation_input_tokens`` / ``cache_read_input_tokens`` when the response
+    reports them (prompt caching), so a cache hit/creation is observable via
+    ``client.last_usage``; the base three keys are unchanged when caching is unused.
+    """
     usage = getattr(response, "usage", None)
     if usage is None:
         return None
-    return _usage_dict(getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
+    result = _usage_dict(getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
+    if result is None:
+        return None
+    for field in ("cache_creation_input_tokens", "cache_read_input_tokens"):
+        value = getattr(usage, field, None)
+        if value is not None:
+            result[field] = value
+    return result
 
 
 def usage_from_ollama(response: Any) -> Optional[dict]:
