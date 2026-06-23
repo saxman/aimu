@@ -187,6 +187,7 @@ class OllamaClient(BaseModelClient):
         self.last_thinking = ""
         self.last_usage = None
 
+        response_part = None
         for response_part in response:
             logger.debug("LLM raw response part: %s", response_part)
 
@@ -195,6 +196,10 @@ class OllamaClient(BaseModelClient):
                 yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
 
             yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
+
+        # The final part (done=true) carries the eval counts.
+        if response_part is not None:
+            self.last_usage = usage_from_ollama(response_part)
 
     def _chat(
         self,
@@ -335,6 +340,9 @@ class OllamaClient(BaseModelClient):
         if thinking:
             message["thinking"] = thinking
         self.messages.append(message)
+
+        # The final part (done=true) of the last stream carries the eval counts.
+        self.last_usage = usage_from_ollama(response_part)
 
 
 class OllamaEmbeddingModel(EmbeddingModel):

@@ -413,6 +413,7 @@ class AnthropicClient(BaseModelClient):
                         yield StreamChunk(StreamingContentType.THINKING, delta.thinking)
                     elif delta.type == "text_delta":
                         yield StreamChunk(StreamingContentType.GENERATING, delta.text)
+            self.last_usage = usage_from_anthropic(stream.get_final_message())
 
     def _chat(
         self,
@@ -553,6 +554,7 @@ class AnthropicClient(BaseModelClient):
                     full_content += sc.content
                 yield sc
             self.messages.append({"role": "assistant", "content": full_content})
+            self.last_usage = usage_from_anthropic(stream.get_final_message())
             return
 
         # Tool call path: parse accumulated JSON, dispatch, yield TOOL_CALLING chunks
@@ -597,6 +599,7 @@ class AnthropicClient(BaseModelClient):
                     elif delta.type == "text_delta":
                         full_content += delta.text
                         yield StreamChunk(StreamingContentType.GENERATING, delta.text)
+            self.last_usage = usage_from_anthropic(stream2.get_final_message())
 
         # Fall back to first-pass thinking if second call produced none
         if not self.last_thinking:

@@ -174,6 +174,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                         yield StreamChunk(StreamingContentType.THINKING, delta.thinking)
                     elif delta.type == "text_delta":
                         yield StreamChunk(StreamingContentType.GENERATING, delta.text)
+            self.last_usage = usage_from_anthropic(await stream.get_final_message())
 
     async def _chat(
         self,
@@ -308,6 +309,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                     full_content += sc.content
                 yield sc
             self.messages.append({"role": "assistant", "content": full_content})
+            self.last_usage = usage_from_anthropic(await stream.get_final_message())
             return
 
         parsed_blocks = [
@@ -349,6 +351,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                     elif delta.type == "text_delta":
                         full_content += delta.text
                         yield StreamChunk(StreamingContentType.GENERATING, delta.text)
+            self.last_usage = usage_from_anthropic(await stream2.get_final_message())
 
         if not self.last_thinking:
             self.last_thinking = first_pass_thinking

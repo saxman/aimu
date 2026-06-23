@@ -90,14 +90,22 @@ class OpenAICompatClient(BaseModelClient):
         return {**generate_kwargs, "response_format": envelope}
 
     def _iter_stream(self, stream) -> Iterator[StreamChunk]:
-        """Iterate a completion stream, yielding StreamChunks and updating self.last_thinking."""
+        """Iterate a completion stream, yielding StreamChunks and updating self.last_thinking.
+
+        Usage is captured from the terminal chunk emitted when the request sets
+        ``stream_options={"include_usage": True}``: it carries ``usage`` and an empty
+        ``choices`` list, so ``self.last_usage`` is populated once the stream is fully
+        consumed (``None`` if the server reports no usage).
+        """
         self.last_thinking = ""
-        # Streaming usage is not captured yet (would require stream_options + per-server
-        # support); clear the previous value so a stale non-streaming count isn't read.
         self.last_usage = None
         parser = _ThinkingParser() if self.is_thinking_model else None
 
         for chunk in stream:
+            if getattr(chunk, "usage", None):
+                self.last_usage = usage_from_openai(chunk)
+            if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
+                continue
             delta = chunk.choices[0].delta
             if delta.content is None:
                 continue
@@ -165,6 +173,7 @@ class OpenAICompatClient(BaseModelClient):
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
             stream=True,
+            stream_options={"include_usage": True},
             **generate_kwargs,
         )
         yield from self._iter_stream(stream)
@@ -223,6 +232,7 @@ class OpenAICompatClient(BaseModelClient):
             model=self.model.value,
             messages=self.messages,
             stream=True,
+            stream_options={"include_usage": True},
             tools=tools if tools else openai.NOT_GIVEN,
             **generate_kwargs,
         )
@@ -236,6 +246,10 @@ class OpenAICompatClient(BaseModelClient):
         self.last_usage = None
 
         for chunk in stream:
+            if getattr(chunk, "usage", None):
+                self.last_usage = usage_from_openai(chunk)
+            if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
+                continue
             delta = chunk.choices[0].delta
             logger.debug("LLM raw chunk: %s", chunk)
             if delta.tool_calls:
@@ -272,6 +286,7 @@ class OpenAICompatClient(BaseModelClient):
             model=self.model.value,
             messages=self.messages,
             stream=True,
+            stream_options={"include_usage": True},
             tools=tools if tools else openai.NOT_GIVEN,
             **generate_kwargs,
         )

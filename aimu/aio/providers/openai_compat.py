@@ -91,6 +91,10 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         parser = _ThinkingParser() if self.is_thinking_model else None
 
         async for chunk in stream:
+            if getattr(chunk, "usage", None):
+                self.last_usage = usage_from_openai(chunk)
+            if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
+                continue
             delta = chunk.choices[0].delta
             if delta.content is None:
                 continue
@@ -156,6 +160,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
             stream=True,
+            stream_options={"include_usage": True},
             **generate_kwargs,
         )
         async for sc in self._iter_stream(stream):
@@ -215,6 +220,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             model=self.model.value,
             messages=self.messages,
             stream=True,
+            stream_options={"include_usage": True},
             tools=tools if tools else openai.NOT_GIVEN,
             **generate_kwargs,
         )
@@ -226,6 +232,10 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         self.last_usage = None
 
         async for chunk in stream:
+            if getattr(chunk, "usage", None):
+                self.last_usage = usage_from_openai(chunk)
+            if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
+                continue
             delta = chunk.choices[0].delta
             if delta.tool_calls:
                 for tc_delta in delta.tool_calls:
@@ -260,6 +270,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             model=self.model.value,
             messages=self.messages,
             stream=True,
+            stream_options={"include_usage": True},
             tools=tools if tools else openai.NOT_GIVEN,
             **generate_kwargs,
         )
