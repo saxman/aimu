@@ -2625,15 +2625,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased" class="md-nav__link">
+  <a href="#v0100-2026-06-23-a2a-interop-resilience-fallback-timeoutretry-anthropic-prompt-caching-streaming-usage-uniform-restore" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased
+        v0.10.0 (2026-06-23): A2A interop + resilience (fallback, timeout/retry), Anthropic prompt caching, streaming usage, uniform restore
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+    <nav class="md-nav" aria-label="v0.10.0 (2026-06-23): A2A interop + resilience (fallback, timeout/retry), Anthropic prompt caching, streaming usage, uniform restore">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3411,15 +3411,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased" class="md-nav__link">
+  <a href="#v0100-2026-06-23-a2a-interop-resilience-fallback-timeoutretry-anthropic-prompt-caching-streaming-usage-uniform-restore" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased
+        v0.10.0 (2026-06-23): A2A interop + resilience (fallback, timeout/retry), Anthropic prompt caching, streaming usage, uniform restore
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+    <nav class="md-nav" aria-label="v0.10.0 (2026-06-23): A2A interop + resilience (fallback, timeout/retry), Anthropic prompt caching, streaming usage, uniform restore">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -4162,7 +4162,7 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="v0100-2026-06-23-a2a-interop-resilience-fallback-timeoutretry-anthropic-prompt-caching-streaming-usage-uniform-restore">v0.10.0 (2026-06-23): A2A interop + resilience (fallback, timeout/retry), Anthropic prompt caching, streaming usage, uniform restore<a class="headerlink" href="#v0100-2026-06-23-a2a-interop-resilience-fallback-timeoutretry-anthropic-prompt-caching-streaming-usage-uniform-restore" title="Permanent link">&para;</a></h2>
 <h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> streaming token usage: <code>client.last_usage</code> now populates after a fully-consumed <code>chat(stream=True)</code> / <code>generate(stream=True)</code>, where before it was reset to <code>None</code>. OpenAI-compat clients request it via <code>stream_options={"include_usage": True}</code> and read the terminal usage chunk; Ollama reads the final streamed part's eval counts; Anthropic reads <code>stream.get_final_message().usage</code> (which also carries the P1-A cache-token fields). Usage is set once the stream is drained (reading mid-stream still yields <code>None</code>), and matches the non-streaming semantics (final turn's counts). Hardened the OpenAI-compat stream loop against empty-<code>choices</code> chunks. In-process providers (HuggingFace, LlamaCpp) expose no streaming counts and still leave it <code>None</code>.</li>
