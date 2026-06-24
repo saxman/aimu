@@ -5408,13 +5408,15 @@ Anthropic API format happens at call time.</p>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="aimu.models._internal.factory.FactoryDelegate">FactoryDelegate</span></code></p>
 
 
 
         <p>Public factory for text-embedding provider clients.</p>
 <p>Parallel to :class:<code>aimu.models.TranscriptionClient</code>. Accepts a provider's
 :class:<code>EmbeddingModel</code> enum member, an :class:<code>EmbeddingSpec</code>, or a
-<code>"provider:model_id"</code> string (<code>"openai:..."</code> or <code>"ollama:..."</code>).
+<code>"provider:model_id"</code> string (<code>"openai:..."</code>, <code>"ollama:..."</code> or <code>"hf:..."</code>).
 Provider-specific construction kwargs are forwarded as <code>model_kwargs</code>.</p>
 <p>Examples::</p>
 <div class="language-text highlight"><pre><span></span><code>from aimu.models import EmbeddingClient, OpenAIEmbeddingModel
