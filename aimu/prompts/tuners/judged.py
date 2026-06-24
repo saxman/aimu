@@ -140,18 +140,14 @@ class JudgedPromptTuner(PromptTuner):
         Returns:
             DataFrame with added ``output`` column.
         """
-        outputs = []
-        df = data.copy()
-
-        for i in tqdm(range(len(data)), desc="generating"):
-            row = data.iloc[i]
-            formatted = prompt.format(content=row.content)
-            output = self.model_client.generate(formatted, self.response_kwargs)
-            logger.info(f"generated output: {output}")
-            outputs.append(output)
-
-        df["output"] = outputs
-        return df
+        return self._apply_to_rows(
+            prompt,
+            data,
+            lambda result, _row: result,
+            column="output",
+            desc="generating",
+            generate_kwargs=self.response_kwargs,
+        )
 
     def judge_responses(self, data: pd.DataFrame) -> pd.DataFrame:
         """

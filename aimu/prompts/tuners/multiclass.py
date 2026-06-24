@@ -23,19 +23,15 @@ Example::
 
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from tqdm import tqdm
 
 from aimu.prompts.tuner import PromptTuner
 
 if TYPE_CHECKING:
     from aimu.models.base import BaseModelClient
-
-logger = logging.getLogger(__name__)
 
 
 class MultiClassPromptTuner(PromptTuner):
@@ -101,34 +97,18 @@ class MultiClassPromptTuner(PromptTuner):
         Raises:
             ValueError: If the model output does not contain any known ``[ClassName]``.
         """
-        predicted_class = []
-        df = data.copy()
         lower_classes = [c.lower() for c in self.classes]
 
-        for i in tqdm(range(len(data)), desc="classifying"):
-            row = data.iloc[i]
-            prompt = classification_prompt.format(content=row.content)
-            result = self.model_client.generate(prompt, self.generate_kwargs)
-            logger.info(f"raw classification result: {result}")
-
+        def _parse(result: str, _row: object) -> str:
             result_lower = result.lower()
-            matched = None
             for cls, cls_lower in zip(self.classes, lower_classes):
                 if f"[{cls_lower}]" in result_lower:
-                    matched = cls
-                    break
+                    return cls
+            raise ValueError(
+                f"Model output did not contain any known class tag {[f'[{c}]' for c in self.classes]}. Got: {result!r}"
+            )
 
-            if matched is None:
-                raise ValueError(
-                    f"Model output did not contain any known class tag {[f'[{c}]' for c in self.classes]}. "
-                    f"Got: {result!r}"
-                )
-
-            predicted_class.append(matched)
-            logger.info(f"classification: {matched}")
-
-        df["predicted_class"] = predicted_class
-        return df
+        return self._apply_to_rows(classification_prompt, data, _parse, column="predicted_class", desc="classifying")
 
     def evaluate_results(self, data: pd.DataFrame) -> dict:
         """

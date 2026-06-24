@@ -27,7 +27,6 @@ import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from tqdm import tqdm
 
 from aimu.models._internal.json import parse_json_response
 from aimu.prompts.tuner import PromptTuner
@@ -100,26 +99,15 @@ class ExtractionPromptTuner(PromptTuner):
         Returns:
             DataFrame with added ``extracted`` column.
         """
-        extracted_list = []
-        df = data.copy()
 
-        for i in tqdm(range(len(data)), desc="extracting"):
-            row = data.iloc[i]
-            prompt = extraction_prompt.format(content=row.content)
-            result = self.model_client.generate(prompt, self.generate_kwargs)
-            logger.info(f"raw extraction result: {result}")
-
+        def _parse(result: str, _row: object) -> dict:
             try:
-                parsed = parse_json_response(result)
+                return parse_json_response(result)
             except ValueError:
                 logger.warning(f"Failed to parse JSON from model output, treating as empty: {result!r}")
-                parsed = {}
+                return {}
 
-            extracted_list.append(parsed)
-            logger.info(f"extracted fields: {parsed}")
-
-        df["extracted"] = extracted_list
-        return df
+        return self._apply_to_rows(extraction_prompt, data, _parse, column="extracted", desc="extracting")
 
     def evaluate_results(self, data: pd.DataFrame) -> dict:
         """

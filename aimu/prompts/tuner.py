@@ -17,9 +17,10 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import pandas as pd
+from tqdm import tqdm
 
 if TYPE_CHECKING:
     from aimu.models.base import BaseModelClient
@@ -103,6 +104,35 @@ class PromptTuner(ABC):
         Override for a different extraction format (JSON, bare text, etc.).
         """
         return result.split("<prompt>")[-1].split("</prompt>")[0].strip()
+
+    def _apply_to_rows(
+        self,
+        prompt: str,
+        data: pd.DataFrame,
+        parse: Callable[[str, object], object],
+        *,
+        column: str,
+        desc: str,
+        generate_kwargs: dict | None = None,
+    ) -> pd.DataFrame:
+        """Generate a model response per row and collect parsed results into ``column``.
+
+        For each row: format *prompt* with ``row.content``, call the model, then
+        ``parse(result_text, row)`` to produce the stored value. Returns a copy of *data*
+        with *column* added. *generate_kwargs* defaults to ``self.generate_kwargs``.
+
+        Shared by the per-task ``classify_data`` / ``extract_data`` / ``generate_responses``
+        methods, which differ only in their ``parse`` callback, ``column``, and kwargs.
+        """
+        gk = self.generate_kwargs if generate_kwargs is None else generate_kwargs
+        values = []
+        df = data.copy()
+        for i in tqdm(range(len(data)), desc=desc):
+            row = data.iloc[i]
+            result = self.model_client.generate(prompt.format(content=row.content), gk)
+            values.append(parse(result, row))
+        df[column] = values
+        return df
 
     def tune(
         self,

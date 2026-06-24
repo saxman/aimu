@@ -19,14 +19,9 @@ Example::
 
 from __future__ import annotations
 
-import logging
-
 import pandas as pd
-from tqdm import tqdm
 
 from aimu.prompts.tuner import PromptTuner
-
-logger = logging.getLogger(__name__)
 
 
 class ClassificationPromptTuner(PromptTuner):
@@ -83,27 +78,16 @@ class ClassificationPromptTuner(PromptTuner):
         Returns:
             DataFrame with added ``predicted_class`` column.
         """
-        predicted_class = []
-        df = data.copy()
 
-        for i in tqdm(range(len(data)), desc="classifying"):
-            row = data.iloc[i]
-            prompt = classification_prompt.format(content=row.content)
+        def _parse(result: str, _row: object) -> bool:
+            lowered = result.lower()
+            if "[yes]" in lowered:
+                return True
+            if "[no]" in lowered:
+                return False
+            raise ValueError(f"unexpected classification result: {result}")
 
-            result = self.model_client.generate(prompt, self.generate_kwargs)
-            logger.info(f"processed classification results: {result}")
-
-            if "[yes]" in result.lower():
-                predicted_class.append(True)
-            elif "[no]" in result.lower():
-                predicted_class.append(False)
-            else:
-                raise ValueError(f"unexpected classification result: {result}")
-
-            logger.info(f"classification: {predicted_class[-1]}")
-
-        df["predicted_class"] = predicted_class
-        return df
+        return self._apply_to_rows(classification_prompt, data, _parse, column="predicted_class", desc="classifying")
 
     def evaluate_results(self, data: pd.DataFrame) -> dict:
         """
