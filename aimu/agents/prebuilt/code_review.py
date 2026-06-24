@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from aimu.agents.agent import Agent
 from aimu.agents.orchestrator_agent import OrchestratorAgent
+from aimu.agents.prebuilt._base import make_workers
 from aimu.models.model_client import ModelClient
 from aimu.tools import tool
 
@@ -31,34 +31,30 @@ class CodeReviewAgent(OrchestratorAgent):
     """
 
     def __init__(self, model_client: ModelClient) -> None:
-        security_agent = Agent(
-            ModelClient(model_client.model),
-            name="security-reviewer",
-            system_message=(
-                "Analyze the provided code for security vulnerabilities. Check for injection flaws, "
-                "improper authentication, insecure data handling, exposed secrets, and other "
-                "OWASP-related issues. For each issue found, state the location, severity "
-                "(Critical/High/Medium/Low), and a specific recommended fix."
-            ),
-        )
-        performance_agent = Agent(
-            ModelClient(model_client.model),
-            name="performance-reviewer",
-            system_message=(
-                "Analyze the provided code for performance issues. Look for algorithmic inefficiencies "
-                "(e.g. O(n²) loops, repeated work), unnecessary I/O, memory leaks, and missed "
-                "optimization opportunities. For each issue, state the location and a concrete "
-                "improvement suggestion."
-            ),
-        )
-        readability_agent = Agent(
-            ModelClient(model_client.model),
-            name="readability-reviewer",
-            system_message=(
-                "Analyze the provided code for readability and maintainability. Look for unclear naming, "
-                "missing documentation, overly complex logic, code duplication, and style violations. "
-                "For each issue, state the location and a suggested improvement."
-            ),
+        security_agent, performance_agent, readability_agent = make_workers(
+            model_client,
+            [
+                (
+                    "security-reviewer",
+                    "Analyze the provided code for security vulnerabilities. Check for injection flaws, "
+                    "improper authentication, insecure data handling, exposed secrets, and other "
+                    "OWASP-related issues. For each issue found, state the location, severity "
+                    "(Critical/High/Medium/Low), and a specific recommended fix.",
+                ),
+                (
+                    "performance-reviewer",
+                    "Analyze the provided code for performance issues. Look for algorithmic inefficiencies "
+                    "(e.g. O(n²) loops, repeated work), unnecessary I/O, memory leaks, and missed "
+                    "optimization opportunities. For each issue, state the location and a concrete "
+                    "improvement suggestion.",
+                ),
+                (
+                    "readability-reviewer",
+                    "Analyze the provided code for readability and maintainability. Look for unclear naming, "
+                    "missing documentation, overly complex logic, code duplication, and style violations. "
+                    "For each issue, state the location and a suggested improvement.",
+                ),
+            ],
         )
 
         @tool

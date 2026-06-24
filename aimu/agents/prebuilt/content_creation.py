@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from aimu.agents.agent import Agent
 from aimu.agents.orchestrator_agent import OrchestratorAgent
+from aimu.agents.prebuilt._base import make_workers
 from aimu.models.model_client import ModelClient
 from aimu.tools import tool
 
@@ -31,32 +31,28 @@ class ContentCreationAgent(OrchestratorAgent):
     """
 
     def __init__(self, model_client: ModelClient) -> None:
-        research_agent = Agent(
-            ModelClient(model_client.model),
-            name="research-worker",
-            system_message=(
-                "Extract and organize the key facts, statistics, angles, and talking points "
-                "for the given content topic or brief. Return a structured bullet list of "
-                "8-12 research points ready for use in writing."
-            ),
-        )
-        outline_agent = Agent(
-            ModelClient(model_client.model),
-            name="outline-worker",
-            system_message=(
-                "Create a detailed content outline based on the provided research facts. "
-                "Include an introduction hook, 3-5 main sections with sub-points, and a conclusion. "
-                "Structure it for the implied target audience and format."
-            ),
-        )
-        section_agent = Agent(
-            ModelClient(model_client.model),
-            name="section-writer",
-            system_message=(
-                "Write a complete, polished draft of the content section described in the input. "
-                "The input specifies a section title and contextual notes. "
-                "Return only the section prose, ready to be assembled into the final piece."
-            ),
+        research_agent, outline_agent, section_agent = make_workers(
+            model_client,
+            [
+                (
+                    "research-worker",
+                    "Extract and organize the key facts, statistics, angles, and talking points "
+                    "for the given content topic or brief. Return a structured bullet list of "
+                    "8-12 research points ready for use in writing.",
+                ),
+                (
+                    "outline-worker",
+                    "Create a detailed content outline based on the provided research facts. "
+                    "Include an introduction hook, 3-5 main sections with sub-points, and a conclusion. "
+                    "Structure it for the implied target audience and format.",
+                ),
+                (
+                    "section-writer",
+                    "Write a complete, polished draft of the content section described in the input. "
+                    "The input specifies a section title and contextual notes. "
+                    "Return only the section prose, ready to be assembled into the final piece.",
+                ),
+            ],
         )
 
         @tool

@@ -1170,6 +1170,7 @@ aimu/
 │   │   ├── evaluator.py # EvaluatorOptimizer (generate-evaluate-revise)
 │   │   └── plan_execute_evaluator.py # PlanExecuteEvaluator + .from_client()
 │   └── prebuilt/        # Prebuilt orchestrator agents (ready to use or copy)
+│       ├── _base.py            # make_workers(): shared worker-Agent construction for the prebuilt orchestrators
 │       ├── research_report.py  # ResearchReportAgent
 │       ├── code_review.py      # CodeReviewAgent
 │       └── content_creation.py # ContentCreationAgent

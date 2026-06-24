@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from aimu.agents.agent import Agent
 from aimu.agents.orchestrator_agent import OrchestratorAgent
+from aimu.agents.prebuilt._base import make_workers
 from aimu.models.model_client import ModelClient
 from aimu.tools import tool
 
@@ -52,30 +52,30 @@ class ResearchReportAgent(OrchestratorAgent):
     """
 
     def __init__(self, model_client: ModelClient, worker_tools: Optional[list[Callable]] = None) -> None:
-        def _make_worker(name: str, system_message: str) -> Agent:
-            worker_client = ModelClient(model_client.model)
-            if worker_tools is not None:
-                worker_client.tools = list(worker_tools)
-            return Agent(worker_client, name=name, system_message=system_message)
-
         live_tools_note = (
             " Use your search and browsing tools to find current, accurate information." if worker_tools else ""
         )
 
-        overview_agent = _make_worker(
-            "overview-worker",
-            "Provide a thorough 2-3 paragraph overview of the given topic. "
-            "Cover what it is, why it matters, and its key components or mechanisms." + live_tools_note,
-        )
-        examples_agent = _make_worker(
-            "examples-worker",
-            "Provide 3-5 concrete, real-world examples or applications related to the given topic. "
-            "For each example, briefly explain its relevance and significance." + live_tools_note,
-        )
-        counterpoints_agent = _make_worker(
-            "counterpoints-worker",
-            "Identify 3-5 counterarguments, limitations, criticisms, or alternative perspectives "
-            "on the given topic. Be specific, balanced, and evidence-based." + live_tools_note,
+        overview_agent, examples_agent, counterpoints_agent = make_workers(
+            model_client,
+            [
+                (
+                    "overview-worker",
+                    "Provide a thorough 2-3 paragraph overview of the given topic. "
+                    "Cover what it is, why it matters, and its key components or mechanisms." + live_tools_note,
+                ),
+                (
+                    "examples-worker",
+                    "Provide 3-5 concrete, real-world examples or applications related to the given topic. "
+                    "For each example, briefly explain its relevance and significance." + live_tools_note,
+                ),
+                (
+                    "counterpoints-worker",
+                    "Identify 3-5 counterarguments, limitations, criticisms, or alternative perspectives "
+                    "on the given topic. Be specific, balanced, and evidence-based." + live_tools_note,
+                ),
+            ],
+            tools=worker_tools,
         )
 
         @tool

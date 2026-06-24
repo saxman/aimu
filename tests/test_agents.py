@@ -374,7 +374,8 @@ def test_handle_tool_calls_concurrent_results_in_original_order():
 
 def _make_research_agent(worker_tools=None):
     client = MockModelClient(["report"])
-    with patch("aimu.agents.prebuilt.research_report.ModelClient") as MockMC:
+    # Worker clients are built in prebuilt._base.make_workers, so patch ModelClient there.
+    with patch("aimu.agents.prebuilt._base.ModelClient") as MockMC:
         MockMC.return_value = MockModelClient(["worker response"])
         agent = ResearchReportAgent(client, worker_tools=worker_tools)
     return agent, client
