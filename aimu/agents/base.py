@@ -22,7 +22,6 @@ code. The distinction lives in the docs, not in the type hierarchy.
 
 from __future__ import annotations
 
-import re
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Iterator, Optional, Union
 
@@ -78,22 +77,9 @@ class Runner(ABC):
         (``Agent`` / ``SkillAgent``), else a generic delegation string (workflows have no
         ``system_message``).
         """
-        from aimu.tools.decorator import tool
-
-        resolved_name = name or getattr(self, "name", None) or "runner"
-        safe_name = re.sub(r"\W+", "_", resolved_name).strip("_") or "runner"
-
-        if description is None:
-            system_message = getattr(self, "system_message", None)
-            description = (
-                system_message.splitlines()[0] if system_message else f"Delegate a task to the {safe_name} runner."
-            )
+        from aimu.agents._as_tool import build_as_tool
 
         def _dispatch(task: str) -> str:
             return self.run(task)
 
-        _dispatch.__name__ = safe_name
-        _dispatch.__qualname__ = safe_name
-        _dispatch.__doc__ = description
-        _dispatch.__annotations__ = {"task": str, "return": str}
-        return tool(_dispatch)
+        return build_as_tool(self, _dispatch, name=name, description=description)
