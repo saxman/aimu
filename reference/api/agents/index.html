@@ -2048,17 +2048,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#aimu.agents.Agent.restore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        restore
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#aimu.agents.Agent.as_model_client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3368,17 +3357,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#aimu.agents.Agent.restore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        restore
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#aimu.agents.Agent.as_model_client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4026,7 +4004,7 @@ an :class:<code>OrchestratorAgent</code>'s worker list. Works for every concrete
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.agents.Runner (aimu.agents.base.Runner)" href="#aimu.agents.Runner">Runner</a></code></p>
+              Bases: <code><span title="aimu.agents._loop._AgentLoopMixin">_AgentLoopMixin</span></code>, <code><a class="autorefs autorefs-internal" title="aimu.agents.Runner (aimu.agents.base.Runner)" href="#aimu.agents.Runner">Runner</a></code></p>
 
 
 
@@ -4109,48 +4087,6 @@ as <code>ctx.deps</code> into tools that declare a :class:<code>~aimu.tools.Tool
 turn that returns a validated instance instead of looping with tools. Use it for an
 agent whose job is to return a typed object (e.g. a critic's verdict). It is mutually
 exclusive with <code>stream=True</code> and with the tool-calling loop.</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="aimu.agents.Agent.restore" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">restore</span>
-
-
-<a href="#aimu.agents.Agent.restore" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Restore agent state from a saved message list for resuming after failure.</p>
-<p>Saves the partial state from a failed run via <code>agent.model_client.messages</code>
-(the live list, not the post-run snapshot from <code>agent.messages</code>), then call
-this method before the next <code>run()</code> to resume from that point.</p>
-<p>Handles the system-message duplication hazard: <code>model_client.reset()</code>
-clears history and preserves the <code>system_message</code> attribute, and this method
-strips the leading system message from <em>messages</em> (if present) so it is not
-prepended twice on the next <code>chat()</code> call.</p>
-<p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>try:
-    result = agent.run(task)
-except Exception:
-    import json
-    with open(&quot;checkpoint.json&quot;, &quot;w&quot;) as f:
-        json.dump(agent.model_client.messages, f)
-    raise
-
-# On retry:
-with open(&quot;checkpoint.json&quot;) as f:
-    saved = json.load(f)
-agent.restore(saved)
-result = agent.run(continuation_prompt)
-</code></pre></div>
 
 
     </div>

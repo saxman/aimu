@@ -2042,17 +2042,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#aimu.aio.Agent.restore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        restore
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#aimu.aio.Agent.as_model_client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3402,17 +3391,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#aimu.aio.Agent.restore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        restore
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#aimu.aio.Agent.as_model_client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4112,7 +4090,7 @@ it <code>__tool_is_async__ = True</code> and the async agent loop awaits it dire
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="aimu.aio.AsyncRunner (aimu.aio.agent.AsyncRunner)" href="#aimu.aio.AsyncRunner">AsyncRunner</a></code></p>
+              Bases: <code><span title="aimu.agents._loop._AgentLoopMixin">_AgentLoopMixin</span></code>, <code><a class="autorefs autorefs-internal" title="aimu.aio.AsyncRunner (aimu.aio.agent.AsyncRunner)" href="#aimu.aio.AsyncRunner">AsyncRunner</a></code></p>
 
 
 
@@ -4179,30 +4157,6 @@ per-run override of the agent's <code>self.deps</code> (injected as <code>ctx.de
 declare a :class:<code>~aimu.tools.ToolContext</code> parameter); <code>schema</code> makes the run a single
 structured-output turn returning a validated instance. See the sync
 :meth:<code>aimu.agents.Agent.run</code> for full semantics.</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="aimu.aio.Agent.restore" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">restore</span>
-
-
-<a href="#aimu.aio.Agent.restore" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Restore agent state from a saved message list for resuming after failure.</p>
-<p>Mirrors sync :meth:<code>aimu.agents.Agent.restore</code>: clears the client (preserving the
-<code>system_message</code> value) and strips any leading system message from <em>messages</em> so
-it isn't prepended twice on the next <code>chat()</code>. Save the live partial state from a
-failed run via <code>agent.model_client.messages</code> (not the post-run <code>agent.messages</code>).</p>
 
 
     </div>
