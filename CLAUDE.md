@@ -1152,6 +1152,7 @@ aimu/
 ├── agents/              # Agents and workflow patterns (single Runner ABC)
 │   ├── base.py          # Runner ABC (+ Runner.as_tool()) + MessageHistory + decision-tree docstring
 │   ├── _loop.py         # _AgentLoopMixin: _prepare_run/_last_turn_called_tools/restore shared by sync + aio Agent
+│   ├── _agentic_view.py # _AgenticViewMixin: state delegation shared by sync + aio _AgenticView
 │   ├── agent.py         # Agent (agentic loop) + as_model_client()
 │   ├── skill_agent.py   # SkillAgent (Agent + skill discovery/injection)
 │   ├── agentic_client.py # Internal _AgenticView (not public; use Agent.as_model_client())
