@@ -142,6 +142,20 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         if stream:
             return self._run_streamed(task, generate_kwargs, images=images, tools=tools, deps=deps)
         self._prepare_run(deps)
+        return await self._run_loop(task, generate_kwargs, images=images, tools=tools)
+
+    async def _run_loop(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        images: Optional[list] = None,
+        tools: Optional[list[Callable]] = None,
+    ) -> str:
+        """The non-streamed tool-calling loop, assuming ``_prepare_run`` already ran.
+
+        Shared by :meth:`run` and :class:`aimu.aio.SkillAgent` (which must run its async
+        skill setup between ``_prepare_run`` and the loop).
+        """
         response = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
 
         for _ in range(self.max_iterations - 1):
@@ -168,6 +182,20 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         deps: Optional[Any] = None,
     ) -> AsyncIterator[StreamChunk]:
         self._prepare_run(deps)
+        async for chunk in self._run_loop_streamed(task, generate_kwargs, images=images, tools=tools):
+            yield chunk
+
+    async def _run_loop_streamed(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]] = None,
+        images: Optional[list] = None,
+        tools: Optional[list[Callable]] = None,
+    ) -> AsyncIterator[StreamChunk]:
+        """The streamed tool-calling loop, assuming ``_prepare_run`` already ran.
+
+        Shared by :meth:`_run_streamed` and :class:`aimu.aio.SkillAgent`.
+        """
         iteration = 0
         first_stream = await self.model_client.chat(
             task, generate_kwargs=generate_kwargs, stream=True, images=images, tools=tools

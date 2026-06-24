@@ -6,7 +6,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from aimu.models.base import StreamChunk
 from aimu.skills.manager import SkillManager
 
 from ._base import AsyncBaseModelClient
@@ -68,9 +67,10 @@ class SkillAgent(Agent):
         ]
 
     async def run(self, task, generate_kwargs=None, stream=False, images=None, tools=None, deps=None, schema=None):
-        # Prepare + async skill setup must complete before the loop. The streamed path is
-        # reimplemented here (rather than delegating to Agent._run_streamed) so _prepare_run
-        # (which resets model_client.tools) runs exactly once, before skills are added.
+        # Prepare + async skill setup must complete before the loop, and _prepare_run
+        # (which resets model_client.tools) must run exactly once, before skills are added.
+        # That ordering is why this can't just call super().run() (which re-prepares); instead
+        # it prepares, sets up skills, then delegates to Agent's post-prepare loop helpers.
         # ``deps`` and ``schema`` mirror aio.Agent.run(); see that method for full semantics.
         if schema is not None and stream:
             raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
@@ -84,52 +84,9 @@ class SkillAgent(Agent):
             return result
 
         if stream:
-            return self._run_streamed_after_setup(task, generate_kwargs, images=images, tools=tools)
+            return self._run_loop_streamed(task, generate_kwargs, images=images, tools=tools)
 
-        response = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
-        for _ in range(self.max_iterations - 1):
-            if not self._last_turn_called_tools():
-                break
-            logger.debug("SkillAgent '%s' continuing.", self.name)
-            response = await self.model_client.chat(
-                self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools
-            )
-
-        if self.final_answer_prompt is not None and self._last_turn_called_tools():
-            logger.debug("SkillAgent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
-            response = await self.model_client.chat(self.final_answer_prompt, generate_kwargs=generate_kwargs, tools=[])
-
-        self._last_messages = list(self.model_client.messages)
-        return response
-
-    async def _run_streamed_after_setup(self, task, generate_kwargs=None, images=None, tools=None):
-        iteration = 0
-        first = await self.model_client.chat(
-            task, generate_kwargs=generate_kwargs, stream=True, images=images, tools=tools
-        )
-        async for chunk in first:
-            yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-
-        iteration += 1
-        while self._last_turn_called_tools() and iteration < self.max_iterations:
-            logger.debug("SkillAgent '%s' continuing (iteration %d).", self.name, iteration)
-            nxt = await self.model_client.chat(
-                self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
-            )
-            async for chunk in nxt:
-                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-            iteration += 1
-
-        if self.final_answer_prompt is not None and self._last_turn_called_tools():
-            logger.debug("SkillAgent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
-            final = await self.model_client.chat(
-                self.final_answer_prompt, generate_kwargs=generate_kwargs, stream=True, tools=[]
-            )
-            async for chunk in final:
-                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-            iteration += 1
-
-        self._last_messages = list(self.model_client.messages)
+        return await self._run_loop(task, generate_kwargs, images=images, tools=tools)
 
     @classmethod
     def from_config(cls, config: dict[str, Any], model_client: AsyncBaseModelClient) -> "SkillAgent":
