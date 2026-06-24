@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Models
+
+- **Fix** optional-provider import guards (`aimu.models`, `ModelClient`, and their `aimu.aio` mirrors) now catch `ImportError` instead of bare `Exception`. A real error inside a provider module (a `SyntaxError`, an `AttributeError`, a broken transitive dependency) was previously swallowed and the provider silently reported as "dependency not installed," surfacing later as a confusing "no client for …" message; the real cause now propagates at import time.
+
+### Agents and workflows
+
+- **Fix** async `SkillAgent.run()` (`aimu.aio`) ignored `deps=` and `schema=`, which its sync twin and `aio.Agent.run()` both accept — async skill users silently lost `ToolContext` dependency injection and structured output. The async override now mirrors `aio.Agent.run()` in full: `deps=`, `schema=` (mutually exclusive with `stream=True`), and the `final_answer_prompt` forced-wrap-up on both the streamed and non-streamed paths.
+
 ## v0.10.0 (2026-06-23): A2A interop + resilience (fallback, timeout/retry), Anthropic prompt caching, streaming usage, uniform restore
 
 ### Models
