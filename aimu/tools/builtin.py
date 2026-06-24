@@ -432,23 +432,32 @@ def read_file(path: str, max_lines: int = 200) -> str:
 # constructed lazily on first ``generate_image()`` call so that importing
 # ``aimu.tools.builtin`` does not pull torch into ``sys.modules``.
 
-_image_client = None
 
+def _lazy_client_getter(global_name: str, factory_name: str):
+    """Build a getter that lazily constructs and caches a modality client in a module global.
 
-def _get_image_client():
-    """Return the lazy singleton :class:`ImageClient` for the built-in tool.
-
-    Reads ``AIMU_IMAGE_MODEL`` from the environment. Raises ``ValueError`` if it is
-    unset; no model is downloaded implicitly. Accepts any model string supported by
-    :func:`aimu.image_client`: ``"hf:..."`` for HuggingFace diffusers, ``"gemini:..."``
-    for Google Nano Banana.
+    On first call the client is built from its ``AIMU_*_MODEL`` env var via
+    ``aimu.<factory_name>()`` (deferring the heavy provider import so importing this
+    module stays cheap), cached in ``globals()[global_name]``, and reused after. If the
+    factory raises (e.g. the env var is unset), the global is left ``None`` so a later
+    call retries. The cached global stays a plain module attribute, so tests and
+    callers can monkeypatch / replace it directly.
     """
-    global _image_client
-    if _image_client is None:
-        from aimu import image_client as _image_client_factory
 
-        _image_client = _image_client_factory()  # resolves AIMU_IMAGE_MODEL or raises
-    return _image_client
+    def _get():
+        if globals()[global_name] is None:
+            import aimu
+
+            globals()[global_name] = getattr(aimu, factory_name)()  # resolves AIMU_*_MODEL or raises
+        return globals()[global_name]
+
+    _get.__name__ = f"_get{global_name}"
+    return _get
+
+
+_image_client = None
+# Reads AIMU_IMAGE_MODEL (or "hf:..."/"gemini:..."); raises if unset, nothing downloaded implicitly.
+_get_image_client = _lazy_client_getter("_image_client", "image_client")
 
 
 @tool
@@ -650,21 +659,8 @@ def make_tools(
 # importing ``aimu.tools.builtin`` does not pull torch into ``sys.modules``.
 
 _audio_client = None
-
-
-def _get_audio_client():
-    """Return the lazy singleton :class:`AudioClient` for the built-in tool.
-
-    Reads ``AIMU_AUDIO_MODEL`` from the environment. Raises ``ValueError`` if it is
-    unset; no model is downloaded implicitly. Accepts any ``"hf:<repo_id>"`` string
-    supported by :func:`aimu.audio_client`.
-    """
-    global _audio_client
-    if _audio_client is None:
-        from aimu import audio_client as _audio_client_factory
-
-        _audio_client = _audio_client_factory()  # resolves AIMU_AUDIO_MODEL or raises
-    return _audio_client
+# Reads AIMU_AUDIO_MODEL (any "hf:<repo_id>"); raises if unset, nothing downloaded implicitly.
+_get_audio_client = _lazy_client_getter("_audio_client", "audio_client")
 
 
 @tool
@@ -745,21 +741,8 @@ def make_audio_tool(client, *, duration_s: Optional[float] = None, num_inference
 # ``sys.modules``.
 
 _speech_client = None
-
-
-def _get_speech_client():
-    """Return the lazy singleton :class:`SpeechClient` for the built-in tool.
-
-    Reads ``AIMU_SPEECH_MODEL`` from the environment. Raises ``ValueError`` if it is
-    unset; no model is downloaded implicitly. Accepts any ``"provider:model_id"``
-    string supported by :func:`aimu.speech_client`.
-    """
-    global _speech_client
-    if _speech_client is None:
-        from aimu import speech_client as _speech_client_factory
-
-        _speech_client = _speech_client_factory()  # resolves AIMU_SPEECH_MODEL or raises
-    return _speech_client
+# Reads AIMU_SPEECH_MODEL (any "provider:model_id"); raises if unset, nothing downloaded implicitly.
+_get_speech_client = _lazy_client_getter("_speech_client", "speech_client")
 
 
 @tool
@@ -937,9 +920,9 @@ speech = [generate_speech]
 # ---------------------------------------------------------------------------
 
 # Lazy singleton for the built-in transcription tool. Populated on first call
-# via AIMU_TRANSCRIPTION_MODEL. Not created at import time so that importing
-# aimu.tools.builtin does not pull torch/transformers into sys.modules.
+# via AIMU_TRANSCRIPTION_MODEL; raises if unset, nothing downloaded implicitly.
 _transcription_client = None
+_get_transcription_client = _lazy_client_getter("_transcription_client", "transcription_client")
 
 
 @tool
@@ -952,12 +935,7 @@ def transcribe_audio(audio_path: str) -> str:
     Args:
         audio_path: Path to the audio file to transcribe.
     """
-    global _transcription_client
-    if _transcription_client is None:
-        import aimu
-
-        _transcription_client = aimu.transcription_client()
-    return _transcription_client.transcribe(audio_path)
+    return _get_transcription_client().transcribe(audio_path)
 
 
 def make_transcription_tool(client):
