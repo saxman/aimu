@@ -8,14 +8,15 @@ Exposes:
   dispatches to the right concrete client based on the model enum / spec / string
   passed in.
 
-Mirrors the speech-side dispatch (:class:`aimu.models.SpeechClient`,
-:func:`aimu.models.resolve_speech_model_string`).
+Mirrors the speech-side dispatch. The shared dispatch logic lives in
+:mod:`aimu.models._internal.factory`.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from ._internal.factory import FactoryDelegate, ProviderEntry, available_registry, build_client, resolve_model_string
 from .base import BaseTranscriptionClient, TranscriptionModel, TranscriptionSpec
 
 # --- Optional provider imports ---
@@ -38,45 +39,40 @@ except ImportError:
     OpenAITranscriptionClient = None  # type: ignore[assignment,misc]
     OpenAITranscriptionModel = None  # type: ignore[assignment,misc]
 
+_HF_HINT = (
+    "HuggingFace transcription support requires the [hf] extra (soundfile, torch, transformers): pip install -e '.[hf]'"
+)
+_OPENAI_HINT = (
+    "OpenAI transcription support requires the [openai_compat] extra (openai): pip install -e '.[openai_compat]'"
+)
+
+
+def _entries() -> list[ProviderEntry]:
+    return [
+        ProviderEntry(
+            "hf", _HAS_HF_TRANSCRIPTION, HuggingFaceTranscriptionModel, HuggingFaceTranscriptionClient, _HF_HINT
+        ),
+        ProviderEntry(
+            "openai", _HAS_OPENAI_TRANSCRIPTION, OpenAITranscriptionModel, OpenAITranscriptionClient, _OPENAI_HINT
+        ),
+    ]
+
 
 def _provider_registry() -> dict[str, tuple]:
-    """Map ``provider`` string → ``(TranscriptionModel subclass, TranscriptionClient subclass)``."""
-    registry: dict[str, tuple] = {}
-    if _HAS_HF_TRANSCRIPTION:
-        registry["hf"] = (HuggingFaceTranscriptionModel, HuggingFaceTranscriptionClient)
-    if _HAS_OPENAI_TRANSCRIPTION:
-        registry["openai"] = (OpenAITranscriptionModel, OpenAITranscriptionClient)
-    return registry
+    """Map ``provider`` string → ``(TranscriptionModel subclass, client subclass)`` (installed only)."""
+    return available_registry(_entries())
 
 
 def resolve_transcription_model_string(model_str: str) -> TranscriptionModel:
     """Look up a transcription-provider model enum from a ``"provider:model_id"`` string.
 
-    Mirrors :func:`aimu.models.resolve_speech_model_string` for transcription providers.
     Only matches *exact* enum-member values; for ad-hoc model ids pass the
     ``"provider:..."`` string directly to :class:`TranscriptionClient`.
     """
-    if ":" not in model_str:
-        raise ValueError(
-            f"Transcription model string must be in 'provider:model_id' form, got: {model_str!r}. "
-            f"Available providers: {sorted(_provider_registry())}"
-        )
-    provider, _, model_id = model_str.partition(":")
-    registry = _provider_registry()
-    if provider not in registry:
-        raise ValueError(
-            f"Unknown transcription provider {provider!r}. "
-            f"Available providers (with installed deps): {sorted(registry)}"
-        )
-    model_enum, _ = registry[provider]
-    for member in model_enum:
-        if member.value == model_id:
-            return member
-    available = sorted(m.value for m in model_enum)
-    raise ValueError(f"Provider {provider!r} has no transcription model id {model_id!r}. Available: {available}")
+    return resolve_model_string(model_str, _entries(), modality="transcription")
 
 
-class TranscriptionClient:
+class TranscriptionClient(FactoryDelegate):
     """Public factory for ASR/STT provider clients.
 
     Parallel to :class:`aimu.models.SpeechClient` for the transcription modality.
@@ -95,63 +91,14 @@ class TranscriptionClient:
     """
 
     def __init__(self, model: TranscriptionModel | TranscriptionSpec | str, model_kwargs: dict | None = None) -> None:
-        if isinstance(model, str):
-            if ":" not in model:
-                raise ValueError(f"Transcription model string must be in 'provider:model_id' form, got: {model!r}")
-            provider, _, _model_id = model.partition(":")
-            if provider == "hf":
-                if not _HAS_HF_TRANSCRIPTION:
-                    raise ImportError(
-                        "HuggingFace transcription support requires the [hf] extra "
-                        "(soundfile, torch, transformers): pip install -e '.[hf]'"
-                    )
-                self._client: BaseTranscriptionClient = HuggingFaceTranscriptionClient(model, model_kwargs=model_kwargs)
-                return
-            if provider == "openai":
-                if not _HAS_OPENAI_TRANSCRIPTION:
-                    raise ImportError(
-                        "OpenAI transcription support requires the [openai_compat] extra "
-                        "(openai): pip install -e '.[openai_compat]'"
-                    )
-                self._client = OpenAITranscriptionClient(model, model_kwargs=model_kwargs)
-                return
-            raise ValueError(f"Unknown transcription provider {provider!r}. Available: {sorted(_provider_registry())}")
-
-        if isinstance(model, TranscriptionSpec) and not isinstance(model, TranscriptionModel):
-            raise TypeError(
-                "Pass a TranscriptionModel enum member (e.g. OpenAITranscriptionModel.WHISPER_1) or a "
-                "'provider:model_id' string. TranscriptionSpec is the value type held by enum members."
-            )
-
-        if (
-            _HAS_HF_TRANSCRIPTION
-            and HuggingFaceTranscriptionModel is not None
-            and isinstance(model, HuggingFaceTranscriptionModel)
-        ):
-            self._client = HuggingFaceTranscriptionClient(model, model_kwargs=model_kwargs)
-        elif (
-            _HAS_OPENAI_TRANSCRIPTION
-            and OpenAITranscriptionModel is not None
-            and isinstance(model, OpenAITranscriptionModel)
-        ):
-            self._client = OpenAITranscriptionClient(model, model_kwargs=model_kwargs)
-        else:
-            raise ValueError(
-                f"No available client for transcription-model type {type(model).__name__!r}. "
-                "Ensure the required optional dependency is installed."
-            )
-
-    @property
-    def model(self) -> Any:
-        return self._client.model
-
-    @property
-    def spec(self) -> TranscriptionSpec:
-        return self._client.spec
-
-    @property
-    def model_kwargs(self) -> dict | None:
-        return self._client.model_kwargs
+        self._client: BaseTranscriptionClient = build_client(
+            model,
+            model_kwargs,
+            _entries(),
+            modality="transcription",
+            model_base=TranscriptionModel,
+            spec_base=TranscriptionSpec,
+        )
 
     def transcribe(self, audio: Any, **kwargs: Any) -> Any:
         """Transcribe audio to text. Forwarded to the inner client's

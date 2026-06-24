@@ -3,17 +3,20 @@
 Exposes:
 
 - :func:`resolve_image_model_string`: parse ``"provider:model_id"`` for image providers.
+- :func:`resolve_image_model_enum`: enum / string / bare-name resolution.
 - :class:`ImageClient`: factory ``BaseImageClient`` that dispatches to the right
   concrete client based on the model enum / spec / string passed in.
 
 Mirrors the text-side dispatch (:class:`aimu.models.ModelClient`,
-:func:`aimu.models.resolve_model_string`).
+:func:`aimu.models.resolve_model_string`). The shared dispatch logic lives in
+:mod:`aimu.models._internal.factory`.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional, Union
 
+from ._internal.factory import FactoryDelegate, ProviderEntry, available_registry, build_client, resolve_model_string
 from .base import BaseImageClient, ImageModel, ImageSpec
 
 # --- Optional provider imports ---
@@ -36,51 +39,32 @@ except ImportError:
     GeminiImageClient = None  # type: ignore[assignment,misc]
     GeminiImageModel = None  # type: ignore[assignment,misc]
 
+_HF_HINT = (
+    "HuggingFace image support requires the [hf] extra (diffusers, torch, transformers, Pillow): pip install -e '.[hf]'"
+)
+_GEMINI_HINT = "Gemini image support requires the [google] extra (google-genai, Pillow): pip install -e '.[google]'"
+
+
+def _entries() -> list[ProviderEntry]:
+    return [
+        ProviderEntry("hf", _HAS_HF_IMAGE, HuggingFaceImageModel, HuggingFaceImageClient, _HF_HINT),
+        ProviderEntry("gemini", _HAS_GEMINI_IMAGE, GeminiImageModel, GeminiImageClient, _GEMINI_HINT),
+    ]
+
 
 def _provider_registry() -> dict[str, tuple]:
-    """Map ``provider`` string → ``(ImageModel subclass, ImageClient subclass)``."""
-    registry: dict[str, tuple] = {}
-    if _HAS_HF_IMAGE:
-        registry["hf"] = (HuggingFaceImageModel, HuggingFaceImageClient)
-    if _HAS_GEMINI_IMAGE:
-        registry["gemini"] = (GeminiImageModel, GeminiImageClient)
-    return registry
+    """Map ``provider`` string → ``(ImageModel subclass, ImageClient subclass)`` (installed only)."""
+    return available_registry(_entries())
 
 
 def resolve_image_model_string(model_str: str) -> ImageModel:
     """Look up an image-provider model enum from a ``"provider:model_id"`` string.
 
-    Mirrors :func:`aimu.models.resolve_model_string` for image providers.
-
-    Examples::
-
-        resolve_image_model_string("hf:runwayml/stable-diffusion-v1-5")
-        resolve_image_model_string("gemini:nano-banana")
-        resolve_image_model_string("gemini:gemini-2.5-flash-image")
-
-    Note that string-form construction with arbitrary repo ids / Gemini aliases
-    is handled inside each concrete client's ``__init__``; this function only
-    matches *exact* enum-member values. For ad-hoc HuggingFace repos or Gemini
-    aliases, pass the ``"provider:..."`` string directly to :class:`ImageClient`
-    instead of calling this helper.
+    Mirrors :func:`aimu.models.resolve_model_string` for image providers. Only matches
+    *exact* enum-member values; for ad-hoc HuggingFace repos or Gemini aliases, pass the
+    ``"provider:..."`` string directly to :class:`ImageClient`.
     """
-    if ":" not in model_str:
-        raise ValueError(
-            f"Image model string must be in 'provider:model_id' form, got: {model_str!r}. "
-            f"Available providers: {sorted(_provider_registry())}"
-        )
-    provider, _, model_id = model_str.partition(":")
-    registry = _provider_registry()
-    if provider not in registry:
-        raise ValueError(
-            f"Unknown image provider {provider!r}. Available providers (with installed deps): {sorted(registry)}"
-        )
-    model_enum, _ = registry[provider]
-    for member in model_enum:
-        if member.value == model_id:
-            return member
-    available = sorted(m.value for m in model_enum)
-    raise ValueError(f"Provider {provider!r} has no image model id {model_id!r}. Available: {available}")
+    return resolve_model_string(model_str, _entries(), modality="image")
 
 
 def resolve_image_model_enum(model: Union[ImageModel, str]) -> ImageModel:
@@ -123,7 +107,7 @@ def resolve_image_model_enum(model: Union[ImageModel, str]) -> ImageModel:
     )
 
 
-class ImageClient:
+class ImageClient(FactoryDelegate):
     """Public factory for image-generation provider clients.
 
     Parallel to :class:`aimu.models.ModelClient` for the image modality. Accepts
@@ -150,60 +134,9 @@ class ImageClient:
     """
 
     def __init__(self, model: Union[ImageModel, ImageSpec, str], model_kwargs: Optional[dict] = None) -> None:
-        # String-form: route by prefix so ad-hoc ids (HuggingFace repo, Gemini alias)
-        # are accepted without requiring the model to be in our enum catalogs.
-        if isinstance(model, str):
-            if ":" not in model:
-                raise ValueError(f"Image model string must be in 'provider:model_id' form, got: {model!r}")
-            provider, _, _model_id = model.partition(":")
-            if provider == "hf":
-                if not _HAS_HF_IMAGE:
-                    raise ImportError(
-                        "HuggingFace image support requires the [hf] extra (diffusers, torch, transformers, Pillow): "
-                        "pip install -e '.[hf]'"
-                    )
-                self._client: BaseImageClient = HuggingFaceImageClient(model, model_kwargs=model_kwargs)
-                return
-            if provider == "gemini":
-                if not _HAS_GEMINI_IMAGE:
-                    raise ImportError(
-                        "Gemini image support requires the [google] extra (google-genai, Pillow): "
-                        "pip install -e '.[google]'"
-                    )
-                self._client = GeminiImageClient(model, model_kwargs=model_kwargs)
-                return
-            raise ValueError(f"Unknown image provider {provider!r}. Available: {sorted(_provider_registry())}")
-
-        if isinstance(model, ImageSpec) and not isinstance(model, ImageModel):
-            raise TypeError(
-                "Pass an ImageModel enum member (e.g. HuggingFaceImageModel.SD_1_5) or a "
-                "'provider:model_id' string. ImageSpec is the value type held by enum members."
-            )
-
-        # Enum form: isinstance against the concrete enum classes (guarded by _HAS_* flags).
-        if _HAS_HF_IMAGE and isinstance(model, HuggingFaceImageModel):
-            self._client = HuggingFaceImageClient(model, model_kwargs=model_kwargs)
-        elif _HAS_GEMINI_IMAGE and isinstance(model, GeminiImageModel):
-            self._client = GeminiImageClient(model, model_kwargs=model_kwargs)
-        else:
-            raise ValueError(
-                f"No available client for image-model type {type(model).__name__!r}. "
-                "Ensure the required optional dependency is installed (pip install 'aimu[hf]' or 'aimu[google]')."
-            )
-
-    # --- Delegate the common interface to the inner concrete client ---
-
-    @property
-    def model(self) -> Any:
-        return self._client.model
-
-    @property
-    def spec(self) -> ImageSpec:
-        return self._client.spec
-
-    @property
-    def model_kwargs(self) -> Optional[dict]:
-        return self._client.model_kwargs
+        self._client: BaseImageClient = build_client(
+            model, model_kwargs, _entries(), modality="image", model_base=ImageModel, spec_base=ImageSpec
+        )
 
     @property
     def max_prompt_tokens(self) -> Optional[int]:

@@ -1116,6 +1116,7 @@ aimu/
 │   │   ├── json.py          # parse_json_response, generate_json, extract_tool_calls
 │   │   ├── usage.py         # usage_from_openai/anthropic/ollama: normalize token usage → client.last_usage
 │   │   ├── model_defaults.py # default-model resolution + local-availability discovery (env + local probes); backs available_text_models / resolve_default_text_model_enum
+│   │   ├── factory.py       # ProviderEntry + build_client/resolve_model_string/FactoryDelegate: shared dispatch for the 5 modality factories (image/audio/speech/transcription/embedding)
 │   │   ├── image_input.py   # vision-input normalization (_normalize_image, per-provider adapters)
 │   │   ├── image_output.py  # encode_image(): diffusion-output format conversion
 │   │   └── audio_output.py  # encode_audio(): audio/speech-output conversion (WAV); reused by speech

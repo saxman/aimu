@@ -6,14 +6,15 @@ Exposes:
 - :class:`SpeechClient`: factory :class:`BaseSpeechClient` that dispatches to the right
   concrete client based on the model enum / spec / string passed in.
 
-Mirrors the audio-side dispatch (:class:`aimu.models.AudioClient`,
-:func:`aimu.models.resolve_audio_model_string`).
+Mirrors the audio-side dispatch. The shared dispatch logic lives in
+:mod:`aimu.models._internal.factory`.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional, Union
 
+from ._internal.factory import FactoryDelegate, ProviderEntry, available_registry, build_client, resolve_model_string
 from .base import BaseSpeechClient, SpeechModel, SpeechSpec
 
 # --- Optional provider imports ---
@@ -36,44 +37,32 @@ except ImportError:
     OpenAISpeechClient = None  # type: ignore[assignment,misc]
     OpenAISpeechModel = None  # type: ignore[assignment,misc]
 
+_HF_HINT = "HuggingFace speech support requires the [hf] extra (soundfile, torch, transformers): pip install -e '.[hf]'"
+_OPENAI_HINT = "OpenAI speech support requires the [openai_compat] extra (openai): pip install -e '.[openai_compat]'"
+
+
+def _entries() -> list[ProviderEntry]:
+    return [
+        ProviderEntry("hf", _HAS_HF_SPEECH, HuggingFaceSpeechModel, HuggingFaceSpeechClient, _HF_HINT),
+        ProviderEntry("openai", _HAS_OPENAI_SPEECH, OpenAISpeechModel, OpenAISpeechClient, _OPENAI_HINT),
+    ]
+
 
 def _provider_registry() -> dict[str, tuple]:
-    """Map ``provider`` string → ``(SpeechModel subclass, SpeechClient subclass)``."""
-    registry: dict[str, tuple] = {}
-    if _HAS_HF_SPEECH:
-        registry["hf"] = (HuggingFaceSpeechModel, HuggingFaceSpeechClient)
-    if _HAS_OPENAI_SPEECH:
-        registry["openai"] = (OpenAISpeechModel, OpenAISpeechClient)
-    return registry
+    """Map ``provider`` string → ``(SpeechModel subclass, SpeechClient subclass)`` (installed only)."""
+    return available_registry(_entries())
 
 
 def resolve_speech_model_string(model_str: str) -> SpeechModel:
     """Look up a speech-provider model enum from a ``"provider:model_id"`` string.
 
-    Mirrors :func:`aimu.models.resolve_audio_model_string` for speech providers.
     Only matches *exact* enum-member values; for ad-hoc model ids pass the
     ``"provider:..."`` string directly to :class:`SpeechClient`.
     """
-    if ":" not in model_str:
-        raise ValueError(
-            f"Speech model string must be in 'provider:model_id' form, got: {model_str!r}. "
-            f"Available providers: {sorted(_provider_registry())}"
-        )
-    provider, _, model_id = model_str.partition(":")
-    registry = _provider_registry()
-    if provider not in registry:
-        raise ValueError(
-            f"Unknown speech provider {provider!r}. Available providers (with installed deps): {sorted(registry)}"
-        )
-    model_enum, _ = registry[provider]
-    for member in model_enum:
-        if member.value == model_id:
-            return member
-    available = sorted(m.value for m in model_enum)
-    raise ValueError(f"Provider {provider!r} has no speech model id {model_id!r}. Available: {available}")
+    return resolve_model_string(model_str, _entries(), modality="speech")
 
 
-class SpeechClient:
+class SpeechClient(FactoryDelegate):
     """Public factory for TTS provider clients.
 
     Parallel to :class:`aimu.models.AudioClient` for the speech modality. Accepts
@@ -91,55 +80,9 @@ class SpeechClient:
     """
 
     def __init__(self, model: Union[SpeechModel, SpeechSpec, str], model_kwargs: Optional[dict] = None) -> None:
-        if isinstance(model, str):
-            if ":" not in model:
-                raise ValueError(f"Speech model string must be in 'provider:model_id' form, got: {model!r}")
-            provider, _, _model_id = model.partition(":")
-            if provider == "hf":
-                if not _HAS_HF_SPEECH:
-                    raise ImportError(
-                        "HuggingFace speech support requires the [hf] extra "
-                        "(soundfile, torch, transformers): pip install -e '.[hf]'"
-                    )
-                self._client: BaseSpeechClient = HuggingFaceSpeechClient(model, model_kwargs=model_kwargs)
-                return
-            if provider == "openai":
-                if not _HAS_OPENAI_SPEECH:
-                    raise ImportError(
-                        "OpenAI speech support requires the [openai_compat] extra "
-                        "(openai): pip install -e '.[openai_compat]'"
-                    )
-                self._client = OpenAISpeechClient(model, model_kwargs=model_kwargs)
-                return
-            raise ValueError(f"Unknown speech provider {provider!r}. Available: {sorted(_provider_registry())}")
-
-        if isinstance(model, SpeechSpec) and not isinstance(model, SpeechModel):
-            raise TypeError(
-                "Pass a SpeechModel enum member (e.g. OpenAISpeechModel.TTS_1) or a "
-                "'provider:model_id' string. SpeechSpec is the value type held by enum members."
-            )
-
-        if _HAS_HF_SPEECH and HuggingFaceSpeechModel is not None and isinstance(model, HuggingFaceSpeechModel):
-            self._client = HuggingFaceSpeechClient(model, model_kwargs=model_kwargs)
-        elif _HAS_OPENAI_SPEECH and OpenAISpeechModel is not None and isinstance(model, OpenAISpeechModel):
-            self._client = OpenAISpeechClient(model, model_kwargs=model_kwargs)
-        else:
-            raise ValueError(
-                f"No available client for speech-model type {type(model).__name__!r}. "
-                "Ensure the required optional dependency is installed."
-            )
-
-    @property
-    def model(self) -> Any:
-        return self._client.model
-
-    @property
-    def spec(self) -> SpeechSpec:
-        return self._client.spec
-
-    @property
-    def model_kwargs(self) -> Optional[dict]:
-        return self._client.model_kwargs
+        self._client: BaseSpeechClient = build_client(
+            model, model_kwargs, _entries(), modality="speech", model_base=SpeechModel, spec_base=SpeechSpec
+        )
 
     def generate(self, text: str, **kwargs: Any) -> Any:
         """Synthesise speech from text. Forwarded to the inner client's

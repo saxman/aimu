@@ -7,13 +7,15 @@ Exposes:
 - :class:`EmbeddingClient`: factory :class:`BaseEmbeddingClient` that dispatches to the
   right concrete client based on the model enum / spec / string passed in.
 
-Mirrors the transcription-side dispatch (:class:`aimu.models.TranscriptionClient`).
+Mirrors the transcription-side dispatch. The shared dispatch logic lives in
+:mod:`aimu.models._internal.factory`.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from ._internal.factory import FactoryDelegate, ProviderEntry, available_registry, build_client, resolve_model_string
 from .base import BaseEmbeddingClient, EmbeddingModel, EmbeddingSpec
 
 # --- Optional provider imports ---
@@ -45,17 +47,22 @@ except ImportError:
     HuggingFaceEmbeddingClient = None  # type: ignore[assignment,misc]
     HuggingFaceEmbeddingModel = None  # type: ignore[assignment,misc]
 
+_OPENAI_HINT = "OpenAI embedding support requires the [openai_compat] extra (openai): pip install -e '.[openai_compat]'"
+_OLLAMA_HINT = "Ollama embedding support requires the [ollama] extra (ollama): pip install -e '.[ollama]'"
+_HF_HINT = "HuggingFace embedding support requires the [hf] extra (sentence-transformers): pip install -e '.[hf]'"
+
+
+def _entries() -> list[ProviderEntry]:
+    return [
+        ProviderEntry("openai", _HAS_OPENAI_EMBEDDING, OpenAIEmbeddingModel, OpenAIEmbeddingClient, _OPENAI_HINT),
+        ProviderEntry("ollama", _HAS_OLLAMA_EMBEDDING, OllamaEmbeddingModel, OllamaEmbeddingClient, _OLLAMA_HINT),
+        ProviderEntry("hf", _HAS_HF_EMBEDDING, HuggingFaceEmbeddingModel, HuggingFaceEmbeddingClient, _HF_HINT),
+    ]
+
 
 def _provider_registry() -> dict[str, tuple]:
-    """Map ``provider`` string → ``(EmbeddingModel subclass, EmbeddingClient subclass)``."""
-    registry: dict[str, tuple] = {}
-    if _HAS_OPENAI_EMBEDDING:
-        registry["openai"] = (OpenAIEmbeddingModel, OpenAIEmbeddingClient)
-    if _HAS_OLLAMA_EMBEDDING:
-        registry["ollama"] = (OllamaEmbeddingModel, OllamaEmbeddingClient)
-    if _HAS_HF_EMBEDDING:
-        registry["hf"] = (HuggingFaceEmbeddingModel, HuggingFaceEmbeddingClient)
-    return registry
+    """Map ``provider`` string → ``(EmbeddingModel subclass, client subclass)`` (installed only)."""
+    return available_registry(_entries())
 
 
 def resolve_embedding_model_string(model_str: str) -> EmbeddingModel:
@@ -64,31 +71,15 @@ def resolve_embedding_model_string(model_str: str) -> EmbeddingModel:
     Only matches *exact* enum-member values; for ad-hoc model ids pass the
     ``"provider:..."`` string directly to :class:`EmbeddingClient`.
     """
-    if ":" not in model_str:
-        raise ValueError(
-            f"Embedding model string must be in 'provider:model_id' form, got: {model_str!r}. "
-            f"Available providers: {sorted(_provider_registry())}"
-        )
-    provider, _, model_id = model_str.partition(":")
-    registry = _provider_registry()
-    if provider not in registry:
-        raise ValueError(
-            f"Unknown embedding provider {provider!r}. Available providers (with installed deps): {sorted(registry)}"
-        )
-    model_enum, _ = registry[provider]
-    for member in model_enum:
-        if member.value == model_id:
-            return member
-    available = sorted(m.value for m in model_enum)
-    raise ValueError(f"Provider {provider!r} has no embedding model id {model_id!r}. Available: {available}")
+    return resolve_model_string(model_str, _entries(), modality="embedding")
 
 
-class EmbeddingClient:
+class EmbeddingClient(FactoryDelegate):
     """Public factory for text-embedding provider clients.
 
     Parallel to :class:`aimu.models.TranscriptionClient`. Accepts a provider's
     :class:`EmbeddingModel` enum member, an :class:`EmbeddingSpec`, or a
-    ``"provider:model_id"`` string (``"openai:..."`` or ``"ollama:..."``).
+    ``"provider:model_id"`` string (``"openai:..."``, ``"ollama:..."`` or ``"hf:..."``).
     Provider-specific construction kwargs are forwarded as ``model_kwargs``.
 
     Examples::
@@ -101,70 +92,13 @@ class EmbeddingClient:
     """
 
     def __init__(self, model: EmbeddingModel | EmbeddingSpec | str, model_kwargs: dict | None = None) -> None:
-        if isinstance(model, str):
-            if ":" not in model:
-                raise ValueError(f"Embedding model string must be in 'provider:model_id' form, got: {model!r}")
-            provider, _, _model_id = model.partition(":")
-            if provider == "openai":
-                if not _HAS_OPENAI_EMBEDDING:
-                    raise ImportError(
-                        "OpenAI embedding support requires the [openai_compat] extra (openai): "
-                        "pip install -e '.[openai_compat]'"
-                    )
-                self._client: BaseEmbeddingClient = OpenAIEmbeddingClient(model, model_kwargs=model_kwargs)
-                return
-            if provider == "ollama":
-                if not _HAS_OLLAMA_EMBEDDING:
-                    raise ImportError(
-                        "Ollama embedding support requires the [ollama] extra (ollama): pip install -e '.[ollama]'"
-                    )
-                self._client = OllamaEmbeddingClient(model, model_kwargs=model_kwargs)
-                return
-            if provider == "hf":
-                if not _HAS_HF_EMBEDDING:
-                    raise ImportError(
-                        "HuggingFace embedding support requires the [hf] extra (sentence-transformers): "
-                        "pip install -e '.[hf]'"
-                    )
-                self._client = HuggingFaceEmbeddingClient(model, model_kwargs=model_kwargs)
-                return
-            raise ValueError(f"Unknown embedding provider {provider!r}. Available: {sorted(_provider_registry())}")
-
-        if isinstance(model, EmbeddingSpec) and not isinstance(model, EmbeddingModel):
-            raise TypeError(
-                "Pass an EmbeddingModel enum member (e.g. OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL) or a "
-                "'provider:model_id' string. EmbeddingSpec is the value type held by enum members."
-            )
-
-        if _HAS_OPENAI_EMBEDDING and OpenAIEmbeddingModel is not None and isinstance(model, OpenAIEmbeddingModel):
-            self._client = OpenAIEmbeddingClient(model, model_kwargs=model_kwargs)
-        elif _HAS_OLLAMA_EMBEDDING and OllamaEmbeddingModel is not None and isinstance(model, OllamaEmbeddingModel):
-            self._client = OllamaEmbeddingClient(model, model_kwargs=model_kwargs)
-        elif (
-            _HAS_HF_EMBEDDING and HuggingFaceEmbeddingModel is not None and isinstance(model, HuggingFaceEmbeddingModel)
-        ):
-            self._client = HuggingFaceEmbeddingClient(model, model_kwargs=model_kwargs)
-        else:
-            raise ValueError(
-                f"No available client for embedding-model type {type(model).__name__!r}. "
-                "Ensure the required optional dependency is installed."
-            )
-
-    @property
-    def model(self) -> Any:
-        return self._client.model
-
-    @property
-    def spec(self) -> EmbeddingSpec:
-        return self._client.spec
+        self._client: BaseEmbeddingClient = build_client(
+            model, model_kwargs, _entries(), modality="embedding", model_base=EmbeddingModel, spec_base=EmbeddingSpec
+        )
 
     @property
     def dimensions(self) -> int | None:
         return self._client.dimensions
-
-    @property
-    def model_kwargs(self) -> dict | None:
-        return self._client.model_kwargs
 
     def embed(self, texts: str | list[str], **kwargs: Any) -> Any:
         """Embed text. Forwarded to the inner client's :meth:`BaseEmbeddingClient.embed`."""
