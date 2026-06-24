@@ -23,59 +23,19 @@ Example::
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 from typing import TYPE_CHECKING
 
 import pandas as pd
 from tqdm import tqdm
 
+from aimu.models._internal.json import parse_json_response
 from aimu.prompts.tuner import PromptTuner
 
 if TYPE_CHECKING:
     from aimu.models.base import BaseModelClient
 
 logger = logging.getLogger(__name__)
-
-_JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
-
-
-def _parse_json(text: str) -> dict:
-    """
-    Extract a JSON object from *text*.
-
-    Tries, in order:
-    1. Direct ``json.loads`` on the full string.
-    2. Content of the first ```json``` fenced block.
-    3. Substring from the first ``{`` to the last ``}``.
-
-    Raises:
-        ValueError: If no valid JSON object is found.
-    """
-    text = text.strip()
-
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-
-    m = _JSON_BLOCK_RE.search(text)
-    if m:
-        try:
-            return json.loads(m.group(1).strip())
-        except json.JSONDecodeError:
-            pass
-
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        try:
-            return json.loads(text[start : end + 1])
-        except json.JSONDecodeError:
-            pass
-
-    raise ValueError(f"Could not parse a JSON object from model output: {text!r}")
 
 
 class ExtractionPromptTuner(PromptTuner):
@@ -150,7 +110,7 @@ class ExtractionPromptTuner(PromptTuner):
             logger.info(f"raw extraction result: {result}")
 
             try:
-                parsed = _parse_json(result)
+                parsed = parse_json_response(result)
             except ValueError:
                 logger.warning(f"Failed to parse JSON from model output, treating as empty: {result!r}")
                 parsed = {}
