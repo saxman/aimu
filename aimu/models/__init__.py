@@ -58,7 +58,7 @@ try:
     from .providers.hf.text import HuggingFaceClient, HuggingFaceModel, ToolCallFormat
 
     HAS_HF = True
-except Exception:
+except ImportError:
     HAS_HF = False
     HuggingFaceClient = None
     HuggingFaceModel = None
@@ -68,7 +68,7 @@ try:
     from .providers.ollama import OllamaClient, OllamaModel
 
     HAS_OLLAMA = True
-except Exception:
+except ImportError:
     HAS_OLLAMA = False
     OllamaClient = None
     OllamaModel = None
@@ -77,7 +77,7 @@ try:
     from .providers.anthropic import AnthropicClient, AnthropicModel
 
     HAS_ANTHROPIC = True
-except Exception:
+except ImportError:
     HAS_ANTHROPIC = False
     AnthropicClient = None
     AnthropicModel = None
@@ -102,7 +102,7 @@ try:
     )
 
     HAS_OPENAI_COMPAT = True
-except Exception:
+except ImportError:
     HAS_OPENAI_COMPAT = False
     OpenAICompatClient = None
     OpenAIClient = None
@@ -126,7 +126,7 @@ try:
     from .providers.llamacpp import LlamaCppClient, LlamaCppModel
 
     HAS_LLAMACPP = True
-except Exception:
+except ImportError:
     HAS_LLAMACPP = False
     LlamaCppClient = None
     LlamaCppModel = None
@@ -135,7 +135,7 @@ try:
     from .providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
     HAS_HF_IMAGE = True
-except Exception:
+except ImportError:
     HAS_HF_IMAGE = False
     HuggingFaceImageClient = None
     HuggingFaceImageModel = None
@@ -144,7 +144,7 @@ try:
     from .providers.gemini.image import GeminiImageClient, GeminiImageModel
 
     HAS_GEMINI_IMAGE = True
-except Exception:
+except ImportError:
     HAS_GEMINI_IMAGE = False
     GeminiImageClient = None
     GeminiImageModel = None
@@ -153,7 +153,7 @@ try:
     from .providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
 
     HAS_HF_AUDIO = True
-except Exception:
+except ImportError:
     HAS_HF_AUDIO = False
     HuggingFaceAudioClient = None
     HuggingFaceAudioModel = None
@@ -162,7 +162,7 @@ try:
     from .providers.hf.speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
 
     HAS_HF_SPEECH = True
-except Exception:
+except ImportError:
     HAS_HF_SPEECH = False
     HuggingFaceSpeechClient = None
     HuggingFaceSpeechModel = None
@@ -171,7 +171,7 @@ try:
     from .providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
 
     HAS_OPENAI_SPEECH = True
-except Exception:
+except ImportError:
     HAS_OPENAI_SPEECH = False
     OpenAISpeechClient = None
     OpenAISpeechModel = None
@@ -180,7 +180,7 @@ try:
     from .providers.hf.transcription import HuggingFaceTranscriptionClient, HuggingFaceTranscriptionModel
 
     HAS_HF_TRANSCRIPTION = True
-except Exception:
+except ImportError:
     HAS_HF_TRANSCRIPTION = False
     HuggingFaceTranscriptionClient = None
     HuggingFaceTranscriptionModel = None
@@ -189,7 +189,7 @@ try:
     from .providers.openai.transcription import OpenAITranscriptionClient, OpenAITranscriptionModel
 
     HAS_OPENAI_TRANSCRIPTION = True
-except Exception:
+except ImportError:
     HAS_OPENAI_TRANSCRIPTION = False
     OpenAITranscriptionClient = None
     OpenAITranscriptionModel = None
@@ -198,7 +198,7 @@ try:
     from .providers.openai.embedding import OpenAIEmbeddingClient, OpenAIEmbeddingModel
 
     HAS_OPENAI_EMBEDDING = True
-except Exception:
+except ImportError:
     HAS_OPENAI_EMBEDDING = False
     OpenAIEmbeddingClient = None
     OpenAIEmbeddingModel = None
@@ -207,7 +207,7 @@ try:
     from .providers.ollama import OllamaEmbeddingClient, OllamaEmbeddingModel
 
     HAS_OLLAMA_EMBEDDING = True
-except Exception:
+except ImportError:
     HAS_OLLAMA_EMBEDDING = False
     OllamaEmbeddingClient = None
     OllamaEmbeddingModel = None
@@ -216,7 +216,7 @@ try:
     from .providers.hf.embedding import HuggingFaceEmbeddingClient, HuggingFaceEmbeddingModel
 
     HAS_HF_EMBEDDING = True
-except Exception:
+except ImportError:
     HAS_HF_EMBEDDING = False
     HuggingFaceEmbeddingClient = None
     HuggingFaceEmbeddingModel = None

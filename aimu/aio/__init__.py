@@ -58,37 +58,37 @@ from .workflows.plan_execute_evaluator import PlanExecuteEvaluator
 
 try:
     from .providers.hf.audio import AsyncHuggingFaceAudioClient
-except Exception:
+except ImportError:
     AsyncHuggingFaceAudioClient = None  # type: ignore[assignment,misc]
 
 try:
     from .providers.hf.image import AsyncHuggingFaceImageClient
-except Exception:
+except ImportError:
     AsyncHuggingFaceImageClient = None  # type: ignore[assignment,misc]
 
 try:
     from .providers.gemini.image import AsyncGeminiImageClient
-except Exception:
+except ImportError:
     AsyncGeminiImageClient = None  # type: ignore[assignment,misc]
 
 try:
     from .providers.hf.speech import AsyncHuggingFaceSpeechClient
-except Exception:
+except ImportError:
     AsyncHuggingFaceSpeechClient = None  # type: ignore[assignment,misc]
 
 try:
     from .providers.openai.speech import AsyncOpenAISpeechClient
-except Exception:
+except ImportError:
     AsyncOpenAISpeechClient = None  # type: ignore[assignment,misc]
 
 try:
     from .providers.hf.transcription import AsyncHuggingFaceTranscriptionClient
-except Exception:
+except ImportError:
     AsyncHuggingFaceTranscriptionClient = None  # type: ignore[assignment,misc]
 
 try:
     from .providers.openai_transcription import AsyncOpenAITranscriptionClient
-except Exception:
+except ImportError:
     AsyncOpenAITranscriptionClient = None  # type: ignore[assignment,misc]
 
 __all__ = [

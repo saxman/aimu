@@ -22,7 +22,7 @@ try:
     from .providers.ollama import AsyncOllamaClient
 
     _HAS_OLLAMA = True
-except Exception:
+except ImportError:
     _HAS_OLLAMA = False
     AsyncOllamaClient = None  # type: ignore[assignment,misc]
     OllamaModel = None  # type: ignore[assignment,misc]
@@ -33,7 +33,7 @@ try:
     from .providers.hf.text import AsyncHuggingFaceClient
 
     _HAS_HF = True
-except Exception:
+except ImportError:
     _HAS_HF = False
     AsyncHuggingFaceClient = None  # type: ignore[assignment,misc]
     HuggingFaceClient = None  # type: ignore[assignment,misc]
@@ -45,7 +45,7 @@ try:
     from .providers.anthropic import AsyncAnthropicClient
 
     _HAS_ANTHROPIC = True
-except Exception:
+except ImportError:
     _HAS_ANTHROPIC = False
     AsyncAnthropicClient = None  # type: ignore[assignment,misc]
     AnthropicModel = None  # type: ignore[assignment,misc]
@@ -74,7 +74,7 @@ try:
     )
 
     _HAS_OPENAI_COMPAT = True
-except Exception:
+except ImportError:
     _HAS_OPENAI_COMPAT = False
     AsyncOpenAIClient = AsyncGeminiClient = AsyncLMStudioOpenAIClient = AsyncOllamaOpenAIClient = None  # type: ignore[assignment,misc]
     AsyncHFOpenAIClient = AsyncVLLMOpenAIClient = AsyncLlamaServerOpenAIClient = AsyncSGLangOpenAIClient = None  # type: ignore[assignment,misc]
@@ -87,7 +87,7 @@ try:
     from .providers.llamacpp import AsyncLlamaCppClient
 
     _HAS_LLAMACPP = True
-except Exception:
+except ImportError:
     _HAS_LLAMACPP = False
     AsyncLlamaCppClient = None  # type: ignore[assignment,misc]
     LlamaCppClient = None  # type: ignore[assignment,misc]
