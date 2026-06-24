@@ -67,12 +67,22 @@ class SkillAgent(Agent):
             t for t in self._skills_tools if t.__name__ not in existing
         ]
 
-    async def run(self, task, generate_kwargs=None, stream=False, images=None, tools=None):
+    async def run(self, task, generate_kwargs=None, stream=False, images=None, tools=None, deps=None, schema=None):
         # Prepare + async skill setup must complete before the loop. The streamed path is
         # reimplemented here (rather than delegating to Agent._run_streamed) so _prepare_run
         # (which resets model_client.tools) runs exactly once, before skills are added.
-        self._prepare_run()
+        # ``deps`` and ``schema`` mirror aio.Agent.run(); see that method for full semantics.
+        if schema is not None and stream:
+            raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+
+        self._prepare_run(deps)
         await self._setup_skills_async()
+
+        if schema is not None:
+            result = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
+            self._last_messages = list(self.model_client.messages)
+            return result
+
         if stream:
             return self._run_streamed_after_setup(task, generate_kwargs, images=images, tools=tools)
 
@@ -84,6 +94,11 @@ class SkillAgent(Agent):
             response = await self.model_client.chat(
                 self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools
             )
+
+        if self.final_answer_prompt is not None and self._last_turn_called_tools():
+            logger.debug("SkillAgent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+            response = await self.model_client.chat(self.final_answer_prompt, generate_kwargs=generate_kwargs, tools=[])
+
         self._last_messages = list(self.model_client.messages)
         return response
 
@@ -102,6 +117,15 @@ class SkillAgent(Agent):
                 self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
             )
             async for chunk in nxt:
+                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
+            iteration += 1
+
+        if self.final_answer_prompt is not None and self._last_turn_called_tools():
+            logger.debug("SkillAgent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+            final = await self.model_client.chat(
+                self.final_answer_prompt, generate_kwargs=generate_kwargs, stream=True, tools=[]
+            )
+            async for chunk in final:
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
             iteration += 1
 

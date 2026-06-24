@@ -273,6 +273,66 @@ async def test_async_runner_as_tool_workflow_generic_description():
     assert await fn("go") == "step out"
 
 
+# ---------------------------------------------------------------------------
+# Async SkillAgent.run() parity with Agent.run(): deps= and schema=
+# ---------------------------------------------------------------------------
+
+
+def _empty_skill_manager(tmp_path):
+    """A SkillManager that discovers no skills, so async skill setup is a no-op."""
+    from aimu.skills.manager import SkillManager
+
+    return SkillManager(skill_dirs=[str(tmp_path / "no-skills-here")])
+
+
+async def test_async_skill_agent_run_threads_deps(tmp_path):
+    from aimu.aio import SkillAgent
+
+    client = MockAsyncModelClient(["hi"])
+    agent = SkillAgent(client, name="s", skill_manager=_empty_skill_manager(tmp_path))
+
+    sentinel = object()
+    await agent.run("greet", deps=sentinel)
+
+    assert client.tool_context_deps is sentinel
+
+
+async def test_async_skill_agent_run_schema_returns_typed_instance(tmp_path):
+    from dataclasses import dataclass
+
+    from aimu.aio import SkillAgent
+
+    @dataclass
+    class Verdict:
+        passed: bool
+        feedback: str
+
+    client = MockAsyncModelClient(['{"passed": true, "feedback": "ok"}'])
+    client.model.supports_structured_output = False  # force parse-path
+    agent = SkillAgent(client, name="s", skill_manager=_empty_skill_manager(tmp_path))
+
+    result = await agent.run("judge", schema=Verdict)
+
+    assert isinstance(result, Verdict)
+    assert result.passed is True
+    assert result.feedback == "ok"
+
+
+async def test_async_skill_agent_run_schema_rejects_stream(tmp_path):
+    from dataclasses import dataclass
+
+    from aimu.aio import SkillAgent
+
+    @dataclass
+    class Out:
+        x: int
+
+    agent = SkillAgent(MockAsyncModelClient(["{}"]), name="s", skill_manager=_empty_skill_manager(tmp_path))
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        await agent.run("t", stream=True, schema=Out)
+
+
 async def test_async_orchestrator_assemble_accepts_workflow_worker():
     from aimu.aio import Agent as AsyncAgent
     from aimu.aio import Chain as AsyncChain
