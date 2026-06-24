@@ -12,9 +12,16 @@ Mirrors the audio-side dispatch. The shared dispatch logic lives in
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any
 
-from ._internal.factory import FactoryDelegate, ProviderEntry, available_registry, build_client, resolve_model_string
+from ._internal.factory import (
+    FactoryDelegate,
+    ProviderEntry,
+    available_registry,
+    build_client,
+    factory_model_kwargs,
+    resolve_model_string,
+)
 from .base import BaseSpeechClient, SpeechModel, SpeechSpec
 
 # --- Optional provider imports ---
@@ -68,7 +75,8 @@ class SpeechClient(FactoryDelegate):
     Parallel to :class:`aimu.models.AudioClient` for the speech modality. Accepts
     a provider's :class:`SpeechModel` enum member, a :class:`SpeechSpec`, or a
     ``"provider:model_id"`` string (``"hf:..."`` or ``"openai:..."``).
-    Provider-specific construction kwargs are forwarded as ``model_kwargs``.
+    Provider-specific construction kwargs are passed directly (the legacy
+    ``model_kwargs={...}`` form is deprecated).
 
     Examples::
 
@@ -77,11 +85,20 @@ class SpeechClient(FactoryDelegate):
         client = SpeechClient(OpenAISpeechModel.TTS_1)
         client = SpeechClient("openai:tts-1")
         client = SpeechClient("hf:facebook/mms-tts-eng")
+
+    Provider-specific construction kwargs are passed directly::
+
+        SpeechClient(HuggingFaceSpeechModel.MMS_TTS_ENG, device="cpu")
     """
 
-    def __init__(self, model: Union[SpeechModel, SpeechSpec, str], model_kwargs: Optional[dict] = None) -> None:
+    def __init__(self, model: SpeechModel | SpeechSpec | str, **kwargs: Any) -> None:
         self._client: BaseSpeechClient = build_client(
-            model, model_kwargs, _entries(), modality="speech", model_base=SpeechModel, spec_base=SpeechSpec
+            model,
+            factory_model_kwargs(kwargs),
+            _entries(),
+            modality="speech",
+            model_base=SpeechModel,
+            spec_base=SpeechSpec,
         )
 
     def generate(self, text: str, **kwargs: Any) -> Any:

@@ -15,7 +15,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._internal.factory import FactoryDelegate, ProviderEntry, available_registry, build_client, resolve_model_string
+from ._internal.factory import (
+    FactoryDelegate,
+    ProviderEntry,
+    available_registry,
+    build_client,
+    factory_model_kwargs,
+    resolve_model_string,
+)
 from .base import BaseEmbeddingClient, EmbeddingModel, EmbeddingSpec
 
 # --- Optional provider imports ---
@@ -80,7 +87,8 @@ class EmbeddingClient(FactoryDelegate):
     Parallel to :class:`aimu.models.TranscriptionClient`. Accepts a provider's
     :class:`EmbeddingModel` enum member, an :class:`EmbeddingSpec`, or a
     ``"provider:model_id"`` string (``"openai:..."``, ``"ollama:..."`` or ``"hf:..."``).
-    Provider-specific construction kwargs are forwarded as ``model_kwargs``.
+    Provider-specific construction kwargs are passed directly (the legacy
+    ``model_kwargs={...}`` form is deprecated).
 
     Examples::
 
@@ -89,11 +97,20 @@ class EmbeddingClient(FactoryDelegate):
         client = EmbeddingClient(OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL)
         client = EmbeddingClient("openai:text-embedding-3-small")
         client = EmbeddingClient("ollama:nomic-embed-text")
+
+    Provider-specific construction kwargs are passed directly::
+
+        EmbeddingClient(HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, device="cpu")
     """
 
-    def __init__(self, model: EmbeddingModel | EmbeddingSpec | str, model_kwargs: dict | None = None) -> None:
+    def __init__(self, model: EmbeddingModel | EmbeddingSpec | str, **kwargs: Any) -> None:
         self._client: BaseEmbeddingClient = build_client(
-            model, model_kwargs, _entries(), modality="embedding", model_base=EmbeddingModel, spec_base=EmbeddingSpec
+            model,
+            factory_model_kwargs(kwargs),
+            _entries(),
+            modality="embedding",
+            model_base=EmbeddingModel,
+            spec_base=EmbeddingSpec,
         )
 
     @property

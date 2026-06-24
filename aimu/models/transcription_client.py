@@ -16,7 +16,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._internal.factory import FactoryDelegate, ProviderEntry, available_registry, build_client, resolve_model_string
+from ._internal.factory import (
+    FactoryDelegate,
+    ProviderEntry,
+    available_registry,
+    build_client,
+    factory_model_kwargs,
+    resolve_model_string,
+)
 from .base import BaseTranscriptionClient, TranscriptionModel, TranscriptionSpec
 
 # --- Optional provider imports ---
@@ -79,7 +86,7 @@ class TranscriptionClient(FactoryDelegate):
     Accepts a provider's :class:`TranscriptionModel` enum member, a
     :class:`TranscriptionSpec`, or a ``"provider:model_id"`` string
     (``"hf:..."`` or ``"openai:..."``). Provider-specific construction kwargs are
-    forwarded as ``model_kwargs``.
+    passed directly (the legacy ``model_kwargs={...}`` form is deprecated).
 
     Examples::
 
@@ -88,12 +95,16 @@ class TranscriptionClient(FactoryDelegate):
         client = TranscriptionClient(OpenAITranscriptionModel.WHISPER_1)
         client = TranscriptionClient("openai:whisper-1")
         client = TranscriptionClient("hf:openai/whisper-tiny")
+
+    Provider-specific construction kwargs are passed directly::
+
+        TranscriptionClient(HuggingFaceTranscriptionModel.WHISPER_TINY, device="cpu")
     """
 
-    def __init__(self, model: TranscriptionModel | TranscriptionSpec | str, model_kwargs: dict | None = None) -> None:
+    def __init__(self, model: TranscriptionModel | TranscriptionSpec | str, **kwargs: Any) -> None:
         self._client: BaseTranscriptionClient = build_client(
             model,
-            model_kwargs,
+            factory_model_kwargs(kwargs),
             _entries(),
             modality="transcription",
             model_base=TranscriptionModel,

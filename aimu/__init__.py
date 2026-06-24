@@ -214,7 +214,7 @@ def audio_client(model: Union[str, AudioModel, AudioSpec, None] = None, **kwargs
     """Construct an :class:`AudioClient` for text-to-audio (music/sound) generation.
 
     ``model`` may be a :class:`HuggingFaceAudioModel` member, a :class:`HuggingFaceAudioSpec`,
-    or a ``"hf:repo_id"`` string. Extra ``**kwargs`` are forwarded as ``model_kwargs`` to
+    or a ``"hf:repo_id"`` string. Extra ``**kwargs`` are forwarded as provider construction kwargs to
     the underlying provider client.
 
     When ``model`` is omitted, the ``AIMU_AUDIO_MODEL`` env var is used; if it is unset a
@@ -234,7 +234,7 @@ def audio_client(model: Union[str, AudioModel, AudioSpec, None] = None, **kwargs
         from .models._internal.model_defaults import AUDIO_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(AUDIO_MODEL_ENV)
-    return AudioClient(model, model_kwargs=kwargs or None)
+    return AudioClient(model, **kwargs)
 
 
 def generate_audio(
@@ -278,7 +278,7 @@ def speech_client(model: Union[str, SpeechModel, SpeechSpec, None] = None, **kwa
     ``model`` may be a :class:`HuggingFaceSpeechModel` / :class:`OpenAISpeechModel`
     member, a :class:`SpeechSpec`, or a ``"provider:model_id"`` string
     (``"hf:..."`` for HuggingFace; ``"openai:..."`` for OpenAI TTS).
-    Extra ``**kwargs`` are forwarded as ``model_kwargs`` to the underlying client.
+    Extra ``**kwargs`` are forwarded as provider construction kwargs to the underlying client.
 
     When ``model`` is omitted, the ``AIMU_SPEECH_MODEL`` env var is used; if it is unset a
     ``ValueError`` is raised (no model is downloaded implicitly).
@@ -292,7 +292,7 @@ def speech_client(model: Union[str, SpeechModel, SpeechSpec, None] = None, **kwa
         from .models._internal.model_defaults import SPEECH_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(SPEECH_MODEL_ENV)
-    return SpeechClient(model, model_kwargs=kwargs or None)
+    return SpeechClient(model, **kwargs)
 
 
 def generate_speech(
@@ -336,7 +336,7 @@ def transcription_client(
         )
 
         model = resolve_default_modality_model(TRANSCRIPTION_MODEL_ENV)
-    return TranscriptionClient(model, model_kwargs=kwargs or None)
+    return TranscriptionClient(model, **kwargs)
 
 
 def transcribe(
@@ -361,7 +361,7 @@ def embedding_client(
 
     ``model`` accepts an :class:`EmbeddingModel` enum member, a ``"provider:model_id"``
     string (e.g. ``"openai:text-embedding-3-small"``, ``"ollama:nomic-embed-text"``), or
-    an :class:`EmbeddingSpec`. Extra ``**kwargs`` are forwarded as ``model_kwargs`` to the
+    an :class:`EmbeddingSpec`. Extra ``**kwargs`` are forwarded as provider construction kwargs to the
     underlying client (e.g. ``api_key=`` for OpenAI).
 
     When ``model`` is omitted, the ``AIMU_EMBEDDING_MODEL`` env var is used; if it is unset
@@ -382,7 +382,7 @@ def embedding_client(
         from .models._internal.model_defaults import EMBEDDING_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(EMBEDDING_MODEL_ENV)
-    return EmbeddingClient(model, model_kwargs=kwargs or None)
+    return EmbeddingClient(model, **kwargs)
 
 
 def embed(
@@ -502,7 +502,7 @@ def image_client(model: Union[str, ImageModel, ImageSpec, None] = None, **kwargs
     ``model`` may be a :class:`HuggingFaceImageModel` / :class:`GeminiImageModel` member,
     an :class:`ImageSpec` subclass, or a ``"provider:model_id"`` string
     (``"hf:..."`` for HuggingFace ``diffusers``; ``"gemini:..."`` for Google Nano Banana).
-    Extra ``**kwargs`` are forwarded as ``model_kwargs`` to the underlying provider client
+    Extra ``**kwargs`` are forwarded as provider construction kwargs to the underlying provider client
     (e.g. ``api_key=`` for Gemini, ``variant="fp16"`` for diffusers pipelines).
 
     When ``model`` is omitted, the ``AIMU_IMAGE_MODEL`` env var is used; if it is unset a
@@ -517,7 +517,7 @@ def image_client(model: Union[str, ImageModel, ImageSpec, None] = None, **kwargs
         from .models._internal.model_defaults import IMAGE_MODEL_ENV, resolve_default_modality_model
 
         model = resolve_default_modality_model(IMAGE_MODEL_ENV)
-    return ImageClient(model, model_kwargs=kwargs or None)
+    return ImageClient(model, **kwargs)
 
 
 def generate_image(

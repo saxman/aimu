@@ -13,9 +13,16 @@ Mirrors the image-side dispatch (:class:`aimu.models.ImageClient`,
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any
 
-from ._internal.factory import FactoryDelegate, ProviderEntry, available_registry, build_client, resolve_model_string
+from ._internal.factory import (
+    FactoryDelegate,
+    ProviderEntry,
+    available_registry,
+    build_client,
+    factory_model_kwargs,
+    resolve_model_string,
+)
 from .base import AudioModel, AudioSpec, BaseAudioClient
 
 # --- Optional provider imports ---
@@ -60,7 +67,7 @@ class AudioClient(FactoryDelegate):
     Parallel to :class:`aimu.models.ImageClient` for the audio modality. Accepts
     a provider's :class:`AudioModel` enum member, an :class:`AudioSpec`, or a
     ``"provider:model_id"`` string. Provider-specific construction kwargs are
-    forwarded as ``model_kwargs`` to the concrete client.
+    passed directly (the legacy ``model_kwargs={...}`` form is deprecated).
 
     Examples::
 
@@ -72,11 +79,20 @@ class AudioClient(FactoryDelegate):
         # String form (supports ad-hoc HuggingFace repo ids)
         client = AudioClient("hf:facebook/musicgen-small")
         client = AudioClient("hf:myorg/custom-audioldm2")
+
+    Provider-specific construction kwargs are passed directly::
+
+        AudioClient(HuggingFaceAudioModel.STABLE_AUDIO_OPEN, torch_dtype="auto")
     """
 
-    def __init__(self, model: Union[AudioModel, AudioSpec, str], model_kwargs: Optional[dict] = None) -> None:
+    def __init__(self, model: AudioModel | AudioSpec | str, **kwargs: Any) -> None:
         self._client: BaseAudioClient = build_client(
-            model, model_kwargs, _entries(), modality="audio", model_base=AudioModel, spec_base=AudioSpec
+            model,
+            factory_model_kwargs(kwargs),
+            _entries(),
+            modality="audio",
+            model_base=AudioModel,
+            spec_base=AudioSpec,
         )
 
     def generate(self, prompt: str, **kwargs: Any) -> Any:

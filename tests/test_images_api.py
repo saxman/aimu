@@ -739,6 +739,32 @@ def test_top_level_image_client_dispatches_hf_enum():
     assert isinstance(c._client, HuggingFaceImageClient)
 
 
+def test_image_client_forwards_direct_kwargs_as_model_kwargs():
+    """ImageClient(model, key=val) packs provider kwargs into the concrete client's model_kwargs."""
+    c = aimu.ImageClient(HuggingFaceImageModel.SD_1_5, variant="fp16")
+    assert c._client.model_kwargs == {"variant": "fp16"}
+
+
+def test_image_client_no_kwargs_is_none():
+    c = aimu.ImageClient(HuggingFaceImageModel.SD_1_5)
+    assert c._client.model_kwargs is None
+
+
+def test_image_client_legacy_model_kwargs_still_works_with_deprecation():
+    import pytest
+
+    with pytest.warns(DeprecationWarning, match="model_kwargs="):
+        c = aimu.ImageClient(HuggingFaceImageModel.SD_1_5, model_kwargs={"variant": "fp16"})
+    assert c._client.model_kwargs == {"variant": "fp16"}
+
+
+def test_image_client_mixing_model_kwargs_and_direct_raises():
+    import pytest
+
+    with pytest.raises(TypeError, match="do not mix"):
+        aimu.ImageClient(HuggingFaceImageModel.SD_1_5, variant="fp16", model_kwargs={"x": 1})
+
+
 def test_top_level_image_client_dispatches_gemini_string(fake_genai):
     c = aimu.image_client("gemini:nano-banana")
     assert isinstance(c, aimu.ImageClient)

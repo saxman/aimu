@@ -14,9 +14,16 @@ Mirrors the text-side dispatch (:class:`aimu.models.ModelClient`,
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
-from ._internal.factory import FactoryDelegate, ProviderEntry, available_registry, build_client, resolve_model_string
+from ._internal.factory import (
+    FactoryDelegate,
+    ProviderEntry,
+    available_registry,
+    build_client,
+    factory_model_kwargs,
+    resolve_model_string,
+)
 from .base import BaseImageClient, ImageModel, ImageSpec
 
 # --- Optional provider imports ---
@@ -67,7 +74,7 @@ def resolve_image_model_string(model_str: str) -> ImageModel:
     return resolve_model_string(model_str, _entries(), modality="image")
 
 
-def resolve_image_model_enum(model: Union[ImageModel, str]) -> ImageModel:
+def resolve_image_model_enum(model: ImageModel | str) -> ImageModel:
     """Resolve an image model to an ``ImageModel`` enum member.
 
     Accepts, in order:
@@ -113,7 +120,7 @@ class ImageClient(FactoryDelegate):
     Parallel to :class:`aimu.models.ModelClient` for the image modality. Accepts
     a provider's :class:`ImageModel` enum member, an :class:`ImageSpec`, or a
     ``"provider:model_id"`` string. Provider-specific construction kwargs are
-    forwarded as ``model_kwargs`` to the concrete client.
+    passed directly (the legacy ``model_kwargs={...}`` form is deprecated).
 
     Examples::
 
@@ -127,15 +134,20 @@ class ImageClient(FactoryDelegate):
         client = ImageClient("hf:runwayml/stable-diffusion-v1-5")
         client = ImageClient("gemini:nano-banana")
 
-    Provider-specific kwargs are forwarded::
+    Provider-specific construction kwargs are passed directly::
 
-        ImageClient(HuggingFaceImageModel.SDXL_BASE, model_kwargs={"variant": "fp16"})
-        ImageClient(GeminiImageModel.NANO_BANANA, model_kwargs={"api_key": "..."})
+        ImageClient(HuggingFaceImageModel.SDXL_BASE, variant="fp16")
+        ImageClient(GeminiImageModel.NANO_BANANA, api_key="...")
     """
 
-    def __init__(self, model: Union[ImageModel, ImageSpec, str], model_kwargs: Optional[dict] = None) -> None:
+    def __init__(self, model: ImageModel | ImageSpec | str, **kwargs: Any) -> None:
         self._client: BaseImageClient = build_client(
-            model, model_kwargs, _entries(), modality="image", model_base=ImageModel, spec_base=ImageSpec
+            model,
+            factory_model_kwargs(kwargs),
+            _entries(),
+            modality="image",
+            model_base=ImageModel,
+            spec_base=ImageSpec,
         )
 
     @property
