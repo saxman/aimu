@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator, Optional, Union
 
+from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents.base import MessageHistory, Runner
 from aimu.models.base import BaseModelClient, StreamChunk
 
@@ -16,7 +17,7 @@ DEFAULT_CONTINUATION_PROMPT = (
 
 
 @dataclass
-class Agent(Runner):
+class Agent(_AgentLoopMixin, Runner):
     """A model client wrapped in an agentic loop.
 
     Calls ``model_client.chat()`` repeatedly until the model produces a turn without
@@ -73,18 +74,6 @@ class Agent(Runner):
             # Stable but unique-per-instance default. Users who need readable names
             # in messages histories should pass ``name=`` explicitly.
             self.name = f"agent-{id(self) & 0xFFFFFF:06x}"
-
-    def _prepare_run(self, deps: Any = None) -> None:
-        """Reset client state and re-apply system_message before a run, when configured.
-
-        ``deps`` (a per-run override) takes precedence over the agent's ``self.deps`` field;
-        the effective value is published to the model client for ``ToolContext`` injection.
-        """
-        if self.reset_messages_on_run or self.system_message is not None:
-            self.model_client.reset(system_message=self.system_message)
-        if self.tools:
-            self.model_client.tools = list(self.tools)
-        self.model_client.tool_context_deps = deps if deps is not None else self.deps
 
     def run(
         self,
@@ -173,46 +162,6 @@ class Agent(Runner):
     @property
     def messages(self) -> MessageHistory:
         return {self.name: self._last_messages}
-
-    def restore(self, messages: list[dict]) -> None:
-        """Restore agent state from a saved message list for resuming after failure.
-
-        Saves the partial state from a failed run via ``agent.model_client.messages``
-        (the live list, not the post-run snapshot from ``agent.messages``), then call
-        this method before the next ``run()`` to resume from that point.
-
-        Handles the system-message duplication hazard: ``model_client.reset()``
-        clears history and preserves the ``system_message`` attribute, and this method
-        strips the leading system message from *messages* (if present) so it is not
-        prepended twice on the next ``chat()`` call.
-
-        Example::
-
-            try:
-                result = agent.run(task)
-            except Exception:
-                import json
-                with open("checkpoint.json", "w") as f:
-                    json.dump(agent.model_client.messages, f)
-                raise
-
-            # On retry:
-            with open("checkpoint.json") as f:
-                saved = json.load(f)
-            agent.restore(saved)
-            result = agent.run(continuation_prompt)
-        """
-        self.model_client.reset()  # clears messages, keeps system_message value
-        stripped = [m for m in messages if m.get("role") != "system"]
-        self.model_client.messages = stripped
-
-    def _last_turn_called_tools(self) -> bool:
-        for msg in reversed(self.model_client.messages):
-            if msg.get("role") == "user":
-                return False
-            if msg.get("role") == "tool":
-                return True
-        return False
 
     def as_model_client(self) -> BaseModelClient:
         """Return a :class:`BaseModelClient` view of this agent.

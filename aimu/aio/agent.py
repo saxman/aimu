@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable, Optional, Union
 
+from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents.base import MessageHistory
 from aimu.models.base import StreamChunk
 
@@ -75,7 +76,7 @@ class AsyncRunner(ABC):
 
 
 @dataclass
-class Agent(AsyncRunner):
+class Agent(_AgentLoopMixin, AsyncRunner):
     """Async equivalent of :class:`aimu.agents.Agent`.
 
     Calls ``await model_client.chat()`` repeatedly until the model produces a turn
@@ -112,13 +113,6 @@ class Agent(AsyncRunner):
     def __post_init__(self) -> None:
         if self.name is None:
             self.name = f"agent-{id(self) & 0xFFFFFF:06x}"
-
-    def _prepare_run(self, deps: Any = None) -> None:
-        if self.reset_messages_on_run or self.system_message is not None:
-            self.model_client.reset(system_message=self.system_message)
-        if self.tools:
-            self.model_client.tools = list(self.tools)
-        self.model_client.tool_context_deps = deps if deps is not None else self.deps
 
     async def run(
         self,
@@ -205,26 +199,6 @@ class Agent(AsyncRunner):
     @property
     def messages(self) -> MessageHistory:
         return {self.name: self._last_messages}
-
-    def restore(self, messages: list[dict]) -> None:
-        """Restore agent state from a saved message list for resuming after failure.
-
-        Mirrors sync :meth:`aimu.agents.Agent.restore`: clears the client (preserving the
-        ``system_message`` value) and strips any leading system message from *messages* so
-        it isn't prepended twice on the next ``chat()``. Save the live partial state from a
-        failed run via ``agent.model_client.messages`` (not the post-run ``agent.messages``).
-        """
-        self.model_client.reset()
-        stripped = [m for m in messages if m.get("role") != "system"]
-        self.model_client.messages = stripped
-
-    def _last_turn_called_tools(self) -> bool:
-        for msg in reversed(self.model_client.messages):
-            if msg.get("role") == "user":
-                return False
-            if msg.get("role") == "tool":
-                return True
-        return False
 
     def as_model_client(self) -> AsyncBaseModelClient:
         """Return an :class:`AsyncBaseModelClient` view of this agent.
