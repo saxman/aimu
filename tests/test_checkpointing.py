@@ -119,6 +119,12 @@ def test_chain_restore_specific_step():
     assert "Hello" in [m["content"] for m in c2.messages]
 
 
+def test_chain_restore_out_of_range_step_raises():
+    chain = Chain(agents=[Agent(MockModelClient([]), system_message="Step 1", name="s1")])
+    with pytest.raises(IndexError, match="out of range"):
+        chain.restore(_messages_with_system(), step=5)
+
+
 # ---------------------------------------------------------------------------
 # Router.restore
 # ---------------------------------------------------------------------------
@@ -173,6 +179,12 @@ def test_parallel_restore_worker_by_index():
 
     assert "Hello" in [m["content"] for m in c1.messages]
     assert c0.messages == []  # other workers untouched
+
+
+def test_parallel_restore_out_of_range_worker_raises():
+    parallel = Parallel(workers=[Agent(MockModelClient([]), system_message="W0", name="w0")])
+    with pytest.raises(IndexError, match="out of range"):
+        parallel.restore(_messages_with_system(), worker=9)
 
 
 def test_parallel_restore_defaults_to_first_worker():

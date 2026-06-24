@@ -72,12 +72,15 @@ class Parallel(AsyncRunner):
             result.update(self.aggregator.messages)
         return result
 
-    def restore(self, messages: list[dict], worker: int = 0) -> None:
+    def restore(self, messages: list[dict], *, worker: int = 0) -> None:
         """Restore one worker's state from a saved message list.
 
-        *worker* selects which worker by index (default 0). Other workers and the
-        aggregator start fresh on the next ``run()``. See :meth:`aimu.aio.Agent.restore`.
+        *worker* (keyword-only) selects which worker by index (default 0). Other workers and
+        the aggregator start fresh on the next ``run()``. Raises ``IndexError`` if *worker*
+        is out of range. See :meth:`aimu.aio.Agent.restore`.
         """
+        if not 0 <= worker < len(self.workers):
+            raise IndexError(f"worker {worker} out of range for {len(self.workers)} worker(s).")
         self.workers[worker].restore(messages)
 
     async def _run_workers(

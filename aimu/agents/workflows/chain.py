@@ -93,13 +93,15 @@ class Chain(Runner):
             result.update(agent.messages)
         return result
 
-    def restore(self, messages: list[dict], step: int = 0) -> None:
+    def restore(self, messages: list[dict], *, step: int = 0) -> None:
         """Restore a chain step's state from a saved message list.
 
-        *step* selects which step's agent to restore (default 0, the first step).
-        Subsequent steps start fresh on the next ``run()``. See
-        :meth:`Agent.restore` for the full save/restore pattern.
+        *step* (keyword-only) selects which step's agent to restore (default 0, the first
+        step); subsequent steps start fresh on the next ``run()``. Raises ``IndexError`` if
+        *step* is out of range. See :meth:`Agent.restore` for the full save/restore pattern.
         """
+        if not 0 <= step < len(self.agents):
+            raise IndexError(f"step {step} out of range for chain with {len(self.agents)} step(s).")
         self.agents[step].restore(messages)
 
     @classmethod

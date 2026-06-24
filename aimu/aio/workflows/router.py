@@ -93,12 +93,12 @@ class Router(AsyncRunner):
             result.update(self.fallback.messages)
         return result
 
-    def restore(self, messages: list[dict], route: Optional[str] = None) -> None:
+    def restore(self, messages: list[dict], *, route: Optional[str] = None) -> None:
         """Restore one sub-runner's state from a saved message list.
 
-        ``route=None`` (default) restores the routing classifier; a route key restores that
-        handler (raises ``KeyError`` listing the routes on a miss). Other sub-runners start
-        fresh on the next ``run()``. See :meth:`aimu.aio.Agent.restore` for the pattern.
+        ``route=None`` (default, keyword-only) restores the routing classifier; a route key
+        restores that handler (raises ``KeyError`` listing the routes on a miss). Other
+        sub-runners start fresh on the next ``run()``. See :meth:`aimu.aio.Agent.restore`.
         """
         if route is None:
             self.routing_agent.restore(messages)

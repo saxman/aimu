@@ -9,6 +9,7 @@
 
 ### Agents and workflows
 
+- **Change** the composite-runner `restore()` selectors are now **keyword-only** and give clear errors on a bad selector (sync + `aimu.aio`): `Chain.restore(messages, *, step=0)`, `Parallel.restore(messages, *, worker=0)`, `Router.restore(messages, *, route=None)`. `step` / `worker` out of range now raise `IndexError` with a descriptive message (Router already raised `KeyError` on an unknown route). Existing keyword calls are unaffected; only positional selector calls (e.g. `chain.restore(msgs, 1)`) need updating to `step=1`. The semantic names are kept rather than collapsed to a generic `target=`.
 - **Fix** async `SkillAgent.run()` (`aimu.aio`) ignored `deps=` and `schema=`, which its sync twin and `aio.Agent.run()` both accept — async skill users silently lost `ToolContext` dependency injection and structured output. The async override now mirrors `aio.Agent.run()` in full: `deps=`, `schema=` (mutually exclusive with `stream=True`), and the `final_answer_prompt` forced-wrap-up on both the streamed and non-streamed paths.
 
 ## v0.10.0 (2026-06-23): A2A interop + resilience (fallback, timeout/retry), Anthropic prompt caching, streaming usage, uniform restore
