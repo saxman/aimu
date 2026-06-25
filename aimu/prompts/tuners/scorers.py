@@ -59,6 +59,10 @@ class Scorer(ABC):
     ``output`` attributes (pandas Series). They return ``(score, feedback)``
     where *score* is a float in [0, 1] and *feedback* is a string passed
     through to the mutation prompt to help the model improve.
+
+    Built-in implementations: :class:`LLMJudgeScorer` (a single judge model rating
+    1-10, configured with ``criteria``) and :class:`aimu.evals.deepeval_scorer.DeepEvalScorer`
+    (one or more pre-configured DeepEval metrics, averaged).
     """
 
     @abstractmethod
@@ -68,6 +72,9 @@ class Scorer(ABC):
 class LLMJudgeScorer(Scorer):
     """
     Score each row by asking a judge model for a 1-10 rating.
+
+    Configured with free-text ``criteria``. For metric-based scoring (relevancy,
+    faithfulness, etc.) use :class:`aimu.evals.deepeval_scorer.DeepEvalScorer` instead.
 
     Args:
         judge_client:    ModelClient used to evaluate outputs.

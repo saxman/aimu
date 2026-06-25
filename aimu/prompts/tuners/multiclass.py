@@ -38,6 +38,9 @@ class MultiClassPromptTuner(PromptTuner):
     """
     Prompt tuner for multi-class (N-way) classification.
 
+    Constructor: ``MultiClassPromptTuner(model_client, classes)`` — ``classes`` (the list
+    of valid category names) is **required**, unlike the bare-``model_client`` tuners.
+
     Inherits the hill-climbing loop from PromptTuner.tune() and implements
     apply_prompt, evaluate, and mutation_prompt for multi-class tasks.
 

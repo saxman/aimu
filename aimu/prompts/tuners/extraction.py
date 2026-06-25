@@ -41,6 +41,9 @@ class ExtractionPromptTuner(PromptTuner):
     """
     Prompt tuner for structured field extraction.
 
+    Constructor: ``ExtractionPromptTuner(model_client, fields)`` — ``fields`` (the field
+    names to extract and compare) is **required**, unlike the bare-``model_client`` tuners.
+
     Inherits the hill-climbing loop from PromptTuner.tune() and implements
     apply_prompt, evaluate, and mutation_prompt for extraction tasks.
 

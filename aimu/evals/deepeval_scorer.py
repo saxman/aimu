@@ -25,6 +25,9 @@ class DeepEvalScorer(Scorer):
     """
     Score each row using one or more DeepEval metrics, averaged.
 
+    For simple free-text-criteria scoring without DeepEval, use
+    :class:`aimu.prompts.tuners.scorers.LLMJudgeScorer` instead.
+
     Args:
         metrics:      One or more DeepEval ``BaseMetric`` instances. Each
                       metric should already be configured with its own
