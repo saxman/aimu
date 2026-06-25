@@ -5404,7 +5404,7 @@ Anthropic API format happens at call time.</p>
 
 
 <a href="#aimu.models.EmbeddingClient" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">EmbeddingModel</span> <span class="o">|</span> <span class="n">EmbeddingSpec</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">EmbeddingModel</span> <span class="o">|</span> <span class="n">EmbeddingSpec</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5417,13 +5417,17 @@ Anthropic API format happens at call time.</p>
 <p>Parallel to :class:<code>aimu.models.TranscriptionClient</code>. Accepts a provider's
 :class:<code>EmbeddingModel</code> enum member, an :class:<code>EmbeddingSpec</code>, or a
 <code>"provider:model_id"</code> string (<code>"openai:..."</code>, <code>"ollama:..."</code> or <code>"hf:..."</code>).
-Provider-specific construction kwargs are forwarded as <code>model_kwargs</code>.</p>
+Provider-specific construction kwargs are passed directly, e.g.
+<code>EmbeddingClient(model, device="cpu")</code>.</p>
 <p>Examples::</p>
 <div class="language-text highlight"><pre><span></span><code>from aimu.models import EmbeddingClient, OpenAIEmbeddingModel
 
 client = EmbeddingClient(OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL)
 client = EmbeddingClient(&quot;openai:text-embedding-3-small&quot;)
 client = EmbeddingClient(&quot;ollama:nomic-embed-text&quot;)
+</code></pre></div>
+<p>Provider-specific construction kwargs are passed directly::</p>
+<div class="language-text highlight"><pre><span></span><code>EmbeddingClient(HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, device=&quot;cpu&quot;)
 </code></pre></div>
 
 

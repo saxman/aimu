@@ -4438,14 +4438,15 @@ history; restore a worker directly if it needs resuming. See
 
 
 <a href="#aimu.aio.Chain.restore" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Restore a chain step's state from a saved message list.</p>
-<p><em>step</em> selects which step's agent to restore (default 0). Subsequent steps start
-fresh on the next <code>run()</code>. See :meth:<code>aimu.aio.Agent.restore</code> for the pattern.</p>
+<p><em>step</em> (keyword-only) selects which step's agent to restore (default 0); subsequent
+steps start fresh on the next <code>run()</code>. Raises <code>IndexError</code> if <em>step</em> is out of
+range. See :meth:<code>aimu.aio.Agent.restore</code> for the pattern.</p>
 
 
     </div>
@@ -4513,15 +4514,15 @@ fresh on the next <code>run()</code>. See :meth:<code>aimu.aio.Agent.restore</co
 
 
 <a href="#aimu.aio.Router.restore" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">route</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">route</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Restore one sub-runner's state from a saved message list.</p>
-<p><code>route=None</code> (default) restores the routing classifier; a route key restores that
-handler (raises <code>KeyError</code> listing the routes on a miss). Other sub-runners start
-fresh on the next <code>run()</code>. See :meth:<code>aimu.aio.Agent.restore</code> for the pattern.</p>
+<p><code>route=None</code> (default, keyword-only) restores the routing classifier; a route key
+restores that handler (raises <code>KeyError</code> listing the routes on a miss). Other
+sub-runners start fresh on the next <code>run()</code>. See :meth:<code>aimu.aio.Agent.restore</code>.</p>
 
 
     </div>
@@ -4593,14 +4594,15 @@ and an <code>ExceptionGroup</code> surfaces with all errors.</p>
 
 
 <a href="#aimu.aio.Parallel.restore" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">worker</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">restore</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Restore one worker's state from a saved message list.</p>
-<p><em>worker</em> selects which worker by index (default 0). Other workers and the
-aggregator start fresh on the next <code>run()</code>. See :meth:<code>aimu.aio.Agent.restore</code>.</p>
+<p><em>worker</em> (keyword-only) selects which worker by index (default 0). Other workers and
+the aggregator start fresh on the next <code>run()</code>. Raises <code>IndexError</code> if <em>worker</em>
+is out of range. See :meth:<code>aimu.aio.Agent.restore</code>.</p>
 
 
     </div>
