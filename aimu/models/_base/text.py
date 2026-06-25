@@ -13,6 +13,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Iterable, Iterator, Optional, Union
 
+from .._internal.chat_state import _ChatStateMixin
+from .._internal.streaming import filter_chunks as _filter_chunks_fn
+from .._internal.streaming import resolve_include as _resolve_include_fn
 from .shared import StreamChunk, StreamingContentType, classproperty
 
 logger = logging.getLogger(__name__)
@@ -65,13 +68,6 @@ class Model(Enum):
         self.supports_audio = spec.audio
         self.supports_structured_output = spec.structured_output
         self.generation_kwargs = dict(spec.generation_kwargs or {})
-
-
-# Pure helpers; imported here so the existing public surface continues to work and
-# the async surface can reuse the same logic.
-from .._internal.chat_state import _ChatStateMixin  # noqa: E402
-from .._internal.streaming import filter_chunks as _filter_chunks_fn  # noqa: E402
-from .._internal.streaming import resolve_include as _resolve_include_fn  # noqa: E402
 
 
 class BaseModelClient(_ChatStateMixin, ABC):
