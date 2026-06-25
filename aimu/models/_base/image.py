@@ -227,8 +227,7 @@ class BaseImageClient(ABC):
         """
         from .._internal.image_output import encode_image  # local import keeps base.py light
 
-        del preview_every  # unused at the default level; provider overrides honour it
-
+        # preview_every is intentionally unused here (see docstring); provider overrides honour it.
         images = self._generate(prompt, num_images=num_images, **kwargs)
         for i, img in enumerate(images):
             encoded = encode_image(img, format=format, prompt=prompt, output_dir=output_dir)
