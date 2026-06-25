@@ -3280,6 +3280,9 @@ methods on top of this baseline.</p>
     <div class="doc doc-contents ">
 
         <p>Return up to <em>n_results</em> strings relevant to <em>query</em>.</p>
+<p>Concrete stores may accept additional store-specific keyword arguments (e.g.
+<code>SemanticMemoryStore.search(..., max_distance=...)</code>); those are not part of this
+interface, so code typed against <code>MemoryStore</code> should not rely on them.</p>
 
 
     </div>
@@ -3538,6 +3541,10 @@ form, e.g. "Paul works at Google" or "Sarah is the sister of Emma".</p>
         <p>Retrieve facts semantically related to a query.</p>
 <p>Uses ChromaDB's vector similarity search so broad topics like "work"
 or "family life" match relevant facts without exact-string matching.</p>
+<p>Note: <code>max_distance</code> is specific to this store and is <strong>not</strong> part of the
+:class:<code>~aimu.memory.base.MemoryStore</code> interface; code typed against the base
+<code>MemoryStore</code> (or a <code>DocumentStore</code>, which has no distance notion) cannot pass
+it. Type the variable as <code>SemanticMemoryStore</code> to use it.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

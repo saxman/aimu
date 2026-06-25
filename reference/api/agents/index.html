@@ -3889,11 +3889,18 @@
 
         <p>Message histories of all sub-runners, keyed by runner name.</p>
 <p>For a leaf agent: <code>{agent.name: model_client.messages}</code>. For composite
-workflows: dicts from every constituent runner merged into one, so the result
-spans the full sub-tree regardless of nesting depth.</p>
-<p>Note: when agents share a single <code>ModelClient</code> (e.g. via <code>Chain.from_config</code>),
-all agents reference the same messages list. After the run every key in the
-returned dict points at the last step's messages.</p>
+workflows: the per-runner dicts merged into one (via <code>dict.update</code>), so the
+result spans the full sub-tree regardless of nesting depth. Example::</p>
+<div class="language-text highlight"><pre><span></span><code>router.messages
+# {&quot;router-classifier&quot;: [...], &quot;code-handler&quot;: [...], &quot;prose-handler&quot;: [...]}
+</code></pre></div>
+<p>Merge is <strong>by runner name</strong>: two sub-runners sharing a name collide and the one
+merged later wins (last-write). Give sub-runners distinct <code>name=</code>s if you need
+every history addressable.</p>
+<p>Separately, when sub-runners share a single <code>ModelClient</code> (e.g. via
+<code>Chain.from_config</code>), they all reference the <em>same</em> messages list, so after a run
+every key points at that one shared (last step's) history. Use distinct clients per
+sub-runner to keep histories separate.</p>
 
     </div>
 

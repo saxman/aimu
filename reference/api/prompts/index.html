@@ -4515,6 +4515,8 @@ apply_prompt, evaluate, and mutation_prompt for classification tasks.</p>
 
 
         <p>Prompt tuner for multi-class (N-way) classification.</p>
+<p>Constructor: <code>MultiClassPromptTuner(model_client, classes)</code> — <code>classes</code> (the list
+of valid category names) is <strong>required</strong>, unlike the bare-<code>model_client</code> tuners.</p>
 <p>Inherits the hill-climbing loop from PromptTuner.tune() and implements
 apply_prompt, evaluate, and mutation_prompt for multi-class tasks.</p>
 
@@ -4822,6 +4824,8 @@ apply_prompt, evaluate, and mutation_prompt for multi-class tasks.</p>
 
 
         <p>Prompt tuner for structured field extraction.</p>
+<p>Constructor: <code>ExtractionPromptTuner(model_client, fields)</code> — <code>fields</code> (the field
+names to extract and compare) is <strong>required</strong>, unlike the bare-<code>model_client</code> tuners.</p>
 <p>Inherits the hill-climbing loop from PromptTuner.tune() and implements
 apply_prompt, evaluate, and mutation_prompt for extraction tasks.</p>
 
@@ -5477,6 +5481,9 @@ demonstrating the PromptTuner base-class extension point.</p>
 <code>output</code> attributes (pandas Series). They return <code>(score, feedback)</code>
 where <em>score</em> is a float in [0, 1] and <em>feedback</em> is a string passed
 through to the mutation prompt to help the model improve.</p>
+<p>Built-in implementations: :class:<code>LLMJudgeScorer</code> (a single judge model rating
+1-10, configured with <code>criteria</code>) and :class:<code>aimu.evals.deepeval_scorer.DeepEvalScorer</code>
+(one or more pre-configured DeepEval metrics, averaged).</p>
 
 
 
@@ -5526,6 +5533,8 @@ through to the mutation prompt to help the model improve.</p>
 
 
         <p>Score each row by asking a judge model for a 1-10 rating.</p>
+<p>Configured with free-text <code>criteria</code>. For metric-based scoring (relevancy,
+faithfulness, etc.) use :class:<code>aimu.evals.deepeval_scorer.DeepEvalScorer</code> instead.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
