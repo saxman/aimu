@@ -21,7 +21,6 @@ from ._internal.factory import (
     ProviderEntry,
     available_registry,
     build_client,
-    factory_model_kwargs,
     resolve_model_string,
 )
 from .base import BaseTranscriptionClient, TranscriptionModel, TranscriptionSpec
@@ -86,7 +85,7 @@ class TranscriptionClient(FactoryDelegate):
     Accepts a provider's :class:`TranscriptionModel` enum member, a
     :class:`TranscriptionSpec`, or a ``"provider:model_id"`` string
     (``"hf:..."`` or ``"openai:..."``). Provider-specific construction kwargs are
-    passed directly (the legacy ``model_kwargs={...}`` form is deprecated).
+    passed directly, e.g. ``TranscriptionClient(model, device="cpu")``.
 
     Examples::
 
@@ -104,7 +103,7 @@ class TranscriptionClient(FactoryDelegate):
     def __init__(self, model: TranscriptionModel | TranscriptionSpec | str, **kwargs: Any) -> None:
         self._client: BaseTranscriptionClient = build_client(
             model,
-            factory_model_kwargs(kwargs),
+            kwargs or None,
             _entries(),
             modality="transcription",
             model_base=TranscriptionModel,

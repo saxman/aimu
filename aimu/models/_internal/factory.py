@@ -14,37 +14,8 @@ bare-name/local-availability resolution is richer and lives on its own.
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from typing import Any, Optional
-
-
-def factory_model_kwargs(kwargs: dict) -> Optional[dict]:
-    """Map a modality factory's ``**kwargs`` to the concrete client's ``model_kwargs`` dict.
-
-    The factories (``ImageClient``, ``AudioClient``, …) accept provider construction kwargs
-    directly, mirroring ``ModelClient(model, base_url=...)``::
-
-        ImageClient(HuggingFaceImageModel.SDXL_BASE, variant="fp16")
-
-    The legacy ``model_kwargs={...}`` form is still accepted but deprecated: it is unwrapped
-    here with a :class:`DeprecationWarning`. Returns ``None`` when no kwargs were given.
-    """
-    if "model_kwargs" in kwargs:
-        inner = kwargs.pop("model_kwargs")
-        if kwargs:
-            raise TypeError(
-                "Pass provider kwargs directly to the factory (e.g. variant='fp16'); "
-                "do not mix them with the deprecated model_kwargs= argument."
-            )
-        warnings.warn(
-            "Passing model_kwargs= to a modality factory is deprecated; pass provider kwargs "
-            "directly, e.g. ImageClient(model, variant='fp16').",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return inner
-    return kwargs or None
 
 
 @dataclass(frozen=True)

@@ -19,7 +19,6 @@ from ._internal.factory import (
     ProviderEntry,
     available_registry,
     build_client,
-    factory_model_kwargs,
     resolve_model_string,
 )
 from .base import BaseSpeechClient, SpeechModel, SpeechSpec
@@ -75,8 +74,8 @@ class SpeechClient(FactoryDelegate):
     Parallel to :class:`aimu.models.AudioClient` for the speech modality. Accepts
     a provider's :class:`SpeechModel` enum member, a :class:`SpeechSpec`, or a
     ``"provider:model_id"`` string (``"hf:..."`` or ``"openai:..."``).
-    Provider-specific construction kwargs are passed directly (the legacy
-    ``model_kwargs={...}`` form is deprecated).
+    Provider-specific construction kwargs are passed directly, e.g.
+    ``SpeechClient(model, device="cpu")``.
 
     Examples::
 
@@ -94,7 +93,7 @@ class SpeechClient(FactoryDelegate):
     def __init__(self, model: SpeechModel | SpeechSpec | str, **kwargs: Any) -> None:
         self._client: BaseSpeechClient = build_client(
             model,
-            factory_model_kwargs(kwargs),
+            kwargs or None,
             _entries(),
             modality="speech",
             model_base=SpeechModel,

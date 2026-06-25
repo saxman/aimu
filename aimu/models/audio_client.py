@@ -20,7 +20,6 @@ from ._internal.factory import (
     ProviderEntry,
     available_registry,
     build_client,
-    factory_model_kwargs,
     resolve_model_string,
 )
 from .base import AudioModel, AudioSpec, BaseAudioClient
@@ -67,7 +66,7 @@ class AudioClient(FactoryDelegate):
     Parallel to :class:`aimu.models.ImageClient` for the audio modality. Accepts
     a provider's :class:`AudioModel` enum member, an :class:`AudioSpec`, or a
     ``"provider:model_id"`` string. Provider-specific construction kwargs are
-    passed directly (the legacy ``model_kwargs={...}`` form is deprecated).
+    passed directly, e.g. ``AudioClient(model, torch_dtype="auto")``.
 
     Examples::
 
@@ -88,7 +87,7 @@ class AudioClient(FactoryDelegate):
     def __init__(self, model: AudioModel | AudioSpec | str, **kwargs: Any) -> None:
         self._client: BaseAudioClient = build_client(
             model,
-            factory_model_kwargs(kwargs),
+            kwargs or None,
             _entries(),
             modality="audio",
             model_base=AudioModel,

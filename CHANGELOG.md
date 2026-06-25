@@ -4,7 +4,7 @@
 
 ### Models
 
-- **Change** the modality factory classes (`ImageClient`, `AudioClient`, `SpeechClient`, `TranscriptionClient`, `EmbeddingClient`) now take provider construction kwargs **directly** as `**kwargs`, matching `ModelClient(model, base_url=...)` and the top-level `aimu.image_client(model, variant="fp16")` helpers: `ImageClient(HuggingFaceImageModel.SDXL_BASE, variant="fp16")`. The legacy `model_kwargs={...}` argument still works but raises a `DeprecationWarning`; pass the kwargs directly instead. The concrete provider clients (`HuggingFaceImageClient`, etc.) are unchanged and still take `model_kwargs=`.
+- **Change** the modality factory classes (`ImageClient`, `AudioClient`, `SpeechClient`, `TranscriptionClient`, `EmbeddingClient`) now take provider construction kwargs **directly** as `**kwargs`, matching `ModelClient(model, base_url=...)` and the top-level `aimu.image_client(model, variant="fp16")` helpers: `ImageClient(HuggingFaceImageModel.SDXL_BASE, variant="fp16")`. The old `model_kwargs={...}` argument is **removed** (pass the kwargs directly instead). The concrete provider clients (`HuggingFaceImageClient`, etc.) are unchanged and still take `model_kwargs=`.
 - **Fix** optional-provider import guards (`aimu.models`, `ModelClient`, and their `aimu.aio` mirrors) now catch `ImportError` instead of bare `Exception`. A real error inside a provider module (a `SyntaxError`, an `AttributeError`, a broken transitive dependency) was previously swallowed and the provider silently reported as "dependency not installed," surfacing later as a confusing "no client for …" message; the real cause now propagates at import time.
 
 ### Agents and workflows

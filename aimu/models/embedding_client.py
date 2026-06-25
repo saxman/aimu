@@ -20,7 +20,6 @@ from ._internal.factory import (
     ProviderEntry,
     available_registry,
     build_client,
-    factory_model_kwargs,
     resolve_model_string,
 )
 from .base import BaseEmbeddingClient, EmbeddingModel, EmbeddingSpec
@@ -87,8 +86,8 @@ class EmbeddingClient(FactoryDelegate):
     Parallel to :class:`aimu.models.TranscriptionClient`. Accepts a provider's
     :class:`EmbeddingModel` enum member, an :class:`EmbeddingSpec`, or a
     ``"provider:model_id"`` string (``"openai:..."``, ``"ollama:..."`` or ``"hf:..."``).
-    Provider-specific construction kwargs are passed directly (the legacy
-    ``model_kwargs={...}`` form is deprecated).
+    Provider-specific construction kwargs are passed directly, e.g.
+    ``EmbeddingClient(model, device="cpu")``.
 
     Examples::
 
@@ -106,7 +105,7 @@ class EmbeddingClient(FactoryDelegate):
     def __init__(self, model: EmbeddingModel | EmbeddingSpec | str, **kwargs: Any) -> None:
         self._client: BaseEmbeddingClient = build_client(
             model,
-            factory_model_kwargs(kwargs),
+            kwargs or None,
             _entries(),
             modality="embedding",
             model_base=EmbeddingModel,

@@ -21,7 +21,6 @@ from ._internal.factory import (
     ProviderEntry,
     available_registry,
     build_client,
-    factory_model_kwargs,
     resolve_model_string,
 )
 from .base import BaseImageClient, ImageModel, ImageSpec
@@ -120,7 +119,7 @@ class ImageClient(FactoryDelegate):
     Parallel to :class:`aimu.models.ModelClient` for the image modality. Accepts
     a provider's :class:`ImageModel` enum member, an :class:`ImageSpec`, or a
     ``"provider:model_id"`` string. Provider-specific construction kwargs are
-    passed directly (the legacy ``model_kwargs={...}`` form is deprecated).
+    passed directly, e.g. ``ImageClient(model, variant="fp16")``.
 
     Examples::
 
@@ -143,7 +142,7 @@ class ImageClient(FactoryDelegate):
     def __init__(self, model: ImageModel | ImageSpec | str, **kwargs: Any) -> None:
         self._client: BaseImageClient = build_client(
             model,
-            factory_model_kwargs(kwargs),
+            kwargs or None,
             _entries(),
             modality="image",
             model_base=ImageModel,
