@@ -120,6 +120,11 @@ class SemanticMemoryStore(MemoryStore):
         Uses ChromaDB's vector similarity search so broad topics like "work"
         or "family life" match relevant facts without exact-string matching.
 
+        Note: ``max_distance`` is specific to this store and is **not** part of the
+        :class:`~aimu.memory.base.MemoryStore` interface; code typed against the base
+        ``MemoryStore`` (or a ``DocumentStore``, which has no distance notion) cannot pass
+        it. Type the variable as ``SemanticMemoryStore`` to use it.
+
         Args:
             query:        Natural-language query (e.g. "work", "family").
             n_results:    Maximum number of facts to return.

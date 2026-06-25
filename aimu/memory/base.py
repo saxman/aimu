@@ -26,7 +26,12 @@ class MemoryStore(ABC):
 
     @abstractmethod
     def search(self, query: str, n_results: int = 10) -> list[str]:
-        """Return up to *n_results* strings relevant to *query*."""
+        """Return up to *n_results* strings relevant to *query*.
+
+        Concrete stores may accept additional store-specific keyword arguments (e.g.
+        ``SemanticMemoryStore.search(..., max_distance=...)``); those are not part of this
+        interface, so code typed against ``MemoryStore`` should not rely on them.
+        """
 
     @abstractmethod
     def delete(self, identifier: str) -> None:
