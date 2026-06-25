@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.10.1 (2026-06-24): cleanup — unified modality factory kwargs, keyword-only restore(), async SkillAgent parity + import-guard hardening
 
 ### Models
 
