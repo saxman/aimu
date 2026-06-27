@@ -1,0 +1,156 @@
+# Build a personal assistant
+
+A personal AI assistant (in the style of [OpenClaw](https://github.com/openclaw/openclaw) or
+[Hermes Agent](https://hermes-agent.nousresearch.com/)) is a long-running process that talks to
+you over a chat channel, acts unprompted (reminders, check-ins), and grows its own skills. AIMU
+ships three async-first primitives for exactly the pieces that go beyond a single LLM call:
+
+| Need | Primitive |
+|---|---|
+| Talk over a transport (terminal, chat platform) | `aimu.aio.Channel` ABC + `aimu.aio.CLIChannel` |
+| Act proactively on a schedule | `aimu.aio.Scheduler` |
+| Author new skills at runtime | `aimu.skills.write_skill` / `make_skill_authoring_tool` |
+
+These are **library primitives**, not an app. A complete single-user daemon that wires them
+together lives in [`examples/personal-assistant/`](https://github.com/saxman/aimu/tree/main/examples/personal-assistant).
+Model-agnostic LLMs, multi-agent routing, voice I/O, and persistent memory already exist
+elsewhere in AIMU, so they are not duplicated here.
+
+!!! note "Single user by design"
+    A *personal* assistant serves one person, so there is no multi-user session keying.
+    [`ConversationManager`](persist-conversations.md) holds the one conversation. Multi-user
+    routing belongs in a wrapper above the library.
+
+## Channels
+
+A `Channel` is a tiny transport ABC: receive inbound messages, send replies.
+
+```python
+from aimu.aio import CLIChannel, ChannelMessage
+
+channel = CLIChannel()
+
+async for msg in channel.receive():        # async generator over inbound messages
+    print("got:", msg.text)
+    await channel.send("Thanks!", reply_to=msg)
+```
+
+`ChannelMessage` is plain transport data (`text`, `sender`, `channel`, `images`, `metadata`),
+distinct from LLM conversation state; `text` and `images` map straight onto `agent.run(...)`.
+`send()` accepts either a finished string or an `AsyncIterator[StreamChunk]` to relay a streamed
+reply token-by-token.
+
+The `reply_to` argument is the seam for network adapters: a Telegram/Slack `Channel` uses it to
+route a reply to the right chat. `CLIChannel` is single-user, so it ignores it. A network adapter
+is a drop-in subclass (constructed via a `connect()` classmethod factory, like
+[`aio.MCPClient.connect`](use-mcp-tools.md)); none ships yet, keeping heavy SDKs out of core.
+
+## Scheduler
+
+`Scheduler` runs interval and one-shot async jobs concurrently under one `asyncio.TaskGroup`. A
+job is a zero-argument coroutine factory; bind context (an agent, a channel) with a closure.
+
+```python
+import functools
+from aimu.aio import Scheduler
+
+async def check_in(agent, channel):
+    reply = await agent.run("Give the user one short, useful suggestion.")
+    await channel.send(reply)
+
+scheduler = Scheduler()
+scheduler.every(3600, functools.partial(check_in, agent, channel), name="hourly")
+scheduler.at(30, functools.partial(check_in, agent, channel))   # one-shot, 30s after start
+await scheduler.run()   # blocks until scheduler.stop()
+```
+
+A job that raises is logged and, for interval jobs, retried on the next tick: one misbehaving
+reminder must not kill the daemon. `run()` is single-use; build a fresh `Scheduler` to run again.
+Job persistence across restarts is intentionally out of scope (jobs are Python callables).
+
+## Skill authoring (self-improvement)
+
+The assistant can write a new skill when it works out a repeatable procedure, so it remembers how
+next time. `make_skill_authoring_tool` returns an async `@tool` the agent calls; pass it to a
+[`SkillAgent`](use-skills.md) so authored skills are discoverable in the same run.
+
+```python
+from aimu.skills import SkillManager, make_skill_authoring_tool
+from aimu import aio
+
+skills_dir = ".agents/skills"
+manager = SkillManager(skill_dirs=[skills_dir])
+author_skill = make_skill_authoring_tool(manager, skills_dir)
+
+client = aio.client("anthropic:claude-sonnet-4-6", system="You are a personal assistant. "
+                    "When the user teaches you a repeatable procedure, call author_skill to save it.")
+agent = aio.SkillAgent(client, tools=[author_skill], skill_manager=manager, name="assistant")
+```
+
+`author_skill(name, description, body)` calls `write_skill(...)` (which validates the name as a
+slug, refuses to clobber, and round-trips through the parser so a malformed file fails loudly)
+then `manager.refresh()` to invalidate the discovery cache.
+
+!!! warning "Catalog refresh limitation"
+    After `refresh()`, the new skill is reachable via `activate_skill` immediately, but a skill
+    catalog already injected into the in-flight system prompt is not retroactively updated. It
+    surfaces in the next fresh conversation.
+
+You can also call `write_skill` directly (no agent):
+
+```python
+from aimu.skills import write_skill
+write_skill("format-standup", "Format a standup update.",
+            "# Standup\n\nThree bullets: Yesterday, Today, Blockers.", skills_dir=".agents/skills")
+```
+
+## Wire it into a daemon
+
+The pieces compose into one process: a top-level `asyncio.TaskGroup` runs the channel listener
+and the scheduler concurrently; each inbound message runs the agent and streams the reply back;
+history is persisted after each turn.
+
+```python
+import asyncio
+from aimu import aio
+from aimu.aio import CLIChannel, Scheduler
+from aimu.history import ConversationManager
+
+async def main():
+    channel = CLIChannel()
+    scheduler = Scheduler()
+    conversation = ConversationManager("assistant_history.json", use_last_conversation=True)
+    # ... build agent with author_skill as above; restore prior messages with agent.restore(...) ...
+
+    async def serve():
+        try:
+            async for msg in channel.receive():
+                reply = await agent.run(msg.text, stream=True, images=msg.images)
+                await channel.send(reply, reply_to=msg)
+                conversation.update_conversation([dict(m) for m in agent.model_client.messages])
+        finally:
+            scheduler.stop()        # channel closed (EOF) -> stop the scheduler so run() returns
+
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(serve())
+        tg.create_task(scheduler.run())
+
+asyncio.run(main())
+```
+
+The reference app in `examples/personal-assistant/` is this, fleshed out: serialize reactive and
+proactive turns with a lock (they share one agent), an argparse entry point, and mock-only tests.
+
+Run it:
+
+```bash
+python examples/personal-assistant/assistant.py \
+    --model anthropic:claude-sonnet-4-6 --reminder-seconds 30
+```
+
+## See also
+
+- [Use skills](use-skills.md): the `SkillAgent` and `SKILL.md` format the authoring tool writes to
+- [Use async (`aio`)](use-async.md): the async surface these primitives live on
+- [Persist conversations](persist-conversations.md): `ConversationManager`
+- [`aimu.aio` API reference](../reference/api/aio.md) · [`aimu.skills` API reference](../reference/api/skills.md)

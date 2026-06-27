@@ -121,6 +121,7 @@ nav:
       - Retrieval-augmented generation: how-to/use-rag.md
       - Use LLMs inside tools: how-to/using-llms-inside-tools.md
       - Build an orchestrator: how-to/build-orchestrator.md
+      - Build a personal assistant: how-to/build-personal-assistant.md
       - Connect agents (A2A): how-to/connect-agents-a2a.md
       - Plan, execute, evaluate, replan: how-to/plan-execute-evaluate.md
       - Tune prompts: how-to/tune-prompts.md

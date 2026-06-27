@@ -57,6 +57,15 @@ class SkillManager:
             self._skills = self._discover()
         return self._skills
 
+    def refresh(self) -> dict[str, AgentSkill]:
+        """Invalidate the cache and re-discover skills, returning the new map.
+
+        Lets a skill authored at runtime (see :func:`aimu.skills.write_skill`) become
+        visible mid-run without constructing a fresh manager.
+        """
+        self._skills = None
+        return self.skills
+
     def _search_dirs(self) -> list[Path]:
         if self._custom_dirs:
             return self._custom_dirs

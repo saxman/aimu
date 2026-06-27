@@ -45,6 +45,18 @@ Differences from the sync surface:
 
 ::: aimu.aio.MCPClient
 
+## Personal assistant
+
+Primitives for building an always-on assistant. See [how-to: build a personal assistant](../../how-to/build-personal-assistant.md).
+
+::: aimu.aio.Channel
+
+::: aimu.aio.ChannelMessage
+
+::: aimu.aio.CLIChannel
+
+::: aimu.aio.Scheduler
+
 ## A2A interop
 
 Async twin of `aimu.agents.a2a` (requires the `a2a` extra). `aimu.aio.a2a.RemoteAgent` uses the

@@ -43,6 +43,8 @@ from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
 from .fallback import AsyncFallbackClient
 from .agent import Agent, AsyncRunner
+from .channels import CLIChannel, Channel, ChannelMessage
+from .scheduler import Scheduler
 from .audio import AsyncAudioClient, audio_client, generate_audio
 from .embedding import AsyncEmbeddingClient, embed, embedding_client
 from .image import AsyncImageClient, generate_image, image_client
@@ -108,13 +110,17 @@ __all__ = [
     "AsyncRunner",
     "AsyncSpeechClient",
     "AsyncTranscriptionClient",
+    "CLIChannel",
     "Chain",
+    "Channel",
+    "ChannelMessage",
     "EvaluatorOptimizer",
     "MCPClient",
     "OrchestratorAgent",
     "Parallel",
     "PlanExecuteEvaluator",
     "Router",
+    "Scheduler",
     "SkillAgent",
     "audio_client",
     "chat",

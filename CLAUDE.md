@@ -25,6 +25,8 @@ AIMU also ships an optional **async surface** under `aimu.aio` that mirrors the 
 
 For **cross-process / cross-vendor** composition, an optional **A2A (Agent2Agent) interop** layer under `aimu.agents.a2a` (extra: `aimu[a2a]`) exposes any `Runner` as an HTTP server (`serve_a2a`) and consumes a remote agent as a local `Runner` (`RemoteAgent`). It mirrors the MCP-for-tools pattern at the agent level and is adapter-shaped (A2A types never leak into `Runner`/`Agent` core). Because `RemoteAgent` is a `Runner`, a remote agent composes (via `as_tool()`, as a workflow step, or an `assemble()` worker) exactly like a local one. See [docs/explanation/a2a-vs-mcp.md](docs/explanation/a2a-vs-mcp.md).
 
+For **always-on personal assistants** (OpenClaw / Hermes Agent style), three async-first primitives supply the pieces beyond an LLM call: a `Channel` transport ABC + `CLIChannel` (`aimu.aio.channels`), a `Scheduler` for proactive triggers (`aimu.aio.Scheduler`), and runtime skill authoring (`aimu.skills.write_skill` / `make_skill_authoring_tool` + `SkillManager.refresh()`). These are library primitives only; the assembled single-user daemon lives in `examples/personal-assistant/`. See the "Personal-Assistant Primitives" section below.
+
 ## Design Principles
 
 These six principles drive every architectural decision in AIMU. When proposing changes, check the change against each one. If it violates a principle, it likely belongs in a wrapper above AIMU rather than in the library itself. Full rationale lives in [docs/explanation/design-principles.md](docs/explanation/design-principles.md).
@@ -211,6 +213,7 @@ async def main():
   - `parallel.py`: async `Parallel`. **The headline change**: `asyncio.TaskGroup` replaces `ThreadPoolExecutor`. Structured concurrency: sibling cancellation on first failure, `ExceptionGroup` aggregation.
   - `evaluator.py`: async `EvaluatorOptimizer`.
   - `plan_execute_evaluator.py`: async `PlanExecuteEvaluator`.
+- **[aimu/aio/scheduler.py](aimu/aio/scheduler.py)** + **[aimu/aio/channels/](aimu/aio/channels/)**: personal-assistant primitives (`Scheduler`, `Channel`/`CLIChannel`). See "Personal-Assistant Primitives" below.
 
 **Shared infrastructure** (used by both sync and async surfaces, no duplication):
 
@@ -405,7 +408,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
 - **[aimu/memory/semantic_store.py](aimu/memory/semantic_store.py)**: `SemanticMemoryStore(MemoryStore)` for semantic fact storage
   - Uses ChromaDB with cosine similarity for vector search
   - `store(fact)`: Store a subject-predicate-object string; auto-assigns UUID
-  - `search(topic, n_results, max_distance)`: Semantic vector search by topic; `max_distance` is an optional cosine-distance cutoff (0 = identical, 2 = maximally dissimilar; useful range ~0.3–0.6; default `None` = no cutoff)
+  - `search(topic, n_results, max_distance)`: Semantic vector search by topic; `max_distance` is an optional cosine-distance cutoff (0 = identical, 2 = maximally dissimilar; useful range ~0.3 to 0.6; default `None` = no cutoff)
   - `delete(fact)`: Remove by exact-string match; no-op if not found
   - `list_all()`: Return all stored fact strings
   - Constructor: `SemanticMemoryStore(collection_name="memories", persist_path=None)`; `persist_path=None` → ephemeral
@@ -570,6 +573,23 @@ Optional cross-process / cross-vendor agent interop under **[aimu/agents/a2a/](a
 - **Async twin** under **[aimu/aio/a2a/](aimu/aio/a2a/)** (exported from `aimu.aio` when `HAS_A2A`): `RemoteAgent(AsyncRunner)` uses the `a2a-sdk` async client natively (no portal, mirrors `aimu.aio.MCPClient`) and supports real incremental `message/stream` streaming mapped to `StreamChunk`s; async `serve_a2a`/`build_a2a_app` await `runner.run` directly. Reuses the sync `_card.py` helpers and `A2AConnectionError`.
 - **Composition payoff**: because `RemoteAgent` is a `Runner`, a remote agent drops into `Chain`/`Router`/`Parallel`/`assemble(workers=[...])` and into any local agent's tools via `remote.as_tool()` with no A2A-specific wiring; the direct analog of `MCPClient.as_tools()`, at the agent level.
 - **Tests**: `tests/test_a2a.py` (sync) and `tests/test_aio_a2a.py` (async), both gated on `pytest.importorskip("a2a")`. Mock-only unit tests (card helpers, `result_to_text`, app routes via Starlette `TestClient`) plus a real HTTP round-trip (uvicorn in a background thread) proving `RemoteAgent` composes as tool / `Chain` step / orchestrator worker, and the streaming + dead-URL paths.
+
+### Personal-Assistant Primitives (channels, scheduler, skill authoring)
+
+Three **async-first** primitives (under `aimu.aio`, plus filesystem-shared skill authoring under `aimu.skills`) supply the pieces a long-running, always-on personal assistant (OpenClaw / Hermes Agent style) needs that the rest of AIMU did not: a chat transport, proactive triggers, and runtime skill creation. They are **library primitives, not an app** -- the assembled daemon lives in `examples/personal-assistant/` (see "Project Structure"). Multi-user sessions are deliberately out of scope: a *personal* assistant serves one user, so `ConversationManager` suffices. Each primitive follows the existing "one ABC / small utility, no new core deps" shape; network channel SDKs (Telegram/Slack) are a deferred follow-up behind an optional extra + `HAS_*` guard, mirroring `a2a`.
+
+- **Channel transport** -- **[aimu/aio/channels/](aimu/aio/channels/)** (package):
+  - **[aimu/aio/channels/base.py](aimu/aio/channels/base.py)**: `Channel(ABC)` -- a uniform transport interface alongside `AsyncRunner`/`AsyncBaseModelClient`/`MemoryStore`. Methods: `receive() -> AsyncIterator[ChannelMessage]` (an async generator the assistant loop iterates), `async send(content: str | AsyncIterator[StreamChunk], *, reply_to: ChannelMessage | None = None)`, and `async aclose()` (default no-op). `ChannelMessage` is a plain dataclass (`text`, `sender`, `channel`, `images`, `metadata`) -- transport-level data, distinct from LLM `list[dict]` state; `text`/`images` map directly onto `agent.run(task, images=...)`. The `reply_to` arg is the single seam that lets a future network adapter route a reply to the right chat while keeping `send()` stable; single-user adapters ignore it.
+  - **[aimu/aio/channels/cli.py](aimu/aio/channels/cli.py)**: `CLIChannel(Channel)`. `receive()` reads stdin via `await asyncio.to_thread(sys.stdin.readline)` (idiomatic, dependency-free; avoids POSIX `connect_read_pipe`), yielding one `ChannelMessage` per non-blank line and ending on EOF (Ctrl-D). `send()` prints a finished string, or relays an `AsyncIterator[StreamChunk]` token-by-token (only `GENERATING` chunks). A blocked `readline` thread can't be cancelled, so shutdown relies on EOF or process exit.
+  - Network adapters (e.g. `telegram.py`) would live here behind a `telegram` extra + `HAS_TELEGRAM` guard, constructed via a `TelegramChannel.connect(token=...)` classmethod factory (mirrors `aio.MCPClient.connect`). Not built yet.
+- **Scheduler** -- **[aimu/aio/scheduler.py](aimu/aio/scheduler.py)**: `Scheduler` runs interval and one-shot async jobs concurrently under a single `asyncio.TaskGroup` (the `aimu/aio/workflows/parallel.py` idiom). API: `every(seconds, callback, *, name=None, first_delay=None) -> str`, `at(delay_seconds, callback, *, name=None) -> str`, `cancel(name) -> bool`, `stop()`, and `async run()` (blocks until `stop()`). A `Job` is a zero-arg coroutine factory; bind context (an agent, a channel) with a closure, keeping the scheduler decoupled from what it fires. **Job-exception isolation**: a job that raises is logged and (for interval jobs) continues on the next tick -- one misbehaving reminder must not tear down the daemon; only `stop()`-driven `CancelledError` unwinds the run loop. **Single-use** by design: a `stop()` signalled before `run()` (e.g. by a sibling task that finished first) is honored and `run()` returns immediately -- there is no `self._stop.clear()` (it would create a lost-stop race); use a fresh `Scheduler` to run again. Persistence is out of scope (jobs are non-serializable callables; durable cron belongs in a wrapper).
+- **Skill authoring** -- **[aimu/skills/authoring.py](aimu/skills/authoring.py)** (sync filesystem work, surface-shared) + `SkillManager.refresh()`:
+  - `write_skill(name, description, body, *, skills_dir, overwrite=False, metadata=None) -> Path`: writes `skills_dir/<name>/SKILL.md` (YAML frontmatter + markdown body, the format `SkillManager` discovers). Validates that `name` is a slug (lowercase-with-hyphens, no path separators -> traversal guard) and `description` is non-empty; refuses to clobber unless `overwrite=True`; round-trips through the manager parser so a malformed authored file fails loudly at the write site.
+  - `make_skill_authoring_tool(manager, skills_dir) -> Callable`: returns an async `@tool author_skill(name, description, body)` (Hermes-style self-improvement) that calls `write_skill(...)` then `manager.refresh()`. Both bound by closure (no module globals).
+  - `SkillManager.refresh()` (the only edit to an existing core module): clears the cached `_skills` and re-discovers, so a skill authored mid-run is visible. **Known limitation**: after `refresh()`, `activate_skill` finds the new skill (its closure reads `manager.skills` live), but a skill catalog already injected into an in-flight system prompt is not retroactively updated -- it surfaces from the next fresh conversation. Don't attempt live MCP tool re-registration.
+  - Exported from `aimu.skills` (`write_skill`, `make_skill_authoring_tool`); intentionally *not* re-exported from `aimu.aio` (surface-agnostic filesystem code that returns an async tool).
+- **Exports**: `Channel`, `ChannelMessage`, `CLIChannel`, `Scheduler` are added to `aimu.aio.__all__` (no optional guard -- stdlib + existing core types only).
+- **Tests** (mock-only): `tests/test_aio_channels.py` (Channel ABC abstract, `CLIChannel` receive-to-EOF + string/stream send + ignored `reply_to`), `tests/test_aio_scheduler.py` (one-shot/interval firing, `cancel`, job-exception isolation, clean `stop()`, add-job-after-start, stop-before-run), `tests/test_aio_skill_authoring.py` (`write_skill` discoverability + slug/clobber/empty guards, `refresh()` cache invalidation, `author_skill` tool spec + write+refresh), `tests/test_aio_assistant_exports.py` (export smoke), and `examples/personal-assistant/tests/test_assistant.py` (the daemon wiring).
 
 ### Evaluations & Benchmarking
 
@@ -796,7 +816,7 @@ AIMU supports text-to-image generation via HuggingFace `diffusers` (`HuggingFace
   - `HuggingFaceImageClient(model, model_kwargs=None)` accepts a `HuggingFaceImageModel` member, a `HuggingFaceImageSpec`, or a `"hf:<repo_id>"` string (for ad-hoc HF models not in the enum; defaults to `DiffusionPipeline` auto-detect loader).
   - Lazy pipeline load on first `generate()` call: `pipeline_cls = getattr(diffusers, spec.pipeline_class); self._pipe = pipeline_cls.from_pretrained(spec.id, **kwargs)`. Placement is **memory-aware and automatic** via `_hf_device.auto_place_pipeline()`: it measures the loaded pipeline's size and each GPU's *free* memory (`torch.cuda.mem_get_info`, so other processes like a local LLM server are accounted for), then picks the cheapest fit: pin to the freest GPU → `enable_model_cpu_offload` (largest component fits) → `enable_sequential_cpu_offload` (always fits). Falls back to CUDA/MPS/CPU with no CUDA or missing `accelerate` (offload needs it). Override with `model_kwargs={"device": "cuda:1"}` (pin) or `model_kwargs={"device_map": ...}` (hand to diffusers/accelerate). `torch_dtype` also defaults per-device via `_hf_device.default_torch_dtype()` (bf16 on CUDA, fp16 on MPS, fp32 on CPU) unless the caller sets it; avoids `"auto"` silently resolving to fp32 (which doubles VRAM).
   - `generate(prompt, *, negative_prompt=None, width=None, height=None, num_inference_steps=None, guidance_scale=None, seed=None, num_images=1, format="pil", output_dir=None, stream=False, preview_every=None, reference_image=None, strength=None)`. Unset params fall back to `spec.default_*`. Seed plumbed through `torch.Generator`. Returns a single image (or list when `num_images > 1`) in the chosen format. When `reference_image` is provided, the client calls `_get_img2img_pipeline()` which lazily derives the img2img pipeline from the loaded txt2img pipeline via `from_pipe()` (shared weights, no extra VRAM). `strength` defaults to `0.75` for FLUX.1-style pipelines (not used for Klein, where `img2img_uses_strength=False`). `width` and `height` are dropped from the pipeline call in img2img mode; output size is derived from the reference image.
-  - `stream=True` returns an `Iterator[StreamChunk]` with phase `IMAGE_GENERATING`. Implemented via `callback_on_step_end` on the diffusers pipeline: a background thread runs the pipeline, the callback pushes per-step chunks onto a `queue.Queue`, and the public generator drains the queue. `preview_every=N` opts into per-step latent-decoded previews: when set, the callback decodes via `pipe.vae.decode` every N steps and includes the PIL in the chunk (~50–200 ms per decode on GPU). Final chunks (one per image when `num_images > 1`) carry `final=True` and the encoded `result` per `format=`.
+  - `stream=True` returns an `Iterator[StreamChunk]` with phase `IMAGE_GENERATING`. Implemented via `callback_on_step_end` on the diffusers pipeline: a background thread runs the pipeline, the callback pushes per-step chunks onto a `queue.Queue`, and the public generator drains the queue. `preview_every=N` opts into per-step latent-decoded previews: when set, the callback decodes via `pipe.vae.decode` every N steps and includes the PIL in the chunk (~50 to 200 ms per decode on GPU). Final chunks (one per image when `num_images > 1`) carry `final=True` and the encoded `result` per `format=`.
   - `import diffusers` is a hard module-load import so `HAS_HF_IMAGE` accurately reflects "the optional dep is installed" (matches the HF convention).
 
 - **[aimu/__init__.py](aimu/__init__.py)**: top-level entry points parallel to `client()` / `chat()`:
@@ -1086,6 +1106,10 @@ aimu/
 │   ├── speech.py        # AsyncSpeechClient factory + aio.speech_client() / aio.generate_speech()
 │   ├── transcription.py # AsyncTranscriptionClient factory + aio.transcription_client() / aio.transcribe()
 │   ├── embedding.py     # AsyncEmbeddingClient (wraps any sync BaseEmbeddingClient) + aio.embedding_client() / aio.embed()
+│   ├── scheduler.py     # Scheduler: interval/one-shot async jobs (proactive triggers) under asyncio.TaskGroup
+│   ├── channels/        # Channel transport for personal assistants
+│   │   ├── base.py          # Channel(ABC) + ChannelMessage (receive/send/aclose)
+│   │   └── cli.py           # CLIChannel (stdin via asyncio.to_thread; streaming stdout)
 │   ├── tools/           # Async tools (mirrors aimu.tools)
 │   │   └── builtin.py        # Async generate_image + re-exports of sync built-ins (incl. generate_audio, generate_speech, transcribe_audio)
 │   └── workflows/       # Async workflow patterns (asyncio.TaskGroup for Parallel)
@@ -1185,9 +1209,10 @@ aimu/
 │   ├── splitter.py      # split_text (recursive separators + overlap + length_function)
 │   ├── pipeline.py      # ingest, retrieve, format_context
 │   └── rerank.py        # rerank (cross-encoder via sentence-transformers; lazy + cached)
-├── skills/              # Agent skill discovery and MCP server
+├── skills/              # Agent skill discovery, authoring, and MCP server
 │   ├── skill.py         # AgentSkill dataclass; load_body, script_tool_names
-│   ├── manager.py       # SkillManager + SkillLoadError + SkillNotFoundError
+│   ├── manager.py       # SkillManager (+ refresh()) + SkillLoadError + SkillNotFoundError
+│   ├── authoring.py     # write_skill() + make_skill_authoring_tool(): runtime skill creation
 │   └── mcp.py           # build_skills_server(): FastMCP server from SkillManager
 ├── evals/               # Evaluation adapters and benchmark harness
 │   ├── __init__.py        # Exports Benchmark + BenchmarkResults; guarded DeepEval imports
@@ -1246,6 +1271,10 @@ tests/                   # Pytest test suite
 ├── test_aio_workflow_parallel.py # Verifies asyncio.TaskGroup overlap + sibling cancellation
 ├── test_aio_agents.py            # Async Agent, async @tool, concurrent_tool_calls under async
 ├── test_aio_tools.py             # aio.MCPClient lifecycle + mcp_tools_to_openai
+├── test_aio_channels.py          # Channel ABC + CLIChannel (mock stdin/stdout)
+├── test_aio_scheduler.py         # Scheduler: firing, cancel, exception isolation, clean stop
+├── test_aio_skill_authoring.py   # write_skill + SkillManager.refresh() + author_skill tool
+├── test_aio_assistant_exports.py # Export smoke for the personal-assistant primitives
 └── test_aio_models.py            # Live-backend async tests (mirrors test_models.py)
 
 web/                           # Example chat UIs
@@ -1262,6 +1291,8 @@ examples/                       # Runnable, real-world programs (kept out of the
 ├── image-refinement/           # "hotdog" family: same loop over images (adds diffusers + vision eval + img2img); needs [hf]
 │   └── tests/
 ├── news-summarizer/            # One task via Agent / Chain / Parallel / OrchestratorAgent (--method)
+├── personal-assistant/         # Always-on single-user assistant: CLIChannel + Scheduler + skill-authoring SkillAgent
+│   └── tests/                  # On pythonpath; run via `pytest examples/`
 └── skills/                     # Demo SKILL.md skills (haiku-poet, unit-converter); exposed as aimu.paths.skills
 ```
 
