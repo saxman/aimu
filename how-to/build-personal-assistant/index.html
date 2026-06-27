@@ -1586,6 +1586,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scripts-in-skills-author-and-run-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scripts in skills (author and run code)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wire-it-into-a-daemon" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2809,6 +2820,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scripts-in-skills-author-and-run-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scripts in skills (author and run code)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wire-it-into-a-daemon" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2941,52 +2963,88 @@ next time. <code>make_skill_authoring_tool</code> returns an async <code>@tool</
 <p><code>author_skill(name, description, body)</code> calls <code>write_skill(...)</code> (which validates the name as a
 slug, refuses to clobber, and round-trips through the parser so a malformed file fails loudly)
 then <code>manager.refresh()</code> to invalidate the discovery cache.</p>
-<div class="admonition warning">
-<p class="admonition-title">Catalog refresh limitation</p>
-<p>After <code>refresh()</code>, the new skill is reachable via <code>activate_skill</code> immediately, but a skill
-catalog already injected into the in-flight system prompt is not retroactively updated. It
-surfaces in the next fresh conversation.</p>
-</div>
+<p>After <code>refresh()</code>, the new skill is reachable via <code>activate_skill</code>. To also refresh the skill
+catalog injected into an in-flight system prompt (so a just-authored skill appears mid-conversation),
+call <code>agent.reload_skills()</code> (see the next section); the personal-assistant example does this
+automatically when a script is authored.</p>
 <p>You can also call <code>write_skill</code> directly (no agent):</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_skill</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">write_skill</span><span class="p">(</span><span class="s2">&quot;format-standup&quot;</span><span class="p">,</span> <span class="s2">&quot;Format a standup update.&quot;</span><span class="p">,</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>            <span class="s2">&quot;# Standup</span><span class="se">\n\n</span><span class="s2">Three bullets: Yesterday, Today, Blockers.&quot;</span><span class="p">,</span> <span class="n">skills_dir</span><span class="o">=</span><span class="s2">&quot;.agents/skills&quot;</span><span class="p">)</span>
 </span></code></pre></div>
+<h2 id="scripts-in-skills-author-and-run-code">Scripts in skills (author and run code)<a class="headerlink" href="#scripts-in-skills-author-and-run-code" title="Permanent link">&para;</a></h2>
+<p>A skill can bundle executable helper scripts. AIMU registers every <code>scripts/*.py</code> and <code>scripts/*.sh</code>
+in a skill as a <code>{skill}__{stem}</code> tool that runs the script as a subprocess (<code>.py</code> via the current
+Python, <code>.sh</code> via <code>bash</code>), with an optional <code>args</code> string forwarded to the script's arguments and a
+30-second timeout. This lets an assistant <strong>automate a procedure as code</strong> and run it as a tool, the
+self-improving pattern Hermes Agent uses.</p>
+<p><code>make_skill_script_tool(agent, manager, skills_dir)</code> returns an async <code>add_skill_script</code> tool. After
+writing the script it calls <code>agent.reload_skills()</code>, which rebuilds the skills server and appends the
+new <code>{skill}__{stem}</code> tool to the agent's tool list, so the assistant can author <strong>and run</strong> a script
+within the same turn:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">make_skill_authoring_tool</span><span class="p">,</span> <span class="n">make_skill_script_tool</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">skills_dir</span> <span class="o">=</span> <span class="s2">&quot;.agents/skills&quot;</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">skill_dirs</span><span class="o">=</span><span class="p">[</span><span class="n">skills_dir</span><span class="p">])</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s2">&quot;You are a personal assistant.&quot;</span><span class="p">)</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">SkillAgent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">skill_manager</span><span class="o">=</span><span class="n">manager</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;assistant&quot;</span><span class="p">)</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">agent</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">make_skill_authoring_tool</span><span class="p">(</span><span class="n">manager</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">),</span>     <span class="c1"># author_skill(name, description, body)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">make_skill_script_tool</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">manager</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">),</span> <span class="c1"># add_skill_script(skill_name, filename, content)</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">]</span>
+</span></code></pre></div>
+<p>You can also attach scripts non-interactively with <code>write_skill(..., scripts={...})</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_skill</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">write_skill</span><span class="p">(</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="s2">&quot;disk&quot;</span><span class="p">,</span> <span class="s2">&quot;Report disk usage.&quot;</span><span class="p">,</span> <span class="s2">&quot;# Disk</span><span class="se">\n\n</span><span class="s2">Run the usage script.&quot;</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">skills_dir</span><span class="o">=</span><span class="n">skills_dir</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">scripts</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;usage.sh&quot;</span><span class="p">:</span> <span class="s2">&quot;#!/usr/bin/env bash</span><span class="se">\n</span><span class="s2">df -h</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">},</span>   <span class="c1"># .sh files are marked executable</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span>
+</span></code></pre></div>
+<div class="admonition danger">
+<p class="admonition-title">Scripts run with full access (no sandbox)</p>
+<p>Skill scripts execute as real subprocesses with your user privileges, exactly like OpenClaw and
+Hermes Agent. There is no sandbox. Only run an assistant that can author/run scripts with a model
+and inputs you trust. (<code>builtin.execute_python</code> is the sandboxed alternative for untrusted code:
+no filesystem or subprocess access.) The subprocess also blocks the event loop for up to its
+30-second timeout.</p>
+</div>
 <h2 id="wire-it-into-a-daemon">Wire it into a daemon<a class="headerlink" href="#wire-it-into-a-daemon" title="Permanent link">&para;</a></h2>
 <p>The pieces compose into one process: a top-level <code>asyncio.TaskGroup</code> runs the channel listener
 and the scheduler concurrently; each inbound message runs the agent and streams the reply back;
 history is persisted after each turn.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio</span><span class="w"> </span><span class="kn">import</span> <span class="n">CLIChannel</span><span class="p">,</span> <span class="n">Scheduler</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.history</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConversationManager</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">channel</span> <span class="o">=</span> <span class="n">CLIChannel</span><span class="p">()</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">scheduler</span> <span class="o">=</span> <span class="n">Scheduler</span><span class="p">()</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">conversation</span> <span class="o">=</span> <span class="n">ConversationManager</span><span class="p">(</span><span class="s2">&quot;assistant_history.json&quot;</span><span class="p">,</span> <span class="n">use_last_conversation</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="c1"># ... build agent with author_skill as above; restore prior messages with agent.restore(...) ...</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">serve</span><span class="p">():</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>        <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>            <span class="k">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">receive</span><span class="p">():</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>                <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="n">msg</span><span class="o">.</span><span class="n">images</span><span class="p">)</span>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>                <span class="k">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">reply</span><span class="p">,</span> <span class="n">reply_to</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span>
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>                <span class="n">conversation</span><span class="o">.</span><span class="n">update_conversation</span><span class="p">([</span><span class="nb">dict</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">messages</span><span class="p">])</span>
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>        <span class="k">finally</span><span class="p">:</span>
-</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>            <span class="n">scheduler</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>        <span class="c1"># channel closed (EOF) -&gt; stop the scheduler so run() returns</span>
-</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>
-</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TaskGroup</span><span class="p">()</span> <span class="k">as</span> <span class="n">tg</span><span class="p">:</span>
-</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>        <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">serve</span><span class="p">())</span>
-</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>        <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">scheduler</span><span class="o">.</span><span class="n">run</span><span class="p">())</span>
-</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>
-</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio</span><span class="w"> </span><span class="kn">import</span> <span class="n">CLIChannel</span><span class="p">,</span> <span class="n">Scheduler</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.history</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConversationManager</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">channel</span> <span class="o">=</span> <span class="n">CLIChannel</span><span class="p">()</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">scheduler</span> <span class="o">=</span> <span class="n">Scheduler</span><span class="p">()</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">conversation</span> <span class="o">=</span> <span class="n">ConversationManager</span><span class="p">(</span><span class="s2">&quot;assistant_history.json&quot;</span><span class="p">,</span> <span class="n">use_last_conversation</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="c1"># ... build agent with author_skill as above; restore prior messages with agent.restore(...) ...</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">serve</span><span class="p">():</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>        <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>            <span class="k">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">receive</span><span class="p">():</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>                <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="n">msg</span><span class="o">.</span><span class="n">images</span><span class="p">)</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>                <span class="k">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">reply</span><span class="p">,</span> <span class="n">reply_to</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>                <span class="n">conversation</span><span class="o">.</span><span class="n">update_conversation</span><span class="p">([</span><span class="nb">dict</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">messages</span><span class="p">])</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>        <span class="k">finally</span><span class="p">:</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>            <span class="n">scheduler</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>        <span class="c1"># channel closed (EOF) -&gt; stop the scheduler so run() returns</span>
+</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TaskGroup</span><span class="p">()</span> <span class="k">as</span> <span class="n">tg</span><span class="p">:</span>
+</span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a>        <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">serve</span><span class="p">())</span>
+</span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a>        <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">scheduler</span><span class="o">.</span><span class="n">run</span><span class="p">())</span>
+</span><span id="__span-6-24"><a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>
+</span><span id="__span-6-25"><a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
 <p>The reference app in <code>examples/personal-assistant/</code> is this, fleshed out: serialize reactive and
 proactive turns with a lock (they share one agent), an argparse entry point, and mock-only tests.</p>
 <p>Run it:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/personal-assistant/assistant.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-6<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">30</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>examples/personal-assistant/assistant.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-6<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">30</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>

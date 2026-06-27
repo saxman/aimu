@@ -2096,6 +2096,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="SkillAgent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.SkillAgent.reload_skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reload_skills
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3600,6 +3617,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="SkillAgent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.SkillAgent.reload_skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reload_skills
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4585,6 +4619,35 @@ to its system message and adds the async skills server's tools (via
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.aio.SkillAgent.reload_skills" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">reload_skills</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#aimu.aio.SkillAgent.reload_skills" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">reload_skills</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Rebuild the skills server from the (refreshed) manager and surface new tools now.</p>
+<p>Re-snapshots the skills tools, appends any new ones to <code>model_client.tools</code> (so a
+script authored mid-run is callable for the rest of the run), and re-injects the catalog
+so a newly authored skill appears in the system prompt without starting a fresh
+conversation. Call after writing a new skill/script (see
+:func:<code>aimu.skills.make_skill_script_tool</code>).</p>
+
+
+    </div>
+
+</div>
 
 
 

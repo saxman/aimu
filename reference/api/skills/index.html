@@ -3116,7 +3116,9 @@
 
     <div class="doc doc-contents ">
 
-        <p>Return <code>{skill}__{script_stem}</code> tool names for every <code>.py</code> in <code>scripts/</code>.</p>
+        <p>Return <code>{skill}__{script_stem}</code> tool names for every <code>.py</code> / <code>.sh</code> in <code>scripts/</code>.</p>
+<p><code>foo.py</code> and <code>foo.sh</code> share the <code>{skill}__foo</code> name; <code>.py</code> sorts first and wins, so
+the name is listed once (matching the skills-server registration).</p>
 
 
     </div>
@@ -3358,7 +3360,7 @@ the model can call directly (without first calling <code>activate_skill</code>).
   <summary>Registered tools</summary>
   <ul>
 <li>activate_skill(name): returns the full SKILL.md body for the named skill</li>
-<li>{skill_name}__{script_stem}(): runs a Python script from a skill's scripts/ dir</li>
+<li>{skill_name}__{script_stem}(args=""): runs a Python or shell script from a skill's scripts/ dir</li>
 </ul>
 </details>        <p>The returned FastMCP instance can be passed directly to MCPClient(server=...).</p>
 
@@ -3376,7 +3378,7 @@ the model can call directly (without first calling <code>activate_skill</code>).
 
 
 <a href="#aimu.skills.write_skill" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write_skill</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write_skill</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">scripts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3390,6 +3392,8 @@ also prevents traversal) and that <code>description</code> is non-empty. Refuses
 existing skill unless <code>overwrite=True</code>. The written file is round-tripped through the
 manager parser, so an authored skill is guaranteed discoverable (a parse failure raises
 :class:<code>~aimu.skills.manager.SkillLoadError</code>).</p>
+<p><code>scripts</code> maps <code>"&lt;slug&gt;.py"</code> / <code>"&lt;slug&gt;.sh"</code> filenames to source, written into
+<code>scripts/</code> (each becomes a <code>{skill}__{stem}</code> tool). <code>.sh</code> files are marked executable.</p>
 
 
     </div>
