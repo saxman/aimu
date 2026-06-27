@@ -362,3 +362,163 @@ def test_skill_manager_custom_dirs_override_defaults(tmp_path, monkeypatch):
     mgr = SkillManager(skill_dirs=[str(custom_skills)])
     assert "custom-skill" in mgr.skills
     assert "default-skill" not in mgr.skills
+
+
+# ---------------------------------------------------------------------------
+# Skill scripts: discovery, execution, args, authoring, reload
+# ---------------------------------------------------------------------------
+
+
+def _write_script(skill_md_path: Path, filename: str, content: str) -> Path:
+    scripts_dir = skill_md_path.parent / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    target = scripts_dir / filename
+    target.write_text(content, encoding="utf-8")
+    return target
+
+
+def test_build_skills_server_registers_and_runs_py(tmp_path):
+    from aimu.skills.mcp import build_skills_server
+    from aimu.tools.client import MCPClient
+
+    md = make_skill_dir(tmp_path, "tools", "Has scripts.")
+    _write_script(md, "hello.py", "import sys\nprint('py:' + ' '.join(sys.argv[1:]))\n")
+
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    client = MCPClient(server=build_skills_server(manager))
+    names = client.list_tools()
+    assert "tools__hello" in [t.name for t in names]
+
+    out = client.call_tool("tools__hello", {"args": "alpha beta"})
+    assert "py:alpha beta" in out.content[0].text
+
+
+@pytest.mark.skipif(__import__("shutil").which("bash") is None, reason="bash not on PATH")
+def test_build_skills_server_registers_and_runs_sh(tmp_path):
+    from aimu.skills.mcp import build_skills_server
+    from aimu.tools.client import MCPClient
+
+    md = make_skill_dir(tmp_path, "shtools", "Has shell scripts.")
+    _write_script(md, "greet.sh", '#!/usr/bin/env bash\necho "sh:$1"\n')
+
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    client = MCPClient(server=build_skills_server(manager))
+    assert "shtools__greet" in [t.name for t in client.list_tools()]
+
+    out = client.call_tool("shtools__greet", {"args": "world"})
+    assert "sh:world" in out.content[0].text
+
+
+def test_run_script_file_nonzero_and_unsupported(tmp_path):
+    from aimu.skills.mcp import run_script_file
+
+    bad = tmp_path / "boom.py"
+    bad.write_text("import sys\nsys.stderr.write('nope')\nsys.exit(3)\n", encoding="utf-8")
+    out = run_script_file(bad)
+    assert "exited with code 3" in out and "nope" in out
+
+    txt = tmp_path / "note.txt"
+    txt.write_text("hi", encoding="utf-8")
+    assert "unsupported script extension" in run_script_file(txt)
+
+
+def test_run_script_file_timeout(tmp_path, monkeypatch):
+    from aimu.skills import mcp as mcp_mod
+
+    slow = tmp_path / "slow.py"
+    slow.write_text("import time\ntime.sleep(5)\n", encoding="utf-8")
+    monkeypatch.setattr(mcp_mod, "_SCRIPT_TIMEOUT", 0.2)
+    assert "timed out" in mcp_mod.run_script_file(slow)
+
+
+def test_script_tool_names_includes_sh_and_dedupes(tmp_path):
+    md = make_skill_dir(tmp_path, "mixed", "Mixed scripts.")
+    _write_script(md, "a.py", "print(1)\n")
+    _write_script(md, "b.sh", "echo 2\n")
+    _write_script(md, "c.py", "print(3)\n")
+    _write_script(md, "c.sh", "echo 3\n")  # collides with c.py on the {skill}__c name
+
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["mixed"]
+    names = skill.script_tool_names()
+    assert names == ["mixed__a", "mixed__b", "mixed__c"]  # c listed once
+
+
+def test_write_skill_with_scripts_creates_discoverable_and_chmod(tmp_path):
+    import os
+
+    from aimu.skills import write_skill
+
+    write_skill(
+        "deploy",
+        "Deploy things.",
+        "# Deploy",
+        skills_dir=tmp_path,
+        scripts={"run.py": "print('hi')\n", "do.sh": "echo hi\n"},
+    )
+    sk = SkillManager(skill_dirs=[str(tmp_path)]).skills["deploy"]
+    assert set(sk.script_tool_names()) == {"deploy__run", "deploy__do"}
+    assert os.access(tmp_path / "deploy" / "scripts" / "do.sh", os.X_OK)
+
+
+@pytest.mark.parametrize("bad", ["../x.py", "a/b.sh", "up.txt", "Bad.py", "noext"])
+def test_write_skill_rejects_bad_script_filename(tmp_path, bad):
+    from aimu.skills import write_skill
+
+    with pytest.raises(ValueError):
+        write_skill("s", "desc", "body", skills_dir=tmp_path, scripts={bad: "x"})
+
+
+def test_write_skill_overwrite_replaces_script(tmp_path):
+    from aimu.skills import write_skill
+
+    write_skill("s", "desc", "body", skills_dir=tmp_path, scripts={"x.py": "print(1)\n"})
+    # A second new skill with the same name without overwrite is refused at the SKILL.md level.
+    with pytest.raises(FileExistsError):
+        write_skill("s", "desc", "body", skills_dir=tmp_path, scripts={"y.py": "print(9)\n"})
+    # overwrite=True replaces the script content (the add_skill_script path).
+    write_skill("s", "desc", "body", skills_dir=tmp_path, overwrite=True, scripts={"x.py": "print(2)\n"})
+    assert (tmp_path / "s" / "scripts" / "x.py").read_text() == "print(2)\n"
+
+
+def test_reload_skills_surfaces_new_script_tool(tmp_path):
+    from unittest.mock import MagicMock
+
+    from aimu.agents.skill_agent import SkillAgent
+    from aimu.skills import write_skill
+
+    make_skill_dir(tmp_path, "grow", "Grows scripts.")
+    client = MagicMock()
+    client.system_message = ""
+    client.tools = []
+
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    agent = SkillAgent(model_client=client, skill_manager=manager)
+    agent._setup_skills()
+    assert "grow__added" not in [fn.__name__ for fn in client.tools]
+
+    write_skill(
+        "grow", "Grows scripts.", "# Grow", skills_dir=tmp_path, overwrite=True, scripts={"added.py": "print('x')\n"}
+    )
+    manager.refresh()
+    agent.reload_skills()
+
+    assert "grow__added" in [fn.__name__ for fn in client.tools]
+
+
+def test_reinject_catalog_does_not_duplicate(tmp_path):
+    from unittest.mock import MagicMock
+
+    from aimu.agents.skill_agent import SkillAgent
+
+    make_skill_dir(tmp_path, "cat", "Catalog skill.")
+    client = MagicMock()
+    client.system_message = "Base prompt."
+    client.tools = []
+
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    agent = SkillAgent(model_client=client, skill_manager=manager)
+    agent._setup_skills()
+    agent.reload_skills()
+
+    assert client.system_message.count("<available_skills>") == 1
+    assert client.system_message.startswith("Base prompt.")

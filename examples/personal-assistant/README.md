@@ -34,6 +34,10 @@ prompt; press Ctrl-D to exit.
   formatted: three bullets, Yesterday, Today, Blockers."* It calls `author_skill`, which writes
   a `SKILL.md` under `--skills-dir` and refreshes the skill manager. In a later conversation the
   assistant can `activate_skill` to recall it.
+- **Self-authored *script*.** Ask it to automate something: *"Write a shell script that shows my
+  disk usage, then run it."* It calls `add_skill_script` to drop a `.py` or `.sh` file into a
+  skill's `scripts/` directory; `reload_skills()` makes the new `{skill}__{stem}` tool callable in
+  the same turn, so it runs the script and reports the output.
 - **Persistence.** Restart with the same `--history` path and the prior conversation is restored.
 
 By default the assistant keeps all of its state (authored skills and conversation history) under
@@ -48,11 +52,18 @@ in your working directory. Override with `--skills-dir` and `--history`.
 | `_assistant_common.py` | `Assistant` / `AssistantConfig` (the testable daemon core) |
 | `tests/test_assistant.py` | Mock-only tests (fake channel + mock model) |
 
+## Security
+
+Authored skill scripts run as **real subprocesses with your user privileges, no sandbox**, exactly
+like OpenClaw and Hermes Agent. Real capability is the point of a personal assistant, but it means a
+prompt-injected or mistaken model can run arbitrary code on your machine. Only run this with a model
+and inputs you trust. The daemon prints a notice to this effect on startup. For untrusted code,
+`builtin.execute_python` is a sandboxed alternative (no filesystem or subprocess access). Script
+execution also blocks the event loop for up to its 30-second timeout.
+
 ## Notes & limits
 
 - **Single user.** A *personal* assistant serves one person, so there is no multi-user session
   keying; `ConversationManager` holds one conversation.
 - **Scheduler is in-memory.** Jobs are Python callables registered in code, not durable across
   restarts. Durable cron-like scheduling belongs in a wrapper above the library.
-- **Skill catalog refresh.** A skill authored mid-conversation is reachable via `activate_skill`
-  immediately, but the injected skill catalog only includes it from the next fresh conversation.

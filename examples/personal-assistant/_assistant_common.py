@@ -23,14 +23,17 @@ from aimu import aio, paths
 from aimu.aio import Channel, Scheduler
 from aimu.aio.channels.base import ChannelMessage
 from aimu.history import ConversationManager
-from aimu.skills import SkillManager, make_skill_authoring_tool
+from aimu.skills import SkillManager, make_skill_authoring_tool, make_skill_script_tool
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_SYSTEM_MESSAGE = (
     "You are a personal assistant running on the user's own machine. Be concise and helpful. "
-    "When the user teaches you a repeatable procedure worth remembering, call the `author_skill` "
-    "tool to save it as a reusable skill so you can apply it later."
+    "When the user teaches you a repeatable procedure worth remembering, call `author_skill` to save "
+    "it as a reusable skill. When a procedure can be automated, call `add_skill_script` to attach a "
+    "runnable Python or shell script to a skill; the script becomes a tool you can run immediately, "
+    "even in the same turn. Scripts run with full access to this machine, so only automate what the "
+    "user asked for."
 )
 
 DEFAULT_REMINDER_TEXT = "Proactively check in with the user with one short, useful suggestion for their day."
@@ -79,6 +82,9 @@ class Assistant:
         manager = SkillManager(skill_dirs=[str(config.skills_dir)])
         author_skill = make_skill_authoring_tool(manager, config.skills_dir)
         agent = aio.SkillAgent(client, tools=[author_skill], skill_manager=manager, name="assistant")
+        # add_skill_script needs the agent (to reload skills so a new script tool is callable this
+        # turn), so it is built after the agent and appended to its tool list.
+        agent.tools = [author_skill, make_skill_script_tool(agent, manager, config.skills_dir)]
 
         conversation = ConversationManager(config.history_path, use_last_conversation=True)
         prior = conversation.messages

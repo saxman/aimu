@@ -91,10 +91,10 @@ agent = aio.SkillAgent(client, tools=[author_skill], skill_manager=manager, name
 slug, refuses to clobber, and round-trips through the parser so a malformed file fails loudly)
 then `manager.refresh()` to invalidate the discovery cache.
 
-!!! warning "Catalog refresh limitation"
-    After `refresh()`, the new skill is reachable via `activate_skill` immediately, but a skill
-    catalog already injected into the in-flight system prompt is not retroactively updated. It
-    surfaces in the next fresh conversation.
+After `refresh()`, the new skill is reachable via `activate_skill`. To also refresh the skill
+catalog injected into an in-flight system prompt (so a just-authored skill appears mid-conversation),
+call `agent.reload_skills()` (see the next section); the personal-assistant example does this
+automatically when a script is authored.
 
 You can also call `write_skill` directly (no agent):
 
@@ -103,6 +103,51 @@ from aimu.skills import write_skill
 write_skill("format-standup", "Format a standup update.",
             "# Standup\n\nThree bullets: Yesterday, Today, Blockers.", skills_dir=".agents/skills")
 ```
+
+## Scripts in skills (author and run code)
+
+A skill can bundle executable helper scripts. AIMU registers every `scripts/*.py` and `scripts/*.sh`
+in a skill as a `{skill}__{stem}` tool that runs the script as a subprocess (`.py` via the current
+Python, `.sh` via `bash`), with an optional `args` string forwarded to the script's arguments and a
+30-second timeout. This lets an assistant **automate a procedure as code** and run it as a tool, the
+self-improving pattern Hermes Agent uses.
+
+`make_skill_script_tool(agent, manager, skills_dir)` returns an async `add_skill_script` tool. After
+writing the script it calls `agent.reload_skills()`, which rebuilds the skills server and appends the
+new `{skill}__{stem}` tool to the agent's tool list, so the assistant can author **and run** a script
+within the same turn:
+
+```python
+from aimu.skills import SkillManager, make_skill_authoring_tool, make_skill_script_tool
+from aimu import aio
+
+skills_dir = ".agents/skills"
+manager = SkillManager(skill_dirs=[skills_dir])
+client = aio.client("anthropic:claude-sonnet-4-6", system="You are a personal assistant.")
+agent = aio.SkillAgent(client, skill_manager=manager, name="assistant")
+agent.tools = [
+    make_skill_authoring_tool(manager, skills_dir),     # author_skill(name, description, body)
+    make_skill_script_tool(agent, manager, skills_dir), # add_skill_script(skill_name, filename, content)
+]
+```
+
+You can also attach scripts non-interactively with `write_skill(..., scripts={...})`:
+
+```python
+from aimu.skills import write_skill
+write_skill(
+    "disk", "Report disk usage.", "# Disk\n\nRun the usage script.",
+    skills_dir=skills_dir,
+    scripts={"usage.sh": "#!/usr/bin/env bash\ndf -h\n"},   # .sh files are marked executable
+)
+```
+
+!!! danger "Scripts run with full access (no sandbox)"
+    Skill scripts execute as real subprocesses with your user privileges, exactly like OpenClaw and
+    Hermes Agent. There is no sandbox. Only run an assistant that can author/run scripts with a model
+    and inputs you trust. (`builtin.execute_python` is the sandboxed alternative for untrusted code:
+    no filesystem or subprocess access.) The subprocess also blocks the event loop for up to its
+    30-second timeout.
 
 ## Wire it into a daemon
 

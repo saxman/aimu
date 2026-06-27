@@ -20,11 +20,23 @@ class AgentSkill:
         return self.path.parent
 
     def script_tool_names(self) -> list[str]:
-        """Return ``{skill}__{script_stem}`` tool names for every ``.py`` in ``scripts/``."""
+        """Return ``{skill}__{script_stem}`` tool names for every ``.py`` / ``.sh`` in ``scripts/``.
+
+        ``foo.py`` and ``foo.sh`` share the ``{skill}__foo`` name; ``.py`` sorts first and wins, so
+        the name is listed once (matching the skills-server registration).
+        """
         scripts_dir = self.base_dir / "scripts"
         if not scripts_dir.is_dir():
             return []
-        return [f"{self.name}__{p.stem}" for p in sorted(scripts_dir.glob("*.py"))]
+        scripts = sorted(list(scripts_dir.glob("*.py")) + list(scripts_dir.glob("*.sh")))
+        names: list[str] = []
+        seen: set[str] = set()
+        for p in scripts:
+            if p.stem in seen:
+                continue
+            seen.add(p.stem)
+            names.append(f"{self.name}__{p.stem}")
+        return names
 
     def load_body(self) -> str:
         """Read SKILL.md, strip YAML frontmatter, return the markdown body."""

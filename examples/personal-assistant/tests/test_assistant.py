@@ -136,3 +136,21 @@ async def test_assistant_wires_author_skill_tool(tmp_path):
     await author(name="format-standup", description="Format a standup update.", body="# Standup\n\nDo X.")
     assert (cfg.skills_dir / "format-standup" / "SKILL.md").exists()
     assert "format-standup" in assistant._agent.skill_manager.skills
+
+
+async def test_assistant_authors_and_registers_runnable_script(tmp_path):
+    cfg = _config(tmp_path)
+    assistant = await Assistant.create(cfg, FakeChannel(), client=MockAsyncModelClient([]))
+
+    tools = assistant._agent.tools
+    author = next(t for t in tools if t.__name__ == "author_skill")
+    add_script = next(t for t in tools if t.__name__ == "add_skill_script")
+    assert add_script.__tool_is_async__ is True
+
+    await author(name="disk", description="Disk helpers.", body="# Disk")
+    msg = await add_script(skill_name="disk", filename="usage.py", content="print('disk ok')\n")
+
+    assert "disk__usage" in msg
+    assert (cfg.skills_dir / "disk" / "scripts" / "usage.py").exists()
+    # reload_skills() ran, so the new script tool is callable on the live client.
+    assert "disk__usage" in [fn.__name__ for fn in assistant._agent.model_client.tools]

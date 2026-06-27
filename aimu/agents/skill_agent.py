@@ -38,12 +38,41 @@ class SkillAgent(Agent):
     _skills_setup_done: bool = field(default=False, init=False, repr=False)
     _skills_mcp_client: Optional[Any] = field(default=None, init=False, repr=False)
     _skills_tools: Optional[list] = field(default=None, init=False, repr=False)
+    _skills_catalog_injected: Optional[str] = field(default=None, init=False, repr=False)
 
     def _prepare_run(self, deps: Any = None) -> None:
         if self.reset_messages_on_run or self.system_message is not None:
             self._skills_setup_done = False
         super()._prepare_run(deps)
         self._setup_skills()
+
+    def _catalog_instructions(self) -> str:
+        """The skill-catalog block appended to the system prompt (empty when no skills)."""
+        catalog = self.skill_manager.catalog_prompt()
+        if not catalog:
+            return ""
+        return (
+            "\n\n" + catalog + "\n\nWhen a task matches a skill's description, call `activate_skill` "
+            "with the skill name to load its full instructions before proceeding."
+        )
+
+    def _reinject_catalog(self) -> None:
+        """Replace the injected catalog block in the system message in place (no duplication)."""
+        base = self.model_client.system_message or ""
+        if self._skills_catalog_injected and base.endswith(self._skills_catalog_injected):
+            base = base[: -len(self._skills_catalog_injected)]
+        new = self._catalog_instructions()
+        self.model_client.system_message = base + new
+        self._skills_catalog_injected = new
+
+    def _append_skills_tools(self) -> None:
+        """Append snapshot skill tools to ``model_client.tools`` (deduped by ``__name__``)."""
+        if not self._skills_tools:
+            return
+        existing = {getattr(fn, "__name__", None) for fn in self.model_client.tools}
+        self.model_client.tools = list(self.model_client.tools) + [
+            t for t in self._skills_tools if t.__name__ not in existing
+        ]
 
     def _setup_skills(self) -> None:
         if not self.skill_manager.skills:
@@ -65,20 +94,28 @@ class SkillAgent(Agent):
         # first chat().
         if not self._skills_setup_done:
             self._skills_setup_done = True
-            catalog = self.skill_manager.catalog_prompt()
-            instructions = (
-                "\n\n" + catalog + "\n\nWhen a task matches a skill's description, call `activate_skill` "
-                "with the skill name to load its full instructions before proceeding."
-            )
-            self.model_client.system_message = (self.model_client.system_message or "") + instructions
+            self._reinject_catalog()
 
-        # Ensure the skills tools are present for this run. `super()._prepare_run()` may have
-        # just reset `model_client.tools` to the agent's configured `self.tools`, so append
-        # the skills tools (deduped by name) every run rather than only on first setup.
-        existing = {getattr(fn, "__name__", None) for fn in self.model_client.tools}
-        self.model_client.tools = list(self.model_client.tools) + [
-            t for t in self._skills_tools if t.__name__ not in existing
-        ]
+        # `super()._prepare_run()` may have just reset `model_client.tools` to the agent's
+        # configured `self.tools`, so re-append the skills tools (deduped) every run.
+        self._append_skills_tools()
+
+    def reload_skills(self) -> None:
+        """Rebuild the skills server from the (refreshed) manager and surface new tools now.
+
+        Re-snapshots the skills tools, appends any new ones to ``model_client.tools`` (so a
+        script authored mid-run is callable for the rest of the run), and re-injects the catalog
+        so a newly authored skill appears in the system prompt without starting a fresh
+        conversation. Call after writing a new skill/script (see
+        :func:`aimu.skills.make_skill_script_tool`).
+        """
+        from aimu.skills.mcp import build_skills_server
+        from aimu.tools.client import MCPClient
+
+        self._skills_mcp_client = MCPClient(server=build_skills_server(self.skill_manager))
+        self._skills_tools = self._skills_mcp_client.as_tools()
+        self._append_skills_tools()
+        self._reinject_catalog()
 
     @classmethod
     def from_config(cls, config: dict[str, Any], model_client: BaseModelClient) -> SkillAgent:

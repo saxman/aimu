@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 from pathlib import Path
 
 from _assistant_common import Assistant, AssistantConfig
@@ -69,6 +70,11 @@ def config_from_args(args: argparse.Namespace) -> AssistantConfig:
 
 
 async def _amain(config: AssistantConfig) -> None:
+    print(
+        "[notice] This assistant can author and run Python/shell scripts with full access to this "
+        "machine (no sandbox). Only use it with a model and inputs you trust.",
+        file=sys.stderr,
+    )
     channel = CLIChannel()
     assistant = await Assistant.create(config, channel)
     await assistant.run()

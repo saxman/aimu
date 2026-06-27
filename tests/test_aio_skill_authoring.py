@@ -86,3 +86,86 @@ def test_authored_skill_round_trips_body(tmp_path):
     write_skill("rt", "round trip", "Line one.\n\nLine two.", skills_dir=tmp_path)
     skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["rt"]
     assert skill.load_body() == "Line one.\n\nLine two."
+
+
+# ---------------------------------------------------------------------------
+# Script authoring + mid-run reload (async)
+# ---------------------------------------------------------------------------
+
+
+async def test_aio_reload_skills_appends_new_script_tool(tmp_path):
+    from aimu import aio
+    from aimu.skills import write_skill
+    from helpers_aio import MockAsyncModelClient
+
+    write_skill("grow", "Grows scripts.", "# Grow", skills_dir=tmp_path)
+    client = MockAsyncModelClient([])
+    client.system_message = "Base."
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    agent = aio.SkillAgent(client, skill_manager=manager, name="a")
+
+    await agent._setup_skills_async()
+    assert "grow__added" not in [fn.__name__ for fn in client.tools]
+
+    write_skill(
+        "grow", "Grows scripts.", "# Grow", skills_dir=tmp_path, overwrite=True, scripts={"added.py": "print('x')\n"}
+    )
+    manager.refresh()
+    await agent.reload_skills()
+
+    assert "grow__added" in [fn.__name__ for fn in client.tools]
+    assert client.system_message.count("<available_skills>") == 1  # catalog not duplicated
+
+
+def test_make_skill_script_tool_spec(tmp_path):
+    from aimu.skills import make_skill_script_tool
+
+    class _StubAgent:
+        skill_manager = None
+
+    tool = make_skill_script_tool(_StubAgent(), SkillManager(skill_dirs=[str(tmp_path)]), tmp_path)
+    assert tool.__tool_is_async__ is True
+    assert tool.__tool_spec__["function"]["name"] == "add_skill_script"
+    assert set(tool.__tool_spec__["function"]["parameters"]["properties"]) == {"skill_name", "filename", "content"}
+
+
+async def test_add_skill_script_unknown_skill(tmp_path):
+    from aimu.skills import make_skill_script_tool
+
+    reloaded = []
+
+    class _StubAgent:
+        skill_manager = None
+
+        async def reload_skills(self):
+            reloaded.append(True)
+
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    tool = make_skill_script_tool(_StubAgent(), manager, tmp_path)
+    msg = await tool(skill_name="nope", filename="x.py", content="print(1)")
+    assert "not found" in msg
+    assert reloaded == []  # no reload for a missing skill
+
+
+async def test_add_skill_script_writes_and_reloads(tmp_path):
+    from aimu.skills import make_skill_script_tool, write_skill
+
+    write_skill("auto", "Automations.", "# Auto", skills_dir=tmp_path)
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+
+    reloaded = []
+
+    class _StubAgent:
+        def __init__(self, mgr):
+            self.skill_manager = mgr
+
+        async def reload_skills(self):
+            reloaded.append(True)
+
+    tool = make_skill_script_tool(_StubAgent(manager), manager, tmp_path)
+    msg = await tool(skill_name="auto", filename="backup.sh", content="echo backing up\n")
+
+    assert (tmp_path / "auto" / "scripts" / "backup.sh").exists()
+    assert "auto__backup" in msg
+    assert reloaded == [True]
+    assert "auto__backup" in manager.skills["auto"].script_tool_names()
