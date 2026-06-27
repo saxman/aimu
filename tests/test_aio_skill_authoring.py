@@ -26,12 +26,23 @@ def test_write_skill_with_metadata(tmp_path):
     assert SkillManager(skill_dirs=[str(tmp_path)]).skills["tagged"].metadata == {"author": "test"}
 
 
-@pytest.mark.parametrize("bad_name", ["../evil", "with space", "Upper", "has/slash", ""])
+@pytest.mark.parametrize("bad_name", ["../evil", "with space", "Upper", "has/slash", "with_underscores", ""])
 def test_write_skill_rejects_invalid_name(tmp_path, bad_name):
     with pytest.raises(ValueError):
         write_skill(bad_name, "desc", "body", skills_dir=tmp_path)
     # Nothing escaped the skills dir.
     assert list(tmp_path.iterdir()) == []
+
+
+def test_write_skill_underscore_name_error_points_at_hyphens(tmp_path):
+    # Skill names stay kebab-case; the error must steer the model toward hyphens.
+    with pytest.raises(ValueError, match="hyphen"):
+        write_skill("weekly_review", "desc", "body", skills_dir=tmp_path)
+
+
+def test_write_skill_accepts_hyphenated_name(tmp_path):
+    write_skill("weekly-review", "Weekly review.", "# Review", skills_dir=tmp_path)
+    assert "weekly-review" in SkillManager(skill_dirs=[str(tmp_path)]).skills
 
 
 def test_write_skill_requires_description(tmp_path):

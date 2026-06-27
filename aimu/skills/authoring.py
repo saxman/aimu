@@ -67,8 +67,8 @@ def write_skill(
     """
     if not _SLUG.match(name):
         raise ValueError(
-            f"invalid skill name {name!r}: use a lowercase-with-hyphens slug "
-            "(letters, digits, single hyphens; no spaces or path separators)"
+            f"invalid skill name {name!r}: use a kebab-case slug (lowercase words joined by hyphens, "
+            "e.g. 'format-standup'); replace underscores or spaces with hyphens."
         )
     if not description.strip():
         raise ValueError("skill description must be non-empty")
@@ -138,7 +138,8 @@ def make_skill_authoring_tool(manager: SkillManager, skills_dir: Union[str, Path
         saved as instructions you can recall later.
 
         Args:
-            name: Short slug identifying the skill (lowercase-with-hyphens, e.g. "format-standup").
+            name: A short kebab-case slug for the skill: lowercase words joined by hyphens,
+                e.g. "format-standup". Use hyphens, never underscores or spaces.
             description: One line describing when to use the skill.
             body: Full markdown instructions for performing the skill.
         """
@@ -173,7 +174,8 @@ def make_skill_script_tool(agent, manager: SkillManager, skills_dir: Union[str, 
 
         Args:
             skill_name: Slug of an existing skill (create it first with author_skill).
-            filename: Script file name, "<name>.py" or "<name>.sh" (lowercase-with-hyphens stem).
+            filename: Script file name, "<stem>.py" or "<stem>.sh". The stem is lowercase and may
+                use hyphens or underscores (e.g. "backup-db.sh" or "backup_db.sh").
             content: Full source of the script.
         """
         skill = manager.skills.get(skill_name)
