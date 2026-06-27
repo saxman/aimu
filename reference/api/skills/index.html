@@ -753,6 +753,8 @@
       
         
       
+        
+      
     
     
     
@@ -1486,6 +1488,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../how-to/build-personal-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a personal assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../how-to/connect-agents-a2a/" class="md-nav__link">
         
   
@@ -2049,6 +2079,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#aimu.skills.SkillManager.refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        refresh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.skills.SkillManager.catalog_prompt" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2102,6 +2143,39 @@
     <span class="md-ellipsis">
       
         build_skills_server
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.skills.write_skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        write_skill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.skills.make_skill_authoring_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_skill_authoring_tool
       
     </span>
   </a>
@@ -2858,6 +2932,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#aimu.skills.SkillManager.refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        refresh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.skills.SkillManager.catalog_prompt" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2917,6 +3002,39 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#authoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.skills.write_skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        write_skill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.skills.make_skill_authoring_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_skill_authoring_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2938,7 +3056,8 @@
 
 
 <h1 id="aimuskills"><code>aimu.skills</code><a class="headerlink" href="#aimuskills" title="Permanent link">&para;</a></h1>
-<p>Filesystem-discovered agent skills.</p>
+<p>Filesystem-discovered agent skills, plus runtime skill authoring. See
+<a href="../../../how-to/build-personal-assistant/">how-to: build a personal assistant</a> for the self-improvement pattern.</p>
 
 
 <div class="doc doc-object doc-class">
@@ -3087,6 +3206,28 @@ body = manager.get_skill_body(&quot;pdf-processing&quot;)
 <div class="doc doc-object doc-function">
 
 
+<h3 id="aimu.skills.SkillManager.refresh" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">refresh</span>
+
+
+<a href="#aimu.skills.SkillManager.refresh" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">refresh</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AgentSkill</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Invalidate the cache and re-discover skills, returning the new map.</p>
+<p>Lets a skill authored at runtime (see :func:<code>aimu.skills.write_skill</code>) become
+visible mid-run without constructing a fresh manager.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="aimu.skills.SkillManager.catalog_prompt" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">catalog_prompt</span>
 
@@ -3220,6 +3361,61 @@ the model can call directly (without first calling <code>activate_skill</code>).
 <li>{skill_name}__{script_stem}(): runs a Python script from a skill's scripts/ dir</li>
 </ul>
 </details>        <p>The returned FastMCP instance can be passed directly to MCPClient(server=...).</p>
+
+
+    </div>
+
+</div><h2 id="authoring">Authoring<a class="headerlink" href="#authoring" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.skills.write_skill" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.skills.write_skill</span>
+
+
+<a href="#aimu.skills.write_skill" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write_skill</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Write a new <code>SKILL.md</code> under <code>skills_dir/&lt;name&gt;/</code> and return its path.</p>
+<p>The file carries YAML frontmatter (<code>name</code>, <code>description</code>, optional <code>metadata</code>)
+followed by the markdown <code>body</code>, matching the format
+:class:<code>~aimu.skills.manager.SkillManager</code> discovers.</p>
+<p>Validates that <code>name</code> is a slug (lowercase-with-hyphens, no path separators, which
+also prevents traversal) and that <code>description</code> is non-empty. Refuses to overwrite an
+existing skill unless <code>overwrite=True</code>. The written file is round-tripped through the
+manager parser, so an authored skill is guaranteed discoverable (a parse failure raises
+:class:<code>~aimu.skills.manager.SkillLoadError</code>).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.skills.make_skill_authoring_tool" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.skills.make_skill_authoring_tool</span>
+
+
+<a href="#aimu.skills.make_skill_authoring_tool" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_skill_authoring_tool</span><span class="p">(</span><span class="n">manager</span><span class="p">:</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Return an async <code>@tool</code> that authors a skill and refreshes <code>manager</code>.</p>
+<p>The tool writes a new <code>SKILL.md</code> under <code>skills_dir</code> via :func:<code>write_skill</code>, then
+calls :meth:<code>SkillManager.refresh</code> so the skill is discoverable in the same run. Both
+<code>manager</code> and <code>skills_dir</code> are captured by closure (no module globals).</p>
+<p>Note: after refresh, <code>activate_skill</code> (and any fresh-conversation catalog rebuild) will
+surface the new skill, but a skill catalog already injected into an in-flight system
+prompt is not retroactively updated. See :class:<code>~aimu.aio.SkillAgent</code>.</p>
 
 
     </div>
