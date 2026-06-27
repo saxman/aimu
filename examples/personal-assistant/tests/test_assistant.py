@@ -52,16 +52,38 @@ def _config(tmp_path: Path, **overrides) -> AssistantConfig:
 def test_arg_parser_defaults():
     args = build_arg_parser().parse_args([])
     assert args.model is None
-    assert args.skills_dir == ".agents/skills"
-    assert args.history == "assistant_history.json"
+    assert args.skills_dir is None  # falls back to the output-dir default in config_from_args
+    assert args.history is None
     assert args.reminder_seconds is None
 
 
+def test_default_config_lives_under_output_dir():
+    from aimu import paths
+
+    cfg = config_from_args(build_arg_parser().parse_args([]))
+    out = paths.output / "personal-assistant"
+    assert cfg.skills_dir == out / "skills"
+    assert cfg.history_path == str(out / "history.json")
+
+
 def test_arg_parser_overrides():
-    args = build_arg_parser().parse_args(["--model", "anthropic:claude-sonnet-4-6", "--reminder-seconds", "5"])
+    args = build_arg_parser().parse_args(
+        [
+            "--model",
+            "anthropic:claude-sonnet-4-6",
+            "--reminder-seconds",
+            "5",
+            "--skills-dir",
+            "/tmp/s",
+            "--history",
+            "/tmp/h.json",
+        ]
+    )
     cfg = config_from_args(args)
     assert cfg.model == "anthropic:claude-sonnet-4-6"
     assert cfg.reminder_seconds == 5.0
+    assert cfg.skills_dir == Path("/tmp/s")
+    assert cfg.history_path == "/tmp/h.json"
 
 
 async def test_assistant_handles_message(tmp_path):

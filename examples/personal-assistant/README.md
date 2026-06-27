@@ -32,9 +32,13 @@ prompt; press Ctrl-D to exit.
   after startup, pushed through the channel by the scheduler.
 - **Self-authored skill.** Teach the assistant a procedure: *"Remember how I like my standup
   formatted: three bullets, Yesterday, Today, Blockers."* It calls `author_skill`, which writes
-  a `SKILL.md` under `--skills-dir` (default `.agents/skills`) and refreshes the skill manager.
-  In a later conversation the assistant can `activate_skill` to recall it.
+  a `SKILL.md` under `--skills-dir` and refreshes the skill manager. In a later conversation the
+  assistant can `activate_skill` to recall it.
 - **Persistence.** Restart with the same `--history` path and the prior conversation is restored.
+
+By default the assistant keeps all of its state (authored skills and conversation history) under
+`<output>/personal-assistant/` (where `<output>` is `aimu.paths.output`), so a run leaves nothing
+in your working directory. Override with `--skills-dir` and `--history`.
 
 ## Layout
 

@@ -32,13 +32,13 @@ def build_arg_parser(prog: str = "assistant.py") -> argparse.ArgumentParser:
     parser.add_argument("--system", default=None, help="Override the assistant's system message.")
     parser.add_argument(
         "--skills-dir",
-        default=".agents/skills",
-        help="Directory where authored skills are written and discovered. Default: .agents/skills",
+        default=None,
+        help="Directory where authored skills are written and discovered. Default: <output>/personal-assistant/skills.",
     )
     parser.add_argument(
         "--history",
-        default="assistant_history.json",
-        help="Conversation history database path. Default: assistant_history.json",
+        default=None,
+        help="Conversation history database path. Default: <output>/personal-assistant/history.json.",
     )
     parser.add_argument(
         "--reminder-seconds",
@@ -55,12 +55,12 @@ def build_arg_parser(prog: str = "assistant.py") -> argparse.ArgumentParser:
 
 
 def config_from_args(args: argparse.Namespace) -> AssistantConfig:
-    kwargs = {
-        "model": args.model,
-        "skills_dir": Path(args.skills_dir),
-        "history_path": args.history,
-        "reminder_seconds": args.reminder_seconds,
-    }
+    # Omitted path flags fall back to the AssistantConfig defaults (under the output dir).
+    kwargs = {"model": args.model, "reminder_seconds": args.reminder_seconds}
+    if args.skills_dir is not None:
+        kwargs["skills_dir"] = Path(args.skills_dir)
+    if args.history is not None:
+        kwargs["history_path"] = args.history
     if args.system is not None:
         kwargs["system_message"] = args.system
     if args.reminder_text is not None:

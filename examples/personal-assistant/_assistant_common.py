@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from aimu import aio
+from aimu import aio, paths
 from aimu.aio import Channel, Scheduler
 from aimu.aio.channels.base import ChannelMessage
 from aimu.history import ConversationManager
@@ -35,13 +35,18 @@ DEFAULT_SYSTEM_MESSAGE = (
 
 DEFAULT_REMINDER_TEXT = "Proactively check in with the user with one short, useful suggestion for their day."
 
+# All of the assistant's persistent state (authored skills + conversation history) defaults
+# under one subdirectory of the AIMU output directory, so a run leaves nothing scattered in
+# the working directory.
+DEFAULT_OUTPUT_DIR = paths.output / "personal-assistant"
+
 
 @dataclass
 class AssistantConfig:
     model: Optional[str] = None
     system_message: str = DEFAULT_SYSTEM_MESSAGE
-    skills_dir: Path = field(default_factory=lambda: Path(".agents/skills"))
-    history_path: str = "assistant_history.json"
+    skills_dir: Path = field(default_factory=lambda: DEFAULT_OUTPUT_DIR / "skills")
+    history_path: str = field(default_factory=lambda: str(DEFAULT_OUTPUT_DIR / "history.json"))
     reminder_seconds: Optional[float] = None
     reminder_text: str = DEFAULT_REMINDER_TEXT
 
