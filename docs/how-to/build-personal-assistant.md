@@ -193,6 +193,30 @@ python examples/personal-assistant/assistant.py \
     --model anthropic:claude-sonnet-4-6 --reminder-seconds 30
 ```
 
+## Web front end
+
+Because the assistant loop consumes any `Channel`, a browser UI is just a different `Channel`
+implementation: nothing in `Assistant` changes. The example ships a `WebChannel` (a `Channel` over a
+browser WebSocket) and a small [Starlette](https://www.starlette.io/) server
+(`examples/personal-assistant/web_assistant.py`). `WebChannel.send` relays a streamed reply as
+`token` frames + a `done` frame, and a proactive (scheduler-pushed) message as a `message` frame the
+page styles distinctly. The server runs a pump task (reading the socket into the channel) and
+`assistant.run()` concurrently under one `asyncio.TaskGroup`; on disconnect the pump feeds a sentinel
+that ends `receive()`, stops the scheduler, and tears down cleanly.
+
+Because the server owns the scheduler via `assistant.run()`, proactive messages reach the browser
+unprompted, the property a request/response UI (Streamlit/Gradio) can't provide without polling.
+
+```bash
+pip install aimu[web]
+python examples/personal-assistant/web_assistant.py --model ollama:qwen3:8b --reminder-seconds 20
+# open http://127.0.0.1:8000
+```
+
+The `WebChannel` lives in the example (not the library): a web server is app-layer, and keeping it
+out of `aimu.aio` keeps the library free of a web-framework dependency. It is a worked example of
+extending the `Channel` ABC, the same seam a Telegram or Slack adapter would use.
+
 ## See also
 
 - [Use skills](use-skills.md): the `SkillAgent` and `SKILL.md` format the authoring tool writes to

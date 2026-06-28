@@ -88,14 +88,20 @@ Reads `PROMPT_CATALOG_PATH` (default: `prompts.db` in cwd).
 
 ## Web chat apps
 
-Not strictly CLI but launched the same way:
+Not strictly CLI but launched the same way (install the UI stack with `pip install aimu[web]`):
 
 ```bash
-streamlit run web/streamlit_chatbot.py     # Streamlit UI
-python web/gradio_chatbot_basic.py               # Gradio UI
+streamlit run examples/web/streamlit_chatbot.py     # Streamlit UI
+python examples/web/gradio_chatbot_basic.py         # Gradio UI
 ```
 
 Both demo a full-featured chat with streaming, tool calls, and persistent history.
+
+The personal-assistant example also ships a WebSocket front end (a Starlette server + a `WebChannel`):
+
+```bash
+python examples/personal-assistant/web_assistant.py --model ollama:qwen3:8b --port 8000   # then open http://127.0.0.1:8000
+```
 
 ## See also
 

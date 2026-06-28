@@ -58,13 +58,11 @@ source = { editable = "." }
 dependencies = [
     { name = "chromadb" },
     { name = "fastmcp" },
-    { name = "gradio" },
     { name = "nest-asyncio" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "sqlalchemy" },
-    { name = "streamlit" },
     { name = "tinydb" },
     { name = "watchdog" },
 ]
@@ -82,6 +80,7 @@ all = [
     { name = "deepeval" },
     { name = "diffusers" },
     { name = "google-genai" },
+    { name = "gradio" },
     { name = "kernels" },
     { name = "llama-cpp-python" },
     { name = "mistral-common" },
@@ -92,6 +91,8 @@ all = [
     { name = "sentence-transformers" },
     { name = "sentencepiece" },
     { name = "soundfile" },
+    { name = "starlette" },
+    { name = "streamlit" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "transformers" },
@@ -145,12 +146,18 @@ ollama = [
 openai-compat = [
     { name = "openai" },
 ]
+web = [
+    { name = "gradio" },
+    { name = "starlette" },
+    { name = "streamlit" },
+    { name = "uvicorn" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "a2a-sdk", marker = "extra == 'a2a'", specifier = ">=0.3.24,<0.4" },
     { name = "accelerate", marker = "extra == 'hf'" },
-    { name = "aimu", extras = ["hf", "ollama", "anthropic", "openai-compat", "llamacpp", "google", "deepeval", "a2a"], marker = "extra == 'all'" },
+    { name = "aimu", extras = ["hf", "ollama", "anthropic", "openai-compat", "llamacpp", "google", "deepeval", "a2a", "web"], marker = "extra == 'all'" },
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.50.0" },
     { name = "bitsandbytes", marker = "extra == 'hf'" },
     { name = "chromadb" },
@@ -158,7 +165,7 @@ requires-dist = [
     { name = "diffusers", marker = "extra == 'hf'", specifier = ">=0.30" },
     { name = "fastmcp" },
     { name = "google-genai", marker = "extra == 'google'", specifier = ">=1.0" },
-    { name = "gradio" },
+    { name = "gradio", marker = "extra == 'web'" },
     { name = "ipykernel", marker = "extra == 'notebooks'" },
     { name = "ipywidgets", marker = "extra == 'notebooks'" },
     { name = "kernels", marker = "extra == 'hf'", specifier = ">=0.12,<0.13" },
@@ -183,15 +190,17 @@ requires-dist = [
     { name = "sentencepiece", marker = "extra == 'hf'" },
     { name = "soundfile", marker = "extra == 'hf'" },
     { name = "sqlalchemy" },
-    { name = "streamlit" },
+    { name = "starlette", marker = "extra == 'web'" },
+    { name = "streamlit", marker = "extra == 'web'" },
     { name = "tinydb" },
     { name = "torch", marker = "extra == 'hf'" },
     { name = "torchvision", marker = "extra == 'hf'" },
     { name = "transformers", marker = "extra == 'hf'", specifier = ">=5,<6" },
     { name = "uvicorn", marker = "extra == 'a2a'", specifier = ">=0.30" },
+    { name = "uvicorn", marker = "extra == 'web'", specifier = ">=0.30" },
     { name = "watchdog" },
 ]
-provides-extras = ["dev", "notebooks", "hf", "ollama", "anthropic", "openai-compat", "llamacpp", "google", "deepeval", "a2a", "docs", "all"]
+provides-extras = ["dev", "notebooks", "hf", "ollama", "anthropic", "openai-compat", "llamacpp", "google", "deepeval", "a2a", "docs", "web", "all"]
 
 [[package]]
 name = "aiofile"

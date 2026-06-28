@@ -8,8 +8,9 @@ becoming an application.
 
 It wires together:
 
-- **A channel** (`aimu.aio.CLIChannel`) for input/output. The `Channel` ABC is transport-only,
-  so a network adapter (Telegram, Slack) is a drop-in replacement.
+- **A channel** for input/output: `aimu.aio.CLIChannel` (terminal) or the example's `WebChannel`
+  (a browser WebSocket, see [Web front end](#web-front-end)). The `Channel` ABC is transport-only,
+  so each is a drop-in replacement, and a network adapter (Telegram, Slack) would be too.
 - **A `SkillAgent`** that answers each message and can **author new skills** at runtime via the
   `author_skill` tool (`aimu.skills.make_skill_authoring_tool`): the self-improvement loop.
 - **A `Scheduler`** (`aimu.aio.Scheduler`) for proactive messages (reminders / check-ins).
@@ -25,6 +26,25 @@ python examples/personal-assistant/assistant.py \
 
 Omit `--model` to use `AIMU_LANGUAGE_MODEL` or a locally available model. Chat at the `>`
 prompt; press Ctrl-D to exit.
+
+## Web front end
+
+The same assistant is also served over a browser WebSocket (install the web stack with
+`pip install aimu[web]`):
+
+```bash
+python examples/personal-assistant/web_assistant.py \
+    --model ollama:qwen3:8b \
+    --reminder-seconds 20
+# then open http://127.0.0.1:8000
+```
+
+This is a small [Starlette](https://www.starlette.io/) server plus `web_channel.py`'s
+`WebChannel` (a `Channel` over the browser socket). The `Assistant` loop is **unchanged**: only the
+channel differs, the whole point of the `Channel` ABC. Replies stream token-by-token and proactive
+scheduler messages arrive in the browser unprompted (something a request/response UI like
+Streamlit/Gradio can't do without polling). `--host` / `--port` accept the usual flags; single-user,
+so a second simultaneous connection is rejected.
 
 ## What to try
 
@@ -50,7 +70,11 @@ in your working directory. Override with `--skills-dir` and `--history`.
 |------|------|
 | `assistant.py` | CLI entry point (argparse) + `asyncio.run` |
 | `_assistant_common.py` | `Assistant` / `AssistantConfig` (the testable daemon core) |
+| `web_assistant.py` | Web entry point: a Starlette + `uvicorn` WebSocket server (needs `aimu[web]`) |
+| `web_channel.py` | `WebChannel`: a `Channel` adapter over a browser WebSocket |
+| `static/index.html` | Dependency-free chat page (streaming replies + proactive messages) |
 | `tests/test_assistant.py` | Mock-only tests (fake channel + mock model) |
+| `tests/test_web_assistant.py` | Mock-only WebChannel + WebSocket round-trip tests |
 
 ## Security
 

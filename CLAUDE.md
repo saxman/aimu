@@ -141,16 +141,18 @@ ruff format .
 
 ### Running the Chat UI
 
-The `web/` directory ships two Streamlit apps and a Gradio app:
+The `examples/web/` directory ships two Streamlit apps and a Gradio app (install the UI stack with `pip install aimu[web]`; `streamlit`/`gradio` are an optional extra, not core deps):
 
 - **`streamlit_chatbot_basic.py`**: ~70-line showcase. Model/provider selector, streaming chat with `include=["generating"]`, built-in tools running silently. Start here to see how little code a working AIMU chatbot needs.
 - **`streamlit_chatbot.py`**: Full-featured version. Adds image generation, agentic mode, thinking display, tool-call expanders, generation parameter sliders, and conversation persistence. Intended as an extensible foundation.
 
 ```bash
-streamlit run web/streamlit_chatbot_basic.py   # showcase
-streamlit run web/streamlit_chatbot.py         # full-featured
-python web/gradio_chatbot_basic.py                   # Gradio variant
+streamlit run examples/web/streamlit_chatbot_basic.py   # showcase
+streamlit run examples/web/streamlit_chatbot.py         # full-featured
+python examples/web/gradio_chatbot_basic.py             # Gradio variant
 ```
+
+The **personal-assistant** example additionally ships a WebSocket front end -- `examples/personal-assistant/web_assistant.py` (a Starlette + `uvicorn` server) with an example-local `WebChannel` (a `Channel` adapter over a browser WebSocket) and a static page. It streams replies and pushes proactive scheduler messages to the browser, demonstrating that the `Channel` ABC accepts a network adapter with no change to the `Assistant` loop. Run: `python examples/personal-assistant/web_assistant.py --model ollama:qwen3:8b` then open `http://127.0.0.1:8000`. Also under `aimu[web]`.
 
 ## Architecture
 
@@ -1277,11 +1279,6 @@ tests/                   # Pytest test suite
 ├── test_aio_assistant_exports.py # Export smoke for the personal-assistant primitives
 └── test_aio_models.py            # Live-backend async tests (mirrors test_models.py)
 
-web/                           # Example chat UIs
-├── streamlit_chatbot_basic.py # ~70-line showcase; model selector, streaming chat, silent tools
-├── streamlit_chatbot.py       # Full-featured; image gen, audio gen, speech narration, agentic mode, thinking, sliders
-└── gradio_chatbot_basic.py          # Gradio chat interface with streaming
-
 notebooks/               # Jupyter notebook demos
 
 examples/                       # Runnable, real-world programs (kept out of the default pytest run via testpaths)
@@ -1292,7 +1289,15 @@ examples/                       # Runnable, real-world programs (kept out of the
 │   └── tests/
 ├── news-summarizer/            # One task via Agent / Chain / Parallel / OrchestratorAgent (--method)
 ├── personal-assistant/         # Always-on single-user assistant: CLIChannel + Scheduler + skill-authoring SkillAgent
+│   ├── assistant.py            # CLI entry point (CLIChannel)
+│   ├── web_assistant.py        # WebSocket front end: Starlette + uvicorn server (needs [web])
+│   ├── web_channel.py          # WebChannel: example-local Channel adapter over a browser WebSocket
+│   ├── static/index.html       # Dependency-free chat page (streaming + proactive messages)
 │   └── tests/                  # On pythonpath; run via `pytest examples/`
+├── web/                        # Streamlit/Gradio chat UIs (needs [web] extra); moved here from /web
+│   ├── streamlit_chatbot_basic.py # ~70-line showcase; model selector, streaming chat, silent tools
+│   ├── streamlit_chatbot.py       # Full-featured; image/audio/speech gen, agentic mode, thinking, sliders
+│   └── gradio_chatbot_basic.py    # Gradio chat interface with streaming
 └── skills/                     # Demo SKILL.md skills (haiku-poet, unit-converter); exposed as aimu.paths.skills
 ```
 
