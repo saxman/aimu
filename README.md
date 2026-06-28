@@ -40,7 +40,7 @@ A curated model catalog, capturing model capabilities and nuances, is part of th
 pip install aimu[all]
 ```
 
-Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech and transcription STT), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
+Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech and transcription STT), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`, `aimu[web]` (the Streamlit/Gradio chat apps + the personal-assistant web UI). See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
 
 ## Key features
 
@@ -333,16 +333,22 @@ The [`examples/`](examples/) directory ships larger, real-world programs organiz
 
 ### Web apps
 
-The [`web/`](web/) directory ships chat applications that demonstrate AIMU in action:
+The [`examples/web/`](examples/web/) directory ships chat applications that demonstrate AIMU in action (install the UI stack with `pip install aimu[web]`):
 
-- [streamlit_chatbot_basic.py](web/streamlit_chatbot_basic.py): ~70-line showcase. Provider/model selector, streaming chat, built-in tools. Start here.
-- [streamlit_chatbot.py](web/streamlit_chatbot.py): Full-featured. Image/audio/speech generation, agentic mode, thinking display, generation sliders, live TTS narration. Extensible foundation.
-- [gradio_chatbot_basic.py](web/gradio_chatbot_basic.py): Basic Gradio chat interface with streaming.
+- [streamlit_chatbot_basic.py](examples/web/streamlit_chatbot_basic.py): ~70-line showcase. Provider/model selector, streaming chat, built-in tools. Start here.
+- [streamlit_chatbot.py](examples/web/streamlit_chatbot.py): Full-featured. Image/audio/speech generation, agentic mode, thinking display, generation sliders, live TTS narration. Extensible foundation.
+- [gradio_chatbot_basic.py](examples/web/gradio_chatbot_basic.py): Basic Gradio chat interface with streaming.
 
 ```bash
-streamlit run web/streamlit_chatbot.py         # full-featured Streamlit demo (agents, tools, images, audio, speech narration, etc.)
-streamlit run web/streamlit_chatbot_basic.py   # basic Streamlit demo app
-python web/gradio_chatbot_basic.py             # basic Gradio demo app
+streamlit run examples/web/streamlit_chatbot.py         # full-featured Streamlit demo (agents, tools, images, audio, speech narration, etc.)
+streamlit run examples/web/streamlit_chatbot_basic.py   # basic Streamlit demo app
+python examples/web/gradio_chatbot_basic.py             # basic Gradio demo app
+```
+
+The [personal-assistant](examples/personal-assistant/) example also ships a **WebSocket** front end (a `WebChannel` + a small [Starlette](https://www.starlette.io/) server) that streams replies and pushes proactive messages to the browser:
+
+```bash
+python examples/personal-assistant/web_assistant.py --model ollama:qwen3:8b --reminder-seconds 20  # then open http://127.0.0.1:8000
 ```
 
 ## Contributing

@@ -11,8 +11,6 @@ dependencies = [
     "chromadb",
     "fastmcp",
     "nest_asyncio",
-    "streamlit",
-    "gradio",
     "watchdog",
     "tinydb",
     "requests",
@@ -86,7 +84,16 @@ docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.27",
 ]
-all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,google,deepeval,a2a]"]
+web = [
+    # Example web UIs: the Streamlit/Gradio chat apps (examples/web/) and the personal-assistant
+    # WebSocket front end (examples/personal-assistant/web_assistant.py). starlette/uvicorn are
+    # also pulled transitively by fastmcp, but declared here so the web UI's deps are explicit.
+    "streamlit",
+    "gradio",
+    "starlette",
+    "uvicorn>=0.30",
+]
+all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,google,deepeval,a2a,web]"]
 
 [build-system]
 requires = ["setuptools"]

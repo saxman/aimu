@@ -19,7 +19,13 @@
 ### Examples & docs
 
 - **New** `examples/personal-assistant/`: a single-user, always-on assistant (OpenClaw / Hermes Agent style) assembled from the primitives above (`CLIChannel` + `Scheduler` for a proactive reminder + a `SkillAgent` with `author_skill`, persisted via `ConversationManager`). Includes a CLI entry point and mock-only tests.
-- **New** how-to guide [Build a personal assistant](https://saxman.github.io/aimu/how-to/build-personal-assistant/); `aimu.aio` and `aimu.skills` API references extended with the new symbols.
+- **New** **web front end** for the personal assistant: `examples/personal-assistant/web_assistant.py` (a Starlette + `uvicorn` WebSocket server) with an example-local `WebChannel` (a `Channel` over a browser WebSocket) and a dependency-free static page. Streams replies and pushes proactive scheduler messages to the browser, with no change to the `Assistant` loop, a worked example of extending the `Channel` ABC.
+- **New** how-to guide [Build a personal assistant](https://saxman.github.io/aimu/how-to/build-personal-assistant/) (incl. a "Web front end" section); `aimu.aio` and `aimu.skills` API references extended with the new symbols.
+
+### Packaging (breaking)
+
+- **Moved** the Streamlit/Gradio chat apps from `web/` to `examples/web/`, consolidating all runnable programs under `examples/`.
+- **Breaking** `streamlit` and `gradio` are no longer core dependencies; they (with `starlette`/`uvicorn` for the personal-assistant web UI) moved to a new optional **`[web]`** extra. Install the web UIs with `pip install aimu[web]`. `aimu[all]` now includes `web`.
 
 ## v0.10.1 (2026-06-24): cleanup: unified modality factory kwargs, keyword-only restore(), async SkillAgent parity + import-guard hardening
 
