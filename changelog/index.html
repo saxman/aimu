@@ -2667,6 +2667,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#agents-and-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2717,7 +2728,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models" class="md-nav__link">
+  <a href="#models_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -2756,7 +2767,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_1" class="md-nav__link">
+  <a href="#models_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -2911,7 +2922,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_2" class="md-nav__link">
+  <a href="#models_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -2939,7 +2950,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_3" class="md-nav__link">
+  <a href="#models_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3099,7 +3110,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_4" class="md-nav__link">
+  <a href="#models_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3542,6 +3553,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#agents-and-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3592,7 +3614,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models" class="md-nav__link">
+  <a href="#models_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3631,7 +3653,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_1" class="md-nav__link">
+  <a href="#models_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3786,7 +3808,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_2" class="md-nav__link">
+  <a href="#models_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3814,7 +3836,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_3" class="md-nav__link">
+  <a href="#models_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3974,7 +3996,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_4" class="md-nav__link">
+  <a href="#models_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -4371,6 +4393,10 @@ not this stub.
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased-personal-assistant-primitives-channels-scheduler-skill-authoring">Unreleased: personal-assistant primitives (channels, scheduler, skill authoring)<a class="headerlink" href="#unreleased-personal-assistant-primitives-channels-scheduler-skill-authoring" title="Permanent link">&para;</a></h2>
+<h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fix</strong> local thinking models now record their reasoning in <code>self.messages</code> consistently. The llama-cpp and OpenAI-compat local-server clients (sync + <code>aimu.aio</code>) previously dropped a turn's reasoning from the conversation entirely, keeping it only on the (overwritten-each-call) <code>last_thinking</code>, while HuggingFace and Ollama attached it to the assistant message under a <code>"thinking"</code> key. All four now attach it under the same key (omitted when a turn produced no reasoning), so per-turn reasoning is uniformly available for UI display (<code>web/streamlit_chatbot.py</code>) and <code>ConversationManager</code> persistence. This also covers the <strong>tool-call turn</strong> in an agentic loop: the reasoning that precedes a tool call is attached to the assistant message carrying <code>tool_calls</code> (matching the existing HuggingFace/Ollama behavior), so every assistant message that had reasoning carries its own. The <code>"thinking"</code> key is inert metadata: chat templates and request adapters read only <code>role</code>/<code>content</code>/<code>tool_calls</code>, so prior-turn reasoning is not re-fed to the model on subsequent turns (the recommended behavior for Qwen3/Gemma/DeepSeek-R1). New explanation page <a href="https://saxman.github.io/aimu/explanation/thinking-and-context/">Thinking and the model context</a>.</li>
+</ul>
 <h3 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> async-first <strong>channel transport</strong> under <code>aimu.aio.channels</code>: a <code>Channel</code> ABC (<code>receive()</code> async-generator, <code>async send()</code>, <code>aclose()</code>) and <code>ChannelMessage</code> plain-data type, plus a <code>CLIChannel</code> stdin/stdout adapter. A new uniform interface alongside <code>AsyncRunner</code> / <code>MemoryStore</code> for talking to a user over a transport; network adapters (Telegram/Slack) are a deferred follow-up behind an optional extra + <code>HAS_*</code> guard, kept out of core. Exported from <code>aimu.aio</code>.</li>
@@ -4387,7 +4413,7 @@ not this stub.
 <li><strong>New</strong> how-to guide <a href="https://saxman.github.io/aimu/how-to/build-personal-assistant/">Build a personal assistant</a>; <code>aimu.aio</code> and <code>aimu.skills</code> API references extended with the new symbols.</li>
 </ul>
 <h2 id="v0101-2026-06-24-cleanup-unified-modality-factory-kwargs-keyword-only-restore-async-skillagent-parity-import-guard-hardening">v0.10.1 (2026-06-24): cleanup: unified modality factory kwargs, keyword-only restore(), async SkillAgent parity + import-guard hardening<a class="headerlink" href="#v0101-2026-06-24-cleanup-unified-modality-factory-kwargs-keyword-only-restore-async-skillagent-parity-import-guard-hardening" title="Permanent link">&para;</a></h2>
-<h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
+<h3 id="models_1">Models<a class="headerlink" href="#models_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Change</strong> the modality factory classes (<code>ImageClient</code>, <code>AudioClient</code>, <code>SpeechClient</code>, <code>TranscriptionClient</code>, <code>EmbeddingClient</code>) now take provider construction kwargs <strong>directly</strong> as <code>**kwargs</code>, matching <code>ModelClient(model, base_url=...)</code> and the top-level <code>aimu.image_client(model, variant="fp16")</code> helpers: <code>ImageClient(HuggingFaceImageModel.SDXL_BASE, variant="fp16")</code>. The old <code>model_kwargs={...}</code> argument is <strong>removed</strong> (pass the kwargs directly instead). The concrete provider clients (<code>HuggingFaceImageClient</code>, etc.) are unchanged and still take <code>model_kwargs=</code>.</li>
 <li><strong>Fix</strong> optional-provider import guards (<code>aimu.models</code>, <code>ModelClient</code>, and their <code>aimu.aio</code> mirrors) now catch <code>ImportError</code> instead of bare <code>Exception</code>. A real error inside a provider module (a <code>SyntaxError</code>, an <code>AttributeError</code>, a broken transitive dependency) was previously swallowed and the provider silently reported as "dependency not installed," surfacing later as a confusing "no client for …" message; the real cause now propagates at import time.</li>
@@ -4398,7 +4424,7 @@ not this stub.
 <li><strong>Fix</strong> async <code>SkillAgent.run()</code> (<code>aimu.aio</code>) ignored <code>deps=</code> and <code>schema=</code>, which its sync twin and <code>aio.Agent.run()</code> both accept; async skill users silently lost <code>ToolContext</code> dependency injection and structured output. The async override now mirrors <code>aio.Agent.run()</code> in full: <code>deps=</code>, <code>schema=</code> (mutually exclusive with <code>stream=True</code>), and the <code>final_answer_prompt</code> forced-wrap-up on both the streamed and non-streamed paths.</li>
 </ul>
 <h2 id="v0100-2026-06-23-a2a-interop-resilience-fallback-timeoutretry-anthropic-prompt-caching-streaming-usage-uniform-restore">v0.10.0 (2026-06-23): A2A interop + resilience (fallback, timeout/retry), Anthropic prompt caching, streaming usage, uniform restore<a class="headerlink" href="#v0100-2026-06-23-a2a-interop-resilience-fallback-timeoutretry-anthropic-prompt-caching-streaming-usage-uniform-restore" title="Permanent link">&para;</a></h2>
-<h3 id="models_1">Models<a class="headerlink" href="#models_1" title="Permanent link">&para;</a></h3>
+<h3 id="models_2">Models<a class="headerlink" href="#models_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> streaming token usage: <code>client.last_usage</code> now populates after a fully-consumed <code>chat(stream=True)</code> / <code>generate(stream=True)</code>, where before it was reset to <code>None</code>. OpenAI-compat clients request it via <code>stream_options={"include_usage": True}</code> and read the terminal usage chunk; Ollama reads the final streamed part's eval counts; Anthropic reads <code>stream.get_final_message().usage</code> (which also carries the P1-A cache-token fields). Usage is set once the stream is drained (reading mid-stream still yields <code>None</code>), and matches the non-streaming semantics (final turn's counts). Hardened the OpenAI-compat stream loop against empty-<code>choices</code> chunks. In-process providers (HuggingFace, LlamaCpp) expose no streaming counts and still leave it <code>None</code>.</li>
 <li><strong>New</strong> opt-in Anthropic prompt caching: <code>AnthropicClient</code> / <code>AsyncAnthropicClient</code> accept <code>cache_prompt=True</code> (threads through <code>aimu.client("anthropic:...", cache_prompt=True)</code>), which marks the system prompt and the tool definitions with <code>cache_control: {"type":"ephemeral"}</code> breakpoints at request time (the large, unchanging prefix an agent resends every turn). Markers are injected in the two format adapters, so all request paths (chat, tool-follow-up, streaming, structured) are covered. Below Anthropic's minimum cacheable size the API silently skips caching, so the flag is safe to leave on. <code>usage_from_anthropic</code> now also surfaces <code>cache_creation_input_tokens</code> / <code>cache_read_input_tokens</code> in <code>client.last_usage</code> when the response reports them, so cache creation/hits are observable (the base <code>input/output/total_tokens</code> keys are unchanged). Pure passthrough; no AIMU-side caching layer.</li>
@@ -4457,14 +4483,14 @@ not this stub.
 <li><strong>Change</strong> The example test suites (<code>test_epic_scripts.py</code>, <code>test_hotdog_scripts.py</code>) are now scoped out of the default <code>pytest</code> run via <code>testpaths = ["tests"]</code>. Run them explicitly with <code>pytest examples/</code>. The two refinement directories are on <code>pythonpath</code> so their shared-helper imports resolve.</li>
 <li><strong>New</strong> Examples are surfaced from the README (<code>## Examples</code> section), the docs site (<code>docs/examples.md</code> + nav entry), and cross-linked from notebooks 07, 08, and 09. The two iterative-refinement how-to guides and <code>generate-images.md</code> now reference the <code>examples/</code> paths.</li>
 </ul>
-<h3 id="models_2">Models<a class="headerlink" href="#models_2" title="Permanent link">&para;</a></h3>
+<h3 id="models_3">Models<a class="headerlink" href="#models_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Fix</strong> <code>HuggingFaceModel.QWEN_3_6_27B</code> (and the Qwen 3.5/3.6 family) crashed at generation with <code>RuntimeError: expected mat1 and mat2 to have the same dtype, but got: c10::BFloat16 != c10::Float8_e4m3fn</code>. These are unified multimodal FP8 checkpoints whose <code>quantization_config.modules_to_not_convert</code> skip-list is written against the multimodal module tree (<code>model.language_model.*</code> / <code>model.visual.*</code>). The text-only entries loaded via <code>AutoModelForCausalLM</code>, which builds a text-only tree (<code>model.layers.*</code>) the skip-list can't match, so layers meant to stay bf16 (router <code>mlp.gate</code>, <code>lm_head</code>, <code>linear_attn</code> projections) mis-quantized. Qwen 3.5/3.6 now always load via <code>AutoModelForImageTextToText</code>.</li>
 <li><strong>Change</strong> Merged the Qwen 3.5/3.6 text-only and <code>_VL</code> enum members into single <code>vision=True</code> entries (<code>QWEN_3_6_27B</code>, <code>QWEN_3_5_9B</code>); removed <code>QWEN_3_6_27B_VL</code> and <code>QWEN_3_5_9B_VL</code>. The two variants loaded the identical checkpoint via the identical loader (vision tower included either way), so the split no longer backed any loader or VRAM difference.</li>
 <li><strong>Fix</strong> <code>HuggingFaceClient</code>'s module-level weight cache could collide: two enum members sharing a repo id and <code>model_kwargs</code> but loading via different classes (<code>AutoModelForCausalLM</code> vs <code>AutoModelForImageTextToText</code>) produced the same cache key, so the second silently received the first's model object. <code>_make_cache_key</code> now folds in a load-profile tag (mirroring how the image/audio/speech clients key on <code>pipeline_class</code> / <code>pipeline_type</code>).</li>
 </ul>
 <h2 id="v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input">v0.8.0 (2026-06-12): Embeddings, transcription, structured output, RAG &amp; audio input<a class="headerlink" href="#v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input" title="Permanent link">&para;</a></h2>
-<h3 id="models_3">Models<a class="headerlink" href="#models_3" title="Permanent link">&para;</a></h3>
+<h3 id="models_4">Models<a class="headerlink" href="#models_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>audio: bool = False</code> field on <code>ModelSpec</code>. Audio-capable text models expose <code>supports_audio</code> on their enum members, <code>is_audio_model</code> on their client instances, and an <code>AUDIO_MODELS</code> classproperty (parallel to <code>TOOL_MODELS</code>, <code>THINKING_MODELS</code>, <code>VISION_MODELS</code>).</li>
 <li><strong>New</strong> Audio-capable models added to the catalog: <code>OpenAIModel</code> GPT-4o, GPT-4o-mini, GPT-4.1, GPT-4.1-mini, GPT-4.1-nano; <code>GeminiModel</code> 2.0 Flash, 2.0 Flash Lite, 2.5 Pro, 2.5 Flash; <code>HuggingFaceModel.GEMMA_4_E4B</code>, <code>GEMMA_4_12B</code>, <code>NEMOTRON_H_8B</code>. Ollama models remain <code>audio=False</code> with inline comments noting where the underlying weights support audio (upgrade path once the Ollama API adds audio input).</li>
@@ -4560,7 +4586,7 @@ not this stub.
 <li><strong>Breaking</strong> Removed the <code>model_client.mcp_client</code> attribute. MCP tools now integrate through the single <code>model_client.tools</code> registry: call <code>MCPClient(...).as_tools()</code> (sync) or <code>await aio.MCPClient.connect(...).as_tools()</code> (async) to turn a server's tools into <code>@tool</code>-style callables, then add them to <code>tools</code> (constructor <code>Agent(tools=...)</code>, <code>client.tools = ...</code>, or the per-call <code>chat(tools=...)</code> / <code>run(tools=...)</code> override). Migration: replace <code>client.mcp_client = mcp</code> with <code>client.tools = mcp.as_tools()</code> (concatenate with <code>@tool</code> functions as needed, e.g. <code>builtin.web + mcp.as_tools()</code>). Two consequences: dispatch is now one by-name lookup over <code>tools</code>, so on a name collision the <strong>last</strong> entry wins (previously Python <code>@tool</code> always beat a same-named MCP tool; to preserve that, append the Python tool <em>after</em> <code>mcp.as_tools()</code>); and <code>MCPClient.get_tools()</code> is no longer called on every <code>chat()</code> (the tool list is snapshotted by <code>as_tools()</code>), so call <code>as_tools()</code> again to pick up server-side tool changes. <code>SkillAgent</code> and the internal dispatch (<code>_handle_tool_calls(tool_calls)</code>, <code>_call_plain_tool(tc, tc_id)</code>, both of which lost their <code>tools</code> parameter) were updated accordingly. The <code>MCPClient</code> class, its <code>get_tools()</code> / <code>call_tool()</code> / <code>ping()</code>, and the <code>aio.MCPClient</code> parallel are unchanged.</li>
 <li><strong>Breaking</strong> <code>system_message</code> is no longer immutable after the first <code>chat()</code>. The setter is now always live: assigning it mid-conversation rewrites the <code>{"role": "system"}</code> entry in <code>messages</code> in place (re-conditioning the model on the new prompt while preserving history), inserts one if absent, or removes it on <code>None</code>. Before the first chat it still just seeds the value. The previous behaviour raised <code>RuntimeError</code>; code that caught that error to gate a <code>reset()</code> can now assign directly. To change the prompt <em>and</em> drop history, use <code>reset(system_message="new")</code>. Two consequences are accepted by design: the transcript becomes counterfactual (prior assistant turns predate the new prompt), and there is no longer a guard against silently re-conditioning a <code>ModelClient</code> shared by another agent's in-flight conversation, so don't share a live-conversation client across agents that each set <code>system_message</code>. The <code>_system_message_locked</code> flag has been removed. See <a href="../explanation/system-message-lifecycle/">System message lifecycle</a>.</li>
 </ul>
-<h3 id="models_4">Models<a class="headerlink" href="#models_4" title="Permanent link">&para;</a></h3>
+<h3 id="models_5">Models<a class="headerlink" href="#models_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>aimu.resolve_model_enum(model)</code> and <code>aimu.resolve_image_model_enum(model)</code>: resolve a model to its <code>Model</code> / <code>ImageModel</code> enum member from any of three input forms: an enum member (returned unchanged), a <code>"provider:model_id"</code> string (delegates to <code>resolve_model_string</code> / <code>resolve_image_model_string</code>), or a <strong>bare enum-member name</strong> (e.g. <code>"QWEN_3_8B"</code>, <code>"FLUX_2_KLEIN_4B"</code>, <code>"NANO_BANANA"</code>) looked up across every installed provider enum. Useful for CLIs/scripts that accept "enum, name, or string" uniformly. For text, an ambiguous bare name (the same id ships under many providers) is disambiguated the way the omitted-<code>model</code> default is: prefer a provider where the model is <em>actually available locally</em> (running Ollama → cached HuggingFace → reachable local OpenAI-compat server, tool-capable first), logged at WARNING; if it isn't available under any provider, <code>ValueError</code> lists the <code>"provider:model_id"</code> options. This availability probe runs only on the ambiguous path. <code>resolve_image_model_enum</code> has no local-availability notion (image catalogs don't collide) and raises on the rare ambiguity. Exported from <code>aimu.models</code> and top-level <code>aimu</code>.</li>
 <li><strong>New</strong> <code>aimu.available_text_models(*, include_hf_cache=True)</code> for discovery: return locally <em>available</em> text models as <code>Model</code> enum members (running Ollama → cached HuggingFace → reachable local OpenAI-compat servers), in provider-priority order. Download-free and cloud-free. <code>aimu.resolve_default_text_model_enum(*, include_hf_cache=True)</code> returns the single auto-pick (env var → first available, tool-capable preferred) as an enum member, the enum-returning twin of the internal default resolver that backs <code>client()</code>/<code>chat()</code>/<code>agent()</code> when <code>model=</code> is omitted.</li>

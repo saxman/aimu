@@ -2,266 +2,270 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://saxman.github.io/aimu/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/changelog/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/contributing/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/examples/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/explanation/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/explanation/a2a-vs-mcp/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/explanation/agents-vs-workflows/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/explanation/architecture/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/explanation/async-design/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/explanation/design-principles/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/explanation/streamchunk-model/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/explanation/system-message-lifecycle/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
+    </url>
+    <url>
+         <loc>https://saxman.github.io/aimu/explanation/thinking-and-context/</loc>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/explanation/tool-integration/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/add-custom-tool/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/add-new-model/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/add-new-provider/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/benchmark-models/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/build-orchestrator/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/build-personal-assistant/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/connect-agents-a2a/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/generate-audio/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/generate-images/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/generate-speech/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/handle-audio-input/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/handle-vision/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/integrate-deepeval/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/iterative-image-refinement/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/iterative-text-refinement/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/persist-conversations/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/plan-execute-evaluate/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/stream-output/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/switch-providers/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/transcribe-audio/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/tune-prompts/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/use-async/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/use-document-memory/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/use-embeddings/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/use-mcp-tools/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/use-rag/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/use-semantic-memory/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/use-skills/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/use-structured-output/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/how-to/using-llms-inside-tools/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/cli/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/env-vars/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/model-matrix/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/provider-matrix/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/stream-phases/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/agents/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/aimu/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/aio/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/evals/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/history/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/memory/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/models/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/prompts/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/rag/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/skills/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/reference/api/tools/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/tutorials/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/tutorials/01-getting-started/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/tutorials/02-first-agent-with-tools/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/tutorials/03-workflows/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
     <url>
          <loc>https://saxman.github.io/aimu/tutorials/04-vision-and-streaming/</loc>
-         <lastmod>2026-06-27</lastmod>
+         <lastmod>2026-06-28</lastmod>
     </url>
 </urlset>
