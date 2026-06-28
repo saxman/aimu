@@ -12,5 +12,6 @@ Read these when you want to know *why* the API looks the way it does, not just h
 - **[Tool integration](tool-integration.md)**: `@tool` vs MCP, dispatch order, when to pick which route.
 - **[A2A vs MCP](a2a-vs-mcp.md)**: sharing whole *agents* over the wire vs sharing *tools*; why both are optional, adapter-shaped, and composable through `Runner`.
 - **[Async design](async-design.md)**: why `aimu.aio` is a submodule (not method suffixes or smart routing), why `asyncio.TaskGroup`, and why in-process providers wrap an existing sync client.
+- **[Thinking and the model context](thinking-and-context.md)**: where reasoning is stored, why the `"thinking"` message key is inert metadata, and why prior-turn reasoning is not re-fed to the model.
 
 For task-oriented usage, see [how-to guides](../how-to/index.md). For the API surface, see [reference](../reference/index.md).

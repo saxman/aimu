@@ -249,3 +249,38 @@ async def test_async_chat_tools_override_applies_across_streamed_consumption():
         pass
     assert client.tools_seen == [override_tool]
     assert len(client.tools) == 1 and client.tools[0] is not override_tool  # restored
+
+
+# ---------------------------------------------------------------------------
+# Thinking is stored in messages under a "thinking" key (async OpenAI-compat),
+# matching the sync surface and the HuggingFace/Ollama convention.
+# ---------------------------------------------------------------------------
+
+
+async def test_aio_openai_compat_chat_stores_thinking_in_messages():
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    async def _create(**kw):
+        msg = types.SimpleNamespace(content="<think>deliberating</think>final", tool_calls=None)
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg)])
+
+    async def _chat_setup(*a, **k):
+        return ({}, [])
+
+    fake = types.SimpleNamespace(
+        _chat_setup=_chat_setup,
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_create))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_usage=None,
+        messages=[],
+    )
+
+    result = await AsyncOpenAICompatClient._chat(fake, "hi")
+
+    assert result == "final"
+    assert fake.messages[-1] == {"role": "assistant", "content": "final", "thinking": "deliberating"}

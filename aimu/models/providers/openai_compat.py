@@ -225,6 +225,8 @@ class OpenAICompatClient(BaseModelClient):
             self.last_thinking, content = _split_thinking(content)
 
         self.messages.append({"role": "assistant", "content": content})
+        if self.last_thinking:
+            self.messages[-1]["thinking"] = self.last_thinking
         return content
 
     def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
@@ -275,6 +277,8 @@ class OpenAICompatClient(BaseModelClient):
                     full_content += sc.content
                 yield sc
             self.messages.append({"role": "assistant", "content": full_content})
+            if self.last_thinking:
+                self.messages[-1]["thinking"] = self.last_thinking
             return
 
         # Tool call path: dispatch calls (yields chunks via streaming-tool support),
@@ -297,6 +301,8 @@ class OpenAICompatClient(BaseModelClient):
                 full_content += sc.content
             yield sc
         self.messages.append({"role": "assistant", "content": full_content})
+        if self.last_thinking:
+            self.messages[-1]["thinking"] = self.last_thinking
 
 
 # --------------------------------------------------------------------------------------

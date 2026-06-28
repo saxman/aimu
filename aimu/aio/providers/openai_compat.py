@@ -213,6 +213,8 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             self.last_thinking, content = _split_thinking(content)
 
         self.messages.append({"role": "assistant", "content": content})
+        if self.last_thinking:
+            self.messages[-1]["thinking"] = self.last_thinking
         return content
 
     async def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> AsyncIterator[StreamChunk]:
@@ -260,6 +262,8 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
                     full_content += sc.content
                 yield sc
             self.messages.append({"role": "assistant", "content": full_content})
+            if self.last_thinking:
+                self.messages[-1]["thinking"] = self.last_thinking
             return
 
         tool_calls = [{"name": tc["name"], "arguments": json.loads(tc["arguments"])} for tc in tool_calls_acc.values()]
@@ -281,6 +285,8 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
                 full_content += sc.content
             yield sc
         self.messages.append({"role": "assistant", "content": full_content})
+        if self.last_thinking:
+            self.messages[-1]["thinking"] = self.last_thinking
 
 
 # --- Local-server subclasses (cloud OpenAI / Gemini live in their own subpackages) ---
