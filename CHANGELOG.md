@@ -2,6 +2,10 @@
 
 ## Unreleased: personal-assistant primitives (channels, scheduler, skill authoring)
 
+### Models
+
+- **Fix** local thinking models now record their reasoning in `self.messages` consistently. The llama-cpp and OpenAI-compat local-server clients (sync + `aimu.aio`) previously dropped a turn's reasoning from the conversation entirely, keeping it only on the (overwritten-each-call) `last_thinking`, while HuggingFace and Ollama attached it to the assistant message under a `"thinking"` key. All four now attach it under the same key (omitted when a turn produced no reasoning), so per-turn reasoning is uniformly available for UI display (`web/streamlit_chatbot.py`) and `ConversationManager` persistence. This also covers the **tool-call turn** in an agentic loop: the reasoning that precedes a tool call is attached to the assistant message carrying `tool_calls` (matching the existing HuggingFace/Ollama behavior), so every assistant message that had reasoning carries its own. The `"thinking"` key is inert metadata: chat templates and request adapters read only `role`/`content`/`tool_calls`, so prior-turn reasoning is not re-fed to the model on subsequent turns (the recommended behavior for Qwen3/Gemma/DeepSeek-R1). New explanation page [Thinking and the model context](https://saxman.github.io/aimu/explanation/thinking-and-context/).
+
 ### Agents and workflows
 
 - **New** async-first **channel transport** under `aimu.aio.channels`: a `Channel` ABC (`receive()` async-generator, `async send()`, `aclose()`) and `ChannelMessage` plain-data type, plus a `CLIChannel` stdin/stdout adapter. A new uniform interface alongside `AsyncRunner` / `MemoryStore` for talking to a user over a transport; network adapters (Telegram/Slack) are a deferred follow-up behind an optional extra + `HAS_*` guard, kept out of core. Exported from `aimu.aio`.
