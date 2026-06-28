@@ -1025,3 +1025,157 @@ def test_openai_compat_chat_streamed_stores_thinking_in_messages():
 
     assert "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING) == "the answer"
     assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "reasoning"}
+
+
+# ---------------------------------------------------------------------------
+# Tool-call turn reasoning is preserved on the assistant tool-call message
+# (llama-cpp + OpenAI-compat; HuggingFace and Ollama already did this).
+# ---------------------------------------------------------------------------
+
+
+def _seq(*items):
+    it = iter(items)
+    return lambda **kw: next(it)
+
+
+def _stub_tool_dispatch(fake):
+    """Make _handle_tool_calls append a tool-call assistant message + a tool result."""
+
+    def _handle(tool_calls):
+        fake.messages.append({"role": "assistant", "tool_calls": [{"id": "x"}]})
+        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
+
+    return _handle
+
+
+def test_llamacpp_tool_call_turn_thinking_preserved():
+    import types
+
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    first = {
+        "choices": [
+            {
+                "message": {
+                    "content": "<think>reasoning before tool</think>",
+                    "tool_calls": [{"function": {"name": "echo", "arguments": "{}"}}],
+                }
+            }
+        ]
+    }
+    final = {"choices": [{"message": {"content": "final answer"}}]}
+    fake = types.SimpleNamespace(
+        _chat_setup=lambda *a, **k: ({}, []),
+        _llm=types.SimpleNamespace(create_chat_completion=_seq(first, final)),
+        is_thinking_model=True,
+        messages=[],
+    )
+    fake._handle_tool_calls = _stub_tool_dispatch(fake)
+
+    result = LlamaCppClient._chat(fake, "hi")
+
+    assert result == "final answer"
+    tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
+    assert tool_call_msg["thinking"] == "reasoning before tool"
+    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+
+
+def test_openai_compat_tool_call_turn_thinking_preserved():
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    tc = types.SimpleNamespace(function=types.SimpleNamespace(name="echo", arguments="{}"))
+    first_msg = types.SimpleNamespace(content="<think>reasoning before tool</think>", tool_calls=[tc])
+    final_msg = types.SimpleNamespace(content="final answer", tool_calls=None)
+    first = types.SimpleNamespace(choices=[types.SimpleNamespace(message=first_msg)])
+    final = types.SimpleNamespace(choices=[types.SimpleNamespace(message=final_msg)])
+    fake = types.SimpleNamespace(
+        _chat_setup=lambda *a, **k: ({}, []),
+        _with_response_format=lambda gk, rf: gk,
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_seq(first, final)))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_usage=None,
+        messages=[],
+    )
+    fake._handle_tool_calls = _stub_tool_dispatch(fake)
+
+    result = OpenAICompatClient._chat(fake, "hi")
+
+    assert result == "final answer"
+    tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
+    assert tool_call_msg["thinking"] == "reasoning before tool"
+    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+
+
+def _stub_streamed_tool_dispatch(fake):
+    def _handle(tool_calls):
+        fake.messages.append({"role": "assistant", "tool_calls": [{"id": "x"}]})
+        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
+        return iter(())
+
+    return _handle
+
+
+def test_llamacpp_streamed_tool_call_turn_thinking_preserved():
+    import types
+
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    first_stream = [
+        {"choices": [{"delta": {"content": "<think>reasoning before tool</think>"}}]},
+        {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"name": "echo", "arguments": "{}"}}]}}]},
+    ]
+    second_stream = [{"choices": [{"delta": {"content": "final answer"}}]}]
+    fake = types.SimpleNamespace(
+        _llm=types.SimpleNamespace(create_chat_completion=_seq(iter(first_stream), iter(second_stream))),
+        is_thinking_model=True,
+        messages=[],
+    )
+    fake._handle_tool_calls_streamed = _stub_streamed_tool_dispatch(fake)
+    fake._iter_stream = lambda stream: LlamaCppClient._iter_stream(fake, stream)
+
+    list(LlamaCppClient._chat_streamed(fake, {}, []))
+
+    tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
+    assert tool_call_msg["thinking"] == "reasoning before tool"
+    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+
+
+def test_openai_compat_streamed_tool_call_turn_thinking_preserved():
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    def _delta(content=None, tool_calls=None):
+        return types.SimpleNamespace(
+            usage=None,
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content=content, tool_calls=tool_calls))],
+        )
+
+    tc_delta = types.SimpleNamespace(index=0, function=types.SimpleNamespace(name="echo", arguments="{}"))
+    first_stream = [_delta(content="<think>reasoning before tool</think>"), _delta(tool_calls=[tc_delta])]
+    second_stream = [_delta(content="final answer")]
+    fake = types.SimpleNamespace(
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=_seq(iter(first_stream), iter(second_stream)))
+            )
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_thinking="",
+        last_usage=None,
+        messages=[],
+    )
+    fake._handle_tool_calls_streamed = _stub_streamed_tool_dispatch(fake)
+    fake._iter_stream = lambda stream: OpenAICompatClient._iter_stream(fake, stream)
+
+    list(OpenAICompatClient._chat_streamed(fake, {}, []))
+
+    tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
+    assert tool_call_msg["thinking"] == "reasoning before tool"
+    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}

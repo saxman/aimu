@@ -207,7 +207,11 @@ class OpenAICompatClient(BaseModelClient):
             tool_calls = [
                 {"name": tc.function.name, "arguments": json.loads(tc.function.arguments)} for tc in msg.tool_calls
             ]
+            tool_turn_thinking = _split_thinking(msg.content or "")[0] if self.is_thinking_model else ""
+            msgs_before = len(self.messages)
             self._handle_tool_calls(tool_calls)
+            if tool_turn_thinking:
+                self.messages[msgs_before]["thinking"] = tool_turn_thinking
 
             response = self._client.chat.completions.create(
                 model=self.model.value,
@@ -284,7 +288,11 @@ class OpenAICompatClient(BaseModelClient):
         # Tool call path: dispatch calls (yields chunks via streaming-tool support),
         # then stream second response.
         tool_calls = [{"name": tc["name"], "arguments": json.loads(tc["arguments"])} for tc in tool_calls_acc.values()]
+        tool_turn_thinking = self.last_thinking
+        msgs_before = len(self.messages)
         yield from self._handle_tool_calls_streamed(tool_calls)
+        if tool_turn_thinking:
+            self.messages[msgs_before]["thinking"] = tool_turn_thinking
 
         stream2 = self._client.chat.completions.create(
             model=self.model.value,

@@ -17,6 +17,8 @@ The most recent turn's reasoning is always available on `client.last_thinking` (
 
 The key is **omitted** when the turn produced no reasoning. This is what the Streamlit chatbot renders per message ([web/streamlit_chatbot.py](../../web/streamlit_chatbot.py)) and what `ConversationManager` persists, so a saved conversation keeps its per-turn reasoning for later inspection.
 
+This applies to **tool-calling turns** too: when a thinking model reasons and then calls a tool, that reasoning is attached to the assistant *tool-call* message (the one carrying `tool_calls`), not just to the final answer. So in an agentic loop every assistant message that had reasoning carries its own reasoning. As with everything else here, the key is metadata: the reasoning that preceded a tool call is recorded for inspection/persistence but is not re-sent to the model on the follow-up request.
+
 ### Why `last_thinking` *and* the message key
 
 `last_thinking` holds only the **latest** turn's reasoning; it is overwritten every call. The `"thinking"` message key keeps a **per-turn** record so a UI or a persisted transcript can show the reasoning next to the answer it produced. Read `last_thinking` for "what did the model just reason about"; read the message key for "what did it reason about on turn N".

@@ -196,7 +196,11 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             tool_calls = [
                 {"name": tc.function.name, "arguments": json.loads(tc.function.arguments)} for tc in msg.tool_calls
             ]
+            tool_turn_thinking = _split_thinking(msg.content or "")[0] if self.is_thinking_model else ""
+            msgs_before = len(self.messages)
             await self._handle_tool_calls(tool_calls)
+            if tool_turn_thinking:
+                self.messages[msgs_before]["thinking"] = tool_turn_thinking
 
             response = await self._client.chat.completions.create(
                 model=self.model.value,
@@ -267,8 +271,12 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             return
 
         tool_calls = [{"name": tc["name"], "arguments": json.loads(tc["arguments"])} for tc in tool_calls_acc.values()]
+        tool_turn_thinking = self.last_thinking
+        msgs_before = len(self.messages)
         async for chunk in self._handle_tool_calls_streamed(tool_calls):
             yield chunk
+        if tool_turn_thinking:
+            self.messages[msgs_before]["thinking"] = tool_turn_thinking
 
         stream2 = await self._client.chat.completions.create(
             model=self.model.value,

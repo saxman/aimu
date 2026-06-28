@@ -271,9 +271,7 @@ async def test_aio_openai_compat_chat_stores_thinking_in_messages():
 
     fake = types.SimpleNamespace(
         _chat_setup=_chat_setup,
-        _client=types.SimpleNamespace(
-            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_create))
-        ),
+        _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_create))),
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
         last_usage=None,
@@ -284,3 +282,106 @@ async def test_aio_openai_compat_chat_stores_thinking_in_messages():
 
     assert result == "final"
     assert fake.messages[-1] == {"role": "assistant", "content": "final", "thinking": "deliberating"}
+
+
+# ---------------------------------------------------------------------------
+# Tool-call turn reasoning is preserved on the assistant tool-call message
+# (async OpenAI-compat), matching the sync surface.
+# ---------------------------------------------------------------------------
+
+
+def _aio_seq(*items):
+    it = iter(items)
+
+    async def _create(**kw):
+        return next(it)
+
+    return _create
+
+
+async def test_aio_openai_compat_tool_call_turn_thinking_preserved():
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    tc = types.SimpleNamespace(function=types.SimpleNamespace(name="echo", arguments="{}"))
+    first_msg = types.SimpleNamespace(content="<think>reasoning before tool</think>", tool_calls=[tc])
+    final_msg = types.SimpleNamespace(content="final answer", tool_calls=None)
+    first = types.SimpleNamespace(choices=[types.SimpleNamespace(message=first_msg)])
+    final = types.SimpleNamespace(choices=[types.SimpleNamespace(message=final_msg)])
+
+    async def _chat_setup(*a, **k):
+        return ({}, [])
+
+    fake = types.SimpleNamespace(
+        _chat_setup=_chat_setup,
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_aio_seq(first, final)))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_usage=None,
+        messages=[],
+    )
+
+    async def _handle(tool_calls):
+        fake.messages.append({"role": "assistant", "tool_calls": [{"id": "x"}]})
+        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
+
+    fake._handle_tool_calls = _handle
+
+    result = await AsyncOpenAICompatClient._chat(fake, "hi")
+
+    assert result == "final answer"
+    tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
+    assert tool_call_msg["thinking"] == "reasoning before tool"
+    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+
+
+async def test_aio_openai_compat_streamed_tool_call_turn_thinking_preserved():
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    def _delta(content=None, tool_calls=None):
+        return types.SimpleNamespace(
+            usage=None,
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content=content, tool_calls=tool_calls))],
+        )
+
+    async def _astream(items):
+        for it in items:
+            yield it
+
+    tc_delta = types.SimpleNamespace(index=0, function=types.SimpleNamespace(name="echo", arguments="{}"))
+    first = [_delta(content="<think>reasoning before tool</think>"), _delta(tool_calls=[tc_delta])]
+    second = [_delta(content="final answer")]
+    streams = iter([_astream(first), _astream(second)])
+
+    async def _create(**kw):
+        return next(streams)
+
+    fake = types.SimpleNamespace(
+        _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_create))),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_thinking="",
+        last_usage=None,
+        messages=[],
+    )
+    fake._iter_stream = lambda stream: AsyncOpenAICompatClient._iter_stream(fake, stream)
+
+    async def _handle(tool_calls):
+        fake.messages.append({"role": "assistant", "tool_calls": [{"id": "x"}]})
+        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
+        return
+        yield  # make this an async generator
+
+    fake._handle_tool_calls_streamed = _handle
+
+    async for _ in AsyncOpenAICompatClient._chat_streamed(fake, {}, []):
+        pass
+
+    tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
+    assert tool_call_msg["thinking"] == "reasoning before tool"
+    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
