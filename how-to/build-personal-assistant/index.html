@@ -1608,6 +1608,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#web-front-end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web front end
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2842,6 +2853,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#web-front-end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web front end
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3046,6 +3068,24 @@ proactive turns with a lock (they share one agent), an argparse entry point, and
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>examples/personal-assistant/assistant.py<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-6<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">30</span>
 </span></code></pre></div>
+<h2 id="web-front-end">Web front end<a class="headerlink" href="#web-front-end" title="Permanent link">&para;</a></h2>
+<p>Because the assistant loop consumes any <code>Channel</code>, a browser UI is just a different <code>Channel</code>
+implementation: nothing in <code>Assistant</code> changes. The example ships a <code>WebChannel</code> (a <code>Channel</code> over a
+browser WebSocket) and a small <a href="https://www.starlette.io/">Starlette</a> server
+(<code>examples/personal-assistant/web_assistant.py</code>). <code>WebChannel.send</code> relays a streamed reply as
+<code>token</code> frames + a <code>done</code> frame, and a proactive (scheduler-pushed) message as a <code>message</code> frame the
+page styles distinctly. The server runs a pump task (reading the socket into the channel) and
+<code>assistant.run()</code> concurrently under one <code>asyncio.TaskGroup</code>; on disconnect the pump feeds a sentinel
+that ends <code>receive()</code>, stops the scheduler, and tears down cleanly.</p>
+<p>Because the server owns the scheduler via <code>assistant.run()</code>, proactive messages reach the browser
+unprompted, the property a request/response UI (Streamlit/Gradio) can't provide without polling.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>web<span class="o">]</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python<span class="w"> </span>examples/personal-assistant/web_assistant.py<span class="w"> </span>--model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">20</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># open http://127.0.0.1:8000</span>
+</span></code></pre></div>
+<p>The <code>WebChannel</code> lives in the example (not the library): a web server is app-layer, and keeping it
+out of <code>aimu.aio</code> keeps the library free of a web-framework dependency. It is a worked example of
+extending the <code>Channel</code> ABC, the same seam a Telegram or Slack adapter would use.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../use-skills/">Use skills</a>: the <code>SkillAgent</code> and <code>SKILL.md</code> format the authoring tool writes to</li>

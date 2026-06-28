@@ -2956,11 +2956,14 @@
 </ul>
 <p>Reads <code>PROMPT_CATALOG_PATH</code> (default: <code>prompts.db</code> in cwd).</p>
 <h2 id="web-chat-apps">Web chat apps<a class="headerlink" href="#web-chat-apps" title="Permanent link">&para;</a></h2>
-<p>Not strictly CLI but launched the same way:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>streamlit<span class="w"> </span>run<span class="w"> </span>web/streamlit_chatbot.py<span class="w">     </span><span class="c1"># Streamlit UI</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>python<span class="w"> </span>web/gradio_chatbot_basic.py<span class="w">               </span><span class="c1"># Gradio UI</span>
+<p>Not strictly CLI but launched the same way (install the UI stack with <code>pip install aimu[web]</code>):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>streamlit<span class="w"> </span>run<span class="w"> </span>examples/web/streamlit_chatbot.py<span class="w">     </span><span class="c1"># Streamlit UI</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>python<span class="w"> </span>examples/web/gradio_chatbot_basic.py<span class="w">         </span><span class="c1"># Gradio UI</span>
 </span></code></pre></div>
 <p>Both demo a full-featured chat with streaming, tool calls, and persistent history.</p>
+<p>The personal-assistant example also ships a WebSocket front end (a Starlette server + a <code>WebChannel</code>):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>examples/personal-assistant/web_assistant.py<span class="w"> </span>--model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w">   </span><span class="c1"># then open http://127.0.0.1:8000</span>
+</span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../env-vars/">Environment variables</a>: every var these commands read</li>

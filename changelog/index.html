@@ -2710,6 +2710,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#packaging-breaking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packaging (breaking)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3596,6 +3607,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#packaging-breaking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packaging (breaking)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4395,7 +4417,7 @@ not this stub.
 <h2 id="unreleased-personal-assistant-primitives-channels-scheduler-skill-authoring">Unreleased: personal-assistant primitives (channels, scheduler, skill authoring)<a class="headerlink" href="#unreleased-personal-assistant-primitives-channels-scheduler-skill-authoring" title="Permanent link">&para;</a></h2>
 <h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Fix</strong> local thinking models now record their reasoning in <code>self.messages</code> consistently. The llama-cpp and OpenAI-compat local-server clients (sync + <code>aimu.aio</code>) previously dropped a turn's reasoning from the conversation entirely, keeping it only on the (overwritten-each-call) <code>last_thinking</code>, while HuggingFace and Ollama attached it to the assistant message under a <code>"thinking"</code> key. All four now attach it under the same key (omitted when a turn produced no reasoning), so per-turn reasoning is uniformly available for UI display (<code>web/streamlit_chatbot.py</code>) and <code>ConversationManager</code> persistence. This also covers the <strong>tool-call turn</strong> in an agentic loop: the reasoning that precedes a tool call is attached to the assistant message carrying <code>tool_calls</code> (matching the existing HuggingFace/Ollama behavior), so every assistant message that had reasoning carries its own. The <code>"thinking"</code> key is inert metadata: chat templates and request adapters read only <code>role</code>/<code>content</code>/<code>tool_calls</code>, so prior-turn reasoning is not re-fed to the model on subsequent turns (the recommended behavior for Qwen3/Gemma/DeepSeek-R1). New explanation page <a href="https://saxman.github.io/aimu/explanation/thinking-and-context/">Thinking and the model context</a>.</li>
+<li><strong>Fix</strong> local thinking models now record their reasoning in <code>self.messages</code> consistently. The llama-cpp and OpenAI-compat local-server clients (sync + <code>aimu.aio</code>) previously dropped a turn's reasoning from the conversation entirely, keeping it only on the (overwritten-each-call) <code>last_thinking</code>, while HuggingFace and Ollama attached it to the assistant message under a <code>"thinking"</code> key. All four now attach it under the same key (omitted when a turn produced no reasoning), so per-turn reasoning is uniformly available for UI display (<code>examples/web/streamlit_chatbot.py</code>) and <code>ConversationManager</code> persistence. This also covers the <strong>tool-call turn</strong> in an agentic loop: the reasoning that precedes a tool call is attached to the assistant message carrying <code>tool_calls</code> (matching the existing HuggingFace/Ollama behavior), so every assistant message that had reasoning carries its own. The <code>"thinking"</code> key is inert metadata: chat templates and request adapters read only <code>role</code>/<code>content</code>/<code>tool_calls</code>, so prior-turn reasoning is not re-fed to the model on subsequent turns (the recommended behavior for Qwen3/Gemma/DeepSeek-R1). New explanation page <a href="https://saxman.github.io/aimu/explanation/thinking-and-context/">Thinking and the model context</a>.</li>
 </ul>
 <h3 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h3>
 <ul>
@@ -4410,7 +4432,13 @@ not this stub.
 <h3 id="examples-docs">Examples &amp; docs<a class="headerlink" href="#examples-docs" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>examples/personal-assistant/</code>: a single-user, always-on assistant (OpenClaw / Hermes Agent style) assembled from the primitives above (<code>CLIChannel</code> + <code>Scheduler</code> for a proactive reminder + a <code>SkillAgent</code> with <code>author_skill</code>, persisted via <code>ConversationManager</code>). Includes a CLI entry point and mock-only tests.</li>
-<li><strong>New</strong> how-to guide <a href="https://saxman.github.io/aimu/how-to/build-personal-assistant/">Build a personal assistant</a>; <code>aimu.aio</code> and <code>aimu.skills</code> API references extended with the new symbols.</li>
+<li><strong>New</strong> <strong>web front end</strong> for the personal assistant: <code>examples/personal-assistant/web_assistant.py</code> (a Starlette + <code>uvicorn</code> WebSocket server) with an example-local <code>WebChannel</code> (a <code>Channel</code> over a browser WebSocket) and a dependency-free static page. Streams replies and pushes proactive scheduler messages to the browser, with no change to the <code>Assistant</code> loop, a worked example of extending the <code>Channel</code> ABC.</li>
+<li><strong>New</strong> how-to guide <a href="https://saxman.github.io/aimu/how-to/build-personal-assistant/">Build a personal assistant</a> (incl. a "Web front end" section); <code>aimu.aio</code> and <code>aimu.skills</code> API references extended with the new symbols.</li>
+</ul>
+<h3 id="packaging-breaking">Packaging (breaking)<a class="headerlink" href="#packaging-breaking" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Moved</strong> the Streamlit/Gradio chat apps from <code>web/</code> to <code>examples/web/</code>, consolidating all runnable programs under <code>examples/</code>.</li>
+<li><strong>Breaking</strong> <code>streamlit</code> and <code>gradio</code> are no longer core dependencies; they (with <code>starlette</code>/<code>uvicorn</code> for the personal-assistant web UI) moved to a new optional <strong><code>[web]</code></strong> extra. Install the web UIs with <code>pip install aimu[web]</code>. <code>aimu[all]</code> now includes <code>web</code>.</li>
 </ul>
 <h2 id="v0101-2026-06-24-cleanup-unified-modality-factory-kwargs-keyword-only-restore-async-skillagent-parity-import-guard-hardening">v0.10.1 (2026-06-24): cleanup: unified modality factory kwargs, keyword-only restore(), async SkillAgent parity + import-guard hardening<a class="headerlink" href="#v0101-2026-06-24-cleanup-unified-modality-factory-kwargs-keyword-only-restore-async-skillagent-parity-import-guard-hardening" title="Permanent link">&para;</a></h2>
 <h3 id="models_1">Models<a class="headerlink" href="#models_1" title="Permanent link">&para;</a></h3>
