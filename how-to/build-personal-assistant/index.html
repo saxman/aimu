@@ -761,6 +761,8 @@
       
         
       
+        
+      
     
     
     
@@ -973,6 +975,34 @@
     
   
     Gate tool calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cancel-a-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cancel a run
   
 
     
@@ -3164,6 +3194,9 @@ It also gives the agent a small fixed set of AIMU <a href="../add-custom-tool/">
 them through <code>asyncio.to_thread</code>, so they attach to <code>agent.tools</code> with no wrapping. The example is
 kept intentionally minimal; selectable tool groups, <a href="../use-mcp-tools/">remote MCP servers</a>, and
 <a href="../use-semantic-memory/">persistent memory</a> are capabilities AIMU ships but the example leaves out.</p>
+<p>It also supports <strong><code>/stop</code></strong>: it runs each turn as a background <a href="../cancel-a-run/"><code>RunHandle</code></a> so the
+reader stays free to receive a <code>/stop</code> message, which cancels the in-flight turn (the agent keeps the
+partial turn for resume) while the daemon keeps serving.</p>
 <p>Run it:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>examples/personal-assistant/assistant.py<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-6<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">30</span>

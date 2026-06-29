@@ -759,6 +759,8 @@
       
         
       
+        
+      
     
     
     
@@ -968,6 +970,34 @@
     
   
     Gate tool calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/cancel-a-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cancel a run
   
 
     
@@ -4562,6 +4592,7 @@ not this stub.
 <ul>
 <li><strong>New</strong> async-first <strong>channel transport</strong> under <code>aimu.aio.channels</code>: a <code>Channel</code> ABC (<code>receive()</code> async-generator, <code>async send()</code>, <code>aclose()</code>) and <code>ChannelMessage</code> plain-data type, plus a <code>CLIChannel</code> stdin/stdout adapter. A new uniform interface alongside <code>AsyncRunner</code> / <code>MemoryStore</code> for talking to a user over a transport; network adapters (Telegram/Slack) are a deferred follow-up behind an optional extra + <code>HAS_*</code> guard, kept out of core. Exported from <code>aimu.aio</code>.</li>
 <li><strong>New</strong> <code>aimu.aio.Scheduler</code>: runs interval (<code>every</code>) and one-shot (<code>at</code>) async jobs concurrently under one <code>asyncio.TaskGroup</code>, for proactive assistant triggers (reminders, check-ins). A job that raises is logged and the loop continues (one bad reminder can't kill the daemon); <code>run()</code> is single-use and honors a <code>stop()</code> signalled before it started (no lost-stop race). Persistence is intentionally out of scope. Exported from <code>aimu.aio</code>.</li>
+<li><strong>New</strong> <code>aimu.aio.RunHandle</code>: cooperative cancellation for an in-flight <code>aio.Agent.run(...)</code>. <code>RunHandle.start(coro)</code> schedules the run as a task; <code>cancel()</code> stops it at the next <code>await</code>, <code>await result()</code> returns the result or raises <code>asyncio.CancelledError</code>. The async <code>Agent</code> loop now snapshots its messages in a <code>finally</code>, so a cancelled run still records its partial turn for resume via <code>restore()</code>. Async-only (asyncio cancellation; no threaded token). The personal-assistant example gains a <code>/stop</code> that cancels the current reply. How-to: <a href="https://saxman.github.io/aimu/how-to/cancel-a-run/">Cancel a run</a>.</li>
 </ul>
 <h3 id="skills">Skills<a class="headerlink" href="#skills" title="Permanent link">&para;</a></h3>
 <ul>
