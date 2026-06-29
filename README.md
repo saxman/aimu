@@ -320,7 +320,7 @@ asyncio.run(main())
 
 ### Notebooks
 
-The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, numbered `01` to `24` and ordered to build up incrementally, from the model client, tools, and agents through workflows, memory, RAG, the generative modalities, the async surface, agent composition / A2A interop, and personal-assistant primitives. The filenames are self-describing; open the directory to browse and run them.
+The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, numbered `01` to `25` and ordered to build up incrementally, from the model client, tools, and agents through workflows, memory, RAG, the generative modalities, the async surface, agent composition / A2A interop, personal-assistant primitives, and multi-user sessions. The filenames are self-describing; open the directory to browse and run them.
 
 ### Examples
 

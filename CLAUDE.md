@@ -409,7 +409,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `InMemorySessionStore` (non-durable dict; the trivial default + test target) and `TinyDBSessionStore` (durable; one row per session, reusing `ConversationManager`'s TinyDB mechanics; no new dep).
   - `session_key(channel, sender) -> "channel:sender"`; single-user collapses to `"default:default"` (no ceremony).
   - `SessionLocks`: lazy per-key `asyncio.Lock` so one session's turns serialize while different sessions run concurrently (`async with locks(key):`).
-  - **Routing pattern** (no new agent primitive): per inbound message, under that session's lock, `model_client.reset(system_message=...)` -> `agent.restore(session.messages)` -> run -> snapshot `agent.model_client.messages` back -> `store.save(session)`. Agents never share a live `messages` list across sessions. (Part of the personal-assistant substrate roadmap; durable scheduler, network channel adapters, and run-safety hooks are separate follow-ups.)
+  - **Routing pattern** (no new agent primitive): per inbound message, under that session's lock, `agent.restore(session.messages)` -> `await agent.run(text)` -> snapshot `agent.model_client.messages` back -> `store.save(session)`. Agents never share a live `messages` list across sessions. **Gotcha**: put the system prompt on the *client* (`aio.client(system=...)`), not the agent; an agent with `system_message` set resets its client each run (`_prepare_run`) and would wipe the restored history (the personal-assistant example wires it this way). (Part of the personal-assistant substrate roadmap; durable scheduler, network channel adapters, and run-safety hooks are separate follow-ups.)
 
 ### Semantic Memory
 

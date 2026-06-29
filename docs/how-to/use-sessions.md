@@ -41,7 +41,8 @@ concurrently:
 from aimu import aio
 from aimu.sessions import InMemorySessionStore, SessionLocks, session_key
 
-agent = aio.Agent(aio.client("ollama:qwen3:8b"), system_message="You are helpful.")
+# Put the system prompt on the CLIENT, not the agent (see the gotcha below).
+agent = aio.Agent(aio.client("ollama:qwen3:8b", system="You are helpful."))
 store = InMemorySessionStore()
 locks = SessionLocks()
 
@@ -49,8 +50,7 @@ async def handle(channel_name, sender, text):
     key = session_key(channel_name, sender)
     async with locks(key):                       # this session's turns are serialized
         session = store.get(key)
-        agent.model_client.reset(system_message=agent.system_message)
-        agent.restore(session.messages)           # load THIS conversation
+        agent.restore(session.messages)           # load THIS conversation (reset + set messages)
         reply = await agent.run(text)
         session.messages = list(agent.model_client.messages)   # snapshot back
         store.save(session)
@@ -59,6 +59,12 @@ async def handle(channel_name, sender, text):
 
 Different users (different keys) hold different locks, so `handle("telegram", "A", ...)` and
 `handle("telegram", "B", ...)` run concurrently while a single user's turns never interleave.
+
+!!! warning "Put the system prompt on the client, not the agent"
+    An `aio.Agent` with `system_message` set **resets its client at the start of every `run()`**
+    (`_prepare_run`), which would wipe the history you just restored. Pass the system prompt to the
+    client (`aio.client(system=...)`) and leave `agent.system_message` unset, so `restore()` survives
+    the run. (This is exactly how the personal-assistant example wires it.)
 
 ## Single user
 

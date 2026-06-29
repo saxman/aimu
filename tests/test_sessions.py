@@ -86,3 +86,35 @@ async def test_session_locks_same_key_serializes_diff_keys_concurrent():
     order.clear()
     await asyncio.gather(turn("x", "x", 0.05), turn("y", "y", 0.05))
     assert order[:2] == ["x-start", "y-start"] or order[:2] == ["y-start", "x-start"]
+
+
+async def test_routing_isolates_and_accumulates_session_history():
+    """The documented restore->run->snapshot routing keeps each session's history isolated and
+    accumulating across turns. Guards the gotcha: the system prompt must be on the client (not the
+    agent), else `_prepare_run` resets the client every run and wipes the restored history."""
+    from aimu import aio
+    from helpers_aio import MockAsyncModelClient
+
+    client = MockAsyncModelClient(["a1", "b1", "a2"])
+    client.system_message = "You are helpful."  # on the client; agent.system_message stays None
+    agent = aio.Agent(client)
+    store = InMemorySessionStore()
+    locks = SessionLocks()
+
+    async def handle(channel, sender, text):
+        async with locks(session_key(channel, sender)):
+            s = store.get(session_key(channel, sender))
+            agent.restore(s.messages)
+            await agent.run(text)
+            s.messages = list(agent.model_client.messages)
+            store.save(s)
+
+    await handle("web", "ada", "I am Ada")
+    await handle("web", "bob", "I am Bob")
+    await handle("web", "ada", "again")  # second Ada turn must still see her first
+
+    ada_users = [m["content"] for m in store.get("web:ada").messages if m.get("role") == "user"]
+    bob_users = [m["content"] for m in store.get("web:bob").messages if m.get("role") == "user"]
+    assert ada_users == ["I am Ada", "again"]  # restore survived run (history accumulated)
+    assert bob_users == ["I am Bob"]  # no cross-session leakage
+    assert set(store.list_keys()) == {"web:ada", "web:bob"}
