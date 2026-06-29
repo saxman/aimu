@@ -149,6 +149,38 @@ write_skill(
     no filesystem or subprocess access.) The subprocess also blocks the event loop for up to its
     30-second timeout.
 
+## Memory (facts + documents)
+
+An assistant should remember the user across conversations. AIMU's memory stores plug in as tools, and
+the two kinds of memory are complementary, so an assistant can carry both at once:
+
+- a [`SemanticMemoryStore`](use-semantic-memory.md) for short **facts** about the user (semantic recall),
+  exposed via `make_memory_tools` as `store_memory` / `search_memories` / `list_memories`;
+- a [`DocumentStore`](use-document-memory.md) for longer **documents** the user provides as reference,
+  exposed via `make_document_tools` as `save_document` / `read_document` / `list_documents` /
+  `search_documents`.
+
+The tool names are distinct, so both sets coexist on one agent. Give each store a `persist_path` so it
+survives restarts (and spans conversations, unlike per-conversation history):
+
+```python
+from aimu import aio, paths
+from aimu.memory import SemanticMemoryStore, DocumentStore
+from aimu.tools.builtin import make_memory_tools, make_document_tools
+
+facts = SemanticMemoryStore(persist_path=str(paths.output / "assistant" / "memory"))
+docs = DocumentStore(persist_path=str(paths.output / "assistant" / "documents"))
+
+agent = aio.SkillAgent(
+    aio.client("ollama:qwen3:8b", system="You are a helpful assistant. ..."),
+    tools=make_memory_tools(facts) + make_document_tools(docs),
+)
+```
+
+These are sync tools; the async agent dispatches them through `asyncio.to_thread`, so no async wrapper
+is needed. Tell the model *when* to use them in the system prompt (proactively store durable facts,
+search before answering, save provided notes as documents), or they will sit unused.
+
 ## Wire it into a daemon
 
 The pieces compose into one process: a top-level `asyncio.TaskGroup` runs the channel listener

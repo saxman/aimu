@@ -46,6 +46,11 @@ def _config(tmp_path: Path, **overrides) -> AssistantConfig:
     base = {
         "skills_dir": tmp_path / "skills",
         "history_path": str(tmp_path / "history.json"),
+        # Memory is on by default in real runs, but off here so the bulk of the tests stay fast and
+        # hermetic (no ChromaDB init / output-dir writes). The memory tests opt in with memory=True.
+        "memory": False,
+        "memory_path": tmp_path / "memory",
+        "documents_path": tmp_path / "documents",
     }
     base.update(overrides)
     return AssistantConfig(**base)
@@ -268,6 +273,47 @@ async def test_add_mcp_server_tool_reports_connect_failure(tmp_path, monkeypatch
     msg = await add_mcp(url="https://down/mcp")
     assert "Failed to connect" in msg and "boom" in msg
     assert assistant._mcp_clients == []
+
+
+_MEMORY_TOOL_NAMES = {
+    "store_memory",
+    "search_memories",
+    "list_memories",
+    "save_document",
+    "read_document",
+    "list_documents",
+    "search_documents",
+}
+
+
+async def test_memory_wires_both_stores(tmp_path):
+    assistant = await Assistant.create(_config(tmp_path, memory=True), FakeChannel(), client=MockAsyncModelClient([]))
+    names = {fn.__name__ for fn in assistant._agent.tools}
+    assert _MEMORY_TOOL_NAMES <= names
+    assert assistant._memory_store is not None
+    assert assistant._document_store is not None
+
+
+async def test_no_memory_omits_tools_and_stores(tmp_path):
+    assistant = await Assistant.create(_config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]))
+    names = {fn.__name__ for fn in assistant._agent.tools}
+    assert _MEMORY_TOOL_NAMES.isdisjoint(names)
+    assert assistant._memory_store is None
+    assert assistant._document_store is None
+
+
+def test_memory_flag_parses():
+    # Memory is on by default at the CLI/config level (the test helper turns it off for speed).
+    assert config_from_args(build_arg_parser().parse_args([])).memory is True
+    assert config_from_args(build_arg_parser().parse_args(["--no-memory"])).memory is False
+
+
+async def test_document_tools_round_trip(tmp_path):
+    """The document tools are wired to a working DocumentStore (pure-Python, hermetic)."""
+    assistant = await Assistant.create(_config(tmp_path, memory=True), FakeChannel(), client=MockAsyncModelClient([]))
+    tools = {fn.__name__: fn for fn in assistant._agent.tools}
+    assert tools["save_document"]("/notes/standup.md", "Yesterday, Today, Blockers") == "Saved /notes/standup.md."
+    assert tools["read_document"]("/notes/standup.md") == "Yesterday, Today, Blockers"
 
 
 async def test_assistant_authors_and_registers_runnable_script(tmp_path):

@@ -179,3 +179,81 @@ def test_make_tools_memory_tools_bound_to_provided_store():
     store_tool = next(t for t in tools if t.__tool_spec__["function"]["name"] == "store_memory")
     store_tool("bound correctly")
     assert "bound correctly" in store.list_all()
+
+
+# ---------------------------------------------------------------------------
+# make_document_tools (real ephemeral DocumentStore: pure-Python, no deps)
+# ---------------------------------------------------------------------------
+
+
+from aimu.memory import DocumentStore  # noqa: E402
+from aimu.tools.builtin import make_document_tools  # noqa: E402
+
+
+@pytest.fixture
+def doc_store():
+    return DocumentStore()  # ephemeral, in-memory
+
+
+@pytest.fixture
+def doc_tools(doc_store):
+    return make_document_tools(doc_store)
+
+
+def _by_name(tools, name):
+    return next(t for t in tools if t.__tool_spec__["function"]["name"] == name)
+
+
+def test_document_tools_names_and_specs(doc_tools):
+    names = {t.__tool_spec__["function"]["name"] for t in doc_tools}
+    assert names == {"save_document", "read_document", "list_documents", "search_documents"}
+    for t in doc_tools:
+        assert t.__tool_is_async__ is False
+        assert t.__tool_is_streaming__ is False
+    save = _by_name(doc_tools, "save_document")
+    assert save.__tool_spec__["function"]["parameters"]["required"] == ["path", "content"]
+
+
+def test_document_tools_distinct_from_memory_tools(doc_tools):
+    """Both tool sets coexist on one agent without name collisions."""
+    doc_names = {t.__tool_spec__["function"]["name"] for t in doc_tools}
+    mem_names = {"store_memory", "search_memories", "list_memories"}
+    assert doc_names.isdisjoint(mem_names)
+
+
+def test_save_then_read_round_trip(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    read = _by_name(doc_tools, "read_document")
+    assert save("/notes/standup.md", "Yesterday, Today, Blockers") == "Saved /notes/standup.md."
+    assert read("/notes/standup.md") == "Yesterday, Today, Blockers"
+
+
+def test_read_missing_document_returns_message_not_raise(doc_tools):
+    read = _by_name(doc_tools, "read_document")
+    result = read("/nope.md")
+    assert "No document found" in result and "/nope.md" in result
+
+
+def test_search_documents_finds_substring(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    search = _by_name(doc_tools, "search_documents")
+    save("/notes/a.md", "the gate code is 4242")
+    save("/notes/b.md", "buy milk")
+    result = search("gate code")
+    assert "/notes/a.md" in result and "4242" in result
+    assert "buy milk" not in result
+
+
+def test_search_documents_no_match_message(doc_tools):
+    search = _by_name(doc_tools, "search_documents")
+    assert "No matching documents" in search("nothing here")
+
+
+def test_list_documents(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    list_docs = _by_name(doc_tools, "list_documents")
+    assert "No documents stored" in list_docs()
+    save("/a.md", "one")
+    save("/b.md", "two")
+    result = list_docs()
+    assert "/a.md" in result and "/b.md" in result

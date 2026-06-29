@@ -906,6 +906,70 @@ def make_retrieval_tool(store, *, n_results: int = 5):
     return retrieve_context
 
 
+def make_document_tools(store):
+    """Build ``save_document``, ``read_document``, ``list_documents``, and ``search_documents`` tools.
+
+    Bound to a :class:`~aimu.memory.DocumentStore` (the path-keyed store), these expose its
+    richer write/read/list/full-text-search API as agent tools. Their names are deliberately
+    distinct from :func:`make_memory_tools` (``store_memory`` / ``search_memories`` / ``list_memories``)
+    so an agent can carry **both** at once: a `SemanticMemoryStore` for short facts and a
+    `DocumentStore` for longer documents the user provides as reference::
+
+        facts = SemanticMemoryStore(persist_path="./.memory")
+        docs = DocumentStore(persist_path="./.documents")
+        agent = Agent(client, tools=make_memory_tools(facts) + make_document_tools(docs))
+
+    For cross-process or multi-agent document memory, use the FastMCP server in
+    ``aimu.memory.document_mcp`` instead.
+    """
+
+    @tool
+    def save_document(path: str, content: str) -> str:
+        """Save a document at a path for later retrieval (create or overwrite).
+
+        Args:
+            path: A document path, e.g. "/notes/standup.md".
+            content: The full text of the document.
+        """
+        store.write(path, content)
+        return f"Saved {path}."
+
+    @tool
+    def read_document(path: str) -> str:
+        """Read the full contents of a stored document by path.
+
+        Args:
+            path: The document path to read, e.g. "/notes/standup.md".
+        """
+        try:
+            return store.read(path)
+        except KeyError:
+            return f"No document found at {path}."
+
+    @tool
+    def list_documents() -> str:
+        """List the paths of all stored documents."""
+        paths = store.list_paths()
+        if not paths:
+            return "No documents stored."
+        return "\n".join(f"- {p}" for p in paths)
+
+    @tool
+    def search_documents(query: str, n_results: int = 5) -> str:
+        """Search stored documents for text relevant to a query.
+
+        Args:
+            query: The text to search for.
+            n_results: Maximum number of matching documents to return (default 5).
+        """
+        matches = store.search_full_text(query, n_results=n_results)
+        if not matches:
+            return "No matching documents found."
+        return "\n\n".join(f"{m['path']}:\n{m['content']}" for m in matches)
+
+    return [save_document, read_document, list_documents, search_documents]
+
+
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_webpage, web_search, wikipedia]
 fs = [list_directory, read_file]

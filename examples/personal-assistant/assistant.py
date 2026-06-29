@@ -84,6 +84,13 @@ def build_arg_parser(prog: str = "assistant.py") -> argparse.ArgumentParser:
         default=None,
         help="Bearer token applied to all --mcp servers that require authentication.",
     )
+    parser.add_argument(
+        "--memory",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Persistent memory across conversations: facts about the user (semantic) plus "
+        "user-provided documents. Default: on (use --no-memory to disable).",
+    )
     return parser
 
 
@@ -97,6 +104,7 @@ def config_from_args(args: argparse.Namespace) -> AssistantConfig:
         "tools": [group.strip() for group in args.tools.split(",") if group.strip()],
         "mcp_servers": args.mcp or [],
         "mcp_bearer": args.mcp_bearer,
+        "memory": args.memory,
     }
     if args.skills_dir is not None:
         kwargs["skills_dir"] = Path(args.skills_dir)

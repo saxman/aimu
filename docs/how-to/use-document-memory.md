@@ -73,6 +73,18 @@ agent.run("When is the API deadline?")
 
 Pass the result to `make_tools(..., memory_store=store)` to combine memory with the full built-in tool set.
 
+### Path-based document tools
+
+`make_memory_tools` exposes the generic `MemoryStore` interface (store / search / list). To give an agent the document store's richer path-based API, use `make_document_tools(store)`, which returns `save_document(path, content)`, `read_document(path)`, `list_documents()`, and `search_documents(query)`:
+
+```python
+from aimu.tools.builtin import make_document_tools
+
+agent.tools += make_document_tools(store)
+```
+
+Because these tool names are distinct from `make_memory_tools`' (`store_memory` etc.), one agent can carry both: a `SemanticMemoryStore` for facts and a `DocumentStore` for documents. This is exactly how the [personal-assistant example](build-personal-assistant.md) wires memory. These are the in-process counterpart to the `aimu.memory.document_mcp` server below.
+
 ## Expose as MCP tools
 
 ```bash

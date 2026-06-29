@@ -23,8 +23,10 @@ from aimu import aio, paths
 from aimu.aio import Channel, Scheduler
 from aimu.aio.channels.base import ChannelMessage
 from aimu.history import ConversationManager
+from aimu.memory import DocumentStore, SemanticMemoryStore
 from aimu.skills import SkillManager, make_skill_authoring_tool, make_skill_script_tool
 from aimu.tools import builtin, tool
+from aimu.tools.builtin import make_document_tools, make_memory_tools
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +116,17 @@ DEFAULT_SYSTEM_MESSAGE = (
 
 DEFAULT_REMINDER_TEXT = "Proactively check in with the user with one short, useful suggestion for their day."
 
+# Appended to the system message when memory is enabled, so the model actually uses the two stores
+# (without explicit direction the tools sit unused, the same lesson as the skill-script directives).
+# Two distinct stores: short facts about the user (semantic recall) vs. longer reference documents.
+MEMORY_GUIDANCE = (
+    " You have a persistent memory across conversations. When the user shares a durable fact about "
+    "themselves or a preference worth remembering, call `store_memory` to save it, and call "
+    "`search_memories` to recall such facts when they would help. For longer reference material the user "
+    "provides (notes, documents), call `save_document` with a descriptive path and `search_documents` to "
+    "find relevant passages later. Do not store transient chit-chat."
+)
+
 # All of the assistant's persistent state (authored skills + conversation history) defaults
 # under one subdirectory of the AIMU output directory, so a run leaves nothing scattered in
 # the working directory.
@@ -138,6 +151,11 @@ class AssistantConfig:
     # servers mid-session via the add_mcp_server tool.
     mcp_servers: list[str] = field(default_factory=list)
     mcp_bearer: Optional[str] = None
+    # Persistent memory across conversations: a SemanticMemoryStore for facts about the user and a
+    # DocumentStore for longer reference documents. Both persist under the output dir; on by default.
+    memory: bool = True
+    memory_path: Path = field(default_factory=lambda: DEFAULT_OUTPUT_DIR / "memory")
+    documents_path: Path = field(default_factory=lambda: DEFAULT_OUTPUT_DIR / "documents")
 
 
 class Assistant:
@@ -159,6 +177,10 @@ class Assistant:
         # Live remote-MCP connections (startup + runtime-added) kept alive for their lifetime
         # and closed on shutdown. Assigned by create().
         self._mcp_clients: list = []
+        # Persistent memory stores (None when --no-memory). Assigned by create(); persistence is
+        # automatic (Chroma PersistentClient / DocumentStore disk writes), so no teardown needed.
+        self._memory_store: Optional[SemanticMemoryStore] = None
+        self._document_store: Optional[DocumentStore] = None
         # The reactive turn and a proactive turn share one agent/client; serialize them so
         # a reminder firing mid-conversation can't interleave on shared message state.
         self._lock = asyncio.Lock()
@@ -166,7 +188,20 @@ class Assistant:
     @classmethod
     async def create(cls, config: AssistantConfig, channel: Channel, *, client=None) -> "Assistant":
         if client is None:
-            client = aio.client(config.model, system=config.system_message)
+            system = config.system_message + (MEMORY_GUIDANCE if config.memory else "")
+            client = aio.client(config.model, system=system)
+
+        # Persistent memory: a SemanticMemoryStore for facts about the user and a DocumentStore for
+        # longer reference documents. Both live under the output dir, so they survive restarts and
+        # span conversations (unlike per-conversation history). Tools have distinct names, so both
+        # sets coexist on the one agent.
+        memory_store: Optional[SemanticMemoryStore] = None
+        document_store: Optional[DocumentStore] = None
+        memory_tools: list = []
+        if config.memory:
+            memory_store = SemanticMemoryStore(persist_path=str(config.memory_path))
+            document_store = DocumentStore(persist_path=str(config.documents_path))
+            memory_tools = make_memory_tools(memory_store) + make_document_tools(document_store)
 
         manager = SkillManager(skill_dirs=[str(config.skills_dir)])
         author_skill = make_skill_authoring_tool(manager, config.skills_dir)
@@ -179,6 +214,7 @@ class Assistant:
             author_skill,
             make_skill_script_tool(agent, manager, config.skills_dir),
             make_add_mcp_server_tool(agent, mcp_clients),
+            *memory_tools,
             *_resolve_builtin_tools(config.tools),
         ]
 
@@ -200,6 +236,8 @@ class Assistant:
         scheduler = Scheduler()
         assistant = cls(agent, channel, scheduler, conversation, config)
         assistant._mcp_clients = mcp_clients  # same list the add_mcp_server tool appends to
+        assistant._memory_store = memory_store
+        assistant._document_store = document_store
         if config.reminder_seconds is not None:
             scheduler.at(config.reminder_seconds, assistant._proactive, name="reminder")
         return assistant

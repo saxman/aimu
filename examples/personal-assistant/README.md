@@ -17,6 +17,10 @@ It wires together:
   filesystem reads, a calculator + sandboxed Python, date/time by default).
 - **Remote MCP servers** by URL via `--mcp` (repeatable) or the runtime `add_mcp_server` tool, so the
   assistant can use a hosted service's tools (`aimu.aio.MCPClient.connect(url=...)`).
+- **Persistent memory** (on by default): a `SemanticMemoryStore` for facts about the user
+  (`store_memory` / `search_memories`) and a `DocumentStore` for longer documents the user provides
+  (`save_document` / `search_documents`). Both persist under the output dir, so memory survives restarts
+  and spans conversations. Disable with `--no-memory`.
 - **A `Scheduler`** (`aimu.aio.Scheduler`) for proactive messages (reminders / check-ins).
 - **`ConversationManager`** for history that survives restarts.
 
@@ -83,11 +87,16 @@ connection is rejected.
   ask it mid-session: *"connect to the MCP server at https://..."* (it calls `add_mcp_server`, and the
   new tools are callable in the same turn). Added servers last for the session; `--mcp` reconnects each
   boot.
+- **Memory.** Tell it a durable fact, *"my standup is at 9am"*; restart and ask *"when is my standup?"*
+  and it recalls it from the `SemanticMemoryStore`. Paste a longer note and say *"save this as a
+  document"*, then later *"search my documents for X"* (the `DocumentStore`). `--no-memory` disables both.
 - **Persistence.** Restart with the same `--history` path and the prior conversation is restored.
 
-By default the assistant keeps all of its state (authored skills and conversation history) under
-`<output>/personal-assistant/` (where `<output>` is `aimu.paths.output`), so a run leaves nothing
-in your working directory. Override with `--skills-dir` and `--history`.
+By default the assistant keeps all of its state (authored skills, conversation history, and memory)
+under `<output>/personal-assistant/` (where `<output>` is `aimu.paths.output`), so a run leaves nothing
+in your working directory: skills under `skills/`, history in `history.json`, semantic facts under
+`memory/`, and documents under `documents/`. Override the skills/history locations with `--skills-dir`
+and `--history`.
 
 ## Layout
 

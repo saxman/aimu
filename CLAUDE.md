@@ -368,6 +368,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - **`builtin.misc`**: `echo`, `get_current_date_and_time`
   - **`builtin.ALL_TOOLS`**: flat list of every built-in (kept for back-compat)
   - **`make_memory_tools(store)`**: factory that returns `[store_memory, search_memories, list_memories]` as `@tool`-decorated functions closing over the provided `MemoryStore` instance. No lazy singleton; the store is always explicit because `persist_path` and backend are meaningful choices. Pass the result directly to `Agent(client, tools=make_memory_tools(store))` or via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use `aimu.memory.mcp` / `aimu.memory.document_mcp` instead.
+  - **`make_document_tools(store)`**: factory parallel to `make_memory_tools` that exposes a `DocumentStore`'s richer path API as `[save_document, read_document, list_documents, search_documents]` `@tool`s (wrapping `write`/`read`/`list_paths`/`search_full_text`; `read_document` returns a "not found" message instead of raising on a missing path). The names are deliberately distinct from the `make_memory_tools` triad so one agent can carry **both** a `SemanticMemoryStore` (short facts) and a `DocumentStore` (longer documents) at once. `make_memory_tools`, `make_document_tools`, and `make_retrieval_tool` are re-exported from `aimu.aio.tools.builtin` (the async agent dispatches these sync tools via `asyncio.to_thread`).
 
   Tool reference:
   - `echo(echo_string)`: Returns input string
@@ -1181,7 +1182,7 @@ aimu/
 │           └── image.py         # GeminiImageClient + GeminiImageModel (Nano Banana; image extra)
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
 │   ├── decorator.py     # @tool decorator + ToolSignatureError + ToolArgumentError + coerce_tool_arguments; sets __tool_is_async__ flag
-│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech/transcription subgroups (incl. lazy generate_image, generate_audio, generate_speech, transcribe_audio) + make_memory_tools() factory
+│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech/transcription subgroups (incl. lazy generate_image, generate_audio, generate_speech, transcribe_audio) + make_memory_tools() / make_document_tools() factories
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping() + .as_tools()
 │   ├── mcp_format.py    # mcp_tools_to_openai() + mcp_content_to_text(): shared by sync & async MCPClient (get_tools/as_tools)
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS
@@ -1281,7 +1282,7 @@ tests/                   # Pytest test suite
 ├── test_transcription_api.py  # Mock-only sync transcription surface
 ├── test_transcription_tools.py # Mock-only built-in transcribe_audio tool + make_transcription_tool
 ├── test_aio_transcription_api.py # Mock-only async transcription surface + wrap refusal
-├── test_memory_tools.py       # Mock-only make_memory_tools factory + make_tools memory_store= integration
+├── test_memory_tools.py       # Mock-only make_memory_tools + make_document_tools factories + make_tools memory_store= integration
 ├── helpers_aio.py       # MockAsyncModelClient + live-backend dispatch for async tests
 ├── test_aio_models_api.py        # Mock-only async surface tests
 ├── test_aio_workflow_parallel.py # Verifies asyncio.TaskGroup overlap + sibling cancellation
