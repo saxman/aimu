@@ -125,9 +125,10 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             if stream:
                 raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
             self._prepare_run(deps, tool_approval)
-            result = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
-            self._last_messages = list(self.model_client.messages)
-            return result
+            try:
+                return await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
+            finally:
+                self._last_messages = list(self.model_client.messages)
         if stream:
             return self._run_streamed(
                 task, generate_kwargs, images=images, tools=tools, deps=deps, tool_approval=tool_approval
@@ -146,23 +147,30 @@ class Agent(_AgentLoopMixin, AsyncRunner):
 
         Shared by :meth:`run` and :class:`aimu.aio.SkillAgent` (which must run its async
         skill setup between ``_prepare_run`` and the loop).
+
+        The ``messages`` snapshot is taken in a ``finally`` so a cancelled run (an app cancelling
+        the task, e.g. via :class:`~aimu.aio.RunHandle`) still records its partial turn for resume.
         """
-        response = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
+        try:
+            response = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
 
-        for _ in range(self.max_iterations - 1):
-            if not self._last_turn_called_tools():
-                break
-            logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
-            response = await self.model_client.chat(
-                self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools
-            )
+            for _ in range(self.max_iterations - 1):
+                if not self._last_turn_called_tools():
+                    break
+                logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
+                response = await self.model_client.chat(
+                    self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools
+                )
 
-        if self.final_answer_prompt is not None and self._last_turn_called_tools():
-            logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
-            response = await self.model_client.chat(self.final_answer_prompt, generate_kwargs=generate_kwargs, tools=[])
+            if self.final_answer_prompt is not None and self._last_turn_called_tools():
+                logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+                response = await self.model_client.chat(
+                    self.final_answer_prompt, generate_kwargs=generate_kwargs, tools=[]
+                )
 
-        self._last_messages = list(self.model_client.messages)
-        return response
+            return response
+        finally:
+            self._last_messages = list(self.model_client.messages)
 
     async def _run_streamed(
         self,
@@ -186,35 +194,38 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     ) -> AsyncIterator[StreamChunk]:
         """The streamed tool-calling loop, assuming ``_prepare_run`` already ran.
 
-        Shared by :meth:`_run_streamed` and :class:`aimu.aio.SkillAgent`.
+        Shared by :meth:`_run_streamed` and :class:`aimu.aio.SkillAgent`. The ``messages`` snapshot
+        is taken in a ``finally`` (which runs when a cancelled consumer closes this generator), so a
+        cancelled streamed run still records its partial turn for resume.
         """
-        iteration = 0
-        first_stream = await self.model_client.chat(
-            task, generate_kwargs=generate_kwargs, stream=True, images=images, tools=tools
-        )
-        async for chunk in first_stream:
-            yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-
-        iteration += 1
-        while self._last_turn_called_tools() and iteration < self.max_iterations:
-            logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-            next_stream = await self.model_client.chat(
-                self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
+        try:
+            iteration = 0
+            first_stream = await self.model_client.chat(
+                task, generate_kwargs=generate_kwargs, stream=True, images=images, tools=tools
             )
-            async for chunk in next_stream:
+            async for chunk in first_stream:
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-            iteration += 1
 
-        if self.final_answer_prompt is not None and self._last_turn_called_tools():
-            logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
-            final_stream = await self.model_client.chat(
-                self.final_answer_prompt, generate_kwargs=generate_kwargs, stream=True, tools=[]
-            )
-            async for chunk in final_stream:
-                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
             iteration += 1
+            while self._last_turn_called_tools() and iteration < self.max_iterations:
+                logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
+                next_stream = await self.model_client.chat(
+                    self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
+                )
+                async for chunk in next_stream:
+                    yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
+                iteration += 1
 
-        self._last_messages = list(self.model_client.messages)
+            if self.final_answer_prompt is not None and self._last_turn_called_tools():
+                logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+                final_stream = await self.model_client.chat(
+                    self.final_answer_prompt, generate_kwargs=generate_kwargs, stream=True, tools=[]
+                )
+                async for chunk in final_stream:
+                    yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
+                iteration += 1
+        finally:
+            self._last_messages = list(self.model_client.messages)
 
     @property
     def messages(self) -> MessageHistory:

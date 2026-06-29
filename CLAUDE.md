@@ -225,6 +225,7 @@ async def main():
   - `evaluator.py`: async `EvaluatorOptimizer`.
   - `plan_execute_evaluator.py`: async `PlanExecuteEvaluator`.
 - **[aimu/aio/scheduler.py](aimu/aio/scheduler.py)** + **[aimu/aio/channels/](aimu/aio/channels/)**: personal-assistant primitives (`Scheduler`, `Channel`/`CLIChannel`). See "Personal-Assistant Primitives" below.
+- **[aimu/aio/run_handle.py](aimu/aio/run_handle.py)**: `RunHandle` (exported from `aimu.aio`), a thin wrapper over the `asyncio.Task` of an in-flight run (`RunHandle.start(coro)` = `asyncio.ensure_future`; `cancel()`, `async result()`, `done`/`cancelled`, `__await__`). Cooperative cancellation rides on asyncio task cancellation (no threaded token), so the run's `await chat(...)` points are the cancel boundaries; `CancelledError` is a `BaseException`, so the `except Exception` dispatch handlers never swallow it. The async `Agent` loop helpers (`_run_loop`, `_run_loop_streamed`, and the `schema=` paths in `Agent`/`SkillAgent.run`) snapshot `_last_messages` in a **`finally`**, so a cancelled run still records its partial turn (resume via `restore()` off the live `model_client.messages`). Async-only (sync has no cancellation primitive). The personal-assistant example wires `/stop` on top of this (runs each turn as a `RunHandle`). How-to: [docs/how-to/cancel-a-run.md](docs/how-to/cancel-a-run.md).
 
 **Shared infrastructure** (used by both sync and async surfaces, no duplication):
 

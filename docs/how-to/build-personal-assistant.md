@@ -197,6 +197,10 @@ them through `asyncio.to_thread`, so they attach to `agent.tools` with no wrappi
 kept intentionally minimal; selectable tool groups, [remote MCP servers](use-mcp-tools.md), and
 [persistent memory](use-semantic-memory.md) are capabilities AIMU ships but the example leaves out.
 
+It also supports **`/stop`**: it runs each turn as a background [`RunHandle`](cancel-a-run.md) so the
+reader stays free to receive a `/stop` message, which cancels the in-flight turn (the agent keeps the
+partial turn for resume) while the daemon keeps serving.
+
 Run it:
 
 ```bash

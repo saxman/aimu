@@ -93,7 +93,8 @@ async def _amain(config: AssistantConfig) -> None:
     print(
         "[notice] This assistant can author and run Python/shell scripts with full access to this "
         "machine (no sandbox). Only use it with a model and inputs you trust. Authoring a script "
-        "(add_skill_script) asks for y/n confirmation in the terminal first (see CONFIRM_BEFORE).",
+        "(add_skill_script) asks for y/n confirmation in the terminal first (see CONFIRM_BEFORE). "
+        "Type /stop on its own line to interrupt the current reply.",
         file=sys.stderr,
     )
     channel = CLIChannel(show_thinking=config.show_thinking, show_tools=config.show_tools)

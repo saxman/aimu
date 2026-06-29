@@ -74,6 +74,8 @@ connection is rejected.
   disk usage, then run it."* It calls `add_skill_script` to drop a `.py` or `.sh` file into a
   skill's `scripts/` directory; `reload_skills()` makes the new `{skill}__{stem}` tool callable in
   the same turn, so it runs the script and reports the output.
+- **Interrupt a reply.** While the assistant is responding, type `/stop` on its own line: the
+  in-flight turn is cancelled (its partial state is kept) and the assistant goes back to waiting.
 - **Persistence.** Restart with the same `--history` path and the prior conversation is restored.
 
 By default the assistant keeps all of its state (authored skills and conversation history) under

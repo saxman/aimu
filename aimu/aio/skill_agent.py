@@ -140,9 +140,10 @@ class SkillAgent(Agent):
         await self._setup_skills_async()
 
         if schema is not None:
-            result = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
-            self._last_messages = list(self.model_client.messages)
-            return result
+            try:
+                return await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
+            finally:
+                self._last_messages = list(self.model_client.messages)
 
         if stream:
             return self._run_loop_streamed(task, generate_kwargs, images=images, tools=tools)

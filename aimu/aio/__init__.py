@@ -44,6 +44,7 @@ from ._model_client import AsyncModelClient, client, chat
 from .fallback import AsyncFallbackClient
 from .agent import Agent, AsyncRunner
 from .channels import CLIChannel, Channel, ChannelMessage
+from .run_handle import RunHandle
 from .scheduler import Scheduler
 from .audio import AsyncAudioClient, audio_client, generate_audio
 from .embedding import AsyncEmbeddingClient, embed, embedding_client
@@ -119,6 +120,7 @@ __all__ = [
     "OrchestratorAgent",
     "Parallel",
     "PlanExecuteEvaluator",
+    "RunHandle",
     "Router",
     "Scheduler",
     "SkillAgent",

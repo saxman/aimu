@@ -15,6 +15,7 @@
 
 - **New** async-first **channel transport** under `aimu.aio.channels`: a `Channel` ABC (`receive()` async-generator, `async send()`, `aclose()`) and `ChannelMessage` plain-data type, plus a `CLIChannel` stdin/stdout adapter. A new uniform interface alongside `AsyncRunner` / `MemoryStore` for talking to a user over a transport; network adapters (Telegram/Slack) are a deferred follow-up behind an optional extra + `HAS_*` guard, kept out of core. Exported from `aimu.aio`.
 - **New** `aimu.aio.Scheduler`: runs interval (`every`) and one-shot (`at`) async jobs concurrently under one `asyncio.TaskGroup`, for proactive assistant triggers (reminders, check-ins). A job that raises is logged and the loop continues (one bad reminder can't kill the daemon); `run()` is single-use and honors a `stop()` signalled before it started (no lost-stop race). Persistence is intentionally out of scope. Exported from `aimu.aio`.
+- **New** `aimu.aio.RunHandle`: cooperative cancellation for an in-flight `aio.Agent.run(...)`. `RunHandle.start(coro)` schedules the run as a task; `cancel()` stops it at the next `await`, `await result()` returns the result or raises `asyncio.CancelledError`. The async `Agent` loop now snapshots its messages in a `finally`, so a cancelled run still records its partial turn for resume via `restore()`. Async-only (asyncio cancellation; no threaded token). The personal-assistant example gains a `/stop` that cancels the current reply. How-to: [Cancel a run](https://saxman.github.io/aimu/how-to/cancel-a-run/).
 
 ### Skills
 

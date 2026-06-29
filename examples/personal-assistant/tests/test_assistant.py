@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 from typing import AsyncIterator
@@ -203,3 +204,71 @@ async def test_denied_add_skill_script_does_not_write(tmp_path):
     )
     assert agent.model_client.messages[-1]["content"] == "Tool 'add_skill_script' was not approved."
     assert not (cfg.skills_dir / "disk" / "scripts" / "u.py").exists()
+
+
+# --- /stop cancellation demo -----------------------------------------------------------------
+
+
+class _BlockingStreamClient(MockAsyncModelClient):
+    """Records the user turn, signals it started, then hangs until the turn task is cancelled."""
+
+    def __init__(self):
+        super().__init__([])
+        self.started = asyncio.Event()
+
+    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        self.messages.append({"role": "user", "content": user_message})
+        self.started.set()
+        await asyncio.Event().wait()
+
+
+class _StopChannel(Channel):
+    """Yields a normal message, waits until the turn is actually running, then yields '/stop'."""
+
+    name = "fake"
+
+    def __init__(self, started):
+        self._started = started
+        self.sent: list[str] = []
+
+    async def receive(self):
+        yield ChannelMessage(text="long task", channel="fake")
+        await self._started.wait()
+        yield ChannelMessage(text="/stop", channel="fake")
+
+    async def send(self, content, *, reply_to=None):
+        if isinstance(content, str):
+            self.sent.append(content)
+            return
+        async for _ in content:  # consume the stream; this is what gets cancelled by /stop
+            pass
+
+
+async def test_stop_cancels_in_flight_turn(tmp_path):
+    client = _BlockingStreamClient()
+    channel = _StopChannel(client.started)
+    assistant = await Assistant.create(_config(tmp_path), channel, client=client)
+
+    await assistant._serve_channel()  # reads "long task" (starts the turn), then "/stop" (cancels it)
+    if assistant._current is not None:  # let the cancelled turn finish its (stopped) + persist
+        await asyncio.gather(assistant._current.task, return_exceptions=True)
+
+    assert "(stopped)" in channel.sent
+    # The partial turn was captured for resume (the agent snapshots in its finally).
+    assert any(m.get("content") == "long task" for m in assistant._agent.model_client.messages)
+    assert assistant._agent.messages["assistant"]
+
+
+async def test_stop_with_no_active_turn_is_noop(tmp_path):
+    class _OnlyStop(Channel):
+        name = "fake"
+
+        async def receive(self):
+            yield ChannelMessage(text="/stop", channel="fake")
+
+        async def send(self, content, *, reply_to=None):
+            pass
+
+    assistant = await Assistant.create(_config(tmp_path), _OnlyStop(), client=MockAsyncModelClient([]))
+    await assistant._serve_channel()  # must not raise with no in-flight turn
+    assert assistant._current is None
