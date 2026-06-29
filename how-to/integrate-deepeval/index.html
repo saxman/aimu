@@ -2955,13 +2955,13 @@
 
 
 <h1 id="integrate-deepeval">Integrate DeepEval<a class="headerlink" href="#integrate-deepeval" title="Permanent link">&para;</a></h1>
-<p><code>aimu[deepeval]</code> ships two adapters:</p>
+<p><code>aimu[evals]</code> ships two adapters:</p>
 <ul>
 <li><strong><code>DeepEvalModel</code></strong>: wraps any AIMU <code>BaseModelClient</code> as a DeepEval judge (<code>DeepEvalBaseLLM</code>). Pass it as <code>model=</code> to any DeepEval metric.</li>
 <li><strong><code>DeepEvalScorer</code></strong>: wraps a list of DeepEval metrics as an AIMU <code>Scorer</code> for <code>JudgedPromptTuner</code> and <code>Benchmark</code>.</li>
 </ul>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>deepeval<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>evals<span class="o">]</span>
 </span></code></pre></div>
 <h2 id="use-any-aimu-client-as-a-deepeval-judge">Use any AIMU client as a DeepEval judge<a class="headerlink" href="#use-any-aimu-client-as-a-deepeval-judge" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
