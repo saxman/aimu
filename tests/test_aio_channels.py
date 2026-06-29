@@ -56,3 +56,28 @@ async def test_cli_send_ignores_reply_to(capsys):
     msg = ChannelMessage(text="ping", sender="someone")
     await CLIChannel().send("pong", reply_to=msg)  # does not raise
     assert "pong" in capsys.readouterr().out
+
+
+async def test_cli_send_shows_thinking_and_tools_when_enabled(capsys):
+    async def chunks():
+        yield StreamChunk(StreamingContentType.THINKING, "let me check")
+        yield StreamChunk(StreamingContentType.TOOL_CALLING, {"name": "get_weather", "arguments": {"city": "Paris"}})
+        yield StreamChunk(StreamingContentType.GENERATING, "It's sunny.")
+
+    await CLIChannel(show_thinking=True, show_tools=True).send(chunks())
+    out = capsys.readouterr().out
+    assert "[thinking] let me check" in out
+    assert "[tool] get_weather(city='Paris')" in out
+    assert "It's sunny." in out
+
+
+async def test_cli_send_hides_thinking_and_tools_by_default(capsys):
+    async def chunks():
+        yield StreamChunk(StreamingContentType.THINKING, "secret reasoning")
+        yield StreamChunk(StreamingContentType.TOOL_CALLING, {"name": "get_weather", "arguments": {}})
+        yield StreamChunk(StreamingContentType.GENERATING, "answer")
+
+    await CLIChannel().send(chunks())
+    out = capsys.readouterr().out
+    assert "secret reasoning" not in out and "get_weather" not in out
+    assert "answer" in out

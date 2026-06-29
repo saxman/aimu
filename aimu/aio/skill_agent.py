@@ -99,12 +99,23 @@ class SkillAgent(Agent):
         from aimu.aio._mcp_client import MCPClient
         from aimu.skills.mcp import build_skills_server
 
-        if self._skills_mcp_client is not None:
-            await self._skills_mcp_client.aclose()
+        # Connect the new server first so a failure leaves the old (working) client in place.
+        old_client = self._skills_mcp_client
+        stale_names = {fn.__name__ for fn in (self._skills_tools or [])}
         self._skills_mcp_client = await MCPClient.connect(server=build_skills_server(self.skill_manager))
         self._skills_tools = await self._skills_mcp_client.as_tools()
+        # Drop the previous skills tools (bound to the old client) before appending the fresh
+        # ones, so the new-client callables replace ALL of them, not just newly-named tools.
+        # Otherwise dedup-by-name in _append_skills_tools keeps stale callables that break the
+        # moment the old client is closed below ("MCPClient not connected").
+        self.model_client.tools = [
+            fn for fn in self.model_client.tools if getattr(fn, "__name__", None) not in stale_names
+        ]
         self._append_skills_tools()
         self._reinject_catalog()
+        # Now nothing in model_client.tools references the old client, so closing it is safe.
+        if old_client is not None:
+            await old_client.aclose()
 
     async def run(self, task, generate_kwargs=None, stream=False, images=None, tools=None, deps=None, schema=None):
         # Prepare + async skill setup must complete before the loop, and _prepare_run

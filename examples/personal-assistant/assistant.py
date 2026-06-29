@@ -52,12 +52,37 @@ def build_arg_parser(prog: str = "assistant.py") -> argparse.ArgumentParser:
         default=None,
         help="Override the prompt used to generate the proactive reminder.",
     )
+    parser.add_argument(
+        "--show-thinking",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show the model's reasoning as it streams. Default: on (use --no-show-thinking to hide).",
+    )
+    parser.add_argument(
+        "--show-tools",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show tool calls as they happen. Default: on (use --no-show-tools to hide).",
+    )
+    parser.add_argument(
+        "--tools",
+        default="web,fs,compute,misc",
+        help="Comma-separated AIMU built-in tool groups to expose: web, fs, compute, misc, image, "
+        "audio, speech, transcription (or 'all' / 'none'). Default: web,fs,compute,misc. The "
+        "generative groups (image/audio/speech/transcription) require their AIMU_*_MODEL env var.",
+    )
     return parser
 
 
 def config_from_args(args: argparse.Namespace) -> AssistantConfig:
     # Omitted path flags fall back to the AssistantConfig defaults (under the output dir).
-    kwargs = {"model": args.model, "reminder_seconds": args.reminder_seconds}
+    kwargs = {
+        "model": args.model,
+        "reminder_seconds": args.reminder_seconds,
+        "show_thinking": args.show_thinking,
+        "show_tools": args.show_tools,
+        "tools": [group.strip() for group in args.tools.split(",") if group.strip()],
+    }
     if args.skills_dir is not None:
         kwargs["skills_dir"] = Path(args.skills_dir)
     if args.history is not None:
@@ -75,7 +100,7 @@ async def _amain(config: AssistantConfig) -> None:
         "machine (no sandbox). Only use it with a model and inputs you trust.",
         file=sys.stderr,
     )
-    channel = CLIChannel()
+    channel = CLIChannel(show_thinking=config.show_thinking, show_tools=config.show_tools)
     assistant = await Assistant.create(config, channel)
     await assistant.run()
 

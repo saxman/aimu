@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import AsyncIterator
 
+import pytest
+
 # tests/helpers_aio.py lives under the repo's tests dir; add it to the path so we can reuse
 # the shared async mock client.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests"))
@@ -84,6 +86,40 @@ def test_arg_parser_overrides():
     assert cfg.reminder_seconds == 5.0
     assert cfg.skills_dir == Path("/tmp/s")
     assert cfg.history_path == "/tmp/h.json"
+
+
+def test_default_tools_groups():
+    assert AssistantConfig().tools == ["web", "fs", "compute", "misc"]
+    assert config_from_args(build_arg_parser().parse_args([])).tools == ["web", "fs", "compute", "misc"]
+
+
+def test_tools_flag_parses_groups():
+    assert config_from_args(build_arg_parser().parse_args(["--tools", "web, misc"])).tools == ["web", "misc"]
+    assert config_from_args(build_arg_parser().parse_args(["--tools", "none"])).tools == ["none"]
+
+
+async def test_assistant_wires_builtin_tools_by_default(tmp_path):
+    assistant = await Assistant.create(_config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]))
+    names = {fn.__name__ for fn in assistant._agent.tools}
+    # Default groups are present...
+    assert {"get_weather", "read_file", "calculate", "get_current_date_and_time"} <= names
+    # ...and the generative groups (opt-in, need AIMU_*_MODEL) are not.
+    assert "generate_image" not in names
+
+
+async def test_assistant_tools_none_omits_builtins(tmp_path):
+    assistant = await Assistant.create(
+        _config(tmp_path, tools=["none"]), FakeChannel(), client=MockAsyncModelClient([])
+    )
+    names = {fn.__name__ for fn in assistant._agent.tools}
+    assert "get_weather" not in names and "calculate" not in names
+    # The assistant's own tools remain.
+    assert {"author_skill", "add_skill_script"} <= names
+
+
+async def test_assistant_unknown_tool_group_raises(tmp_path):
+    with pytest.raises(ValueError, match="unknown tool group"):
+        await Assistant.create(_config(tmp_path, tools=["bogus"]), FakeChannel(), client=MockAsyncModelClient([]))
 
 
 async def test_assistant_handles_message(tmp_path):

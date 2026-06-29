@@ -13,6 +13,8 @@ It wires together:
   so each is a drop-in replacement, and a network adapter (Telegram, Slack) would be too.
 - **A `SkillAgent`** that answers each message and can **author new skills** at runtime via the
   `author_skill` tool (`aimu.skills.make_skill_authoring_tool`): the self-improvement loop.
+- **AIMU's built-in tools** (`aimu.tools.builtin`) selected by group via `--tools` (web search,
+  filesystem reads, a calculator + sandboxed Python, date/time by default).
 - **A `Scheduler`** (`aimu.aio.Scheduler`) for proactive messages (reminders / check-ins).
 - **`ConversationManager`** for history that survives restarts.
 
@@ -41,13 +43,22 @@ python examples/personal-assistant/web_assistant.py \
 
 This is a small [Starlette](https://www.starlette.io/) server plus `web_channel.py`'s
 `WebChannel` (a `Channel` over the browser socket). The `Assistant` loop is **unchanged**: only the
-channel differs, the whole point of the `Channel` ABC. Replies stream token-by-token and proactive
-scheduler messages arrive in the browser unprompted (something a request/response UI like
-Streamlit/Gradio can't do without polling). `--host` / `--port` accept the usual flags; single-user,
-so a second simultaneous connection is rejected.
+channel differs, the whole point of the `Channel` ABC. Replies stream token-by-token, the model's
+reasoning and tool calls render as distinct blocks as they happen, and proactive scheduler messages
+arrive in the browser unprompted (something a request/response UI like Streamlit/Gradio can't do
+without polling). `--host` / `--port` accept the usual flags; single-user, so a second simultaneous
+connection is rejected.
 
 ## What to try
 
+- **Built-in tools.** The assistant gets AIMU's built-in tools by default (`--tools web,fs,compute,misc`):
+  ask *"what's the weather in Paris?"*, *"what's today's date?"*, or *"what is 17 times 23?"*. Select
+  groups with `--tools` (`web`, `fs`, `compute`, `misc`, `image`, `audio`, `speech`, `transcription`,
+  or `all` / `none`); the generative groups need their `AIMU_*_MODEL` env var. Note `compute`'s
+  sandboxed `execute_python` (safe, ephemeral compute) is **complementary** to the full-access skill
+  scripts below (persistent, reusable automation), not a replacement.
+- **See the model work.** Both the CLI and web UI show each turn's reasoning and tool calls, not
+  just the final answer (on by default; pass `--no-show-thinking` / `--no-show-tools` to hide them).
 - **Proactive message.** With `--reminder-seconds 30`, an unprompted suggestion appears ~30s
   after startup, pushed through the channel by the scheduler.
 - **Self-authored skill.** Teach the assistant a procedure: *"Remember how I like my standup

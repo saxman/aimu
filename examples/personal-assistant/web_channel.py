@@ -25,11 +25,13 @@ class WebChannel(Channel):
 
     name = "web"
 
-    def __init__(self, websocket: Any):
+    def __init__(self, websocket: Any, *, show_thinking: bool = False, show_tools: bool = False):
         # websocket is a Starlette WebSocket (duck-typed: async send_json / close). Tests pass a fake.
         self._ws = websocket
         self._inbound: asyncio.Queue[Optional[str]] = asyncio.Queue()
         self._closed = False
+        self.show_thinking = show_thinking
+        self.show_tools = show_tools
 
     async def feed(self, text: Optional[str]) -> None:
         """Enqueue an inbound frame; ``None`` is the end-of-stream sentinel."""
@@ -56,6 +58,11 @@ class WebChannel(Channel):
         async for chunk in content:
             if chunk.phase == StreamingContentType.GENERATING:
                 await self._safe_send({"type": "token", "text": chunk.content})
+            elif chunk.phase == StreamingContentType.THINKING and self.show_thinking:
+                await self._safe_send({"type": "thinking", "text": chunk.content})
+            elif chunk.phase == StreamingContentType.TOOL_CALLING and self.show_tools:
+                call = chunk.content if isinstance(chunk.content, dict) else {}
+                await self._safe_send({"type": "tool", "name": call.get("name"), "arguments": call.get("arguments")})
         await self._safe_send({"type": "done"})
 
     async def _safe_send(self, frame: dict) -> None:

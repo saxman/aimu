@@ -185,6 +185,10 @@ asyncio.run(main())
 
 The reference app in `examples/personal-assistant/` is this, fleshed out: serialize reactive and
 proactive turns with a lock (they share one agent), an argparse entry point, and mock-only tests.
+It also gives the agent AIMU's [built-in tools](add-custom-tool.md) by group via a `--tools` flag
+(`builtin.web` / `fs` / `compute` / `misc` by default; generative groups opt-in). The built-ins are
+sync functions, and the async agent dispatches them through `asyncio.to_thread`, so they attach to
+`agent.tools` with no wrapping.
 
 Run it:
 
@@ -206,6 +210,14 @@ that ends `receive()`, stops the scheduler, and tears down cleanly.
 
 Because the server owns the scheduler via `assistant.run()`, proactive messages reach the browser
 unprompted, the property a request/response UI (Streamlit/Gradio) can't provide without polling.
+
+The agent's stream carries `THINKING` and `TOOL_CALLING` chunks alongside `GENERATING`, so both
+channels can surface the model's reasoning and tool calls, not just the final answer. `CLIChannel`
+takes opt-in `show_thinking` / `show_tools` flags (off by default to keep the library channel
+minimal); the example-local `WebChannel` emits `thinking` / `tool` frames the page renders as
+distinct blocks. The personal-assistant example turns both on by default (`--no-show-thinking` /
+`--no-show-tools` to hide), threading `AssistantConfig.show_thinking` / `show_tools` into each
+channel.
 
 ```bash
 pip install aimu[web]

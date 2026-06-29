@@ -167,21 +167,27 @@ def make_skill_script_tool(agent, manager: SkillManager, skills_dir: Union[str, 
 
     @tool
     async def add_skill_script(skill_name: str, filename: str, content: str) -> str:
-        """Attach a runnable script to an existing skill, then make it callable now.
+        """Create or update a runnable script in an existing skill, then make it callable now.
 
         Scripts run with full access to this machine (no sandbox). Use this to automate a
-        repeatable procedure as code you can invoke as a tool.
+        repeatable procedure as code you can invoke as a tool. **To fix a broken script, call this
+        again with the SAME filename**: it overwrites the script in place (the `{skill}__{stem}`
+        tool keeps its name). Using a different filename instead creates a second script and leaves
+        the broken one in place.
 
         Args:
             skill_name: Slug of an existing skill (create it first with author_skill).
             filename: Script file name, "<stem>.py" or "<stem>.sh". The stem is lowercase and may
-                use hyphens or underscores (e.g. "backup-db.sh" or "backup_db.sh").
+                use hyphens or underscores (e.g. "backup-db.sh" or "backup_db.sh"). Reuse the exact
+                filename of an existing script to replace (fix) it.
             content: Full source of the script.
         """
         skill = manager.skills.get(skill_name)
         if skill is None:
-            return f"Skill {skill_name!r} not found. Create it first with author_skill."
-        # Re-round-trip the existing SKILL.md unchanged plus the new script file.
+            available = ", ".join(sorted(manager.skills)) or "(none yet)"
+            return f"Skill {skill_name!r} not found. Create it first with author_skill. Existing skills: {available}."
+        existed = (skills_dir / skill_name / "scripts" / filename).exists()
+        # Re-round-trip the existing SKILL.md unchanged plus the new/updated script file.
         write_skill(
             skill_name,
             skill.description,
@@ -194,7 +200,8 @@ def make_skill_script_tool(agent, manager: SkillManager, skills_dir: Union[str, 
         manager.refresh()
         await agent.reload_skills()
         stem = Path(filename).stem
-        return f"Added {filename} to '{skill_name}'. Tool '{skill_name}__{stem}' is now callable."
+        verb = "Updated" if existed else "Added"
+        return f"{verb} {filename} in '{skill_name}'. Tool '{skill_name}__{stem}' is now callable."
 
     return add_skill_script
 

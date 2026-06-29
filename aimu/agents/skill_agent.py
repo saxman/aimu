@@ -112,8 +112,15 @@ class SkillAgent(Agent):
         from aimu.skills.mcp import build_skills_server
         from aimu.tools.client import MCPClient
 
+        stale_names = {fn.__name__ for fn in (self._skills_tools or [])}
         self._skills_mcp_client = MCPClient(server=build_skills_server(self.skill_manager))
         self._skills_tools = self._skills_mcp_client.as_tools()
+        # Drop the previous skills tools so the fresh callables replace ALL of them (not just
+        # newly-named tools); otherwise dedup-by-name leaves stale callables bound to the prior
+        # client. The old client, now unreferenced, is torn down by its __del__.
+        self.model_client.tools = [
+            fn for fn in self.model_client.tools if getattr(fn, "__name__", None) not in stale_names
+        ]
         self._append_skills_tools()
         self._reinject_catalog()
 

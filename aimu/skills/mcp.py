@@ -32,13 +32,16 @@ def _interpreter_for(script: Path) -> list[str]:
     raise ValueError(f"unsupported script extension {script.suffix!r} (expected .py or .sh)")
 
 
-def run_script_file(script: Path, args: str = "") -> str:
+def run_script_file(script: Path, args: str = "", *, fix_hint: str = "") -> str:
     """Run ``script`` with the interpreter for its extension and return its output.
 
     ``args`` is a shell-style string split with :func:`shlex.split` and appended to the script's
     argv. Returns stdout on success, or a formatted error string (non-zero exit, timeout,
-    unsupported extension, bad quoting). Note: this blocks for up to ``_SCRIPT_TIMEOUT`` seconds,
-    which blocks the event loop on the async path; acceptable for an occasional skill invocation.
+    unsupported extension, bad quoting). ``fix_hint`` is appended to error results to tell the
+    caller how to repair the script (the skills server passes the script's skill + filename, so a
+    broken script can be overwritten in place rather than re-created under a new name). Note: this
+    blocks for up to ``_SCRIPT_TIMEOUT`` seconds, which blocks the event loop on the async path;
+    acceptable for an occasional skill invocation.
     """
     try:
         argv = _interpreter_for(script) + [str(script.resolve())] + shlex.split(args)
@@ -47,9 +50,11 @@ def run_script_file(script: Path, args: str = "") -> str:
     try:
         result = subprocess.run(argv, capture_output=True, text=True, timeout=_SCRIPT_TIMEOUT)
     except subprocess.TimeoutExpired:
-        return f"Script timed out after {_SCRIPT_TIMEOUT} seconds."
+        return f"Script timed out after {_SCRIPT_TIMEOUT} seconds.{fix_hint}"
     if result.returncode != 0:
-        return f"Script exited with code {result.returncode}.\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        return (
+            f"Script exited with code {result.returncode}.\nstdout: {result.stdout}\nstderr: {result.stderr}{fix_hint}"
+        )
     return result.stdout
 
 
@@ -103,16 +108,26 @@ def _register_script_tool(server: FastMCP, skill_name: str, script: Path) -> Non
     """Register a single script (.py or .sh) as a FastMCP tool."""
     tool_name = f"{skill_name}__{script.stem}"
     script_path = script.resolve()
+    filename = script.name
+    # On failure, name the exact skill + file so a fix overwrites this script in place rather than
+    # being written to a new filename (which would leave the broken script and its tool behind).
+    fix_hint = (
+        f"\n\nTo fix this script, overwrite it in place: call add_skill_script with "
+        f"skill_name='{skill_name}', filename='{filename}', and the corrected content (reuse the "
+        f"same filename so it replaces this script rather than creating a new one)."
+    )
 
     # Build the tool function dynamically so each closure captures its own script path.
     def _make_tool(path: Path):
         def run_script(args: str = "") -> str:
-            return run_script_file(path, args)
+            return run_script_file(path, args, fix_hint=fix_hint)
 
         run_script.__name__ = tool_name
         run_script.__doc__ = (
-            f"Run the {script.name} script from the '{skill_name}' skill. "
-            "Optional `args` is a shell-style string forwarded to the script's arguments."
+            f"Run the {filename} script from the '{skill_name}' skill. "
+            "Optional `args` is a shell-style string forwarded to the script's arguments. "
+            f"If it is broken, fix it with add_skill_script(skill_name='{skill_name}', "
+            f"filename='{filename}', ...) using the same filename."
         )
         return run_script
 

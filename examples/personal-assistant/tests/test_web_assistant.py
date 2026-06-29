@@ -65,6 +65,37 @@ async def test_web_channel_send_stream_emits_tokens_then_done():
     ]
 
 
+async def test_web_channel_emits_thinking_and_tool_frames_when_enabled():
+    ws = _FakeWS()
+    channel = WebChannel(ws, show_thinking=True, show_tools=True)
+
+    async def gen():
+        yield StreamChunk(StreamingContentType.THINKING, "hmm")
+        yield StreamChunk(StreamingContentType.TOOL_CALLING, {"name": "calc", "arguments": {"x": 2}})
+        yield StreamChunk(StreamingContentType.GENERATING, "4")
+
+    await channel.send(gen())
+    assert ws.frames == [
+        {"type": "thinking", "text": "hmm"},
+        {"type": "tool", "name": "calc", "arguments": {"x": 2}},
+        {"type": "token", "text": "4"},
+        {"type": "done"},
+    ]
+
+
+async def test_web_channel_omits_thinking_and_tool_frames_by_default():
+    ws = _FakeWS()
+    channel = WebChannel(ws)  # defaults: show_thinking / show_tools off
+
+    async def gen():
+        yield StreamChunk(StreamingContentType.THINKING, "hmm")
+        yield StreamChunk(StreamingContentType.TOOL_CALLING, {"name": "calc", "arguments": {}})
+        yield StreamChunk(StreamingContentType.GENERATING, "4")
+
+    await channel.send(gen())
+    assert ws.frames == [{"type": "token", "text": "4"}, {"type": "done"}]
+
+
 async def test_web_channel_receive_ends_on_sentinel():
     channel = WebChannel(_FakeWS())
     await channel.feed("hello")

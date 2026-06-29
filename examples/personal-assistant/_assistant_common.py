@@ -24,8 +24,50 @@ from aimu.aio import Channel, Scheduler
 from aimu.aio.channels.base import ChannelMessage
 from aimu.history import ConversationManager
 from aimu.skills import SkillManager, make_skill_authoring_tool, make_skill_script_tool
+from aimu.tools import builtin
 
 logger = logging.getLogger(__name__)
+
+# AIMU's built-in tool subgroups, selectable by name via the --tools flag / AssistantConfig.tools.
+# The generative groups (image/audio/speech/transcription) need their AIMU_*_MODEL env var set and
+# raise at call time otherwise, so they are not in the default set. The default tools are sync; the
+# async agent dispatches them via asyncio.to_thread, so no wrapping is needed.
+_TOOL_GROUPS = {
+    "web": builtin.web,
+    "fs": builtin.fs,
+    "compute": builtin.compute,
+    "misc": builtin.misc,
+    "image": builtin.image,
+    "audio": builtin.audio,
+    "speech": builtin.speech,
+    "transcription": builtin.transcription,
+}
+
+
+def _resolve_builtin_tools(names: list[str]) -> list:
+    """Map tool-group names to built-in tool callables (deduped by name).
+
+    ``"all"`` expands to ``builtin.ALL_TOOLS``; ``"none"`` contributes nothing. An unknown name
+    raises ``ValueError`` listing the valid groups.
+    """
+    resolved: list = []
+    seen: set[str] = set()
+    for name in names:
+        if name == "none":
+            continue
+        if name == "all":
+            group = builtin.ALL_TOOLS
+        elif name in _TOOL_GROUPS:
+            group = _TOOL_GROUPS[name]
+        else:
+            valid = ", ".join(sorted(_TOOL_GROUPS)) + ", all, none"
+            raise ValueError(f"unknown tool group {name!r}; choose from: {valid}")
+        for fn in group:
+            if fn.__name__ not in seen:
+                seen.add(fn.__name__)
+                resolved.append(fn)
+    return resolved
+
 
 DEFAULT_SYSTEM_MESSAGE = (
     "You are a personal assistant running on the user's own machine. Be concise and helpful. "
@@ -33,7 +75,9 @@ DEFAULT_SYSTEM_MESSAGE = (
     "it as a reusable skill; name skills in kebab-case (lowercase words joined by hyphens, e.g. "
     "'weekly-review'), never with underscores or spaces. When a procedure can be automated, call "
     "`add_skill_script` to attach a runnable Python or shell script to a skill; the script becomes a "
-    "tool you can run immediately, even in the same turn. Scripts run with full access to this "
+    "tool you can run immediately, even in the same turn. If a script fails, fix it by calling "
+    "`add_skill_script` again with the SAME filename to overwrite it (a different filename just "
+    "creates a duplicate and leaves the broken script). Scripts run with full access to this "
     "machine, so only automate what the user asked for."
 )
 
@@ -53,6 +97,11 @@ class AssistantConfig:
     history_path: str = field(default_factory=lambda: str(DEFAULT_OUTPUT_DIR / "history.json"))
     reminder_seconds: Optional[float] = None
     reminder_text: str = DEFAULT_REMINDER_TEXT
+    # Surface the model's reasoning and tool calls in the channel, not just the final answer.
+    show_thinking: bool = True
+    show_tools: bool = True
+    # AIMU built-in tool groups to expose (see _TOOL_GROUPS; "all"/"none" also accepted).
+    tools: list[str] = field(default_factory=lambda: ["web", "fs", "compute", "misc"])
 
 
 class Assistant:
@@ -84,8 +133,13 @@ class Assistant:
         author_skill = make_skill_authoring_tool(manager, config.skills_dir)
         agent = aio.SkillAgent(client, tools=[author_skill], skill_manager=manager, name="assistant")
         # add_skill_script needs the agent (to reload skills so a new script tool is callable this
-        # turn), so it is built after the agent and appended to its tool list.
-        agent.tools = [author_skill, make_skill_script_tool(agent, manager, config.skills_dir)]
+        # turn), so it is built after the agent. The selected AIMU built-in tools are appended too;
+        # all names are distinct, and the SkillAgent re-appends its skills-server tools each run.
+        agent.tools = [
+            author_skill,
+            make_skill_script_tool(agent, manager, config.skills_dir),
+            *_resolve_builtin_tools(config.tools),
+        ]
 
         conversation = ConversationManager(config.history_path, use_last_conversation=True)
         prior = conversation.messages

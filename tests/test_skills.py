@@ -431,6 +431,21 @@ def test_run_script_file_timeout(tmp_path, monkeypatch):
     assert "timed out" in mcp_mod.run_script_file(slow)
 
 
+def test_failing_script_tool_tells_model_how_to_fix_it(tmp_path):
+    """A registered script tool that errors must name its skill + filename so the model can
+    overwrite the right file (avoids 'fixing' into a new file and leaving the bug)."""
+    from aimu.skills.mcp import build_skills_server
+    from aimu.tools.client import MCPClient
+
+    md = make_skill_dir(tmp_path, "buggy", "Buggy.")
+    _write_script(md, "go.py", "import sys\nsys.exit(2)\n")
+
+    client = MCPClient(server=build_skills_server(SkillManager(skill_dirs=[str(tmp_path)])))
+    out = client.call_tool("buggy__go", {}).content[0].text
+    assert "exited with code 2" in out
+    assert "go.py" in out and "buggy" in out  # the exact file + skill to overwrite
+
+
 def test_script_tool_names_includes_sh_and_dedupes(tmp_path):
     md = make_skill_dir(tmp_path, "mixed", "Mixed scripts.")
     _write_script(md, "a.py", "print(1)\n")
@@ -503,6 +518,32 @@ def test_reload_skills_surfaces_new_script_tool(tmp_path):
     agent.reload_skills()
 
     assert "grow__added" in [fn.__name__ for fn in client.tools]
+
+
+def test_reload_keeps_existing_script_tools_callable(tmp_path):
+    """A pre-existing script tool stays callable after a reload (replace, don't leave stale)."""
+    from unittest.mock import MagicMock
+
+    from aimu.agents.skill_agent import SkillAgent
+    from aimu.skills import write_skill
+
+    write_skill("pre", "Pre.", "# Pre", skills_dir=tmp_path, scripts={"p.py": "print('pre ok')\n"})
+    client = MagicMock()
+    client.system_message = ""
+    client.tools = []
+
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    agent = SkillAgent(model_client=client, skill_manager=manager)
+    agent._setup_skills()
+    pre = next(t for t in client.tools if t.__name__ == "pre__p")
+    assert pre().strip() == "pre ok"
+
+    write_skill("other", "Other.", "# Other", skills_dir=tmp_path, overwrite=True, scripts={"q.py": "print('q')\n"})
+    manager.refresh()
+    agent.reload_skills()
+
+    pre_after = next(t for t in client.tools if t.__name__ == "pre__p")
+    assert pre_after().strip() == "pre ok"
 
 
 def test_reinject_catalog_does_not_duplicate(tmp_path):

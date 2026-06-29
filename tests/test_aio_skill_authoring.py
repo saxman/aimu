@@ -128,6 +128,32 @@ async def test_aio_reload_skills_appends_new_script_tool(tmp_path):
     assert client.system_message.count("<available_skills>") == 1  # catalog not duplicated
 
 
+async def test_aio_reload_keeps_existing_script_tools_callable(tmp_path):
+    # Regression: authoring a second skill must not break a previously-registered script tool.
+    # reload_skills() used to aclose the old MCP client while dedup-by-name left the old tool's
+    # (now-stale) callable in model_client.tools, so calling it raised "MCPClient not connected".
+    from aimu import aio
+    from aimu.skills import write_skill
+    from helpers_aio import MockAsyncModelClient
+
+    write_skill("pre", "Pre skill.", "# Pre", skills_dir=tmp_path, scripts={"p.py": "print('pre ok')\n"})
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    agent = aio.SkillAgent(MockAsyncModelClient([]), skill_manager=manager, name="a")
+    agent.model_client.system_message = ""
+    await agent._setup_skills_async()
+
+    pre = next(t for t in agent.model_client.tools if t.__name__ == "pre__p")
+    assert (await pre()).strip() == "pre ok"
+
+    write_skill("other", "Other.", "# Other", skills_dir=tmp_path, overwrite=True, scripts={"q.py": "print('q')\n"})
+    manager.refresh()
+    await agent.reload_skills()
+
+    # The pre-existing script tool must still be callable after the reload.
+    pre_after = next(t for t in agent.model_client.tools if t.__name__ == "pre__p")
+    assert (await pre_after()).strip() == "pre ok"
+
+
 def test_make_skill_script_tool_spec(tmp_path):
     from aimu.skills import make_skill_script_tool
 
@@ -151,11 +177,37 @@ async def test_add_skill_script_unknown_skill(tmp_path):
         async def reload_skills(self):
             reloaded.append(True)
 
+    write_skill("known", "Known.", "# Known", skills_dir=tmp_path)
     manager = SkillManager(skill_dirs=[str(tmp_path)])
     tool = make_skill_script_tool(_StubAgent(), manager, tmp_path)
     msg = await tool(skill_name="nope", filename="x.py", content="print(1)")
     assert "not found" in msg
+    assert "known" in msg  # lists existing skills so the model can correct the name
     assert reloaded == []  # no reload for a missing skill
+
+
+async def test_add_skill_script_same_filename_updates_in_place(tmp_path):
+    # Fixing a script = re-call with the SAME filename; it overwrites, no duplicate.
+    from aimu.skills import make_skill_script_tool, write_skill
+
+    write_skill("auto", "Automations.", "# Auto", skills_dir=tmp_path)
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+
+    class _StubAgent:
+        def __init__(self, mgr):
+            self.skill_manager = mgr
+
+        async def reload_skills(self):
+            pass
+
+    tool = make_skill_script_tool(_StubAgent(manager), manager, tmp_path)
+    first = await tool(skill_name="auto", filename="run.py", content="print(1)\n")
+    second = await tool(skill_name="auto", filename="run.py", content="print(2)\n")
+
+    assert first.startswith("Added") and second.startswith("Updated")
+    scripts_dir = tmp_path / "auto" / "scripts"
+    assert [p.name for p in scripts_dir.glob("*.py")] == ["run.py"]  # no duplicate
+    assert scripts_dir.joinpath("run.py").read_text() == "print(2)\n"  # overwritten
 
 
 async def test_add_skill_script_writes_and_reloads(tmp_path):
