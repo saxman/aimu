@@ -83,7 +83,7 @@ from aimu.tools.builtin import make_document_tools
 agent.tools += make_document_tools(store)
 ```
 
-Because these tool names are distinct from `make_memory_tools`' (`store_memory` etc.), one agent can carry both: a `SemanticMemoryStore` for facts and a `DocumentStore` for documents. This is exactly how the [personal-assistant example](build-personal-assistant.md) wires memory. These are the in-process counterpart to the `aimu.memory.document_mcp` server below.
+Because these tool names are distinct from `make_memory_tools`' (`store_memory` etc.), one agent can carry both: a `SemanticMemoryStore` for facts and a `DocumentStore` for documents. These are the in-process counterpart to the `aimu.memory.document_mcp` server below.
 
 ## Expose as MCP tools
 

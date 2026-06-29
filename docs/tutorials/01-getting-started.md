@@ -18,6 +18,9 @@ ollama pull qwen3.5:9b
 
 For cloud providers instead, use `pip install aimu[anthropic]` (or `[openai_compat]`) and set the corresponding API key in your environment. Every example below works identically; only the model string changes.
 
+!!! note "Newest features live on `main`"
+    AIMU's PyPI release can lag the `main` branch, which carries the **same version string** as the last release. Features listed under **Unreleased** in the [changelog](../changelog.md) are on `main` but not yet on PyPI. To use them, install from source until the next release: `pip install "aimu[ollama] @ git+https://github.com/saxman/aimu@main"` (swap in whichever extras you need).
+
 ## 2. Your first chat
 
 ```python

@@ -149,38 +149,6 @@ write_skill(
     no filesystem or subprocess access.) The subprocess also blocks the event loop for up to its
     30-second timeout.
 
-## Memory (facts + documents)
-
-An assistant should remember the user across conversations. AIMU's memory stores plug in as tools, and
-the two kinds of memory are complementary, so an assistant can carry both at once:
-
-- a [`SemanticMemoryStore`](use-semantic-memory.md) for short **facts** about the user (semantic recall),
-  exposed via `make_memory_tools` as `store_memory` / `search_memories` / `list_memories`;
-- a [`DocumentStore`](use-document-memory.md) for longer **documents** the user provides as reference,
-  exposed via `make_document_tools` as `save_document` / `read_document` / `list_documents` /
-  `search_documents`.
-
-The tool names are distinct, so both sets coexist on one agent. Give each store a `persist_path` so it
-survives restarts (and spans conversations, unlike per-conversation history):
-
-```python
-from aimu import aio, paths
-from aimu.memory import SemanticMemoryStore, DocumentStore
-from aimu.tools.builtin import make_memory_tools, make_document_tools
-
-facts = SemanticMemoryStore(persist_path=str(paths.output / "assistant" / "memory"))
-docs = DocumentStore(persist_path=str(paths.output / "assistant" / "documents"))
-
-agent = aio.SkillAgent(
-    aio.client("ollama:qwen3:8b", system="You are a helpful assistant. ..."),
-    tools=make_memory_tools(facts) + make_document_tools(docs),
-)
-```
-
-These are sync tools; the async agent dispatches them through `asyncio.to_thread`, so no async wrapper
-is needed. Tell the model *when* to use them in the system prompt (proactively store durable facts,
-search before answering, save provided notes as documents), or they will sit unused.
-
 ## Wire it into a daemon
 
 The pieces compose into one process: a top-level `asyncio.TaskGroup` runs the channel listener
@@ -217,10 +185,11 @@ asyncio.run(main())
 
 The reference app in `examples/personal-assistant/` is this, fleshed out: serialize reactive and
 proactive turns with a lock (they share one agent), an argparse entry point, and mock-only tests.
-It also gives the agent AIMU's [built-in tools](add-custom-tool.md) by group via a `--tools` flag
-(`builtin.web` / `fs` / `compute` / `misc` by default; generative groups opt-in). The built-ins are
-sync functions, and the async agent dispatches them through `asyncio.to_thread`, so they attach to
-`agent.tools` with no wrapping.
+It also gives the agent a small fixed set of AIMU [built-in tools](add-custom-tool.md)
+(`builtin.web + builtin.misc`). The built-ins are sync functions, and the async agent dispatches
+them through `asyncio.to_thread`, so they attach to `agent.tools` with no wrapping. The example is
+kept intentionally minimal; selectable tool groups, [remote MCP servers](use-mcp-tools.md), and
+[persistent memory](use-semantic-memory.md) are capabilities AIMU ships but the example leaves out.
 
 Run it:
 
@@ -247,9 +216,8 @@ The agent's stream carries `THINKING` and `TOOL_CALLING` chunks alongside `GENER
 channels can surface the model's reasoning and tool calls, not just the final answer. `CLIChannel`
 takes opt-in `show_thinking` / `show_tools` flags (off by default to keep the library channel
 minimal); the example-local `WebChannel` emits `thinking` / `tool` frames the page renders as
-distinct blocks. The personal-assistant example turns both on by default (`--no-show-thinking` /
-`--no-show-tools` to hide), threading `AssistantConfig.show_thinking` / `show_tools` into each
-channel.
+distinct blocks. The personal-assistant example turns both on, threading
+`AssistantConfig.show_thinking` / `show_tools` into each channel.
 
 ```bash
 pip install aimu[web]
@@ -266,4 +234,5 @@ extending the `Channel` ABC, the same seam a Telegram or Slack adapter would use
 - [Use skills](use-skills.md): the `SkillAgent` and `SKILL.md` format the authoring tool writes to
 - [Use async (`aio`)](use-async.md): the async surface these primitives live on
 - [Persist conversations](persist-conversations.md): `ConversationManager`
+- Add capabilities the example leaves out: [use MCP tools](use-mcp-tools.md), [semantic memory](use-semantic-memory.md), [document memory](use-document-memory.md)
 - [`aimu.aio` API reference](../reference/api/aio.md) · [`aimu.skills` API reference](../reference/api/skills.md)

@@ -6,8 +6,6 @@ import sys
 from pathlib import Path
 from typing import AsyncIterator
 
-import pytest
-
 # tests/helpers_aio.py lives under the repo's tests dir; add it to the path so we can reuse
 # the shared async mock client.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests"))
@@ -46,11 +44,6 @@ def _config(tmp_path: Path, **overrides) -> AssistantConfig:
     base = {
         "skills_dir": tmp_path / "skills",
         "history_path": str(tmp_path / "history.json"),
-        # Memory is on by default in real runs, but off here so the bulk of the tests stay fast and
-        # hermetic (no ChromaDB init / output-dir writes). The memory tests opt in with memory=True.
-        "memory": False,
-        "memory_path": tmp_path / "memory",
-        "documents_path": tmp_path / "documents",
     }
     base.update(overrides)
     return AssistantConfig(**base)
@@ -93,38 +86,16 @@ def test_arg_parser_overrides():
     assert cfg.history_path == "/tmp/h.json"
 
 
-def test_default_tools_groups():
-    assert AssistantConfig().tools == ["web", "fs", "compute", "misc"]
-    assert config_from_args(build_arg_parser().parse_args([])).tools == ["web", "fs", "compute", "misc"]
-
-
-def test_tools_flag_parses_groups():
-    assert config_from_args(build_arg_parser().parse_args(["--tools", "web, misc"])).tools == ["web", "misc"]
-    assert config_from_args(build_arg_parser().parse_args(["--tools", "none"])).tools == ["none"]
-
-
-async def test_assistant_wires_builtin_tools_by_default(tmp_path):
+async def test_assistant_wires_fixed_builtin_tools(tmp_path):
     assistant = await Assistant.create(_config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]))
     names = {fn.__name__ for fn in assistant._agent.tools}
-    # Default groups are present...
-    assert {"get_weather", "read_file", "calculate", "get_current_date_and_time"} <= names
-    # ...and the generative groups (opt-in, need AIMU_*_MODEL) are not.
+    # The fixed set is builtin.web + builtin.misc...
+    assert {"get_weather", "get_current_date_and_time"} <= names
+    # ...not the other groups (fs / compute) or the generative tools.
+    assert "read_file" not in names and "calculate" not in names
     assert "generate_image" not in names
-
-
-async def test_assistant_tools_none_omits_builtins(tmp_path):
-    assistant = await Assistant.create(
-        _config(tmp_path, tools=["none"]), FakeChannel(), client=MockAsyncModelClient([])
-    )
-    names = {fn.__name__ for fn in assistant._agent.tools}
-    assert "get_weather" not in names and "calculate" not in names
-    # The assistant's own tools remain.
+    # The assistant's own skill tools are always present.
     assert {"author_skill", "add_skill_script"} <= names
-
-
-async def test_assistant_unknown_tool_group_raises(tmp_path):
-    with pytest.raises(ValueError, match="unknown tool group"):
-        await Assistant.create(_config(tmp_path, tools=["bogus"]), FakeChannel(), client=MockAsyncModelClient([]))
 
 
 async def test_assistant_handles_message(tmp_path):
@@ -177,143 +148,6 @@ async def test_assistant_wires_author_skill_tool(tmp_path):
     await author(name="format-standup", description="Format a standup update.", body="# Standup\n\nDo X.")
     assert (cfg.skills_dir / "format-standup" / "SKILL.md").exists()
     assert "format-standup" in assistant._agent.skill_manager.skills
-
-
-def _fake_mcp_tool(name: str):
-    async def fn(**kwargs):
-        return "ok"
-
-    fn.__name__ = name
-    fn.__tool_spec__ = {"function": {"name": name}}
-    fn.__tool_is_async__ = True
-    fn.__tool_is_streaming__ = False
-    return fn
-
-
-class _FakeMCP:
-    def __init__(self, tools):
-        self._tools = tools
-        self.closed = False
-
-    async def as_tools(self):
-        return self._tools
-
-    async def aclose(self):
-        self.closed = True
-
-
-async def test_startup_mcp_servers_wire_tools(tmp_path, monkeypatch):
-    from aimu import aio
-
-    async def fake_connect(*, url=None, auth=None, **kw):
-        assert auth == "tok"
-        return _FakeMCP([_fake_mcp_tool("remote_search"), _fake_mcp_tool("remote_fetch")])
-
-    monkeypatch.setattr(aio.MCPClient, "connect", fake_connect)
-
-    assistant = await Assistant.create(
-        _config(tmp_path, mcp_servers=["https://svc/mcp"], mcp_bearer="tok"),
-        FakeChannel(),
-        client=MockAsyncModelClient([]),
-    )
-    names = {fn.__name__ for fn in assistant._agent.tools}
-    assert {"remote_search", "remote_fetch"} <= names
-    assert len(assistant._mcp_clients) == 1
-
-
-async def test_startup_mcp_connect_failure_does_not_crash(tmp_path, monkeypatch):
-    from aimu import aio
-
-    async def fake_connect(*, url=None, auth=None, **kw):
-        raise RuntimeError("unreachable")
-
-    monkeypatch.setattr(aio.MCPClient, "connect", fake_connect)
-
-    # A bad server is logged and skipped; the assistant still starts with no MCP tools added.
-    assistant = await Assistant.create(
-        _config(tmp_path, mcp_servers=["https://down/mcp"]), FakeChannel(), client=MockAsyncModelClient([])
-    )
-    assert assistant._mcp_clients == []
-
-
-async def test_add_mcp_server_tool_adds_tools_at_runtime(tmp_path, monkeypatch):
-    from aimu import aio
-
-    async def fake_connect(*, url=None, auth=None, **kw):
-        return _FakeMCP([_fake_mcp_tool("remote_search")])
-
-    monkeypatch.setattr(aio.MCPClient, "connect", fake_connect)
-
-    assistant = await Assistant.create(_config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]))
-    add_mcp = next(t for t in assistant._agent.tools if t.__name__ == "add_mcp_server")
-    assert add_mcp.__tool_is_async__ is True
-
-    msg = await add_mcp(url="https://svc/mcp")
-    assert "remote_search" in msg
-    assert "remote_search" in {fn.__name__ for fn in assistant._agent.tools}
-    assert len(assistant._mcp_clients) == 1
-
-    # Re-adding the same tool name dedups (no duplicate entry, reported as no new tools).
-    msg2 = await add_mcp(url="https://svc/mcp")
-    assert "no new tools" in msg2
-    assert [fn.__name__ for fn in assistant._agent.tools].count("remote_search") == 1
-
-
-async def test_add_mcp_server_tool_reports_connect_failure(tmp_path, monkeypatch):
-    from aimu import aio
-
-    async def fake_connect(*, url=None, auth=None, **kw):
-        raise RuntimeError("boom")
-
-    monkeypatch.setattr(aio.MCPClient, "connect", fake_connect)
-
-    assistant = await Assistant.create(_config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]))
-    add_mcp = next(t for t in assistant._agent.tools if t.__name__ == "add_mcp_server")
-
-    msg = await add_mcp(url="https://down/mcp")
-    assert "Failed to connect" in msg and "boom" in msg
-    assert assistant._mcp_clients == []
-
-
-_MEMORY_TOOL_NAMES = {
-    "store_memory",
-    "search_memories",
-    "list_memories",
-    "save_document",
-    "read_document",
-    "list_documents",
-    "search_documents",
-}
-
-
-async def test_memory_wires_both_stores(tmp_path):
-    assistant = await Assistant.create(_config(tmp_path, memory=True), FakeChannel(), client=MockAsyncModelClient([]))
-    names = {fn.__name__ for fn in assistant._agent.tools}
-    assert _MEMORY_TOOL_NAMES <= names
-    assert assistant._memory_store is not None
-    assert assistant._document_store is not None
-
-
-async def test_no_memory_omits_tools_and_stores(tmp_path):
-    assistant = await Assistant.create(_config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]))
-    names = {fn.__name__ for fn in assistant._agent.tools}
-    assert _MEMORY_TOOL_NAMES.isdisjoint(names)
-    assert assistant._memory_store is None
-    assert assistant._document_store is None
-
-
-def test_memory_flag_parses():
-    # Memory is on by default at the CLI/config level (the test helper turns it off for speed).
-    assert config_from_args(build_arg_parser().parse_args([])).memory is True
-    assert config_from_args(build_arg_parser().parse_args(["--no-memory"])).memory is False
-
-
-async def test_document_tools_round_trip(tmp_path):
-    """The document tools are wired to a working DocumentStore (pure-Python, hermetic)."""
-    assistant = await Assistant.create(_config(tmp_path, memory=True), FakeChannel(), client=MockAsyncModelClient([]))
-    tools = {fn.__name__: fn for fn in assistant._agent.tools}
-    assert tools["save_document"]("/notes/standup.md", "Yesterday, Today, Blockers") == "Saved /notes/standup.md."
-    assert tools["read_document"]("/notes/standup.md") == "Yesterday, Today, Blockers"
 
 
 async def test_assistant_authors_and_registers_runnable_script(tmp_path):

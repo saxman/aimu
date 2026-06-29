@@ -42,6 +42,12 @@ pip install aimu[all]
 
 Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech and transcription STT), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`, `aimu[web]` (the Streamlit/Gradio chat apps + the personal-assistant web UI). See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
 
+> **Want the newest features?** The PyPI release can lag `main`: anything under **Unreleased** in the [CHANGELOG](CHANGELOG.md) (currently the personal-assistant primitives, multi-user sessions, `make_document_tools`, and remote MCP via `MCPClient(url=...)`) ships on `main` but is **not yet on PyPI**, and `main` carries the same version string as the last release. To use those features, install from source until the next release:
+>
+> ```bash
+> pip install "aimu[all] @ git+https://github.com/saxman/aimu@main"
+> ```
+
 ## Key features
 
 ### Language models
