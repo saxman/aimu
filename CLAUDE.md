@@ -253,7 +253,7 @@ State (`messages`, `system_message`, `tools`) is shared with the wrapped sync cl
 **MCP integration**:
 
 - The sync `aimu.tools.MCPClient` (anyio portal wrapper) is **kept first-class**; no deprecation. It exists so sync users can use MCP tools without writing async code.
-- The async `aimu.aio.MCPClient` is a thin parallel using FastMCP's `Client` directly. Same construction signature (`config=`/`server=`/`file=`); use `await MCPClient.connect(...)` to construct + connect.
+- The async `aimu.aio.MCPClient` is a thin parallel using FastMCP's `Client` directly. Same construction signature (`config=`/`server=`/`file=`/`url=`, plus `auth=`/`headers=` for `url=`); use `await MCPClient.connect(...)` to construct + connect.
 - Both `MCPClient.get_tools()` implementations delegate to `aimu.tools.mcp_format.mcp_tools_to_openai()`; `as_tools()` (sync + async) builds callables over those specs and shares `mcp_content_to_text()`.
 
 **Design decisions reference**: [docs/explanation/async-design.md](docs/explanation/async-design.md) records the seven decisions (API shape, scope, runtime, MCP, streaming asymmetry, `@tool` detection, in-process wrapping) with rationale and rejected alternatives. Mirror future async-related architectural decisions there.
@@ -353,7 +353,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
 
 - **MCPClient** ([aimu/tools/client.py](aimu/tools/client.py)): wraps FastMCP 2.0 for cross-process tool servers.
   - Converts async FastMCP API to synchronous interface using an internal event loop
-  - Constructor requires *exactly one* of `config=`, `server=`, or `file=`. Wrong count or connection failure raises `MCPConnectionError` with the original exception chained.
+  - Constructor requires *exactly one* of `config=`, `server=`, `file=`, or `url=` (a remote HTTP/SSE server). `auth=` (a bearer-token string or `"oauth"`) and `headers=` apply only with `url=` and are folded into a single-server `mcpServers` config so FastMCP infers SSE vs streamable-HTTP and applies them in one path (shared `_build_transport` helper in [aimu/tools/client.py](aimu/tools/client.py), used by sync + async). Wrong count, `auth`/`headers` without `url`, or connection failure raises `MCPConnectionError` with the original exception chained.
   - `ping()`: verifies the connection is alive (calls `list_tools()`); raises `MCPConnectionError` if dead.
   - `get_tools()`: Returns tools in OpenAI function calling format
   - `as_tools()`: Returns the server's tools as `@tool`-style callables (each closes over the client, calls `call_tool()` cross-process, returns the result's text via `mcp_content_to_text()`, and carries `__tool_spec__` + `__tool_is_async__=False` + `__tool_is_streaming__=False`). This is the integration path: `client.tools = mcp.as_tools()` (or `builtin.web + mcp.as_tools()`). Snapshot; call again to refresh, and keep the `MCPClient` (or the callables, which hold a ref) alive for the connection.

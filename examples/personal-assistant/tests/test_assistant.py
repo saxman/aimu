@@ -174,6 +174,102 @@ async def test_assistant_wires_author_skill_tool(tmp_path):
     assert "format-standup" in assistant._agent.skill_manager.skills
 
 
+def _fake_mcp_tool(name: str):
+    async def fn(**kwargs):
+        return "ok"
+
+    fn.__name__ = name
+    fn.__tool_spec__ = {"function": {"name": name}}
+    fn.__tool_is_async__ = True
+    fn.__tool_is_streaming__ = False
+    return fn
+
+
+class _FakeMCP:
+    def __init__(self, tools):
+        self._tools = tools
+        self.closed = False
+
+    async def as_tools(self):
+        return self._tools
+
+    async def aclose(self):
+        self.closed = True
+
+
+async def test_startup_mcp_servers_wire_tools(tmp_path, monkeypatch):
+    from aimu import aio
+
+    async def fake_connect(*, url=None, auth=None, **kw):
+        assert auth == "tok"
+        return _FakeMCP([_fake_mcp_tool("remote_search"), _fake_mcp_tool("remote_fetch")])
+
+    monkeypatch.setattr(aio.MCPClient, "connect", fake_connect)
+
+    assistant = await Assistant.create(
+        _config(tmp_path, mcp_servers=["https://svc/mcp"], mcp_bearer="tok"),
+        FakeChannel(),
+        client=MockAsyncModelClient([]),
+    )
+    names = {fn.__name__ for fn in assistant._agent.tools}
+    assert {"remote_search", "remote_fetch"} <= names
+    assert len(assistant._mcp_clients) == 1
+
+
+async def test_startup_mcp_connect_failure_does_not_crash(tmp_path, monkeypatch):
+    from aimu import aio
+
+    async def fake_connect(*, url=None, auth=None, **kw):
+        raise RuntimeError("unreachable")
+
+    monkeypatch.setattr(aio.MCPClient, "connect", fake_connect)
+
+    # A bad server is logged and skipped; the assistant still starts with no MCP tools added.
+    assistant = await Assistant.create(
+        _config(tmp_path, mcp_servers=["https://down/mcp"]), FakeChannel(), client=MockAsyncModelClient([])
+    )
+    assert assistant._mcp_clients == []
+
+
+async def test_add_mcp_server_tool_adds_tools_at_runtime(tmp_path, monkeypatch):
+    from aimu import aio
+
+    async def fake_connect(*, url=None, auth=None, **kw):
+        return _FakeMCP([_fake_mcp_tool("remote_search")])
+
+    monkeypatch.setattr(aio.MCPClient, "connect", fake_connect)
+
+    assistant = await Assistant.create(_config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]))
+    add_mcp = next(t for t in assistant._agent.tools if t.__name__ == "add_mcp_server")
+    assert add_mcp.__tool_is_async__ is True
+
+    msg = await add_mcp(url="https://svc/mcp")
+    assert "remote_search" in msg
+    assert "remote_search" in {fn.__name__ for fn in assistant._agent.tools}
+    assert len(assistant._mcp_clients) == 1
+
+    # Re-adding the same tool name dedups (no duplicate entry, reported as no new tools).
+    msg2 = await add_mcp(url="https://svc/mcp")
+    assert "no new tools" in msg2
+    assert [fn.__name__ for fn in assistant._agent.tools].count("remote_search") == 1
+
+
+async def test_add_mcp_server_tool_reports_connect_failure(tmp_path, monkeypatch):
+    from aimu import aio
+
+    async def fake_connect(*, url=None, auth=None, **kw):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(aio.MCPClient, "connect", fake_connect)
+
+    assistant = await Assistant.create(_config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]))
+    add_mcp = next(t for t in assistant._agent.tools if t.__name__ == "add_mcp_server")
+
+    msg = await add_mcp(url="https://down/mcp")
+    assert "Failed to connect" in msg and "boom" in msg
+    assert assistant._mcp_clients == []
+
+
 async def test_assistant_authors_and_registers_runnable_script(tmp_path):
     cfg = _config(tmp_path)
     assistant = await Assistant.create(cfg, FakeChannel(), client=MockAsyncModelClient([]))

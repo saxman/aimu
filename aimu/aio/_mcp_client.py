@@ -11,7 +11,7 @@ from typing import Optional
 
 from fastmcp import Client, FastMCP
 
-from aimu.tools.client import MCPConnectionError
+from aimu.tools.client import MCPConnectionError, _build_transport
 from aimu.tools.mcp_format import mcp_tools_to_openai
 
 
@@ -34,13 +34,11 @@ class MCPClient:
         config: Optional[dict] = None,
         server: Optional[FastMCP] = None,
         file: Optional[str] = None,
+        url: Optional[str] = None,
+        auth: Optional[str] = None,
+        headers: Optional[dict] = None,
     ):
-        sources = [s is not None for s in (config, server, file)]
-        if sum(sources) != 1:
-            raise MCPConnectionError(
-                f"MCPClient requires exactly one of: config=, server=, or file=. Got {sum(sources)} source(s)."
-            )
-        self._transport = config if config is not None else (server if server is not None else file)
+        self._transport = _build_transport(config, server, file, url, auth, headers)
         self._client: Optional[Client] = None
 
     @classmethod
@@ -50,9 +48,17 @@ class MCPClient:
         config: Optional[dict] = None,
         server: Optional[FastMCP] = None,
         file: Optional[str] = None,
+        url: Optional[str] = None,
+        auth: Optional[str] = None,
+        headers: Optional[dict] = None,
     ) -> MCPClient:
-        """Construct and connect in one ``await``. Returns the live instance."""
-        instance = cls(config=config, server=server, file=file)
+        """Construct and connect in one ``await``. Returns the live instance.
+
+        Pass *exactly one* source: ``config``, ``server``, ``file``, or ``url`` (a remote
+        HTTP/SSE server). ``auth`` (a bearer-token string or ``"oauth"``) and ``headers`` apply
+        only with ``url``.
+        """
+        instance = cls(config=config, server=server, file=file, url=url, auth=auth, headers=headers)
         try:
             instance._client = Client(instance._transport)
             await instance._client.__aenter__()

@@ -27,6 +27,29 @@ client.chat("Use the mytools to do something.")
 - `config={...}`: FastMCP server config dict (the form above)
 - `server=...`: an in-process `FastMCP` instance
 - `file="path/to/server.py"`: a local server script
+- `url="https://..."`: a remote HTTP/SSE server (see below)
+
+## Connect to a remote server (URL)
+
+Point `MCPClient` at a hosted MCP service with `url=`. The transport (streamable-HTTP vs SSE) is inferred from the URL; pass `auth=` (a bearer-token string or the literal `"oauth"`) and `headers=` for authenticated services:
+
+```python
+from aimu.tools import MCPClient
+
+mcp_client = MCPClient(url="https://mcp.example.com/sse", auth="my-bearer-token")
+client.tools = mcp_client.as_tools()
+```
+
+The async surface mirrors it:
+
+```python
+from aimu import aio
+
+mcp = await aio.MCPClient.connect(url="https://mcp.example.com/mcp", auth="my-bearer-token")
+agent = aio.Agent(aio.client(...), tools=await mcp.as_tools())
+```
+
+`auth=` and `headers=` apply only with `url=` (passing them with another source raises `MCPConnectionError`). Connect to a server you trust: its tools run with whatever access the service grants.
 
 ## Call a tool directly
 

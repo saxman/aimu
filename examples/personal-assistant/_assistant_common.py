@@ -17,14 +17,14 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from aimu import aio, paths
 from aimu.aio import Channel, Scheduler
 from aimu.aio.channels.base import ChannelMessage
 from aimu.history import ConversationManager
 from aimu.skills import SkillManager, make_skill_authoring_tool, make_skill_script_tool
-from aimu.tools import builtin
+from aimu.tools import builtin, tool
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,37 @@ _TOOL_GROUPS = {
     "speech": builtin.speech,
     "transcription": builtin.transcription,
 }
+
+
+def make_add_mcp_server_tool(agent: aio.SkillAgent, mcp_clients: list) -> Callable:
+    """Build an ``add_mcp_server`` tool bound to ``agent`` and a live-client registry.
+
+    Lets the assistant connect to a remote MCP service by URL mid-session and use its tools
+    immediately. The new tools are appended to ``agent.tools`` (the configured list the
+    SkillAgent copies to its model client every run, so they persist across turns), deduped by
+    name. The connected client is kept in ``mcp_clients`` for the connection's lifetime.
+    """
+
+    @tool
+    async def add_mcp_server(url: str, bearer_token: Optional[str] = None) -> str:
+        """Connect to a remote MCP server by URL and add its tools to this assistant.
+
+        The server's tools become callable immediately, even in this same turn. Pass
+        bearer_token for an authenticated server. Returns the names of the newly available tools.
+        """
+        try:
+            mcp = await aio.MCPClient.connect(url=url, auth=bearer_token)
+            new_tools = await mcp.as_tools()
+        except Exception as exc:
+            return f"Failed to connect to MCP server {url!r}: {exc}"
+        mcp_clients.append(mcp)
+        existing = {getattr(fn, "__name__", None) for fn in agent.tools}
+        added = [fn for fn in new_tools if fn.__name__ not in existing]
+        agent.tools.extend(added)
+        names = ", ".join(fn.__name__ for fn in added) if added else "(no new tools)"
+        return f"Connected to {url}. Tools now available: {names}."
+
+    return add_mcp_server
 
 
 def _resolve_builtin_tools(names: list[str]) -> list:
@@ -102,6 +133,11 @@ class AssistantConfig:
     show_tools: bool = True
     # AIMU built-in tool groups to expose (see _TOOL_GROUPS; "all"/"none" also accepted).
     tools: list[str] = field(default_factory=lambda: ["web", "fs", "compute", "misc"])
+    # Remote MCP server URLs to connect at startup; their tools are added to the assistant.
+    # A bearer token (if set) is applied to all of them. The assistant can also connect more
+    # servers mid-session via the add_mcp_server tool.
+    mcp_servers: list[str] = field(default_factory=list)
+    mcp_bearer: Optional[str] = None
 
 
 class Assistant:
@@ -120,6 +156,9 @@ class Assistant:
         self._scheduler = scheduler
         self._conversation = conversation
         self._config = config
+        # Live remote-MCP connections (startup + runtime-added) kept alive for their lifetime
+        # and closed on shutdown. Assigned by create().
+        self._mcp_clients: list = []
         # The reactive turn and a proactive turn share one agent/client; serialize them so
         # a reminder firing mid-conversation can't interleave on shared message state.
         self._lock = asyncio.Lock()
@@ -132,14 +171,26 @@ class Assistant:
         manager = SkillManager(skill_dirs=[str(config.skills_dir)])
         author_skill = make_skill_authoring_tool(manager, config.skills_dir)
         agent = aio.SkillAgent(client, tools=[author_skill], skill_manager=manager, name="assistant")
-        # add_skill_script needs the agent (to reload skills so a new script tool is callable this
-        # turn), so it is built after the agent. The selected AIMU built-in tools are appended too;
-        # all names are distinct, and the SkillAgent re-appends its skills-server tools each run.
+        # add_skill_script and add_mcp_server need the agent (to surface new tools this turn), so
+        # they are built after it. The selected AIMU built-in tools are appended too; all names are
+        # distinct, and the SkillAgent re-appends its skills-server tools each run.
+        mcp_clients: list = []
         agent.tools = [
             author_skill,
             make_skill_script_tool(agent, manager, config.skills_dir),
+            make_add_mcp_server_tool(agent, mcp_clients),
             *_resolve_builtin_tools(config.tools),
         ]
+
+        # Connect any startup MCP servers; their tools persist on agent.tools. A connect failure
+        # logs and continues so one unreachable server can't stop the assistant from starting.
+        for url in config.mcp_servers:
+            try:
+                mcp = await aio.MCPClient.connect(url=url, auth=config.mcp_bearer)
+                agent.tools.extend(await mcp.as_tools())
+                mcp_clients.append(mcp)
+            except Exception:
+                logger.warning("Could not connect MCP server %s; continuing without it.", url, exc_info=True)
 
         conversation = ConversationManager(config.history_path, use_last_conversation=True)
         prior = conversation.messages
@@ -148,15 +199,23 @@ class Assistant:
 
         scheduler = Scheduler()
         assistant = cls(agent, channel, scheduler, conversation, config)
+        assistant._mcp_clients = mcp_clients  # same list the add_mcp_server tool appends to
         if config.reminder_seconds is not None:
             scheduler.at(config.reminder_seconds, assistant._proactive, name="reminder")
         return assistant
 
     async def run(self) -> None:
         """Serve the channel and run the scheduler concurrently until the channel closes."""
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(self._serve_channel())
-            tg.create_task(self._scheduler.run())
+        try:
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(self._serve_channel())
+                tg.create_task(self._scheduler.run())
+        finally:
+            for mcp in self._mcp_clients:
+                try:
+                    await mcp.aclose()
+                except Exception:
+                    logger.debug("Error closing MCP client", exc_info=True)
 
     async def _serve_channel(self) -> None:
         try:

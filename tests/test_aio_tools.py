@@ -111,6 +111,21 @@ async def test_async_mcp_client_call_before_connect_raises():
         await mcp.call_tool("add", {"a": 1, "b": 2})
 
 
+async def test_async_mcp_client_url_builds_transport_and_guards():
+    """url= expands to a one-server mcpServers config; auth/headers without url raises."""
+    from aimu.tools.client import MCPConnectionError
+
+    mcp = MCPClient(url="https://mcp.example.com/sse", auth="tok", headers={"X-Api-Key": "k"})
+    assert mcp._transport == {
+        "mcpServers": {"server": {"url": "https://mcp.example.com/sse", "headers": {"X-Api-Key": "k"}, "auth": "tok"}}
+    }
+
+    with pytest.raises(MCPConnectionError, match="exactly one"):
+        MCPClient(server=_build_test_server(), url="https://mcp.example.com/mcp")
+    with pytest.raises(MCPConnectionError, match="apply only to a remote url"):
+        MCPClient(server=_build_test_server(), auth="tok")
+
+
 # ---------------------------------------------------------------------------
 # Argument validation / coercion through the async dispatch path (P0-A)
 # ---------------------------------------------------------------------------

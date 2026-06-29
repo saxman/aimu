@@ -15,6 +15,8 @@ It wires together:
   `author_skill` tool (`aimu.skills.make_skill_authoring_tool`): the self-improvement loop.
 - **AIMU's built-in tools** (`aimu.tools.builtin`) selected by group via `--tools` (web search,
   filesystem reads, a calculator + sandboxed Python, date/time by default).
+- **Remote MCP servers** by URL via `--mcp` (repeatable) or the runtime `add_mcp_server` tool, so the
+  assistant can use a hosted service's tools (`aimu.aio.MCPClient.connect(url=...)`).
 - **A `Scheduler`** (`aimu.aio.Scheduler`) for proactive messages (reminders / check-ins).
 - **`ConversationManager`** for history that survives restarts.
 
@@ -28,6 +30,14 @@ python examples/personal-assistant/assistant.py \
 
 Omit `--model` to use `AIMU_LANGUAGE_MODEL` or a locally available model. Chat at the `>`
 prompt; press Ctrl-D to exit.
+
+To use a remote MCP service's tools, pass its URL (repeatable; `--mcp-bearer TOKEN` for an
+authenticated server):
+
+```bash
+python examples/personal-assistant/assistant.py \
+    --mcp https://mcp.example.com/sse --mcp-bearer "$MY_TOKEN"
+```
 
 ## Web front end
 
@@ -69,6 +79,10 @@ connection is rejected.
   disk usage, then run it."* It calls `add_skill_script` to drop a `.py` or `.sh` file into a
   skill's `scripts/` directory; `reload_skills()` makes the new `{skill}__{stem}` tool callable in
   the same turn, so it runs the script and reports the output.
+- **Remote MCP tools.** Start with `--mcp <url>` to give the assistant a hosted service's tools, or
+  ask it mid-session: *"connect to the MCP server at https://..."* (it calls `add_mcp_server`, and the
+  new tools are callable in the same turn). Added servers last for the session; `--mcp` reconnects each
+  boot.
 - **Persistence.** Restart with the same `--history` path and the prior conversation is restored.
 
 By default the assistant keeps all of its state (authored skills and conversation history) under
@@ -95,6 +109,10 @@ prompt-injected or mistaken model can run arbitrary code on your machine. Only r
 and inputs you trust. The daemon prints a notice to this effect on startup. For untrusted code,
 `builtin.execute_python` is a sandboxed alternative (no filesystem or subprocess access). Script
 execution also blocks the event loop for up to its 30-second timeout.
+
+Remote MCP servers are a similar trust surface: their tools run whatever the service exposes, so only
+connect (`--mcp` or `add_mcp_server`) to services you trust. A future tool-approval hook will let an
+app gate individual tool calls.
 
 ## Notes & limits
 

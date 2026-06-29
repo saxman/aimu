@@ -6,7 +6,7 @@ import pytest
 import requests
 
 from aimu.tools import builtin
-from aimu.tools.client import MCPClient
+from aimu.tools.client import MCPClient, MCPConnectionError
 from aimu.tools.mcp import mcp
 
 from fastmcp import FastMCP
@@ -98,6 +98,34 @@ def test_mcp_client_as_tools():
     assert fn.__tool_spec__["function"]["name"] == "shout"
     # Calling the wrapper invokes the tool cross-process and returns plain text.
     assert fn(text="hi") == "HI"
+
+
+def test_build_transport_url_builds_single_server_config():
+    """url= expands to a one-server mcpServers config, folding in headers and auth."""
+    from aimu.tools.client import _build_transport
+
+    transport = _build_transport(None, None, None, "https://mcp.example.com/sse", "tok", {"X-Api-Key": "k"})
+    assert transport == {
+        "mcpServers": {"server": {"url": "https://mcp.example.com/sse", "headers": {"X-Api-Key": "k"}, "auth": "tok"}}
+    }
+
+    # url alone (no auth/headers) -> bare url entry.
+    assert _build_transport(None, None, None, "https://mcp.example.com/mcp", None, None) == {
+        "mcpServers": {"server": {"url": "https://mcp.example.com/mcp"}}
+    }
+
+
+def test_mcp_client_url_guards_raise_before_connecting():
+    """The source/auth guards raise at construction, before any network connection."""
+    # Two sources (config + url) violates exactly-one-of.
+    with pytest.raises(MCPConnectionError, match="exactly one of"):
+        MCPClient(config={"mcpServers": {}}, url="https://mcp.example.com/mcp")
+
+    # auth/headers without url is meaningless.
+    with pytest.raises(MCPConnectionError, match="apply only to a remote url"):
+        MCPClient(file=ECHO_SERVER_FILE, auth="tok")
+    with pytest.raises(MCPConnectionError, match="apply only to a remote url"):
+        MCPClient(file=ECHO_SERVER_FILE, headers={"X-Api-Key": "k"})
 
 
 def test_none_type_tool_response():

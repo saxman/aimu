@@ -71,6 +71,19 @@ def build_arg_parser(prog: str = "assistant.py") -> argparse.ArgumentParser:
         "audio, speech, transcription (or 'all' / 'none'). Default: web,fs,compute,misc. The "
         "generative groups (image/audio/speech/transcription) require their AIMU_*_MODEL env var.",
     )
+    parser.add_argument(
+        "--mcp",
+        action="append",
+        default=None,
+        metavar="URL",
+        help="Remote MCP server URL whose tools the assistant should use (repeatable). The "
+        "assistant can also connect more servers mid-session via the add_mcp_server tool.",
+    )
+    parser.add_argument(
+        "--mcp-bearer",
+        default=None,
+        help="Bearer token applied to all --mcp servers that require authentication.",
+    )
     return parser
 
 
@@ -82,6 +95,8 @@ def config_from_args(args: argparse.Namespace) -> AssistantConfig:
         "show_thinking": args.show_thinking,
         "show_tools": args.show_tools,
         "tools": [group.strip() for group in args.tools.split(",") if group.strip()],
+        "mcp_servers": args.mcp or [],
+        "mcp_bearer": args.mcp_bearer,
     }
     if args.skills_dir is not None:
         kwargs["skills_dir"] = Path(args.skills_dir)
@@ -97,7 +112,8 @@ def config_from_args(args: argparse.Namespace) -> AssistantConfig:
 async def _amain(config: AssistantConfig) -> None:
     print(
         "[notice] This assistant can author and run Python/shell scripts with full access to this "
-        "machine (no sandbox). Only use it with a model and inputs you trust.",
+        "machine (no sandbox), and can connect to remote MCP servers and run whatever tools they "
+        "expose. Only use it with a model, inputs, and MCP servers you trust.",
         file=sys.stderr,
     )
     channel = CLIChannel(show_thinking=config.show_thinking, show_tools=config.show_tools)

@@ -8,6 +8,37 @@ class MCPConnectionError(RuntimeError):
     """Raised when an :class:`MCPClient` fails to establish or use a connection."""
 
 
+def _build_transport(
+    config: Optional[dict],
+    server: Optional["FastMCP"],
+    file: Optional[str],
+    url: Optional[str],
+    auth: Optional[str],
+    headers: Optional[dict],
+):
+    """Validate the exactly-one-of source contract and return the FastMCP transport.
+
+    Shared by the sync and async ``MCPClient``. A ``url`` is expanded into a single-server
+    ``mcpServers`` config so FastMCP's own machinery infers SSE vs streamable-HTTP and applies
+    ``auth``/``headers`` in one path; ``auth``/``headers`` without ``url`` is an error.
+    """
+    sources = [s is not None for s in (config, server, file, url)]
+    if sum(sources) != 1:
+        raise MCPConnectionError(
+            f"MCPClient requires exactly one of: config=, server=, file=, or url=. Got {sum(sources)} source(s)."
+        )
+    if url is None and (auth is not None or headers is not None):
+        raise MCPConnectionError("auth= and headers= apply only to a remote url=.")
+    if url is not None:
+        server_config: dict = {"url": url}
+        if headers is not None:
+            server_config["headers"] = headers
+        if auth is not None:
+            server_config["auth"] = auth
+        return {"mcpServers": {"server": server_config}}
+    return config if config is not None else (server if server is not None else file)
+
+
 class _ToolResponse:
     """Wraps FastMCP call_tool list result to preserve the .content API."""
 
@@ -21,17 +52,22 @@ class MCPClient:
     Uses anyio's ``start_blocking_portal()`` to run the FastMCP Client in a background
     thread with a properly initialized anyio event loop.
 
-    Pass *exactly one* of ``config``, ``server``, or ``file``. Connection errors are
-    re-raised as :class:`MCPConnectionError` with the original exception chained.
+    Pass *exactly one* of ``config``, ``server``, ``file``, or ``url`` (a remote HTTP/SSE
+    server). ``auth`` (a bearer-token string or the literal ``"oauth"``) and ``headers`` apply
+    only with ``url``. Connection errors are re-raised as :class:`MCPConnectionError` with the
+    original exception chained.
     """
 
-    def __init__(self, config: Optional[dict] = None, server: Optional[FastMCP] = None, file: Optional[str] = None):
-        sources = [s is not None for s in (config, server, file)]
-        if sum(sources) != 1:
-            raise MCPConnectionError(
-                f"MCPClient requires exactly one of: config=, server=, or file=. Got {sum(sources)} source(s)."
-            )
-        self._transport = config if config is not None else (server if server is not None else file)
+    def __init__(
+        self,
+        config: Optional[dict] = None,
+        server: Optional[FastMCP] = None,
+        file: Optional[str] = None,
+        url: Optional[str] = None,
+        auth: Optional[str] = None,
+        headers: Optional[dict] = None,
+    ):
+        self._transport = _build_transport(config, server, file, url, auth, headers)
 
         self._portal_cm = start_blocking_portal(backend="asyncio")
         try:
