@@ -401,6 +401,16 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `update_conversation(messages)`: Persists updated messages with timestamps
   - Integrates with ModelClient via `model_client.messages`
 
+### Sessions (multi-user)
+
+- **[aimu/sessions/](aimu/sessions/)**: per-conversation state keyed by `channel:sender`, so one process serves many users/chats. `ConversationManager` holds a single conversation; `SessionStore` generalizes it to keyed sessions. Sync (matches the `MemoryStore` / `ConversationManager` family); the async assistant loop calls it directly, as it already does `ConversationManager`.
+  - `Session` dataclass: `key`, `messages: list[dict]` (OpenAI format, the same plain data the agent uses), `memory_namespace: str | None` (a scope a caller can pass to a `MemoryStore`), `metadata: dict`.
+  - `SessionStore(ABC)`: `get(key) -> Session` (a detached snapshot; a fresh empty `Session` if none stored), `save(session)` (create/replace by `key`), `list_keys()`, `close()`.
+  - `InMemorySessionStore` (non-durable dict; the trivial default + test target) and `TinyDBSessionStore` (durable; one row per session, reusing `ConversationManager`'s TinyDB mechanics; no new dep).
+  - `session_key(channel, sender) -> "channel:sender"`; single-user collapses to `"default:default"` (no ceremony).
+  - `SessionLocks`: lazy per-key `asyncio.Lock` so one session's turns serialize while different sessions run concurrently (`async with locks(key):`).
+  - **Routing pattern** (no new agent primitive): per inbound message, under that session's lock, `model_client.reset(system_message=...)` -> `agent.restore(session.messages)` -> run -> snapshot `agent.model_client.messages` back -> `store.save(session)`. Agents never share a live `messages` list across sessions. (Part of the personal-assistant substrate roadmap; durable scheduler, network channel adapters, and run-safety hooks are separate follow-ups.)
+
 ### Semantic Memory
 
 - **[aimu/memory/base.py](aimu/memory/base.py)**: `MemoryStore` abstract base class
@@ -1200,7 +1210,11 @@ aimu/
 │       ├── research_report.py  # ResearchReportAgent
 │       ├── code_review.py      # CodeReviewAgent
 │       └── content_creation.py # ContentCreationAgent
-├── history.py           # Conversation management (TinyDB)
+├── history.py           # Conversation management (TinyDB; single conversation)
+├── sessions/            # Multi-user session store (per-conversation state keyed by channel:sender)
+│   ├── base.py          # Session dataclass + SessionStore ABC + session_key() + SessionLocks
+│   ├── memory.py        # InMemorySessionStore (non-durable)
+│   └── tinydb.py        # TinyDBSessionStore (durable; reuses ConversationManager TinyDB mechanics)
 ├── memory/              # Memory stores
 │   ├── base.py          # MemoryStore abstract base class
 │   ├── semantic_store.py # SemanticMemoryStore (ChromaDB vector search)

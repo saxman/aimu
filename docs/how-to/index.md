@@ -36,6 +36,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 ## Memory and persistence
 
 - [Persist conversations](persist-conversations.md): `ConversationManager`
+- [Use sessions (multi-user)](use-sessions.md): per-conversation state keyed by `channel:sender` via `SessionStore`
 - [Use semantic memory](use-semantic-memory.md): `SemanticMemoryStore`
 - [Use document memory](use-document-memory.md): `DocumentStore`
 - [Retrieval-augmented generation](use-rag.md): use `aimu.rag` to chunk, retrieve, rerank, and ground answers in your documents

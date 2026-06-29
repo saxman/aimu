@@ -6,7 +6,7 @@ Reasoning models (Qwen3, DeepSeek-R1, Gemini 2.5, Claude with extended thinking,
 
 For every provider, the answer stored in `self.messages` is the **clean** answer with the `<think>...</think>` block removed:
 
-- Local `<think>`-tag providers (HuggingFace, llama-cpp, OpenAI-compat local servers) parse the tags with `_split_thinking` / `_ThinkingParser` ([aimu/models/providers/_thinking.py](../../aimu/models/providers/_thinking.py)).
+- Local `<think>`-tag providers (HuggingFace, llama-cpp, OpenAI-compat local servers) parse the tags with `_split_thinking` / `_ThinkingParser` ([aimu/models/providers/_thinking.py](https://github.com/saxman/aimu/blob/main/aimu/models/providers/_thinking.py)).
 - Native-thinking providers (Anthropic, Ollama) read the reasoning from a dedicated response field.
 
 The most recent turn's reasoning is always available on `client.last_thinking` (the canonical, uniform surface). In addition, every provider attaches the reasoning to the assistant message it just appended, under a non-standard `"thinking"` key:
@@ -15,7 +15,7 @@ The most recent turn's reasoning is always available on `client.last_thinking` (
 {"role": "assistant", "content": "the answer", "thinking": "the reasoning"}
 ```
 
-The key is **omitted** when the turn produced no reasoning. This is what the Streamlit chatbot renders per message ([examples/web/streamlit_chatbot.py](../../examples/web/streamlit_chatbot.py)) and what `ConversationManager` persists, so a saved conversation keeps its per-turn reasoning for later inspection.
+The key is **omitted** when the turn produced no reasoning. This is what the Streamlit chatbot renders per message ([examples/web/streamlit_chatbot.py](https://github.com/saxman/aimu/blob/main/examples/web/streamlit_chatbot.py)) and what `ConversationManager` persists, so a saved conversation keeps its per-turn reasoning for later inspection.
 
 This applies to **tool-calling turns** too: when a thinking model reasons and then calls a tool, that reasoning is attached to the assistant *tool-call* message (the one carrying `tool_calls`), not just to the final answer. So in an agentic loop every assistant message that had reasoning carries its own reasoning. As with everything else here, the key is metadata: the reasoning that preceded a tool call is recorded for inspection/persistence but is not re-sent to the model on the follow-up request.
 
