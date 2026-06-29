@@ -67,7 +67,10 @@ pip install -e '.[openai_compat]'  # OpenAI-compatible servers + cloud (OpenAI, 
 pip install -e '.[llamacpp]'       # Local GGUF models via llama-cpp-python (no external service)
 pip install -e '.[google]'         # Google Gemini image generation (Nano Banana, google-genai SDK)
 pip install -e '.[deepeval]'      # DeepEval evaluation metrics
+pip install -e '.[tuning]'         # Prompt tuners + evals benchmark harness (pandas, tqdm)
 ```
+
+**`tuning` extra (pandas/tqdm).** The prompt-tuning subsystem (`aimu.prompts.tuner` + the `PromptTuner` subclasses) and the evals `Benchmark` harness import `pandas`/`tqdm`, which live in the optional `[tuning]` extra (included in `[all]`). `aimu.prompts` imports the tuner classes **lazily** (a module-level `__getattr__`), so `import aimu` and `from aimu.prompts import PromptCatalog` / `Scorer` / `LLMJudgeScorer` work without the extra; touching a tuner class (`from aimu.prompts import JudgedPromptTuner`) triggers the import and raises `ModuleNotFoundError` only if `[tuning]` isn't installed. `aimu.evals.Benchmark` is not lazy-wrapped, so `import aimu.evals` requires the extra.
 
 ### Testing
 

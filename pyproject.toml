@@ -72,6 +72,13 @@ google = [
 deepeval = [
     "deepeval",
 ]
+# Prompt-tuning subsystem (aimu.prompts.tuner and the PromptTuner subclasses) and the
+# evals benchmark harness. The base `import aimu` path does not require these; the tuner
+# classes are loaded lazily and raise ModuleNotFoundError only if used without this extra.
+tuning = [
+    "pandas",
+    "tqdm",
+]
 a2a = [
     # Agent-to-Agent protocol interop (RemoteAgent client + serve_a2a server).
     # Pinned to the 0.3.x line: pydantic-native API. The 1.x line is a protobuf/gRPC
@@ -93,7 +100,7 @@ web = [
     "starlette",
     "uvicorn>=0.30",
 ]
-all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,google,deepeval,a2a,web]"]
+all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,google,deepeval,tuning,a2a,web]"]
 
 [build-system]
 requires = ["setuptools"]

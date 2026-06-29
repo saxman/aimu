@@ -37,6 +37,7 @@
 
 - **Moved** the Streamlit/Gradio chat apps from `web/` to `examples/web/`, consolidating all runnable programs under `examples/`.
 - **Breaking** `streamlit` and `gradio` are no longer core dependencies; they (with `starlette`/`uvicorn` for the personal-assistant web UI) moved to a new optional **`[web]`** extra. Install the web UIs with `pip install aimu[web]`. `aimu[all]` now includes `web`.
+- **New** **`[tuning]`** extra (`pandas`, `tqdm`) for the prompt-tuning subsystem and the evals `Benchmark` harness, which previously imported these without declaring them. `aimu.prompts` now imports the `PromptTuner` subclasses **lazily**, so `import aimu` and `from aimu.prompts import PromptCatalog` / `Scorer` work without the extra; touching a tuner class raises `ModuleNotFoundError` only if `[tuning]` isn't installed. Included in `aimu[all]`.
 
 ## v0.10.1 (2026-06-24): cleanup: unified modality factory kwargs, keyword-only restore(), async SkillAgent parity + import-guard hardening
 
