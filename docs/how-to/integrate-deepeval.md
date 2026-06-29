@@ -1,6 +1,6 @@
 # Integrate DeepEval
 
-`aimu[deepeval]` ships two adapters:
+`aimu[evals]` ships two adapters:
 
 - **`DeepEvalModel`**: wraps any AIMU `BaseModelClient` as a DeepEval judge (`DeepEvalBaseLLM`). Pass it as `model=` to any DeepEval metric.
 - **`DeepEvalScorer`**: wraps a list of DeepEval metrics as an AIMU `Scorer` for `JudgedPromptTuner` and `Benchmark`.
@@ -8,7 +8,7 @@
 ## Install
 
 ```bash
-pip install aimu[deepeval]
+pip install aimu[evals]
 ```
 
 ## Use any AIMU client as a DeepEval judge

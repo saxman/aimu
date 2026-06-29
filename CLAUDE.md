@@ -58,17 +58,23 @@ Or using uv (faster):
 uv sync --all-extras
 ```
 
-For specific model backends only:
+Extras fall into two kinds (plus development tooling). **Provider backends** (a model/inference provider):
 ```bash
 pip install -e '.[ollama]'         # Ollama only
-pip install -e '.[hf]'             # HuggingFace transformers (text) + diffusers (image)
+pip install -e '.[hf]'             # HuggingFace transformers (text) + diffusers (image) + audio/speech + embeddings
 pip install -e '.[anthropic]'      # Anthropic Claude models
 pip install -e '.[openai_compat]'  # OpenAI-compatible servers + cloud (OpenAI, Gemini, LM Studio, vLLM, etc.)
 pip install -e '.[llamacpp]'       # Local GGUF models via llama-cpp-python (no external service)
 pip install -e '.[google]'         # Google Gemini image generation (Nano Banana, google-genai SDK)
-pip install -e '.[deepeval]'      # DeepEval evaluation metrics
-pip install -e '.[tuning]'         # Prompt tuners + evals benchmark harness (pandas, tqdm)
 ```
+**Capabilities** (cross-provider features):
+```bash
+pip install -e '.[web]'            # Streamlit/Gradio chat apps + personal-assistant web UI
+pip install -e '.[tuning]'         # Prompt tuners + evals Benchmark harness (pandas, tqdm)
+pip install -e '.[evals]'          # DeepEval metric adapters (renamed from the old `deepeval` extra)
+pip install -e '.[a2a]'            # Agent-to-Agent protocol interop
+```
+`[all]` is every provider backend + every capability (development extras `dev` / `notebooks` / `docs` excluded).
 
 **`tuning` extra (pandas/tqdm).** The prompt-tuning subsystem (`aimu.prompts.tuner` + the `PromptTuner` subclasses) and the evals `Benchmark` harness import `pandas`/`tqdm`, which live in the optional `[tuning]` extra (included in `[all]`). `aimu.prompts` imports the tuner classes **lazily** (a module-level `__getattr__`), so `import aimu` and `from aimu.prompts import PromptCatalog` / `Scorer` / `LLMJudgeScorer` work without the extra; touching a tuner class (`from aimu.prompts import JudgedPromptTuner`) triggers the import and raises `ModuleNotFoundError` only if `[tuning]` isn't installed. `aimu.evals.Benchmark` is not lazy-wrapped, so `import aimu.evals` requires the extra.
 
@@ -609,7 +615,7 @@ Three **async-first** primitives (under `aimu.aio`, plus filesystem-shared skill
 
 ### Evaluations & Benchmarking
 
-- **[aimu/evals/](aimu/evals/)**: DeepEval adapters (`aimu[deepeval]` extra) plus a multi-model benchmark harness (no extras required)
+- **[aimu/evals/](aimu/evals/)**: DeepEval adapters (`aimu[evals]` extra) plus a multi-model benchmark harness (`aimu[tuning]` extra: it uses `pandas`)
   - **[aimu/evals/deepeval.py](aimu/evals/deepeval.py)**: `DeepEvalModel(DeepEvalBaseLLM)` adapter
     - Wraps any `BaseModelClient` to satisfy DeepEval's judge interface
     - `get_model_name()`: returns the model enum member name
@@ -678,7 +684,7 @@ Three **async-first** primitives (under `aimu.aio`, plus filesystem-shared skill
 - **[aimu/prompts/tuners/scorers.py](aimu/prompts/tuners/scorers.py)**: `Scorer` ABC and built-in `LLMJudgeScorer`
   - `Scorer.score(row) -> tuple[float, str]`: returns normalised score (0-1) and feedback string for one row
   - `LLMJudgeScorer(judge_client, criteria, prompt_template=None, generate_kwargs=None)`: asks `judge_client` to rate 1-10 and parses the first standalone integer in that range; defaults to 0.5 on parse failure
-- **[aimu/evals/deepeval_scorer.py](aimu/evals/deepeval_scorer.py)**: `DeepEvalScorer(Scorer)` (requires `aimu[deepeval]`)
+- **[aimu/evals/deepeval_scorer.py](aimu/evals/deepeval_scorer.py)**: `DeepEvalScorer(Scorer)` (requires `aimu[evals]`)
   - Constructor: `DeepEvalScorer(metrics: list[BaseMetric], input_field="content", output_field="output")`
   - Each row is converted to `LLMTestCase(input=row[input_field], actual_output=row[output_field], expected_output=row.get("reference"))`
   - Calls `metric.measure(test_case)` for every metric; returns `(mean(metric.score for metric in metrics), "\n".join(f"{type(metric).__name__}: {metric.reason}" for metric in metrics))`

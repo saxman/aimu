@@ -40,7 +40,25 @@ A curated model catalog, capturing model capabilities and nuances, is part of th
 pip install aimu[all]
 ```
 
-Or pick the providers you need: `aimu[ollama]`, `aimu[anthropic]`, `aimu[openai_compat]` (also enables OpenAI TTS speech and transcription STT), `aimu[hf]` (text + HuggingFace `diffusers` image + HuggingFace audio + HuggingFace TTS speech), `aimu[google]` (Nano Banana image generation), `aimu[llamacpp]`, `aimu[web]` (the Streamlit/Gradio chat apps + the personal-assistant web UI), `aimu[tuning]` (the prompt-tuning subsystem and the evals benchmark harness; pulls `pandas`/`tqdm`). See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list of extras.
+Or install only what you need. AIMU's extras fall into two kinds:
+
+**Provider backends** (the model/inference providers you use):
+
+- `aimu[ollama]`: local Ollama models
+- `aimu[anthropic]`: Anthropic Claude
+- `aimu[openai_compat]`: OpenAI + Gemini cloud and OpenAI-compatible local servers (also enables OpenAI TTS speech and transcription STT)
+- `aimu[hf]`: HuggingFace (text + `diffusers` image + audio + TTS speech + local embeddings)
+- `aimu[google]`: Google Gemini image generation (Nano Banana)
+- `aimu[llamacpp]`: local GGUF models via llama-cpp-python
+
+**Capabilities** (cross-provider features, independent of which provider you pick):
+
+- `aimu[web]`: the Streamlit/Gradio chat apps + the personal-assistant web UI
+- `aimu[tuning]`: the prompt-tuning subsystem + the evals benchmark harness (pulls `pandas`/`tqdm`)
+- `aimu[evals]`: DeepEval metric adapters
+- `aimu[a2a]`: Agent-to-Agent protocol interop
+
+`aimu[all]` is every provider backend plus every capability (development extras `dev` / `notebooks` / `docs` are separate). See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list.
 
 > **Want the newest features?** The PyPI release can lag `main`: anything under **Unreleased** in the [CHANGELOG](CHANGELOG.md) (currently the personal-assistant primitives, multi-user sessions, `make_document_tools`, and remote MCP via `MCPClient(url=...)`) ships on `main` but is **not yet on PyPI**, and `main` carries the same version string as the last release. To use those features, install from source until the next release:
 >

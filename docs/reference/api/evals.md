@@ -10,7 +10,7 @@ Benchmark harness and DeepEval adapters.
 
 ## DeepEval integration
 
-Requires `aimu[deepeval]`.
+Requires `aimu[evals]`.
 
 ::: aimu.evals.DeepEvalModel
 

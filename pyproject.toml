@@ -25,14 +25,26 @@ Repository = "https://github.com/saxman/aimu"
 Changelog = "https://github.com/saxman/aimu/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-dev = [
-    "ruff",
-    "pytest",
-    "pytest-asyncio",
+
+# === Provider backends ===
+# A model/inference provider. Install the one(s) you use; each adds that provider's SDK.
+ollama = [
+    "ollama",
 ]
-notebooks = [
-    "ipykernel",
-    "ipywidgets",
+anthropic = [
+    "anthropic>=0.50.0",
+]
+openai_compat = [
+    # OpenAI + Gemini cloud and any OpenAI-compatible local server (LM Studio, vLLM, etc.)
+    "openai>=1.0.0",
+]
+google = [
+    # Google Gemini image generation (Nano Banana, via GeminiImageClient)
+    "google-genai>=1.0",
+    "Pillow",
+]
+llamacpp = [
+    "llama-cpp-python",
 ]
 hf = [
     "torch",
@@ -52,45 +64,9 @@ hf = [
     # Local text embeddings (HuggingFaceEmbeddingClient); reads each model's own pooling config
     "sentence-transformers>=3",
 ]
-ollama = [
-    "ollama",
-]
-anthropic = [
-    "anthropic>=0.50.0",
-]
-openai_compat = [
-    "openai>=1.0.0",
-]
-llamacpp = [
-    "llama-cpp-python",
-]
-google = [
-    # Google Gemini image generation (Nano Banana, via GeminiImageClient)
-    "google-genai>=1.0",
-    "Pillow",
-]
-deepeval = [
-    "deepeval",
-]
-# Prompt-tuning subsystem (aimu.prompts.tuner and the PromptTuner subclasses) and the
-# evals benchmark harness. The base `import aimu` path does not require these; the tuner
-# classes are loaded lazily and raise ModuleNotFoundError only if used without this extra.
-tuning = [
-    "pandas",
-    "tqdm",
-]
-a2a = [
-    # Agent-to-Agent protocol interop (RemoteAgent client + serve_a2a server).
-    # Pinned to the 0.3.x line: pydantic-native API. The 1.x line is a protobuf/gRPC
-    # transport rework with a churning surface, a future migration, tracked in docs.
-    "a2a-sdk>=0.3.24,<0.4",
-    "uvicorn>=0.30",
-]
-docs = [
-    "mkdocs>=1.6",
-    "mkdocs-material>=9.5",
-    "mkdocstrings[python]>=0.27",
-]
+
+# === Capabilities ===
+# Cross-provider features and tooling, independent of which model provider you use.
 web = [
     # Example web UIs: the Streamlit/Gradio chat apps (examples/web/) and the personal-assistant
     # WebSocket front end (examples/personal-assistant/web_assistant.py). starlette/uvicorn are
@@ -100,7 +76,44 @@ web = [
     "starlette",
     "uvicorn>=0.30",
 ]
-all = ["aimu[hf,ollama,anthropic,openai_compat,llamacpp,google,deepeval,tuning,a2a,web]"]
+# Prompt-tuning subsystem (aimu.prompts.tuner and the PromptTuner subclasses) and the
+# evals benchmark harness. The base `import aimu` path does not require these; the tuner
+# classes are loaded lazily and raise ModuleNotFoundError only if used without this extra.
+tuning = [
+    "pandas",
+    "tqdm",
+]
+evals = [
+    # DeepEval metric adapters (DeepEvalModel / DeepEvalScorer in aimu.evals).
+    "deepeval",
+]
+a2a = [
+    # Agent-to-Agent protocol interop (RemoteAgent client + serve_a2a server).
+    # Pinned to the 0.3.x line: pydantic-native API. The 1.x line is a protobuf/gRPC
+    # transport rework with a churning surface, a future migration, tracked in docs.
+    "a2a-sdk>=0.3.24,<0.4",
+    "uvicorn>=0.30",
+]
+
+# === Development tooling ===
+# For working on AIMU itself; not part of `all`.
+dev = [
+    "ruff",
+    "pytest",
+    "pytest-asyncio",
+]
+notebooks = [
+    "ipykernel",
+    "ipywidgets",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
+]
+
+# Every provider backend + every runtime capability (development tooling excluded).
+all = ["aimu[ollama,anthropic,openai_compat,google,llamacpp,hf,web,tuning,evals,a2a]"]
 
 [build-system]
 requires = ["setuptools"]
