@@ -3063,7 +3063,11 @@ history is persisted after each turn.</p>
 </span><span id="__span-6-25"><a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
 <p>The reference app in <code>examples/personal-assistant/</code> is this, fleshed out: serialize reactive and
-proactive turns with a lock (they share one agent), an argparse entry point, and mock-only tests.</p>
+proactive turns with a lock (they share one agent), an argparse entry point, and mock-only tests.
+It also gives the agent AIMU's <a href="../add-custom-tool/">built-in tools</a> by group via a <code>--tools</code> flag
+(<code>builtin.web</code> / <code>fs</code> / <code>compute</code> / <code>misc</code> by default; generative groups opt-in). The built-ins are
+sync functions, and the async agent dispatches them through <code>asyncio.to_thread</code>, so they attach to
+<code>agent.tools</code> with no wrapping.</p>
 <p>Run it:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>examples/personal-assistant/assistant.py<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-6<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">30</span>
@@ -3079,6 +3083,13 @@ page styles distinctly. The server runs a pump task (reading the socket into the
 that ends <code>receive()</code>, stops the scheduler, and tears down cleanly.</p>
 <p>Because the server owns the scheduler via <code>assistant.run()</code>, proactive messages reach the browser
 unprompted, the property a request/response UI (Streamlit/Gradio) can't provide without polling.</p>
+<p>The agent's stream carries <code>THINKING</code> and <code>TOOL_CALLING</code> chunks alongside <code>GENERATING</code>, so both
+channels can surface the model's reasoning and tool calls, not just the final answer. <code>CLIChannel</code>
+takes opt-in <code>show_thinking</code> / <code>show_tools</code> flags (off by default to keep the library channel
+minimal); the example-local <code>WebChannel</code> emits <code>thinking</code> / <code>tool</code> frames the page renders as
+distinct blocks. The personal-assistant example turns both on by default (<code>--no-show-thinking</code> /
+<code>--no-show-tools</code> to hide), threading <code>AssistantConfig.show_thinking</code> / <code>show_tools</code> into each
+channel.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>web<span class="o">]</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python<span class="w"> </span>examples/personal-assistant/web_assistant.py<span class="w"> </span>--model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">20</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># open http://127.0.0.1:8000</span>

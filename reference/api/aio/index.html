@@ -5624,7 +5624,7 @@ to answer); single-user adapters like the CLI ignore it.</p>
 
 
 <a href="#aimu.aio.CLIChannel" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CLIChannel</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&gt; &#39;</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CLIChannel</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&gt; &#39;</span><span class="p">,</span> <span class="n">show_thinking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">show_tools</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5635,7 +5635,9 @@ to answer); single-user adapters like the CLI ignore it.</p>
 
         <p>Read user input from stdin and write replies to stdout.</p>
 <p>Single local user, so <code>send(reply_to=...)</code> is accepted and ignored. Streaming replies
-are written token-by-token as they arrive.</p>
+are written token-by-token as they arrive. <code>show_thinking</code> / <code>show_tools</code> (both off by
+default, to keep the bare channel minimal) surface the model's reasoning and tool calls as
+labelled lines alongside the answer.</p>
 
 
 
