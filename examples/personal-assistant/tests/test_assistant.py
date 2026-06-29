@@ -11,7 +11,7 @@ from typing import AsyncIterator
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests"))
 
 from _assistant_common import Assistant, AssistantConfig  # noqa: E402
-from assistant import build_arg_parser, config_from_args  # noqa: E402
+from assistant import _confirm_in_terminal, build_arg_parser, config_from_args  # noqa: E402
 from helpers_aio import MockAsyncModelClient  # noqa: E402
 
 from aimu.aio.channels.base import Channel, ChannelMessage  # noqa: E402
@@ -166,3 +166,40 @@ async def test_assistant_authors_and_registers_runnable_script(tmp_path):
     assert (cfg.skills_dir / "disk" / "scripts" / "usage.py").exists()
     # reload_skills() ran, so the new script tool is callable on the live client.
     assert "disk__usage" in [fn.__name__ for fn in assistant._agent.model_client.tools]
+
+
+# --- Tool-approval demo: gate the full-access add_skill_script tool -----------------------------
+
+
+async def test_confirm_policy_gates_only_listed_tools(monkeypatch):
+    # A non-gated tool is approved without prompting.
+    assert await _confirm_in_terminal("get_weather", {}) is True
+    # add_skill_script prompts: deny on "n", approve on "y".
+    monkeypatch.setattr("builtins.input", lambda prompt="": "n")
+    assert await _confirm_in_terminal("add_skill_script", {"skill_name": "x"}) is False
+    monkeypatch.setattr("builtins.input", lambda prompt="": "y")
+    assert await _confirm_in_terminal("add_skill_script", {"skill_name": "x"}) is True
+
+
+async def test_cli_wires_confirm_policy(tmp_path):
+    assistant = await Assistant.create(
+        _config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]), tool_approval=_confirm_in_terminal
+    )
+    assert assistant._agent.tool_approval is _confirm_in_terminal
+
+
+async def test_denied_add_skill_script_does_not_write(tmp_path):
+    cfg = _config(tmp_path)
+
+    async def deny(name, arguments):
+        return name != "add_skill_script"
+
+    assistant = await Assistant.create(cfg, FakeChannel(), client=MockAsyncModelClient([]), tool_approval=deny)
+    agent = assistant._agent
+    agent._prepare_run()  # publish tool_approval + tools onto the client (as a run would)
+
+    await agent.model_client._handle_tool_calls(
+        [{"name": "add_skill_script", "arguments": {"skill_name": "disk", "filename": "u.py", "content": "print(1)\n"}}]
+    )
+    assert agent.model_client.messages[-1]["content"] == "Tool 'add_skill_script' was not approved."
+    assert not (cfg.skills_dir / "disk" / "scripts" / "u.py").exists()

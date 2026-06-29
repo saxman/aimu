@@ -54,6 +54,24 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         # Value injected as ``ctx.deps`` into tools that declare a ToolContext parameter.
         # Set by Agent from its deps= field / run(deps=) override; None for bare chat().
         self.tool_context_deps = None
+        # Optional gate run before each tool call: (tool_name, arguments) -> bool (a coroutine is
+        # awaited). Default approves everything (no behavior change). Set directly for bare chat(),
+        # or via Agent(tool_approval=...) / run(tool_approval=...).
+        from aimu.tools.approval import approve_all
+
+        self.tool_approval = approve_all
+
+    async def _tool_call_approved(self, name: str, arguments: dict) -> bool:
+        """Run the approval policy for one tool call (async); awaits a coroutine result."""
+        import inspect
+
+        from aimu.tools.approval import approve_all
+
+        policy = getattr(self, "tool_approval", None) or approve_all
+        result = policy(name, arguments)
+        if inspect.isawaitable(result):
+            result = await result
+        return bool(result)
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -306,6 +324,8 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                     "require the streaming dispatch path: call chat() / agent.run() with "
                     "stream=True. For non-streaming use, convert the tool to a plain function."
                 )
+            if not await self._tool_call_approved(tc["name"], tc["arguments"]):
+                return self._tool_not_approved_message(tc, tc_id)
             try:
                 kwargs = self._tool_call_kwargs(fn, tc["arguments"])
                 if getattr(fn, "__tool_is_async__", False):
@@ -396,6 +416,14 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         for tc, tc_id in prepared:
             fn = python_tools_by_name.get(tc["name"])
             if fn is not None and getattr(fn, "__tool_is_streaming__", False):
+                if not await self._tool_call_approved(tc["name"], tc["arguments"]):
+                    result_msg = self._tool_not_approved_message(tc, tc_id)
+                    self.messages.append(result_msg)
+                    yield StreamChunk(
+                        StreamingContentType.TOOL_CALLING,
+                        {"name": tc["name"], "arguments": tc["arguments"], "response": result_msg["content"]},
+                    )
+                    continue
                 try:
                     return_value: Any = None
                     last_content: Any = None

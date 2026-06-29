@@ -178,6 +178,19 @@ class _ChatStateMixin:
                 kwargs[name] = ctx
         return kwargs
 
+    def _tool_not_approved_message(self, tc: dict, tc_id: str) -> dict:
+        """The tool-result message appended when ``tool_approval`` denies a call.
+
+        Same shape as the "not found" message, so the model sees the refusal as a normal tool
+        result and can react. Shared by the sync and async dispatch paths.
+        """
+        return {
+            "role": "tool",
+            "name": tc["name"],
+            "content": f"Tool '{tc['name']}' was not approved.",
+            "tool_call_id": tc_id,
+        }
+
     def _collect_python_tool_specs(self) -> list[dict]:
         """Collect ``__tool_spec__`` dicts from every registered Python tool callable.
 

@@ -109,7 +109,7 @@ from .models import (
     resolve_speech_model_string,
     resolve_transcription_model_string,
 )
-from .tools import ToolContext, tool
+from .tools import ToolApproval, ToolContext, approve_all, tool
 from .display import pretty_print
 
 
@@ -602,6 +602,7 @@ __all__ = [
     "SpeechSpec",
     "StreamChunk",
     "StreamingContentType",
+    "ToolApproval",
     "ToolContext",
     "TranscriptionClient",
     "TranscriptionModel",
@@ -626,6 +627,7 @@ __all__ = [
     "pretty_print",
     "available_audio_models",
     "available_embedding_models",
+    "approve_all",
     "available_image_models",
     "available_speech_models",
     "available_text_models",

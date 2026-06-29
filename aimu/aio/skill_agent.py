@@ -30,10 +30,10 @@ class SkillAgent(Agent):
     _skills_tools: Optional[list] = field(default=None, init=False, repr=False)
     _skills_catalog_injected: Optional[str] = field(default=None, init=False, repr=False)
 
-    def _prepare_run(self, deps: Any = None) -> None:
+    def _prepare_run(self, deps: Any = None, tool_approval: Any = None) -> None:
         if self.reset_messages_on_run or self.system_message is not None:
             self._skills_setup_done = False
-        super()._prepare_run(deps)
+        super()._prepare_run(deps, tool_approval)
         # NOTE: skill setup is async; defer to the first await point in run().
 
     def _catalog_instructions(self) -> str:
@@ -117,16 +117,26 @@ class SkillAgent(Agent):
         if old_client is not None:
             await old_client.aclose()
 
-    async def run(self, task, generate_kwargs=None, stream=False, images=None, tools=None, deps=None, schema=None):
+    async def run(
+        self,
+        task,
+        generate_kwargs=None,
+        stream=False,
+        images=None,
+        tools=None,
+        deps=None,
+        tool_approval=None,
+        schema=None,
+    ):
         # Prepare + async skill setup must complete before the loop, and _prepare_run
         # (which resets model_client.tools) must run exactly once, before skills are added.
         # That ordering is why this can't just call super().run() (which re-prepares); instead
         # it prepares, sets up skills, then delegates to Agent's post-prepare loop helpers.
-        # ``deps`` and ``schema`` mirror aio.Agent.run(); see that method for full semantics.
+        # ``deps``, ``tool_approval``, and ``schema`` mirror aio.Agent.run(); see that method.
         if schema is not None and stream:
             raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
 
-        self._prepare_run(deps)
+        self._prepare_run(deps, tool_approval)
         await self._setup_skills_async()
 
         if schema is not None:

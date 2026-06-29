@@ -102,10 +102,36 @@ class BaseModelClient(_ChatStateMixin, ABC):
         # Value injected as ``ctx.deps`` into tools that declare a ToolContext parameter.
         # Set by Agent from its deps= field / run(deps=) override; None for bare chat().
         self.tool_context_deps = None
+        # Optional gate run before each tool call: (tool_name, arguments) -> bool. Default
+        # approves everything (no behavior change). Set directly for bare chat(), or via
+        # Agent(tool_approval=...) / run(tool_approval=...). Sync surface: must be a plain function.
+        from aimu.tools.approval import approve_all
+
+        self.tool_approval = approve_all
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
         raise NotImplementedError
+
+    def _tool_call_approved(self, name: str, arguments: dict) -> bool:
+        """Run the approval policy for one tool call (sync). Default approves everything.
+
+        A coroutine-returning policy can't be awaited here; raise a clear error pointing at the
+        async surface rather than silently approving.
+        """
+        import inspect
+
+        from aimu.tools.approval import approve_all
+
+        policy = getattr(self, "tool_approval", None) or approve_all
+        result = policy(name, arguments)
+        if inspect.isawaitable(result):
+            result.close()  # avoid "coroutine was never awaited" warning
+            raise ValueError(
+                "tool_approval returned a coroutine on the sync client. Use a synchronous policy "
+                "(plain function), or run on the aimu.aio surface for async approval."
+            )
+        return bool(result)
 
     @classproperty
     def TOOL_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -439,6 +465,8 @@ class BaseModelClient(_ChatStateMixin, ABC):
                     "require the streaming dispatch path: call chat() / agent.run() with "
                     "stream=True. For non-streaming use, convert the tool to a plain function."
                 )
+            if not self._tool_call_approved(tc["name"], tc["arguments"]):
+                return self._tool_not_approved_message(tc, tc_id)
             try:
                 response = fn(**self._tool_call_kwargs(fn, tc["arguments"]))
                 content = str(response)
@@ -530,6 +558,14 @@ class BaseModelClient(_ChatStateMixin, ABC):
                     raise ValueError(
                         f"Tool '{tc['name']}' is an async streaming tool. Use the aimu.aio surface to dispatch it."
                     )
+                if not self._tool_call_approved(tc["name"], tc["arguments"]):
+                    result_msg = self._tool_not_approved_message(tc, tc_id)
+                    self.messages.append(result_msg)
+                    yield StreamChunk(
+                        StreamingContentType.TOOL_CALLING,
+                        {"name": tc["name"], "arguments": tc["arguments"], "response": result_msg["content"]},
+                    )
+                    continue
                 try:
                     gen = fn(**self._tool_call_kwargs(fn, tc["arguments"]))
                     return_value = None

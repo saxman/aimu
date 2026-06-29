@@ -149,6 +149,12 @@ write_skill(
     no filesystem or subprocess access.) The subprocess also blocks the event loop for up to its
     30-second timeout.
 
+Because of that, the example gates the full-access `add_skill_script` tool with a
+[tool-approval hook](gate-tool-calls.md): by default the CLI front end asks for a y/n confirmation in
+the terminal before a script is authored (`assistant.py`'s `CONFIRM_BEFORE` set and
+`_confirm_in_terminal` policy, passed to `Assistant.create(tool_approval=...)`). Edit `CONFIRM_BEFORE`
+to gate more tools, or pass `tool_approval=None` to disable.
+
 ## Wire it into a daemon
 
 The pieces compose into one process: a top-level `asyncio.TaskGroup` runs the channel listener

@@ -24,6 +24,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 
 - [Add a custom tool](add-custom-tool.md): `@tool` decorator rules and patterns
 - [Use MCP tools](use-mcp-tools.md): cross-process tools via FastMCP
+- [Gate tool calls](gate-tool-calls.md): an approval hook to confirm or block risky tool calls
 
 ## Agents and workflows
 

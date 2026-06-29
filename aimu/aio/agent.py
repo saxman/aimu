@@ -93,6 +93,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     reset_messages_on_run: bool = False
     final_answer_prompt: Optional[str] = None
     deps: Optional[Any] = None
+    tool_approval: Optional[Callable] = None
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -107,26 +108,31 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         images: Optional[list] = None,
         tools: Optional[list[Callable]] = None,
         deps: Optional[Any] = None,
+        tool_approval: Optional[Callable] = None,
         schema: Optional[type] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Run the async agentic loop. ``images`` attach only to the initial turn.
 
         ``tools`` is a per-run override of the agent's configured ``self.tools``; ``deps`` is a
         per-run override of the agent's ``self.deps`` (injected as ``ctx.deps`` into tools that
-        declare a :class:`~aimu.tools.ToolContext` parameter); ``schema`` makes the run a single
-        structured-output turn returning a validated instance. See the sync
+        declare a :class:`~aimu.tools.ToolContext` parameter); ``tool_approval`` is a per-run
+        override of ``self.tool_approval`` (the gate run before each tool call, ``(name, arguments)
+        -> bool``, which may be a coroutine; deny appends a refusal tool message); ``schema`` makes
+        the run a single structured-output turn returning a validated instance. See the sync
         :meth:`aimu.agents.Agent.run` for full semantics.
         """
         if schema is not None:
             if stream:
                 raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
-            self._prepare_run(deps)
+            self._prepare_run(deps, tool_approval)
             result = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
             self._last_messages = list(self.model_client.messages)
             return result
         if stream:
-            return self._run_streamed(task, generate_kwargs, images=images, tools=tools, deps=deps)
-        self._prepare_run(deps)
+            return self._run_streamed(
+                task, generate_kwargs, images=images, tools=tools, deps=deps, tool_approval=tool_approval
+            )
+        self._prepare_run(deps, tool_approval)
         return await self._run_loop(task, generate_kwargs, images=images, tools=tools)
 
     async def _run_loop(
@@ -165,8 +171,9 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         images: Optional[list] = None,
         tools: Optional[list[Callable]] = None,
         deps: Optional[Any] = None,
+        tool_approval: Optional[Callable] = None,
     ) -> AsyncIterator[StreamChunk]:
-        self._prepare_run(deps)
+        self._prepare_run(deps, tool_approval)
         async for chunk in self._run_loop_streamed(task, generate_kwargs, images=images, tools=tools):
             yield chunk
 

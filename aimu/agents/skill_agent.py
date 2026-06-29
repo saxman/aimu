@@ -40,10 +40,10 @@ class SkillAgent(Agent):
     _skills_tools: Optional[list] = field(default=None, init=False, repr=False)
     _skills_catalog_injected: Optional[str] = field(default=None, init=False, repr=False)
 
-    def _prepare_run(self, deps: Any = None) -> None:
+    def _prepare_run(self, deps: Any = None, tool_approval: Any = None) -> None:
         if self.reset_messages_on_run or self.system_message is not None:
             self._skills_setup_done = False
-        super()._prepare_run(deps)
+        super()._prepare_run(deps, tool_approval)
         self._setup_skills()
 
     def _catalog_instructions(self) -> str:

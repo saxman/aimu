@@ -21,6 +21,23 @@ from pathlib import Path
 from _assistant_common import Assistant, AssistantConfig
 from aimu.aio import CLIChannel
 
+# Tools that require a y/n confirmation in the terminal before they run. add_skill_script writes and
+# runs code with full machine access, so it is gated by default. To change this, edit this set (e.g.
+# add the script-run "{skill}__{stem}" tools, or empty it), or pass tool_approval=None in _amain.
+CONFIRM_BEFORE = {"add_skill_script"}
+
+
+async def _confirm_in_terminal(name: str, arguments: dict) -> bool:
+    """Approval policy: prompt the user in the terminal before a gated tool runs.
+
+    Safe alongside ``CLIChannel.receive()``: during a tool call the serve loop is inside
+    ``agent.run()``, so the channel is not reading stdin and this prompt has it to itself.
+    """
+    if name not in CONFIRM_BEFORE:
+        return True
+    answer = await asyncio.to_thread(input, f"\n[approve] Run tool '{name}' with {arguments}? [y/N] ")
+    return answer.strip().lower() in ("y", "yes")
+
 
 def build_arg_parser(prog: str = "assistant.py") -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog, description="A reference personal-assistant daemon.")
@@ -75,11 +92,12 @@ def config_from_args(args: argparse.Namespace) -> AssistantConfig:
 async def _amain(config: AssistantConfig) -> None:
     print(
         "[notice] This assistant can author and run Python/shell scripts with full access to this "
-        "machine (no sandbox). Only use it with a model and inputs you trust.",
+        "machine (no sandbox). Only use it with a model and inputs you trust. Authoring a script "
+        "(add_skill_script) asks for y/n confirmation in the terminal first (see CONFIRM_BEFORE).",
         file=sys.stderr,
     )
     channel = CLIChannel(show_thinking=config.show_thinking, show_tools=config.show_tools)
-    assistant = await Assistant.create(config, channel)
+    assistant = await Assistant.create(config, channel, tool_approval=_confirm_in_terminal)
     await assistant.run()
 
 

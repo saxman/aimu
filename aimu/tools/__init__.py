@@ -17,6 +17,7 @@ group directly: ``Agent(client, tools=builtin.web)``.
 """
 
 from . import builtin
+from .approval import ToolApproval, approve_all
 from .client import MCPClient, MCPConnectionError
 from .context import ToolContext
 from .decorator import ToolArgumentError, ToolSignatureError, coerce_tool_arguments, tool
@@ -24,9 +25,11 @@ from .decorator import ToolArgumentError, ToolSignatureError, coerce_tool_argume
 __all__ = [
     "MCPClient",
     "MCPConnectionError",
+    "ToolApproval",
     "ToolArgumentError",
     "ToolContext",
     "ToolSignatureError",
+    "approve_all",
     "builtin",
     "coerce_tool_arguments",
     "tool",

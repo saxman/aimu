@@ -102,6 +102,7 @@ nav:
       - Add a new model: how-to/add-new-model.md
       - Add or update a provider: how-to/add-new-provider.md
       - Use MCP tools: how-to/use-mcp-tools.md
+      - Gate tool calls: how-to/gate-tool-calls.md
       - Use skills: how-to/use-skills.md
       - Stream output: how-to/stream-output.md
       - Get structured output: how-to/use-structured-output.md

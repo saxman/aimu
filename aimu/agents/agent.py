@@ -67,6 +67,7 @@ class Agent(_AgentLoopMixin, Runner):
     reset_messages_on_run: bool = False
     final_answer_prompt: Optional[str] = None
     deps: Optional[Any] = None
+    tool_approval: Optional[Callable] = None
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -83,6 +84,7 @@ class Agent(_AgentLoopMixin, Runner):
         images: Optional[list] = None,
         tools: Optional[list[Callable]] = None,
         deps: Optional[Any] = None,
+        tool_approval: Optional[Callable] = None,
         schema: Optional[type] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Run the agentic loop. ``images`` attach only to the initial turn.
@@ -95,6 +97,10 @@ class Agent(_AgentLoopMixin, Runner):
         ``deps`` is a per-run override of the agent's ``self.deps`` field, the value injected
         as ``ctx.deps`` into tools that declare a :class:`~aimu.tools.ToolContext` parameter.
 
+        ``tool_approval`` is a per-run override of the agent's ``self.tool_approval`` field, the
+        gate run before each tool call (``(name, arguments) -> bool``; deny appends a refusal tool
+        message). Defaults to approving everything.
+
         ``schema`` (a dataclass or Pydantic v2 model) makes the run a single structured-output
         turn that returns a validated instance instead of looping with tools. Use it for an
         agent whose job is to return a typed object (e.g. a critic's verdict). It is mutually
@@ -103,13 +109,15 @@ class Agent(_AgentLoopMixin, Runner):
         if schema is not None:
             if stream:
                 raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
-            self._prepare_run(deps)
+            self._prepare_run(deps, tool_approval)
             result = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
             self._last_messages = list(self.model_client.messages)
             return result
         if stream:
-            return self._run_streamed(task, generate_kwargs, images=images, tools=tools, deps=deps)
-        self._prepare_run(deps)
+            return self._run_streamed(
+                task, generate_kwargs, images=images, tools=tools, deps=deps, tool_approval=tool_approval
+            )
+        self._prepare_run(deps, tool_approval)
         response = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
 
         for _ in range(self.max_iterations - 1):
@@ -132,8 +140,9 @@ class Agent(_AgentLoopMixin, Runner):
         images: Optional[list] = None,
         tools: Optional[list[Callable]] = None,
         deps: Optional[Any] = None,
+        tool_approval: Optional[Callable] = None,
     ) -> Iterator[StreamChunk]:
-        self._prepare_run(deps)
+        self._prepare_run(deps, tool_approval)
         iteration = 0
         for chunk in self.model_client.chat(
             task, generate_kwargs=generate_kwargs, stream=True, images=images, tools=tools

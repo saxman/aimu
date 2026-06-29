@@ -92,13 +92,17 @@ class Assistant:
         self._lock = asyncio.Lock()
 
     @classmethod
-    async def create(cls, config: AssistantConfig, channel: Channel, *, client=None) -> "Assistant":
+    async def create(cls, config: AssistantConfig, channel: Channel, *, client=None, tool_approval=None) -> "Assistant":
         if client is None:
             client = aio.client(config.model, system=config.system_message)
 
         manager = SkillManager(skill_dirs=[str(config.skills_dir)])
         author_skill = make_skill_authoring_tool(manager, config.skills_dir)
-        agent = aio.SkillAgent(client, tools=[author_skill], skill_manager=manager, name="assistant")
+        # tool_approval is a gate run before each tool call (None -> approve everything). Front ends
+        # supply it, since how to confirm with the user is transport-specific (see assistant.py).
+        agent = aio.SkillAgent(
+            client, tools=[author_skill], skill_manager=manager, name="assistant", tool_approval=tool_approval
+        )
         # add_skill_script needs the agent (to reload skills so a new script tool is callable this
         # turn), so it is built after the agent. The fixed built-in tools are appended too; all names
         # are distinct, and the SkillAgent re-appends its skills-server tools each run.

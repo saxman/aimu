@@ -26,18 +26,23 @@ class _AgentLoopMixin:
     system_message: Any
     tools: list
     deps: Any
+    tool_approval: Any
 
-    def _prepare_run(self, deps: Any = None) -> None:
+    def _prepare_run(self, deps: Any = None, tool_approval: Any = None) -> None:
         """Reset client state and re-apply system_message before a run, when configured.
 
-        ``deps`` (a per-run override) takes precedence over the agent's ``self.deps`` field;
-        the effective value is published to the model client for ``ToolContext`` injection.
+        ``deps`` and ``tool_approval`` (per-run overrides) take precedence over the agent's
+        ``self.deps`` / ``self.tool_approval`` fields; the effective values are published to the
+        model client (``ToolContext`` injection and the tool-call approval gate, respectively).
         """
+        from aimu.tools.approval import approve_all
+
         if self.reset_messages_on_run or self.system_message is not None:
             self.model_client.reset(system_message=self.system_message)
         if self.tools:
             self.model_client.tools = list(self.tools)
         self.model_client.tool_context_deps = deps if deps is not None else self.deps
+        self.model_client.tool_approval = tool_approval or self.tool_approval or approve_all
 
     def _last_turn_called_tools(self) -> bool:
         """True if a ``"tool"`` message appears after the most recent ``"user"`` message."""

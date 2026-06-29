@@ -102,6 +102,11 @@ and inputs you trust. The daemon prints a notice to this effect on startup. For 
 `builtin.execute_python` is a sandboxed alternative (no filesystem or subprocess access). Script
 execution also blocks the event loop for up to its 30-second timeout.
 
+As a guardrail, the CLI gates the full-access `add_skill_script` tool with AIMU's
+[tool-approval hook](../../docs/how-to/gate-tool-calls.md): by default it asks for a y/n
+confirmation in the terminal before authoring a script. Change which tools are gated via the
+`CONFIRM_BEFORE` set in `assistant.py`, or pass `tool_approval=None` to disable.
+
 ## Notes & limits
 
 - **Single user.** A *personal* assistant serves one person, so there is no multi-user session
