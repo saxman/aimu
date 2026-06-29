@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/use-embeddings/">
+        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/use-sessions/">
       
       
-        <link rel="prev" href="../transcribe-audio/">
+        <link rel="prev" href="../persist-conversations/">
       
       
-        <link rel="next" href="../iterative-image-refinement/">
+        <link rel="next" href="../use-semantic-memory/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Embed text - AIMU</title>
+        <title>Use sessions (multi-user) - AIMU</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#embed-text" class="md-skip">
+        <a href="#use-sessions-multi-user" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Embed text
+              Use sessions (multi-user)
             
           </span>
         </div>
@@ -1240,37 +1240,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Embed text
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../use-embeddings/" class="md-nav__link">
         
   
   
@@ -1286,114 +1259,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Basic usage
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#semantic-similarity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Semantic similarity
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#providers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Providers
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#available-models" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Available models
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#default-model-via-env-var" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Default model via env var
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pluggable-embeddings-in-semantic-memory" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pluggable embeddings in semantic memory
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#async-surface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Async surface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See also
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1487,10 +1352,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../use-sessions/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use sessions (multi-user)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1506,6 +1398,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-pieces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The pieces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#routing-a-conversation-to-its-session-the-per-turn-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Routing a conversation to its session (the per-turn pattern)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single user
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#durable-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Durable sessions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2869,10 +2836,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
+  <a href="#the-pieces" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Basic usage
+        The pieces
       
     </span>
   </a>
@@ -2880,10 +2847,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#semantic-similarity" class="md-nav__link">
+  <a href="#routing-a-conversation-to-its-session-the-per-turn-pattern" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Semantic similarity
+        Routing a conversation to its session (the per-turn pattern)
       
     </span>
   </a>
@@ -2891,10 +2858,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#providers" class="md-nav__link">
+  <a href="#single-user" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Providers
+        Single user
       
     </span>
   </a>
@@ -2902,43 +2869,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#available-models" class="md-nav__link">
+  <a href="#durable-sessions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Available models
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#default-model-via-env-var" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Default model via env var
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pluggable-embeddings-in-semantic-memory" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pluggable embeddings in semantic memory
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#async-surface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Async surface
+        Durable sessions
       
     </span>
   </a>
@@ -2976,138 +2910,71 @@
   
 
 
-<h1 id="embed-text">Embed text<a class="headerlink" href="#embed-text" title="Permanent link">&para;</a></h1>
-<p>Turn text into fixed-length vectors with <code>embedding_client().embed()</code> or the one-shot
-<code>aimu.embed()</code>. Embeddings power semantic similarity, clustering, retrieval, and
-<a href="../use-semantic-memory/">semantic memory</a>.</p>
-<h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># One-shot: a single string returns one vector (list[float])</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">vector</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">embed</span><span class="p">(</span><span class="s2">&quot;The quick brown fox&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:text-embedding-3-small&quot;</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Reusable client (better for many inputs)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">&quot;openai:text-embedding-3-small&quot;</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">vector</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">embed</span><span class="p">(</span><span class="s2">&quot;hello&quot;</span><span class="p">)</span>               <span class="c1"># -&gt; list[float]</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">vectors</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">embed</span><span class="p">([</span><span class="s2">&quot;hello&quot;</span><span class="p">,</span> <span class="s2">&quot;world&quot;</span><span class="p">])</span>   <span class="c1"># -&gt; list[list[float]]</span>
+<h1 id="use-sessions-multi-user">Use sessions (multi-user)<a class="headerlink" href="#use-sessions-multi-user" title="Permanent link">&para;</a></h1>
+<p><a href="../persist-conversations/"><code>ConversationManager</code></a> holds <strong>one</strong> conversation. When a single process
+serves many users or chats (a multi-channel assistant), you need <strong>per-conversation</strong> state keyed by
+who is talking. <code>aimu.sessions</code> provides that: a <code>Session</code> (one conversation's history + optional
+memory scope + metadata) and a <code>SessionStore</code> that persists sessions by key.</p>
+<p>It's a thin, sync layer (same family as <code>MemoryStore</code> / <code>ConversationManager</code>); the async assistant
+loop calls it directly.</p>
+<h2 id="the-pieces">The pieces<a class="headerlink" href="#the-pieces" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.sessions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">Session</span><span class="p">,</span> <span class="n">SessionStore</span><span class="p">,</span> <span class="n">InMemorySessionStore</span><span class="p">,</span> <span class="n">TinyDBSessionStore</span><span class="p">,</span> <span class="n">SessionLocks</span><span class="p">,</span> <span class="n">session_key</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">store</span> <span class="o">=</span> <span class="n">InMemorySessionStore</span><span class="p">()</span>          <span class="c1"># non-durable; or TinyDBSessionStore(&quot;sessions.json&quot;)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">key</span> <span class="o">=</span> <span class="n">session_key</span><span class="p">(</span><span class="s2">&quot;telegram&quot;</span><span class="p">,</span> <span class="s2">&quot;12345&quot;</span><span class="p">)</span>  <span class="c1"># &quot;telegram:12345&quot;  (single-user -&gt; &quot;default:default&quot;)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">session</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>                <span class="c1"># a detached snapshot; empty Session if none stored yet</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">session</span><span class="o">.</span><span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;hi&quot;</span><span class="p">})</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>                     <span class="c1"># persist (create or replace by key)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">store</span><span class="o">.</span><span class="n">list_keys</span><span class="p">()</span>                       <span class="c1"># [&quot;telegram:12345&quot;]</span>
 </span></code></pre></div>
-<p>A single <code>str</code> returns one vector; a list returns a list of vectors in the same order.
-An empty list returns <code>[]</code> without calling the provider. <code>client.dimensions</code> reports the
-vector width declared by the model spec.</p>
-<h2 id="semantic-similarity">Semantic similarity<a class="headerlink" href="#semantic-similarity" title="Permanent link">&para;</a></h2>
-<p>Related text lands close together in vector space; cosine similarity measures it:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">cosine</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">dot</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">y</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">return</span> <span class="n">dot</span> <span class="o">/</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">a</span><span class="p">))</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="n">y</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">b</span><span class="p">)))</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">cat</span><span class="p">,</span> <span class="n">kitten</span><span class="p">,</span> <span class="n">taxes</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">embed</span><span class="p">([</span><span class="s2">&quot;a small cat&quot;</span><span class="p">,</span> <span class="s2">&quot;a tiny kitten&quot;</span><span class="p">,</span> <span class="s2">&quot;quarterly tax filing&quot;</span><span class="p">])</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">cosine</span><span class="p">(</span><span class="n">cat</span><span class="p">,</span> <span class="n">kitten</span><span class="p">)</span>  <span class="c1"># high</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">cosine</span><span class="p">(</span><span class="n">cat</span><span class="p">,</span> <span class="n">taxes</span><span class="p">)</span>   <span class="c1"># low</span>
+<p><code>Session</code> carries <code>messages</code> (plain <code>list[dict]</code> in OpenAI format, the same data an agent uses),
+an optional <code>memory_namespace</code> (a scope you can pass to a <code>MemoryStore</code> to isolate a session's
+memories), and free-form <code>metadata</code>. <code>get</code> returns a <em>detached</em> snapshot, so mutating it does nothing
+until you <code>save</code>.</p>
+<h2 id="routing-a-conversation-to-its-session-the-per-turn-pattern">Routing a conversation to its session (the per-turn pattern)<a class="headerlink" href="#routing-a-conversation-to-its-session-the-per-turn-pattern" title="Permanent link">&para;</a></h2>
+<p>Agents never share a live <code>messages</code> list across sessions. Each turn loads that session's history
+into the agent via the existing <a href="../using-llms-inside-tools/"><code>restore()</code></a> seam, runs, then snapshots
+back. Serialize a single session's turns with <code>SessionLocks</code> while letting different sessions run
+concurrently:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.sessions</span><span class="w"> </span><span class="kn">import</span> <span class="n">InMemorySessionStore</span><span class="p">,</span> <span class="n">SessionLocks</span><span class="p">,</span> <span class="n">session_key</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3:8b&quot;</span><span class="p">),</span> <span class="n">system_message</span><span class="o">=</span><span class="s2">&quot;You are helpful.&quot;</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">store</span> <span class="o">=</span> <span class="n">InMemorySessionStore</span><span class="p">()</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">locks</span> <span class="o">=</span> <span class="n">SessionLocks</span><span class="p">()</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">sender</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">key</span> <span class="o">=</span> <span class="n">session_key</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">sender</span><span class="p">)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">locks</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>                       <span class="c1"># this session&#39;s turns are serialized</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>        <span class="n">session</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="n">agent</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">system_message</span><span class="o">=</span><span class="n">agent</span><span class="o">.</span><span class="n">system_message</span><span class="p">)</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="n">agent</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">messages</span><span class="p">)</span>           <span class="c1"># load THIS conversation</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>        <span class="n">session</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">messages</span><span class="p">)</span>   <span class="c1"># snapshot back</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="k">return</span> <span class="n">reply</span>
 </span></code></pre></div>
-<h2 id="providers">Providers<a class="headerlink" href="#providers" title="Permanent link">&para;</a></h2>
-<p>The <code>embed()</code> surface is identical across providers; pick one with a
-<code>"provider:model_id"</code> string (or a provider <code>EmbeddingModel</code> enum member).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">&quot;openai:text-embedding-3-small&quot;</span><span class="p">)</span>  <span class="c1"># cloud, reads OPENAI_API_KEY</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">&quot;ollama:nomic-embed-text&quot;</span><span class="p">)</span>        <span class="c1"># local server (ollama pull first)</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">&quot;hf:BAAI/bge-small-en-v1.5&quot;</span><span class="p">)</span>      <span class="c1"># local sentence-transformers ([hf] extra)</span>
-</span></code></pre></div>
-<ul>
-<li><strong>OpenAI</strong> (cloud): reads <code>OPENAI_API_KEY</code>.</li>
-<li><strong>Ollama</strong> (local server): pull the model first, e.g. <code>ollama pull nomic-embed-text</code>.</li>
-<li><strong>HuggingFace</strong> (local): backed by <code>sentence-transformers</code> (the <code>[hf]</code> extra), so each
-  model's own pooling/normalization config is honoured. Weights download on first use and
-  are cached; free them with <code>aimu.clear_hf_cache()</code>. Retrieval-tuned models (BGE / E5)
-  expect <code>"query: "</code> / <code>"passage: "</code> prefixes for asymmetric retrieval (pass already-prefixed
-  strings when you need that; symmetric similarity does not).</li>
-</ul>
-<h2 id="available-models">Available models<a class="headerlink" href="#available-models" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Provider</th>
-<th>Enum member</th>
-<th>Model ID</th>
-<th>Dims</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>OpenAI</td>
-<td><code>OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL</code></td>
-<td><code>text-embedding-3-small</code></td>
-<td>1536</td>
-</tr>
-<tr>
-<td>OpenAI</td>
-<td><code>OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE</code></td>
-<td><code>text-embedding-3-large</code></td>
-<td>3072</td>
-</tr>
-<tr>
-<td>Ollama</td>
-<td><code>OllamaEmbeddingModel.NOMIC_EMBED_TEXT</code></td>
-<td><code>nomic-embed-text</code></td>
-<td>768</td>
-</tr>
-<tr>
-<td>Ollama</td>
-<td><code>OllamaEmbeddingModel.MXBAI_EMBED_LARGE</code></td>
-<td><code>mxbai-embed-large</code></td>
-<td>1024</td>
-</tr>
-<tr>
-<td>HuggingFace</td>
-<td><code>HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5</code></td>
-<td><code>BAAI/bge-small-en-v1.5</code></td>
-<td>384</td>
-</tr>
-<tr>
-<td>HuggingFace</td>
-<td><code>HuggingFaceEmbeddingModel.BGE_LARGE_EN_V1_5</code></td>
-<td><code>BAAI/bge-large-en-v1.5</code></td>
-<td>1024</td>
-</tr>
-</tbody>
-</table>
-<p><code>aimu.embedding_client(...).MODELS</code> (or each provider enum) lists the full catalog.</p>
-<h2 id="default-model-via-env-var">Default model via env var<a class="headerlink" href="#default-model-via-env-var" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AIMU_EMBEDDING_MODEL</span><span class="o">=</span><span class="s2">&quot;openai:text-embedding-3-small&quot;</span>
-</span></code></pre></div>
-<p>Then <code>aimu.embedding_client()</code> and <code>aimu.embed()</code> resolve the model without an explicit
-argument. No model is ever downloaded implicitly; if the var is unset and no model is
-passed, a <code>ValueError</code> is raised.</p>
-<h2 id="pluggable-embeddings-in-semantic-memory">Pluggable embeddings in semantic memory<a class="headerlink" href="#pluggable-embeddings-in-semantic-memory" title="Permanent link">&para;</a></h2>
-<p><code>SemanticMemoryStore</code> uses ChromaDB's built-in embedding model by default. Pass
-<code>embedding_client=</code> to choose your own model instead:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">SemanticMemoryStore</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">SemanticMemoryStore</span><span class="p">(</span><span class="n">embedding_client</span><span class="o">=</span><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">&quot;openai:text-embedding-3-small&quot;</span><span class="p">))</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">store</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;Paul works at Google&quot;</span><span class="p">)</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">store</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;employment&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<p>A custom embedding model is not persisted in the collection config, so reopen a persistent
-store with the same <code>embedding_client=</code>.</p>
-<h2 id="async-surface">Async surface<a class="headerlink" href="#async-surface" title="Permanent link">&para;</a></h2>
-<p>Embedding clients have no chat lifecycle, so the async surface wraps a sync client and
-routes <code>embed()</code> through <code>asyncio.to_thread</code> (the same pattern as the other modalities).
-Construct a sync client first, then wrap it.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">sync_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">&quot;openai:text-embedding-3-small&quot;</span><span class="p">)</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="n">sync_client</span><span class="p">)</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">vectors</span> <span class="o">=</span> <span class="k">await</span> <span class="n">async_client</span><span class="o">.</span><span class="n">embed</span><span class="p">([</span><span class="s2">&quot;alpha&quot;</span><span class="p">,</span> <span class="s2">&quot;beta&quot;</span><span class="p">])</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">vectors</span><span class="p">),</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">vectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<p>Different users (different keys) hold different locks, so <code>handle("telegram", "A", ...)</code> and
+<code>handle("telegram", "B", ...)</code> run concurrently while a single user's turns never interleave.</p>
+<h2 id="single-user">Single user<a class="headerlink" href="#single-user" title="Permanent link">&para;</a></h2>
+<p>Single-user needs no ceremony: <code>session_key(None, None)</code> is <code>"default:default"</code>, so one fixed key
+holds the only conversation. (If that's all you need, plain <code>ConversationManager</code> is also fine.)</p>
+<h2 id="durable-sessions">Durable sessions<a class="headerlink" href="#durable-sessions" title="Permanent link">&para;</a></h2>
+<p>Swap the store; the rest is unchanged. <code>TinyDBSessionStore</code> writes one row per session and survives
+restarts:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">store</span> <span class="o">=</span> <span class="n">TinyDBSessionStore</span><span class="p">(</span><span class="s2">&quot;sessions.json&quot;</span><span class="p">)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># ... same handle() loop; sessions reload on the next run.</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">store</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../use-semantic-memory/">Use semantic memory</a>: store and retrieve facts by meaning</li>
-<li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/11%20-%20Embeddings.ipynb">11 - Embeddings</a></li>
+<li><a href="../persist-conversations/">Persist conversations</a>: <code>ConversationManager</code> (single conversation)</li>
+<li><a href="../build-personal-assistant/">Build a personal assistant</a>: channels, scheduler, skills</li>
+<li><a href="../../reference/api/sessions/"><code>aimu.sessions</code> API reference</a></li>
 </ul>
 
 
