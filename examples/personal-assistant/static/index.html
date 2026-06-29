@@ -88,7 +88,13 @@
         addBubble("tool", toolLine(frame.name, frame.arguments));
       } else if (frame.type === "token") {
         thinkingBlock = null;
-        if (!streamingBubble) streamingBubble = addBubble("assistant", "");
+        if (!streamingBubble) {
+          streamingBubble = addBubble("assistant", "");
+        } else if (log.lastElementChild !== streamingBubble) {
+          // New answer content after an intervening thinking/tool block: float the answer
+          // to the bottom so it never sits above later reasoning.
+          log.appendChild(streamingBubble);  // moves the existing node to the end
+        }
         streamingBubble.textContent += frame.text;
         log.scrollTop = log.scrollHeight;
       } else if (frame.type === "done") {
