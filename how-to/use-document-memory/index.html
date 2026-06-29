@@ -1523,6 +1523,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Use as in-process agent tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-based-document-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path-based document tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2921,6 +2938,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Use as in-process agent tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-based-document-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path-based document tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3030,8 +3064,15 @@
 </span></code></pre></div>
 <p><code>search_memories</code> on a <code>DocumentStore</code> does case-insensitive full-text search (the same as <code>search_full_text()</code>), while on a <code>SemanticMemoryStore</code> it does vector similarity search. The agent interface is identical for both.</p>
 <p>Pass the result to <code>make_tools(..., memory_store=store)</code> to combine memory with the full built-in tool set.</p>
+<h3 id="path-based-document-tools">Path-based document tools<a class="headerlink" href="#path-based-document-tools" title="Permanent link">&para;</a></h3>
+<p><code>make_memory_tools</code> exposes the generic <code>MemoryStore</code> interface (store / search / list). To give an agent the document store's richer path-based API, use <code>make_document_tools(store)</code>, which returns <code>save_document(path, content)</code>, <code>read_document(path)</code>, <code>list_documents()</code>, and <code>search_documents(query)</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_document_tools</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">agent</span><span class="o">.</span><span class="n">tools</span> <span class="o">+=</span> <span class="n">make_document_tools</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Because these tool names are distinct from <code>make_memory_tools</code>' (<code>store_memory</code> etc.), one agent can carry both: a <code>SemanticMemoryStore</code> for facts and a <code>DocumentStore</code> for documents. This is exactly how the <a href="../build-personal-assistant/">personal-assistant example</a> wires memory. These are the in-process counterpart to the <code>aimu.memory.document_mcp</code> server below.</p>
 <h2 id="expose-as-mcp-tools">Expose as MCP tools<a class="headerlink" href="#expose-as-mcp-tools" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">DOCUMENT_STORE_PATH</span><span class="o">=</span>./doc_store<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>aimu.memory.document_mcp
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">DOCUMENT_STORE_PATH</span><span class="o">=</span>./doc_store<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>aimu.memory.document_mcp
 </span></code></pre></div>
 <p>Registers <code>memory_list</code>, <code>memory_search</code>, <code>memory_read</code>, <code>memory_write</code>, <code>memory_edit</code>, <code>memory_delete</code> (matching Anthropic's API naming).</p>
 <h2 id="when-to-pick-this-vs-semantic-memory">When to pick this vs semantic memory<a class="headerlink" href="#when-to-pick-this-vs-semantic-memory" title="Permanent link">&para;</a></h2>
