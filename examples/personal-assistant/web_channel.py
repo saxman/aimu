@@ -56,9 +56,9 @@ class WebChannel(Channel):
             await self._safe_send({"type": "message", "text": content, "proactive": reply_to is None})
             return
         async for chunk in content:
-            if chunk.phase == StreamingContentType.GENERATING:
+            if chunk.phase == StreamingContentType.GENERATING and chunk.content:
                 await self._safe_send({"type": "token", "text": chunk.content})
-            elif chunk.phase == StreamingContentType.THINKING and self.show_thinking:
+            elif chunk.phase == StreamingContentType.THINKING and self.show_thinking and chunk.content:
                 await self._safe_send({"type": "thinking", "text": chunk.content})
             elif chunk.phase == StreamingContentType.TOOL_CALLING and self.show_tools:
                 call = chunk.content if isinstance(chunk.content, dict) else {}

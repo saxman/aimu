@@ -83,6 +83,21 @@ async def test_web_channel_emits_thinking_and_tool_frames_when_enabled():
     ]
 
 
+async def test_web_channel_skips_empty_generating_chunks():
+    # An empty GENERATING chunk (e.g. Ollama's trailing `done` part) must not become a token frame
+    # / stray empty response bubble.
+    ws = _FakeWS()
+    channel = WebChannel(ws)
+
+    async def gen():
+        yield StreamChunk(StreamingContentType.GENERATING, "")
+        yield StreamChunk(StreamingContentType.GENERATING, "hi")
+        yield StreamChunk(StreamingContentType.GENERATING, "")
+
+    await channel.send(gen())
+    assert ws.frames == [{"type": "token", "text": "hi"}, {"type": "done"}]
+
+
 async def test_web_channel_omits_thinking_and_tool_frames_by_default():
     ws = _FakeWS()
     channel = WebChannel(ws)  # defaults: show_thinking / show_tools off

@@ -188,46 +188,9 @@ class AsyncOllamaClient(AsyncBaseModelClient):
 
     async def _chat_streamed(self, generate_kwargs: dict, tools: list) -> AsyncIterator[StreamChunk]:
         self.last_usage = None
-        response = await self._client.chat(
-            model=self.model.value,
-            messages=_adapt_messages_for_ollama(self.messages),
-            options=generate_kwargs,
-            tools=tools,
-            stream=True,
-            think=self.is_thinking_model,
-            keep_alive=self.model_keep_alive_seconds,
-        )
 
-        response_iter = response.__aiter__()
-        response_part = await response_iter.__anext__()
-
-        thinking = ""
-        if response_part["message"].thinking:
-            thinking = response_part["message"].thinking
-            yield StreamChunk(StreamingContentType.THINKING, thinking)
-            while True:
-                response_part = await response_iter.__anext__()
-                if response_part["message"].thinking:
-                    thinking += response_part["message"].thinking
-                    yield StreamChunk(StreamingContentType.THINKING, response_part["message"].thinking)
-                else:
-                    break
-
-        if response_part["message"].tool_calls:
-            tool_calls = [
-                {"name": tc.function.name, "arguments": tc.function.arguments}
-                for tc in response_part["message"].tool_calls
-            ]
-
-            msgs_before = len(self.messages)
-            async for chunk in self._handle_tool_calls_streamed(tool_calls):
-                yield chunk
-
-            if thinking:
-                self.messages[msgs_before]["thinking"] = thinking
-                thinking = ""
-
-            response = await self._client.chat(
+        async def _open():
+            return await self._client.chat(
                 model=self.model.value,
                 messages=_adapt_messages_for_ollama(self.messages),
                 options=generate_kwargs,
@@ -236,32 +199,61 @@ class AsyncOllamaClient(AsyncBaseModelClient):
                 think=self.is_thinking_model,
                 keep_alive=self.model_keep_alive_seconds,
             )
-            response_iter = response.__aiter__()
-            response_part = await response_iter.__anext__()
 
-            thinking = ""
-            if response_part["message"].thinking:
-                thinking = response_part["message"].thinking
-                yield StreamChunk(StreamingContentType.THINKING, thinking)
-                while True:
-                    response_part = await response_iter.__anext__()
-                    if response_part["message"].thinking:
-                        thinking += response_part["message"].thinking
-                        yield StreamChunk(StreamingContentType.THINKING, response_part["message"].thinking)
-                    else:
-                        break
+        # First turn. Consume the whole stream, collecting tool calls from ANY part (Ollama can
+        # emit an empty transitional part before the one carrying tool_calls) and streaming only
+        # non-empty content (so empty/transitional/done parts never surface as stray output).
+        turn = {}
+        async for chunk in self._consume_turn(await _open(), turn):
+            yield chunk
 
-        content = response_part["message"].content
-        yield StreamChunk(StreamingContentType.GENERATING, content)
+        if turn["tool_calls"]:
+            msgs_before = len(self.messages)
+            async for chunk in self._handle_tool_calls_streamed(turn["tool_calls"]):
+                yield chunk
+            if turn["thinking"]:
+                self.messages[msgs_before]["thinking"] = turn["thinking"]
+            if turn["last_part"] is not None:
+                self.last_usage = usage_from_ollama(turn["last_part"])
 
-        async for response_part in response_iter:
-            content += response_part["message"].content
-            yield StreamChunk(StreamingContentType.GENERATING, response_part["message"].content)
+            # Follow-up turn after the tool results (the Agent loop drives any further rounds).
+            turn = {}
+            async for chunk in self._consume_turn(await _open(), turn):
+                yield chunk
 
-        message = {"role": response_part["message"].role, "content": content}
-        if thinking:
-            message["thinking"] = thinking
+        message = {"role": turn["role"], "content": turn["content"]}
+        if turn["thinking"]:
+            message["thinking"] = turn["thinking"]
         self.messages.append(message)
+        if turn["last_part"] is not None:
+            self.last_usage = usage_from_ollama(turn["last_part"])
 
-        # The final part (done=true) of the last stream carries the eval counts.
-        self.last_usage = usage_from_ollama(response_part)
+    @staticmethod
+    async def _consume_turn(response, out: dict) -> AsyncIterator[StreamChunk]:
+        """Stream one Ollama turn: yield THINKING and non-empty GENERATING chunks, and record
+        ``thinking`` / ``content`` / ``tool_calls`` / ``role`` / ``last_part`` into ``out``.
+
+        Collecting tool_calls across every part (not just the first non-thinking one) is what
+        makes a tool call survive an empty transitional part; skipping empty content keeps the
+        per-part empty ``done`` chunk from rendering as a stray response.
+        """
+        thinking = content = ""
+        role = "assistant"
+        tool_calls: list = []
+        last_part = None
+        async for part in response:
+            msg = part["message"]
+            last_part = part
+            if msg.role:
+                role = msg.role
+            if msg.thinking:
+                thinking += msg.thinking
+                yield StreamChunk(StreamingContentType.THINKING, msg.thinking)
+            if msg.tool_calls:
+                tool_calls.extend(
+                    {"name": tc.function.name, "arguments": tc.function.arguments} for tc in msg.tool_calls
+                )
+            if msg.content:
+                content += msg.content
+                yield StreamChunk(StreamingContentType.GENERATING, msg.content)
+        out.update(thinking=thinking, content=content, tool_calls=tool_calls, role=role, last_part=last_part)

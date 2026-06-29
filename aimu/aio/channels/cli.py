@@ -73,7 +73,7 @@ class CLIChannel(Channel):
         section = None
         async for chunk in content:
             if chunk.phase == StreamingContentType.THINKING:
-                if not self.show_thinking:
+                if not self.show_thinking or not chunk.content:
                     continue
                 if section != "thinking":
                     sys.stdout.write("\n[thinking] ")
@@ -87,6 +87,8 @@ class CLIChannel(Channel):
                 sys.stdout.flush()
                 section = None
             elif chunk.phase == StreamingContentType.GENERATING:
+                if not chunk.content:
+                    continue
                 if section == "thinking":
                     sys.stdout.write("\n")
                 section = "text"

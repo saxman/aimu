@@ -265,45 +265,9 @@ class OllamaClient(BaseModelClient):
 
     def _chat_streamed(self, generate_kwargs: dict, tools: list) -> Iterator[StreamChunk]:
         self.last_usage = None
-        response = self._client.chat(
-            model=self.model.value,
-            messages=_adapt_messages_for_ollama(self.messages),
-            options=generate_kwargs,
-            tools=tools,
-            stream=True,
-            think=self.is_thinking_model,
-            keep_alive=self.model_keep_alive_seconds,
-        )
 
-        response_part = next(response)
-        logger.debug("LLM raw response part: %s", response_part)
-
-        thinking = ""
-        if response_part["message"].thinking:
-            thinking = response_part["message"].thinking
-            yield StreamChunk(StreamingContentType.THINKING, thinking)
-            for response_part in response:
-                logger.debug("LLM raw response part: %s", response_part)
-                if response_part["message"].thinking:
-                    thinking += response_part["message"].thinking
-                    yield StreamChunk(StreamingContentType.THINKING, response_part["message"].thinking)
-                else:
-                    break
-
-        if response_part["message"].tool_calls:
-            tool_calls = [
-                {"name": tc.function.name, "arguments": tc.function.arguments}
-                for tc in response_part["message"].tool_calls
-            ]
-
-            msgs_before = len(self.messages)
-            yield from self._handle_tool_calls_streamed(tool_calls)
-
-            if thinking:
-                self.messages[msgs_before]["thinking"] = thinking
-                thinking = ""
-
-            response = self._client.chat(
+        def _open():
+            return self._client.chat(
                 model=self.model.value,
                 messages=_adapt_messages_for_ollama(self.messages),
                 options=generate_kwargs,
@@ -313,36 +277,61 @@ class OllamaClient(BaseModelClient):
                 keep_alive=self.model_keep_alive_seconds,
             )
 
-            response_part = next(response)
-            logger.debug("LLM raw response part: %s", response_part)
+        # First turn. Consume the whole stream, collecting tool calls from ANY part (Ollama can
+        # emit an empty transitional part before the one carrying tool_calls) and streaming only
+        # non-empty content (so empty/transitional/done parts never surface as stray output).
+        turn = {}
+        yield from self._consume_turn(_open(), turn)
 
-            thinking = ""
-            if response_part["message"].thinking:
-                thinking = response_part["message"].thinking
-                yield StreamChunk(StreamingContentType.THINKING, thinking)
-                for response_part in response:
-                    logger.debug("LLM raw response part: %s", response_part)
-                    if response_part["message"].thinking:
-                        thinking += response_part["message"].thinking
-                        yield StreamChunk(StreamingContentType.THINKING, response_part["message"].thinking)
-                    else:
-                        break
+        if turn["tool_calls"]:
+            msgs_before = len(self.messages)
+            yield from self._handle_tool_calls_streamed(turn["tool_calls"])
+            if turn["thinking"]:
+                self.messages[msgs_before]["thinking"] = turn["thinking"]
+            if turn["last_part"] is not None:
+                self.last_usage = usage_from_ollama(turn["last_part"])
 
-        content = response_part["message"].content
-        yield StreamChunk(StreamingContentType.GENERATING, content)
+            # Follow-up turn after the tool results (the Agent loop drives any further rounds).
+            turn = {}
+            yield from self._consume_turn(_open(), turn)
 
-        for response_part in response:
-            logger.debug("LLM raw response part: %s", response_part)
-            content += response_part["message"].content
-            yield StreamChunk(StreamingContentType.GENERATING, response_part["message"].content)
-
-        message = {"role": response_part["message"].role, "content": content}
-        if thinking:
-            message["thinking"] = thinking
+        message = {"role": turn["role"], "content": turn["content"]}
+        if turn["thinking"]:
+            message["thinking"] = turn["thinking"]
         self.messages.append(message)
+        if turn["last_part"] is not None:
+            self.last_usage = usage_from_ollama(turn["last_part"])
 
-        # The final part (done=true) of the last stream carries the eval counts.
-        self.last_usage = usage_from_ollama(response_part)
+    @staticmethod
+    def _consume_turn(response, out: dict) -> Iterator[StreamChunk]:
+        """Stream one Ollama turn: yield THINKING and non-empty GENERATING chunks, and record
+        ``thinking`` / ``content`` / ``tool_calls`` / ``role`` / ``last_part`` into ``out``.
+
+        Collecting tool_calls across every part (not just the first non-thinking one) is what
+        makes a tool call survive an empty transitional part; skipping empty content keeps the
+        per-part empty ``done`` chunk from rendering as a stray response.
+        """
+        thinking = content = ""
+        role = "assistant"
+        tool_calls: list = []
+        last_part = None
+        for part in response:
+            logger.debug("LLM raw response part: %s", part)
+            msg = part["message"]
+            last_part = part
+            if msg.role:
+                role = msg.role
+            if msg.thinking:
+                thinking += msg.thinking
+                yield StreamChunk(StreamingContentType.THINKING, msg.thinking)
+            if msg.tool_calls:
+                tool_calls.extend(
+                    {"name": tc.function.name, "arguments": tc.function.arguments} for tc in msg.tool_calls
+                )
+            if msg.content:
+                content += msg.content
+                yield StreamChunk(StreamingContentType.GENERATING, msg.content)
+        out.update(thinking=thinking, content=content, tool_calls=tool_calls, role=role, last_part=last_part)
 
 
 class OllamaEmbeddingModel(EmbeddingModel):
