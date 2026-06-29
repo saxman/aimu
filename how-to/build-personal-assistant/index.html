@@ -759,6 +759,8 @@
       
         
       
+        
+      
     
     
     
@@ -943,6 +945,34 @@
     
   
     Use MCP tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gate-tool-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate tool calls
   
 
     
@@ -3092,6 +3122,11 @@ and inputs you trust. (<code>builtin.execute_python</code> is the sandboxed alte
 no filesystem or subprocess access.) The subprocess also blocks the event loop for up to its
 30-second timeout.</p>
 </div>
+<p>Because of that, the example gates the full-access <code>add_skill_script</code> tool with a
+<a href="../gate-tool-calls/">tool-approval hook</a>: by default the CLI front end asks for a y/n confirmation in
+the terminal before a script is authored (<code>assistant.py</code>'s <code>CONFIRM_BEFORE</code> set and
+<code>_confirm_in_terminal</code> policy, passed to <code>Assistant.create(tool_approval=...)</code>). Edit <code>CONFIRM_BEFORE</code>
+to gate more tools, or pass <code>tool_approval=None</code> to disable.</p>
 <h2 id="wire-it-into-a-daemon">Wire it into a daemon<a class="headerlink" href="#wire-it-into-a-daemon" title="Permanent link">&para;</a></h2>
 <p>The pieces compose into one process: a top-level <code>asyncio.TaskGroup</code> runs the channel listener
 and the scheduler concurrently; each inbound message runs the agent and streams the reply back;

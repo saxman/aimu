@@ -757,6 +757,8 @@
       
         
       
+        
+      
     
     
     
@@ -938,6 +940,34 @@
     
   
     Use MCP tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/gate-tool-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate tool calls
   
 
     
@@ -4542,6 +4572,7 @@ not this stub.
 <ul>
 <li><strong>New</strong> <code>MCPClient</code> (sync <code>aimu.tools.MCPClient</code> + async <code>aimu.aio.MCPClient</code>) accepts a remote server by <code>url=</code>, plus <code>auth=</code> (a bearer-token string or <code>"oauth"</code>) and <code>headers=</code>. A <code>url=</code> is folded into a single-server <code>mcpServers</code> config so FastMCP infers SSE vs streamable-HTTP and applies auth/headers in one path (shared <code>_build_transport</code> helper); <code>auth</code>/<code>headers</code> without <code>url</code> raises. This makes hosted MCP services usable through the existing <code>as_tools()</code> path with no config-dict boilerplate.</li>
 <li><strong>New</strong> <code>make_document_tools(store)</code> in <code>aimu.tools.builtin</code> (parallel to <code>make_memory_tools</code>): wraps a <code>DocumentStore</code>'s path API as <code>save_document</code> / <code>read_document</code> / <code>list_documents</code> / <code>search_documents</code> <code>@tool</code>s. The names are distinct from <code>make_memory_tools</code>' triad, so one agent can carry both a <code>SemanticMemoryStore</code> (facts) and a <code>DocumentStore</code> (documents). <code>make_memory_tools</code>, <code>make_document_tools</code>, and <code>make_retrieval_tool</code> are now re-exported from <code>aimu.aio.tools.builtin</code> for async discoverability.</li>
+<li><strong>New</strong> <strong>tool-call approval hook</strong> (<code>aimu.ToolApproval</code> + <code>aimu.approve_all</code>): an optional gate <code>(tool_name, arguments) -&gt; bool</code> run right before each tool call; deny appends a refusal tool message so the model can react. Additive and <strong>off by default</strong> (approves everything). Set it on a client (<code>client.tool_approval = policy</code>) for bare <code>chat()</code>, or on an <code>Agent</code> (<code>Agent(tool_approval=...)</code> / per-run <code>run(tool_approval=...)</code>), on <strong>both</strong> the sync and <code>aimu.aio</code> surfaces (async policies may be coroutines). It gates every dispatch path (non-streaming, streaming, concurrent). The personal-assistant example uses it to confirm the full-access <code>add_skill_script</code> tool in the terminal by default. How-to: <a href="https://saxman.github.io/aimu/how-to/gate-tool-calls/">Gate tool calls</a>.</li>
 </ul>
 <h3 id="examples-docs">Examples &amp; docs<a class="headerlink" href="#examples-docs" title="Permanent link">&para;</a></h3>
 <ul>
