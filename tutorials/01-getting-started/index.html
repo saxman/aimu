@@ -2998,6 +2998,10 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ollama<span class="w"> </span>pull<span class="w"> </span>qwen3.5:9b
 </span></code></pre></div>
 <p>For cloud providers instead, use <code>pip install aimu[anthropic]</code> (or <code>[openai_compat]</code>) and set the corresponding API key in your environment. Every example below works identically; only the model string changes.</p>
+<div class="admonition note">
+<p class="admonition-title">Newest features live on <code>main</code></p>
+<p>AIMU's PyPI release can lag the <code>main</code> branch, which carries the <strong>same version string</strong> as the last release. Features listed under <strong>Unreleased</strong> in the <a href="../../changelog/">changelog</a> are on <code>main</code> but not yet on PyPI. To use them, install from source until the next release: <code>pip install "aimu[ollama] @ git+https://github.com/saxman/aimu@main"</code> (swap in whichever extras you need).</p>
+</div>
 <h2 id="2-your-first-chat">2. Your first chat<a class="headerlink" href="#2-your-first-chat" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>

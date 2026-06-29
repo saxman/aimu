@@ -1627,17 +1627,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#memory-facts-documents" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Memory (facts + documents)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#wire-it-into-a-daemon" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2913,17 +2902,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#memory-facts-documents" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Memory (facts + documents)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#wire-it-into-a-daemon" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3114,72 +3092,46 @@ and inputs you trust. (<code>builtin.execute_python</code> is the sandboxed alte
 no filesystem or subprocess access.) The subprocess also blocks the event loop for up to its
 30-second timeout.</p>
 </div>
-<h2 id="memory-facts-documents">Memory (facts + documents)<a class="headerlink" href="#memory-facts-documents" title="Permanent link">&para;</a></h2>
-<p>An assistant should remember the user across conversations. AIMU's memory stores plug in as tools, and
-the two kinds of memory are complementary, so an assistant can carry both at once:</p>
-<ul>
-<li>a <a href="../use-semantic-memory/"><code>SemanticMemoryStore</code></a> for short <strong>facts</strong> about the user (semantic recall),
-  exposed via <code>make_memory_tools</code> as <code>store_memory</code> / <code>search_memories</code> / <code>list_memories</code>;</li>
-<li>a <a href="../use-document-memory/"><code>DocumentStore</code></a> for longer <strong>documents</strong> the user provides as reference,
-  exposed via <code>make_document_tools</code> as <code>save_document</code> / <code>read_document</code> / <code>list_documents</code> /
-  <code>search_documents</code>.</li>
-</ul>
-<p>The tool names are distinct, so both sets coexist on one agent. Give each store a <code>persist_path</code> so it
-survives restarts (and spans conversations, unlike per-conversation history):</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">paths</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">SemanticMemoryStore</span><span class="p">,</span> <span class="n">DocumentStore</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_memory_tools</span><span class="p">,</span> <span class="n">make_document_tools</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">facts</span> <span class="o">=</span> <span class="n">SemanticMemoryStore</span><span class="p">(</span><span class="n">persist_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">output</span> <span class="o">/</span> <span class="s2">&quot;assistant&quot;</span> <span class="o">/</span> <span class="s2">&quot;memory&quot;</span><span class="p">))</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">docs</span> <span class="o">=</span> <span class="n">DocumentStore</span><span class="p">(</span><span class="n">persist_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">output</span> <span class="o">/</span> <span class="s2">&quot;assistant&quot;</span> <span class="o">/</span> <span class="s2">&quot;documents&quot;</span><span class="p">))</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">SkillAgent</span><span class="p">(</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3:8b&quot;</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s2">&quot;You are a helpful assistant. ...&quot;</span><span class="p">),</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">tools</span><span class="o">=</span><span class="n">make_memory_tools</span><span class="p">(</span><span class="n">facts</span><span class="p">)</span> <span class="o">+</span> <span class="n">make_document_tools</span><span class="p">(</span><span class="n">docs</span><span class="p">),</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="p">)</span>
-</span></code></pre></div>
-<p>These are sync tools; the async agent dispatches them through <code>asyncio.to_thread</code>, so no async wrapper
-is needed. Tell the model <em>when</em> to use them in the system prompt (proactively store durable facts,
-search before answering, save provided notes as documents), or they will sit unused.</p>
 <h2 id="wire-it-into-a-daemon">Wire it into a daemon<a class="headerlink" href="#wire-it-into-a-daemon" title="Permanent link">&para;</a></h2>
 <p>The pieces compose into one process: a top-level <code>asyncio.TaskGroup</code> runs the channel listener
 and the scheduler concurrently; each inbound message runs the agent and streams the reply back;
 history is persisted after each turn.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio</span><span class="w"> </span><span class="kn">import</span> <span class="n">CLIChannel</span><span class="p">,</span> <span class="n">Scheduler</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.history</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConversationManager</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">channel</span> <span class="o">=</span> <span class="n">CLIChannel</span><span class="p">()</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">scheduler</span> <span class="o">=</span> <span class="n">Scheduler</span><span class="p">()</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="n">conversation</span> <span class="o">=</span> <span class="n">ConversationManager</span><span class="p">(</span><span class="s2">&quot;assistant_history.json&quot;</span><span class="p">,</span> <span class="n">use_last_conversation</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="c1"># ... build agent with author_skill as above; restore prior messages with agent.restore(...) ...</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">serve</span><span class="p">():</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>            <span class="k">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">receive</span><span class="p">():</span>
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>                <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="n">msg</span><span class="o">.</span><span class="n">images</span><span class="p">)</span>
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>                <span class="k">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">reply</span><span class="p">,</span> <span class="n">reply_to</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span>
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>                <span class="n">conversation</span><span class="o">.</span><span class="n">update_conversation</span><span class="p">([</span><span class="nb">dict</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">messages</span><span class="p">])</span>
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>        <span class="k">finally</span><span class="p">:</span>
-</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>            <span class="n">scheduler</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>        <span class="c1"># channel closed (EOF) -&gt; stop the scheduler so run() returns</span>
-</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>
-</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TaskGroup</span><span class="p">()</span> <span class="k">as</span> <span class="n">tg</span><span class="p">:</span>
-</span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>        <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">serve</span><span class="p">())</span>
-</span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>        <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">scheduler</span><span class="o">.</span><span class="n">run</span><span class="p">())</span>
-</span><span id="__span-7-24"><a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>
-</span><span id="__span-7-25"><a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio</span><span class="w"> </span><span class="kn">import</span> <span class="n">CLIChannel</span><span class="p">,</span> <span class="n">Scheduler</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.history</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConversationManager</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">channel</span> <span class="o">=</span> <span class="n">CLIChannel</span><span class="p">()</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">scheduler</span> <span class="o">=</span> <span class="n">Scheduler</span><span class="p">()</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">conversation</span> <span class="o">=</span> <span class="n">ConversationManager</span><span class="p">(</span><span class="s2">&quot;assistant_history.json&quot;</span><span class="p">,</span> <span class="n">use_last_conversation</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="c1"># ... build agent with author_skill as above; restore prior messages with agent.restore(...) ...</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">serve</span><span class="p">():</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>        <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>            <span class="k">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">receive</span><span class="p">():</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>                <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="n">msg</span><span class="o">.</span><span class="n">images</span><span class="p">)</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>                <span class="k">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">reply</span><span class="p">,</span> <span class="n">reply_to</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>                <span class="n">conversation</span><span class="o">.</span><span class="n">update_conversation</span><span class="p">([</span><span class="nb">dict</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">messages</span><span class="p">])</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>        <span class="k">finally</span><span class="p">:</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>            <span class="n">scheduler</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>        <span class="c1"># channel closed (EOF) -&gt; stop the scheduler so run() returns</span>
+</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TaskGroup</span><span class="p">()</span> <span class="k">as</span> <span class="n">tg</span><span class="p">:</span>
+</span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a>        <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">serve</span><span class="p">())</span>
+</span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a>        <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">scheduler</span><span class="o">.</span><span class="n">run</span><span class="p">())</span>
+</span><span id="__span-6-24"><a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>
+</span><span id="__span-6-25"><a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
 <p>The reference app in <code>examples/personal-assistant/</code> is this, fleshed out: serialize reactive and
 proactive turns with a lock (they share one agent), an argparse entry point, and mock-only tests.
-It also gives the agent AIMU's <a href="../add-custom-tool/">built-in tools</a> by group via a <code>--tools</code> flag
-(<code>builtin.web</code> / <code>fs</code> / <code>compute</code> / <code>misc</code> by default; generative groups opt-in). The built-ins are
-sync functions, and the async agent dispatches them through <code>asyncio.to_thread</code>, so they attach to
-<code>agent.tools</code> with no wrapping.</p>
+It also gives the agent a small fixed set of AIMU <a href="../add-custom-tool/">built-in tools</a>
+(<code>builtin.web + builtin.misc</code>). The built-ins are sync functions, and the async agent dispatches
+them through <code>asyncio.to_thread</code>, so they attach to <code>agent.tools</code> with no wrapping. The example is
+kept intentionally minimal; selectable tool groups, <a href="../use-mcp-tools/">remote MCP servers</a>, and
+<a href="../use-semantic-memory/">persistent memory</a> are capabilities AIMU ships but the example leaves out.</p>
 <p>Run it:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>examples/personal-assistant/assistant.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-6<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">30</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>examples/personal-assistant/assistant.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-6<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">30</span>
 </span></code></pre></div>
 <h2 id="web-front-end">Web front end<a class="headerlink" href="#web-front-end" title="Permanent link">&para;</a></h2>
 <p>Because the assistant loop consumes any <code>Channel</code>, a browser UI is just a different <code>Channel</code>
@@ -3196,12 +3148,11 @@ unprompted, the property a request/response UI (Streamlit/Gradio) can't provide 
 channels can surface the model's reasoning and tool calls, not just the final answer. <code>CLIChannel</code>
 takes opt-in <code>show_thinking</code> / <code>show_tools</code> flags (off by default to keep the library channel
 minimal); the example-local <code>WebChannel</code> emits <code>thinking</code> / <code>tool</code> frames the page renders as
-distinct blocks. The personal-assistant example turns both on by default (<code>--no-show-thinking</code> /
-<code>--no-show-tools</code> to hide), threading <code>AssistantConfig.show_thinking</code> / <code>show_tools</code> into each
-channel.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>web<span class="o">]</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>python<span class="w"> </span>examples/personal-assistant/web_assistant.py<span class="w"> </span>--model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">20</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># open http://127.0.0.1:8000</span>
+distinct blocks. The personal-assistant example turns both on, threading
+<code>AssistantConfig.show_thinking</code> / <code>show_tools</code> into each channel.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>web<span class="o">]</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python<span class="w"> </span>examples/personal-assistant/web_assistant.py<span class="w"> </span>--model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">20</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># open http://127.0.0.1:8000</span>
 </span></code></pre></div>
 <p>The <code>WebChannel</code> lives in the example (not the library): a web server is app-layer, and keeping it
 out of <code>aimu.aio</code> keeps the library free of a web-framework dependency. It is a worked example of
@@ -3211,6 +3162,7 @@ extending the <code>Channel</code> ABC, the same seam a Telegram or Slack adapte
 <li><a href="../use-skills/">Use skills</a>: the <code>SkillAgent</code> and <code>SKILL.md</code> format the authoring tool writes to</li>
 <li><a href="../use-async/">Use async (<code>aio</code>)</a>: the async surface these primitives live on</li>
 <li><a href="../persist-conversations/">Persist conversations</a>: <code>ConversationManager</code></li>
+<li>Add capabilities the example leaves out: <a href="../use-mcp-tools/">use MCP tools</a>, <a href="../use-semantic-memory/">semantic memory</a>, <a href="../use-document-memory/">document memory</a></li>
 <li><a href="../../reference/api/aio/"><code>aimu.aio</code> API reference</a> · <a href="../../reference/api/skills/"><code>aimu.skills</code> API reference</a></li>
 </ul>
 
