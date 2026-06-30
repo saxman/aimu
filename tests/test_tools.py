@@ -104,15 +104,33 @@ def test_build_transport_url_builds_single_server_config():
     """url= expands to a one-server mcpServers config, folding in headers and auth."""
     from aimu.tools.client import _build_transport
 
-    transport = _build_transport(None, None, None, "https://mcp.example.com/sse", "tok", {"X-Api-Key": "k"})
+    transport, client_auth = _build_transport(None, None, None, "https://mcp.example.com/sse", "tok", {"X-Api-Key": "k"})
     assert transport == {
         "mcpServers": {"server": {"url": "https://mcp.example.com/sse", "headers": {"X-Api-Key": "k"}, "auth": "tok"}}
     }
+    assert client_auth is None
 
     # url alone (no auth/headers) -> bare url entry.
-    assert _build_transport(None, None, None, "https://mcp.example.com/mcp", None, None) == {
-        "mcpServers": {"server": {"url": "https://mcp.example.com/mcp"}}
-    }
+    transport, client_auth = _build_transport(None, None, None, "https://mcp.example.com/mcp", None, None)
+    assert transport == {"mcpServers": {"server": {"url": "https://mcp.example.com/mcp"}}}
+    assert client_auth is None
+
+
+def test_build_transport_forwards_non_string_auth_object():
+    """A non-string auth provider (e.g. a configured OAuth) is returned as client_auth, with the bare url."""
+    from aimu.tools.client import _build_transport
+
+    class FakeOAuth:
+        pass
+
+    provider = FakeOAuth()
+    transport, client_auth = _build_transport(None, None, None, "https://mcp.example.com/mcp", provider, None)
+    assert transport == "https://mcp.example.com/mcp"
+    assert client_auth is provider
+
+    # A provider object cannot be combined with headers (OAuth doesn't fold custom headers here).
+    with pytest.raises(MCPConnectionError, match="cannot be combined"):
+        _build_transport(None, None, None, "https://mcp.example.com/mcp", provider, {"X-Api-Key": "k"})
 
 
 def test_mcp_client_url_guards_raise_before_connecting():

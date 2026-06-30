@@ -51,6 +51,20 @@ agent = aio.Agent(aio.client(...), tools=await mcp.as_tools())
 
 `auth=` and `headers=` apply only with `url=` (passing them with another source raises `MCPConnectionError`). Connect to a server you trust: its tools run with whatever access the service grants.
 
+### OAuth with a configured provider
+
+The `"oauth"` string runs FastMCP's interactive OAuth flow with in-memory token storage (re-auth every process). For persistent tokens, a custom client name/scopes, or a custom redirect handler, pass a configured FastMCP `OAuth` object (or any `httpx.Auth` provider) as `auth=` instead of the string. It is forwarded straight to the underlying `fastmcp.Client`:
+
+```python
+from fastmcp.client.auth import OAuth
+from key_value.aio.stores.filetree import FileTreeStore
+
+provider = OAuth("https://mcp.example.com/mcp", token_storage=FileTreeStore(data_directory="~/.myapp/oauth"))
+mcp = await aio.MCPClient.connect(url="https://mcp.example.com/mcp", auth=provider)
+```
+
+A provider object cannot be combined with `headers=` (raises `MCPConnectionError`); the provider owns the request auth. Subclass `OAuth` and override `redirect_handler(url)` to control how the authorization URL is surfaced (e.g. posting it into a chat in addition to `webbrowser.open`).
+
 ## Call a tool directly
 
 You can use `MCPClient` standalone, without an agent:

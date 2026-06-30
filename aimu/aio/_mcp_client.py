@@ -35,10 +35,10 @@ class MCPClient:
         server: Optional[FastMCP] = None,
         file: Optional[str] = None,
         url: Optional[str] = None,
-        auth: Optional[str] = None,
+        auth=None,
         headers: Optional[dict] = None,
     ):
-        self._transport = _build_transport(config, server, file, url, auth, headers)
+        self._transport, self._client_auth = _build_transport(config, server, file, url, auth, headers)
         self._client: Optional[Client] = None
 
     @classmethod
@@ -49,18 +49,18 @@ class MCPClient:
         server: Optional[FastMCP] = None,
         file: Optional[str] = None,
         url: Optional[str] = None,
-        auth: Optional[str] = None,
+        auth=None,
         headers: Optional[dict] = None,
     ) -> MCPClient:
         """Construct and connect in one ``await``. Returns the live instance.
 
         Pass *exactly one* source: ``config``, ``server``, ``file``, or ``url`` (a remote
-        HTTP/SSE server). ``auth`` (a bearer-token string or ``"oauth"``) and ``headers`` apply
-        only with ``url``.
+        HTTP/SSE server). ``auth`` (a bearer-token string, ``"oauth"``, or a configured FastMCP
+        ``OAuth`` / ``httpx.Auth`` provider object) and ``headers`` apply only with ``url``.
         """
         instance = cls(config=config, server=server, file=file, url=url, auth=auth, headers=headers)
         try:
-            instance._client = Client(instance._transport)
+            instance._client = Client(instance._transport, auth=instance._client_auth)
             await instance._client.__aenter__()
         except Exception as exc:
             raise MCPConnectionError(f"failed to connect MCP transport {instance._transport!r}: {exc}") from exc

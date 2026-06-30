@@ -119,11 +119,23 @@ async def test_async_mcp_client_url_builds_transport_and_guards():
     assert mcp._transport == {
         "mcpServers": {"server": {"url": "https://mcp.example.com/sse", "headers": {"X-Api-Key": "k"}, "auth": "tok"}}
     }
+    assert mcp._client_auth is None
+
+    # A non-string auth provider object is held for Client(url, auth=obj), with a bare-url transport.
+    class FakeOAuth:
+        pass
+
+    provider = FakeOAuth()
+    mcp = MCPClient(url="https://mcp.example.com/mcp", auth=provider)
+    assert mcp._transport == "https://mcp.example.com/mcp"
+    assert mcp._client_auth is provider
 
     with pytest.raises(MCPConnectionError, match="exactly one"):
         MCPClient(server=_build_test_server(), url="https://mcp.example.com/mcp")
     with pytest.raises(MCPConnectionError, match="apply only to a remote url"):
         MCPClient(server=_build_test_server(), auth="tok")
+    with pytest.raises(MCPConnectionError, match="cannot be combined"):
+        MCPClient(url="https://mcp.example.com/mcp", auth=provider, headers={"X-Api-Key": "k"})
 
 
 # ---------------------------------------------------------------------------

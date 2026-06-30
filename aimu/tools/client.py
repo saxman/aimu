@@ -13,14 +13,17 @@ def _build_transport(
     server: Optional["FastMCP"],
     file: Optional[str],
     url: Optional[str],
-    auth: Optional[str],
-    headers: Optional[dict],
+    auth=None,
+    headers: Optional[dict] = None,
 ):
-    """Validate the exactly-one-of source contract and return the FastMCP transport.
+    """Validate the exactly-one-of source contract; return ``(transport, client_auth)``.
 
-    Shared by the sync and async ``MCPClient``. A ``url`` is expanded into a single-server
-    ``mcpServers`` config so FastMCP's own machinery infers SSE vs streamable-HTTP and applies
-    ``auth``/``headers`` in one path; ``auth``/``headers`` without ``url`` is an error.
+    Shared by the sync and async ``MCPClient``. A ``url`` with a string/absent ``auth`` is expanded
+    into a single-server ``mcpServers`` config so FastMCP infers SSE vs streamable-HTTP and applies
+    ``auth``/``headers`` in one path (``client_auth`` is ``None`` there). A **non-string** ``auth`` (a
+    FastMCP ``OAuth`` / ``httpx.Auth`` provider object) is returned as ``client_auth`` and the bare
+    ``url`` as the transport, so the caller passes it to ``Client(url, auth=provider)``. ``auth`` /
+    ``headers`` without ``url`` is an error.
     """
     sources = [s is not None for s in (config, server, file, url)]
     if sum(sources) != 1:
@@ -29,14 +32,19 @@ def _build_transport(
         )
     if url is None and (auth is not None or headers is not None):
         raise MCPConnectionError("auth= and headers= apply only to a remote url=.")
+    if url is not None and auth is not None and not isinstance(auth, str):
+        # A provider object (e.g. a configured OAuth) is passed to the Client directly.
+        if headers is not None:
+            raise MCPConnectionError("headers= cannot be combined with a non-string auth provider object.")
+        return url, auth
     if url is not None:
         server_config: dict = {"url": url}
         if headers is not None:
             server_config["headers"] = headers
         if auth is not None:
             server_config["auth"] = auth
-        return {"mcpServers": {"server": server_config}}
-    return config if config is not None else (server if server is not None else file)
+        return {"mcpServers": {"server": server_config}}, None
+    return (config if config is not None else (server if server is not None else file)), None
 
 
 class _ToolResponse:
@@ -53,9 +61,10 @@ class MCPClient:
     thread with a properly initialized anyio event loop.
 
     Pass *exactly one* of ``config``, ``server``, ``file``, or ``url`` (a remote HTTP/SSE
-    server). ``auth`` (a bearer-token string or the literal ``"oauth"``) and ``headers`` apply
-    only with ``url``. Connection errors are re-raised as :class:`MCPConnectionError` with the
-    original exception chained.
+    server). ``auth`` (a bearer-token string, the literal ``"oauth"``, or a configured FastMCP
+    ``OAuth`` / ``httpx.Auth`` provider object) and ``headers`` apply only with ``url``; a provider
+    object is passed straight to the FastMCP ``Client`` (and can't be combined with ``headers``).
+    Connection errors are re-raised as :class:`MCPConnectionError` with the original exception chained.
     """
 
     def __init__(
@@ -64,10 +73,10 @@ class MCPClient:
         server: Optional[FastMCP] = None,
         file: Optional[str] = None,
         url: Optional[str] = None,
-        auth: Optional[str] = None,
+        auth=None,
         headers: Optional[dict] = None,
     ):
-        self._transport = _build_transport(config, server, file, url, auth, headers)
+        self._transport, self._client_auth = _build_transport(config, server, file, url, auth, headers)
 
         self._portal_cm = start_blocking_portal(backend="asyncio")
         try:
@@ -81,7 +90,7 @@ class MCPClient:
             raise MCPConnectionError(f"failed to connect MCP transport {self._transport!r}: {exc}") from exc
 
     async def _connect(self):
-        self._client = Client(self._transport)
+        self._client = Client(self._transport, auth=self._client_auth)
         await self._client.__aenter__()
 
     def __del__(self):
