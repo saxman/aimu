@@ -43,7 +43,7 @@ from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
 from .fallback import AsyncFallbackClient
 from .agent import Agent, AsyncRunner
-from .channels import CLIChannel, Channel, ChannelMessage
+from .channels import CLIChannel, Channel, ChannelMessage, WebChannel
 from .run_handle import RunHandle
 from .scheduler import Scheduler
 from .audio import AsyncAudioClient, audio_client, generate_audio
@@ -115,6 +115,7 @@ __all__ = [
     "Chain",
     "Channel",
     "ChannelMessage",
+    "WebChannel",
     "EvaluatorOptimizer",
     "MCPClient",
     "OrchestratorAgent",

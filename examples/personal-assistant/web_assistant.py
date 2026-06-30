@@ -25,9 +25,10 @@ from starlette.responses import FileResponse
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
+from aimu.aio import WebChannel
+
 from _assistant_common import Assistant, AssistantConfig
 from assistant import build_arg_parser as _cli_arg_parser, config_from_args
-from web_channel import WebChannel
 
 _STATIC = Path(__file__).resolve().parent / "static"
 
