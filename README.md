@@ -94,7 +94,7 @@ Or install only what you need. AIMU's extras fall into two kinds:
 - **[A2A interop](https://saxman.github.io/aimu/how-to/connect-agents-a2a/).** With the optional `a2a` extra, `serve_a2a(runner)` exposes any agent or workflow over the Agent2Agent protocol, and `RemoteAgent.connect(url)` consumes a remote agent as a local `Runner`, so it composes (as a tool, a workflow step, or an orchestrator worker) exactly like a local one. The agent-level analog of MCP for tools.
 - **[Tracing](https://saxman.github.io/aimu/how-to/stream-output/#trace-a-run).** See exactly what a run did: `extract_tool_calls(messages)` returns a clean list of `{iteration, tool, arguments, result}` records from any message history, and `pretty_print(stream)` renders a live run to the console with reasoning, tool calls, and output labelled.
 - **[Resumable runs](https://saxman.github.io/aimu/how-to/using-llms-inside-tools/).** Persist a run's message history and rebuild its state later with `runner.restore(messages)`, which handles system-message de-duplication so any runner (`Agent`, `Chain`, `EvaluatorOptimizer`, `Router`, `Parallel`, `OrchestratorAgent`) can survive a crash or restart, on both the sync and `aimu.aio` surfaces.
-- **[Personal-assistant primitives](https://saxman.github.io/aimu/how-to/build-personal-assistant/).** Build an always-on assistant (OpenClaw / Hermes style) from three async-first pieces: a `Channel` transport ABC + `CLIChannel`, a `Scheduler` for proactive triggers, and runtime skill authoring (`write_skill` / `make_skill_authoring_tool`) so an agent grows its own skills, including bundling runnable Python/shell scripts (`make_skill_script_tool`) it can author and execute in the same turn. Library primitives only; a wired single-user daemon ships in `examples/personal-assistant/`.
+- **[Personal-assistant primitives](https://saxman.github.io/aimu/how-to/build-personal-assistant/).** Build an always-on assistant (OpenClaw / Hermes style) from three async-first pieces: a `Channel` transport ABC with `CLIChannel` and `WebChannel` (browser WebSocket) adapters, a `Scheduler` for proactive triggers, and runtime skill authoring (`write_skill` / `make_skill_authoring_tool`) so an agent grows its own skills, including bundling runnable Python/shell scripts (`make_skill_script_tool`) it can author and execute in the same turn. Library primitives only; a wired single-user daemon ships in `examples/personal-assistant/`.
 
 ### Tools
 
@@ -370,7 +370,7 @@ streamlit run examples/web/streamlit_chatbot_basic.py   # basic Streamlit demo a
 python examples/web/gradio_chatbot_basic.py             # basic Gradio demo app
 ```
 
-The [personal-assistant](examples/personal-assistant/) example also ships a **WebSocket** front end (a `WebChannel` + a small [Starlette](https://www.starlette.io/) server) that streams replies and pushes proactive messages to the browser:
+The [personal-assistant](examples/personal-assistant/) example also ships a **WebSocket** front end (the library `WebChannel` + a small [Starlette](https://www.starlette.io/) server) that streams replies and pushes proactive messages to the browser:
 
 ```bash
 python examples/personal-assistant/web_assistant.py --model ollama:qwen3:8b --reminder-seconds 20  # then open http://127.0.0.1:8000
