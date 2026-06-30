@@ -3203,11 +3203,11 @@ partial turn for resume) while the daemon keeps serving.</p>
 </span></code></pre></div>
 <h2 id="web-front-end">Web front end<a class="headerlink" href="#web-front-end" title="Permanent link">&para;</a></h2>
 <p>Because the assistant loop consumes any <code>Channel</code>, a browser UI is just a different <code>Channel</code>
-implementation: nothing in <code>Assistant</code> changes. The example ships a <code>WebChannel</code> (a <code>Channel</code> over a
-browser WebSocket) and a small <a href="https://www.starlette.io/">Starlette</a> server
-(<code>examples/personal-assistant/web_assistant.py</code>). <code>WebChannel.send</code> relays a streamed reply as
-<code>token</code> frames + a <code>done</code> frame, and a proactive (scheduler-pushed) message as a <code>message</code> frame the
-page styles distinctly. The server runs a pump task (reading the socket into the channel) and
+implementation: nothing in <code>Assistant</code> changes. AIMU ships a <code>WebChannel</code> (a <code>Channel</code> over a browser
+WebSocket, the WebSocket twin of <code>CLIChannel</code>), and the example wires it to a small
+<a href="https://www.starlette.io/">Starlette</a> server (<code>examples/personal-assistant/web_assistant.py</code>).
+<code>WebChannel.send</code> relays a streamed reply as <code>token</code> frames + a <code>done</code> frame, and a proactive
+(scheduler-pushed) message as a <code>message</code> frame the page styles distinctly. The server runs a pump task (reading the socket into the channel) and
 <code>assistant.run()</code> concurrently under one <code>asyncio.TaskGroup</code>; on disconnect the pump feeds a sentinel
 that ends <code>receive()</code>, stops the scheduler, and tears down cleanly.</p>
 <p>Because the server owns the scheduler via <code>assistant.run()</code>, proactive messages reach the browser
@@ -3215,16 +3215,18 @@ unprompted, the property a request/response UI (Streamlit/Gradio) can't provide 
 <p>The agent's stream carries <code>THINKING</code> and <code>TOOL_CALLING</code> chunks alongside <code>GENERATING</code>, so both
 channels can surface the model's reasoning and tool calls, not just the final answer. <code>CLIChannel</code>
 takes opt-in <code>show_thinking</code> / <code>show_tools</code> flags (off by default to keep the library channel
-minimal); the example-local <code>WebChannel</code> emits <code>thinking</code> / <code>tool</code> frames the page renders as
-distinct blocks. The personal-assistant example turns both on, threading
-<code>AssistantConfig.show_thinking</code> / <code>show_tools</code> into each channel.</p>
+minimal); <code>WebChannel</code> (same flags) emits <code>thinking</code> / <code>tool</code> frames the page renders as distinct
+blocks. The personal-assistant example turns both on, threading <code>AssistantConfig.show_thinking</code> /
+<code>show_tools</code> into each channel.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>web<span class="o">]</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python<span class="w"> </span>examples/personal-assistant/web_assistant.py<span class="w"> </span>--model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">20</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># open http://127.0.0.1:8000</span>
 </span></code></pre></div>
-<p>The <code>WebChannel</code> lives in the example (not the library): a web server is app-layer, and keeping it
-out of <code>aimu.aio</code> keeps the library free of a web-framework dependency. It is a worked example of
-extending the <code>Channel</code> ABC, the same seam a Telegram or Slack adapter would use.</p>
+<p><code>WebChannel</code> lives in the library (<code>aimu.aio.WebChannel</code>): its socket is duck-typed (<code>send_json</code> /
+<code>close</code>), so the adapter carries no web-framework dependency and any app can reuse it. The Starlette
+<em>server</em> and HTML page stay app-side (a web server is app-layer judgment), so the example supplies
+those. An app extends <code>WebChannel</code> by subclassing it and adding frame types through the public
+<code>send_frame</code> seam, the same <code>Channel</code> seam a Telegram or Slack adapter would use.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../use-skills/">Use skills</a>: the <code>SkillAgent</code> and <code>SKILL.md</code> format the authoring tool writes to</li>

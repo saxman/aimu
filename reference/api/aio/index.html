@@ -2575,6 +2575,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.aio.WebChannel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WebChannel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WebChannel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.WebChannel.feed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        feed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.WebChannel.send_frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        send_frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.aio.Scheduler" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4120,6 +4159,45 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.aio.WebChannel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WebChannel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WebChannel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.WebChannel.feed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        feed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.WebChannel.send_frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        send_frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -5784,6 +5862,109 @@ labelled lines alongside the answer.</p>
 
 
 
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.aio.WebChannel" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.aio.WebChannel</span>
+
+
+<a href="#aimu.aio.WebChannel" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WebChannel</span><span class="p">(</span><span class="n">websocket</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">show_thinking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">show_tools</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.aio.Channel (aimu.aio.channels.base.Channel)" href="#aimu.aio.Channel">Channel</a></code></p>
+
+
+
+        <p>Bridges one browser WebSocket onto the <code>Channel</code> ABC.</p>
+<p>The app's server pump task calls :meth:<code>feed</code> for each inbound frame and <code>feed(None)</code> on disconnect;
+:meth:<code>receive</code> ends on that sentinel, which lets the agent loop tear down cleanly. Replies are sent as
+JSON frames (see the module docstring for the protocol).</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.aio.WebChannel.feed" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">feed</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#aimu.aio.WebChannel.feed" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">feed</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Enqueue an inbound frame; <code>None</code> is the end-of-stream sentinel.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.aio.WebChannel.send_frame" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">send_frame</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#aimu.aio.WebChannel.send_frame" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">send_frame</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Send one JSON frame to the browser, swallowing errors once the socket has closed.</p>
+<p>The single point through which every frame reaches the socket, so subclasses add their own frame
+types by calling this rather than touching the socket directly. Once closed (e.g. a proactive push
+racing a disconnect), a late frame is dropped instead of crashing the sending task.</p>
+
+
+    </div>
+
+</div>
 
 
 
