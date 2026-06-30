@@ -1018,6 +1018,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Connect to a remote server (URL)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oauth-with-a-configured-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAuth with a configured provider
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2937,6 +2954,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Connect to a remote server (URL)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oauth-with-a-configured-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAuth with a configured provider
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3053,33 +3087,42 @@
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="o">...</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="k">await</span> <span class="n">mcp</span><span class="o">.</span><span class="n">as_tools</span><span class="p">())</span>
 </span></code></pre></div>
 <p><code>auth=</code> and <code>headers=</code> apply only with <code>url=</code> (passing them with another source raises <code>MCPConnectionError</code>). Connect to a server you trust: its tools run with whatever access the service grants.</p>
+<h3 id="oauth-with-a-configured-provider">OAuth with a configured provider<a class="headerlink" href="#oauth-with-a-configured-provider" title="Permanent link">&para;</a></h3>
+<p>The <code>"oauth"</code> string runs FastMCP's interactive OAuth flow with in-memory token storage (re-auth every process). For persistent tokens, a custom client name/scopes, or a custom redirect handler, pass a configured FastMCP <code>OAuth</code> object (or any <code>httpx.Auth</code> provider) as <code>auth=</code> instead of the string. It is forwarded straight to the underlying <code>fastmcp.Client</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.client.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">OAuth</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">key_value.aio.stores.filetree</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileTreeStore</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">provider</span> <span class="o">=</span> <span class="n">OAuth</span><span class="p">(</span><span class="s2">&quot;https://mcp.example.com/mcp&quot;</span><span class="p">,</span> <span class="n">token_storage</span><span class="o">=</span><span class="n">FileTreeStore</span><span class="p">(</span><span class="n">data_directory</span><span class="o">=</span><span class="s2">&quot;~/.myapp/oauth&quot;</span><span class="p">))</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">mcp</span> <span class="o">=</span> <span class="k">await</span> <span class="n">aio</span><span class="o">.</span><span class="n">MCPClient</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;https://mcp.example.com/mcp&quot;</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">provider</span><span class="p">)</span>
+</span></code></pre></div>
+<p>A provider object cannot be combined with <code>headers=</code> (raises <code>MCPConnectionError</code>); the provider owns the request auth. Subclass <code>OAuth</code> and override <code>redirect_handler(url)</code> to control how the authorization URL is surfaced (e.g. posting it into a chat in addition to <code>webbrowser.open</code>).</p>
 <h2 id="call-a-tool-directly">Call a tool directly<a class="headerlink" href="#call-a-tool-directly" title="Permanent link">&para;</a></h2>
 <p>You can use <code>MCPClient</code> standalone, without an agent:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">mcp_client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;mytool&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;input&quot;</span><span class="p">:</span> <span class="s2">&quot;hello world!&quot;</span><span class="p">})</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># result.content[0].text  → tool&#39;s text response</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">mcp_client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;mytool&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;input&quot;</span><span class="p">:</span> <span class="s2">&quot;hello world!&quot;</span><span class="p">})</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># result.content[0].text  → tool&#39;s text response</span>
 </span></code></pre></div>
 <h2 id="use-the-built-in-mcp-server">Use the built-in MCP server<a class="headerlink" href="#use-the-built-in-mcp-server" title="Permanent link">&para;</a></h2>
 <p>AIMU ships a FastMCP server that exposes the entire <code>builtin</code> toolkit:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>-m<span class="w"> </span>aimu.tools.mcp
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>-m<span class="w"> </span>aimu.tools.mcp
 </span></code></pre></div>
 <p>Connect to it from another process the same way:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">mcp_client</span> <span class="o">=</span> <span class="n">MCPClient</span><span class="p">({</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="s2">&quot;aimu-builtin&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span> <span class="s2">&quot;aimu.tools.mcp&quot;</span><span class="p">]},</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="p">},</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">})</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">mcp_client</span> <span class="o">=</span> <span class="n">MCPClient</span><span class="p">({</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>        <span class="s2">&quot;aimu-builtin&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span> <span class="s2">&quot;aimu.tools.mcp&quot;</span><span class="p">]},</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="p">},</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">})</span>
 </span></code></pre></div>
 <h2 id="combine-with-in-process-tools">Combine with in-process tools<a class="headerlink" href="#combine-with-in-process-tools" title="Permanent link">&para;</a></h2>
 <p>Both routes produce callables for the one <code>tools</code> list; concatenate them. On a name collision the <strong>last</strong> entry wins, so append a local override after the MCP tools to shadow one:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="n">mcp_client</span><span class="o">.</span><span class="n">as_tools</span><span class="p">()</span> <span class="o">+</span> <span class="p">[</span><span class="n">my_local_tool</span><span class="p">]</span>   <span class="c1"># my_local_tool shadows a same-named MCP tool</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="n">mcp_client</span><span class="o">.</span><span class="n">as_tools</span><span class="p">()</span> <span class="o">+</span> <span class="p">[</span><span class="n">my_local_tool</span><span class="p">]</span>   <span class="c1"># my_local_tool shadows a same-named MCP tool</span>
 </span></code></pre></div>
 <h2 id="loud-failures">Loud failures<a class="headerlink" href="#loud-failures" title="Permanent link">&para;</a></h2>
 <p>Connection problems raise <code>MCPConnectionError</code> with the original cause chained:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">mcp_client</span> <span class="o">=</span> <span class="n">MCPClient</span><span class="p">({</span><span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;bad&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;nonexistent&quot;</span><span class="p">}}})</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">except</span> <span class="n">MCPConnectionError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># MCPConnectionError: failed to connect MCP transport ...: ...</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">mcp_client</span> <span class="o">=</span> <span class="n">MCPClient</span><span class="p">({</span><span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;bad&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;nonexistent&quot;</span><span class="p">}}})</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">except</span> <span class="n">MCPConnectionError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># MCPConnectionError: failed to connect MCP transport ...: ...</span>
 </span></code></pre></div>
 <p>A subsequent <code>.ping()</code> or <code>.call_tool()</code> failure also raises <code>MCPConnectionError</code>, so you can re-establish the connection without silently broken state.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
