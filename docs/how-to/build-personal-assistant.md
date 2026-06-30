@@ -211,11 +211,11 @@ python examples/personal-assistant/assistant.py \
 ## Web front end
 
 Because the assistant loop consumes any `Channel`, a browser UI is just a different `Channel`
-implementation: nothing in `Assistant` changes. The example ships a `WebChannel` (a `Channel` over a
-browser WebSocket) and a small [Starlette](https://www.starlette.io/) server
-(`examples/personal-assistant/web_assistant.py`). `WebChannel.send` relays a streamed reply as
-`token` frames + a `done` frame, and a proactive (scheduler-pushed) message as a `message` frame the
-page styles distinctly. The server runs a pump task (reading the socket into the channel) and
+implementation: nothing in `Assistant` changes. AIMU ships a `WebChannel` (a `Channel` over a browser
+WebSocket, the WebSocket twin of `CLIChannel`), and the example wires it to a small
+[Starlette](https://www.starlette.io/) server (`examples/personal-assistant/web_assistant.py`).
+`WebChannel.send` relays a streamed reply as `token` frames + a `done` frame, and a proactive
+(scheduler-pushed) message as a `message` frame the page styles distinctly. The server runs a pump task (reading the socket into the channel) and
 `assistant.run()` concurrently under one `asyncio.TaskGroup`; on disconnect the pump feeds a sentinel
 that ends `receive()`, stops the scheduler, and tears down cleanly.
 
@@ -225,9 +225,9 @@ unprompted, the property a request/response UI (Streamlit/Gradio) can't provide 
 The agent's stream carries `THINKING` and `TOOL_CALLING` chunks alongside `GENERATING`, so both
 channels can surface the model's reasoning and tool calls, not just the final answer. `CLIChannel`
 takes opt-in `show_thinking` / `show_tools` flags (off by default to keep the library channel
-minimal); the example-local `WebChannel` emits `thinking` / `tool` frames the page renders as
-distinct blocks. The personal-assistant example turns both on, threading
-`AssistantConfig.show_thinking` / `show_tools` into each channel.
+minimal); `WebChannel` (same flags) emits `thinking` / `tool` frames the page renders as distinct
+blocks. The personal-assistant example turns both on, threading `AssistantConfig.show_thinking` /
+`show_tools` into each channel.
 
 ```bash
 pip install aimu[web]
@@ -235,9 +235,11 @@ python examples/personal-assistant/web_assistant.py --model ollama:qwen3:8b --re
 # open http://127.0.0.1:8000
 ```
 
-The `WebChannel` lives in the example (not the library): a web server is app-layer, and keeping it
-out of `aimu.aio` keeps the library free of a web-framework dependency. It is a worked example of
-extending the `Channel` ABC, the same seam a Telegram or Slack adapter would use.
+`WebChannel` lives in the library (`aimu.aio.WebChannel`): its socket is duck-typed (`send_json` /
+`close`), so the adapter carries no web-framework dependency and any app can reuse it. The Starlette
+*server* and HTML page stay app-side (a web server is app-layer judgment), so the example supplies
+those. An app extends `WebChannel` by subclassing it and adding frame types through the public
+`send_frame` seam, the same `Channel` seam a Telegram or Slack adapter would use.
 
 ## See also
 

@@ -50,8 +50,8 @@ python examples/personal-assistant/web_assistant.py \
 # then open http://127.0.0.1:8000
 ```
 
-This is a small [Starlette](https://www.starlette.io/) server plus `web_channel.py`'s
-`WebChannel` (a `Channel` over the browser socket). The `Assistant` loop is **unchanged**: only the
+This is a small [Starlette](https://www.starlette.io/) server plus AIMU's `WebChannel`
+(`aimu.aio.WebChannel`, a `Channel` over the browser socket). The `Assistant` loop is **unchanged**: only the
 channel differs, the whole point of the `Channel` ABC. Replies stream token-by-token, the model's
 reasoning and tool calls render as distinct blocks as they happen, and proactive scheduler messages
 arrive in the browser unprompted (something a request/response UI like Streamlit/Gradio can't do
@@ -89,8 +89,7 @@ in your working directory: skills under `skills/` and history in `history.json`.
 |------|------|
 | `assistant.py` | CLI entry point (argparse) + `asyncio.run` |
 | `_assistant_common.py` | `Assistant` / `AssistantConfig` (the testable daemon core) |
-| `web_assistant.py` | Web entry point: a Starlette + `uvicorn` WebSocket server (needs `aimu[web]`) |
-| `web_channel.py` | `WebChannel`: a `Channel` adapter over a browser WebSocket |
+| `web_assistant.py` | Web entry point: a Starlette + `uvicorn` WebSocket server (needs `aimu[web]`); uses `aimu.aio.WebChannel` |
 | `static/index.html` | Dependency-free chat page (streaming replies + proactive messages) |
 | `tests/test_assistant.py` | Mock-only tests (fake channel + mock model) |
 | `tests/test_web_assistant.py` | Mock-only WebChannel + WebSocket round-trip tests |

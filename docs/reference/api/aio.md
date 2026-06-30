@@ -55,6 +55,8 @@ Primitives for building an always-on assistant. See [how-to: build a personal as
 
 ::: aimu.aio.CLIChannel
 
+::: aimu.aio.WebChannel
+
 ::: aimu.aio.Scheduler
 
 ## A2A interop
