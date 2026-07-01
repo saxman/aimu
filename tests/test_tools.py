@@ -104,7 +104,9 @@ def test_build_transport_url_builds_single_server_config():
     """url= expands to a one-server mcpServers config, folding in headers and auth."""
     from aimu.tools.client import _build_transport
 
-    transport, client_auth = _build_transport(None, None, None, "https://mcp.example.com/sse", "tok", {"X-Api-Key": "k"})
+    transport, client_auth = _build_transport(
+        None, None, None, "https://mcp.example.com/sse", "tok", {"X-Api-Key": "k"}
+    )
     assert transport == {
         "mcpServers": {"server": {"url": "https://mcp.example.com/sse", "headers": {"X-Api-Key": "k"}, "auth": "tok"}}
     }
