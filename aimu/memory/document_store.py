@@ -14,6 +14,7 @@ Persistence modes:
 from __future__ import annotations
 
 import os
+import posixpath
 import uuid
 from typing import Optional
 
@@ -54,21 +55,41 @@ class DocumentStore(MemoryStore):
     # Internal helpers
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _normalize(path: str) -> str:
+        """Canonicalize a memory path to a single leading slash with forward slashes.
+
+        Callers may address a document as ``"foo.md"`` or ``"/foo.md"`` interchangeably, and keys
+        created by :meth:`write` match those rebuilt from disk by :meth:`_load_from_disk` (which
+        always prefixes a slash). ``posixpath.normpath`` also collapses redundant separators and
+        resolves ``..`` segments, so a path can't escape the store's namespace.
+        """
+        cleaned = str(path).strip().replace("\\", "/")
+        return posixpath.normpath("/" + cleaned.lstrip("/"))
+
     def _abs_path(self, path: str) -> str:
         """Resolve a memory path to an absolute filesystem path."""
         # Strip leading slash so os.path.join works correctly.
         return os.path.join(self._persist_path, path.lstrip("/"))
 
     def _load_from_disk(self) -> None:
-        """Walk persist_path and populate the in-memory index."""
+        """Walk persist_path and populate the in-memory index.
+
+        Documents are text; a non-UTF-8 file (e.g. a binary artifact that happens to share the
+        directory) is skipped rather than aborting the whole load, so one stray file can't make the
+        store unreadable.
+        """
         for dirpath, _dirnames, filenames in os.walk(self._persist_path):
             for filename in filenames:
                 abs_file = os.path.join(dirpath, filename)
                 rel = os.path.relpath(abs_file, self._persist_path)
                 # Normalise to forward-slash memory paths with leading slash.
-                mem_path = "/" + rel.replace(os.sep, "/")
-                with open(abs_file, encoding="utf-8") as f:
-                    self._docs[mem_path] = f.read()
+                mem_path = self._normalize(rel.replace(os.sep, "/"))
+                try:
+                    with open(abs_file, encoding="utf-8") as f:
+                        self._docs[mem_path] = f.read()
+                except (UnicodeDecodeError, OSError):
+                    continue
 
     def _write_to_disk(self, path: str, content: str) -> None:
         abs_file = self._abs_path(path)
@@ -93,6 +114,7 @@ class DocumentStore(MemoryStore):
             path:    Memory path, e.g. ``"/preferences.md"``.
             content: Text content to store (≤ 100 KB recommended).
         """
+        path = self._normalize(path)
         self._docs[path] = content
         if self._persist_path:
             self._write_to_disk(path, content)
@@ -104,6 +126,7 @@ class DocumentStore(MemoryStore):
         Raises:
             KeyError: If no document exists at *path*.
         """
+        path = self._normalize(path)
         if path not in self._docs:
             raise KeyError(path)
         return self._docs[path]
@@ -140,7 +163,7 @@ class DocumentStore(MemoryStore):
         """
         paths = sorted(self._docs.keys())
         if prefix:
-            paths = [p for p in paths if p.startswith(prefix)]
+            paths = [p for p in paths if p.startswith(self._normalize(prefix))]
         return paths
 
     def search_full_text(self, query: str, n_results: int = 10) -> list[dict]:
@@ -201,6 +224,7 @@ class DocumentStore(MemoryStore):
         Args:
             identifier: Memory path of the document to remove.
         """
+        identifier = self._normalize(identifier)
         self._docs.pop(identifier, None)
         if self._persist_path:
             self._delete_from_disk(identifier)

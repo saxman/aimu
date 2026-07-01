@@ -160,6 +160,56 @@ def test_persistent_edit_survives_reinstantiation(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Path normalization: "/foo.md" and "foo.md" address the same document, and a
+# leading slash added by the disk reload never desyncs from the write-time key.
+# ---------------------------------------------------------------------------
+
+
+def test_read_tolerates_missing_leading_slash(store):
+    store.write("/prefs.md", "hi")
+    assert store.read("prefs.md") == "hi"  # no leading slash still resolves
+
+
+def test_write_without_leading_slash_is_same_document(store):
+    store.write("note.md", "first")
+    store.write("/note.md", "second")  # same doc, not a second entry
+    assert store.read("note.md") == "second"
+    assert len(store) == 1
+    assert store.list_paths() == ["/note.md"]
+
+
+def test_persistent_read_without_leading_slash_after_reload(tmp_path):
+    # The regression: a doc written without a leading slash became unreadable by its
+    # original key after reload, because _load_from_disk re-keyed it with a slash.
+    s1 = DocumentStore(persist_path=str(tmp_path))
+    s1.write("notes/todo.md", "buy milk")
+    assert s1.read("/notes/todo.md") == "buy milk"
+
+    s2 = DocumentStore(persist_path=str(tmp_path))
+    assert s2.read("notes/todo.md") == "buy milk"
+    assert s2.read("/notes/todo.md") == "buy milk"
+
+
+def test_delete_and_prefix_tolerate_missing_leading_slash(store):
+    store.write("/notes/a.md", "a")
+    store.write("/notes/b.md", "b")
+    assert store.list_paths(prefix="notes") == ["/notes/a.md", "/notes/b.md"]
+    store.delete("notes/a.md")  # no leading slash
+    assert store.list_paths() == ["/notes/b.md"]
+
+
+def test_load_skips_non_utf8_files(tmp_path):
+    # A binary file sharing the persist dir must not abort the load of the text documents.
+    s1 = DocumentStore(persist_path=str(tmp_path))
+    s1.write("/notes.md", "keep me")
+    (tmp_path / "report.pdf").write_bytes(b"%PDF-1.4\n\xe9\xff\x00binary")
+
+    s2 = DocumentStore(persist_path=str(tmp_path))  # must not raise UnicodeDecodeError
+    assert s2.read("/notes.md") == "keep me"
+    assert "/report.pdf" not in s2.list_paths()
+
+
+# ---------------------------------------------------------------------------
 # MemoryStore abstract interface on DocumentStore
 # ---------------------------------------------------------------------------
 

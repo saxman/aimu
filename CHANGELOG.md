@@ -11,6 +11,10 @@
 
 - **New** `aimu.sessions`: a multi-user **session store** keyed by `channel:sender`, so one process can serve many users/chats. `Session` holds a conversation's `list[dict]` history (OpenAI format) + an optional `memory_namespace` + `metadata`; `SessionStore` (ABC) has `InMemorySessionStore` (non-durable) and `TinyDBSessionStore` (durable, reusing `ConversationManager`'s TinyDB mechanics, no new dep). `session_key(channel, sender)` collapses single-user to `"default:default"`, and `SessionLocks` gives a lazy per-key `asyncio.Lock` (serialize a session's turns; run different sessions concurrently). Generalizes the single-conversation `ConversationManager` using the existing `reset()`+`restore()` per-turn seam (agents never share a live `messages` list). First piece of the personal-assistant substrate roadmap (network channel adapters and run-safety hooks are separate follow-ups).
 
+### Memory
+
+- **Fix** `DocumentStore` now canonicalizes every path through a single `_normalize` helper (single leading slash, forward slashes, `posixpath.normpath` to collapse redundant separators and contain `..`). Previously `write("foo.md", ...)` stored the key verbatim while `_load_from_disk()` always re-keyed it with a leading slash, so in **persistent** mode a document written without a leading slash became unreadable by its original key after reload. `write`/`read`/`delete` and the `list_paths(prefix=...)` filter now normalize their inputs, so `"foo.md"` and `"/foo.md"` address the same document consistently across ephemeral and persistent stores.
+
 ### Agents and workflows
 
 - **New** async-first **channel transport** under `aimu.aio.channels`: a `Channel` ABC (`receive()` async-generator, `async send()`, `aclose()`) and `ChannelMessage` plain-data type, plus a `CLIChannel` stdin/stdout adapter. A new uniform interface alongside `AsyncRunner` / `MemoryStore` for talking to a user over a transport; network adapters (Telegram/Slack) are a deferred follow-up behind an optional extra + `HAS_*` guard, kept out of core. Exported from `aimu.aio`.
