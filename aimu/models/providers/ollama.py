@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 _GEMMA_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
-_QWEN_3_6_KWARGS = {
+_QWEN_KWARGS = {
     "temperature": 1.0,
     "top_p": 0.95,
     "top_k": 20,
@@ -33,12 +33,14 @@ _QWEN_3_6_KWARGS = {
 class OllamaModel(Model):
     # Alibaba
     QWEN_3_6_35B = ModelSpec(
-        "qwen3.6:35b", tools=True, thinking=True, generation_kwargs=_QWEN_3_6_KWARGS, structured_output=True
+        "qwen3.6:35b", tools=True, thinking=True, generation_kwargs=_QWEN_KWARGS, structured_output=True
     )
     QWEN_3_6_27B = ModelSpec(
-        "qwen3.6:27b", tools=True, thinking=True, generation_kwargs=_QWEN_3_6_KWARGS, structured_output=True
+        "qwen3.6:27b", tools=True, thinking=True, generation_kwargs=_QWEN_KWARGS, structured_output=True
     )
-    QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True, structured_output=True)
+    QWEN_3_5_9B = ModelSpec(
+        "qwen3.5:9b", tools=True, thinking=True, generation_kwargs=_QWEN_KWARGS, structured_output=True
+    )
     QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True, structured_output=True)
     QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True, structured_output=True)
     # Google: these weights support audio; add audio=True once Ollama API exposes audio input
