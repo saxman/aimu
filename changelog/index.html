@@ -2809,6 +2809,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#agents-and-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3728,6 +3739,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#agents-and-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4587,6 +4609,10 @@ not this stub.
 <h3 id="sessions-and-persistence">Sessions and persistence<a class="headerlink" href="#sessions-and-persistence" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>aimu.sessions</code>: a multi-user <strong>session store</strong> keyed by <code>channel:sender</code>, so one process can serve many users/chats. <code>Session</code> holds a conversation's <code>list[dict]</code> history (OpenAI format) + an optional <code>memory_namespace</code> + <code>metadata</code>; <code>SessionStore</code> (ABC) has <code>InMemorySessionStore</code> (non-durable) and <code>TinyDBSessionStore</code> (durable, reusing <code>ConversationManager</code>'s TinyDB mechanics, no new dep). <code>session_key(channel, sender)</code> collapses single-user to <code>"default:default"</code>, and <code>SessionLocks</code> gives a lazy per-key <code>asyncio.Lock</code> (serialize a session's turns; run different sessions concurrently). Generalizes the single-conversation <code>ConversationManager</code> using the existing <code>reset()</code>+<code>restore()</code> per-turn seam (agents never share a live <code>messages</code> list). First piece of the personal-assistant substrate roadmap (network channel adapters and run-safety hooks are separate follow-ups).</li>
+</ul>
+<h3 id="memory">Memory<a class="headerlink" href="#memory" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fix</strong> <code>DocumentStore</code> now canonicalizes every path through a single <code>_normalize</code> helper (single leading slash, forward slashes, <code>posixpath.normpath</code> to collapse redundant separators and contain <code>..</code>). Previously <code>write("foo.md", ...)</code> stored the key verbatim while <code>_load_from_disk()</code> always re-keyed it with a leading slash, so in <strong>persistent</strong> mode a document written without a leading slash became unreadable by its original key after reload. <code>write</code>/<code>read</code>/<code>delete</code> and the <code>list_paths(prefix=...)</code> filter now normalize their inputs, so <code>"foo.md"</code> and <code>"/foo.md"</code> address the same document consistently across ephemeral and persistent stores.</li>
 </ul>
 <h3 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h3>
 <ul>
