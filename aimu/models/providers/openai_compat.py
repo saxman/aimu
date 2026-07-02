@@ -21,6 +21,7 @@ import openai
 from ..base import BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType, classproperty
 from .._internal.audio_input import _build_audio_content_blocks
 from .._internal.image_input import _build_user_content_blocks
+from .._internal.message_meta import strip_inert_keys
 from .._internal.sdk_config import sdk_client_kwargs
 from .._internal.usage import usage_from_openai
 from ._thinking import _ThinkingParser, _split_thinking
@@ -196,7 +197,7 @@ class OpenAICompatClient(BaseModelClient):
 
         response = self._client.chat.completions.create(
             model=self.model.value,
-            messages=self.messages,
+            messages=strip_inert_keys(self.messages),
             tools=tools if tools else openai.NOT_GIVEN,
             **generate_kwargs,
         )
@@ -215,7 +216,7 @@ class OpenAICompatClient(BaseModelClient):
 
             response = self._client.chat.completions.create(
                 model=self.model.value,
-                messages=self.messages,
+                messages=strip_inert_keys(self.messages),
                 tools=tools if tools else openai.NOT_GIVEN,
                 **generate_kwargs,
             )
@@ -236,7 +237,7 @@ class OpenAICompatClient(BaseModelClient):
     def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
         stream = self._client.chat.completions.create(
             model=self.model.value,
-            messages=self.messages,
+            messages=strip_inert_keys(self.messages),
             stream=True,
             stream_options={"include_usage": True},
             tools=tools if tools else openai.NOT_GIVEN,
@@ -296,7 +297,7 @@ class OpenAICompatClient(BaseModelClient):
 
         stream2 = self._client.chat.completions.create(
             model=self.model.value,
-            messages=self.messages,
+            messages=strip_inert_keys(self.messages),
             stream=True,
             stream_options={"include_usage": True},
             tools=tools if tools else openai.NOT_GIVEN,

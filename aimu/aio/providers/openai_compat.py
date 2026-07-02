@@ -17,6 +17,7 @@ import openai
 
 from aimu.models._internal.audio_input import _build_audio_content_blocks
 from aimu.models._internal.image_input import _build_user_content_blocks
+from aimu.models._internal.message_meta import strip_inert_keys
 from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.usage import usage_from_openai
 from aimu.models.providers._thinking import _ThinkingParser, _split_thinking
@@ -186,7 +187,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
 
         response = await self._client.chat.completions.create(
             model=self.model.value,
-            messages=self.messages,
+            messages=strip_inert_keys(self.messages),
             tools=tools if tools else openai.NOT_GIVEN,
             **generate_kwargs,
         )
@@ -204,7 +205,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
 
             response = await self._client.chat.completions.create(
                 model=self.model.value,
-                messages=self.messages,
+                messages=strip_inert_keys(self.messages),
                 tools=tools if tools else openai.NOT_GIVEN,
                 **generate_kwargs,
             )
@@ -224,7 +225,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
     async def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> AsyncIterator[StreamChunk]:
         stream = await self._client.chat.completions.create(
             model=self.model.value,
-            messages=self.messages,
+            messages=strip_inert_keys(self.messages),
             stream=True,
             stream_options={"include_usage": True},
             tools=tools if tools else openai.NOT_GIVEN,
@@ -280,7 +281,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
 
         stream2 = await self._client.chat.completions.create(
             model=self.model.value,
-            messages=self.messages,
+            messages=strip_inert_keys(self.messages),
             stream=True,
             stream_options={"include_usage": True},
             tools=tools if tools else openai.NOT_GIVEN,

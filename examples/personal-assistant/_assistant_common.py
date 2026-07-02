@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from aimu import aio, paths
+from aimu import PROVENANCE_KEY, PROVENANCE_PROACTIVE, aio, paths
 from aimu.aio import Channel, RunHandle, Scheduler
 from aimu.aio.channels.base import ChannelMessage
 from aimu.history import ConversationManager
@@ -181,7 +181,14 @@ class Assistant:
     async def _proactive(self) -> None:
         """Scheduled callback: produce a message unprompted and push it to the channel."""
         async with self._lock:
+            # Tag the whole proactive exchange (the framework-injected reminder turn and the
+            # assistant's push) so replayed history can distinguish it from a user-driven turn.
+            # The agent doesn't reset on run here (system prompt lives on the client), so the
+            # pre-run length is a stable start index for this exchange.
+            start = len(self._agent.model_client.messages)
             reply = await self._agent.run(self._config.reminder_text)
+            for message in self._agent.model_client.messages[start:]:
+                message[PROVENANCE_KEY] = PROVENANCE_PROACTIVE
             await self._channel.send(reply)
             self._persist()
 

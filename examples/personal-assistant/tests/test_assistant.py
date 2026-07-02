@@ -111,6 +111,8 @@ async def test_assistant_handles_message(tmp_path):
 
 
 async def test_assistant_proactive_message(tmp_path):
+    from aimu import PROVENANCE_KEY, PROVENANCE_PROACTIVE
+
     channel = FakeChannel()
     client = MockAsyncModelClient(["Don't forget lunch."])
     assistant = await Assistant.create(_config(tmp_path, reminder_text="remind"), channel, client=client)
@@ -118,6 +120,11 @@ async def test_assistant_proactive_message(tmp_path):
     await assistant._proactive()
 
     assert channel.sent == ["Don't forget lunch."]
+    # The whole proactive exchange (the injected reminder turn and the assistant push) is tagged,
+    # so replayed history can distinguish it from a user-driven turn.
+    proactive = [m for m in assistant._agent.model_client.messages if m.get(PROVENANCE_KEY) == PROVENANCE_PROACTIVE]
+    assert proactive, assistant._agent.model_client.messages
+    assert all(m.get(PROVENANCE_KEY) == PROVENANCE_PROACTIVE for m in assistant._agent.model_client.messages)
 
 
 async def test_assistant_persists_and_restores(tmp_path):

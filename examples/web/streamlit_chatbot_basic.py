@@ -1,6 +1,6 @@
 import streamlit as st
 
-from aimu import paths
+from aimu import PROVENANCE_KEY, paths
 from aimu.history import ConversationManager
 from aimu.models import available_text_clients
 from aimu.tools import builtin
@@ -47,6 +47,10 @@ with st.sidebar:
         st.rerun()
 
 for msg in st.session_state.client.messages[2:]:
+    # Skip framework-injected turns (agent-loop continuation / final-answer prompts) so history
+    # shows only genuine user input and model replies. See aimu.PROVENANCE_KEY.
+    if msg.get(PROVENANCE_KEY):
+        continue
     if msg["role"] in ("user", "assistant") and msg.get("content"):
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])

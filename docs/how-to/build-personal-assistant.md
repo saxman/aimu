@@ -68,6 +68,11 @@ A job that raises is logged and, for interval jobs, retried on the next tick: on
 reminder must not kill the daemon. `run()` is single-use; build a fresh `Scheduler` to run again.
 Job persistence across restarts is intentionally out of scope (jobs are Python callables).
 
+A scheduler-driven turn produces a message the user never asked for. So that a replayed transcript
+can tell it apart from a user-driven turn, tag the exchange with the inert `provenance` key
+(`aimu.PROVENANCE_PROACTIVE`) before persisting; the reference example does this in its `_proactive`
+handler. See [Persist conversations](persist-conversations.md#distinguish-agent-loop-turns-from-user-input).
+
 ## Skill authoring (self-improvement)
 
 The assistant can write a new skill when it works out a repeatable procedure, so it remembers how

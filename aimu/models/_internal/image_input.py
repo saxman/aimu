@@ -152,8 +152,14 @@ def _ollama_split_message(message: dict) -> dict:
 
 
 def _adapt_messages_for_ollama(messages: list[dict]) -> list[dict]:
-    """Return a copy of ``messages`` with vision blocks rewritten for Ollama."""
-    return [_ollama_split_message(msg) for msg in messages]
+    """Return a copy of ``messages`` with vision blocks rewritten for Ollama.
+
+    Inert metadata keys are stripped first, since Ollama forwards unknown message-dict keys
+    to its API verbatim (see :mod:`aimu.models._internal.message_meta`).
+    """
+    from .message_meta import strip_inert_keys
+
+    return [_ollama_split_message(msg) for msg in strip_inert_keys(messages)]
 
 
 def _decode_image_url_to_pil(url: str):

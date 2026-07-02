@@ -33,6 +33,14 @@ from .base import (
     TranscriptionModel,
     TranscriptionSpec,
 )
+from ._internal.message_meta import (
+    INERT_MESSAGE_KEYS,
+    PROVENANCE_CONTINUATION,
+    PROVENANCE_FINAL_ANSWER,
+    PROVENANCE_KEY,
+    PROVENANCE_PROACTIVE,
+    strip_inert_keys,
+)
 from ._internal.model_defaults import (
     available_audio_models,
     available_embedding_models,
@@ -251,6 +259,12 @@ __all__ = [
     "SpeechSpec",
     "StreamChunk",
     "StreamingContentType",
+    "INERT_MESSAGE_KEYS",
+    "PROVENANCE_KEY",
+    "PROVENANCE_CONTINUATION",
+    "PROVENANCE_FINAL_ANSWER",
+    "PROVENANCE_PROACTIVE",
+    "strip_inert_keys",
     "available_audio_clients",
     "available_audio_models",
     "available_embedding_models",

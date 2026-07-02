@@ -129,6 +129,10 @@ for call in extract_tool_calls(agent.messages[agent.name]):
 
 `iteration` increments once per assistant turn that contains tool calls, so you can see how many rounds the agent took. `arguments` is the parsed argument dict (it handles models that emit `parameters` instead of `arguments`); `result` is the matching tool-role content, or `""` if none.
 
+### Tell agent-loop turns from user input
+
+The agent injects its own `{"role": "user", ...}` turns during the loop (a continuation prompt between tool rounds, and a final-answer prompt at the iteration cap). They never appear in a live stream, but a replayed history can't tell them from real input unless they're marked. AIMU tags them with an inert `provenance` key (`message.get(aimu.PROVENANCE_KEY)` is `PROVENANCE_CONTINUATION` / `PROVENANCE_FINAL_ANSWER` / `PROVENANCE_PROACTIVE`; genuine input is untagged). See [Persist conversations](persist-conversations.md#distinguish-agent-loop-turns-from-user-input) for the display pattern.
+
 ## See also
 
 - [Explanation: StreamChunk model](../explanation/streamchunk-model.md): one chunk type for all contexts

@@ -5,7 +5,13 @@ from typing import Optional
 import streamlit as st
 import torch
 
-from aimu import paths
+from aimu import (
+    PROVENANCE_CONTINUATION,
+    PROVENANCE_FINAL_ANSWER,
+    PROVENANCE_KEY,
+    PROVENANCE_PROACTIVE,
+    paths,
+)
 from aimu.agents.agent import Agent
 from aimu.history import ConversationManager
 from aimu.models import (
@@ -706,6 +712,11 @@ else:
     # Skip the initial system and user messages used for the introduction
     msg_iter = iter(st.session_state.model_client.messages[2:])
     for hist_idx, message in enumerate(msg_iter):
+        provenance = message.get(PROVENANCE_KEY)
+        if provenance in (PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER):
+            # Framework-injected agent-loop prompt: show a marker, not a user bubble.
+            st.caption("↻ agent continuation" if provenance == PROVENANCE_CONTINUATION else "✓ final-answer wrap-up")
+            continue
         if "thinking" in message:
             with st.expander("🤔 Thinking"):
                 st.markdown(message["thinking"])
@@ -731,6 +742,8 @@ else:
                         _maybe_render_audio(resp["content"], key_suffix=f"hist_{hist_idx}_{call_idx}")
         elif message["role"] != "tool" and message.get("content"):
             with st.chat_message(message["role"]):
+                if provenance == PROVENANCE_PROACTIVE:
+                    st.caption("🔔 proactive")
                 st.markdown(message["content"])
 
 if prompt := st.chat_input("What's up?"):

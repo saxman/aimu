@@ -28,9 +28,16 @@ This applies to **tool-calling turns** too: when a thinking model reasons and th
 The `"thinking"` key is **not** part of the OpenAI message schema. It is deliberately a side-channel:
 
 - Local chat templates (`tokenizer.apply_chat_template`) read `role`, `content`, and `tool_calls`. They never reference a `"thinking"` key, so it is ignored when the next request is rendered.
-- Cloud providers receive only `role` / `content` / `tool_calls` from the message-format adapters; the extra key is dropped at request time.
+- The Anthropic and HuggingFace adapters rebuild each request payload from `role` / `content` / `tool_calls`, so the extra key never survives the conversion.
+- OpenAI-compat (OpenAI, Gemini, local servers) and Ollama forward message dicts closer to verbatim, so those two request paths call `strip_inert_keys()` (`aimu.models._internal.message_meta`) first, removing every key in `INERT_MESSAGE_KEYS` (`"thinking"`, `"provenance"`, `"timestamp"`).
 
 So the key is inert with respect to the model. It exists for humans and persistence, not for re-conditioning the model. This keeps `self.messages` usable as plain data while still carrying the reasoning for tooling. (Design principle #2 — "plain data" — is preserved in spirit: the reasoning travels as an additive, ignorable annotation, never as a new message class, and never changes what the provider sees.)
+
+## The `"provenance"` key: distinguishing framework-injected turns
+
+The same inert-key mechanism carries a second annotation. The `Agent` loop injects `{"role": "user", ...}` turns the human never typed: the `continuation_prompt` between tool-calling rounds, and the `final_answer_prompt` when the loop hits `max_iterations`. Scheduler "proactive" turns are similar (framework-initiated, not user-initiated). Left unmarked, all three are byte-for-byte identical to real input, so a replayed or persisted transcript can't tell them apart.
+
+AIMU tags them with a `"provenance"` key (`aimu.PROVENANCE_KEY`), whose value is one of `PROVENANCE_CONTINUATION`, `PROVENANCE_FINAL_ANSWER`, or `PROVENANCE_PROACTIVE`. **Genuine user input and ordinary assistant turns are left untagged** (absence means "ordinary turn"), so display logic is just `message.get(PROVENANCE_KEY)`. Like `"thinking"`, the key is inert (it is in `INERT_MESSAGE_KEYS`, so it is stripped before every provider request) and is set on the message by index after the injecting `chat()` turn completes, keeping the public `chat()` signature free of the concept. The Streamlit examples in `examples/web/` hide or mute tagged turns when re-rendering history.
 
 ## Why prior-turn thinking is *not* re-fed to the model
 

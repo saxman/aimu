@@ -53,6 +53,22 @@ class _AgentLoopMixin:
                 return True
         return False
 
+    def _tag_injected_turn(self, index: int, provenance: str) -> None:
+        """Mark the framework-injected user turn at ``index`` with a provenance value.
+
+        The continuation / final-answer prompts are appended to ``model_client.messages`` at
+        the recorded index by ``_append_user_turn``. Tagging is done here rather than at append
+        time so the public ``chat()`` signature stays free of an internal concept, mirroring how
+        providers attach the inert ``"thinking"`` key to a message by index. Call after the
+        ``chat()`` turn completes (streamed: after the stream is fully consumed). No-op if the
+        index no longer names a user turn, so a caller error can't corrupt the transcript.
+        """
+        from aimu.models._internal.message_meta import PROVENANCE_KEY
+
+        messages = self.model_client.messages
+        if 0 <= index < len(messages) and messages[index].get("role") == "user":
+            messages[index][PROVENANCE_KEY] = provenance
+
     def restore(self, messages: list[dict]) -> None:
         """Restore agent state from a saved message list for resuming after failure.
 

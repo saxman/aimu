@@ -4,11 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import time
+from unittest.mock import MagicMock
 
 import pytest
 
 from aimu.aio import Agent
+from aimu.aio._base import AsyncBaseModelClient
 from aimu.models import StreamingContentType
+from aimu.models._internal.message_meta import (
+    PROVENANCE_CONTINUATION,
+    PROVENANCE_FINAL_ANSWER,
+    PROVENANCE_KEY,
+)
 from aimu.tools import tool
 from helpers_aio import MockAsyncModelClient
 
@@ -346,3 +353,69 @@ async def test_async_orchestrator_assemble_accepts_workflow_worker():
     tool_names = {t.__name__ for t in client.tools}
     assert tool_names == {"researcher", "critic"}
     assert await orch.run("task") == "done"
+
+
+# --------------------------------------------------------------------------------------
+# Message provenance (async mirror of tests/test_provenance.py)
+# --------------------------------------------------------------------------------------
+
+
+class _AsyncLoopClient(AsyncBaseModelClient):
+    """Async fake with precise control over when a turn ends in a pending tool result."""
+
+    def __init__(self, tool_turns: int):
+        self.model = MagicMock()
+        self.model.supports_tools = True
+        self.model.supports_thinking = False
+        self.model_kwargs = None
+        self._system_message = None
+        self.default_generate_kwargs = {}
+        self.messages = []
+        self.tools = []
+        self.last_thinking = ""
+        self.last_usage = None
+        self.tool_context_deps = None
+        self.tool_approval = None
+        self._tool_turns = tool_turns
+        self._turn = 0
+
+    def _update_generate_kwargs(self, generate_kwargs=None):
+        return generate_kwargs or {}
+
+    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        self.messages.append({"role": "user", "content": user_message})
+        self._turn += 1
+        if use_tools and self._turn <= self._tool_turns:
+            self.messages.append(
+                {
+                    "role": "assistant",
+                    "tool_calls": [{"type": "function", "function": {"name": "t", "arguments": {}}, "id": "x"}],
+                }
+            )
+            self.messages.append({"role": "tool", "name": "t", "content": "r", "tool_call_id": "x"})
+            return ""
+        self.messages.append({"role": "assistant", "content": "done"})
+        return "done"
+
+    async def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
+        return await self._chat(prompt, generate_kwargs)
+
+
+async def test_async_continuation_turn_tagged_user_untagged():
+    client = _AsyncLoopClient(tool_turns=1)
+    agent = Agent(client, tools=[])
+    await agent.run("real question")
+
+    assert client.messages[0].get(PROVENANCE_KEY) is None
+    tagged = [m for m in client.messages if m.get(PROVENANCE_KEY) == PROVENANCE_CONTINUATION]
+    assert len(tagged) == 1
+
+
+async def test_async_final_answer_turn_tagged():
+    client = _AsyncLoopClient(tool_turns=99)
+    agent = Agent(client, tools=[], max_iterations=2, final_answer_prompt="wrap up")
+    await agent.run("real question")
+
+    tags = [m.get(PROVENANCE_KEY) for m in client.messages]
+    assert PROVENANCE_CONTINUATION in tags
+    assert tags.count(PROVENANCE_FINAL_ANSWER) == 1

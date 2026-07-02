@@ -6,6 +6,7 @@ from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents.base import MessageHistory, Runner
+from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER
 from aimu.models.base import BaseModelClient, StreamChunk
 
 logger = logging.getLogger(__name__)
@@ -124,11 +125,15 @@ class Agent(_AgentLoopMixin, Runner):
             if not self._last_turn_called_tools():
                 break
             logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
+            injected_at = len(self.model_client.messages)
             response = self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools)
+            self._tag_injected_turn(injected_at, PROVENANCE_CONTINUATION)
 
         if self.final_answer_prompt is not None and self._last_turn_called_tools():
             logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+            injected_at = len(self.model_client.messages)
             response = self.model_client.chat(self.final_answer_prompt, generate_kwargs=generate_kwargs, tools=[])
+            self._tag_injected_turn(injected_at, PROVENANCE_FINAL_ANSWER)
 
         self._last_messages = list(self.model_client.messages)
         return response
@@ -152,18 +157,22 @@ class Agent(_AgentLoopMixin, Runner):
         iteration += 1
         while self._last_turn_called_tools() and iteration < self.max_iterations:
             logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
+            injected_at = len(self.model_client.messages)
             for chunk in self.model_client.chat(
                 self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
             ):
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
+            self._tag_injected_turn(injected_at, PROVENANCE_CONTINUATION)
             iteration += 1
 
         if self.final_answer_prompt is not None and self._last_turn_called_tools():
             logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
+            injected_at = len(self.model_client.messages)
             for chunk in self.model_client.chat(
                 self.final_answer_prompt, generate_kwargs=generate_kwargs, stream=True, tools=[]
             ):
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
+            self._tag_injected_turn(injected_at, PROVENANCE_FINAL_ANSWER)
             iteration += 1
 
         self._last_messages = list(self.model_client.messages)
