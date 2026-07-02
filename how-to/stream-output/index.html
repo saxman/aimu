@@ -1210,6 +1210,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#tell-agent-loop-turns-from-user-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tell agent-loop turns from user input
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3056,6 +3067,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#tell-agent-loop-turns-from-user-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tell agent-loop turns from user input
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3231,6 +3253,8 @@
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># 1 letter_counter {&#39;word&#39;: &#39;strawberry&#39;, &#39;letter&#39;: &#39;r&#39;} -&gt; 3</span>
 </span></code></pre></div>
 <p><code>iteration</code> increments once per assistant turn that contains tool calls, so you can see how many rounds the agent took. <code>arguments</code> is the parsed argument dict (it handles models that emit <code>parameters</code> instead of <code>arguments</code>); <code>result</code> is the matching tool-role content, or <code>""</code> if none.</p>
+<h3 id="tell-agent-loop-turns-from-user-input">Tell agent-loop turns from user input<a class="headerlink" href="#tell-agent-loop-turns-from-user-input" title="Permanent link">&para;</a></h3>
+<p>The agent injects its own <code>{"role": "user", ...}</code> turns during the loop (a continuation prompt between tool rounds, and a final-answer prompt at the iteration cap). They never appear in a live stream, but a replayed history can't tell them from real input unless they're marked. AIMU tags them with an inert <code>provenance</code> key (<code>message.get(aimu.PROVENANCE_KEY)</code> is <code>PROVENANCE_CONTINUATION</code> / <code>PROVENANCE_FINAL_ANSWER</code> / <code>PROVENANCE_PROACTIVE</code>; genuine input is untagged). See <a href="../persist-conversations/#distinguish-agent-loop-turns-from-user-input">Persist conversations</a> for the display pattern.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a>: one chunk type for all contexts</li>

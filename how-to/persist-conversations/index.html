@@ -1480,6 +1480,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#distinguish-agent-loop-turns-from-user-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distinguish agent-loop turns from user input
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2918,6 +2929,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#distinguish-agent-loop-turns-from-user-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distinguish agent-loop turns from user input
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2982,9 +3004,27 @@
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Plan my trip.&quot;</span><span class="p">)</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">manager</span><span class="o">.</span><span class="n">update_conversation</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">)</span>
 </span></code></pre></div>
+<h2 id="distinguish-agent-loop-turns-from-user-input">Distinguish agent-loop turns from user input<a class="headerlink" href="#distinguish-agent-loop-turns-from-user-input" title="Permanent link">&para;</a></h2>
+<p>An <code>Agent</code> reaches its answer by injecting <code>{"role": "user", ...}</code> turns the human never typed: a continuation prompt between tool-calling rounds, and (if configured) a final-answer prompt when the loop hits <code>max_iterations</code>. In a live stream these are <em>input</em>, so they never reach the screen. But when you <strong>replay</strong> a stored history they look identical to real user messages.</p>
+<p>AIMU marks them with an inert <code>provenance</code> key so your display can tell them apart. Genuine user input and ordinary assistant turns are left untagged, so the check is a plain <code>.get()</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">:</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">provenance</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">PROVENANCE_KEY</span><span class="p">)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="k">if</span> <span class="n">provenance</span> <span class="o">==</span> <span class="n">aimu</span><span class="o">.</span><span class="n">PROVENANCE_CONTINUATION</span><span class="p">:</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">render_caption</span><span class="p">(</span><span class="s2">&quot;↻ agent continuation&quot;</span><span class="p">)</span>      <span class="c1"># or skip it entirely</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">elif</span> <span class="n">provenance</span> <span class="o">==</span> <span class="n">aimu</span><span class="o">.</span><span class="n">PROVENANCE_FINAL_ANSWER</span><span class="p">:</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="n">render_caption</span><span class="p">(</span><span class="s2">&quot;✓ final-answer wrap-up&quot;</span><span class="p">)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="k">elif</span> <span class="n">provenance</span> <span class="o">==</span> <span class="n">aimu</span><span class="o">.</span><span class="n">PROVENANCE_PROACTIVE</span><span class="p">:</span>     <span class="c1"># scheduler / proactive push</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">render_bubble</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">badge</span><span class="o">=</span><span class="s2">&quot;proactive&quot;</span><span class="p">)</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="n">render_bubble</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>                        <span class="c1"># genuine user or assistant turn</span>
+</span></code></pre></div>
+<p>The key is one of <code>PROVENANCE_CONTINUATION</code>, <code>PROVENANCE_FINAL_ANSWER</code>, or <code>PROVENANCE_PROACTIVE</code> (all exported from <code>aimu</code> and <code>aimu.models</code>). It is inert with respect to the model: it is stripped from every provider request, exactly like the <a href="../../explanation/thinking-and-context/#the-provenance-key-distinguishing-framework-injected-turns"><code>thinking</code> key</a>. The Streamlit examples in <code>examples/web/</code> use it to mute or hide injected turns when re-rendering history.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../reference/api/history/"><code>aimu.history.ConversationManager</code></a></li>
+<li><a href="../../explanation/thinking-and-context/#the-provenance-key-distinguishing-framework-injected-turns">Thinking and context</a>: the inert-key mechanism behind <code>provenance</code></li>
 <li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/02%20-%20Conversations.ipynb">02 - Conversations</a></li>
 </ul>
 

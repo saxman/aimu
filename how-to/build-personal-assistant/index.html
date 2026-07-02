@@ -3087,6 +3087,10 @@ job is a zero-argument coroutine factory; bind context (an agent, a channel) wit
 <p>A job that raises is logged and, for interval jobs, retried on the next tick: one misbehaving
 reminder must not kill the daemon. <code>run()</code> is single-use; build a fresh <code>Scheduler</code> to run again.
 Job persistence across restarts is intentionally out of scope (jobs are Python callables).</p>
+<p>A scheduler-driven turn produces a message the user never asked for. So that a replayed transcript
+can tell it apart from a user-driven turn, tag the exchange with the inert <code>provenance</code> key
+(<code>aimu.PROVENANCE_PROACTIVE</code>) before persisting; the reference example does this in its <code>_proactive</code>
+handler. See <a href="../persist-conversations/#distinguish-agent-loop-turns-from-user-input">Persist conversations</a>.</p>
 <h2 id="skill-authoring-self-improvement">Skill authoring (self-improvement)<a class="headerlink" href="#skill-authoring-self-improvement" title="Permanent link">&para;</a></h2>
 <p>The assistant can write a new skill when it works out a repeatable procedure, so it remembers how
 next time. <code>make_skill_authoring_tool</code> returns an async <code>@tool</code> the agent calls; pass it to a

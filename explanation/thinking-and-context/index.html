@@ -2822,6 +2822,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-provenance-key-distinguishing-framework-injected-turns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The "provenance" key: distinguishing framework-injected turns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#why-prior-turn-thinking-is-not-re-fed-to-the-model" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2893,9 +2904,13 @@
 <p>The <code>"thinking"</code> key is <strong>not</strong> part of the OpenAI message schema. It is deliberately a side-channel:</p>
 <ul>
 <li>Local chat templates (<code>tokenizer.apply_chat_template</code>) read <code>role</code>, <code>content</code>, and <code>tool_calls</code>. They never reference a <code>"thinking"</code> key, so it is ignored when the next request is rendered.</li>
-<li>Cloud providers receive only <code>role</code> / <code>content</code> / <code>tool_calls</code> from the message-format adapters; the extra key is dropped at request time.</li>
+<li>The Anthropic and HuggingFace adapters rebuild each request payload from <code>role</code> / <code>content</code> / <code>tool_calls</code>, so the extra key never survives the conversion.</li>
+<li>OpenAI-compat (OpenAI, Gemini, local servers) and Ollama forward message dicts closer to verbatim, so those two request paths call <code>strip_inert_keys()</code> (<code>aimu.models._internal.message_meta</code>) first, removing every key in <code>INERT_MESSAGE_KEYS</code> (<code>"thinking"</code>, <code>"provenance"</code>, <code>"timestamp"</code>).</li>
 </ul>
 <p>So the key is inert with respect to the model. It exists for humans and persistence, not for re-conditioning the model. This keeps <code>self.messages</code> usable as plain data while still carrying the reasoning for tooling. (Design principle #2 — "plain data" — is preserved in spirit: the reasoning travels as an additive, ignorable annotation, never as a new message class, and never changes what the provider sees.)</p>
+<h2 id="the-provenance-key-distinguishing-framework-injected-turns">The <code>"provenance"</code> key: distinguishing framework-injected turns<a class="headerlink" href="#the-provenance-key-distinguishing-framework-injected-turns" title="Permanent link">&para;</a></h2>
+<p>The same inert-key mechanism carries a second annotation. The <code>Agent</code> loop injects <code>{"role": "user", ...}</code> turns the human never typed: the <code>continuation_prompt</code> between tool-calling rounds, and the <code>final_answer_prompt</code> when the loop hits <code>max_iterations</code>. Scheduler "proactive" turns are similar (framework-initiated, not user-initiated). Left unmarked, all three are byte-for-byte identical to real input, so a replayed or persisted transcript can't tell them apart.</p>
+<p>AIMU tags them with a <code>"provenance"</code> key (<code>aimu.PROVENANCE_KEY</code>), whose value is one of <code>PROVENANCE_CONTINUATION</code>, <code>PROVENANCE_FINAL_ANSWER</code>, or <code>PROVENANCE_PROACTIVE</code>. <strong>Genuine user input and ordinary assistant turns are left untagged</strong> (absence means "ordinary turn"), so display logic is just <code>message.get(PROVENANCE_KEY)</code>. Like <code>"thinking"</code>, the key is inert (it is in <code>INERT_MESSAGE_KEYS</code>, so it is stripped before every provider request) and is set on the message by index after the injecting <code>chat()</code> turn completes, keeping the public <code>chat()</code> signature free of the concept. The Streamlit examples in <code>examples/web/</code> hide or mute tagged turns when re-rendering history.</p>
 <h2 id="why-prior-turn-thinking-is-not-re-fed-to-the-model">Why prior-turn thinking is <em>not</em> re-fed to the model<a class="headerlink" href="#why-prior-turn-thinking-is-not-re-fed-to-the-model" title="Permanent link">&para;</a></h2>
 <p>On a multi-turn conversation, the reasoning from earlier assistant turns is <strong>not</strong> sent back to the model. This is intentional and matches the model authors' explicit guidance:</p>
 <ul>
