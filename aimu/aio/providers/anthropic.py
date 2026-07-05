@@ -221,7 +221,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
     async def _chat(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
@@ -279,38 +279,19 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             elif block.type == "tool_use":
                 tool_use_blocks.append(block)
 
+        self.last_usage = usage_from_anthropic(response)
+
+        # Single turn: if the model called tools, execute them and return. The model's response
+        # to the tool results comes on the next chat() call (the loop lives in Agent).
         if tool_use_blocks:
             tool_calls = [{"name": b.name, "arguments": b.input} for b in tool_use_blocks]
             msgs_before = len(self.messages)
-            await self._handle_tool_calls(tool_calls)
+            await self._handle_tool_calls(tool_calls, content=text_content)
             self._patch_tool_ids(msgs_before, tool_use_blocks)
-
             if self.last_thinking:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
+            return text_content
 
-            first_call_thinking = self.last_thinking
-
-            system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
-            response = await self._client.messages.create(
-                model=self.model.value,
-                system=system_str if system_str else anthropic.NOT_GIVEN,
-                messages=ant_messages,
-                tools=ant_tools,
-                **generate_kwargs,
-            )
-
-            self.last_thinking = ""
-            text_content = ""
-            for block in response.content:
-                if block.type == "thinking":
-                    self.last_thinking = block.thinking
-                elif block.type == "text":
-                    text_content = block.text
-
-            if not self.last_thinking:
-                self.last_thinking = first_call_thinking
-
-        self.last_usage = usage_from_anthropic(response)
         assistant_msg: dict = {"role": "assistant", "content": text_content}
         if self.last_thinking:
             assistant_msg["thinking"] = self.last_thinking
@@ -348,16 +329,22 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                     elif delta.type == "input_json_delta" and tool_use_acc:
                         tool_use_acc[-1]["input_json"] += delta.partial_json
 
+        self.last_usage = usage_from_anthropic(await stream.get_final_message())
+
         if not tool_use_acc:
             full_content = ""
             for sc in first_pass_chunks:
                 if sc.phase == StreamingContentType.GENERATING:
                     full_content += sc.content
                 yield sc
-            self.messages.append({"role": "assistant", "content": full_content})
-            self.last_usage = usage_from_anthropic(await stream.get_final_message())
+            assistant_msg: dict = {"role": "assistant", "content": full_content}
+            if self.last_thinking:
+                assistant_msg["thinking"] = self.last_thinking
+            self.messages.append(assistant_msg)
             return
 
+        # Single turn: parse accumulated JSON, dispatch, yield TOOL_CALLING chunks, and return.
+        # The model's response to the tool results comes on the next chat() call (loop in Agent).
         parsed_blocks = [
             SimpleNamespace(
                 id=tub["id"],
@@ -368,41 +355,15 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         ]
 
         tool_calls = [{"name": b.name, "arguments": b.input} for b in parsed_blocks]
+        # Yield any prose/thinking emitted alongside the tool call and store the prose as content.
+        full_content = ""
+        for sc in first_pass_chunks:
+            if sc.phase == StreamingContentType.GENERATING:
+                full_content += sc.content
+            yield sc
         msgs_before = len(self.messages)
-        async for chunk in self._handle_tool_calls_streamed(tool_calls):
+        async for chunk in self._handle_tool_calls_streamed(tool_calls, content=full_content):
             yield chunk
         self._patch_tool_ids(msgs_before, parsed_blocks)
-
         if self.last_thinking:
             self.messages[msgs_before]["thinking"] = self.last_thinking
-
-        system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
-        full_content = ""
-        first_pass_thinking = self.last_thinking
-        self.last_thinking = ""
-
-        async with self._client.messages.stream(
-            model=self.model.value,
-            system=system_str if system_str else anthropic.NOT_GIVEN,
-            messages=ant_messages,
-            tools=ant_tools,
-            **generate_kwargs,
-        ) as stream2:
-            async for event in stream2:
-                if event.type == "content_block_delta":
-                    delta = event.delta
-                    if delta.type == "thinking_delta":
-                        self.last_thinking += delta.thinking
-                        yield StreamChunk(StreamingContentType.THINKING, delta.thinking)
-                    elif delta.type == "text_delta":
-                        full_content += delta.text
-                        yield StreamChunk(StreamingContentType.GENERATING, delta.text)
-            self.last_usage = usage_from_anthropic(await stream2.get_final_message())
-
-        if not self.last_thinking:
-            self.last_thinking = first_pass_thinking
-
-        assistant_msg: dict = {"role": "assistant", "content": full_content}
-        if self.last_thinking:
-            assistant_msg["thinking"] = self.last_thinking
-        self.messages.append(assistant_msg)

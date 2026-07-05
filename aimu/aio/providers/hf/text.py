@@ -123,7 +123,7 @@ class AsyncHuggingFaceClient(AsyncBaseModelClient):
 
     async def _chat(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,

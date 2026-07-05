@@ -45,19 +45,29 @@ class _AgentLoopMixin:
         self.model_client.tool_approval = tool_approval or self.tool_approval or approve_all
 
     def _last_turn_called_tools(self) -> bool:
-        """True if a ``"tool"`` message appears after the most recent ``"user"`` message."""
+        """True if the model's most recent turn ended by calling tools (so it still needs
+        another turn to respond to the results).
+
+        Because ``chat()`` is a single turn — it executes any requested tools and returns
+        without generating a follow-up answer — the transcript ends in a ``tool`` result when
+        the model called tools, or in an ``assistant`` answer when it did not. Reverse-scan for
+        the most recent of those: a trailing ``tool`` result (or an ``assistant`` message that
+        still carries ``tool_calls``) means "continue"; a plain ``assistant`` answer means "stop".
+        """
         for msg in reversed(self.model_client.messages):
-            if msg.get("role") == "user":
-                return False
-            if msg.get("role") == "tool":
+            role = msg.get("role")
+            if role == "tool":
                 return True
+            if role == "assistant":
+                return bool(msg.get("tool_calls"))
         return False
 
     def _tag_injected_turn(self, index: int, provenance: str) -> None:
         """Mark the framework-injected user turn at ``index`` with a provenance value.
 
-        The continuation / final-answer prompts are appended to ``model_client.messages`` at
-        the recorded index by ``_append_user_turn``. Tagging is done here rather than at append
+        Now used only for the opt-in ``final_answer_prompt`` wrap-up turn (continuation turns
+        inject no user message). That prompt is appended to ``model_client.messages`` at the
+        recorded index by ``_append_user_turn``. Tagging is done here rather than at append
         time so the public ``chat()`` signature stays free of an internal concept, mirroring how
         providers attach the inert ``"thinking"`` key to a message by index. Call after the
         ``chat()`` turn completes (streamed: after the stream is fully consumed). No-op if the

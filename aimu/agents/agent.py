@@ -6,11 +6,14 @@ from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents.base import MessageHistory, Runner
-from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER
+from aimu.models._internal.message_meta import PROVENANCE_FINAL_ANSWER
 from aimu.models.base import BaseModelClient, StreamChunk
 
 logger = logging.getLogger(__name__)
 
+# Deprecated: the agent no longer injects a continuation prompt. It continues a tool-using run
+# by calling chat() with no user message (a turn on the current messages). The ``continuation_prompt``
+# field and this constant are kept only so existing constructors / from_config configs don't break.
 DEFAULT_CONTINUATION_PROMPT = (
     "Continue working on the task using available tools as needed. If you have the answer "
     "and don't need to use any more tools, just provide the final response."
@@ -21,10 +24,11 @@ DEFAULT_CONTINUATION_PROMPT = (
 class Agent(_AgentLoopMixin, Runner):
     """A model client wrapped in an agentic loop.
 
-    Calls ``model_client.chat()`` repeatedly until the model produces a turn without
-    invoking tools, or ``max_iterations`` is reached. The stop condition scans
-    ``model_client.messages`` in reverse for a ``"tool"`` role message after the last
-    ``"user"`` role. If found, the agent sends ``continuation_prompt`` and loops.
+    ``model_client.chat()`` is a single turn: it issues one model request and, if the model
+    requests tools, executes them and returns. This agent is the loop over that: it calls
+    ``chat(task)`` and then ``chat()`` (no user message — a continuation turn on the current
+    messages) until a turn makes no tool calls, or ``max_iterations`` turns are reached. No
+    synthetic "continue" prompt is injected into the transcript.
 
     Tools are plain callables in ``tools=``: functions decorated with
     ``@aimu.tools.tool`` for in-process tools, and/or ``MCPClient(...).as_tools()`` for
@@ -121,15 +125,14 @@ class Agent(_AgentLoopMixin, Runner):
                 task, generate_kwargs, images=images, tools=tools, deps=deps, tool_approval=tool_approval
             )
         self._prepare_run(deps, tool_approval)
+        # Turn 1 executes any requested tools and returns. Continue (chat() with no user
+        # message → a turn on the current messages) until a turn makes no tool calls.
         response = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
-
-        for _ in range(self.max_iterations - 1):
-            if not self._last_turn_called_tools():
-                break
-            logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
-            injected_at = len(self.model_client.messages)
-            response = self.model_client.chat(self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools)
-            self._tag_injected_turn(injected_at, PROVENANCE_CONTINUATION)
+        iteration = 1
+        while self._last_turn_called_tools() and iteration < self.max_iterations:
+            logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
+            response = self.model_client.chat(generate_kwargs=generate_kwargs, tools=tools)
+            iteration += 1
 
         if self.final_answer_prompt is not None and self._last_turn_called_tools():
             logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
@@ -159,12 +162,9 @@ class Agent(_AgentLoopMixin, Runner):
         iteration += 1
         while self._last_turn_called_tools() and iteration < self.max_iterations:
             logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-            injected_at = len(self.model_client.messages)
-            for chunk in self.model_client.chat(
-                self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
-            ):
+            # chat() with no user message → a turn on the current messages (tool results).
+            for chunk in self.model_client.chat(generate_kwargs=generate_kwargs, stream=True, tools=tools):
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-            self._tag_injected_turn(injected_at, PROVENANCE_CONTINUATION)
             iteration += 1
 
         if self.final_answer_prompt is not None and self._last_turn_called_tools():

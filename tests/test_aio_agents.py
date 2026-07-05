@@ -168,6 +168,29 @@ async def test_async_agent_run_streamed_tools_override_applied():
     assert client.tools[0] is not override_tool  # restored to configured tools
 
 
+async def test_async_chat_is_single_turn_executes_tool_then_returns():
+    # One chat() = one model turn. A tool-using turn executes the tool and returns; the answer
+    # comes on the next chat() call (user_message=None → no user turn appended).
+    client = MockAsyncModelClient(["tool", "answer"])
+
+    first = await client.chat("q")
+    assert first == ""
+    assert client.messages[-1]["role"] == "tool"
+
+    second = await client.chat()
+    assert second == "answer"
+    assert client.messages[-1] == {"role": "assistant", "content": "answer"}
+    assert [m["content"] for m in client.messages if m["role"] == "user"] == ["q"]
+
+
+async def test_async_agent_run_produces_single_final_answer_no_duplication():
+    client = MockAsyncModelClient(["tool", "the answer"])
+    result = await Agent(client, name="a").run("do it")
+    assert result == "the answer"
+    assistant_texts = [m.get("content") for m in client.messages if m["role"] == "assistant" and m.get("content")]
+    assert assistant_texts == ["the answer"]
+
+
 # ---------------------------------------------------------------------------
 # Async Agent final_answer_prompt (forced wrap-up at max_iterations)
 # ---------------------------------------------------------------------------
@@ -188,11 +211,15 @@ class _AsyncLoopingToolClient(MockAsyncModelClient):
         self.final_text = final_text
         self.tools_seen: list[list] = []
 
-    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+    async def _chat(
+        self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+    ):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
-        self.messages.append({"role": "user", "content": user_message})
+        if user_message is not None:  # None = continuation turn (no new user message)
+            self.messages.append({"role": "user", "content": user_message})
         self.tools_seen.append(list(self.tools))
+        # Single turn: with tools available, call a tool and return (no follow-up answer).
         if self.tools:
             self.messages.append(
                 {
@@ -201,7 +228,6 @@ class _AsyncLoopingToolClient(MockAsyncModelClient):
                 }
             )
             self.messages.append({"role": "tool", "name": "t", "content": "result", "tool_call_id": "x"})
-            self.messages.append({"role": "assistant", "content": ""})
             return ""
         self.messages.append({"role": "assistant", "content": self.final_text})
         return self.final_text
@@ -407,8 +433,11 @@ class _AsyncLoopClient(AsyncBaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
-        self.messages.append({"role": "user", "content": user_message})
+    async def _chat(
+        self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+    ):
+        if user_message is not None:  # None = continuation turn (no new user message)
+            self.messages.append({"role": "user", "content": user_message})
         self._turn += 1
         if use_tools and self._turn <= self._tool_turns:
             self.messages.append(
@@ -426,14 +455,16 @@ class _AsyncLoopClient(AsyncBaseModelClient):
         return await self._chat(prompt, generate_kwargs)
 
 
-async def test_async_continuation_turn_tagged_user_untagged():
+async def test_async_continuation_injects_no_user_turn():
+    # The agent continues via chat() with no user message, so no synthetic user turn is
+    # injected and nothing carries the (now-legacy) continuation provenance tag.
     client = _AsyncLoopClient(tool_turns=1)
     agent = Agent(client, tools=[])
     await agent.run("real question")
 
-    assert client.messages[0].get(PROVENANCE_KEY) is None
-    tagged = [m for m in client.messages if m.get(PROVENANCE_KEY) == PROVENANCE_CONTINUATION]
-    assert len(tagged) == 1
+    user_turns = [m for m in client.messages if m["role"] == "user"]
+    assert [m["content"] for m in user_turns] == ["real question"]
+    assert PROVENANCE_CONTINUATION not in [m.get(PROVENANCE_KEY) for m in client.messages]
 
 
 async def test_async_final_answer_turn_tagged():
@@ -442,5 +473,5 @@ async def test_async_final_answer_turn_tagged():
     await agent.run("real question")
 
     tags = [m.get(PROVENANCE_KEY) for m in client.messages]
-    assert PROVENANCE_CONTINUATION in tags
     assert tags.count(PROVENANCE_FINAL_ANSWER) == 1
+    assert PROVENANCE_CONTINUATION not in tags  # continuation turns are no longer injected/tagged

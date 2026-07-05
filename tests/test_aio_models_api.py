@@ -306,9 +306,7 @@ async def test_aio_openai_compat_tool_call_turn_thinking_preserved():
 
     tc = types.SimpleNamespace(function=types.SimpleNamespace(name="echo", arguments="{}"))
     first_msg = types.SimpleNamespace(content="<think>reasoning before tool</think>", tool_calls=[tc])
-    final_msg = types.SimpleNamespace(content="final answer", tool_calls=None)
     first = types.SimpleNamespace(choices=[types.SimpleNamespace(message=first_msg)])
-    final = types.SimpleNamespace(choices=[types.SimpleNamespace(message=final_msg)])
 
     async def _chat_setup(*a, **k):
         return ({}, [])
@@ -316,26 +314,73 @@ async def test_aio_openai_compat_tool_call_turn_thinking_preserved():
     fake = types.SimpleNamespace(
         _chat_setup=_chat_setup,
         _client=types.SimpleNamespace(
-            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_aio_seq(first, final)))
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_aio_seq(first)))
         ),
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
         last_usage=None,
+        last_thinking="",
         messages=[],
     )
 
-    async def _handle(tool_calls):
-        fake.messages.append({"role": "assistant", "tool_calls": [{"id": "x"}]})
+    async def _handle(tool_calls, content=""):
+        msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
+        if content:
+            msg["content"] = content
+        fake.messages.append(msg)
+        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
+
+    fake._handle_tool_calls = _handle
+
+    # Single turn: the tool is executed and chat() returns (no follow-up answer). The tool-call
+    # turn's reasoning is attached to the assistant(tool_calls) message; the answer comes next turn.
+    result = await AsyncOpenAICompatClient._chat(fake, "hi")
+
+    assert result == ""  # tool-only turn (its content was all thinking)
+    tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
+    assert tool_call_msg["thinking"] == "reasoning before tool"
+    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
+
+
+async def test_aio_openai_compat_preserves_content_alongside_tool_call():
+    """Async: a generation with both prose and a tool call keeps the prose as content."""
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    tc = types.SimpleNamespace(function=types.SimpleNamespace(name="echo", arguments="{}"))
+    first_msg = types.SimpleNamespace(content="Let me look that up.", tool_calls=[tc])
+    first = types.SimpleNamespace(choices=[types.SimpleNamespace(message=first_msg)])
+
+    async def _chat_setup(*a, **k):
+        return ({}, [])
+
+    fake = types.SimpleNamespace(
+        _chat_setup=_chat_setup,
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_aio_seq(first)))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=False,
+        last_usage=None,
+        last_thinking="",
+        messages=[],
+    )
+
+    async def _handle(tool_calls, content=""):
+        msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
+        if content:
+            msg["content"] = content
+        fake.messages.append(msg)
         fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
 
     fake._handle_tool_calls = _handle
 
     result = await AsyncOpenAICompatClient._chat(fake, "hi")
 
-    assert result == "final answer"
+    assert result == "Let me look that up."
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
-    assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+    assert tool_call_msg["content"] == "Let me look that up."
 
 
 async def test_aio_openai_compat_streamed_tool_call_turn_thinking_preserved():
@@ -355,8 +400,7 @@ async def test_aio_openai_compat_streamed_tool_call_turn_thinking_preserved():
 
     tc_delta = types.SimpleNamespace(index=0, function=types.SimpleNamespace(name="echo", arguments="{}"))
     first = [_delta(content="<think>reasoning before tool</think>"), _delta(tool_calls=[tc_delta])]
-    second = [_delta(content="final answer")]
-    streams = iter([_astream(first), _astream(second)])
+    streams = iter([_astream(first)])
 
     async def _create(**kw):
         return next(streams)
@@ -371,17 +415,22 @@ async def test_aio_openai_compat_streamed_tool_call_turn_thinking_preserved():
     )
     fake._iter_stream = lambda stream: AsyncOpenAICompatClient._iter_stream(fake, stream)
 
-    async def _handle(tool_calls):
-        fake.messages.append({"role": "assistant", "tool_calls": [{"id": "x"}]})
+    async def _handle(tool_calls, content=""):
+        msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
+        if content:
+            msg["content"] = content
+        fake.messages.append(msg)
         fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
         return
         yield  # make this an async generator
 
     fake._handle_tool_calls_streamed = _handle
 
+    # Single turn: dispatch the tools and stop (no second stream). Thinking from the tool-call
+    # turn is attached to the assistant(tool_calls) message; the answer comes on the next turn.
     async for _ in AsyncOpenAICompatClient._chat_streamed(fake, {}, []):
         pass
 
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}

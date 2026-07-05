@@ -138,7 +138,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
 
     async def _chat(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict] = None,
         use_tools: bool = True,
         stream: bool = False,
@@ -162,27 +162,20 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             keep_alive=self.model_keep_alive_seconds,
             format=response_format,
         )
+        self.last_usage = usage_from_ollama(response)
 
+        # Single turn: if the model called tools, execute them and return. The model's response
+        # to the tool results comes on the next chat() call (the loop lives in Agent).
         if response["message"].tool_calls:
             tool_calls = [
                 {"name": tc.function.name, "arguments": tc.function.arguments} for tc in response["message"].tool_calls
             ]
-            await self._handle_tool_calls(tool_calls)
-
+            content = response["message"].content or ""
+            await self._handle_tool_calls(tool_calls, content=content)
             if response["message"].thinking:
                 self.messages[-1 - len(tool_calls)]["thinking"] = response["message"].thinking
+            return content
 
-            response = await self._client.chat(
-                model=self.model.value,
-                messages=_adapt_messages_for_ollama(self.messages),
-                options=generate_kwargs,
-                tools=tools,
-                think=self.is_thinking_model,
-                keep_alive=self.model_keep_alive_seconds,
-                format=response_format,
-            )
-
-        self.last_usage = usage_from_ollama(response)
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
         if response["message"].thinking:
             self.messages[-1]["thinking"] = response["message"].thinking
@@ -205,33 +198,29 @@ class AsyncOllamaClient(AsyncBaseModelClient):
                 format=response_format,
             )
 
-        # First turn. Consume the whole stream, collecting tool calls from ANY part (Ollama can
+        # Single turn. Consume the whole stream, collecting tool calls from ANY part (Ollama can
         # emit an empty transitional part before the one carrying tool_calls) and streaming only
         # non-empty content (so empty/transitional/done parts never surface as stray output).
-        turn = {}
+        turn: dict = {}
         async for chunk in self._consume_turn(await _open(), turn):
             yield chunk
+        if turn["last_part"] is not None:
+            self.last_usage = usage_from_ollama(turn["last_part"])
 
+        # If the model called tools, execute them and return; the response to the tool results
+        # comes on the next chat() call (the loop lives in Agent). No follow-up turn here.
         if turn["tool_calls"]:
             msgs_before = len(self.messages)
-            async for chunk in self._handle_tool_calls_streamed(turn["tool_calls"]):
+            async for chunk in self._handle_tool_calls_streamed(turn["tool_calls"], content=turn["content"]):
                 yield chunk
             if turn["thinking"]:
                 self.messages[msgs_before]["thinking"] = turn["thinking"]
-            if turn["last_part"] is not None:
-                self.last_usage = usage_from_ollama(turn["last_part"])
-
-            # Follow-up turn after the tool results (the Agent loop drives any further rounds).
-            turn = {}
-            async for chunk in self._consume_turn(await _open(), turn):
-                yield chunk
+            return
 
         message = {"role": turn["role"], "content": turn["content"]}
         if turn["thinking"]:
             message["thinking"] = turn["thinking"]
         self.messages.append(message)
-        if turn["last_part"] is not None:
-            self.last_usage = usage_from_ollama(turn["last_part"])
 
     @staticmethod
     async def _consume_turn(response, out: dict) -> AsyncIterator[StreamChunk]:

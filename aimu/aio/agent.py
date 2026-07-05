@@ -13,7 +13,7 @@ from typing import Any, AsyncIterator, Callable, Optional, Union
 
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents.base import MessageHistory
-from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER
+from aimu.models._internal.message_meta import PROVENANCE_FINAL_ANSWER
 from aimu.models.base import StreamChunk
 
 from ._base import AsyncBaseModelClient
@@ -153,17 +153,14 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         the task, e.g. via :class:`~aimu.aio.RunHandle`) still records its partial turn for resume.
         """
         try:
+            # Turn 1 executes any requested tools and returns. Continue (chat() with no user
+            # message → a turn on the current messages) until a turn makes no tool calls.
             response = await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
-
-            for _ in range(self.max_iterations - 1):
-                if not self._last_turn_called_tools():
-                    break
-                logger.debug("Agent '%s' continuing, tools were used in last turn.", self.name)
-                injected_at = len(self.model_client.messages)
-                response = await self.model_client.chat(
-                    self.continuation_prompt, generate_kwargs=generate_kwargs, tools=tools
-                )
-                self._tag_injected_turn(injected_at, PROVENANCE_CONTINUATION)
+            iteration = 1
+            while self._last_turn_called_tools() and iteration < self.max_iterations:
+                logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
+                response = await self.model_client.chat(generate_kwargs=generate_kwargs, tools=tools)
+                iteration += 1
 
             if self.final_answer_prompt is not None and self._last_turn_called_tools():
                 logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
@@ -235,13 +232,10 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             iteration += 1
             while self._last_turn_called_tools() and iteration < self.max_iterations:
                 logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-                injected_at = len(self.model_client.messages)
-                next_stream = await self.model_client.chat(
-                    self.continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=tools
-                )
+                # chat() with no user message → a turn on the current messages (tool results).
+                next_stream = await self.model_client.chat(generate_kwargs=generate_kwargs, stream=True, tools=tools)
                 async for chunk in next_stream:
                     yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-                self._tag_injected_turn(injected_at, PROVENANCE_CONTINUATION)
                 iteration += 1
 
             if self.final_answer_prompt is not None and self._last_turn_called_tools():

@@ -1,9 +1,19 @@
 import streamlit as st
 
 from aimu import PROVENANCE_KEY, paths
+from aimu.agents import Agent
 from aimu.history import ConversationManager
-from aimu.models import available_text_clients
+from aimu.models import StreamingContentType, available_text_clients
 from aimu.tools import builtin
+
+
+def stream_reply(client, message):
+    """Run one assistant turn as an Agent (chat() is single-turn; the Agent loops it until
+    the model stops calling tools) and yield the visible answer tokens."""
+    for chunk in Agent(client).run(message, stream=True):
+        if chunk.phase == StreamingContentType.GENERATING:
+            yield chunk.content
+
 
 SYSTEM_MESSAGE = """
 You are a helpful assistant that can answer questions, provide information, and assist with tasks.
@@ -59,8 +69,8 @@ if len(st.session_state.client.messages) == 0:
     with st.chat_message("assistant"):
         placeholder = st.empty()
         response = ""
-        for chunk in st.session_state.client.chat(INITIAL_USER_MESSAGE, stream=True, include=["generating"]):
-            response += chunk.content
+        for token in stream_reply(st.session_state.client, INITIAL_USER_MESSAGE):
+            response += token
             placeholder.markdown(response)
     st.session_state.conversation_manager.update_conversation(st.session_state.client.messages)
 
@@ -69,7 +79,7 @@ if prompt := st.chat_input("What's up?"):
     with st.chat_message("assistant"):
         placeholder = st.empty()
         response = ""
-        for chunk in st.session_state.client.chat(prompt, stream=True, include=["generating"]):
-            response += chunk.content
+        for token in stream_reply(st.session_state.client, prompt):
+            response += token
             placeholder.markdown(response)
     st.session_state.conversation_manager.update_conversation(st.session_state.client.messages)

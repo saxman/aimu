@@ -156,7 +156,7 @@ class LlamaCppClient(BaseModelClient):
 
     def _chat(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
@@ -176,27 +176,25 @@ class LlamaCppClient(BaseModelClient):
         logger.debug("LLM raw response: %s", response)
         msg = response["choices"][0]["message"]
 
+        self.last_thinking = ""
+
+        # Single turn: if the model called tools, execute them and return. The model's response
+        # to the tool results comes on the next chat() call (the loop lives in Agent).
         if msg.get("tool_calls"):
             tool_calls = [
                 {"name": tc["function"]["name"], "arguments": json.loads(tc["function"]["arguments"])}
                 for tc in msg["tool_calls"]
             ]
-            tool_turn_thinking = _split_thinking(msg.get("content") or "")[0] if self.is_thinking_model else ""
+            text = msg.get("content") or ""
+            if self.is_thinking_model:
+                self.last_thinking, text = _split_thinking(text)
             msgs_before = len(self.messages)
-            self._handle_tool_calls(tool_calls)
-            if tool_turn_thinking:
-                self.messages[msgs_before]["thinking"] = tool_turn_thinking
-
-            response = self._llm.create_chat_completion(
-                messages=self.messages,
-                tools=tools if tools else None,
-                **generate_kwargs,
-            )
-            logger.debug("LLM raw response (after tools): %s", response)
-            msg = response["choices"][0]["message"]
+            self._handle_tool_calls(tool_calls, content=text)
+            if self.last_thinking:
+                self.messages[msgs_before]["thinking"] = self.last_thinking
+            return text
 
         content = msg.get("content") or ""
-        self.last_thinking = ""
         if self.is_thinking_model:
             self.last_thinking, content = _split_thinking(content)
 
@@ -251,27 +249,17 @@ class LlamaCppClient(BaseModelClient):
                 self.messages[-1]["thinking"] = self.last_thinking
             return
 
-        # Tool call path: dispatch calls (yields IMAGE_GENERATING + TOOL_CALLING chunks
-        # via streaming-tool support in the base), then stream second response.
+        # Single turn: yield any prose/thinking emitted alongside the tool call, then dispatch the
+        # tools (yields TOOL_CALLING chunks via streaming-tool support in the base) and return. The
+        # model's response to the tool results comes on the next chat() call (loop lives in Agent).
         tool_calls = [{"name": tc["name"], "arguments": json.loads(tc["arguments"])} for tc in tool_calls_acc.values()]
-        tool_turn_thinking = self.last_thinking
-        msgs_before = len(self.messages)
-        yield from self._handle_tool_calls_streamed(tool_calls)
-        if tool_turn_thinking:
-            self.messages[msgs_before]["thinking"] = tool_turn_thinking
-
-        stream2 = self._llm.create_chat_completion(
-            messages=self.messages,
-            stream=True,
-            tools=tools if tools else None,
-            **generate_kwargs,
-        )
-
         full_content = ""
-        for sc in self._iter_stream(stream2):
+        for sc in first_pass_chunks:
             if sc.phase == StreamingContentType.GENERATING:
                 full_content += sc.content
             yield sc
-        self.messages.append({"role": "assistant", "content": full_content})
-        if self.last_thinking:
-            self.messages[-1]["thinking"] = self.last_thinking
+        tool_turn_thinking = self.last_thinking
+        msgs_before = len(self.messages)
+        yield from self._handle_tool_calls_streamed(tool_calls, content=full_content)
+        if tool_turn_thinking:
+            self.messages[msgs_before]["thinking"] = tool_turn_thinking

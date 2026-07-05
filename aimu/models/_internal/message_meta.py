@@ -20,6 +20,9 @@ from __future__ import annotations
 PROVENANCE_KEY = "provenance"
 
 # Provenance values (the framework-injected turns worth distinguishing from user input).
+# Legacy: no longer produced. The agent used to inject a "continue" user turn between tool
+# rounds; it now continues by calling chat() with no user message, so nothing is injected. Kept
+# so replay/display code can still recognize the value in older persisted transcripts.
 PROVENANCE_CONTINUATION = "continuation"
 PROVENANCE_FINAL_ANSWER = "final_answer"
 PROVENANCE_PROACTIVE = "proactive"

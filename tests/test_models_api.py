@@ -1041,8 +1041,11 @@ def _seq(*items):
 def _stub_tool_dispatch(fake):
     """Make _handle_tool_calls append a tool-call assistant message + a tool result."""
 
-    def _handle(tool_calls):
-        fake.messages.append({"role": "assistant", "tool_calls": [{"id": "x"}]})
+    def _handle(tool_calls, content=""):
+        msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
+        if content:
+            msg["content"] = content
+        fake.messages.append(msg)
         fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
 
     return _handle
@@ -1063,21 +1066,23 @@ def test_llamacpp_tool_call_turn_thinking_preserved():
             }
         ]
     }
-    final = {"choices": [{"message": {"content": "final answer"}}]}
     fake = types.SimpleNamespace(
         _chat_setup=lambda *a, **k: ({}, []),
-        _llm=types.SimpleNamespace(create_chat_completion=_seq(first, final)),
+        _llm=types.SimpleNamespace(create_chat_completion=_seq(first)),
         is_thinking_model=True,
+        last_thinking="",
         messages=[],
     )
     fake._handle_tool_calls = _stub_tool_dispatch(fake)
 
+    # Single turn: the tool executes and chat() returns (no follow-up). Reasoning from the
+    # tool-call turn is attached to the assistant(tool_calls) message; the answer comes next turn.
     result = LlamaCppClient._chat(fake, "hi")
 
-    assert result == "final answer"
+    assert result == ""  # tool-only turn (its content was all thinking)
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
 
 
 def test_openai_compat_tool_call_turn_thinking_preserved():
@@ -1087,33 +1092,67 @@ def test_openai_compat_tool_call_turn_thinking_preserved():
 
     tc = types.SimpleNamespace(function=types.SimpleNamespace(name="echo", arguments="{}"))
     first_msg = types.SimpleNamespace(content="<think>reasoning before tool</think>", tool_calls=[tc])
-    final_msg = types.SimpleNamespace(content="final answer", tool_calls=None)
     first = types.SimpleNamespace(choices=[types.SimpleNamespace(message=first_msg)])
-    final = types.SimpleNamespace(choices=[types.SimpleNamespace(message=final_msg)])
     fake = types.SimpleNamespace(
         _chat_setup=lambda *a, **k: ({}, []),
         _with_response_format=lambda gk, rf: gk,
         _client=types.SimpleNamespace(
-            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_seq(first, final)))
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_seq(first)))
         ),
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
         last_usage=None,
+        last_thinking="",
+        messages=[],
+    )
+    fake._handle_tool_calls = _stub_tool_dispatch(fake)
+
+    # Single turn: the tool executes and chat() returns (no follow-up answer).
+    result = OpenAICompatClient._chat(fake, "hi")
+
+    assert result == ""  # tool-only turn (its content was all thinking)
+    tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
+    assert tool_call_msg["thinking"] == "reasoning before tool"
+    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
+
+
+def test_openai_compat_preserves_content_alongside_tool_call():
+    """A single generation carrying BOTH prose and a tool call keeps the prose as the
+    assistant message's content, and chat() returns it (matches HuggingFace behavior)."""
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    tc = types.SimpleNamespace(function=types.SimpleNamespace(name="echo", arguments="{}"))
+    first_msg = types.SimpleNamespace(content="Let me look that up for you.", tool_calls=[tc])
+    first = types.SimpleNamespace(choices=[types.SimpleNamespace(message=first_msg)])
+    fake = types.SimpleNamespace(
+        _chat_setup=lambda *a, **k: ({}, []),
+        _with_response_format=lambda gk, rf: gk,
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_seq(first)))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=False,
+        last_usage=None,
+        last_thinking="",
         messages=[],
     )
     fake._handle_tool_calls = _stub_tool_dispatch(fake)
 
     result = OpenAICompatClient._chat(fake, "hi")
 
-    assert result == "final answer"
+    assert result == "Let me look that up for you."  # prose returned even on a tool turn
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
-    assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+    assert tool_call_msg["content"] == "Let me look that up for you."  # prose stored with the tool call
 
 
 def _stub_streamed_tool_dispatch(fake):
-    def _handle(tool_calls):
-        fake.messages.append({"role": "assistant", "tool_calls": [{"id": "x"}]})
+    def _handle(tool_calls, content=""):
+        msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
+        if content:
+            msg["content"] = content
+        fake.messages.append(msg)
         fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
         return iter(())
 
@@ -1129,20 +1168,21 @@ def test_llamacpp_streamed_tool_call_turn_thinking_preserved():
         {"choices": [{"delta": {"content": "<think>reasoning before tool</think>"}}]},
         {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"name": "echo", "arguments": "{}"}}]}}]},
     ]
-    second_stream = [{"choices": [{"delta": {"content": "final answer"}}]}]
     fake = types.SimpleNamespace(
-        _llm=types.SimpleNamespace(create_chat_completion=_seq(iter(first_stream), iter(second_stream))),
+        _llm=types.SimpleNamespace(create_chat_completion=_seq(iter(first_stream))),
         is_thinking_model=True,
+        last_thinking="",
         messages=[],
     )
     fake._handle_tool_calls_streamed = _stub_streamed_tool_dispatch(fake)
     fake._iter_stream = lambda stream: LlamaCppClient._iter_stream(fake, stream)
 
+    # Single turn: dispatch the tools and stop (no second stream); answer comes next turn.
     list(LlamaCppClient._chat_streamed(fake, {}, []))
 
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
 
 
 def test_openai_compat_streamed_tool_call_turn_thinking_preserved():
@@ -1158,12 +1198,9 @@ def test_openai_compat_streamed_tool_call_turn_thinking_preserved():
 
     tc_delta = types.SimpleNamespace(index=0, function=types.SimpleNamespace(name="echo", arguments="{}"))
     first_stream = [_delta(content="<think>reasoning before tool</think>"), _delta(tool_calls=[tc_delta])]
-    second_stream = [_delta(content="final answer")]
     fake = types.SimpleNamespace(
         _client=types.SimpleNamespace(
-            chat=types.SimpleNamespace(
-                completions=types.SimpleNamespace(create=_seq(iter(first_stream), iter(second_stream)))
-            )
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_seq(iter(first_stream))))
         ),
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
@@ -1174,8 +1211,25 @@ def test_openai_compat_streamed_tool_call_turn_thinking_preserved():
     fake._handle_tool_calls_streamed = _stub_streamed_tool_dispatch(fake)
     fake._iter_stream = lambda stream: OpenAICompatClient._iter_stream(fake, stream)
 
+    # Single turn: dispatch the tools and stop (no second stream); answer comes next turn.
     list(OpenAICompatClient._chat_streamed(fake, {}, []))
 
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "assistant", "content": "final answer"}
+    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
+
+
+def test_toolcall_format_strip_calls_recovers_prose():
+    """ToolCallFormat.strip_calls returns the prose around a tool call (HF single-generation
+    content+tool_calls support). JSON-only formats carry no accompanying prose."""
+    pytest.importorskip("transformers")
+    from aimu.models.providers.hf.text import ToolCallFormat
+
+    xml = 'Let me check.\n<tool_call>{"name": "w", "arguments": {}}</tool_call>'
+    assert ToolCallFormat.XML.strip_calls(xml) == "Let me check."
+
+    bracketed = 'Sure thing. [TOOL_CALLS][{"name": "w"}]'
+    assert ToolCallFormat.BRACKETED.strip_calls(bracketed) == "Sure thing."
+
+    # JSON-only formats are the whole tool call -> no prose.
+    assert ToolCallFormat.JSON_OBJECT.strip_calls('{"name": "w"}') == ""

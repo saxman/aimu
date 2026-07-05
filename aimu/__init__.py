@@ -157,7 +157,8 @@ def chat(
     """One-shot chat: builds a fresh client, sends one message, returns the response.
 
     For multi-turn conversations construct a :class:`ModelClient` with :func:`client` and
-    call its ``chat()`` repeatedly.
+    call its ``chat()`` repeatedly. ``chat()`` is a single model turn and does not attach
+    tools; for a tool-using loop use :func:`agent` (``aimu.agent(...).run(...)``).
 
     ``model`` may be omitted to use the default resolved by :func:`client` (the
     ``AIMU_LANGUAGE_MODEL`` env var or an already-available local model).

@@ -87,8 +87,9 @@ class _LoopClient(BaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
-        self.messages.append({"role": "user", "content": user_message})
+    def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        if user_message is not None:  # None = continuation turn (no new user message)
+            self.messages.append({"role": "user", "content": user_message})
         self._turn += 1
         pending_tool = use_tools and self._turn <= self._tool_turns
         if pending_tool:
@@ -107,18 +108,17 @@ class _LoopClient(BaseModelClient):
         return self._chat(prompt, generate_kwargs)
 
 
-def test_continuation_turn_tagged_user_turn_untagged():
+def test_continuation_injects_no_user_turn():
+    # The agent continues via chat() with no user message, so no synthetic user turn is
+    # injected and nothing carries the (now-legacy) continuation provenance tag.
     client = _LoopClient(tool_turns=1)  # first turn calls tools, then a continuation finishes
     agent = Agent(client, tools=[])
     agent.run("real question")
 
-    roles = [(m.get("role"), m.get(PROVENANCE_KEY)) for m in client.messages]
-    # index 0: genuine user turn -> untagged
-    assert client.messages[0]["content"] == "real question"
-    assert client.messages[0].get(PROVENANCE_KEY) is None
-    # a continuation user turn exists and is tagged
-    continuation_turns = [m for m in client.messages if m.get(PROVENANCE_KEY) == PROVENANCE_CONTINUATION]
-    assert len(continuation_turns) == 1, roles
+    user_turns = [m for m in client.messages if m["role"] == "user"]
+    assert [m["content"] for m in user_turns] == ["real question"]
+    assert user_turns[0].get(PROVENANCE_KEY) is None
+    assert PROVENANCE_CONTINUATION not in [m.get(PROVENANCE_KEY) for m in client.messages]
 
 
 def test_final_answer_turn_tagged():
@@ -128,8 +128,8 @@ def test_final_answer_turn_tagged():
     agent.run("real question")
 
     tags = [m.get(PROVENANCE_KEY) for m in client.messages]
-    assert PROVENANCE_CONTINUATION in tags
     assert tags.count(PROVENANCE_FINAL_ANSWER) == 1, tags
+    assert PROVENANCE_CONTINUATION not in tags  # continuation turns are no longer injected/tagged
 
 
 def test_no_continuation_no_tags():

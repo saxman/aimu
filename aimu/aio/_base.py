@@ -115,7 +115,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
     @abstractmethod
     async def _chat(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
@@ -123,7 +123,11 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        """Provider-specific async chat implementation. Use :meth:`chat`."""
+        """Provider-specific single-turn async chat implementation. Use :meth:`chat`.
+
+        One model request. ``user_message=None`` runs a turn on the current messages
+        (continuation). If the model requests tools, execute them and return — no follow-up.
+        """
         pass
 
     async def generate(
@@ -160,7 +164,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
 
     async def chat(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
@@ -170,7 +174,12 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         audio: Optional[list] = None,
         schema: Optional[type] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
-        """Multi-turn async chat with persistent message history.
+        """One async model turn against the persistent message history.
+
+        A single call issues one model request; if the model requests tools they are executed
+        and appended, and the call returns (the response to the tool results comes on the next
+        call — the multi-turn loop lives in :class:`~aimu.aio.Agent`). ``user_message=None``
+        runs a turn on the current messages without appending a user turn (continuation).
 
         Args mirror the sync :meth:`BaseModelClient.chat`, including the per-call
         ``tools`` override and ``schema`` (structured output: native when
@@ -333,7 +342,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
 
     async def _chat_setup(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         images: Optional[list] = None,
@@ -342,7 +351,9 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         """Async equivalent of the sync ``_chat_setup``."""
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        self._append_user_turn(user_message, images, audio=audio)
+        # user_message=None → continuation: run a turn on current messages, append nothing.
+        if user_message is not None:
+            self._append_user_turn(user_message, images, audio=audio)
 
         tools: list[dict] = []
         if self.model.supports_tools and use_tools:
@@ -360,17 +371,22 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             prepared.append((tc, tc_id))
         return prepared
 
-    def _append_assistant_tool_calls(self, prepared: list[tuple[dict, str]]) -> None:
-        """Append the assistant message that records the tool calls being made."""
-        self.messages.append(
-            {
-                "role": "assistant",
-                "tool_calls": [
-                    {"type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}, "id": tc_id}
-                    for tc, tc_id in prepared
-                ],
-            }
-        )
+    def _append_assistant_tool_calls(self, prepared: list[tuple[dict, str]], content: str = "") -> None:
+        """Append the assistant message that records the tool calls being made.
+
+        ``content`` is any text the model emitted alongside the tool call in the same turn; it
+        is stored on the message when non-empty (see the sync surface for rationale).
+        """
+        message: dict = {
+            "role": "assistant",
+            "tool_calls": [
+                {"type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}, "id": tc_id}
+                for tc, tc_id in prepared
+            ],
+        }
+        if content:
+            message["content"] = content
+        self.messages.append(message)
 
     async def _call_plain_tool(self, tc: dict, tc_id: str) -> dict:
         """Dispatch a single non-streaming tool call. Returns the tool message dict.
@@ -414,14 +430,15 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             "tool_call_id": tc_id,
         }
 
-    async def _handle_tool_calls(self, tool_calls: list[dict]) -> None:
+    async def _handle_tool_calls(self, tool_calls: list[dict], content: str = "") -> None:
         """Non-streaming async tool dispatch, used by non-streaming ``_chat`` paths.
 
-        Streaming (generator) tools are rejected; call ``chat(stream=True)`` to
-        dispatch them via :meth:`_handle_tool_calls_streamed`.
+        ``content`` is any text the model emitted alongside the tool call this turn; it is
+        stored on the assistant message. Streaming (generator) tools are rejected; call
+        ``chat(stream=True)`` to dispatch them via :meth:`_handle_tool_calls_streamed`.
         """
         prepared = self._prepare_tool_calls(tool_calls)
-        self._append_assistant_tool_calls(prepared)
+        self._append_assistant_tool_calls(prepared, content)
 
         if self.concurrent_tool_calls and len(prepared) > 1:
             async with asyncio.TaskGroup() as tg:
@@ -432,11 +449,13 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
 
         self.messages.extend(results)
 
-    async def _handle_tool_calls_streamed(self, tool_calls: list[dict]) -> AsyncIterator[StreamChunk]:
+    async def _handle_tool_calls_streamed(
+        self, tool_calls: list[dict], content: str = ""
+    ) -> AsyncIterator[StreamChunk]:
         """Async streaming tool dispatch, used by streaming ``_chat`` paths.
 
-        Mirrors :meth:`BaseModelClient._handle_tool_calls_streamed` on the sync
-        surface. Async generator tools (``async def fn(): yield ...``) are drained
+        ``content`` is any text the model emitted alongside the tool call this turn; it is
+        stored on the assistant message. Mirrors :meth:`BaseModelClient._handle_tool_calls_streamed`. Async generator tools (``async def fn(): yield ...``) are drained
         via ``async for``; sync generator tools are dispatched through
         ``asyncio.to_thread`` (one step at a time, the thread re-enters per
         ``next()`` so the event loop stays free between yields).
@@ -457,7 +476,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         from aimu.tools.decorator import ToolArgumentError
 
         prepared = self._prepare_tool_calls(tool_calls)
-        self._append_assistant_tool_calls(prepared)
+        self._append_assistant_tool_calls(prepared, content)
 
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
         has_streaming_tool = any(

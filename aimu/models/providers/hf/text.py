@@ -116,6 +116,20 @@ class ToolCallFormat(Enum):
             return json.loads(response)
         return None
 
+    def strip_calls(self, response: str) -> str:
+        """Return the natural-language text in ``response`` with the tool-call markup removed.
+
+        Models can emit prose alongside a tool call in one generation; this recovers that prose
+        so it can be stored as the assistant message's ``content``. XML keeps the text outside
+        ``<tool_call>...</tool_call>``; BRACKETED keeps the text before ``[TOOL_CALLS]``; the
+        JSON-only formats are the whole tool call, so there is no accompanying prose.
+        """
+        if self == ToolCallFormat.XML:
+            return re.sub(r"<tool_call>.*?</tool_call>", "", response, flags=re.DOTALL).strip()
+        if self == ToolCallFormat.BRACKETED:
+            return response.split("[TOOL_CALLS]", 1)[0].strip()
+        return ""
+
 
 _QWEN_KWARGS = {
     "temperature": 1.0,
@@ -297,6 +311,7 @@ class HuggingFaceClient(BaseModelClient):
 
         self._hf_processor = None
         self._parsed_tool_calls = None
+        self._parsed_content = ""  # prose emitted alongside a tool call (processor path)
         # Gemma 4 emits structured-token output (channels, tool calls) that requires
         # processor.parse_response() to extract. Other processor-loaded models (Gemma 3,
         # Qwen 3.5/3.6 VL) emit standard <think>...</think> + tool-call text and use the
@@ -498,9 +513,14 @@ class HuggingFaceClient(BaseModelClient):
                     {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]} for tc in tool_calls
                 ]
                 logger.debug("[tool_call] parsed: %s", self._parsed_tool_calls)
+                # Preserve any prose the model emitted alongside the tool call (parse_response
+                # separates content from tool_calls); _chat stores it on the assistant message.
+                parsed_content = parsed.get("content")
+                self._parsed_content = parsed_content.strip() if parsed_content else ""
                 response = ""
             else:
                 self._parsed_tool_calls = None
+                self._parsed_content = ""
                 # parse_response leaves EOS in content when decoded with
                 # skip_special_tokens=False; use a clean tokenizer decode for
                 # the user-facing text.
@@ -646,7 +666,7 @@ class HuggingFaceClient(BaseModelClient):
 
     def _chat(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
@@ -662,20 +682,21 @@ class HuggingFaceClient(BaseModelClient):
 
         if self._uses_processor_parse_response:
             tool_calls = self._parsed_tool_calls
+            content = self._parsed_content
         else:
             prefix = self.model.tool_call_format
             tool_calls = prefix.parse(response) if prefix else None
+            content = prefix.strip_calls(response) if (prefix and tool_calls) else ""
+        # Single turn: if the model called tools, execute them and return. Any prose the model
+        # emitted alongside the tool call is preserved as the assistant message's content; the
+        # model's response to the tool results comes on the next chat() call (loop lives in Agent).
         if tool_calls:
             logger.debug("[tool_call] parsed: %s", tool_calls)
             msgs_before = len(self.messages)
-            self._handle_tool_calls(tool_calls)
-
+            self._handle_tool_calls(tool_calls, content=content)
             if self.last_thinking is not None:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
-
-            # Omit tools so the model generates text rather than calling tools again;
-            # multi-round tool use is handled by Agent, not chat().
-            response = self._generate_sync(self.messages, generate_kwargs, None)
+            return content
 
         logger.debug("[generating] chat response: %s", response)
         self.messages.append({"role": "assistant", "content": response})
@@ -724,15 +745,18 @@ class HuggingFaceClient(BaseModelClient):
             tool_calls = prefix.parse(response)
             if tool_calls:
                 logger.debug("[tool_call] parsed: %s", tool_calls)
-                yield from self._handle_tool_calls_streamed(tool_calls)
-
+                # Single turn: preserve any prose emitted alongside the tool call, dispatch, and
+                # return. The model's response to the tool results comes on the next chat() call.
+                prose = prefix.strip_calls(response)
+                if prose:
+                    yield StreamChunk(StreamingContentType.GENERATING, prose)
+                yield from self._handle_tool_calls_streamed(tool_calls, content=prose)
                 if self.last_thinking is not None:
                     self.messages[msgs_before]["thinking"] = self.last_thinking
-
-                streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
-                # Omit tools so the model generates text rather than calling tools again;
-                # multi-round tool use is handled by Agent, not chat().
-                it = self._generate_streaming(self.messages, generate_kwargs, None, streamer)
+                return
+            # Tool-call markup detected but not parseable: surface the raw text as content.
+            content += response
+            yield StreamChunk(StreamingContentType.GENERATING, response)
         else:
             content += response_part
             logger.debug("[generating] token: %r", response_part)
@@ -765,15 +789,17 @@ class HuggingFaceClient(BaseModelClient):
         """Buffered streaming for models that require processor.parse_response (Gemma 4)."""
         response = self._generate_sync(self.messages, generate_kwargs, tools)
 
+        # Single turn: if the model called tools, execute them and return, preserving any prose
+        # emitted alongside. The model's response to the tool results comes on the next chat() call.
         if self._parsed_tool_calls:
             logger.debug("[tool_call] parsed: %s", self._parsed_tool_calls)
+            if self._parsed_content:
+                yield StreamChunk(StreamingContentType.GENERATING, self._parsed_content)
             msgs_before = len(self.messages)
-            yield from self._handle_tool_calls_streamed(self._parsed_tool_calls)
-
+            yield from self._handle_tool_calls_streamed(self._parsed_tool_calls, content=self._parsed_content)
             if self.last_thinking is not None:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
-
-            response = self._generate_sync(self.messages, generate_kwargs, tools)
+            return
 
         if self.last_thinking:
             logger.debug("[thinking] collected: %s", self.last_thinking)

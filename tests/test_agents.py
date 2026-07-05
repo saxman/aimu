@@ -58,12 +58,14 @@ class _LoopingToolClient(BaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+    def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
-        self.messages.append({"role": "user", "content": user_message})
+        if user_message is not None:  # None = continuation turn (no new user message)
+            self.messages.append({"role": "user", "content": user_message})
         self.tools_seen.append(list(self.tools))
-        if self.tools:  # tools available -> emit a tool round, never finish on its own
+        # Single turn: with tools available, call a tool and return (no follow-up answer).
+        if self.tools:
             self.messages.append(
                 {
                     "role": "assistant",
@@ -71,12 +73,11 @@ class _LoopingToolClient(BaseModelClient):
                 }
             )
             self.messages.append({"role": "tool", "name": "t", "content": "result", "tool_call_id": "x"})
-            self.messages.append({"role": "assistant", "content": ""})
             return ""
         self.messages.append({"role": "assistant", "content": self.final_text})  # tools disabled -> wrap up
         return self.final_text
 
-    def _chat_streamed(self, user_message, generate_kwargs=None, use_tools=True, images=None):
+    def _chat_streamed(self, user_message=None, generate_kwargs=None, use_tools=True, images=None):
         text = self._chat(user_message, generate_kwargs, use_tools)
         self._streaming_content_type = StreamingContentType.GENERATING
         yield StreamChunk(StreamingContentType.GENERATING, text)
@@ -139,39 +140,73 @@ def test_agent_run_schema_streams_and_delivers_result():
 
 
 def test_agent_one_tool_round_then_done():
-    client = MockModelClient(["tool", "after tool answer", "all done"])
+    # One tool turn, then a plain answer. chat() is single-turn, so the agent loops it:
+    # turn 1 executes the tool (returns ""), turn 2 answers.
+    client = MockModelClient(["tool", "after tool answer"])
     agent = Agent(client, name="test")
     result = agent.run("do something with tools")
 
-    assert result == "all done"
-    assert client._call_count == 3
+    assert result == "after tool answer"
+    assert client._call_count == 2
+    # No framework-injected user turn: the only user message is the real task.
+    assert [m["content"] for m in client.messages if m["role"] == "user"] == ["do something with tools"]
 
 
 def test_agent_two_tool_rounds():
-    client = MockModelClient(["tool", "after first tool", "tool", "after second tool", "final answer"])
+    # Two tool turns, then the answer: three single-turn chat() calls.
+    client = MockModelClient(["tool", "tool", "final answer"])
     agent = Agent(client, name="test", max_iterations=10)
     result = agent.run("multi-round task")
 
     assert result == "final answer"
-    assert client._call_count == 5
+    assert client._call_count == 3
 
 
 def test_agent_max_iterations_stops_loop():
-    client = MockModelClient(["tool", "still going"] * 10)
+    # Model never stops calling tools; the loop is bounded by max_iterations turns.
+    client = MockModelClient(["tool"] * 10)
     agent = Agent(client, name="test", max_iterations=3)
     agent.run("never-ending task")
 
-    assert client._call_count <= 6
+    assert client._call_count == 3
 
 
-def test_agent_uses_continuation_prompt():
-    client = MockModelClient(["tool", "done", "confirmed"])
-    agent = Agent(client, name="test", continuation_prompt="KEEP GOING")
+def test_agent_no_continuation_prompt_injected():
+    # The agent continues by calling chat() with no user message, so the transcript
+    # contains only the real task as a user turn — no synthetic "continue" prompt.
+    client = MockModelClient(["tool", "done"])
+    agent = Agent(client, name="test")
     agent.run("start")
 
     user_messages = [m["content"] for m in client.messages if m["role"] == "user"]
-    assert user_messages[0] == "start"
-    assert user_messages[1] == "KEEP GOING"
+    assert user_messages == ["start"]
+
+
+def test_chat_is_single_turn_executes_tool_then_returns():
+    # One chat() call = one model turn. A tool-using turn executes the tool and returns; the
+    # model's response to the tool result comes on the NEXT chat() call (the loop lives in Agent).
+    client = MockModelClient(["tool", "answer"])
+
+    first = client.chat("q")
+    assert first == ""  # tool executed, no follow-up answer this turn
+    assert client.messages[-1]["role"] == "tool"
+    assert client._call_count == 1
+
+    # Continuation: no user_message → no user turn appended; the model answers the tool result.
+    second = client.chat()
+    assert second == "answer"
+    assert client.messages[-1] == {"role": "assistant", "content": "answer"}
+    assert [m["content"] for m in client.messages if m["role"] == "user"] == ["q"]
+    assert client._call_count == 2
+
+
+def test_agent_run_produces_single_final_answer_no_duplication():
+    # The whole point of the change: exactly one final assistant answer, no re-generated duplicate.
+    client = MockModelClient(["tool", "the answer"])
+    result = Agent(client, name="a").run("do it")
+    assert result == "the answer"
+    assistant_texts = [m.get("content") for m in client.messages if m["role"] == "assistant" and m.get("content")]
+    assert assistant_texts == ["the answer"]  # not duplicated
 
 
 def test_agent_positional_system_message():
@@ -238,11 +273,11 @@ def test_simple_agent_is_runner_subclass():
 
 def test_as_model_client_chat_runs_agent_loop():
     """chat() on the view runs the full Agent loop, not a single turn."""
-    client = MockModelClient(["tool", "after tool", "done"])
+    client = MockModelClient(["tool", "after tool"])
     view = Agent(client, max_iterations=5).as_model_client()
     result = view.chat("do something with tools")
-    assert result == "done"
-    assert client._call_count == 3
+    assert result == "after tool"
+    assert client._call_count == 2
 
 
 def test_as_model_client_chat_no_tools_single_call():

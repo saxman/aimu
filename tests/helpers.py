@@ -93,24 +93,28 @@ class MockModelClient(BaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+    def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
-        if images:
-            from aimu.models._internal.image_input import _build_user_content_blocks
+        # user_message=None is the continuation primitive: a turn on the current messages,
+        # appending no new user turn (the agent loop uses it after a tool turn).
+        if user_message is not None:
+            if images:
+                from aimu.models._internal.image_input import _build_user_content_blocks
 
-            self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
-        elif audio:
-            from aimu.models._internal.audio_input import _build_audio_content_blocks
+                self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
+            elif audio:
+                from aimu.models._internal.audio_input import _build_audio_content_blocks
 
-            self.messages.append({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
-        else:
-            self.messages.append({"role": "user", "content": user_message})
+                self.messages.append({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
+            else:
+                self.messages.append({"role": "user", "content": user_message})
         response = self._responses[self._call_count]
         self._call_count += 1
 
+        # Single turn: a "tool" response executes one tool round and returns (no follow-up).
+        # The model's response to the tool result comes on the next _chat() call.
         if response == "tool":
-            # Simulate one tool-call round: append assistant+tool_calls, tool result, assistant+content
             self.messages.append(
                 {
                     "role": "assistant",
@@ -118,15 +122,12 @@ class MockModelClient(BaseModelClient):
                 }
             )
             self.messages.append({"role": "tool", "name": "mock_tool", "content": "tool result", "tool_call_id": "x"})
-            text = self._responses[self._call_count]
-            self._call_count += 1
-            self.messages.append({"role": "assistant", "content": text})
-            return text
-        else:
-            self.messages.append({"role": "assistant", "content": response})
-            return response
+            return ""
 
-    def _chat_streamed(self, user_message, generate_kwargs=None, use_tools=True, images=None):
+        self.messages.append({"role": "assistant", "content": response})
+        return response
+
+    def _chat_streamed(self, user_message=None, generate_kwargs=None, use_tools=True, images=None):
         response = self._chat(user_message, generate_kwargs, use_tools, images=images)
         self._streaming_content_type = StreamingContentType.GENERATING
         yield StreamChunk(StreamingContentType.GENERATING, response)

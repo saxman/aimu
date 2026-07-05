@@ -172,7 +172,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
     @abstractmethod
     def _chat(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
@@ -180,9 +180,12 @@ class BaseModelClient(_ChatStateMixin, ABC):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        """Provider-specific chat implementation. Use :meth:`chat`.
+        """Provider-specific single-turn chat implementation. Use :meth:`chat`.
 
-        ``response_format`` semantics match :meth:`_generate`.
+        Issues exactly one model request. ``user_message=None`` runs a turn on the current
+        messages without appending a user turn (continuation). If the model requests tools,
+        execute them and return; do NOT make a follow-up generation. ``response_format``
+        semantics match :meth:`_generate`.
         """
         pass
 
@@ -236,7 +239,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
 
     def chat(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         stream: bool = False,
@@ -246,10 +249,18 @@ class BaseModelClient(_ChatStateMixin, ABC):
         audio: Optional[list] = None,
         schema: Optional[type] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
-        """Multi-turn chat with persistent message history.
+        """One model turn against the persistent message history.
+
+        A single call issues exactly one model request. If the model requests tools, they are
+        executed and their results appended, and the call returns (the model's *response* to the
+        tool results comes on the next :meth:`chat` call — the multi-turn tool loop lives in
+        :class:`~aimu.agents.Agent`, which wraps this method). Message history persists across
+        calls on the same client.
 
         Args:
-            user_message: The text the user is sending this turn.
+            user_message: The text the user is sending this turn. Pass ``None`` (the default) to
+                run a turn on the *current* messages without appending a new user turn — the
+                continuation primitive the agent loop uses after a tool turn.
             generate_kwargs: Provider-specific generation parameters. Unknown keys are
                 dropped per-provider; see each client for accepted names.
             use_tools: If False, suppress tool calls even when the model supports tools.
@@ -480,7 +491,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
 
     def _chat_setup(
         self,
-        user_message: str,
+        user_message: Optional[str] = None,
         generate_kwargs: Optional[dict[str, Any]] = None,
         use_tools: bool = True,
         images: Optional[list] = None,
@@ -488,7 +499,10 @@ class BaseModelClient(_ChatStateMixin, ABC):
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         generate_kwargs = self._update_generate_kwargs(generate_kwargs)
 
-        self._append_user_turn(user_message, images, audio)
+        # user_message=None is the continuation primitive: run a turn on the current messages
+        # without appending a new user turn (the agent loop uses it after a tool turn).
+        if user_message is not None:
+            self._append_user_turn(user_message, images, audio)
 
         tools: list[dict] = []
         if self.model.supports_tools and use_tools:
@@ -511,17 +525,24 @@ class BaseModelClient(_ChatStateMixin, ABC):
             prepared.append((tc, tc_id))
         return prepared
 
-    def _append_assistant_tool_calls(self, prepared: list[tuple[dict, str]]) -> None:
-        """Append the assistant message that records the tool calls being made."""
-        self.messages.append(
-            {
-                "role": "assistant",
-                "tool_calls": [
-                    {"type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}, "id": tc_id}
-                    for tc, tc_id in prepared
-                ],
-            }
-        )
+    def _append_assistant_tool_calls(self, prepared: list[tuple[dict, str]], content: str = "") -> None:
+        """Append the assistant message that records the tool calls being made.
+
+        ``content`` is the natural-language text the model emitted alongside the tool call in
+        the same turn (models can generate both). It is stored on the message when non-empty so
+        the transcript preserves it, matching how HuggingFace / OpenAI / Anthropic represent a
+        single generation that carries both ``content`` and ``tool_calls``.
+        """
+        message: dict = {
+            "role": "assistant",
+            "tool_calls": [
+                {"type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}, "id": tc_id}
+                for tc, tc_id in prepared
+            ],
+        }
+        if content:
+            message["content"] = content
+        self.messages.append(message)
 
     def _call_plain_tool(self, tc: dict, tc_id: str) -> dict:
         """Dispatch a single non-streaming tool call. Returns the tool message dict.
@@ -566,14 +587,15 @@ class BaseModelClient(_ChatStateMixin, ABC):
             "tool_call_id": tc_id,
         }
 
-    def _handle_tool_calls(self, tool_calls: list[dict]) -> None:
+    def _handle_tool_calls(self, tool_calls: list[dict], content: str = "") -> None:
         """Non-streaming tool dispatch, used by non-streaming ``_chat`` paths.
 
-        Streaming (generator) tools are rejected here; call ``chat(stream=True)``
-        to dispatch them via :meth:`_handle_tool_calls_streamed`.
+        ``content`` is any text the model emitted alongside the tool call this turn; it is
+        stored on the assistant message. Streaming (generator) tools are rejected here; call
+        ``chat(stream=True)`` to dispatch them via :meth:`_handle_tool_calls_streamed`.
         """
         prepared = self._prepare_tool_calls(tool_calls)
-        self._append_assistant_tool_calls(prepared)
+        self._append_assistant_tool_calls(prepared, content)
 
         if self.concurrent_tool_calls and len(prepared) > 1:
             from concurrent.futures import ThreadPoolExecutor
@@ -586,8 +608,11 @@ class BaseModelClient(_ChatStateMixin, ABC):
 
         self.messages.extend(results)
 
-    def _handle_tool_calls_streamed(self, tool_calls: list[dict]) -> Iterator[StreamChunk]:
+    def _handle_tool_calls_streamed(self, tool_calls: list[dict], content: str = "") -> Iterator[StreamChunk]:
         """Streaming tool dispatch: generator version used by streaming ``_chat``.
+
+        ``content`` is any text the model emitted alongside the tool call this turn; it is
+        stored on the assistant message (the streamed prose is yielded separately by the caller).
 
         For each tool call, yields zero-or-more in-flight :class:`StreamChunk` objects
         (when the tool is a generator function decorated with ``@tool``) followed by a
@@ -608,7 +633,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         from aimu.tools.decorator import ToolArgumentError
 
         prepared = self._prepare_tool_calls(tool_calls)
-        self._append_assistant_tool_calls(prepared)
+        self._append_assistant_tool_calls(prepared, content)
 
         python_tools_by_name = {fn.__name__: fn for fn in self.tools}
         has_streaming_tool = any(

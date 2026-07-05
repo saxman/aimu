@@ -131,7 +131,7 @@ for call in extract_tool_calls(agent.messages[agent.name]):
 
 ### Tell agent-loop turns from user input
 
-The agent injects its own `{"role": "user", ...}` turns during the loop (a continuation prompt between tool rounds, and a final-answer prompt at the iteration cap). They never appear in a live stream, but a replayed history can't tell them from real input unless they're marked. AIMU tags them with an inert `provenance` key (`message.get(aimu.PROVENANCE_KEY)` is `PROVENANCE_CONTINUATION` / `PROVENANCE_FINAL_ANSWER` / `PROVENANCE_PROACTIVE`; genuine input is untagged). See [Persist conversations](persist-conversations.md#distinguish-agent-loop-turns-from-user-input) for the display pattern.
+The agent continues a tool-using run by calling `chat()` with no user message (a turn on the current messages), so it injects **no** synthetic user turn between tool rounds. The one exception is the opt-in `final_answer_prompt` at the iteration cap. A replayed history can't tell an injected turn from real input unless it's marked, so AIMU tags that one with an inert `provenance` key (`message.get(aimu.PROVENANCE_KEY)` is `PROVENANCE_FINAL_ANSWER`, or `PROVENANCE_PROACTIVE` for scheduler pushes; genuine input is untagged. `PROVENANCE_CONTINUATION` is legacy — no longer produced). See [Persist conversations](persist-conversations.md#distinguish-agent-loop-turns-from-user-input) for the display pattern.
 
 ## Streaming structured output
 

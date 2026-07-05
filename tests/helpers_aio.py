@@ -71,22 +71,27 @@ class MockAsyncModelClient(AsyncBaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
-    async def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+    async def _chat(
+        self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+    ):
         if stream:
             return self._chat_streamed(user_message, generate_kwargs, use_tools, images=images)
-        if audio:
-            from aimu.models._internal.audio_input import _build_audio_content_blocks
+        # user_message=None → continuation: a turn on the current messages, append nothing.
+        if user_message is not None:
+            if audio:
+                from aimu.models._internal.audio_input import _build_audio_content_blocks
 
-            self.messages.append({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
-        elif images:
-            from aimu.models._internal.image_input import _build_user_content_blocks
+                self.messages.append({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
+            elif images:
+                from aimu.models._internal.image_input import _build_user_content_blocks
 
-            self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
-        else:
-            self.messages.append({"role": "user", "content": user_message})
+                self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
+            else:
+                self.messages.append({"role": "user", "content": user_message})
         response = self._responses[self._call_count]
         self._call_count += 1
 
+        # Single turn: a "tool" response executes one tool round and returns (no follow-up).
         if response == "tool":
             self.messages.append(
                 {
@@ -95,15 +100,12 @@ class MockAsyncModelClient(AsyncBaseModelClient):
                 }
             )
             self.messages.append({"role": "tool", "name": "mock_tool", "content": "tool result", "tool_call_id": "x"})
-            text = self._responses[self._call_count]
-            self._call_count += 1
-            self.messages.append({"role": "assistant", "content": text})
-            return text
+            return ""
         self.messages.append({"role": "assistant", "content": response})
         return response
 
     async def _chat_streamed(
-        self, user_message, generate_kwargs=None, use_tools=True, images=None
+        self, user_message=None, generate_kwargs=None, use_tools=True, images=None
     ) -> AsyncIterator[StreamChunk]:
         response = await self._chat(user_message, generate_kwargs, use_tools, images=images)
         yield StreamChunk(StreamingContentType.GENERATING, response)
