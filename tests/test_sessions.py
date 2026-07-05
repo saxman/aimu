@@ -48,6 +48,17 @@ def test_in_memory_sessions_are_isolated_by_key():
     assert set(store.list_keys()) == {"a", "b"}
 
 
+def test_delete_removes_session_and_is_noop_when_absent(tmp_path):
+    for store in (InMemorySessionStore(), TinyDBSessionStore(str(tmp_path / "sessions.json"))):
+        store.save(Session(key="a", messages=[{"role": "user", "content": "A"}]))
+        store.save(Session(key="b", messages=[{"role": "user", "content": "B"}]))
+        store.delete("a")
+        assert store.list_keys() == ["b"]
+        assert store.get("a").messages == []  # gone -> fresh empty
+        store.delete("missing")  # no-op, does not raise
+        assert store.list_keys() == ["b"]
+
+
 def test_tinydb_persists_across_restart(tmp_path):
     path = str(tmp_path / "sessions.json")
     store = TinyDBSessionStore(path)

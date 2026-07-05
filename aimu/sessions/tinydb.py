@@ -47,5 +47,8 @@ class TinyDBSessionStore(SessionStore):
     def list_keys(self) -> list[str]:
         return [row["key"] for row in self._table.all()]
 
+    def delete(self, key: str) -> None:
+        self._table.remove(self._query.key == key)
+
     def close(self) -> None:
         self._db.close()

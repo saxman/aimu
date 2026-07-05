@@ -36,3 +36,6 @@ class InMemorySessionStore(SessionStore):
 
     def list_keys(self) -> list[str]:
         return list(self._sessions.keys())
+
+    def delete(self, key: str) -> None:
+        self._sessions.pop(key, None)

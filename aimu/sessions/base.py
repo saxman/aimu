@@ -69,6 +69,11 @@ class SessionStore(ABC):
         """Return the keys of all saved sessions."""
         ...
 
+    @abstractmethod
+    def delete(self, key: str) -> None:
+        """Delete the session for ``key``. A no-op if no such session exists."""
+        ...
+
     def close(self) -> None:
         """Release resources. Default no-op."""
         return None
