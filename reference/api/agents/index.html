@@ -4268,7 +4268,9 @@ message). Defaults to approving everything.</p>
 <p><code>schema</code> (a dataclass or Pydantic v2 model) makes the run a single structured-output
 turn that returns a validated instance instead of looping with tools. Use it for an
 agent whose job is to return a typed object (e.g. a critic's verdict). It is mutually
-exclusive with <code>stream=True</code> and with the tool-calling loop.</p>
+exclusive with the tool-calling loop. With <code>stream=True</code> the run yields
+:class:<code>StreamChunk</code>s (thinking/generation) ending in a terminal <code>DONE</code> chunk carrying
+<code>{"result": &lt;object&gt;}</code>; the object is also on <code>model_client.last_structured</code>.</p>
 
 
     </div>

@@ -2069,6 +2069,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.models.ModelClient.last_structured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        last_structured
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2207,6 +2218,17 @@
     <span class="md-ellipsis">
       
         is_speech_progress
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_done
       
     </span>
   </a>
@@ -3382,6 +3404,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.models.ModelClient.last_structured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        last_structured
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3520,6 +3553,17 @@
     <span class="md-ellipsis">
       
         is_speech_progress
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_done
       
     </span>
   </a>
@@ -3956,6 +4000,33 @@ streaming call or when the provider/server did not report usage.</p>
 
 </div>
 
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="aimu.models.ModelClient.last_structured" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">last_structured</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+      <small class="doc doc-label doc-label-writable"><code>writable</code></small>
+  </span>
+
+<a href="#aimu.models.ModelClient.last_structured" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">last_structured</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Validated object from the most recent <code>schema=</code> call, or <code>None</code>.</p>
+<p>For a streamed structured-output call it is populated only after the stream is
+fully consumed (mirrors :attr:<code>last_usage</code>).</p>
+
+    </div>
+
+</div>
+
 
 
 
@@ -4153,7 +4224,9 @@ not support audio input. Like <code>images</code>, this does not touch <code>sel
                 <p>Optional dataclass type or Pydantic v2 model. When set, returns a validated
 instance of that type instead of a string. See :meth:<code>chat</code> for the structured-output
 semantics (native enforcement when <code>supports_structured_output</code> is True, otherwise
-prompt-and-parse). Mutually exclusive with <code>stream=True</code>.</p>
+prompt-and-parse). With <code>stream=True</code> returns an iterator of :class:<code>StreamChunk</code>
+ending in a terminal <code>DONE</code> chunk whose <code>content</code> is <code>{"result": &lt;object&gt;}</code>; the
+validated object is also stored on <code>self.last_structured</code> after the stream is consumed.</p>
               </div>
             </td>
             <td>
@@ -4352,8 +4425,12 @@ instance of that type instead of a string. If the model has
 <code>supports_structured_output=True</code> the provider enforces the schema natively
 (OpenAI <code>response_format</code>, Ollama <code>format=</code>, Anthropic forced-tool); otherwise
 the schema is appended to the prompt and the response is parsed. Raises
-<code>ValueError</code> on parse failure. Mutually exclusive with <code>stream=True</code>. On
-Anthropic (native, forced-tool) combining <code>schema</code> with active <code>tools</code> raises.</p>
+<code>ValueError</code> on parse failure. With <code>stream=True</code> returns an iterator of
+:class:<code>StreamChunk</code>: thinking/generation chunks stream live, then a terminal
+<code>DONE</code> chunk carries <code>{"result": &lt;object&gt;}</code> and <code>self.last_structured</code> is set
+once the stream is consumed. (Anthropic streams the JSON as it is built but emits no
+thinking, since its forced-tool structured mode is incompatible with extended thinking.)
+On Anthropic (native, forced-tool) combining <code>schema</code> with active <code>tools</code> raises.</p>
               </div>
             </td>
             <td>
@@ -4531,14 +4608,16 @@ content:   shape depends on phase:
              single-pass providers (HuggingFace). <code>final=True</code> marks the
              terminal chunk; <code>result</code> carries the encoded output on the final
              chunk only.
-           - <code>str</code> for DONE (usually empty).
+           - <code>str</code> for DONE (usually empty), <strong>or</strong> <code>dict {"result": &lt;object&gt;}</code> for the
+             terminal chunk of a streamed structured-output call (<code>schema=</code> + <code>stream=True</code>),
+             where <code>result</code> is the validated dataclass / Pydantic instance.
 agent:     name of the agent that produced this chunk, or <code>None</code> for a plain
            <code>client.chat()</code> / <code>client.generate()</code> call. Set automatically by
            <code>Agent</code> and workflow runners.
 iteration: zero-based iteration index inside the agent loop, or <code>0</code> for plain chat.</p>
 </details>        <p>Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> / <code>chunk.is_image_progress()</code> /
-<code>chunk.is_audio_progress()</code> / <code>chunk.is_speech_progress()</code> to dispatch on phase
-without repeating the equality check in user code.</p>
+<code>chunk.is_audio_progress()</code> / <code>chunk.is_speech_progress()</code> / <code>chunk.is_done()</code> to
+dispatch on phase without repeating the equality check in user code.</p>
 
 
 
@@ -4655,6 +4734,28 @@ without repeating the equality check in user code.</p>
     <div class="doc doc-contents ">
 
         <p>True if this chunk carries speech-generation progress (SPEECH_GENERATING).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.models.StreamChunk.is_done" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">is_done</span>
+
+
+<a href="#aimu.models.StreamChunk.is_done" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_done</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>True if this chunk is the terminal DONE marker.</p>
+<p>For a streamed structured-output call (<code>schema=</code> + <code>stream=True</code>) the DONE
+chunk's <code>content</code> is <code>{"result": &lt;validated object&gt;}</code>.</p>
 
 
     </div>

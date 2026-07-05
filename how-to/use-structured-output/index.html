@@ -1183,6 +1183,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming-structured-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming structured output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#constraints" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2973,6 +2984,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming-structured-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming structured output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#constraints" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3093,20 +3115,39 @@ run in the loop, and the final answer obeys the schema.</p>
 conflicts with offering action tools, so combining <code>schema=</code> with active <code>tools=</code> raises a
 <code>ValueError</code>. Drop the tools (or <code>use_tools=False</code>), or use a provider whose <code>response_format</code>
 composes with tools.</p>
+<h2 id="streaming-structured-output">Streaming structured output<a class="headerlink" href="#streaming-structured-output" title="Permanent link">&para;</a></h2>
+<p><code>schema=</code> combines with <code>stream=True</code>. The call returns an iterator of <code>StreamChunk</code>s so you can
+show thinking / generation live, and the validated object is delivered two ways:</p>
+<ul>
+<li>a terminal <code>StreamChunk</code> with <code>phase == DONE</code> whose <code>content</code> is <code>{"result": &lt;object&gt;}</code>, and</li>
+<li><code>client.last_structured</code>, set once the stream is fully consumed (mirrors <code>client.last_usage</code>).</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Is 17 prime? Think, then answer.&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">Verdict</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">phase</span> <span class="ow">is</span> <span class="n">StreamingContentType</span><span class="o">.</span><span class="n">THINKING</span><span class="p">:</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>      <span class="c1"># reasoning tokens, live</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="k">elif</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_done</span><span class="p">():</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="n">verdict</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">]</span>  <span class="c1"># validated Verdict</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="c1"># ...or just: verdict = client.last_structured   (after the loop)</span>
+</span></code></pre></div>
+<p>An <code>include=</code> filter still applies to the thinking/generation phases, but the terminal result chunk
+is <strong>always</strong> emitted so the payload is never filtered away.</p>
+<p><strong>Anthropic streams the JSON, not thinking.</strong> Its structured mode is a forced tool, which the API
+forbids alongside extended thinking, so an Anthropic structured stream yields the answer JSON as it
+is built (GENERATING chunks) with no THINKING. Ollama and OpenAI-compatible thinking models stream
+thinking normally. This matches the non-streaming behavior (Anthropic structured output has never
+produced thinking).</p>
 <h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><code>schema=</code> and <code>stream=True</code> are mutually exclusive</strong>: a typed object can't be streamed
-  incrementally; passing both raises <code>ValueError</code>.</li>
 <li><strong><code>self.messages</code> stays plain.</strong> The typed object is a return value only; the assistant turn
   is stored as the plain JSON string, so conversation history remains provider-portable.</li>
 </ul>
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
 <p>Identical on the async surface:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4.1&quot;</span><span class="p">)</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">person</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Ada Lovelace, 36&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">Person</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4.1&quot;</span><span class="p">)</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">person</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Ada Lovelace, 36&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">Person</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="which-models-enforce-natively">Which models enforce natively<a class="headerlink" href="#which-models-enforce-natively" title="Permanent link">&para;</a></h2>
 <p><code>supports_structured_output=True</code> (native) on the OpenAI, Gemini, Ollama (all models), and
@@ -3115,7 +3156,7 @@ llama-cpp use the prompt-and-parse path. See <a href="../../reference/api/aimu/"
 <code>parse_json_response</code> / <code>generate_json</code>, which back the coercion.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../stream-output/">Stream output</a>: note that streaming and <code>schema=</code> don't combine</li>
+<li><a href="../stream-output/">Stream output</a>: the general streaming surface; <code>schema=</code> combines with it</li>
 <li><a href="../switch-providers/">Switch providers</a>: <code>supports_structured_output</code> varies by provider</li>
 </ul>
 

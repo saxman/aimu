@@ -1227,6 +1227,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming-structured-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming structured output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3084,6 +3095,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming-structured-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming structured output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3255,10 +3277,16 @@
 <p><code>iteration</code> increments once per assistant turn that contains tool calls, so you can see how many rounds the agent took. <code>arguments</code> is the parsed argument dict (it handles models that emit <code>parameters</code> instead of <code>arguments</code>); <code>result</code> is the matching tool-role content, or <code>""</code> if none.</p>
 <h3 id="tell-agent-loop-turns-from-user-input">Tell agent-loop turns from user input<a class="headerlink" href="#tell-agent-loop-turns-from-user-input" title="Permanent link">&para;</a></h3>
 <p>The agent injects its own <code>{"role": "user", ...}</code> turns during the loop (a continuation prompt between tool rounds, and a final-answer prompt at the iteration cap). They never appear in a live stream, but a replayed history can't tell them from real input unless they're marked. AIMU tags them with an inert <code>provenance</code> key (<code>message.get(aimu.PROVENANCE_KEY)</code> is <code>PROVENANCE_CONTINUATION</code> / <code>PROVENANCE_FINAL_ANSWER</code> / <code>PROVENANCE_PROACTIVE</code>; genuine input is untagged). See <a href="../persist-conversations/#distinguish-agent-loop-turns-from-user-input">Persist conversations</a> for the display pattern.</p>
+<h2 id="streaming-structured-output">Streaming structured output<a class="headerlink" href="#streaming-structured-output" title="Permanent link">&para;</a></h2>
+<p><code>stream=True</code> combines with <code>schema=</code>: thinking / generation chunks stream live, then a terminal
+<code>DONE</code> chunk carries <code>{"result": &lt;validated object&gt;}</code> (also on <code>client.last_structured</code>). See
+<a href="../use-structured-output/#streaming-structured-output">Get structured output</a> for the full contract
+and the Anthropic caveat (it streams the JSON, not thinking).</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a>: one chunk type for all contexts</li>
 <li><a href="../../reference/stream-phases/">Stream phases reference</a>: full enum</li>
+<li><a href="../use-structured-output/">Get structured output</a>: <code>schema=</code> typed objects, incl. streaming</li>
 </ul>
 
 

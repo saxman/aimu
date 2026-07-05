@@ -2063,6 +2063,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.aio.AsyncModelClient.last_structured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        last_structured
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3651,6 +3662,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.aio.AsyncModelClient.last_structured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        last_structured
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4505,6 +4527,32 @@ async_client = AsyncModelClient(sync_client)
     <div class="doc doc-contents ">
 
         <p>Token usage of the most recent non-streaming response, or <code>None</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="aimu.aio.AsyncModelClient.last_structured" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">last_structured</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+      <small class="doc doc-label doc-label-writable"><code>writable</code></small>
+  </span>
+
+<a href="#aimu.aio.AsyncModelClient.last_structured" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">last_structured</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Validated object from the most recent <code>schema=</code> call, or <code>None</code> (populated
+after a streamed structured call is fully consumed; mirrors :attr:<code>last_usage</code>).</p>
 
     </div>
 
