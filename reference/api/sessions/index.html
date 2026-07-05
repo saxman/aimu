@@ -2232,6 +2232,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.sessions.SessionStore.delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.sessions.SessionStore.close" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3018,6 +3029,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.sessions.SessionStore.delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.sessions.SessionStore.close" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3319,6 +3341,30 @@ session's memories (e.g. a collection name / prefix). The store ABC is unchanged
     <div class="doc doc-contents ">
 
         <p>Return the keys of all saved sessions.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.sessions.SessionStore.delete" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">delete</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#aimu.sessions.SessionStore.delete" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">delete</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Delete the session for <code>key</code>. A no-op if no such session exists.</p>
 
 
     </div>
