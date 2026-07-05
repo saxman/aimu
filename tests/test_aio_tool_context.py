@@ -7,12 +7,33 @@ from dataclasses import dataclass, field
 
 
 from aimu.aio import Agent
+from aimu.aio._tool_loop import _AsyncToolLoop
 from aimu.tools import ToolContext, tool
 from helpers_aio import MockAsyncModelClient
 
 
+def _stage_tool_calls(client, calls):
+    """Append the assistant(tool_calls) message a provider stores, so the engine can dispatch it.
+
+    ``calls`` is a list of ``{"name": ..., "arguments": ...}`` dicts.
+    """
+    client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {"name": c["name"], "arguments": c.get("arguments", {})},
+                    "id": f"id{i}",
+                }
+                for i, c in enumerate(calls)
+            ],
+        }
+    )
+
+
 # ---------------------------------------------------------------------------
-# Dispatch: the async client fills ctx.deps for sync and async tools
+# Dispatch: the async engine fills ctx.deps for sync and async tools
 # ---------------------------------------------------------------------------
 
 
@@ -32,10 +53,8 @@ async def test_async_dispatch_injects_context_into_sync_tool():
 
     deps = Deps()
     client = MockAsyncModelClient([])
-    client.tools = [remember]
-    client.tool_context_deps = deps
-
-    await client._handle_tool_calls([{"name": "remember", "arguments": {"key": "abc"}}])
+    _stage_tool_calls(client, [{"name": "remember", "arguments": {"key": "abc"}}])
+    await _AsyncToolLoop(client, [remember], deps=deps)._dispatch()
 
     assert captured["deps"] is deps
     assert deps.seen == {"abc": True}
@@ -56,10 +75,8 @@ async def test_async_dispatch_injects_context_into_async_tool():
 
     deps = Deps()
     client = MockAsyncModelClient([])
-    client.tools = [record]
-    client.tool_context_deps = deps
-
-    await client._handle_tool_calls([{"name": "record", "arguments": {"value": "x"}}])
+    _stage_tool_calls(client, [{"name": "record", "arguments": {"value": "x"}}])
+    await _AsyncToolLoop(client, [record], deps=deps)._dispatch()
 
     assert deps.calls == ["x"]
     assert record.__tool_injected__ == ["ctx"]
@@ -77,34 +94,54 @@ async def test_async_dispatch_deps_none_when_unset():
         return "ok"
 
     client = MockAsyncModelClient([])
-    client.tools = [peek]
-    await client._handle_tool_calls([{"name": "peek", "arguments": {}}])
+    _stage_tool_calls(client, [{"name": "peek", "arguments": {}}])
+    await _AsyncToolLoop(client, [peek])._dispatch()
 
     assert captured["deps"] is None
 
 
 # ---------------------------------------------------------------------------
-# Async Agent: deps field / run(deps=) override published; schema single-pass
+# Async Agent: deps field / run(deps=) override reach the tool as ctx.deps
 # ---------------------------------------------------------------------------
 
 
-async def test_async_agent_publishes_deps_field_to_client():
+async def test_async_agent_deps_field_reaches_tool_via_context():
+    """Behavioral: the async Agent's ``deps`` field is injected as ``ctx.deps`` when a tool runs.
+    (Replaces the old test asserting deps were published onto the client.)"""
+
     @dataclass
     class Deps:
         v: int = 1
 
-    client = MockAsyncModelClient(["done"])
+    seen = {}
+
+    @tool
+    async def capture(ctx: ToolContext) -> str:
+        """Capture the injected deps."""
+        seen["deps"] = ctx.deps
+        return "ok"
+
+    client = MockAsyncModelClient(["tool", "done"])
     deps = Deps()
-    agent = Agent(client, deps=deps)
-    await agent.run("task")
-    assert client.tool_context_deps is deps
+    agent = Agent(client, tools=[capture], deps=deps)
+    assert await agent.run("task") == "done"
+    assert seen["deps"] is deps
 
 
 async def test_async_agent_run_deps_overrides_field():
-    client = MockAsyncModelClient(["done"])
-    agent = Agent(client, deps="from-field")
+    """Behavioral: a per-run ``run(deps=)`` override wins over the ``deps`` field at the tool."""
+    seen = {}
+
+    @tool
+    async def capture(ctx: ToolContext) -> str:
+        """Capture the injected deps."""
+        seen["deps"] = ctx.deps
+        return "ok"
+
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[capture], deps="from-field")
     await agent.run("task", deps="from-run")
-    assert client.tool_context_deps == "from-run"
+    assert seen["deps"] == "from-run"
 
 
 async def test_async_agent_run_schema_returns_typed_object():

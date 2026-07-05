@@ -182,17 +182,20 @@ def test_agent_no_continuation_prompt_injected():
     assert user_messages == ["start"]
 
 
-def test_chat_is_single_turn_executes_tool_then_returns():
-    # One chat() call = one model turn. A tool-using turn executes the tool and returns; the
-    # model's response to the tool result comes on the NEXT chat() call (the loop lives in Agent).
+def test_chat_is_single_turn_parses_tool_call_without_executing():
+    # One chat() call = one model turn. A tool-using turn PARSES and STORES the tool call on the
+    # assistant message but does NOT execute it — execution (and the loop) lives in the Agent.
     client = MockModelClient(["tool", "answer"])
 
     first = client.chat("q")
-    assert first == ""  # tool executed, no follow-up answer this turn
-    assert client.messages[-1]["role"] == "tool"
+    assert first == ""  # a tool-call turn produces no prose
+    # The tool call is stored on the assistant message; there is no "tool" result message.
+    assert client.messages[-1]["role"] == "assistant"
+    assert client.messages[-1]["tool_calls"]
+    assert not any(m["role"] == "tool" for m in client.messages)
     assert client._call_count == 1
 
-    # Continuation: no user_message → no user turn appended; the model answers the tool result.
+    # Continuation: no user_message → no user turn appended; the model produces its next turn.
     second = client.chat()
     assert second == "answer"
     assert client.messages[-1] == {"role": "assistant", "content": "answer"}
@@ -345,7 +348,21 @@ def test_internal_agentic_view_rejects_workflow():
 # ---------------------------------------------------------------------------
 
 
-def test_handle_tool_calls_sequential_by_default():
+def _stage_tool_calls(client, names):
+    """Append the assistant(tool_calls) message a provider stores, so the engine can dispatch it."""
+    client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {"type": "function", "function": {"name": n, "arguments": {}}, "id": f"id{i}"}
+                for i, n in enumerate(names)
+            ],
+        }
+    )
+
+
+def test_dispatch_sequential_by_default():
+    from aimu.agents._tool_loop import _ToolLoop
     from aimu.tools import tool
 
     call_order = []
@@ -363,14 +380,14 @@ def test_handle_tool_calls_sequential_by_default():
         return "tool_b"
 
     client = MockModelClient([])
-    client.tools = [tool_a, tool_b]
-    tool_calls = [{"name": "tool_a", "arguments": {}}, {"name": "tool_b", "arguments": {}}]
-    client._handle_tool_calls(tool_calls)
+    _stage_tool_calls(client, ["tool_a", "tool_b"])
+    _ToolLoop(client, [tool_a, tool_b])._dispatch()
 
     assert call_order == ["tool_a", "tool_b"]
 
 
-def test_handle_tool_calls_concurrent_runs_in_parallel():
+def test_dispatch_concurrent_runs_in_parallel():
+    from aimu.agents._tool_loop import _ToolLoop
     from aimu.tools import tool
 
     barrier = threading.Barrier(2, timeout=2.0)
@@ -388,18 +405,17 @@ def test_handle_tool_calls_concurrent_runs_in_parallel():
         return "tool_b"
 
     client = MockModelClient([])
-    client.concurrent_tool_calls = True
-    client.tools = [tool_a, tool_b]
-    tool_calls = [{"name": "tool_a", "arguments": {}}, {"name": "tool_b", "arguments": {}}]
-    client._handle_tool_calls(tool_calls)
+    _stage_tool_calls(client, ["tool_a", "tool_b"])
+    _ToolLoop(client, [tool_a, tool_b], concurrent_tool_calls=True)._dispatch()
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
     assert len(tool_messages) == 2
 
 
-def test_handle_tool_calls_concurrent_results_in_original_order():
+def test_dispatch_concurrent_results_in_original_order():
     import time
 
+    from aimu.agents._tool_loop import _ToolLoop
     from aimu.tools import tool
 
     @tool
@@ -414,10 +430,8 @@ def test_handle_tool_calls_concurrent_results_in_original_order():
         return "tool_b"
 
     client = MockModelClient([])
-    client.concurrent_tool_calls = True
-    client.tools = [tool_a, tool_b]
-    tool_calls = [{"name": "tool_a", "arguments": {}}, {"name": "tool_b", "arguments": {}}]
-    client._handle_tool_calls(tool_calls)
+    _stage_tool_calls(client, ["tool_a", "tool_b"])
+    _ToolLoop(client, [tool_a, tool_b], concurrent_tool_calls=True)._dispatch()
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
     assert tool_messages[0]["name"] == "tool_a"
@@ -439,8 +453,8 @@ def _make_research_agent(worker_tools=None):
 
 
 def test_research_report_agent_without_worker_tools_no_concurrent():
-    _, client = _make_research_agent()
-    assert not client.concurrent_tool_calls
+    agent, _ = _make_research_agent()
+    assert not agent._orchestrator.concurrent_tool_calls
 
 
 def test_research_report_agent_with_worker_tools_enables_concurrent():
@@ -451,8 +465,8 @@ def test_research_report_agent_with_worker_tools_enables_concurrent():
         """Search the web."""
         return f"results for {query}"
 
-    _, client = _make_research_agent(worker_tools=[search])
-    assert client.concurrent_tool_calls
+    agent, _ = _make_research_agent(worker_tools=[search])
+    assert agent._orchestrator.concurrent_tool_calls
 
 
 def test_research_report_agent_is_runner_subclass():
@@ -512,15 +526,15 @@ def test_orchestrator_agent_messages_delegates():
 
 def test_orchestrator_agent_setup_registers_tools():
     client = MockModelClient(["done"])
-    _make_concrete_orchestrator(client)
-    assert len(client.tools) == 1
-    assert client.tools[0].__name__ == "do_work"
+    orch = _make_concrete_orchestrator(client)
+    assert len(orch._orchestrator.tools) == 1
+    assert orch._orchestrator.tools[0].__name__ == "do_work"
 
 
 def test_orchestrator_agent_setup_concurrent_tool_calls_default_false():
     client = MockModelClient(["done"])
-    _make_concrete_orchestrator(client)
-    assert not client.concurrent_tool_calls
+    orch = _make_concrete_orchestrator(client)
+    assert not orch._orchestrator.concurrent_tool_calls
 
 
 def test_orchestrator_agent_setup_concurrent_tool_calls_can_be_enabled():
@@ -542,8 +556,8 @@ def test_orchestrator_agent_setup_concurrent_tool_calls_can_be_enabled():
             )
 
     client = MockModelClient(["done"])
-    _ConcurrentOrchestrator(client)
-    assert client.concurrent_tool_calls
+    orch = _ConcurrentOrchestrator(client)
+    assert orch._orchestrator.concurrent_tool_calls
 
 
 def test_orchestrator_agent_assemble_factory():
@@ -555,7 +569,7 @@ def test_orchestrator_agent_assemble_factory():
     orch = OrchestratorAgent.assemble(client, "Use the workers.", workers=[worker_a, worker_b])
     assert isinstance(orch, OrchestratorAgent)
     # Two tools were registered, one per worker, with the worker names.
-    tool_names = {t.__name__ for t in client.tools}
+    tool_names = {t.__name__ for t in orch._orchestrator.tools}
     assert tool_names == {"alpha", "beta"}
     result = orch.run("task")
     assert result == "done"
@@ -602,7 +616,7 @@ def test_orchestrator_assemble_accepts_workflow_worker():
     agent_worker = Agent(MockModelClient(["agent result"]), system_message="Critique.", name="critic")
 
     orch = OrchestratorAgent.assemble(client, "Use the workers.", workers=[chain, agent_worker])
-    tool_names = {t.__name__ for t in client.tools}
+    tool_names = {t.__name__ for t in orch._orchestrator.tools}
     assert tool_names == {"researcher", "critic"}
     assert orch.run("task") == "done"
 
@@ -613,61 +627,44 @@ def test_orchestrator_assemble_accepts_workflow_worker():
 
 
 def test_agent_forwards_image_generating_chunks_from_streaming_tool():
-    """When the underlying client emits IMAGE_GENERATING chunks (from a streaming tool),
-    Agent.run(stream=True) should re-emit them with `agent` + `iteration` metadata."""
+    """A streaming @tool yields IMAGE_GENERATING chunks during dispatch; the Agent's tool-loop
+    engine forwards them through Agent.run(stream=True) with `agent` + `iteration` metadata."""
+    from aimu.tools import tool
 
-    class _ImageStreamingClient(MockModelClient):
-        """Yields IMAGE_GENERATING progress + TOOL_CALLING on the first call,
-        then a plain GENERATING chunk on the agent's continuation call."""
+    @tool
+    def generate_image(prompt: str = "") -> str:
+        """Generate an image from a prompt."""
+        for step in range(1, 4):
+            yield StreamChunk(
+                StreamingContentType.IMAGE_GENERATING,
+                {
+                    "step": step,
+                    "total_steps": 3,
+                    "image": None,
+                    "final": (step == 3),
+                    "result": "/tmp/img.png" if step == 3 else None,
+                },
+            )
+        return "/tmp/img.png"
 
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self._calls = 0
+    class _ToolTurnStreamClient(MockModelClient):
+        """Streams the first turn as a bare tool call (no prose), then prose on the continuation."""
 
         def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
             if not stream:
                 return super()._chat(user_message, generate_kwargs, use_tools, stream, images)
 
             def _gen():
-                self.messages.append({"role": "user", "content": user_message})
-                self._calls += 1
-                if self._calls == 1:
-                    # First call: emit image-gen progress + tool call.
-                    for step in range(1, 4):
-                        yield StreamChunk(
-                            StreamingContentType.IMAGE_GENERATING,
-                            {
-                                "step": step,
-                                "total_steps": 3,
-                                "image": None,
-                                "final": (step == 3),
-                                "result": "/tmp/img.png" if step == 3 else None,
-                            },
-                        )
-                    self.messages.append(
-                        {
-                            "role": "assistant",
-                            "tool_calls": [
-                                {"type": "function", "function": {"name": "generate_image", "arguments": {}}, "id": "x"}
-                            ],
-                        }
-                    )
-                    self.messages.append(
-                        {"role": "tool", "name": "generate_image", "content": "/tmp/img.png", "tool_call_id": "x"}
-                    )
-                    yield StreamChunk(
-                        StreamingContentType.TOOL_CALLING,
-                        {"name": "generate_image", "arguments": {}, "response": "/tmp/img.png"},
-                    )
-                else:
-                    # Continuation call: just emit a final GENERATING chunk + assistant message.
-                    self.messages.append({"role": "assistant", "content": "Done!"})
-                    yield StreamChunk(StreamingContentType.GENERATING, "Done!")
+                response = super(_ToolTurnStreamClient, self)._chat(
+                    user_message, generate_kwargs, use_tools, False, images=images
+                )
+                if response:  # tool-call turns produce no prose; suppress the empty chunk
+                    yield StreamChunk(StreamingContentType.GENERATING, response)
 
             return _gen()
 
-    client = _ImageStreamingClient(["Done!"])
-    agent = Agent(client, name="streamer")
+    client = _ToolTurnStreamClient(["tool", "Done!"])
+    agent = Agent(client, name="streamer", tools=[generate_image])
     chunks = list(agent.run("make me an image", stream=True))
 
     image_chunks = [c for c in chunks if c.is_image_progress()]
@@ -707,61 +704,67 @@ class _ToolsRecordingClient(MockModelClient):
         return super()._chat(user_message, generate_kwargs, use_tools, stream, images=images, audio=audio)
 
 
+@tool
+def _base_tool() -> str:
+    """A base tool."""
+    return "base"
+
+
+@tool
+def _override_tool() -> str:
+    """An override tool."""
+    return "override"
+
+
 def test_agent_run_tools_override_applied_each_loop_call():
-    base_tool, override_tool = object(), object()
-    client = _ToolsRecordingClient(["tool", "after", "done"])  # one tool round → 2 chat() calls
-    agent = Agent(client, name="t", tools=[base_tool])
+    client = _ToolsRecordingClient(["after", "done"])  # no tool round → single chat() call
+    agent = Agent(client, name="t", tools=[_base_tool])
 
-    agent.run("task", tools=[override_tool])
+    agent.run("task", tools=[_override_tool])
 
-    # Both the initial and continuation chat() calls saw the override.
-    assert client.tools_per_call == [[override_tool], [override_tool]]
+    # The chat() call saw the override, not the configured base tool.
+    assert client.tools_per_call == [[_override_tool]]
 
 
-def test_agent_run_tools_override_restored_to_configured_after_run():
-    base_tool, override_tool = object(), object()
+def test_agent_run_tools_override_restored_transient_after_run():
     client = MockModelClient(["done"])
-    agent = Agent(client, name="t", tools=[base_tool])
+    agent = Agent(client, name="t", tools=[_base_tool])
 
-    agent.run("task", tools=[override_tool])
+    agent.run("task", tools=[_override_tool])
 
-    # _prepare_run set client.tools to the agent's configured tools; the per-call
-    # override is restored, so the agent's tools remain in place afterward.
-    assert client.tools == [base_tool]
+    # The Agent passes tools per call; it never persists them on the client. The
+    # per-call override swap restores client.tools to its transient default ([]).
+    assert client.tools == []
 
 
 def test_agent_run_tools_none_uses_configured_tools():
-    base_tool = object()
     client = _ToolsRecordingClient(["done"])
-    agent = Agent(client, name="t", tools=[base_tool])
+    agent = Agent(client, name="t", tools=[_base_tool])
 
     agent.run("task")  # no override
 
-    assert client.tools_per_call == [[base_tool]]
+    assert client.tools_per_call == [[_base_tool]]
 
 
 def test_agent_run_tools_empty_disables_for_run_only():
-    base_tool = object()
     client = _ToolsRecordingClient(["done"])
-    agent = Agent(client, name="t", tools=[base_tool])
+    agent = Agent(client, name="t", tools=[_base_tool])
 
     agent.run("task", tools=[])
 
     assert client.tools_per_call == [[]]  # disabled during the run...
-    assert client.tools == [base_tool]  # ...restored to configured tools after
+    assert client.tools == []  # ...transient restored after
 
 
 def test_agent_run_streamed_tools_override_applied():
-    override_tool = object()
-    client = _ToolsRecordingClient(["tool", "after", "done"])
-    agent = Agent(client, name="t", tools=[object()])
+    client = _ToolsRecordingClient(["after", "done"])
+    agent = Agent(client, name="t", tools=[_base_tool])
 
-    list(agent.run("task", stream=True, tools=[override_tool]))
+    list(agent.run("task", stream=True, tools=[_override_tool]))
 
-    # Every recorded chat() call (the mock re-dispatches internally when streaming)
-    # saw the override; the point is the override is live across the whole stream.
-    assert client.tools_per_call and all(seen == [override_tool] for seen in client.tools_per_call)
-    assert client.tools[0] is not override_tool  # restored to configured tools
+    # Every recorded chat() call saw the override; the override is live across the whole stream.
+    assert client.tools_per_call and all(seen == [_override_tool] for seen in client.tools_per_call)
+    assert client.tools == []  # transient restored after
 
 
 # ---------------------------------------------------------------------------

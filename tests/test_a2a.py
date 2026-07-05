@@ -146,7 +146,7 @@ def test_remote_agent_round_trip_and_composition():
             from helpers import MockModelClient
 
             orch = OrchestratorAgent.assemble(MockModelClient(["done"]), "Use the worker.", workers=[remote])
-            assert "greeter" in {t.__name__ for t in orch._orchestrator.model_client.tools}
+            assert "greeter" in {t.__name__ for t in orch._orchestrator.tools}
         finally:
             remote.close()
 

@@ -67,22 +67,17 @@ class _FallbackStateMixin:
         self._system_message = system_message
         self.default_generate_kwargs = {}
         self.messages: list[dict] = []
+        # Transient per-call tool specs (the ``tools=`` override is forwarded to the inner client);
+        # the FallbackClient never executes tools (that's the Agent's job).
         self.tools: list = []
         self.last_thinking = ""
         self.last_usage: Optional[dict] = None
         self.last_structured = None
-        self.concurrent_tool_calls = False
-        self.tool_context_deps = None
 
     def _load_state(self, client) -> None:
         """Load the shared conversation state into ``client`` before delegating to it."""
         client.reset(self.system_message)  # clears history, syncs system_message (delegates on ModelClient)
         client.messages = copy.deepcopy(self.messages)
-        client.tools = list(self.tools)
-        try:
-            client.tool_context_deps = self.tool_context_deps
-        except AttributeError:
-            pass
         client.last_thinking = ""
         client.last_usage = None
         client.last_structured = None

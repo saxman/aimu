@@ -173,7 +173,7 @@ async def test_assistant_authors_and_registers_runnable_script(tmp_path):
     assert "disk__usage" in msg
     assert (cfg.skills_dir / "disk" / "scripts" / "usage.py").exists()
     # reload_skills() ran, so the new script tool is callable on the live client.
-    assert "disk__usage" in [fn.__name__ for fn in assistant._agent.model_client.tools]
+    assert "disk__usage" in [fn.__name__ for fn in assistant._agent._effective_tools(None)]
 
 
 # --- Tool-approval demo: gate the full-access add_skill_script tool -----------------------------
@@ -204,11 +204,27 @@ async def test_denied_add_skill_script_does_not_write(tmp_path):
 
     assistant = await Assistant.create(cfg, FakeChannel(), client=MockAsyncModelClient([]), tool_approval=deny)
     agent = assistant._agent
-    agent._prepare_run()  # publish tool_approval + tools onto the client (as a run would)
 
-    await agent.model_client._handle_tool_calls(
-        [{"name": "add_skill_script", "arguments": {"skill_name": "disk", "filename": "u.py", "content": "print(1)\n"}}]
+    # Drive the agent's tool-loop engine directly (as a run would), with the deny policy. Stage
+    # the assistant(tool_calls) turn a provider would store, then dispatch.
+    loop = agent._make_tool_loop(None, None, None)
+    agent.model_client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "add_skill_script",
+                        "arguments": {"skill_name": "disk", "filename": "u.py", "content": "print(1)\n"},
+                    },
+                    "id": "x",
+                }
+            ],
+        }
     )
+    await loop._dispatch()
+
     assert agent.model_client.messages[-1]["content"] == "Tool 'add_skill_script' was not approved."
     assert not (cfg.skills_dir / "disk" / "scripts" / "u.py").exists()
 

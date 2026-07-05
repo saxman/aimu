@@ -17,6 +17,7 @@ from aimu.models._internal.message_meta import (
     PROVENANCE_KEY,
 )
 from aimu.tools import tool
+from aimu.tools.context import ToolContext
 from helpers_aio import MockAsyncModelClient
 
 
@@ -51,8 +52,25 @@ async def test_sync_tool_decorator_sets_flag_false():
     assert echo_sync.__tool_is_async__ is False
 
 
-async def test_sync_basemodelclient_rejects_async_tool():
-    """The sync surface should reject async @tool functions cleanly."""
+def _stage_tool_calls(client, calls):
+    """Append the assistant(tool_calls) message a provider stores, so the engine can dispatch it.
+
+    ``calls`` is a list of ``(name, arguments)`` tuples.
+    """
+    client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {"type": "function", "function": {"name": n, "arguments": a}, "id": f"id{i}"}
+                for i, (n, a) in enumerate(calls)
+            ],
+        }
+    )
+
+
+async def test_sync_agent_rejects_async_tool():
+    """The sync tool-loop engine should reject async @tool functions cleanly."""
+    from aimu.agents._tool_loop import _ToolLoop
     from helpers import MockModelClient
 
     @tool
@@ -60,19 +78,15 @@ async def test_sync_basemodelclient_rejects_async_tool():
         """Async tool."""
         return x
 
-    client = MockModelClient(["tool", "done"])
-    client.tools = [async_tool]
-    # The sync _handle_tool_calls path checks __tool_is_async__ and raises.
-    # MockModelClient.chat appends a tool message itself, so we directly call
-    # _handle_tool_calls to verify the gate.
+    client = MockModelClient([])
+    _stage_tool_calls(client, [("async_tool", {"x": "hi"})])
     with pytest.raises(ValueError, match="async function"):
-        client._handle_tool_calls(
-            [{"name": "async_tool", "arguments": {"x": "hi"}}],
-        )
+        _ToolLoop(client, [async_tool])._dispatch()
 
 
-async def test_async_handle_tool_calls_awaits_async_tool():
-    """The async surface should await async tools."""
+async def test_async_engine_awaits_async_tool():
+    """The async tool-loop engine should await async tools."""
+    from aimu.aio._tool_loop import _AsyncToolLoop
 
     @tool
     async def doubler(n: str) -> str:
@@ -80,12 +94,8 @@ async def test_async_handle_tool_calls_awaits_async_tool():
         return str(int(n) * 2)
 
     client = MockAsyncModelClient(["unused"])
-    client.tools = [doubler]
-    # Drive the dispatch directly so we don't need to mock a tool-calling model response.
-    await client._handle_tool_calls(
-        [{"name": "doubler", "arguments": {"n": "5"}}],
-    )
-    # After dispatch: assistant tool_calls msg, then tool result msg.
+    _stage_tool_calls(client, [("doubler", {"n": "5"})])
+    await _AsyncToolLoop(client, [doubler])._dispatch()
     tool_msg = client.messages[-1]
     assert tool_msg["role"] == "tool"
     assert tool_msg["content"] == "10"
@@ -93,6 +103,7 @@ async def test_async_handle_tool_calls_awaits_async_tool():
 
 async def test_concurrent_tool_calls_overlap():
     """concurrent_tool_calls=True under async should overlap via TaskGroup."""
+    from aimu.aio._tool_loop import _AsyncToolLoop
 
     @tool
     async def slow_tool(n: str) -> str:
@@ -101,16 +112,10 @@ async def test_concurrent_tool_calls_overlap():
         return f"done-{n}"
 
     client = MockAsyncModelClient(["unused"])
-    client.tools = [slow_tool]
-    client.concurrent_tool_calls = True
+    _stage_tool_calls(client, [("slow_tool", {"n": "a"}), ("slow_tool", {"n": "b"})])
 
     t0 = time.perf_counter()
-    await client._handle_tool_calls(
-        [
-            {"name": "slow_tool", "arguments": {"n": "a"}},
-            {"name": "slow_tool", "arguments": {"n": "b"}},
-        ],
-    )
+    await _AsyncToolLoop(client, [slow_tool], concurrent_tool_calls=True)._dispatch()
     elapsed = time.perf_counter() - t0
     assert elapsed < 0.9, f"expected concurrent (<0.9s), got {elapsed:.2f}s"
     tool_msgs = [m for m in client.messages if m.get("role") == "tool"]
@@ -134,48 +139,58 @@ class _AsyncToolsRecordingClient(MockAsyncModelClient):
         return await super()._chat(user_message, generate_kwargs, use_tools, stream, images=images)
 
 
+@tool
+def _base_tool() -> str:
+    """A base tool."""
+    return "base"
+
+
+@tool
+def _override_tool() -> str:
+    """An override tool."""
+    return "override"
+
+
 async def test_async_agent_run_tools_override_applied_each_loop_call():
-    base_tool, override_tool = object(), object()
-    client = _AsyncToolsRecordingClient(["tool", "after", "done"])
-    agent = Agent(client, name="t", tools=[base_tool])
+    client = _AsyncToolsRecordingClient(["after", "done"])  # no tool round → single chat() call
+    agent = Agent(client, name="t", tools=[_base_tool])
 
-    await agent.run("task", tools=[override_tool])
+    await agent.run("task", tools=[_override_tool])
 
-    assert client.tools_per_call == [[override_tool], [override_tool]]
-    assert client.tools == [base_tool]  # restored to configured tools
+    assert client.tools_per_call == [[_override_tool]]
 
 
 async def test_async_agent_run_tools_none_uses_configured():
-    base_tool = object()
     client = _AsyncToolsRecordingClient(["done"])
-    agent = Agent(client, name="t", tools=[base_tool])
+    agent = Agent(client, name="t", tools=[_base_tool])
 
     await agent.run("task")
 
-    assert client.tools_per_call == [[base_tool]]
+    assert client.tools_per_call == [[_base_tool]]
 
 
 async def test_async_agent_run_streamed_tools_override_applied():
-    override_tool = object()
-    client = _AsyncToolsRecordingClient(["tool", "after", "done"])
-    agent = Agent(client, name="t", tools=[object()])
+    client = _AsyncToolsRecordingClient(["after", "done"])
+    agent = Agent(client, name="t", tools=[_base_tool])
 
-    stream = await agent.run("task", stream=True, tools=[override_tool])
+    stream = await agent.run("task", stream=True, tools=[_override_tool])
     async for _ in stream:
         pass
 
-    assert client.tools_per_call and all(seen == [override_tool] for seen in client.tools_per_call)
-    assert client.tools[0] is not override_tool  # restored to configured tools
+    assert client.tools_per_call and all(seen == [_override_tool] for seen in client.tools_per_call)
+    assert client.tools == []  # transient restored after
 
 
-async def test_async_chat_is_single_turn_executes_tool_then_returns():
-    # One chat() = one model turn. A tool-using turn executes the tool and returns; the answer
-    # comes on the next chat() call (user_message=None → no user turn appended).
+async def test_async_chat_is_single_turn_parses_tool_call_without_executing():
+    # One chat() = one model turn. A tool-using turn parses and stores the tool call but does
+    # NOT execute it; the loop and execution live in the Agent.
     client = MockAsyncModelClient(["tool", "answer"])
 
     first = await client.chat("q")
     assert first == ""
-    assert client.messages[-1]["role"] == "tool"
+    assert client.messages[-1]["role"] == "assistant"
+    assert client.messages[-1]["tool_calls"]
+    assert not any(m["role"] == "tool" for m in client.messages)
 
     second = await client.chat()
     assert second == "answer"
@@ -321,13 +336,21 @@ def _empty_skill_manager(tmp_path):
 async def test_async_skill_agent_run_threads_deps(tmp_path):
     from aimu.aio import SkillAgent
 
-    client = MockAsyncModelClient(["hi"])
-    agent = SkillAgent(client, name="s", skill_manager=_empty_skill_manager(tmp_path))
-
     sentinel = object()
+    seen = {}
+
+    @tool
+    async def capture(ctx: ToolContext) -> str:
+        """Capture the injected deps."""
+        seen["deps"] = ctx.deps
+        return "ok"
+
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = SkillAgent(client, name="s", tools=[capture], skill_manager=_empty_skill_manager(tmp_path))
+
     await agent.run("greet", deps=sentinel)
 
-    assert client.tool_context_deps is sentinel
+    assert seen["deps"] is sentinel
 
 
 async def test_async_skill_agent_run_schema_returns_typed_instance(tmp_path):
@@ -401,7 +424,7 @@ async def test_async_orchestrator_assemble_accepts_workflow_worker():
     agent_worker = AsyncAgent(MockAsyncModelClient(["agent result"]), system_message="Critique.", name="critic")
 
     orch = AsyncOrchestratorAgent.assemble(client, "Use the workers.", workers=[chain, agent_worker])
-    tool_names = {t.__name__ for t in client.tools}
+    tool_names = {t.__name__ for t in orch._orchestrator.tools}
     assert tool_names == {"researcher", "critic"}
     assert await orch.run("task") == "done"
 

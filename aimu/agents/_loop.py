@@ -31,53 +31,13 @@ class _AgentLoopMixin:
     def _prepare_run(self, deps: Any = None, tool_approval: Any = None) -> None:
         """Reset client state and re-apply system_message before a run, when configured.
 
-        ``deps`` and ``tool_approval`` (per-run overrides) take precedence over the agent's
-        ``self.deps`` / ``self.tool_approval`` fields; the effective values are published to the
-        model client (``ToolContext`` injection and the tool-call approval gate, respectively).
+        Tool callables, ``deps``, and the approval policy are the Agent's own state now and are
+        passed to the tool-loop engine per run (see :meth:`Agent._make_tool_loop`); the model
+        client no longer holds them. ``deps`` / ``tool_approval`` are accepted for call-site
+        compatibility but are not pushed onto the client here.
         """
-        from aimu.tools.approval import approve_all
-
         if self.reset_messages_on_run or self.system_message is not None:
             self.model_client.reset(system_message=self.system_message)
-        if self.tools:
-            self.model_client.tools = list(self.tools)
-        self.model_client.tool_context_deps = deps if deps is not None else self.deps
-        self.model_client.tool_approval = tool_approval or self.tool_approval or approve_all
-
-    def _last_turn_called_tools(self) -> bool:
-        """True if the model's most recent turn ended by calling tools (so it still needs
-        another turn to respond to the results).
-
-        Because ``chat()`` is a single turn — it executes any requested tools and returns
-        without generating a follow-up answer — the transcript ends in a ``tool`` result when
-        the model called tools, or in an ``assistant`` answer when it did not. Reverse-scan for
-        the most recent of those: a trailing ``tool`` result (or an ``assistant`` message that
-        still carries ``tool_calls``) means "continue"; a plain ``assistant`` answer means "stop".
-        """
-        for msg in reversed(self.model_client.messages):
-            role = msg.get("role")
-            if role == "tool":
-                return True
-            if role == "assistant":
-                return bool(msg.get("tool_calls"))
-        return False
-
-    def _tag_injected_turn(self, index: int, provenance: str) -> None:
-        """Mark the framework-injected user turn at ``index`` with a provenance value.
-
-        Now used only for the opt-in ``final_answer_prompt`` wrap-up turn (continuation turns
-        inject no user message). That prompt is appended to ``model_client.messages`` at the
-        recorded index by ``_append_user_turn``. Tagging is done here rather than at append
-        time so the public ``chat()`` signature stays free of an internal concept, mirroring how
-        providers attach the inert ``"thinking"`` key to a message by index. Call after the
-        ``chat()`` turn completes (streamed: after the stream is fully consumed). No-op if the
-        index no longer names a user turn, so a caller error can't corrupt the transcript.
-        """
-        from aimu.models._internal.message_meta import PROVENANCE_KEY
-
-        messages = self.model_client.messages
-        if 0 <= index < len(messages) and messages[index].get("role") == "user":
-            messages[index][PROVENANCE_KEY] = provenance
 
     def restore(self, messages: list[dict]) -> None:
         """Restore agent state from a saved message list for resuming after failure.

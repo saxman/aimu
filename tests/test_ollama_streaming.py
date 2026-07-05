@@ -48,7 +48,7 @@ def _weather(city: str) -> str:
 
 def _scenario_b():
     # thinking, then an empty transitional part, then the tool_calls part -- one turn. chat() is
-    # single-turn, so it executes the tool and returns; the model's answer comes on the next turn.
+    # single-turn: it parses and stores the tool call and returns (the Agent's engine executes it).
     tool_calls = [_TC("_weather", {"city": "Paris"})]
     first = [
         _Part(_Msg(thinking="thinking...")),
@@ -63,10 +63,14 @@ async def _aiter(parts):
         yield p
 
 
-def _assert_tool_executed(chunks, messages):
-    phases = [c.phase for c in chunks]
-    assert StreamingContentType.TOOL_CALLING in phases, "tool call was dropped"
-    assert any(m.get("role") == "tool" for m in messages), "tool did not execute"
+def _assert_tool_call_stored(chunks, messages):
+    # The streaming parser assembled the tool call into the stored assistant message despite the
+    # empty transitional part (it was not dropped). chat() is single-turn: it stores the call but
+    # does NOT execute it (the Agent's tool-loop engine does) — so we assert on the stored message,
+    # not a tool result or a TOOL_CALLING chunk.
+    assistant = next((m for m in messages if m.get("role") == "assistant" and m.get("tool_calls")), None)
+    assert assistant is not None, "tool call was dropped"
+    assert assistant["tool_calls"][0]["function"]["name"] == "_weather"
     assert not any(c.phase == StreamingContentType.GENERATING and c.content == "" for c in chunks), "stray empty token"
 
 
@@ -84,7 +88,7 @@ async def test_aio_tool_call_survives_empty_transitional_part(monkeypatch):
     client._client._client = types.SimpleNamespace(chat=fake_chat)
 
     chunks = [c async for c in await client.chat("weather in Paris?", stream=True)]
-    _assert_tool_executed(chunks, client.messages)
+    _assert_tool_call_stored(chunks, client.messages)
 
 
 def test_sync_tool_call_survives_empty_transitional_part(monkeypatch):
@@ -101,7 +105,7 @@ def test_sync_tool_call_survives_empty_transitional_part(monkeypatch):
     client.tools = [_weather]
 
     chunks = list(client.chat("weather in Paris?", stream=True))
-    _assert_tool_executed(chunks, client.messages)
+    _assert_tool_call_stored(chunks, client.messages)
 
 
 async def test_aio_plain_answer_emits_no_empty_trailing_token(monkeypatch):

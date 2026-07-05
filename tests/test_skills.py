@@ -260,7 +260,7 @@ def test_agent_setup_skills_injects_catalog(tmp_path):
 
 
 def test_agent_setup_skills_adds_tools(tmp_path):
-    """_setup_skills() adds the skills server's tools (incl. activate_skill) to model_client.tools."""
+    """_setup_skills() surfaces the skills server's tools (incl. activate_skill) via _effective_tools."""
     from unittest.mock import MagicMock
     from aimu.agents.skill_agent import SkillAgent
 
@@ -274,7 +274,7 @@ def test_agent_setup_skills_adds_tools(tmp_path):
     agent = SkillAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
 
-    assert "activate_skill" in [fn.__name__ for fn in client.tools]
+    assert "activate_skill" in [fn.__name__ for fn in agent._effective_tools(None)]
 
 
 def test_agent_setup_skills_no_op_when_no_skills(tmp_path):
@@ -509,7 +509,7 @@ def test_reload_skills_surfaces_new_script_tool(tmp_path):
     manager = SkillManager(skill_dirs=[str(tmp_path)])
     agent = SkillAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
-    assert "grow__added" not in [fn.__name__ for fn in client.tools]
+    assert "grow__added" not in [fn.__name__ for fn in agent._effective_tools(None)]
 
     write_skill(
         "grow", "Grows scripts.", "# Grow", skills_dir=tmp_path, overwrite=True, scripts={"added.py": "print('x')\n"}
@@ -517,7 +517,7 @@ def test_reload_skills_surfaces_new_script_tool(tmp_path):
     manager.refresh()
     agent.reload_skills()
 
-    assert "grow__added" in [fn.__name__ for fn in client.tools]
+    assert "grow__added" in [fn.__name__ for fn in agent._effective_tools(None)]
 
 
 def test_reload_keeps_existing_script_tools_callable(tmp_path):
@@ -535,14 +535,14 @@ def test_reload_keeps_existing_script_tools_callable(tmp_path):
     manager = SkillManager(skill_dirs=[str(tmp_path)])
     agent = SkillAgent(model_client=client, skill_manager=manager)
     agent._setup_skills()
-    pre = next(t for t in client.tools if t.__name__ == "pre__p")
+    pre = next(t for t in agent._effective_tools(None) if t.__name__ == "pre__p")
     assert pre().strip() == "pre ok"
 
     write_skill("other", "Other.", "# Other", skills_dir=tmp_path, overwrite=True, scripts={"q.py": "print('q')\n"})
     manager.refresh()
     agent.reload_skills()
 
-    pre_after = next(t for t in client.tools if t.__name__ == "pre__p")
+    pre_after = next(t for t in agent._effective_tools(None) if t.__name__ == "pre__p")
     assert pre_after().strip() == "pre ok"
 
 

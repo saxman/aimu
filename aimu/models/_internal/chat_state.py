@@ -156,43 +156,6 @@ class _ChatStateMixin:
         finally:
             self.tools = saved
 
-    def _tool_call_kwargs(self, fn, arguments: dict) -> dict:
-        """Validated/coerced model arguments plus any framework-injected ``ToolContext`` parameters.
-
-        Model-supplied ``arguments`` are first validated and lax-coerced against the tool's
-        declared type hints via :func:`~aimu.tools.decorator.coerce_tool_arguments` (which
-        raises :class:`~aimu.tools.decorator.ToolArgumentError`, surfaced to the model as a
-        tool result by the dispatch path). Tools that declare a ``ToolContext`` parameter
-        (recorded in ``fn.__tool_injected__`` by ``@tool``) have it filled here with the
-        client's ``tool_context_deps`` (set by the agent from its ``deps=`` field /
-        ``run(deps=)`` override), so the model never supplies it. Shared by the sync and
-        async dispatch paths.
-        """
-        from aimu.tools.decorator import coerce_tool_arguments
-
-        kwargs = coerce_tool_arguments(fn, arguments)
-        injected = getattr(fn, "__tool_injected__", None)
-        if injected:
-            from aimu.tools.context import ToolContext
-
-            ctx = ToolContext(deps=getattr(self, "tool_context_deps", None))
-            for name in injected:
-                kwargs[name] = ctx
-        return kwargs
-
-    def _tool_not_approved_message(self, tc: dict, tc_id: str) -> dict:
-        """The tool-result message appended when ``tool_approval`` denies a call.
-
-        Same shape as the "not found" message, so the model sees the refusal as a normal tool
-        result and can react. Shared by the sync and async dispatch paths.
-        """
-        return {
-            "role": "tool",
-            "name": tc["name"],
-            "content": f"Tool '{tc['name']}' was not approved.",
-            "tool_call_id": tc_id,
-        }
-
     def _collect_python_tool_specs(self) -> list[dict]:
         """Collect ``__tool_spec__`` dicts from every registered Python tool callable.
 

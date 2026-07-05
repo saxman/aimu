@@ -16,9 +16,9 @@ class SkillAgent(Agent):
     """An :class:`Agent` extended with filesystem-discovered skill injection.
 
     On first run (or after a message reset) the SkillAgent appends the skill catalog
-    to its system message and adds the skills server's tools (via ``MCPClient.as_tools()``)
-    to ``model_client.tools`` so the model can call ``activate_skill`` to load full skill
-    instructions before proceeding.
+    to its system message and surfaces the skills server's tools (via ``MCPClient.as_tools()``)
+    through :meth:`_effective_tools`, so the tool-loop engine advertises and dispatches them
+    (the model can call ``activate_skill`` to load full skill instructions before proceeding).
 
     By default a fresh :class:`SkillManager` is created, scanning the standard search
     paths (``.agents/skills/``, ``.claude/skills/``, ``~/.agents/skills/``,
@@ -46,6 +46,16 @@ class SkillAgent(Agent):
         super()._prepare_run(deps, tool_approval)
         self._setup_skills()
 
+    def _effective_tools(self, tools: Optional[list] = None) -> list:
+        """The agent's tools (or the ``tools=`` override) plus the discovered skill tools.
+
+        Called each round by the tool-loop engine, so a skill authored mid-run via
+        :meth:`reload_skills` is advertised and dispatchable on the next round."""
+        base = super()._effective_tools(tools)
+        existing = {getattr(fn, "__name__", None) for fn in base}
+        skills = [t for t in (self._skills_tools or []) if t.__name__ not in existing]
+        return base + skills
+
     def _catalog_instructions(self) -> str:
         """The skill-catalog block appended to the system prompt (empty when no skills)."""
         catalog = self.skill_manager.catalog_prompt()
@@ -65,22 +75,15 @@ class SkillAgent(Agent):
         self.model_client.system_message = base + new
         self._skills_catalog_injected = new
 
-    def _append_skills_tools(self) -> None:
-        """Append snapshot skill tools to ``model_client.tools`` (deduped by ``__name__``)."""
-        if not self._skills_tools:
-            return
-        existing = {getattr(fn, "__name__", None) for fn in self.model_client.tools}
-        self.model_client.tools = list(self.model_client.tools) + [
-            t for t in self._skills_tools if t.__name__ not in existing
-        ]
-
     def _setup_skills(self) -> None:
         if not self.skill_manager.skills:
             return
 
         # Build the skills tool server and its tool callables once. The MCPClient is held
         # on the instance so its connection outlives this method (the callables also keep
-        # a reference). `as_tools()` snapshots the server's tools as plain callables.
+        # a reference). `as_tools()` snapshots the server's tools as plain callables. The
+        # tools reach the model via the Agent's ``_effective_tools`` (dispatched by the engine);
+        # this method only builds them and injects the catalog.
         if self._skills_tools is None:
             from aimu.skills.mcp import build_skills_server
             from aimu.tools.client import MCPClient
@@ -96,32 +99,20 @@ class SkillAgent(Agent):
             self._skills_setup_done = True
             self._reinject_catalog()
 
-        # `super()._prepare_run()` may have just reset `model_client.tools` to the agent's
-        # configured `self.tools`, so re-append the skills tools (deduped) every run.
-        self._append_skills_tools()
-
     def reload_skills(self) -> None:
         """Rebuild the skills server from the (refreshed) manager and surface new tools now.
 
-        Re-snapshots the skills tools, appends any new ones to ``model_client.tools`` (so a
-        script authored mid-run is callable for the rest of the run), and re-injects the catalog
-        so a newly authored skill appears in the system prompt without starting a fresh
-        conversation. Call after writing a new skill/script (see
+        Re-snapshots the skills tools and re-injects the catalog. Because the tool-loop engine
+        re-reads :meth:`_effective_tools` each round, a skill authored mid-run is advertised and
+        dispatchable for the rest of the run (and appears in the system prompt without starting a
+        fresh conversation). Call after writing a new skill/script (see
         :func:`aimu.skills.make_skill_script_tool`).
         """
         from aimu.skills.mcp import build_skills_server
         from aimu.tools.client import MCPClient
 
-        stale_names = {fn.__name__ for fn in (self._skills_tools or [])}
         self._skills_mcp_client = MCPClient(server=build_skills_server(self.skill_manager))
         self._skills_tools = self._skills_mcp_client.as_tools()
-        # Drop the previous skills tools so the fresh callables replace ALL of them (not just
-        # newly-named tools); otherwise dedup-by-name leaves stale callables bound to the prior
-        # client. The old client, now unreferenced, is torn down by its __del__.
-        self.model_client.tools = [
-            fn for fn in self.model_client.tools if getattr(fn, "__name__", None) not in stale_names
-        ]
-        self._append_skills_tools()
         self._reinject_catalog()
 
     @classmethod

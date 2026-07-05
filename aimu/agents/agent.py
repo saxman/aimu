@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.agents._loop import _AgentLoopMixin
+from aimu.agents._tool_loop import _ToolLoop
 from aimu.agents.base import MessageHistory, Runner
-from aimu.models._internal.message_meta import PROVENANCE_FINAL_ANSWER
 from aimu.models.base import BaseModelClient, StreamChunk
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,7 @@ class Agent(_AgentLoopMixin, Runner):
     final_answer_prompt: Optional[str] = None
     deps: Optional[Any] = None
     tool_approval: Optional[Callable] = None
+    concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -125,23 +126,32 @@ class Agent(_AgentLoopMixin, Runner):
                 task, generate_kwargs, images=images, tools=tools, deps=deps, tool_approval=tool_approval
             )
         self._prepare_run(deps, tool_approval)
-        # Turn 1 executes any requested tools and returns. Continue (chat() with no user
-        # message → a turn on the current messages) until a turn makes no tool calls.
-        response = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, tools=tools)
-        iteration = 1
-        while self._last_turn_called_tools() and iteration < self.max_iterations:
-            logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-            response = self.model_client.chat(generate_kwargs=generate_kwargs, tools=tools)
-            iteration += 1
+        loop = self._make_tool_loop(tools, deps, tool_approval)
+        try:
+            return loop.run(task, generate_kwargs=generate_kwargs, images=images)
+        finally:
+            self._last_messages = list(self.model_client.messages)
 
-        if self.final_answer_prompt is not None and self._last_turn_called_tools():
-            logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
-            injected_at = len(self.model_client.messages)
-            response = self.model_client.chat(self.final_answer_prompt, generate_kwargs=generate_kwargs, tools=[])
-            self._tag_injected_turn(injected_at, PROVENANCE_FINAL_ANSWER)
+    def _effective_tools(self, tools: Optional[list[Callable]]) -> list[Callable]:
+        """The tool callables for this run: the ``tools=`` override, else the agent's ``self.tools``.
+        (``SkillAgent`` overrides this to add its discovered skill tools.)"""
+        return list(tools) if tools is not None else list(self.tools)
 
-        self._last_messages = list(self.model_client.messages)
-        return response
+    def _make_tool_loop(
+        self, tools: Optional[list[Callable]], deps: Optional[Any], tool_approval: Optional[Callable]
+    ) -> _ToolLoop:
+        """Build the iterative tool-calling engine with this run's effective tools + policy."""
+        from aimu.tools.approval import approve_all
+
+        return _ToolLoop(
+            self.model_client,
+            lambda: self._effective_tools(tools),  # re-read each round (SkillAgent may add skill tools mid-run)
+            deps=deps if deps is not None else self.deps,
+            tool_approval=tool_approval or self.tool_approval or approve_all,
+            concurrent_tool_calls=self.concurrent_tool_calls,
+            max_rounds=self.max_iterations,
+            final_answer_prompt=self.final_answer_prompt,
+        )
 
     def _run_streamed(
         self,
@@ -153,31 +163,12 @@ class Agent(_AgentLoopMixin, Runner):
         tool_approval: Optional[Callable] = None,
     ) -> Iterator[StreamChunk]:
         self._prepare_run(deps, tool_approval)
-        iteration = 0
-        for chunk in self.model_client.chat(
-            task, generate_kwargs=generate_kwargs, stream=True, images=images, tools=tools
-        ):
-            yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-
-        iteration += 1
-        while self._last_turn_called_tools() and iteration < self.max_iterations:
-            logger.debug("Agent '%s' continuing (iteration %d).", self.name, iteration)
-            # chat() with no user message → a turn on the current messages (tool results).
-            for chunk in self.model_client.chat(generate_kwargs=generate_kwargs, stream=True, tools=tools):
-                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-            iteration += 1
-
-        if self.final_answer_prompt is not None and self._last_turn_called_tools():
-            logger.debug("Agent '%s' hit max_iterations with tools pending; forcing final answer.", self.name)
-            injected_at = len(self.model_client.messages)
-            for chunk in self.model_client.chat(
-                self.final_answer_prompt, generate_kwargs=generate_kwargs, stream=True, tools=[]
-            ):
-                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=iteration)
-            self._tag_injected_turn(injected_at, PROVENANCE_FINAL_ANSWER)
-            iteration += 1
-
-        self._last_messages = list(self.model_client.messages)
+        loop = self._make_tool_loop(tools, deps, tool_approval)
+        try:
+            for chunk in loop.run_streamed(task, generate_kwargs=generate_kwargs, images=images):
+                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=chunk.iteration)
+        finally:
+            self._last_messages = list(self.model_client.messages)
 
     def _run_structured_streamed(
         self,

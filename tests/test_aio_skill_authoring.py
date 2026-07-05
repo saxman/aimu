@@ -116,7 +116,7 @@ async def test_aio_reload_skills_appends_new_script_tool(tmp_path):
     agent = aio.SkillAgent(client, skill_manager=manager, name="a")
 
     await agent._setup_skills_async()
-    assert "grow__added" not in [fn.__name__ for fn in client.tools]
+    assert "grow__added" not in [fn.__name__ for fn in agent._effective_tools(None)]
 
     write_skill(
         "grow", "Grows scripts.", "# Grow", skills_dir=tmp_path, overwrite=True, scripts={"added.py": "print('x')\n"}
@@ -124,7 +124,7 @@ async def test_aio_reload_skills_appends_new_script_tool(tmp_path):
     manager.refresh()
     await agent.reload_skills()
 
-    assert "grow__added" in [fn.__name__ for fn in client.tools]
+    assert "grow__added" in [fn.__name__ for fn in agent._effective_tools(None)]
     assert client.system_message.count("<available_skills>") == 1  # catalog not duplicated
 
 
@@ -142,7 +142,7 @@ async def test_aio_reload_keeps_existing_script_tools_callable(tmp_path):
     agent.model_client.system_message = ""
     await agent._setup_skills_async()
 
-    pre = next(t for t in agent.model_client.tools if t.__name__ == "pre__p")
+    pre = next(t for t in agent._effective_tools(None) if t.__name__ == "pre__p")
     assert (await pre()).strip() == "pre ok"
 
     write_skill("other", "Other.", "# Other", skills_dir=tmp_path, overwrite=True, scripts={"q.py": "print('q')\n"})
@@ -150,7 +150,7 @@ async def test_aio_reload_keeps_existing_script_tools_callable(tmp_path):
     await agent.reload_skills()
 
     # The pre-existing script tool must still be callable after the reload.
-    pre_after = next(t for t in agent.model_client.tools if t.__name__ == "pre__p")
+    pre_after = next(t for t in agent._effective_tools(None) if t.__name__ == "pre__p")
     assert (await pre_after()).strip() == "pre ok"
 
 

@@ -5,8 +5,30 @@ Tests for the @tool decorator and Python-function tool dispatch through Agent.
 import pytest
 
 from aimu.agents import Agent
+from aimu.agents._tool_loop import _ToolLoop
 from aimu.tools import ToolArgumentError, ToolSignatureError, coerce_tool_arguments, tool
 from helpers import MockModelClient
+
+
+def _stage_tool_calls(client, calls):
+    """Append the assistant(tool_calls) message a provider stores, so the engine can dispatch it.
+
+    ``calls`` is a list of ``{"name": ..., "arguments": ...}`` dicts (the old ``_handle_tool_calls``
+    input shape).
+    """
+    client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {"name": c["name"], "arguments": c.get("arguments", {})},
+                    "id": f"id{i}",
+                }
+                for i, c in enumerate(calls)
+            ],
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -145,12 +167,12 @@ def test_tool_maps_list_and_dict_generics():
 
 
 # ---------------------------------------------------------------------------
-# Dispatch: Python tool wired through Agent + BaseModelClient._handle_tool_calls
+# Dispatch: Python tool wired through the tool-loop engine (_ToolLoop._dispatch)
 # ---------------------------------------------------------------------------
 
 
 def test_agent_python_tool_dispatched():
-    """Agent passes Python tools to model_client; _handle_tool_calls invokes them by name."""
+    """The tool-loop engine invokes a tool by name from the staged assistant tool_calls."""
     calls = []
 
     @tool
@@ -160,11 +182,8 @@ def test_agent_python_tool_dispatched():
         return f"recorded:{value}"
 
     client = MockModelClient([])
-    client.tools = [record]
-
-    client._handle_tool_calls(
-        [{"name": "record", "arguments": {"value": "hello"}}],
-    )
+    _stage_tool_calls(client, [{"name": "record", "arguments": {"value": "hello"}}])
+    _ToolLoop(client, [record])._dispatch()
 
     assert calls == ["hello"]
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
@@ -172,19 +191,25 @@ def test_agent_python_tool_dispatched():
     assert tool_messages[0]["content"] == "recorded:hello"
 
 
-def test_agent_python_tool_via_agent_prepare_run():
-    """Agent._prepare_run pushes Agent.tools onto model_client.tools."""
+def test_agent_python_tool_executed_during_run():
+    """Behavioral: the Agent makes its configured tools available to the loop, so a tool the
+    model calls is executed during ``run()``. (Replaces the old test asserting the tools were
+    pushed onto ``model_client.tools``, which the pure client no longer holds.)"""
+    calls = []
 
     @tool
-    def echo(value: str) -> str:
-        """Echo a value."""
-        return value
+    def echo() -> str:
+        """Echo."""
+        calls.append(1)
+        return "echoed"
 
-    client = MockModelClient(["done"])
+    client = MockModelClient(["tool", "done"])
     agent = Agent(client, tools=[echo])
-    agent.run("task")
+    assert agent.run("task") == "done"
 
-    assert client.tools == [echo]
+    assert calls == [1]
+    tool_messages = [m for m in client.messages if m["role"] == "tool"]
+    assert tool_messages[-1]["content"] == "echoed"
 
 
 def test_python_tool_spec_appears_in_chat_setup_tools():
@@ -225,8 +250,8 @@ def test_duplicate_tool_name_last_in_list_wins():
     second.__name__ = "shared"
 
     client = MockModelClient([])
-    client.tools = [first, second]
-    client._handle_tool_calls([{"name": "shared", "arguments": {"value": "x"}}])
+    _stage_tool_calls(client, [{"name": "shared", "arguments": {"value": "x"}}])
+    _ToolLoop(client, [first, second])._dispatch()
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
     assert tool_messages[0]["content"] == "second:x"  # last in list wins
@@ -241,11 +266,8 @@ def test_python_tool_exception_recorded_as_error_text():
         raise RuntimeError("boom")
 
     client = MockModelClient([])
-    client.tools = [broken]
-
-    client._handle_tool_calls(
-        [{"name": "broken", "arguments": {"x": "ignored"}}],
-    )
+    _stage_tool_calls(client, [{"name": "broken", "arguments": {"x": "ignored"}}])
+    _ToolLoop(client, [broken])._dispatch()
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
     assert "boom" in tool_messages[0]["content"]
@@ -351,8 +373,8 @@ def test_dispatch_coerces_arguments_before_invocation():
         return "ok"
 
     client = MockModelClient([])
-    client.tools = [record]
-    client._handle_tool_calls([{"name": "record", "arguments": {"count": "5"}}])
+    _stage_tool_calls(client, [{"name": "record", "arguments": {"count": "5"}}])
+    _ToolLoop(client, [record])._dispatch()
 
     assert received == {"value": 5, "type": "int"}
 
@@ -364,8 +386,8 @@ def test_dispatch_bad_argument_returns_validation_message_not_crash_prefix():
         raise AssertionError("tool body must not run on invalid arguments")
 
     client = MockModelClient([])
-    client.tools = [record]
-    client._handle_tool_calls([{"name": "record", "arguments": {"count": "abc"}}])
+    _stage_tool_calls(client, [{"name": "record", "arguments": {"count": "abc"}}])
+    _ToolLoop(client, [record])._dispatch()
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
     content = tool_messages[0]["content"]

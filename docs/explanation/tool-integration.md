@@ -19,11 +19,9 @@ def letter_counter(word: str, letter: str) -> int:
 
 The decorator inspects the signature and docstring at decoration time and attaches an OpenAI-format spec to `func.__tool_spec__`. The function itself is unchanged.
 
-You hand the function to a client:
+You hand the function to an agent:
 
 ```python
-model_client.tools = [letter_counter]
-# or
 agent = Agent(model_client, tools=[letter_counter])
 ```
 
@@ -31,7 +29,7 @@ Dispatch is a direct function call. No serialization, no transport, no separate 
 
 ### Cross-process: `MCPClient`
 
-For tools that run elsewhere (a subprocess, a shared server, a remote machine) wrap them with `MCPClient`, then call `.as_tools()` to turn the server's tools into callables and add them to `client.tools`:
+For tools that run elsewhere (a subprocess, a shared server, a remote machine) wrap them with `MCPClient`, then call `.as_tools()` to turn the server's tools into callables and hand them to an agent:
 
 ```python
 from aimu.tools import MCPClient
@@ -39,49 +37,46 @@ from aimu.tools import MCPClient
 mcp = MCPClient({
     "mcpServers": {"mytools": {"command": "python", "args": ["tools.py"]}},
 })
-model_client.tools = mcp.as_tools()        # or: builtin.web + mcp.as_tools()
+agent = Agent(model_client, tools=mcp.as_tools())        # or: builtin.web + mcp.as_tools()
 ```
 
-Each callable returned by `as_tools()` closes over the client, invokes `call_tool()` cross-process, and returns the result's text, but to the model client it looks like any other `@tool`. Arguments and results cross the process boundary as JSON via the [Model Context Protocol](https://modelcontextprotocol.io/). Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.
+Each callable returned by `as_tools()` closes over the client, invokes `call_tool()` cross-process, and returns the result's text, but to the agent it looks like any other `@tool`. Arguments and results cross the process boundary as JSON via the [Model Context Protocol](https://modelcontextprotocol.io/). Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.
 
 Keep a reference to the `MCPClient` (the `as_tools()` callables hold one, so the connection stays alive) for its lifetime, and to call `.ping()` or refresh the tool list. The list `as_tools()` returns is a snapshot; call it again to pick up server-side changes.
 
 ## How they coexist
 
-There is only one tool registry: `client.tools`. Both routes produce plain callables that live there: `@tool` functions directly, MCP tools via `as_tools()`. The base class assembles the request `tools` list in `_chat_setup()` from that one place:
+The agent holds one flat tool list. Both routes produce plain callables that live there: `@tool` functions directly, MCP tools via `as_tools()`. On each turn the agent passes that list to `chat(..., tools=...)`, and the model client assembles the request `tools` list in `_chat_setup()` from what it was handed:
 
 ```python
 # from aimu/models/_base/text.py
 tools = []
 if self.model.supports_tools and use_tools:
-    tools.extend(self._collect_python_tool_specs())   # __tool_spec__ from every callable in self.tools
+    tools.extend(self._collect_python_tool_specs())   # __tool_spec__ from every callable passed for this turn
 ```
 
-The model sees one flat list and picks whichever it wants. There's no separate MCP reference on the client and no second assembly path.
+The model sees one flat list and picks whichever it wants. There's no separate MCP reference and no second assembly path. The client keeps no persistent tool registry: `self.tools` is a per-call transient (default `[]`) that a single `chat()` advertises for that turn.
 
-## Per-call tool override
+## Configuring tools, and per-run overrides
 
-`self.tools` is the client's *configured* set of Python tools. Sometimes you want a different set for a single call without mutating that state: a quick lookup that should only see `search`, a turn where tools should be off entirely. Both `chat()` and `Agent.run()` take a `tools=` keyword for exactly this:
+The agent holds the *configured* set of tools (`Agent(client, tools=[...])`). Sometimes you want a different set for a single run without mutating that config: a quick lookup that should only see `search`, a run where tools should be off entirely. `Agent.run()` takes a `tools=` keyword for exactly this:
 
 ```python
-client.tools = [search, calculate]      # configured set
-
-client.chat("normal question")           # sees search + calculate
-client.chat("just look this up", tools=[search])  # sees only search, this call
-client.chat("answer from memory", tools=[])       # no Python tools, this call
-
 agent = Agent(client, tools=[search, calculate])
 agent.run("research task")               # uses configured tools
 agent.run("quick lookup", tools=[search])  # override for the whole run (every loop turn)
+agent.run("answer from memory", tools=[])  # no tools, this run
 ```
 
-`tools=None` (the default) uses the configured `self.tools`, unchanged behaviour. Any other value, *including `[]`* to disable tools, replaces them for the duration of that call and is restored afterward. Since MCP tools also live in `self.tools` (via `as_tools()`), the override covers them too. On an `Agent`, the override applies to every `chat()` in the agentic loop (the initial turn and all continuations), then the agent's configured tools are back in place.
+`tools=None` (the default) uses the agent's configured tools, unchanged behaviour. Any other value, *including `[]`* to disable tools, replaces them for the duration of that run and is restored afterward. Since MCP tools are just callables in the same list (via `as_tools()`), the override covers them too. The override applies to every model turn in the agentic loop (the initial turn and all continuations), then the agent's configured tools are back in place.
 
-Mechanically it's a scoped swap of `self.tools` that covers both request-spec building and dispatch (both read `self.tools`). Like `self.messages`, it isn't safe across *concurrent* `chat()` calls on a shared client, which matches the existing single-conversation contract.
+`chat()` also takes the same `tools=` keyword, but at the client level it only *advertises* those tools for a single model turn: the model may return a tool call, which `chat()` parses and stores on the assistant message — it does **not** execute it. Executing tools and running the call-model → run-tools → repeat loop is the agent's job (see [Dispatch](#dispatch)). So to actually run tools, use an `Agent` (or `agent.as_model_client()`), not a bare `client.chat(..., tools=[...])`.
+
+Mechanically the per-turn `tools=` is a scoped swap on the client that covers request-spec building. Like `self.messages`, it isn't safe across *concurrent* `chat()` calls on a shared client, which matches the existing single-conversation contract.
 
 ## Dispatch
 
-When the model returns a tool call, `_call_plain_tool()` resolves the name against one lookup table built from the single registry, `{fn.__name__: fn for fn in self.tools}`:
+Executing tools is the job of the agent's tool-loop engine (`aimu.agents._tool_loop._ToolLoop`, and the async `aimu.aio._tool_loop._AsyncToolLoop`), which the agent composes per run — not the model client. When a model turn returns a tool call, the engine resolves the name against one lookup table built from the agent's tool list, `{fn.__name__: fn for fn in tools}`:
 
 1. **Match → validate arguments, then invoke the callable in-process.** For a `@tool` function that's a direct call; for an `as_tools()` wrapper it's a cross-process `call_tool()` behind the same calling convention.
 2. **No match → a "tool not found" message is appended.** The model sees this and can decide what to do.
@@ -90,7 +85,7 @@ Because it's one dict keyed by name, a **name collision resolves to the last ent
 
 ### Argument validation
 
-Both surfaces funnel model-supplied arguments through one helper, `_tool_call_kwargs()` on the shared `_ChatStateMixin`, which calls `coerce_tool_arguments()` before the tool runs. Each `@tool` function carries a Pydantic `TypeAdapter` per parameter (built once at decoration time), so dispatch validates and lax-coerces the arguments against the declared type hints: `"5"` becomes `5` for an `int` param, and uncoercible values, missing required arguments, or unknown arguments raise `ToolArgumentError`. The dispatch path catches that and appends it as a `tool` message (distinct from a tool that runs and crashes), so the model can self-correct. Because the coercion lives on the shared mixin, it applies identically to sync and async, and to the streaming and concurrent dispatch paths. Callables without `@tool` metadata (MCP `as_tools()` wrappers) pass through unchanged; their server validates.
+The engine funnels model-supplied arguments through `coerce_tool_arguments()` before the tool runs. Each `@tool` function carries a Pydantic `TypeAdapter` per parameter (built once at decoration time), so dispatch validates and lax-coerces the arguments against the declared type hints: `"5"` becomes `5` for an `int` param, and uncoercible values, missing required arguments, or unknown arguments raise `ToolArgumentError`. The dispatch path catches that and appends it as a `tool` message (distinct from a tool that runs and crashes), so the model can self-correct. The same coercion runs on the sync and async engines, and on the streaming and concurrent dispatch paths. Callables without `@tool` metadata (MCP `as_tools()` wrappers) pass through unchanged; their server validates.
 
 ## The single source of truth
 
@@ -120,7 +115,7 @@ If you can't decide, start with `@tool`. Switching to `MCPClient` later is a sma
 - **Invalid tool arguments at dispatch**: `ToolArgumentError` raised when the model's arguments can't be coerced to the declared types, omit a required parameter, or include an unknown one. Caught at dispatch and appended as a `tool` message so the model can retry (separate from a tool that runs and raises).
 - **MCP connection error**: `MCPConnectionError` raised at `MCPClient` construction or on `call_tool()` failure. `MCPClient.ping()` lets you verify a connection upfront.
 - **Tool not found at dispatch**: appended as a `tool` role message with the text `"Tool 'X' not found."`. The model sees this and can adjust.
-- **Async tool on the sync surface**: the sync `_handle_tool_calls` raises `ValueError` if a tool's `__tool_is_async__` flag is set. The message points the caller at `aimu.aio`.
+- **Async tool on the sync surface**: the sync tool-loop engine raises `ValueError` if a tool's `__tool_is_async__` flag is set. The message points the caller at `aimu.aio`.
 
 ## Async tools
 
@@ -144,10 +139,10 @@ def normalize(text: str) -> str:
 agent = aio.Agent(client, tools=[fetch, normalize])
 ```
 
-`concurrent_tool_calls=True` on the async surface uses `asyncio.TaskGroup` (structured concurrency, sibling cancellation on first failure) instead of `ThreadPoolExecutor`.
+`Agent(..., concurrent_tool_calls=True)` on the async surface makes the engine dispatch a batch of tool calls under `asyncio.TaskGroup` (structured concurrency, sibling cancellation on first failure) instead of the sync `ThreadPoolExecutor`.
 
 ## See also
 
 - [How-to: add a custom tool](../how-to/add-custom-tool.md): `@tool` signature rules and patterns.
 - [How-to: use MCP tools](../how-to/use-mcp-tools.md): cross-process tool setup.
-- [Architecture](architecture.md): how `_chat_setup` and `_handle_tool_calls` fit into `BaseModelClient`.
+- [Architecture](architecture.md): how `_chat_setup` and `_record_tool_calls` fit into `BaseModelClient`, and where the tool-loop engine sits.

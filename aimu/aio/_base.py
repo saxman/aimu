@@ -8,7 +8,6 @@ message-history append, image-block normalization) are inherited from the shared
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import random
 import string
@@ -48,32 +47,13 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         self._system_message = system_message
         self.default_generate_kwargs = {}
         self.messages = []
+        # Transient set advertised to the model for the current call (swapped by the ``tools=``
+        # per-call override); NOT a persistent registry, and the client never executes tools.
+        # Tool execution lives in the Agent's tool-loop engine (``aimu.aio._tool_loop``).
         self.tools: list = []
         self.last_thinking = ""
         self.last_usage = None
         self.last_structured = None
-        self.concurrent_tool_calls = False
-        # Value injected as ``ctx.deps`` into tools that declare a ToolContext parameter.
-        # Set by Agent from its deps= field / run(deps=) override; None for bare chat().
-        self.tool_context_deps = None
-        # Optional gate run before each tool call: (tool_name, arguments) -> bool (a coroutine is
-        # awaited). Default approves everything (no behavior change). Set directly for bare chat(),
-        # or via Agent(tool_approval=...) / run(tool_approval=...).
-        from aimu.tools.approval import approve_all
-
-        self.tool_approval = approve_all
-
-    async def _tool_call_approved(self, name: str, arguments: dict) -> bool:
-        """Run the approval policy for one tool call (async); awaits a coroutine result."""
-        import inspect
-
-        from aimu.tools.approval import approve_all
-
-        policy = getattr(self, "tool_approval", None) or approve_all
-        result = policy(name, arguments)
-        if inspect.isawaitable(result):
-            result = await result
-        return bool(result)
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -388,180 +368,10 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             message["content"] = content
         self.messages.append(message)
 
-    async def _call_plain_tool(self, tc: dict, tc_id: str) -> dict:
-        """Dispatch a single non-streaming tool call. Returns the tool message dict.
+    def _record_tool_calls(self, tool_calls: list[dict], content: str = "") -> None:
+        """Store the assistant turn that requested tools — parse + record, **no execution**.
 
-        Awaits async tools directly; routes sync tools through ``asyncio.to_thread``.
-        Every tool (in-process ``@tool`` functions and MCP tools alike) lives in
-        ``self.tools`` as a callable (MCP tools are wrapped by ``aio.MCPClient.as_tools()``),
-        so dispatch is a single by-name lookup. Generator (streaming) tools are rejected here.
+        Execution (dispatch, approval, deps, concurrency) is the Agent's job — see the async
+        tool-loop engine ``aimu.aio._tool_loop``.
         """
-        from aimu.tools.decorator import ToolArgumentError
-
-        python_tools_by_name = {fn.__name__: fn for fn in self.tools}
-        fn = python_tools_by_name.get(tc["name"])
-        if fn is not None:
-            if getattr(fn, "__tool_is_streaming__", False):
-                raise ValueError(
-                    f"Tool '{tc['name']}' is a generator (streaming) tool. Streaming tools "
-                    "require the streaming dispatch path: call chat() / agent.run() with "
-                    "stream=True. For non-streaming use, convert the tool to a plain function."
-                )
-            if not await self._tool_call_approved(tc["name"], tc["arguments"]):
-                return self._tool_not_approved_message(tc, tc_id)
-            try:
-                kwargs = self._tool_call_kwargs(fn, tc["arguments"])
-                if getattr(fn, "__tool_is_async__", False):
-                    response = await fn(**kwargs)
-                else:
-                    response = await asyncio.to_thread(lambda: fn(**kwargs))
-                content = str(response)
-            except ToolArgumentError as exc:
-                content = str(exc)
-            except Exception as exc:
-                content = f"Tool '{tc['name']}' raised an error: {exc}"
-                logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
-            return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
-
-        return {
-            "role": "tool",
-            "name": tc["name"],
-            "content": f"Tool '{tc['name']}' not found.",
-            "tool_call_id": tc_id,
-        }
-
-    async def _handle_tool_calls(self, tool_calls: list[dict], content: str = "") -> None:
-        """Non-streaming async tool dispatch, used by non-streaming ``_chat`` paths.
-
-        ``content`` is any text the model emitted alongside the tool call this turn; it is
-        stored on the assistant message. Streaming (generator) tools are rejected; call
-        ``chat(stream=True)`` to dispatch them via :meth:`_handle_tool_calls_streamed`.
-        """
-        prepared = self._prepare_tool_calls(tool_calls)
-        self._append_assistant_tool_calls(prepared, content)
-
-        if self.concurrent_tool_calls and len(prepared) > 1:
-            async with asyncio.TaskGroup() as tg:
-                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id)) for tc, tc_id in prepared]
-            results = [t.result() for t in tasks]
-        else:
-            results = [await self._call_plain_tool(tc, tc_id) for tc, tc_id in prepared]
-
-        self.messages.extend(results)
-
-    async def _handle_tool_calls_streamed(
-        self, tool_calls: list[dict], content: str = ""
-    ) -> AsyncIterator[StreamChunk]:
-        """Async streaming tool dispatch, used by streaming ``_chat`` paths.
-
-        ``content`` is any text the model emitted alongside the tool call this turn; it is
-        stored on the assistant message. Mirrors :meth:`BaseModelClient._handle_tool_calls_streamed`. Async generator tools (``async def fn(): yield ...``) are drained
-        via ``async for``; sync generator tools are dispatched through
-        ``asyncio.to_thread`` (one step at a time, the thread re-enters per
-        ``next()`` so the event loop stays free between yields).
-
-        Result extraction priority for streaming tools (matching the sync version):
-
-        1. Sync generators: ``StopIteration.value``.
-        2. The last yielded chunk's ``content["result"]`` if dict-with-key.
-        3. ``str(last_chunk.content)``.
-
-        Async generators have no ``return``-value channel (PEP 525) so (1) does
-        not apply; (2)/(3) cover them.
-
-        **Concurrency**: when ``concurrent_tool_calls=True`` and no tools in the
-        batch are streaming, the existing ``asyncio.TaskGroup`` fast path is used.
-        With any streaming tool, dispatch is sequential.
-        """
-        from aimu.tools.decorator import ToolArgumentError
-
-        prepared = self._prepare_tool_calls(tool_calls)
-        self._append_assistant_tool_calls(prepared, content)
-
-        python_tools_by_name = {fn.__name__: fn for fn in self.tools}
-        has_streaming_tool = any(
-            getattr(python_tools_by_name.get(tc["name"]), "__tool_is_streaming__", False) for tc, _ in prepared
-        )
-
-        if self.concurrent_tool_calls and len(prepared) > 1 and not has_streaming_tool:
-            async with asyncio.TaskGroup() as tg:
-                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id)) for tc, tc_id in prepared]
-            results = [t.result() for t in tasks]
-            for (tc, _tc_id), result_msg in zip(prepared, results):
-                self.messages.append(result_msg)
-                yield StreamChunk(
-                    StreamingContentType.TOOL_CALLING,
-                    {
-                        "name": tc["name"],
-                        "arguments": tc["arguments"],
-                        "response": result_msg["content"],
-                    },
-                )
-            return
-
-        for tc, tc_id in prepared:
-            fn = python_tools_by_name.get(tc["name"])
-            if fn is not None and getattr(fn, "__tool_is_streaming__", False):
-                if not await self._tool_call_approved(tc["name"], tc["arguments"]):
-                    result_msg = self._tool_not_approved_message(tc, tc_id)
-                    self.messages.append(result_msg)
-                    yield StreamChunk(
-                        StreamingContentType.TOOL_CALLING,
-                        {"name": tc["name"], "arguments": tc["arguments"], "response": result_msg["content"]},
-                    )
-                    continue
-                try:
-                    return_value: Any = None
-                    last_content: Any = None
-                    kwargs = self._tool_call_kwargs(fn, tc["arguments"])
-                    if getattr(fn, "__tool_is_async__", False):
-                        # Async generator tool, drained with `async for`.
-                        agen = fn(**kwargs)
-                        async for chunk in agen:
-                            yield chunk
-                            last_content = chunk.content
-                        # Async generators have no return-value channel.
-                    else:
-                        # Sync generator dispatched in the async surface: pull steps
-                        # via to_thread so the event loop stays free between yields.
-                        gen = fn(**kwargs)
-                        _SENTINEL = object()
-
-                        def _next_chunk(_gen=gen):
-                            try:
-                                return next(_gen), None
-                            except StopIteration as stop:
-                                return _SENTINEL, stop.value
-
-                        while True:
-                            chunk, ret_val = await asyncio.to_thread(_next_chunk)
-                            if chunk is _SENTINEL:
-                                return_value = ret_val
-                                break
-                            yield chunk
-                            last_content = chunk.content
-                    if return_value is not None:
-                        response: Any = return_value
-                    elif isinstance(last_content, dict) and "result" in last_content:
-                        response = last_content["result"]
-                    else:
-                        response = last_content if last_content is not None else "(no response)"
-                    content = str(response)
-                except ToolArgumentError as exc:
-                    content = str(exc)
-                except Exception as exc:
-                    content = f"Tool '{tc['name']}' raised an error: {exc}"
-                    logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
-                result_msg = {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
-            else:
-                result_msg = await self._call_plain_tool(tc, tc_id)
-
-            self.messages.append(result_msg)
-            yield StreamChunk(
-                StreamingContentType.TOOL_CALLING,
-                {
-                    "name": tc["name"],
-                    "arguments": tc["arguments"],
-                    "response": result_msg["content"],
-                },
-            )
+        self._append_assistant_tool_calls(self._prepare_tool_calls(tool_calls), content)

@@ -2,9 +2,10 @@
 
 There are two routes for exposing tools to an agent:
 
-* **In-process**: decorate a Python function with ``@tool``. Pass the function to
-  ``Agent(client, tools=[fn])`` or set ``model_client.tools = [fn]``. This is the
-  default and recommended path for code you control.
+* **In-process**: decorate a Python function with ``@tool`` and pass it to
+  ``Agent(client, tools=[fn])``. The Agent executes tools (via its tool-loop engine);
+  a bare ``client.chat("q", tools=[fn])`` only *advertises* and parses tool calls, it
+  does not run them. This is the default and recommended path for code you control.
 
 * **Cross-process**: wrap an MCP server (or external command) with :class:`MCPClient`.
   Use this only when you need to integrate a tool server you don't control. For

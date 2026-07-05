@@ -26,13 +26,12 @@ def confirm_risky(name: str, arguments: dict) -> bool:
 
 ## Use it
 
-Set it on a client for a bare `chat()` loop, or on an agent (a constructor field and a per-run
-override, mirroring `deps=`):
+Approval is part of the agent's tool-loop, so it lives on the `Agent` — a constructor field and a
+per-run override, mirroring `deps=`. (Tools are only ever executed by an agent, so there is no
+bare-client approval path.)
 
 ```python
 client = aimu.client("ollama:qwen3:8b")
-client.tools = [my_tool]
-client.tool_approval = confirm_risky          # bare client
 
 agent = aimu.agents.Agent(client, tools=[my_tool], tool_approval=confirm_risky)
 agent.run("do the thing")                      # agent-level default
@@ -40,8 +39,8 @@ agent.run("do it", tool_approval=confirm_risky)  # per-run override
 ```
 
 The policy sees the tool name and the model-supplied arguments, so you can gate only the risky
-tools and approve the rest. It covers every dispatch path: non-streaming, streaming, and concurrent
-(`concurrent_tool_calls=True`).
+tools and approve the rest. It covers every dispatch path the engine runs: non-streaming, streaming,
+and concurrent (when the agent sets `concurrent_tool_calls=True`).
 
 ## Async
 
@@ -59,7 +58,7 @@ async def confirm(name, arguments):
 agent = aio.Agent(aio.client("ollama:qwen3:8b"), tools=[my_tool], tool_approval=confirm)
 ```
 
-A sync client requires a sync policy; handing it a coroutine raises a clear error pointing at the
+A sync agent requires a sync policy; handing it a coroutine raises a clear error pointing at the
 `aimu.aio` surface.
 
 ## Worked example

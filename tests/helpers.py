@@ -85,7 +85,6 @@ class MockModelClient(BaseModelClient):
         self.tools = []
         self.last_thinking = ""
         self.last_usage = None
-        self.concurrent_tool_calls = False
         self._streaming_content_type = StreamingContentType.DONE
         self._responses = list(responses)
         self._call_count = 0
@@ -112,16 +111,18 @@ class MockModelClient(BaseModelClient):
         response = self._responses[self._call_count]
         self._call_count += 1
 
-        # Single turn: a "tool" response executes one tool round and returns (no follow-up).
-        # The model's response to the tool result comes on the next _chat() call.
+        # Single turn: a "tool" response records the model requesting a tool call and returns.
+        # The client does NOT execute the tool — the Agent's tool-loop engine does (it appends
+        # the tool result). The call targets the first advertised tool (``self.tools`` was set by
+        # the per-call ``tools=`` override), or a generic name when the agent registered none.
         if response == "tool":
+            name = getattr(self.tools[0], "__name__", "mock_tool") if self.tools else "mock_tool"
             self.messages.append(
                 {
                     "role": "assistant",
-                    "tool_calls": [{"type": "function", "function": {"name": "mock_tool", "arguments": {}}, "id": "x"}],
+                    "tool_calls": [{"type": "function", "function": {"name": name, "arguments": {}}, "id": "x"}],
                 }
             )
-            self.messages.append({"role": "tool", "name": "mock_tool", "content": "tool result", "tool_call_id": "x"})
             return ""
 
         self.messages.append({"role": "assistant", "content": response})

@@ -20,9 +20,9 @@ class SkillAgent(Agent):
     """Async :class:`Agent` with filesystem-discovered skill injection.
 
     On first run (or after a message reset) the SkillAgent appends the skill catalog
-    to its system message and adds the async skills server's tools (via
-    ``aio.MCPClient.as_tools()``) to ``model_client.tools`` so the model can call
-    ``activate_skill`` to load full skill instructions on demand.
+    to its system message and surfaces the async skills server's tools (via
+    ``aio.MCPClient.as_tools()``) through :meth:`_effective_tools`, so the tool-loop engine
+    advertises and dispatches them (the model can call ``activate_skill`` on demand).
     """
 
     skill_manager: SkillManager = field(default_factory=SkillManager, repr=False)
@@ -56,14 +56,15 @@ class SkillAgent(Agent):
         self.model_client.system_message = base + new
         self._skills_catalog_injected = new
 
-    def _append_skills_tools(self) -> None:
-        """Append snapshot skill tools to ``model_client.tools`` (deduped by ``__name__``)."""
-        if not self._skills_tools:
-            return
-        existing = {getattr(fn, "__name__", None) for fn in self.model_client.tools}
-        self.model_client.tools = list(self.model_client.tools) + [
-            t for t in self._skills_tools if t.__name__ not in existing
-        ]
+    def _effective_tools(self, tools: Optional[list] = None) -> list:
+        """The agent's tools (or the ``tools=`` override) plus the discovered skill tools.
+
+        Called each round by the tool-loop engine, so a skill authored mid-run via
+        :meth:`reload_skills` is advertised and dispatchable on the next round."""
+        base = super()._effective_tools(tools)
+        existing = {getattr(fn, "__name__", None) for fn in base}
+        skills = [t for t in (self._skills_tools or []) if t.__name__ not in existing]
+        return base + skills
 
     async def _setup_skills_async(self) -> None:
         if not self.skill_manager.skills:
@@ -84,17 +85,12 @@ class SkillAgent(Agent):
             self._skills_setup_done = True
             self._reinject_catalog()
 
-        # Ensure the skills tools are present for this run (`_prepare_run` may have reset
-        # `model_client.tools` to the configured `self.tools`); dedupe by name.
-        self._append_skills_tools()
-
     async def reload_skills(self) -> None:
         """Rebuild the skills server from the (refreshed) manager and surface new tools now.
 
-        Re-snapshots the skills tools, appends any new ones to ``model_client.tools`` (so a
-        script authored mid-run is callable for the rest of the run), and re-injects the catalog
-        so a newly authored skill appears in the system prompt without starting a fresh
-        conversation. Call after writing a new skill/script (see
+        Re-snapshots the skills tools and re-injects the catalog. Because the tool-loop engine
+        re-reads :meth:`_effective_tools` each round, a skill authored mid-run is advertised and
+        dispatchable for the rest of the run. Call after writing a new skill/script (see
         :func:`aimu.skills.make_skill_script_tool`).
         """
         from aimu.aio._mcp_client import MCPClient
@@ -102,19 +98,11 @@ class SkillAgent(Agent):
 
         # Connect the new server first so a failure leaves the old (working) client in place.
         old_client = self._skills_mcp_client
-        stale_names = {fn.__name__ for fn in (self._skills_tools or [])}
         self._skills_mcp_client = await MCPClient.connect(server=build_skills_server(self.skill_manager))
         self._skills_tools = await self._skills_mcp_client.as_tools()
-        # Drop the previous skills tools (bound to the old client) before appending the fresh
-        # ones, so the new-client callables replace ALL of them, not just newly-named tools.
-        # Otherwise dedup-by-name in _append_skills_tools keeps stale callables that break the
-        # moment the old client is closed below ("MCPClient not connected").
-        self.model_client.tools = [
-            fn for fn in self.model_client.tools if getattr(fn, "__name__", None) not in stale_names
-        ]
-        self._append_skills_tools()
         self._reinject_catalog()
-        # Now nothing in model_client.tools references the old client, so closing it is safe.
+        # The old client's callables are no longer returned by _effective_tools; close it. A tool
+        # call already in flight from the old snapshot holds its own reference until it completes.
         if old_client is not None:
             await old_client.aclose()
 
@@ -146,10 +134,11 @@ class SkillAgent(Agent):
             finally:
                 self._last_messages = list(self.model_client.messages)
 
+        loop = self._make_tool_loop(tools, deps, tool_approval)
         if stream:
-            return self._run_loop_streamed(task, generate_kwargs, images=images, tools=tools)
+            return self._run_loop_streamed(loop, task, generate_kwargs, images)
 
-        return await self._run_loop(task, generate_kwargs, images=images, tools=tools)
+        return await self._run_loop(loop, task, generate_kwargs, images)
 
     async def _structured_stream_after_setup(self, task, generate_kwargs, images, schema):
         """Streamed structured-output turn, assuming ``_prepare_run`` + skill setup already ran.

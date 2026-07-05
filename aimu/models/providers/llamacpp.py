@@ -189,7 +189,7 @@ class LlamaCppClient(BaseModelClient):
             if self.is_thinking_model:
                 self.last_thinking, text = _split_thinking(text)
             msgs_before = len(self.messages)
-            self._handle_tool_calls(tool_calls, content=text)
+            self._record_tool_calls(tool_calls, content=text)
             if self.last_thinking:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
             return text
@@ -260,6 +260,6 @@ class LlamaCppClient(BaseModelClient):
             yield sc
         tool_turn_thinking = self.last_thinking
         msgs_before = len(self.messages)
-        yield from self._handle_tool_calls_streamed(tool_calls, content=full_content)
+        self._record_tool_calls(tool_calls, content=full_content)
         if tool_turn_thinking:
             self.messages[msgs_before]["thinking"] = tool_turn_thinking

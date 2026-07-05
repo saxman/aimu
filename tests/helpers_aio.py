@@ -64,7 +64,6 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         self.messages = []
         self.tools = []
         self.last_thinking = ""
-        self.concurrent_tool_calls = False
         self._responses = list(responses)
         self._call_count = 0
 
@@ -91,15 +90,17 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         response = self._responses[self._call_count]
         self._call_count += 1
 
-        # Single turn: a "tool" response executes one tool round and returns (no follow-up).
+        # Single turn: record the model requesting a tool call and return. The Agent's tool-loop
+        # engine executes it (appends the tool result); the client does not. Targets the first
+        # advertised tool (set by the per-call ``tools=`` override), or a generic name if none.
         if response == "tool":
+            name = getattr(self.tools[0], "__name__", "mock_tool") if self.tools else "mock_tool"
             self.messages.append(
                 {
                     "role": "assistant",
-                    "tool_calls": [{"type": "function", "function": {"name": "mock_tool", "arguments": {}}, "id": "x"}],
+                    "tool_calls": [{"type": "function", "function": {"name": name, "arguments": {}}, "id": "x"}],
                 }
             )
-            self.messages.append({"role": "tool", "name": "mock_tool", "content": "tool result", "tool_call_id": "x"})
             return ""
         self.messages.append({"role": "assistant", "content": response})
         return response

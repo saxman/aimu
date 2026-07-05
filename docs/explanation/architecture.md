@@ -38,7 +38,7 @@ class BaseModelClient(ABC):
     model: Model
     messages: list[dict]
     system_message: str | None
-    tools: list[Callable]   # @tool functions and/or MCPClient.as_tools() callables
+    tools: list[Callable]   # per-call transient (default []); pass tools via chat(..., tools=...)
     last_thinking: str
 
     def chat(user_message, generate_kwargs=None, use_tools=True,
@@ -48,6 +48,8 @@ class BaseModelClient(ABC):
 ```
 
 `chat()` and `generate()` are **concrete** on the base: they apply the `include=` stream filter and delegate to abstract `_chat()` / `_generate()` which each provider implements. This split means a new feature like `include=` lands in one place and works everywhere.
+
+`chat()` is a **single model turn**: the client advertises the `tools=` it was handed, and when the model requests a tool the provider's `_chat()` calls `self._record_tool_calls(...)` to parse and store the call on the assistant message — the client does **not** execute tools and keeps no persistent tool registry. Executing tools and running the call-model → run-tools → repeat loop belongs to the agent's tool-loop engine (`aimu.agents._tool_loop`), which `Agent` composes per run. See [Tool integration](tool-integration.md).
 
 Message history is a plain `list[dict]` in OpenAI format. There is no `Message` class. Providers like Anthropic that need a different wire format adapt at request time, never mutating `self.messages`.
 

@@ -83,8 +83,9 @@ It registers `search_memories`, `add_memories`, `delete_memory`, and `list_memor
 
 ```python
 from aimu.tools import MCPClient
+from aimu.agents import Agent
 mem = MCPClient({"mcpServers": {"memory": {"command": "python", "args": ["-m", "aimu.memory.mcp"]}}})
-client.tools = mem.as_tools()
+agent = Agent(client, tools=mem.as_tools())
 ```
 
 ## See also

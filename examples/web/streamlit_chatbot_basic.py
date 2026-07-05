@@ -9,8 +9,9 @@ from aimu.tools import builtin
 
 def stream_reply(client, message):
     """Run one assistant turn as an Agent (chat() is single-turn; the Agent loops it until
-    the model stops calling tools) and yield the visible answer tokens."""
-    for chunk in Agent(client).run(message, stream=True):
+    the model stops calling tools) and yield the visible answer tokens. Tools live on the
+    Agent — the model client is a pure provider adapter that no longer executes tools."""
+    for chunk in Agent(client, tools=builtin.ALL_TOOLS).run(message, stream=True):
         if chunk.phase == StreamingContentType.GENERATING:
             yield chunk.content
 
@@ -24,9 +25,7 @@ INITIAL_USER_MESSAGE = "Introduce what model you are and share what tools you ha
 
 
 def _new_client(client_cls, model):
-    client = client_cls(model, system_message=SYSTEM_MESSAGE)
-    client.tools = builtin.ALL_TOOLS
-    return client
+    return client_cls(model, system_message=SYSTEM_MESSAGE)
 
 
 if "client" not in st.session_state:

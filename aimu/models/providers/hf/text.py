@@ -508,7 +508,7 @@ class HuggingFaceClient(BaseModelClient):
             if tool_calls:
                 # parse_response returns the OpenAI function-calling envelope;
                 # unwrap to the flat {"name": ..., "arguments": ...} form that
-                # _handle_tool_calls expects (matches every other client).
+                # _record_tool_calls / _prepare_tool_calls expect (matches every other client).
                 self._parsed_tool_calls = [
                     {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]} for tc in tool_calls
                 ]
@@ -693,7 +693,7 @@ class HuggingFaceClient(BaseModelClient):
         if tool_calls:
             logger.debug("[tool_call] parsed: %s", tool_calls)
             msgs_before = len(self.messages)
-            self._handle_tool_calls(tool_calls, content=content)
+            self._record_tool_calls(tool_calls, content=content)
             if self.last_thinking is not None:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
             return content
@@ -750,7 +750,7 @@ class HuggingFaceClient(BaseModelClient):
                 prose = prefix.strip_calls(response)
                 if prose:
                     yield StreamChunk(StreamingContentType.GENERATING, prose)
-                yield from self._handle_tool_calls_streamed(tool_calls, content=prose)
+                self._record_tool_calls(tool_calls, content=prose)
                 if self.last_thinking is not None:
                     self.messages[msgs_before]["thinking"] = self.last_thinking
                 return
@@ -796,7 +796,7 @@ class HuggingFaceClient(BaseModelClient):
             if self._parsed_content:
                 yield StreamChunk(StreamingContentType.GENERATING, self._parsed_content)
             msgs_before = len(self.messages)
-            yield from self._handle_tool_calls_streamed(self._parsed_tool_calls, content=self._parsed_content)
+            self._record_tool_calls(self._parsed_tool_calls, content=self._parsed_content)
             if self.last_thinking is not None:
                 self.messages[msgs_before]["thinking"] = self.last_thinking
             return

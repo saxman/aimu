@@ -111,21 +111,18 @@ mcp = MCPClient(server=my_mcp_server)
 agent = Agent(client, tools=mcp.as_tools() + [letter_counter])   # both routes, one list
 ```
 
-## Override tools for a single call
+## Override tools for a single run
 
-`tools=` on the constructor / `client.tools` sets the *configured* tools. To use a different set for just one call (without mutating that state), pass `tools=` to `chat()` or `Agent.run()`:
+`Agent(client, tools=[...])` sets the *configured* tools. To use a different set for just one run (without mutating that config), pass `tools=` to `Agent.run()`:
 
 ```python
-client.tools = [search, calculate]
-
-client.chat("just look this up", tools=[search])  # only search, this call
-client.chat("answer from memory", tools=[])       # no Python tools, this call
-
 agent = Agent(client, tools=[search, calculate])
-agent.run("quick lookup", tools=[search])          # override for the whole run
+
+agent.run("quick lookup", tools=[search])          # only search, this run
+agent.run("answer from memory", tools=[])          # no tools, this run
 ```
 
-`tools=None` (default) uses the configured tools. Any other value (including `[]` to disable tools) replaces them for that call only and is restored afterward (MCP tools, being callables in `tools` via `as_tools()`, are included in the swap). On `Agent.run()` the override applies to every turn of the agentic loop.
+`tools=None` (default) uses the agent's configured tools. Any other value (including `[]` to disable tools) replaces them for that run only and is restored afterward (MCP tools, being callables in the list via `as_tools()`, are included in the swap). The override applies to every turn of the agentic loop. `chat(..., tools=[...])` takes the same keyword at the client level, but a single `chat()` only *advertises* those tools for one model turn — it parses and stores any tool call rather than executing it, so use an `Agent` to actually run tools.
 
 ## Share state across tool calls (`ToolContext`)
 
@@ -204,9 +201,9 @@ Three rules cover the contract:
 2. **Yield any phase that fits.** `GENERATING` for text progress, `IMAGE_GENERATING` for image-gen progress, future custom phases as needed. The agent forwards each chunk untouched (it only adds the `agent` and `iteration` metadata fields).
 3. **The result comes from one of three places**, in priority order: the generator's `return` value (sync only, via `StopIteration.value`); the last yielded chunk's `content["result"]` if it's a dict with that key (matches the `IMAGE_GENERATING` final-chunk convention); or `str(last_chunk.content)`.
 
-Async streaming tools are async generators (`async def + yield`); the async agent's `_handle_tool_calls_streamed` drains them with `async for`. Sync generator tools also work in the async surface: each `next()` is routed through `asyncio.to_thread` so the event loop stays free between yields.
+Async streaming tools are async generators (`async def + yield`); the async agent's tool-loop engine drains them with `async for`. Sync generator tools also work in the async surface: each `next()` is routed through `asyncio.to_thread` so the event loop stays free between yields.
 
-Streaming tools require `stream=True` on the calling `chat()` / `agent.run()`. The non-streaming dispatch path raises `ValueError` with a clear message pointing at `stream=True`.
+Streaming tools require `stream=True` on `agent.run()`. The non-streaming dispatch path raises `ValueError` with a clear message pointing at `stream=True`.
 
 ## See also
 

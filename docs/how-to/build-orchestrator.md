@@ -70,11 +70,11 @@ class CodeReviewAgent(OrchestratorAgent):
         )
 ```
 
-`_init_orchestrator()` does three things: assigns the tool functions to `model_client.tools`, sets `concurrent_tool_calls`, and constructs the inner orchestrator `Agent`. The base class provides `run()` and `messages`; the subclass needs nothing else.
+`_init_orchestrator()` constructs the inner orchestrator `Agent`, passing the worker tool functions and `concurrent_tool_calls` through to it (they are the Agent's config, not the model client's). The base class provides `run()` and `messages`; the subclass needs nothing else.
 
 ## Concurrent worker dispatch
 
-Pass `concurrent_tool_calls=True` so the orchestrator dispatches multiple tools in parallel when the model returns several tool calls in one turn. This is essential when workers do I/O (web search, API calls) and idle most of their time waiting.
+Pass `concurrent_tool_calls=True` so the inner orchestrator `Agent` dispatches multiple tools in parallel when the model returns several tool calls in one turn. This is essential when workers do I/O (web search, API calls) and idle most of their time waiting.
 
 The prebuilt agents in `aimu.agents.prebuilt` enable this automatically when `worker_tools=` is provided.
 

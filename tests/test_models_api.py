@@ -241,9 +241,20 @@ def test_streamchunk_image_progress_phase():
 # ---------------------------------------------------------------------------
 
 
+def _stage_one(client, name, arguments):
+    """Append the assistant(tool_calls) message a provider stores, for the engine to dispatch."""
+    client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [{"type": "function", "function": {"name": name, "arguments": arguments}, "id": "id0"}],
+        }
+    )
+
+
 def test_streaming_tool_yields_forward_through_dispatch():
-    """A generator @tool's chunks should pass through _handle_tool_calls_streamed,
+    """A generator @tool's chunks should pass through the engine's _dispatch_streamed,
     and the generator's return value becomes the canonical tool response."""
+    from aimu.agents._tool_loop import _ToolLoop
     from aimu.tools.decorator import tool
 
     @tool
@@ -254,10 +265,9 @@ def test_streaming_tool_yields_forward_through_dispatch():
         return f"processed:{x}"
 
     client = MockModelClient(["dummy"])
-    client.tools = [slow_tool]
-    tc = [{"name": "slow_tool", "arguments": {"x": "input"}}]
+    _stage_one(client, "slow_tool", {"x": "input"})
 
-    chunks = list(client._handle_tool_calls_streamed(tc))
+    chunks = list(_ToolLoop(client, [slow_tool])._dispatch_streamed(0))
 
     # Two progress chunks + one final TOOL_CALLING chunk.
     progress = [c for c in chunks if c.phase == StreamingContentType.GENERATING]
@@ -272,6 +282,7 @@ def test_streaming_tool_yields_forward_through_dispatch():
 
 def test_streaming_tool_result_falls_back_to_last_chunk_result_key():
     """When the tool doesn't `return` a value, fall back to last chunk's content['result']."""
+    from aimu.agents._tool_loop import _ToolLoop
     from aimu.tools.decorator import tool
 
     @tool
@@ -284,10 +295,9 @@ def test_streaming_tool_result_falls_back_to_last_chunk_result_key():
         # No return → return value is None → fall back to content["result"]
 
     client = MockModelClient(["dummy"])
-    client.tools = [streamer]
-    tc = [{"name": "streamer", "arguments": {"prompt": "hi"}}]
+    _stage_one(client, "streamer", {"prompt": "hi"})
 
-    chunks = list(client._handle_tool_calls_streamed(tc))
+    chunks = list(_ToolLoop(client, [streamer])._dispatch_streamed(0))
     tool_calls = [c for c in chunks if c.phase == StreamingContentType.TOOL_CALLING]
     assert len(tool_calls) == 1
     assert tool_calls[0].content["response"] == "/tmp/x.png"
@@ -295,6 +305,7 @@ def test_streaming_tool_result_falls_back_to_last_chunk_result_key():
 
 def test_plain_tool_still_works_via_streamed_dispatch():
     """Non-generator @tool functions go through unchanged."""
+    from aimu.agents._tool_loop import _ToolLoop
     from aimu.tools.decorator import tool
 
     @tool
@@ -303,17 +314,17 @@ def test_plain_tool_still_works_via_streamed_dispatch():
         return x.upper()
 
     client = MockModelClient(["dummy"])
-    client.tools = [echo]
-    tc = [{"name": "echo", "arguments": {"x": "hi"}}]
+    _stage_one(client, "echo", {"x": "hi"})
 
-    chunks = list(client._handle_tool_calls_streamed(tc))
+    chunks = list(_ToolLoop(client, [echo])._dispatch_streamed(0))
     assert len(chunks) == 1  # only TOOL_CALLING, no progress chunks
     assert chunks[0].phase == StreamingContentType.TOOL_CALLING
     assert chunks[0].content["response"] == "HI"
 
 
 def test_streaming_tool_rejected_by_non_streaming_dispatch():
-    """The non-streaming _handle_tool_calls path should refuse generator tools clearly."""
+    """The non-streaming engine dispatch should refuse generator tools clearly."""
+    from aimu.agents._tool_loop import _ToolLoop
     from aimu.tools.decorator import tool
 
     @tool
@@ -322,13 +333,12 @@ def test_streaming_tool_rejected_by_non_streaming_dispatch():
         yield StreamChunk(StreamingContentType.GENERATING, "hi")
 
     client = MockModelClient(["dummy"])
-    client.tools = [slow_tool]
-    tc = [{"name": "slow_tool", "arguments": {"x": "input"}}]
+    _stage_one(client, "slow_tool", {"x": "input"})
 
-    # _handle_tool_calls dispatches per-tool via _call_plain_tool which raises
-    # ValueError with a clear actionable message ("Failures are apparent" principle).
+    # The engine's _dispatch → _call_plain_tool raises ValueError with a clear actionable
+    # message ("Failures are apparent" principle).
     with pytest.raises(ValueError, match=r"streaming.*stream=True"):
-        client._handle_tool_calls(tc)
+        _ToolLoop(client, [slow_tool])._dispatch()
 
 
 # ---------------------------------------------------------------------------
@@ -1038,17 +1048,20 @@ def _seq(*items):
     return lambda **kw: next(it)
 
 
-def _stub_tool_dispatch(fake):
-    """Make _handle_tool_calls append a tool-call assistant message + a tool result."""
+def _stub_record_tool_calls(fake):
+    """Make _record_tool_calls append the assistant(tool_calls) message a provider stores.
 
-    def _handle(tool_calls, content=""):
+    Mirrors the real ``_record_tool_calls`` shape (parse + store, no execution — the engine
+    dispatches). The provider attaches ``thinking`` to this message by index afterward.
+    """
+
+    def _record(tool_calls, content=""):
         msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
         if content:
             msg["content"] = content
         fake.messages.append(msg)
-        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
 
-    return _handle
+    return _record
 
 
 def test_llamacpp_tool_call_turn_thinking_preserved():
@@ -1073,7 +1086,7 @@ def test_llamacpp_tool_call_turn_thinking_preserved():
         last_thinking="",
         messages=[],
     )
-    fake._handle_tool_calls = _stub_tool_dispatch(fake)
+    fake._record_tool_calls = _stub_record_tool_calls(fake)
 
     # Single turn: the tool executes and chat() returns (no follow-up). Reasoning from the
     # tool-call turn is attached to the assistant(tool_calls) message; the answer comes next turn.
@@ -1082,7 +1095,6 @@ def test_llamacpp_tool_call_turn_thinking_preserved():
     assert result == ""  # tool-only turn (its content was all thinking)
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
 
 
 def test_openai_compat_tool_call_turn_thinking_preserved():
@@ -1105,7 +1117,7 @@ def test_openai_compat_tool_call_turn_thinking_preserved():
         last_thinking="",
         messages=[],
     )
-    fake._handle_tool_calls = _stub_tool_dispatch(fake)
+    fake._record_tool_calls = _stub_record_tool_calls(fake)
 
     # Single turn: the tool executes and chat() returns (no follow-up answer).
     result = OpenAICompatClient._chat(fake, "hi")
@@ -1113,7 +1125,6 @@ def test_openai_compat_tool_call_turn_thinking_preserved():
     assert result == ""  # tool-only turn (its content was all thinking)
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
 
 
 def test_openai_compat_preserves_content_alongside_tool_call():
@@ -1138,7 +1149,7 @@ def test_openai_compat_preserves_content_alongside_tool_call():
         last_thinking="",
         messages=[],
     )
-    fake._handle_tool_calls = _stub_tool_dispatch(fake)
+    fake._record_tool_calls = _stub_record_tool_calls(fake)
 
     result = OpenAICompatClient._chat(fake, "hi")
 
@@ -1147,16 +1158,8 @@ def test_openai_compat_preserves_content_alongside_tool_call():
     assert tool_call_msg["content"] == "Let me look that up for you."  # prose stored with the tool call
 
 
-def _stub_streamed_tool_dispatch(fake):
-    def _handle(tool_calls, content=""):
-        msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
-        if content:
-            msg["content"] = content
-        fake.messages.append(msg)
-        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
-        return iter(())
-
-    return _handle
+# The streamed provider path stores the assistant(tool_calls) turn via the same
+# ``_record_tool_calls`` seam as the non-streamed path; reuse the shared stub.
 
 
 def test_llamacpp_streamed_tool_call_turn_thinking_preserved():
@@ -1174,7 +1177,7 @@ def test_llamacpp_streamed_tool_call_turn_thinking_preserved():
         last_thinking="",
         messages=[],
     )
-    fake._handle_tool_calls_streamed = _stub_streamed_tool_dispatch(fake)
+    fake._record_tool_calls = _stub_record_tool_calls(fake)
     fake._iter_stream = lambda stream: LlamaCppClient._iter_stream(fake, stream)
 
     # Single turn: dispatch the tools and stop (no second stream); answer comes next turn.
@@ -1182,7 +1185,6 @@ def test_llamacpp_streamed_tool_call_turn_thinking_preserved():
 
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
 
 
 def test_openai_compat_streamed_tool_call_turn_thinking_preserved():
@@ -1208,7 +1210,7 @@ def test_openai_compat_streamed_tool_call_turn_thinking_preserved():
         last_usage=None,
         messages=[],
     )
-    fake._handle_tool_calls_streamed = _stub_streamed_tool_dispatch(fake)
+    fake._record_tool_calls = _stub_record_tool_calls(fake)
     fake._iter_stream = lambda stream: OpenAICompatClient._iter_stream(fake, stream)
 
     # Single turn: dispatch the tools and stop (no second stream); answer comes next turn.
@@ -1216,7 +1218,6 @@ def test_openai_compat_streamed_tool_call_turn_thinking_preserved():
 
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
 
 
 def test_toolcall_format_strip_calls_recovers_prose():

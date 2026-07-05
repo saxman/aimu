@@ -73,9 +73,9 @@ async def generate_image(prompt: str):
         content = chunk.content
         if isinstance(content, dict) and content.get("final"):
             final_result = content.get("result")
-    # Final chunk's content["result"] is picked up by _handle_tool_calls_streamed
-    # as the canonical tool response; no return-value needed (PEP 525 async
-    # generators don't carry return values anyway).
+    # Final chunk's content["result"] is picked up by the tool-loop engine's
+    # _dispatch_streamed as the canonical tool response; no return-value needed
+    # (PEP 525 async generators don't carry return values anyway).
     del final_result
 
 

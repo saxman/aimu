@@ -1,8 +1,9 @@
 import gradio as gr
 
 from aimu import paths
+from aimu.agents import Agent
 from aimu.history import ConversationManager
-from aimu.models import available_text_clients
+from aimu.models import StreamingContentType, available_text_clients
 from aimu.tools import builtin
 
 SYSTEM_MESSAGE = """
@@ -16,9 +17,15 @@ _all_clients = available_text_clients()
 
 
 def _new_client(client_cls, model):
-    client = client_cls(model, system_message=SYSTEM_MESSAGE)
-    client.tools = builtin.ALL_TOOLS
-    return client
+    return client_cls(model, system_message=SYSTEM_MESSAGE)
+
+
+def _stream_answer(client, message):
+    """Run one assistant turn as an Agent (chat() is single-turn; the Agent loops it and
+    executes tools) and yield visible answer tokens. Tools live on the Agent."""
+    for chunk in Agent(client, tools=builtin.ALL_TOOLS).run(message, stream=True):
+        if chunk.phase == StreamingContentType.GENERATING:
+            yield chunk.content
 
 
 def _new_manager(use_last_conversation=False):
@@ -43,8 +50,8 @@ def on_load(client, manager):
         return
 
     history = [{"role": "assistant", "content": ""}]
-    for chunk in client.chat(INITIAL_USER_MESSAGE, stream=True, include=["generating"]):
-        history[-1]["content"] += chunk.content
+    for token in _stream_answer(client, INITIAL_USER_MESSAGE):
+        history[-1]["content"] += token
         yield history
     manager.update_conversation(client.messages)
 
@@ -54,8 +61,8 @@ def respond(message, history, client, manager):
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": ""})
 
-    for chunk in client.chat(message, stream=True, include=["generating"]):
-        history[-1]["content"] += chunk.content
+    for token in _stream_answer(client, message):
+        history[-1]["content"] += token
         yield history, ""
 
     manager.update_conversation(client.messages)

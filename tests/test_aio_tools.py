@@ -11,9 +11,30 @@ import pytest
 from fastmcp import FastMCP
 
 from aimu.aio import MCPClient
+from aimu.aio._tool_loop import _AsyncToolLoop
 from aimu.tools import tool
 from aimu.tools.mcp_format import mcp_tools_to_openai
 from helpers_aio import MockAsyncModelClient
+
+
+def _stage_tool_calls(client, calls):
+    """Append the assistant(tool_calls) message a provider stores, so the engine can dispatch it.
+
+    ``calls`` is a list of ``{"name": ..., "arguments": ...}`` dicts.
+    """
+    client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {"name": c["name"], "arguments": c.get("arguments", {})},
+                    "id": f"id{i}",
+                }
+                for i, c in enumerate(calls)
+            ],
+        }
+    )
 
 
 def test_mcp_tools_to_openai_converts_spec():
@@ -154,8 +175,8 @@ async def test_async_dispatch_coerces_arguments():
         return "ok"
 
     client = MockAsyncModelClient([])
-    client.tools = [record]
-    await client._handle_tool_calls([{"name": "record", "arguments": {"count": "5"}}])
+    _stage_tool_calls(client, [{"name": "record", "arguments": {"count": "5"}}])
+    await _AsyncToolLoop(client, [record])._dispatch()
 
     assert received == {"value": 5, "type": "int"}
 
@@ -167,8 +188,8 @@ async def test_async_dispatch_bad_argument_returns_validation_message():
         raise AssertionError("tool body must not run on invalid arguments")
 
     client = MockAsyncModelClient([])
-    client.tools = [record]
-    await client._handle_tool_calls([{"name": "record", "arguments": {"count": "abc"}}])
+    _stage_tool_calls(client, [{"name": "record", "arguments": {"count": "abc"}}])
+    await _AsyncToolLoop(client, [record])._dispatch()
 
     tool_messages = [m for m in client.messages if m["role"] == "tool"]
     content = tool_messages[0]["content"]
@@ -186,14 +207,14 @@ async def test_async_dispatch_coerces_under_concurrent_tool_calls():
         return "ok"
 
     client = MockAsyncModelClient([])
-    client.tools = [record]
-    client.concurrent_tool_calls = True
-    await client._handle_tool_calls(
+    _stage_tool_calls(
+        client,
         [
             {"name": "record", "arguments": {"count": "1"}},
             {"name": "record", "arguments": {"count": "2"}},
-        ]
+        ],
     )
+    await _AsyncToolLoop(client, [record], concurrent_tool_calls=True)._dispatch()
 
     assert sorted(seen) == [1, 2]
     assert all(isinstance(v, int) for v in seen)

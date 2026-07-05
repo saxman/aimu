@@ -1,11 +1,12 @@
 # Use MCP tools
 
-For tools that live in a separate process (or to share a tool catalogue across many agents), wrap a [FastMCP 2.0](https://gofastmcp.com) server with `MCPClient`, then call `.as_tools()` to add its tools to your model client's `tools` list.
+For tools that live in a separate process (or to share a tool catalogue across many agents), wrap a [FastMCP 2.0](https://gofastmcp.com) server with `MCPClient`, then call `.as_tools()` to hand its tools to an `Agent`.
 
 ## Connect to a tool server
 
 ```python
 from aimu.tools import MCPClient
+from aimu.agents import Agent
 import aimu
 
 mcp_client = MCPClient({
@@ -16,11 +17,11 @@ mcp_client = MCPClient({
 mcp_client.ping()  # raises MCPConnectionError if dead
 
 client = aimu.client("ollama:qwen3.5:9b")
-client.tools = mcp_client.as_tools()   # MCP tools become @tool-style callables
-client.chat("Use the mytools to do something.")
+agent = Agent(client, tools=mcp_client.as_tools())   # MCP tools become @tool-style callables
+agent.run("Use the mytools to do something.")
 ```
 
-`as_tools()` does one `list_tools()` round-trip and returns a callable per server tool, each carrying its `__tool_spec__`. They dispatch through the same path as in-process `@tool` functions, so MCP and Python tools are interchangeable from the client's point of view. Keep the `MCPClient` reference (or the callables, which hold one) alive for the connection's lifetime; call `as_tools()` again to refresh after the server's tool set changes.
+`as_tools()` does one `list_tools()` round-trip and returns a callable per server tool, each carrying its `__tool_spec__`. They dispatch through the same path as in-process `@tool` functions, so MCP and Python tools are interchangeable from the agent's point of view. Keep the `MCPClient` reference (or the callables, which hold one) alive for the connection's lifetime; call `as_tools()` again to refresh after the server's tool set changes.
 
 `MCPClient` requires *exactly one* of:
 
@@ -37,7 +38,7 @@ Point `MCPClient` at a hosted MCP service with `url=`. The transport (streamable
 from aimu.tools import MCPClient
 
 mcp_client = MCPClient(url="https://mcp.example.com/sse", auth="my-bearer-token")
-client.tools = mcp_client.as_tools()
+agent = Agent(client, tools=mcp_client.as_tools())
 ```
 
 The async surface mirrors it:
@@ -94,10 +95,10 @@ mcp_client = MCPClient({
 
 ## Combine with in-process tools
 
-Both routes produce callables for the one `tools` list; concatenate them. On a name collision the **last** entry wins, so append a local override after the MCP tools to shadow one:
+Both routes produce callables for one tool list; concatenate them and hand the result to an `Agent`. On a name collision the **last** entry wins, so append a local override after the MCP tools to shadow one:
 
 ```python
-client.tools = mcp_client.as_tools() + [my_local_tool]   # my_local_tool shadows a same-named MCP tool
+agent = Agent(client, tools=mcp_client.as_tools() + [my_local_tool])   # my_local_tool shadows a same-named MCP tool
 ```
 
 ## Loud failures

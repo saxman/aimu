@@ -171,7 +171,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
                 {"name": tc.function.name, "arguments": tc.function.arguments} for tc in response["message"].tool_calls
             ]
             content = response["message"].content or ""
-            await self._handle_tool_calls(tool_calls, content=content)
+            self._record_tool_calls(tool_calls, content=content)
             if response["message"].thinking:
                 self.messages[-1 - len(tool_calls)]["thinking"] = response["message"].thinking
             return content
@@ -211,8 +211,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         # comes on the next chat() call (the loop lives in Agent). No follow-up turn here.
         if turn["tool_calls"]:
             msgs_before = len(self.messages)
-            async for chunk in self._handle_tool_calls_streamed(turn["tool_calls"], content=turn["content"]):
-                yield chunk
+            self._record_tool_calls(turn["tool_calls"], content=turn["content"])
             if turn["thinking"]:
                 self.messages[msgs_before]["thinking"] = turn["thinking"]
             return

@@ -1,8 +1,10 @@
 """Tool-approval hook: sync surface (mock-only).
 
 The gate runs right before each tool invocation; default approves everything, deny appends a
-refusal tool message and skips the call. Dispatch is driven directly (``_handle_tool_calls`` /
-``_handle_tool_calls_streamed``) so no tool-calling model response is needed.
+refusal tool message and skips the call. Tool execution now lives in the tool-loop engine
+(``aimu.agents._tool_loop._ToolLoop``), which owns approval, so dispatch is driven directly
+through the engine (``_dispatch`` / ``_dispatch_streamed``) after staging the assistant
+tool-call message a provider would have stored.
 """
 
 from __future__ import annotations
@@ -10,8 +12,9 @@ from __future__ import annotations
 import pytest
 
 from aimu.agents import Agent
+from aimu.agents._tool_loop import _ToolLoop
 from aimu.models import StreamChunk, StreamingContentType
-from aimu.tools import approve_all, tool
+from aimu.tools import tool
 from helpers import MockModelClient
 
 
@@ -25,10 +28,31 @@ def _deny_all(name, arguments):
     return False
 
 
+def _stage_tool_calls(client, calls):
+    """Append the assistant(tool_calls) message a provider stores, so the engine can dispatch it.
+
+    ``calls`` is a list of ``{"name": ..., "arguments": ...}`` dicts (the old ``_handle_tool_calls``
+    input shape).
+    """
+    client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {"name": c["name"], "arguments": c.get("arguments", {})},
+                    "id": f"id{i}",
+                }
+                for i, c in enumerate(calls)
+            ],
+        }
+    )
+
+
 def test_default_approves_no_behavior_change():
     client = MockModelClient([])
-    client.tools = [add]
-    client._handle_tool_calls([{"name": "add", "arguments": {"a": 2, "b": 3}}])
+    _stage_tool_calls(client, [{"name": "add", "arguments": {"a": 2, "b": 3}}])
+    _ToolLoop(client, [add])._dispatch()
     assert client.messages[-1] == {
         "role": "tool",
         "name": "add",
@@ -47,9 +71,8 @@ def test_deny_skips_invocation_and_appends_refusal():
         return "ran"
 
     client = MockModelClient([])
-    client.tools = [danger]
-    client.tool_approval = _deny_all
-    client._handle_tool_calls([{"name": "danger", "arguments": {"x": 1}}])
+    _stage_tool_calls(client, [{"name": "danger", "arguments": {"x": 1}}])
+    _ToolLoop(client, [danger], tool_approval=_deny_all)._dispatch()
 
     msg = client.messages[-1]
     assert msg["role"] == "tool" and msg["content"] == "Tool 'danger' was not approved."
@@ -65,9 +88,8 @@ def test_approve_runs_and_policy_sees_name_and_args():
         return True
 
     client = MockModelClient([])
-    client.tools = [add]
-    client.tool_approval = policy
-    client._handle_tool_calls([{"name": "add", "arguments": {"a": 1, "b": 1}}])
+    _stage_tool_calls(client, [{"name": "add", "arguments": {"a": 1, "b": 1}}])
+    _ToolLoop(client, [add], tool_approval=policy)._dispatch()
 
     assert seen == {"name": "add", "args": {"a": 1, "b": 1}}
     assert client.messages[-1]["content"] == "2"
@@ -75,12 +97,11 @@ def test_approve_runs_and_policy_sees_name_and_args():
 
 def test_concurrent_deny():
     client = MockModelClient([])
-    client.tools = [add]
-    client.concurrent_tool_calls = True
-    client.tool_approval = _deny_all
-    client._handle_tool_calls(
-        [{"name": "add", "arguments": {"a": 1, "b": 1}}, {"name": "add", "arguments": {"a": 2, "b": 2}}]
+    _stage_tool_calls(
+        client,
+        [{"name": "add", "arguments": {"a": 1, "b": 1}}, {"name": "add", "arguments": {"a": 2, "b": 2}}],
     )
+    _ToolLoop(client, [add], concurrent_tool_calls=True, tool_approval=_deny_all)._dispatch()
     tool_msgs = [m for m in client.messages if m["role"] == "tool"]
     assert len(tool_msgs) == 2
     assert all(m["content"] == "Tool 'add' was not approved." for m in tool_msgs)
@@ -94,9 +115,8 @@ def test_streaming_deny():
         return "done"
 
     client = MockModelClient([])
-    client.tools = [streamer]
-    client.tool_approval = _deny_all
-    chunks = list(client._handle_tool_calls_streamed([{"name": "streamer", "arguments": {"x": 1}}]))
+    _stage_tool_calls(client, [{"name": "streamer", "arguments": {"x": 1}}])
+    chunks = list(_ToolLoop(client, [streamer], tool_approval=_deny_all)._dispatch_streamed(0))
 
     # The tool was gated, so it yields no GENERATING chunk; only the TOOL_CALLING refusal.
     assert all(ch.phase != StreamingContentType.GENERATING for ch in chunks)
@@ -110,26 +130,36 @@ def test_sync_coroutine_policy_raises():
         return True
 
     client = MockModelClient([])
-    client.tools = [add]
-    client.tool_approval = acoro
+    _stage_tool_calls(client, [{"name": "add", "arguments": {"a": 1, "b": 1}}])
     with pytest.raises(ValueError, match="coroutine"):
-        client._handle_tool_calls([{"name": "add", "arguments": {"a": 1, "b": 1}}])
+        _ToolLoop(client, [add], tool_approval=acoro)._dispatch()
 
 
-def test_agent_publishes_policy_and_per_run_override():
-    def policy(name, arguments):
-        return True
+def test_agent_tool_approval_field_denies_and_per_run_override_approves():
+    """Behavioral: the Agent's ``tool_approval`` field gates tool execution during a run, and a
+    per-run ``run(tool_approval=)`` override wins over the field. (Replaces the old test that
+    asserted the policy was published onto the client, which no longer holds it.)"""
+    ran = []
 
-    client = MockModelClient([])
-    agent = Agent(client, tools=[add], tool_approval=policy)
-    agent._prepare_run()
-    assert client.tool_approval is policy
+    @tool
+    def danger() -> str:
+        """Risky."""
+        ran.append(1)
+        return "ran"
 
-    other = lambda name, arguments: False  # noqa: E731
-    agent._prepare_run(tool_approval=other)
-    assert client.tool_approval is other
+    # Field policy denies -> the tool round parses a call, the engine skips execution.
+    client = MockModelClient(["tool", "done"])
+    agent = Agent(client, tools=[danger], tool_approval=_deny_all)
+    assert agent.run("go") == "done"
+    assert ran == []
+    tool_msgs = [m for m in client.messages if m["role"] == "tool"]
+    assert tool_msgs[-1]["content"] == "Tool 'danger' was not approved."
 
-    # An agent with no policy publishes approve_all (never leaves a stale policy on the client).
-    agent_none = Agent(client, tools=[add])
-    agent_none._prepare_run()
-    assert client.tool_approval is approve_all
+    # Per-run approval override -> the tool body runs.
+    ran.clear()
+    client2 = MockModelClient(["tool", "done"])
+    agent2 = Agent(client2, tools=[danger], tool_approval=_deny_all)
+    assert agent2.run("go", tool_approval=lambda name, arguments: True) == "done"
+    assert ran == [1]
+    tool_msgs2 = [m for m in client2.messages if m["role"] == "tool"]
+    assert tool_msgs2[-1]["content"] == "ran"

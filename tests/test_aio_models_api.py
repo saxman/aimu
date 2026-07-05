@@ -103,8 +103,19 @@ def test_aio_client_rejects_hf_model_enum_with_guidance():
 # ---------------------------------------------------------------------------
 
 
+def _stage_one(client, name, arguments):
+    """Append the assistant(tool_calls) message a provider stores, for the engine to dispatch."""
+    client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [{"type": "function", "function": {"name": name, "arguments": arguments}, "id": "id0"}],
+        }
+    )
+
+
 async def test_async_streaming_tool_yields_forward_through_dispatch():
-    """An async generator @tool's chunks flow through _handle_tool_calls_streamed."""
+    """An async generator @tool's chunks flow through the engine's _dispatch_streamed."""
+    from aimu.aio._tool_loop import _AsyncToolLoop
     from aimu.tools.decorator import tool
 
     @tool
@@ -117,10 +128,9 @@ async def test_async_streaming_tool_yields_forward_through_dispatch():
         )
 
     client = MockAsyncModelClient(["dummy"])
-    client.tools = [slow_tool]
-    tc = [{"name": "slow_tool", "arguments": {"x": "input"}}]
+    _stage_one(client, "slow_tool", {"x": "input"})
 
-    chunks = [c async for c in client._handle_tool_calls_streamed(tc)]
+    chunks = [c async for c in _AsyncToolLoop(client, [slow_tool])._dispatch_streamed(0)]
 
     # 2 progress chunks + 1 final TOOL_CALLING chunk.
     progress = [c for c in chunks if c.phase != StreamingContentType.TOOL_CALLING]
@@ -132,8 +142,9 @@ async def test_async_streaming_tool_yields_forward_through_dispatch():
 
 
 async def test_sync_streaming_tool_in_async_context():
-    """A sync generator tool dispatched via the async surface should also work
+    """A sync generator tool dispatched via the async engine should also work
     (sync next() pumped through asyncio.to_thread)."""
+    from aimu.aio._tool_loop import _AsyncToolLoop
     from aimu.tools.decorator import tool
 
     @tool
@@ -144,16 +155,16 @@ async def test_sync_streaming_tool_in_async_context():
         return f"sync:{x}"
 
     client = MockAsyncModelClient(["dummy"])
-    client.tools = [sync_streamer]
-    tc = [{"name": "sync_streamer", "arguments": {"x": "y"}}]
+    _stage_one(client, "sync_streamer", {"x": "y"})
 
-    chunks = [c async for c in client._handle_tool_calls_streamed(tc)]
+    chunks = [c async for c in _AsyncToolLoop(client, [sync_streamer])._dispatch_streamed(0)]
     tool_calls = [c for c in chunks if c.phase == StreamingContentType.TOOL_CALLING]
     assert tool_calls[0].content["response"] == "sync:y"
 
 
 async def test_async_plain_tool_still_works_via_streamed_dispatch():
     """Plain async tools (no yield) dispatch through the streamed path unchanged."""
+    from aimu.aio._tool_loop import _AsyncToolLoop
     from aimu.tools.decorator import tool
 
     @tool
@@ -162,10 +173,9 @@ async def test_async_plain_tool_still_works_via_streamed_dispatch():
         return x.upper()
 
     client = MockAsyncModelClient(["dummy"])
-    client.tools = [echo]
-    tc = [{"name": "echo", "arguments": {"x": "hi"}}]
+    _stage_one(client, "echo", {"x": "hi"})
 
-    chunks = [c async for c in client._handle_tool_calls_streamed(tc)]
+    chunks = [c async for c in _AsyncToolLoop(client, [echo])._dispatch_streamed(0)]
     assert len(chunks) == 1
     assert chunks[0].phase == StreamingContentType.TOOL_CALLING
     assert chunks[0].content["response"] == "HI"
@@ -323,23 +333,21 @@ async def test_aio_openai_compat_tool_call_turn_thinking_preserved():
         messages=[],
     )
 
-    async def _handle(tool_calls, content=""):
+    def _record(tool_calls, content=""):
         msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
         if content:
             msg["content"] = content
         fake.messages.append(msg)
-        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
 
-    fake._handle_tool_calls = _handle
+    fake._record_tool_calls = _record
 
-    # Single turn: the tool is executed and chat() returns (no follow-up answer). The tool-call
-    # turn's reasoning is attached to the assistant(tool_calls) message; the answer comes next turn.
+    # Single turn: the model called a tool and chat() returns (no follow-up; the engine dispatches).
+    # The tool-call turn's reasoning is attached to the assistant(tool_calls) message.
     result = await AsyncOpenAICompatClient._chat(fake, "hi")
 
     assert result == ""  # tool-only turn (its content was all thinking)
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}
 
 
 async def test_aio_openai_compat_preserves_content_alongside_tool_call():
@@ -367,14 +375,13 @@ async def test_aio_openai_compat_preserves_content_alongside_tool_call():
         messages=[],
     )
 
-    async def _handle(tool_calls, content=""):
+    def _record(tool_calls, content=""):
         msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
         if content:
             msg["content"] = content
         fake.messages.append(msg)
-        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
 
-    fake._handle_tool_calls = _handle
+    fake._record_tool_calls = _record
 
     result = await AsyncOpenAICompatClient._chat(fake, "hi")
 
@@ -415,22 +422,18 @@ async def test_aio_openai_compat_streamed_tool_call_turn_thinking_preserved():
     )
     fake._iter_stream = lambda stream: AsyncOpenAICompatClient._iter_stream(fake, stream)
 
-    async def _handle(tool_calls, content=""):
+    def _record(tool_calls, content=""):
         msg = {"role": "assistant", "tool_calls": [{"id": "x"}]}
         if content:
             msg["content"] = content
         fake.messages.append(msg)
-        fake.messages.append({"role": "tool", "content": "result", "tool_call_id": "x"})
-        return
-        yield  # make this an async generator
 
-    fake._handle_tool_calls_streamed = _handle
+    fake._record_tool_calls = _record
 
-    # Single turn: dispatch the tools and stop (no second stream). Thinking from the tool-call
-    # turn is attached to the assistant(tool_calls) message; the answer comes on the next turn.
+    # Single turn: store the tool-call turn and stop (no second stream; the engine dispatches).
+    # Thinking from the tool-call turn is attached to the assistant(tool_calls) message.
     async for _ in AsyncOpenAICompatClient._chat_streamed(fake, {}, []):
         pass
 
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
-    assert fake.messages[-1] == {"role": "tool", "content": "result", "tool_call_id": "x"}

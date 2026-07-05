@@ -68,21 +68,14 @@ def _construct_audio_client(
 
 
 def _rebuild_audio_client(client_cls: type[BaseAudioClient], model) -> None:
-    """Construct a fresh audio client + update the agent's tools."""
+    """Construct a fresh audio client + refresh the agent's tools."""
     client, err = _construct_audio_client(client_cls, model)
     st.session_state.audio_client_class = client_cls
     st.session_state.audio_model = model
     st.session_state.audio_client = client
     st.session_state.audio_client_error = err
     if "base_client" in st.session_state:
-        st.session_state.base_client.tools = builtin.make_tools(
-            st.session_state.base_client,
-            st.session_state.get("image_client"),
-            st.session_state.get("preview_every"),
-            st.session_state.get("audio_client"),
-            image_steps=st.session_state.get("image_steps"),
-            audio_steps=st.session_state.get("audio_steps"),
-        )
+        _refresh_tools()
 
 
 def _construct_image_client(
@@ -97,11 +90,11 @@ def _construct_image_client(
 
 
 def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
-    """Construct a fresh image client + update the agent's tools.
+    """Construct a fresh image client + refresh the agent's tools.
 
     Stores the client (or None + error message) in session_state. Refreshes the
-    base client's tool list so the bound ``generate_image`` picks up the new
-    image client and the current ``preview_every`` and ``image_steps`` settings.
+    tool list so the bound ``generate_image`` picks up the new image client and
+    the current ``preview_every`` and ``image_steps`` settings.
     """
     client, err = _construct_image_client(client_cls, model)
     st.session_state.image_client_class = client_cls
@@ -109,14 +102,7 @@ def _rebuild_image_client(client_cls: type[BaseImageClient], model) -> None:
     st.session_state.image_client = client
     st.session_state.image_client_error = err
     if "base_client" in st.session_state:
-        st.session_state.base_client.tools = builtin.make_tools(
-            st.session_state.base_client,
-            client,
-            st.session_state.get("preview_every"),
-            st.session_state.get("audio_client"),
-            image_steps=st.session_state.get("image_steps"),
-            audio_steps=st.session_state.get("audio_steps"),
-        )
+        _refresh_tools()
 
 
 # Generated images land here (matches the library's default for `format="path"`).
@@ -178,16 +164,9 @@ def _set_slider_defaults(model):
         st.session_state[f"slider_{key}"] = model.generation_kwargs.get(key, default)
 
 
-def _wrap_agent(base_client, max_iterations):
-    """Wrap a base model client in an Agent so chat() drives a multi-round tool-calling loop."""
-    agent = Agent(base_client, max_iterations=max_iterations)
-    return agent.as_model_client()
-
-
-def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
-    """Construct a fresh base client and (optionally) agentic wrapper, then sync session state to match."""
-    base_client = model_cls(model, system_message=SYSTEM_MESSAGE)
-    base_client.tools = builtin.make_tools(
+def _build_tools(base_client):
+    """Compute the current tool list from session state (image/audio clients + step settings)."""
+    return builtin.make_tools(
         base_client,
         st.session_state.get("image_client"),
         st.session_state.get("preview_every"),
@@ -195,8 +174,36 @@ def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
         image_steps=st.session_state.get("image_steps"),
         audio_steps=st.session_state.get("audio_steps"),
     )
+
+
+def _refresh_tools():
+    """Recompute ``st.session_state.tools`` and, in agentic mode, re-wrap the agent so it sees them.
+
+    Tool execution now lives in the Agent, not the model client, so tools reach the model only
+    through ``Agent(base_client, tools=...)``. When the image/audio client (or step settings)
+    change, rebuild the tool list and re-wrap the agent to pick up the new bound tools.
+    """
+    base_client = st.session_state.base_client
+    st.session_state.tools = _build_tools(base_client)
+    if st.session_state.get("agentic_mode"):
+        st.session_state.model_client = _wrap_agent(base_client, st.session_state.get("max_iterations", 10))
+
+
+def _wrap_agent(base_client, max_iterations):
+    """Wrap a base model client in an Agent (holding the current tools) so chat() drives the tool loop."""
+    agent = Agent(base_client, tools=st.session_state.get("tools", []), max_iterations=max_iterations)
+    return agent.as_model_client()
+
+
+def _rebuild_client(model_cls, model, agentic_mode, max_iterations):
+    """Construct a fresh base client and (optionally) agentic wrapper, then sync session state to match."""
+    base_client = model_cls(model, system_message=SYSTEM_MESSAGE)
     # Store the base client separately since the agent wrapper doesn't have all the same attributes (e.g. TOOL_MODELS) and we need to reference those in the sidebar selectors and checks.
     st.session_state.base_client = base_client
+    st.session_state.tools = _build_tools(base_client)
+    # Non-agentic mode uses the bare client, which does plain single-turn chat with no tool
+    # execution (tools require the Agent). Agentic mode wraps the client in an Agent that holds
+    # st.session_state.tools and drives the model<->tools loop.
     st.session_state.model_client = _wrap_agent(base_client, max_iterations) if agentic_mode else base_client
     st.session_state.model = model
     st.session_state.agentic_mode = agentic_mode
@@ -517,14 +524,7 @@ with st.sidebar:
         if selected_preview != st.session_state.get("preview_every"):
             st.session_state.preview_every = selected_preview
             # Rebuild the bound generate_image tool with the new preview frequency.
-            st.session_state.base_client.tools = builtin.make_tools(
-                st.session_state.base_client,
-                st.session_state.image_client,
-                selected_preview,
-                st.session_state.get("audio_client"),
-                image_steps=st.session_state.get("image_steps"),
-                audio_steps=st.session_state.get("audio_steps"),
-            )
+            _refresh_tools()
             st.rerun()
 
         # Denoising steps slider: 0 maps to "use model default".
@@ -546,14 +546,7 @@ with st.sidebar:
         selected_image_steps = None if image_steps_raw == 0 else image_steps_raw
         if selected_image_steps != st.session_state.get("image_steps"):
             st.session_state.image_steps = selected_image_steps
-            st.session_state.base_client.tools = builtin.make_tools(
-                st.session_state.base_client,
-                st.session_state.image_client,
-                st.session_state.get("preview_every"),
-                st.session_state.get("audio_client"),
-                image_steps=selected_image_steps,
-                audio_steps=st.session_state.get("audio_steps"),
-            )
+            _refresh_tools()
             st.rerun()
 
     # Audio generation: client/model selectors + duration slider.
@@ -611,14 +604,7 @@ with st.sidebar:
         selected_audio_steps = None if audio_steps_raw == 0 else audio_steps_raw
         if selected_audio_steps != st.session_state.get("audio_steps"):
             st.session_state.audio_steps = selected_audio_steps
-            st.session_state.base_client.tools = builtin.make_tools(
-                st.session_state.base_client,
-                st.session_state.get("image_client"),
-                st.session_state.get("preview_every"),
-                st.session_state.get("audio_client"),
-                image_steps=st.session_state.get("image_steps"),
-                audio_steps=selected_audio_steps,
-            )
+            _refresh_tools()
             st.rerun()
 
     if SPEECH_CLIENT_CLASSES:

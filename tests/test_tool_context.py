@@ -7,8 +7,29 @@ from dataclasses import dataclass, field
 
 
 from aimu.agents import Agent
+from aimu.agents._tool_loop import _ToolLoop
 from aimu.tools import ToolContext, tool
 from helpers import MockModelClient
+
+
+def _stage_tool_calls(client, calls):
+    """Append the assistant(tool_calls) message a provider stores, so the engine can dispatch it.
+
+    ``calls`` is a list of ``{"name": ..., "arguments": ...}`` dicts.
+    """
+    client.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {"name": c["name"], "arguments": c.get("arguments", {})},
+                    "id": f"id{i}",
+                }
+                for i, c in enumerate(calls)
+            ],
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -75,10 +96,8 @@ def test_tool_context_injected_at_dispatch():
 
     deps = Deps()
     client = MockModelClient([])
-    client.tools = [remember]
-    client.tool_context_deps = deps
-
-    client._handle_tool_calls([{"name": "remember", "arguments": {"key": "abc"}}])
+    _stage_tool_calls(client, [{"name": "remember", "arguments": {"key": "abc"}}])
+    _ToolLoop(client, [remember], deps=deps)._dispatch()
 
     assert captured["deps"] is deps
     assert deps.seen == {"abc": True}
@@ -96,34 +115,55 @@ def test_tool_context_deps_none_when_unset():
         return "ok"
 
     client = MockModelClient([])
-    client.tools = [peek]
-    client._handle_tool_calls([{"name": "peek", "arguments": {}}])
+    _stage_tool_calls(client, [{"name": "peek", "arguments": {}}])
+    _ToolLoop(client, [peek])._dispatch()
 
     assert captured["deps"] is None
 
 
 # ---------------------------------------------------------------------------
-# Agent: deps field + per-run override are published to the model client
+# Agent: deps field + per-run override reach the tool as ctx.deps
 # ---------------------------------------------------------------------------
 
 
-def test_agent_publishes_deps_field_to_client():
+def test_agent_deps_field_reaches_tool_via_context():
+    """Behavioral: the Agent's ``deps`` field is injected as ``ctx.deps`` when a tool runs during
+    a run. (Replaces the old test asserting deps were published onto the client, which no longer
+    holds them.)"""
+
     @dataclass
     class Deps:
         v: int = 1
 
-    client = MockModelClient(["done"])
+    seen = {}
+
+    @tool
+    def capture(ctx: ToolContext) -> str:
+        """Capture the injected deps."""
+        seen["deps"] = ctx.deps
+        return "ok"
+
+    client = MockModelClient(["tool", "done"])
     deps = Deps()
-    agent = Agent(client, deps=deps)
-    agent.run("task")
-    assert client.tool_context_deps is deps
+    agent = Agent(client, tools=[capture], deps=deps)
+    assert agent.run("task") == "done"
+    assert seen["deps"] is deps
 
 
 def test_agent_run_deps_overrides_field():
-    client = MockModelClient(["done"])
-    agent = Agent(client, deps="from-field")
+    """Behavioral: a per-run ``run(deps=)`` override wins over the ``deps`` field at the tool."""
+    seen = {}
+
+    @tool
+    def capture(ctx: ToolContext) -> str:
+        """Capture the injected deps."""
+        seen["deps"] = ctx.deps
+        return "ok"
+
+    client = MockModelClient(["tool", "done"])
+    agent = Agent(client, tools=[capture], deps="from-field")
     agent.run("task", deps="from-run")
-    assert client.tool_context_deps == "from-run"
+    assert seen["deps"] == "from-run"
 
 
 # ---------------------------------------------------------------------------

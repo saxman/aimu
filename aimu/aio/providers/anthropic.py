@@ -151,7 +151,6 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
     _thinking_kwargs = _SyncAnthropicClient._thinking_kwargs
     _openai_messages_to_anthropic = _SyncAnthropicClient._openai_messages_to_anthropic
     _openai_tools_to_anthropic = _SyncAnthropicClient._openai_tools_to_anthropic
-    _patch_tool_ids = _SyncAnthropicClient._patch_tool_ids
 
     async def _generate(
         self,
@@ -281,15 +280,13 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
         self.last_usage = usage_from_anthropic(response)
 
-        # Single turn: if the model called tools, execute them and return. The model's response
-        # to the tool results comes on the next chat() call (the loop lives in Agent).
+        # Single turn: record the requested tools (with Anthropic's real tool_use ids) and return.
+        # The Agent executes them.
         if tool_use_blocks:
-            tool_calls = [{"name": b.name, "arguments": b.input} for b in tool_use_blocks]
-            msgs_before = len(self.messages)
-            await self._handle_tool_calls(tool_calls, content=text_content)
-            self._patch_tool_ids(msgs_before, tool_use_blocks)
+            prepared = [({"name": b.name, "arguments": b.input}, b.id) for b in tool_use_blocks]
+            self._append_assistant_tool_calls(prepared, content=text_content)
             if self.last_thinking:
-                self.messages[msgs_before]["thinking"] = self.last_thinking
+                self.messages[-1]["thinking"] = self.last_thinking
             return text_content
 
         assistant_msg: dict = {"role": "assistant", "content": text_content}
@@ -354,16 +351,14 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             for tub in tool_use_acc
         ]
 
-        tool_calls = [{"name": b.name, "arguments": b.input} for b in parsed_blocks]
-        # Yield any prose/thinking emitted alongside the tool call and store the prose as content.
+        # Yield any prose/thinking emitted alongside the tool call, and record the requested tools
+        # (with real tool_use ids) + prose as the assistant message. The Agent executes them.
         full_content = ""
         for sc in first_pass_chunks:
             if sc.phase == StreamingContentType.GENERATING:
                 full_content += sc.content
             yield sc
-        msgs_before = len(self.messages)
-        async for chunk in self._handle_tool_calls_streamed(tool_calls, content=full_content):
-            yield chunk
-        self._patch_tool_ids(msgs_before, parsed_blocks)
+        prepared = [({"name": b.name, "arguments": b.input}, b.id) for b in parsed_blocks]
+        self._append_assistant_tool_calls(prepared, content=full_content)
         if self.last_thinking:
-            self.messages[msgs_before]["thinking"] = self.last_thinking
+            self.messages[-1]["thinking"] = self.last_thinking

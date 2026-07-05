@@ -70,7 +70,7 @@ Both surfaces expose an `MCPClient` class with the same construction signature (
 
 ## Decision 6: Async tool detection at decoration time
 
-`@tool` records `func.__tool_is_async__ = inspect.iscoroutinefunction(func)` when the function is decorated. Sync `_handle_tool_calls()` raises `ValueError` if it encounters an async tool, with a message pointing the user at `aimu.aio`. Async `_handle_tool_calls()` accepts both: it `await`s async tools and routes sync ones through `asyncio.to_thread` to keep the event loop free.
+`@tool` records `func.__tool_is_async__ = inspect.iscoroutinefunction(func)` when the function is decorated. Tool execution lives in the agent's tool-loop engine (`aimu.agents._tool_loop._ToolLoop` sync, `aimu.aio._tool_loop._AsyncToolLoop` async), not the model client. The sync engine raises `ValueError` if it encounters an async tool, with a message pointing the user at `aimu.aio`. The async engine accepts both: it `await`s async tools and routes sync ones through `asyncio.to_thread` to keep the event loop free.
 
 **Why:** same `@tool` function is usable on either surface as long as the surface and the tool's color match. Failures are visible at the dispatch site, not silent paradigm-crossing. Aligns with [failures are apparent](design-principles.md#6-failures-are-apparent).
 

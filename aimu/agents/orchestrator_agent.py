@@ -53,10 +53,13 @@ class OrchestratorAgent(Runner, ABC):
         :class:`Agent` to guarantee a final answer if the orchestrator exhausts its
         iterations while still dispatching to workers (see :class:`Agent`).
         """
-        model_client.tools = list(tools)
-        model_client.concurrent_tool_calls = concurrent_tool_calls
         self._orchestrator = Agent(
-            model_client, name=name, system_message=system_message, final_answer_prompt=final_answer_prompt
+            model_client,
+            name=name,
+            system_message=system_message,
+            tools=list(tools),
+            concurrent_tool_calls=concurrent_tool_calls,
+            final_answer_prompt=final_answer_prompt,
         )
 
     @classmethod

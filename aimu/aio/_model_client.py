@@ -226,22 +226,6 @@ class AsyncModelClient(AsyncBaseModelClient):
     def last_structured(self, value) -> None:
         self._client.last_structured = value
 
-    @property
-    def concurrent_tool_calls(self) -> bool:
-        return self._client.concurrent_tool_calls
-
-    @concurrent_tool_calls.setter
-    def concurrent_tool_calls(self, value: bool) -> None:
-        self._client.concurrent_tool_calls = value
-
-    @property
-    def tool_context_deps(self) -> Any:
-        return getattr(self._client, "tool_context_deps", None)
-
-    @tool_context_deps.setter
-    def tool_context_deps(self, value: Any) -> None:
-        self._client.tool_context_deps = value
-
     def reset(self, system_message: Optional[str] = "__keep__") -> None:
         self._client.reset(system_message)
 

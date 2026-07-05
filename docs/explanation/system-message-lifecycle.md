@@ -52,9 +52,9 @@ Agents that take a `system_message` argument apply it via `reset()` before each 
 def _prepare_run(self) -> None:
     if self.reset_messages_on_run or self.system_message is not None:
         self.model_client.reset(system_message=self.system_message)
-    if self.tools:
-        self.model_client.tools = list(self.tools)
 ```
+
+`_prepare_run()` only touches the system message. The agent's tools (and `deps` / `tool_approval`) are the agent's own state and are handed to the tool-loop engine per run — passed through to `chat(..., tools=...)` on each turn — rather than persisted on the client.
 
 This is why `Chain.from_client(client, [prompt1, prompt2])` works even though all steps share one client: each step's `Agent` resets at the start of its turn and applies its own `system_message`.
 
