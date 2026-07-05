@@ -3031,9 +3031,9 @@
 </span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>            <span class="n">concurrent_tool_calls</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>        <span class="p">)</span>
 </span></code></pre></div>
-<p><code>_init_orchestrator()</code> does three things: assigns the tool functions to <code>model_client.tools</code>, sets <code>concurrent_tool_calls</code>, and constructs the inner orchestrator <code>Agent</code>. The base class provides <code>run()</code> and <code>messages</code>; the subclass needs nothing else.</p>
+<p><code>_init_orchestrator()</code> constructs the inner orchestrator <code>Agent</code>, passing the worker tool functions and <code>concurrent_tool_calls</code> through to it (they are the Agent's config, not the model client's). The base class provides <code>run()</code> and <code>messages</code>; the subclass needs nothing else.</p>
 <h2 id="concurrent-worker-dispatch">Concurrent worker dispatch<a class="headerlink" href="#concurrent-worker-dispatch" title="Permanent link">&para;</a></h2>
-<p>Pass <code>concurrent_tool_calls=True</code> so the orchestrator dispatches multiple tools in parallel when the model returns several tool calls in one turn. This is essential when workers do I/O (web search, API calls) and idle most of their time waiting.</p>
+<p>Pass <code>concurrent_tool_calls=True</code> so the inner orchestrator <code>Agent</code> dispatches multiple tools in parallel when the model returns several tool calls in one turn. This is essential when workers do I/O (web search, API calls) and idle most of their time waiting.</p>
 <p>The prebuilt agents in <code>aimu.agents.prebuilt</code> enable this automatically when <code>worker_tools=</code> is provided.</p>
 <h2 id="prebuilt-orchestrators">Prebuilt orchestrators<a class="headerlink" href="#prebuilt-orchestrators" title="Permanent link">&para;</a></h2>
 <p><code>aimu.agents.prebuilt</code> includes three working orchestrators you can use directly or copy as a starting point:</p>

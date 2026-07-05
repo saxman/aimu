@@ -2991,19 +2991,18 @@ Return <code>False</code> to block the call: the tool does not run, and a refusa
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">return</span> <span class="n">answer</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span>
 </span></code></pre></div>
 <h2 id="use-it">Use it<a class="headerlink" href="#use-it" title="Permanent link">&para;</a></h2>
-<p>Set it on a client for a bare <code>chat()</code> loop, or on an agent (a constructor field and a per-run
-override, mirroring <code>deps=</code>):</p>
+<p>Approval is part of the agent's tool-loop, so it lives on the <code>Agent</code> — a constructor field and a
+per-run override, mirroring <code>deps=</code>. (Tools are only ever executed by an agent, so there is no
+bare-client approval path.)</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3:8b&quot;</span><span class="p">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">client</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">my_tool</span><span class="p">]</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span><span class="o">.</span><span class="n">tool_approval</span> <span class="o">=</span> <span class="n">confirm_risky</span>          <span class="c1"># bare client</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">my_tool</span><span class="p">],</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_risky</span><span class="p">)</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;do the thing&quot;</span><span class="p">)</span>                      <span class="c1"># agent-level default</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;do it&quot;</span><span class="p">,</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_risky</span><span class="p">)</span>  <span class="c1"># per-run override</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">my_tool</span><span class="p">],</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_risky</span><span class="p">)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;do the thing&quot;</span><span class="p">)</span>                      <span class="c1"># agent-level default</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;do it&quot;</span><span class="p">,</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_risky</span><span class="p">)</span>  <span class="c1"># per-run override</span>
 </span></code></pre></div>
 <p>The policy sees the tool name and the model-supplied arguments, so you can gate only the risky
-tools and approve the rest. It covers every dispatch path: non-streaming, streaming, and concurrent
-(<code>concurrent_tool_calls=True</code>).</p>
+tools and approve the rest. It covers every dispatch path the engine runs: non-streaming, streaming,
+and concurrent (when the agent sets <code>concurrent_tool_calls=True</code>).</p>
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
 <p>On <code>aimu.aio</code> the policy may be a coroutine function (it is awaited), so it can do async I/O such as
 asking the user over a chat channel:</p>
@@ -3016,7 +3015,7 @@ asking the user over a chat channel:</p>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3:8b&quot;</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">my_tool</span><span class="p">],</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
 </span></code></pre></div>
-<p>A sync client requires a sync policy; handing it a coroutine raises a clear error pointing at the
+<p>A sync agent requires a sync policy; handing it a coroutine raises a clear error pointing at the
 <code>aimu.aio</code> surface.</p>
 <h2 id="worked-example">Worked example<a class="headerlink" href="#worked-example" title="Permanent link">&para;</a></h2>
 <p>The <a href="../build-personal-assistant/">personal-assistant example</a> gates its full-access

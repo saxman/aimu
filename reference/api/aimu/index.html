@@ -3216,7 +3216,8 @@ wrap an <code>hf:</code> in-process client directly).</p>
 
         <p>One-shot chat: builds a fresh client, sends one message, returns the response.</p>
 <p>For multi-turn conversations construct a :class:<code>ModelClient</code> with :func:<code>client</code> and
-call its <code>chat()</code> repeatedly.</p>
+call its <code>chat()</code> repeatedly. <code>chat()</code> is a single model turn and does not attach
+tools; for a tool-using loop use :func:<code>agent</code> (<code>aimu.agent(...).run(...)</code>).</p>
 <p><code>model</code> may be omitted to use the default resolved by :func:<code>client</code> (the
 <code>AIMU_LANGUAGE_MODEL</code> env var or an already-available local model).</p>
 <p>Example::</p>
