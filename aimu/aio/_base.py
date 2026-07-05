@@ -39,6 +39,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
     messages: list[dict]
     last_thinking: str | None
     last_usage: dict | None
+    last_structured: Any | None
 
     @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
@@ -50,6 +51,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         self.tools: list = []
         self.last_thinking = ""
         self.last_usage = None
+        self.last_structured = None
         self.concurrent_tool_calls = False
         # Value injected as ``ctx.deps`` into tools that declare a ToolContext parameter.
         # Set by Agent from its deps= field / run(deps=) override; None for bare chat().
@@ -149,7 +151,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             self._require_audio()
         if schema is not None:
             if stream:
-                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+                return self._generate_structured_streamed(prompt, generate_kwargs, images, audio, schema, include)
             return await self._generate_structured(prompt, generate_kwargs, images, audio, schema)
         result = await self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
         if stream and include is not None:
@@ -172,13 +174,17 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
 
         Args mirror the sync :meth:`BaseModelClient.chat`, including the per-call
         ``tools`` override and ``schema`` (structured output: native when
-        ``supports_structured_output`` else prompt-and-parse; mutually exclusive with
-        ``stream=True``; Anthropic native + active tools raises). Streaming returns an
-        ``AsyncIterator[StreamChunk]``, consumed with ``async for``.
+        ``supports_structured_output`` else prompt-and-parse; Anthropic native + active
+        tools raises). Streaming returns an ``AsyncIterator[StreamChunk]``, consumed with
+        ``async for``. With ``schema`` + ``stream=True`` the stream ends in a terminal
+        ``DONE`` chunk carrying ``{"result": <object>}`` and sets ``self.last_structured``
+        (Anthropic streams the JSON but emits no thinking; see the sync surface).
         """
         if schema is not None:
             if stream:
-                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+                return self._chat_structured_streamed(
+                    user_message, generate_kwargs, use_tools, images, audio, tools, schema, include
+                )
             return await self._chat_structured(user_message, generate_kwargs, use_tools, images, audio, tools, schema)
 
         if tools is None:
@@ -235,6 +241,67 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         extra = {"response_format": response_format} if response_format is not None else {}
         text = await self._generate(prompt + suffix, generate_kwargs, stream=False, images=images, audio=audio, **extra)
         return parse_json_response(text, schema)
+
+    async def _chat_structured_streamed(
+        self, user_message, generate_kwargs, use_tools, images, audio, tools, schema, include
+    ) -> AsyncIterator[StreamChunk]:
+        """Async streamed structured output for :meth:`chat`.
+
+        Yields live THINKING / GENERATING / TOOL_CALLING chunks (subject to ``include=``),
+        accumulates the GENERATING text, then parses it into ``schema`` and yields a terminal
+        ``StreamChunk(DONE, {"result": obj})`` (always emitted, regardless of ``include=``).
+        Sets ``self.last_structured`` just before the terminal chunk.
+        """
+        from aimu.models._internal.json import parse_json_response
+
+        response_format, suffix = self._structured_request(schema)
+        message = user_message + suffix
+        extra = {"response_format": response_format} if response_format is not None else {}
+        selected = resolve_include(include) if include is not None else None
+
+        async def _run() -> AsyncIterator[StreamChunk]:
+            buffer: list[str] = []
+            result = await self._chat(
+                message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio, **extra
+            )
+            async for chunk in result:
+                if chunk.phase == StreamingContentType.GENERATING and isinstance(chunk.content, str):
+                    buffer.append(chunk.content)
+                if selected is None or chunk.phase in selected:
+                    yield chunk
+            obj = parse_json_response("".join(buffer), schema)
+            self.last_structured = obj
+            yield StreamChunk(StreamingContentType.DONE, {"result": obj})
+
+        if tools is None:
+            async for chunk in _run():
+                yield chunk
+        else:
+            with self._tools_override(tools):
+                async for chunk in _run():
+                    yield chunk
+
+    async def _generate_structured_streamed(
+        self, prompt, generate_kwargs, images, audio, schema, include
+    ) -> AsyncIterator[StreamChunk]:
+        """Async streamed structured output for :meth:`generate`. See :meth:`_chat_structured_streamed`."""
+        from aimu.models._internal.json import parse_json_response
+
+        response_format, suffix = self._structured_request(schema)
+        extra = {"response_format": response_format} if response_format is not None else {}
+        selected = resolve_include(include) if include is not None else None
+        buffer: list[str] = []
+        result = await self._generate(
+            prompt + suffix, generate_kwargs, stream=True, images=images, audio=audio, **extra
+        )
+        async for chunk in result:
+            if chunk.phase == StreamingContentType.GENERATING and isinstance(chunk.content, str):
+                buffer.append(chunk.content)
+            if selected is None or chunk.phase in selected:
+                yield chunk
+        obj = parse_json_response("".join(buffer), schema)
+        self.last_structured = obj
+        yield StreamChunk(StreamingContentType.DONE, {"result": obj})
 
     async def _chat_with_tools_streamed(
         self,

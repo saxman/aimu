@@ -148,7 +148,7 @@ class OllamaClient(BaseModelClient):
         gen_images = self._extract_ollama_images(images)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, images=gen_images)
+            return self._generate_streamed(prompt, generate_kwargs, images=gen_images, response_format=response_format)
 
         response = self._client.generate(
             model=self.model.value,
@@ -188,6 +188,7 @@ class OllamaClient(BaseModelClient):
         prompt: str,
         generate_kwargs: dict,
         images: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> Iterator[StreamChunk]:
         response = self._client.generate(
             model=self.model.value,
@@ -197,6 +198,7 @@ class OllamaClient(BaseModelClient):
             stream=True,
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
+            format=response_format,
         )
 
         self.last_thinking = ""
@@ -229,7 +231,7 @@ class OllamaClient(BaseModelClient):
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
 
         if stream:
-            return self._chat_streamed(generate_kwargs, tools)
+            return self._chat_streamed(generate_kwargs, tools, response_format=response_format)
 
         response = self._client.chat(
             model=self.model.value,
@@ -278,7 +280,9 @@ class OllamaClient(BaseModelClient):
 
         return response["message"].content
 
-    def _chat_streamed(self, generate_kwargs: dict, tools: list) -> Iterator[StreamChunk]:
+    def _chat_streamed(
+        self, generate_kwargs: dict, tools: list, response_format: Optional[dict] = None
+    ) -> Iterator[StreamChunk]:
         self.last_usage = None
 
         def _open():
@@ -290,6 +294,7 @@ class OllamaClient(BaseModelClient):
                 stream=True,
                 think=self.is_thinking_model,
                 keep_alive=self.model_keep_alive_seconds,
+                format=response_format,
             )
 
         # First turn. Consume the whole stream, collecting tool calls from ANY part (Ollama can

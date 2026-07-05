@@ -324,6 +324,19 @@ class ModelClient(BaseModelClient):
     def last_usage(self, value: Optional[dict]) -> None:
         self._client.last_usage = value
 
+    @property
+    def last_structured(self):
+        """Validated object from the most recent ``schema=`` call, or ``None``.
+
+        For a streamed structured-output call it is populated only after the stream is
+        fully consumed (mirrors :attr:`last_usage`).
+        """
+        return self._client.last_structured
+
+    @last_structured.setter
+    def last_structured(self, value) -> None:
+        self._client.last_structured = value
+
     def reset(self, system_message: Optional[str] = "__keep__") -> None:
         self._client.reset(system_message)
 

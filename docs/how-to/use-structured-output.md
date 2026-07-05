@@ -77,10 +77,34 @@ conflicts with offering action tools, so combining `schema=` with active `tools=
 `ValueError`. Drop the tools (or `use_tools=False`), or use a provider whose `response_format`
 composes with tools.
 
+## Streaming structured output
+
+`schema=` combines with `stream=True`. The call returns an iterator of `StreamChunk`s so you can
+show thinking / generation live, and the validated object is delivered two ways:
+
+- a terminal `StreamChunk` with `phase == DONE` whose `content` is `{"result": <object>}`, and
+- `client.last_structured`, set once the stream is fully consumed (mirrors `client.last_usage`).
+
+```python
+for chunk in client.chat("Is 17 prime? Think, then answer.", schema=Verdict, stream=True):
+    if chunk.phase is StreamingContentType.THINKING:
+        print(chunk.content, end="")      # reasoning tokens, live
+    elif chunk.is_done():
+        verdict = chunk.content["result"]  # validated Verdict
+# ...or just: verdict = client.last_structured   (after the loop)
+```
+
+An `include=` filter still applies to the thinking/generation phases, but the terminal result chunk
+is **always** emitted so the payload is never filtered away.
+
+**Anthropic streams the JSON, not thinking.** Its structured mode is a forced tool, which the API
+forbids alongside extended thinking, so an Anthropic structured stream yields the answer JSON as it
+is built (GENERATING chunks) with no THINKING. Ollama and OpenAI-compatible thinking models stream
+thinking normally. This matches the non-streaming behavior (Anthropic structured output has never
+produced thinking).
+
 ## Constraints
 
-- **`schema=` and `stream=True` are mutually exclusive**: a typed object can't be streamed
-  incrementally; passing both raises `ValueError`.
 - **`self.messages` stays plain.** The typed object is a return value only; the assistant turn
   is stored as the plain JSON string, so conversation history remains provider-portable.
 
@@ -105,5 +129,5 @@ llama-cpp use the prompt-and-parse path. See [parse helpers](../reference/api/ai
 
 ## See also
 
-- [Stream output](stream-output.md): note that streaming and `schema=` don't combine
+- [Stream output](stream-output.md): the general streaming surface; `schema=` combines with it
 - [Switch providers](switch-providers.md): `supports_structured_output` varies by provider

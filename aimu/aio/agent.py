@@ -124,7 +124,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         """
         if schema is not None:
             if stream:
-                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+                return self._run_structured_streamed(task, generate_kwargs, images, deps, tool_approval, schema)
             self._prepare_run(deps, tool_approval)
             try:
                 return await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
@@ -189,6 +189,27 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         self._prepare_run(deps, tool_approval)
         async for chunk in self._run_loop_streamed(task, generate_kwargs, images=images, tools=tools):
             yield chunk
+
+    async def _run_structured_streamed(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        images: Optional[list],
+        deps: Optional[Any],
+        tool_approval: Optional[Callable],
+        schema: type,
+    ) -> AsyncIterator[StreamChunk]:
+        """Single structured-output turn, streamed (async). Forwards the client's chunks tagged
+        with this agent's name; snapshots ``_last_messages`` in a ``finally`` for cancel-safe resume."""
+        self._prepare_run(deps, tool_approval)
+        try:
+            stream = await self.model_client.chat(
+                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema
+            )
+            async for chunk in stream:
+                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)
+        finally:
+            self._last_messages = list(self.model_client.messages)
 
     async def _run_loop_streamed(
         self,

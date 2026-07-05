@@ -272,6 +272,8 @@ person = aimu.client("openai:gpt-4.1").chat("Extract: Ada Lovelace, 36", schema=
 # Person(name="Ada Lovelace", age=36)
 ```
 
+`schema=` also combines with `stream=True`: thinking / generation stream live, then a terminal `DONE` chunk carries `{"result": <object>}` (also on `client.last_structured`). Anthropic streams the JSON but not thinking (its structured mode is a forced tool).
+
 ### Embeddings and RAG
 
 `aimu.embed()` / `aimu.embedding_client()` map text to vectors (single string → one vector, list → list of vectors). RAG is plain functions over a `MemoryStore`: chunk with `ingest`, fetch with `retrieve`, ground with `format_context`.

@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from aimu.models.base import StreamChunk
 from aimu.skills.manager import SkillManager
 
 from ._base import AsyncBaseModelClient
@@ -133,13 +134,13 @@ class SkillAgent(Agent):
         # That ordering is why this can't just call super().run() (which re-prepares); instead
         # it prepares, sets up skills, then delegates to Agent's post-prepare loop helpers.
         # ``deps``, ``tool_approval``, and ``schema`` mirror aio.Agent.run(); see that method.
-        if schema is not None and stream:
-            raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
-
         self._prepare_run(deps, tool_approval)
         await self._setup_skills_async()
 
         if schema is not None:
+            if stream:
+                # Skill setup is already done above; forward the client's structured stream.
+                return self._structured_stream_after_setup(task, generate_kwargs, images, schema)
             try:
                 return await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
             finally:
@@ -149,6 +150,20 @@ class SkillAgent(Agent):
             return self._run_loop_streamed(task, generate_kwargs, images=images, tools=tools)
 
         return await self._run_loop(task, generate_kwargs, images=images, tools=tools)
+
+    async def _structured_stream_after_setup(self, task, generate_kwargs, images, schema):
+        """Streamed structured-output turn, assuming ``_prepare_run`` + skill setup already ran.
+
+        Mirrors :meth:`aimu.aio.Agent._run_structured_streamed` but does not re-prepare (which
+        would reset ``model_client.tools`` and wipe the injected skills)."""
+        try:
+            stream = await self.model_client.chat(
+                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema
+            )
+            async for chunk in stream:
+                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)
+        finally:
+            self._last_messages = list(self.model_client.messages)
 
     @classmethod
     def from_config(cls, config: dict[str, Any], model_client: AsyncBaseModelClient) -> "SkillAgent":

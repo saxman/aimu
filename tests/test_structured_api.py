@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 from aimu.models._internal.structured import schema_to_json_schema
-from aimu.models.base import BaseModelClient, Model, ModelSpec
+from aimu.models.base import BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType
 
 
 @dataclass
@@ -74,9 +74,18 @@ class FakeClient(BaseModelClient):
     def _update_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
+    @staticmethod
+    def _fake_stream():
+        """Emit a THINKING chunk then the JSON answer split across GENERATING chunks."""
+        yield StreamChunk(StreamingContentType.THINKING, "reasoning...")
+        yield StreamChunk(StreamingContentType.GENERATING, '{"name": "Ada",')
+        yield StreamChunk(StreamingContentType.GENERATING, ' "age": 36}')
+
     def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None, response_format=None):
         self.seen_response_format = response_format
         self.seen_prompt = prompt
+        if stream:
+            return self._fake_stream()
         return '{"name": "Ada", "age": 36}'
 
     def _chat(
@@ -91,6 +100,9 @@ class FakeClient(BaseModelClient):
     ):
         self.seen_response_format = response_format
         self.seen_prompt = user_message
+        if stream:
+            self.messages.append({"role": "assistant", "content": '{"name": "Ada", "age": 36}'})
+            return self._fake_stream()
         self.messages.append({"role": "assistant", "content": '{"name": "Ada", "age": 36}'})
         return '{"name": "Ada", "age": 36}'
 
@@ -117,12 +129,47 @@ def test_messages_stay_plain_strings_after_schema_chat():
     assert all(isinstance(m["content"], str) for m in client.messages)
 
 
-def test_schema_with_stream_raises():
+def test_schema_stream_yields_chunks_and_terminal_result():
     client = FakeClient(_SchemaModel.NATIVE)
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        client.chat("x", schema=Person, stream=True)
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        client.generate("x", schema=Person, stream=True)
+    chunks = list(client.chat("x", schema=Person, stream=True))
+    phases = [c.phase for c in chunks]
+    assert StreamingContentType.THINKING in phases
+    assert phases[-1] == StreamingContentType.DONE
+    result = chunks[-1].content["result"]
+    assert isinstance(result, Person) and result.name == "Ada" and result.age == 36
+    # Also exposed on the attribute (populated once the stream is consumed).
+    assert client.last_structured == result
+    # Native path threaded the JSON schema to the provider.
+    assert client.seen_response_format is not None
+
+
+def test_generate_schema_stream_yields_terminal_result():
+    client = FakeClient(_SchemaModel.PARSE)
+    chunks = list(client.generate("x", schema=Person, stream=True))
+    assert chunks[-1].is_done()
+    assert isinstance(chunks[-1].content["result"], Person)
+    assert client.last_structured == chunks[-1].content["result"]
+    # Parse path: no response_format, schema appended to prompt.
+    assert client.seen_response_format is None
+    assert "JSON Schema" in client.seen_prompt
+
+
+def test_schema_stream_include_thinking_still_delivers_result():
+    client = FakeClient(_SchemaModel.NATIVE)
+    chunks = list(client.chat("x", schema=Person, stream=True, include=["thinking"]))
+    phases = [c.phase for c in chunks]
+    assert StreamingContentType.GENERATING not in phases  # filtered out
+    assert StreamingContentType.THINKING in phases
+    assert chunks[-1].is_done()  # terminal result never filtered
+    assert isinstance(chunks[-1].content["result"], Person)
+
+
+def test_reset_clears_last_structured():
+    client = FakeClient(_SchemaModel.NATIVE)
+    list(client.chat("x", schema=Person, stream=True))
+    assert client.last_structured is not None
+    client.reset()
+    assert client.last_structured is None
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +222,38 @@ def test_ollama_threads_format(monkeypatch):
     assert captured["format"] == schema_to_json_schema(Person)  # native format= envelope
 
 
+def test_ollama_threads_format_when_streaming(monkeypatch):
+    pytest.importorskip("ollama")
+    from aimu.models.providers import ollama as ollama_mod
+    from aimu.models.providers.ollama import OllamaClient, OllamaModel
+
+    captured = {}
+
+    class FakeStreamPart(dict):
+        thinking = None
+
+    class FakeClient:
+        def __init__(self, **kw):
+            pass
+
+        def pull(self, *a, **k):
+            return None
+
+        def generate(self, **kwargs):
+            captured.update(kwargs)
+            assert kwargs.get("stream") is True
+            part = FakeStreamPart(response='{"name": "Ada", "age": 36}', done=True)
+            return iter([part])
+
+    monkeypatch.setattr(ollama_mod.ollama, "Client", FakeClient)
+
+    client = OllamaClient(OllamaModel.LLAMA_3_2_3B)
+    chunks = list(client.generate("Extract: Ada, 36", schema=Person, stream=True))
+    assert captured["format"] == schema_to_json_schema(Person)  # format threaded into the streamed call
+    assert chunks[-1].is_done()
+    assert isinstance(chunks[-1].content["result"], Person)
+
+
 # ---------------------------------------------------------------------------
 # Anthropic forced-tool + tools conflict
 # ---------------------------------------------------------------------------
@@ -193,6 +272,7 @@ def _bare_anthropic(model, tools=None):
     client.tools = tools or []
     client.last_thinking = ""
     client.last_usage = None
+    client.last_structured = None
     client.concurrent_tool_calls = False
     return client
 
@@ -220,6 +300,53 @@ def test_anthropic_structured_forces_tool():
     assert captured["tool_choice"] == {"type": "tool", "name": "Person"}
     assert captured["tools"][0]["input_schema"] == schema_to_json_schema(Person)
     assert text == '{"name": "Ada", "age": 36}'
+
+
+def test_anthropic_structured_streamed_yields_json_no_thinking():
+    from aimu.models import HAS_ANTHROPIC
+
+    if not HAS_ANTHROPIC:
+        pytest.skip("anthropic not installed")
+    from aimu.models import AnthropicModel
+
+    client = _bare_anthropic(AnthropicModel.CLAUDE_SONNET_4_6)
+
+    class FakeStream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def __iter__(self):
+            # input_json_delta events carry the tool-input JSON as it is built.
+            yield SimpleNamespace(
+                type="content_block_delta",
+                delta=SimpleNamespace(type="input_json_delta", partial_json='{"name": "Ada",'),
+            )
+            yield SimpleNamespace(
+                type="content_block_delta",
+                delta=SimpleNamespace(type="input_json_delta", partial_json=' "age": 36}'),
+            )
+
+        def get_final_message(self):
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="tool_use", input={"name": "Ada", "age": 36})],
+                usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+            )
+
+    client._client = SimpleNamespace(messages=SimpleNamespace(stream=lambda **kw: FakeStream()))
+    chunks = list(
+        client._structured_call_streamed(
+            "sys", [{"role": "user", "content": "hi"}], {}, schema_to_json_schema(Person), append_message=True
+        )
+    )
+    phases = [c.phase for c in chunks]
+    assert StreamingContentType.THINKING not in phases  # forced tool ⊥ thinking
+    assert all(c.phase == StreamingContentType.GENERATING for c in chunks)
+    assert "".join(c.content for c in chunks) == '{"name": "Ada", "age": 36}'
+    # Assistant turn stored for the stateful chat path.
+    assert client.messages[-1] == {"role": "assistant", "content": '{"name": "Ada", "age": 36}'}
 
 
 def test_anthropic_schema_plus_tools_raises():

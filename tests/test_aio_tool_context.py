@@ -5,7 +5,6 @@ Mirrors tests/test_tool_context.py on the aio surface. Deterministic via MockAsy
 
 from dataclasses import dataclass, field
 
-import pytest
 
 from aimu.aio import Agent
 from aimu.tools import ToolContext, tool
@@ -124,12 +123,14 @@ async def test_async_agent_run_schema_returns_typed_object():
     assert verdict.feedback == "good"
 
 
-async def test_async_agent_run_schema_rejects_stream():
+async def test_async_agent_run_schema_streams():
     @dataclass
     class Verdict:
         passed: bool
 
-    client = MockAsyncModelClient(["x"])
+    client = MockAsyncModelClient(['{"passed": true}'])
+    client.model.supports_structured_output = False
     agent = Agent(client)
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        await agent.run("t", schema=Verdict, stream=True)
+    chunks = [c async for c in await agent.run("t", schema=Verdict, stream=True)]
+    assert chunks[-1].is_done()
+    assert chunks[-1].content["result"] == Verdict(passed=True)

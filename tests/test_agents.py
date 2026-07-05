@@ -116,6 +116,28 @@ def test_agent_no_tools_calls_chat_once():
     assert client._call_count == 1
 
 
+def test_agent_run_schema_streams_and_delivers_result():
+    """Agent.run(schema=..., stream=True) yields chunks tagged with the agent name and ends
+    with a terminal DONE chunk carrying the validated object; model_client.last_structured is set."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class Out:
+        x: int
+
+    client = MockModelClient(['{"x": 5}'])
+    client.model.supports_structured_output = False  # parse-path (mock _chat takes no response_format)
+    agent = Agent(client, name="a")
+
+    chunks = list(agent.run("t", stream=True, schema=Out))
+
+    assert chunks[-1].is_done()
+    result = chunks[-1].content["result"]
+    assert isinstance(result, Out) and result.x == 5
+    assert client.last_structured == result
+    assert all(c.agent == "a" for c in chunks)
+
+
 def test_agent_one_tool_round_then_done():
     client = MockModelClient(["tool", "after tool answer", "all done"])
     agent = Agent(client, name="test")

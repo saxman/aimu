@@ -86,7 +86,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         gen_images = OllamaClient._extract_ollama_images(images)
 
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, images=gen_images)
+            return self._generate_streamed(prompt, generate_kwargs, images=gen_images, response_format=response_format)
 
         response = await self._client.generate(
             model=self.model.value,
@@ -110,6 +110,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         prompt: str,
         generate_kwargs: dict,
         images: Optional[list] = None,
+        response_format: Optional[dict] = None,
     ) -> AsyncIterator[StreamChunk]:
         response = await self._client.generate(
             model=self.model.value,
@@ -119,6 +120,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             stream=True,
             think=self.is_thinking_model,
             keep_alive=self.model_keep_alive_seconds,
+            format=response_format,
         )
 
         self.last_thinking = ""
@@ -149,7 +151,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         )
 
         if stream:
-            return self._chat_streamed(generate_kwargs, tools)
+            return self._chat_streamed(generate_kwargs, tools, response_format=response_format)
 
         response = await self._client.chat(
             model=self.model.value,
@@ -186,7 +188,9 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             self.messages[-1]["thinking"] = response["message"].thinking
         return response["message"].content
 
-    async def _chat_streamed(self, generate_kwargs: dict, tools: list) -> AsyncIterator[StreamChunk]:
+    async def _chat_streamed(
+        self, generate_kwargs: dict, tools: list, response_format: Optional[dict] = None
+    ) -> AsyncIterator[StreamChunk]:
         self.last_usage = None
 
         async def _open():
@@ -198,6 +202,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
                 stream=True,
                 think=self.is_thinking_model,
                 keep_alive=self.model_keep_alive_seconds,
+                format=response_format,
             )
 
         # First turn. Consume the whole stream, collecting tool calls from ANY part (Ollama can

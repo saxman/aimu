@@ -106,6 +106,46 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                 return json.dumps(block.input)
         return "{}"
 
+    async def _structured_call_streamed(
+        self,
+        system_str,
+        ant_messages: list,
+        generate_kwargs: dict,
+        response_format: dict,
+        *,
+        append_message: bool,
+    ) -> AsyncIterator[StreamChunk]:
+        """Async streamed forced-tool structured output (see sync ``_structured_call_streamed``).
+
+        Streams the tool-input JSON (``GENERATING`` from ``input_json_delta``); no ``THINKING``.
+        """
+        import re
+
+        self.last_thinking = ""
+        self.last_usage = None
+        name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
+        tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
+        async with self._client.messages.stream(
+            model=self.model.value,
+            system=system_str,
+            messages=ant_messages,
+            tools=[tool],
+            tool_choice={"type": "tool", "name": name},
+            **generate_kwargs,
+        ) as stream:
+            async for event in stream:
+                if event.type == "content_block_delta" and event.delta.type == "input_json_delta":
+                    yield StreamChunk(StreamingContentType.GENERATING, event.delta.partial_json)
+            final = await stream.get_final_message()
+        self.last_usage = usage_from_anthropic(final)
+        text = "{}"
+        for block in final.content:
+            if block.type == "tool_use":
+                text = json.dumps(block.input)
+                break
+        if append_message:
+            self.messages.append({"role": "assistant", "content": text})
+
     # Pure helpers reused from sync client; no I/O involved.
     _update_generate_kwargs = _SyncAnthropicClient._update_generate_kwargs
     _thinking_kwargs = _SyncAnthropicClient._thinking_kwargs
@@ -126,9 +166,12 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
         if response_format is not None:
             content = _SyncAnthropicClient._generate_content(prompt, images, audio=audio)
-            return await self._structured_call(
-                anthropic.NOT_GIVEN, [{"role": "user", "content": content}], generate_kwargs, response_format
-            )
+            messages = [{"role": "user", "content": content}]
+            if stream:
+                return self._structured_call_streamed(
+                    anthropic.NOT_GIVEN, messages, generate_kwargs, response_format, append_message=False
+                )
+            return await self._structured_call(anthropic.NOT_GIVEN, messages, generate_kwargs, response_format)
 
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
@@ -199,9 +242,12 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
         if response_format is not None:
             system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
-            text = await self._structured_call(
-                system_str if system_str else anthropic.NOT_GIVEN, ant_messages, generate_kwargs, response_format
-            )
+            system = system_str if system_str else anthropic.NOT_GIVEN
+            if stream:
+                return self._structured_call_streamed(
+                    system, ant_messages, generate_kwargs, response_format, append_message=True
+                )
+            text = await self._structured_call(system, ant_messages, generate_kwargs, response_format)
             self.messages.append({"role": "assistant", "content": text})
             return text
 

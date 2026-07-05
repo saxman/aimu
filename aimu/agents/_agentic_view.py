@@ -62,6 +62,14 @@ class _AgenticViewMixin:
     def last_thinking(self, value: str) -> None:
         self._inner_client.last_thinking = value
 
+    @property
+    def last_structured(self):
+        return self._inner_client.last_structured
+
+    @last_structured.setter
+    def last_structured(self, value) -> None:
+        self._inner_client.last_structured = value
+
     def reset(self, system_message: Optional[str] = "__keep__") -> None:
         self._inner_client.reset(system_message)
 

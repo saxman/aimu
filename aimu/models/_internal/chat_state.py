@@ -20,6 +20,7 @@ class _ChatStateMixin:
       - ``_system_message``: ``str | None``
       - ``last_thinking``: ``str | None``
       - ``last_usage``: ``dict | None``
+      - ``last_structured``: ``Any | None`` (validated object from the most recent ``schema=`` call)
       - ``tools``: list of ``@tool``-decorated callables
     """
 
@@ -60,6 +61,7 @@ class _ChatStateMixin:
             self._system_message = system_message
         self.last_thinking = ""
         self.last_usage = None
+        self.last_structured = None
 
     def __deepcopy__(self, memo):
         # Stateful conversation history and non-copyable backend resources.

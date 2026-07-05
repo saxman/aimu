@@ -87,6 +87,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
     messages: list[dict]
     last_thinking: str | None
     last_usage: dict | None
+    last_structured: Any | None
 
     @abstractmethod
     def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
@@ -98,6 +99,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         self.tools: list = []
         self.last_thinking = ""
         self.last_usage = None
+        self.last_structured = None
         self.concurrent_tool_calls = False
         # Value injected as ``ctx.deps`` into tools that declare a ToolContext parameter.
         # Set by Agent from its deps= field / run(deps=) override; None for bare chat().
@@ -213,7 +215,9 @@ class BaseModelClient(_ChatStateMixin, ABC):
             schema: Optional dataclass type or Pydantic v2 model. When set, returns a validated
                 instance of that type instead of a string. See :meth:`chat` for the structured-output
                 semantics (native enforcement when ``supports_structured_output`` is True, otherwise
-                prompt-and-parse). Mutually exclusive with ``stream=True``.
+                prompt-and-parse). With ``stream=True`` returns an iterator of :class:`StreamChunk`
+                ending in a terminal ``DONE`` chunk whose ``content`` is ``{"result": <object>}``; the
+                validated object is also stored on ``self.last_structured`` after the stream is consumed.
         """
         if images and audio:
             raise ValueError("images= and audio= are mutually exclusive. Pass one or the other, not both.")
@@ -223,7 +227,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
             self._require_audio()
         if schema is not None:
             if stream:
-                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+                return self._generate_structured_streamed(prompt, generate_kwargs, images, audio, schema, include)
             return self._generate_structured(prompt, generate_kwargs, images, audio, schema)
         result = self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
         if stream and include is not None:
@@ -273,12 +277,18 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 ``supports_structured_output=True`` the provider enforces the schema natively
                 (OpenAI ``response_format``, Ollama ``format=``, Anthropic forced-tool); otherwise
                 the schema is appended to the prompt and the response is parsed. Raises
-                ``ValueError`` on parse failure. Mutually exclusive with ``stream=True``. On
-                Anthropic (native, forced-tool) combining ``schema`` with active ``tools`` raises.
+                ``ValueError`` on parse failure. With ``stream=True`` returns an iterator of
+                :class:`StreamChunk`: thinking/generation chunks stream live, then a terminal
+                ``DONE`` chunk carries ``{"result": <object>}`` and ``self.last_structured`` is set
+                once the stream is consumed. (Anthropic streams the JSON as it is built but emits no
+                thinking, since its forced-tool structured mode is incompatible with extended thinking.)
+                On Anthropic (native, forced-tool) combining ``schema`` with active ``tools`` raises.
         """
         if schema is not None:
             if stream:
-                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+                return self._chat_structured_streamed(
+                    user_message, generate_kwargs, use_tools, images, audio, tools, schema, include
+                )
             return self._chat_structured(user_message, generate_kwargs, use_tools, images, audio, tools, schema)
 
         if tools is None:
@@ -352,6 +362,78 @@ class BaseModelClient(_ChatStateMixin, ABC):
         extra = {"response_format": response_format} if response_format is not None else {}
         text = self._generate(prompt + suffix, generate_kwargs, stream=False, images=images, audio=audio, **extra)
         return parse_json_response(text, schema)
+
+    def _chat_structured_streamed(
+        self,
+        user_message: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        use_tools: bool,
+        images: Optional[list],
+        audio: Optional[list],
+        tools: Optional[list],
+        schema: type,
+        include: Optional[Iterable[Union[str, StreamingContentType]]],
+    ) -> Iterator[StreamChunk]:
+        """Streamed structured output for :meth:`chat`.
+
+        Yields the provider's live THINKING / GENERATING / TOOL_CALLING chunks (subject to
+        ``include=``), accumulates the GENERATING text, then parses it into ``schema`` and
+        yields a terminal ``StreamChunk(DONE, {"result": obj})`` (always, regardless of
+        ``include=``, so the payload is never filtered away). ``self.last_structured`` is set
+        just before the terminal chunk.
+        """
+        from .._internal.json import parse_json_response
+
+        response_format, suffix = self._structured_request(schema)
+        message = user_message + suffix
+        extra = {"response_format": response_format} if response_format is not None else {}
+        selected = self._resolve_include(include) if include is not None else None
+
+        def _run() -> Iterator[StreamChunk]:
+            buffer: list[str] = []
+            result = self._chat(
+                message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio, **extra
+            )
+            for chunk in result:
+                if chunk.phase == StreamingContentType.GENERATING and isinstance(chunk.content, str):
+                    buffer.append(chunk.content)
+                if selected is None or chunk.phase in selected:
+                    yield chunk
+            obj = parse_json_response("".join(buffer), schema)
+            self.last_structured = obj
+            yield StreamChunk(StreamingContentType.DONE, {"result": obj})
+
+        if tools is None:
+            yield from _run()
+        else:
+            with self._tools_override(tools):
+                yield from _run()
+
+    def _generate_structured_streamed(
+        self,
+        prompt: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        images: Optional[list],
+        audio: Optional[list],
+        schema: type,
+        include: Optional[Iterable[Union[str, StreamingContentType]]],
+    ) -> Iterator[StreamChunk]:
+        """Streamed structured output for :meth:`generate`. See :meth:`_chat_structured_streamed`."""
+        from .._internal.json import parse_json_response
+
+        response_format, suffix = self._structured_request(schema)
+        extra = {"response_format": response_format} if response_format is not None else {}
+        selected = self._resolve_include(include) if include is not None else None
+        buffer: list[str] = []
+        result = self._generate(prompt + suffix, generate_kwargs, stream=True, images=images, audio=audio, **extra)
+        for chunk in result:
+            if chunk.phase == StreamingContentType.GENERATING and isinstance(chunk.content, str):
+                buffer.append(chunk.content)
+            if selected is None or chunk.phase in selected:
+                yield chunk
+        obj = parse_json_response("".join(buffer), schema)
+        self.last_structured = obj
+        yield StreamChunk(StreamingContentType.DONE, {"result": obj})
 
     def _chat_with_tools_streamed(
         self,

@@ -153,6 +153,48 @@ class AnthropicClient(BaseModelClient):
                 return json.dumps(block.input)
         return "{}"
 
+    def _structured_call_streamed(
+        self,
+        system_str,
+        ant_messages: list,
+        generate_kwargs: dict,
+        response_format: dict,
+        *,
+        append_message: bool,
+    ) -> Iterator[StreamChunk]:
+        """Streamed Anthropic structured output via a forced single tool.
+
+        Streams the tool-input JSON as it is built (``GENERATING`` chunks from
+        ``input_json_delta``). Emits **no** ``THINKING``: a forced ``tool_choice`` is
+        incompatible with extended thinking, so ``generate_kwargs`` carries no thinking param
+        (same contract as :meth:`_structured_call`). The base accumulates the yielded JSON and
+        parses it; ``append_message`` stores the assistant turn for the stateful chat path.
+        """
+        self.last_thinking = ""
+        self.last_usage = None
+        name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
+        tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
+        with self._client.messages.stream(
+            model=self.model.value,
+            system=system_str,
+            messages=ant_messages,
+            tools=[tool],
+            tool_choice={"type": "tool", "name": name},
+            **generate_kwargs,
+        ) as stream:
+            for event in stream:
+                if event.type == "content_block_delta" and event.delta.type == "input_json_delta":
+                    yield StreamChunk(StreamingContentType.GENERATING, event.delta.partial_json)
+            final = stream.get_final_message()
+        self.last_usage = usage_from_anthropic(final)
+        text = "{}"
+        for block in final.content:
+            if block.type == "tool_use":
+                text = json.dumps(block.input)
+                break
+        if append_message:
+            self.messages.append({"role": "assistant", "content": text})
+
     # ------------------------------------------------------------------ #
     # generate_kwargs helpers                                              #
     # ------------------------------------------------------------------ #
@@ -348,9 +390,12 @@ class AnthropicClient(BaseModelClient):
 
         if response_format is not None:
             content = self._generate_content(prompt, images, audio)
-            return self._structured_call(
-                anthropic.NOT_GIVEN, [{"role": "user", "content": content}], generate_kwargs, response_format
-            )
+            messages = [{"role": "user", "content": content}]
+            if stream:
+                return self._structured_call_streamed(
+                    anthropic.NOT_GIVEN, messages, generate_kwargs, response_format, append_message=False
+                )
+            return self._structured_call(anthropic.NOT_GIVEN, messages, generate_kwargs, response_format)
 
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
 
@@ -436,9 +481,12 @@ class AnthropicClient(BaseModelClient):
 
         if response_format is not None:
             system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
-            text = self._structured_call(
-                system_str if system_str else anthropic.NOT_GIVEN, ant_messages, generate_kwargs, response_format
-            )
+            system = system_str if system_str else anthropic.NOT_GIVEN
+            if stream:
+                return self._structured_call_streamed(
+                    system, ant_messages, generate_kwargs, response_format, append_message=True
+                )
+            text = self._structured_call(system, ant_messages, generate_kwargs, response_format)
             self.messages.append({"role": "assistant", "content": text})
             return text
 

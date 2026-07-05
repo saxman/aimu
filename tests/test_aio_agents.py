@@ -325,7 +325,27 @@ async def test_async_skill_agent_run_schema_returns_typed_instance(tmp_path):
     assert result.feedback == "ok"
 
 
-async def test_async_skill_agent_run_schema_rejects_stream(tmp_path):
+async def test_async_agent_run_schema_streams():
+    from dataclasses import dataclass
+
+    from aimu.aio import Agent
+
+    @dataclass
+    class Out:
+        x: int
+
+    client = MockAsyncModelClient(['{"x": 9}'])
+    client.model.supports_structured_output = False  # parse-path
+    agent = Agent(client, name="a")
+
+    chunks = [c async for c in await agent.run("t", stream=True, schema=Out)]
+    assert chunks[-1].is_done()
+    result = chunks[-1].content["result"]
+    assert isinstance(result, Out) and result.x == 9
+    assert all(c.agent == "a" for c in chunks)
+
+
+async def test_async_skill_agent_run_schema_streams(tmp_path):
     from dataclasses import dataclass
 
     from aimu.aio import SkillAgent
@@ -334,10 +354,15 @@ async def test_async_skill_agent_run_schema_rejects_stream(tmp_path):
     class Out:
         x: int
 
-    agent = SkillAgent(MockAsyncModelClient(["{}"]), name="s", skill_manager=_empty_skill_manager(tmp_path))
+    client = MockAsyncModelClient(['{"x": 7}'])
+    client.model.supports_structured_output = False  # parse-path (mock _chat takes no response_format)
+    agent = SkillAgent(client, name="s", skill_manager=_empty_skill_manager(tmp_path))
 
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        await agent.run("t", stream=True, schema=Out)
+    chunks = [c async for c in await agent.run("t", stream=True, schema=Out)]
+    assert chunks[-1].is_done()
+    result = chunks[-1].content["result"]
+    assert isinstance(result, Out) and result.x == 7
+    assert all(c.agent == "s" for c in chunks)  # chunks tagged with the agent name
 
 
 async def test_async_orchestrator_assemble_accepts_workflow_worker():

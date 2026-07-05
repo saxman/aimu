@@ -5,7 +5,6 @@ All deterministic via MockModelClient; no backend needed.
 
 from dataclasses import dataclass, field
 
-import pytest
 
 from aimu.agents import Agent
 from aimu.tools import ToolContext, tool
@@ -148,12 +147,14 @@ def test_agent_run_schema_returns_typed_object():
     assert verdict.feedback == "good"
 
 
-def test_agent_run_schema_rejects_stream():
+def test_agent_run_schema_streams():
     @dataclass
     class Verdict:
         passed: bool
 
-    client = MockModelClient(["x"])
+    client = MockModelClient(['{"passed": true}'])
+    client.model.supports_structured_output = False  # parse-path
     agent = Agent(client)
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        agent.run("t", schema=Verdict, stream=True)
+    chunks = list(agent.run("t", schema=Verdict, stream=True))
+    assert chunks[-1].is_done()
+    assert chunks[-1].content["result"] == Verdict(passed=True)

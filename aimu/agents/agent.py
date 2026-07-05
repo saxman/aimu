@@ -105,11 +105,13 @@ class Agent(_AgentLoopMixin, Runner):
         ``schema`` (a dataclass or Pydantic v2 model) makes the run a single structured-output
         turn that returns a validated instance instead of looping with tools. Use it for an
         agent whose job is to return a typed object (e.g. a critic's verdict). It is mutually
-        exclusive with ``stream=True`` and with the tool-calling loop.
+        exclusive with the tool-calling loop. With ``stream=True`` the run yields
+        :class:`StreamChunk`s (thinking/generation) ending in a terminal ``DONE`` chunk carrying
+        ``{"result": <object>}``; the object is also on ``model_client.last_structured``.
         """
         if schema is not None:
             if stream:
-                raise ValueError("schema= and stream=True are mutually exclusive (a typed object can't be streamed).")
+                return self._run_structured_streamed(task, generate_kwargs, images, deps, tool_approval, schema)
             self._prepare_run(deps, tool_approval)
             result = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
             self._last_messages = list(self.model_client.messages)
@@ -176,6 +178,27 @@ class Agent(_AgentLoopMixin, Runner):
             iteration += 1
 
         self._last_messages = list(self.model_client.messages)
+
+    def _run_structured_streamed(
+        self,
+        task: str,
+        generate_kwargs: Optional[dict[str, Any]],
+        images: Optional[list],
+        deps: Optional[Any],
+        tool_approval: Optional[Callable],
+        schema: type,
+    ) -> Iterator[StreamChunk]:
+        """Single structured-output turn, streamed: forward the client's chunks (thinking /
+        generation / terminal DONE) tagged with this agent's name. Snapshots ``_last_messages``
+        in a ``finally`` so a cancelled/partial run still records its turn."""
+        self._prepare_run(deps, tool_approval)
+        try:
+            for chunk in self.model_client.chat(
+                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema
+            ):
+                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)
+        finally:
+            self._last_messages = list(self.model_client.messages)
 
     @property
     def messages(self) -> MessageHistory:

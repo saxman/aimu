@@ -70,6 +70,7 @@ class _FallbackStateMixin:
         self.tools: list = []
         self.last_thinking = ""
         self.last_usage: Optional[dict] = None
+        self.last_structured = None
         self.concurrent_tool_calls = False
         self.tool_context_deps = None
 
@@ -84,12 +85,14 @@ class _FallbackStateMixin:
             pass
         client.last_thinking = ""
         client.last_usage = None
+        client.last_structured = None
 
     def _adopt_state(self, client: BaseModelClient) -> None:
         """Adopt the winning client's resulting state as the canonical conversation."""
         self.messages = client.messages
         self.last_thinking = getattr(client, "last_thinking", "")
         self.last_usage = getattr(client, "last_usage", None)
+        self.last_structured = getattr(client, "last_structured", None)
 
     def _exhausted(self, errors: list[tuple[Any, BaseException]]) -> "FallbackExhaustedError":
         last = errors[-1][1] if errors else None
@@ -220,6 +223,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         for client in self.clients:
             client.last_thinking = ""
             client.last_usage = None
+            client.last_structured = None
             try:
                 result = client.generate(
                     prompt, generate_kwargs, stream=False, images=images, include=include, audio=audio, schema=schema
@@ -230,6 +234,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
                 continue
             self.last_thinking = getattr(client, "last_thinking", "")
             self.last_usage = getattr(client, "last_usage", None)
+            self.last_structured = getattr(client, "last_structured", None)
             return result
         raise self._exhausted(errors)
 

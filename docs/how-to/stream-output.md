@@ -133,7 +133,15 @@ for call in extract_tool_calls(agent.messages[agent.name]):
 
 The agent injects its own `{"role": "user", ...}` turns during the loop (a continuation prompt between tool rounds, and a final-answer prompt at the iteration cap). They never appear in a live stream, but a replayed history can't tell them from real input unless they're marked. AIMU tags them with an inert `provenance` key (`message.get(aimu.PROVENANCE_KEY)` is `PROVENANCE_CONTINUATION` / `PROVENANCE_FINAL_ANSWER` / `PROVENANCE_PROACTIVE`; genuine input is untagged). See [Persist conversations](persist-conversations.md#distinguish-agent-loop-turns-from-user-input) for the display pattern.
 
+## Streaming structured output
+
+`stream=True` combines with `schema=`: thinking / generation chunks stream live, then a terminal
+`DONE` chunk carries `{"result": <validated object>}` (also on `client.last_structured`). See
+[Get structured output](use-structured-output.md#streaming-structured-output) for the full contract
+and the Anthropic caveat (it streams the JSON, not thinking).
+
 ## See also
 
 - [Explanation: StreamChunk model](../explanation/streamchunk-model.md): one chunk type for all contexts
 - [Stream phases reference](../reference/stream-phases.md): full enum
+- [Get structured output](use-structured-output.md): `schema=` typed objects, incl. streaming

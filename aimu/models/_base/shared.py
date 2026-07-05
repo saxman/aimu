@@ -50,15 +50,17 @@ class StreamChunk(NamedTuple):
                      single-pass providers (HuggingFace). ``final=True`` marks the
                      terminal chunk; ``result`` carries the encoded output on the final
                      chunk only.
-                   - ``str`` for DONE (usually empty).
+                   - ``str`` for DONE (usually empty), **or** ``dict {"result": <object>}`` for the
+                     terminal chunk of a streamed structured-output call (``schema=`` + ``stream=True``),
+                     where ``result`` is the validated dataclass / Pydantic instance.
         agent:     name of the agent that produced this chunk, or ``None`` for a plain
                    ``client.chat()`` / ``client.generate()`` call. Set automatically by
                    ``Agent`` and workflow runners.
         iteration: zero-based iteration index inside the agent loop, or ``0`` for plain chat.
 
     Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_image_progress()`` /
-    ``chunk.is_audio_progress()`` / ``chunk.is_speech_progress()`` to dispatch on phase
-    without repeating the equality check in user code.
+    ``chunk.is_audio_progress()`` / ``chunk.is_speech_progress()`` / ``chunk.is_done()`` to
+    dispatch on phase without repeating the equality check in user code.
     """
 
     phase: StreamingContentType
@@ -85,6 +87,14 @@ class StreamChunk(NamedTuple):
     def is_speech_progress(self) -> bool:
         """True if this chunk carries speech-generation progress (SPEECH_GENERATING)."""
         return self.phase == StreamingContentType.SPEECH_GENERATING
+
+    def is_done(self) -> bool:
+        """True if this chunk is the terminal DONE marker.
+
+        For a streamed structured-output call (``schema=`` + ``stream=True``) the DONE
+        chunk's ``content`` is ``{"result": <validated object>}``.
+        """
+        return self.phase == StreamingContentType.DONE
 
 
 class classproperty:

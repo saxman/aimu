@@ -217,6 +217,16 @@ class AsyncModelClient(AsyncBaseModelClient):
         self._client.last_usage = value
 
     @property
+    def last_structured(self):
+        """Validated object from the most recent ``schema=`` call, or ``None`` (populated
+        after a streamed structured call is fully consumed; mirrors :attr:`last_usage`)."""
+        return self._client.last_structured
+
+    @last_structured.setter
+    def last_structured(self, value) -> None:
+        self._client.last_structured = value
+
+    @property
     def concurrent_tool_calls(self) -> bool:
         return self._client.concurrent_tool_calls
 
