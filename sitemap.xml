@@ -281,7 +281,11 @@
          <lastmod>2026-07-06</lastmod>
     </url>
     <url>
-         <loc>https://saxman.github.io/aimu/tutorials/04-vision-and-streaming/</loc>
+         <loc>https://saxman.github.io/aimu/tutorials/04-streaming/</loc>
+         <lastmod>2026-07-06</lastmod>
+    </url>
+    <url>
+         <loc>https://saxman.github.io/aimu/tutorials/05-vision-and-audio/</loc>
          <lastmod>2026-07-06</lastmod>
     </url>
 </urlset>

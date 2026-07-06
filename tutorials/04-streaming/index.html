@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://saxman.github.io/aimu/tutorials/04-vision-and-streaming/">
+        <link rel="canonical" href="https://saxman.github.io/aimu/tutorials/04-streaming/">
       
       
         <link rel="prev" href="../03-workflows/">
       
       
-        <link rel="next" href="../../examples/">
+        <link rel="next" href="../05-vision-and-audio/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Vision and streaming - AIMU</title>
+        <title>Streaming - AIMU</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#vision-and-streaming" class="md-skip">
+        <a href="#streaming" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Vision and streaming
+              Streaming
             
           </span>
         </div>
@@ -484,6 +484,8 @@
       
         
       
+        
+      
     
     
     
@@ -648,7 +650,7 @@
   <span class="md-ellipsis">
     
   
-    Vision and streaming
+    Streaming
   
 
     
@@ -666,7 +668,7 @@
   <span class="md-ellipsis">
     
   
-    Vision and streaming
+    Streaming
   
 
     
@@ -703,10 +705,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-send-an-image" class="md-nav__link">
+  <a href="#1-stream-a-response" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Send an image
+        1. Stream a response
       
     </span>
   </a>
@@ -714,10 +716,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-stream-the-response" class="md-nav__link">
+  <a href="#2-the-streamchunk-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Stream the response
+        2. The StreamChunk API
       
     </span>
   </a>
@@ -725,10 +727,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-the-streamchunk-api" class="md-nav__link">
+  <a href="#3-filter-phases-with-include" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. The StreamChunk API
+        3. Filter phases with include=
       
     </span>
   </a>
@@ -736,10 +738,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-filter-phases" class="md-nav__link">
+  <a href="#4-stream-through-an-agent" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Filter phases
+        4. Stream through an agent
       
     </span>
   </a>
@@ -747,21 +749,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-streaming-through-agents" class="md-nav__link">
+  <a href="#5-stream-through-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Streaming through agents
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-images-through-workflows" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. Images through workflows
+        5. Stream through workflows
       
     </span>
   </a>
@@ -783,6 +774,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05-vision-and-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vision and audio input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2970,10 +2989,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-send-an-image" class="md-nav__link">
+  <a href="#1-stream-a-response" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Send an image
+        1. Stream a response
       
     </span>
   </a>
@@ -2981,10 +3000,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-stream-the-response" class="md-nav__link">
+  <a href="#2-the-streamchunk-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Stream the response
+        2. The StreamChunk API
       
     </span>
   </a>
@@ -2992,10 +3011,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-the-streamchunk-api" class="md-nav__link">
+  <a href="#3-filter-phases-with-include" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. The StreamChunk API
+        3. Filter phases with include=
       
     </span>
   </a>
@@ -3003,10 +3022,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-filter-phases" class="md-nav__link">
+  <a href="#4-stream-through-an-agent" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Filter phases
+        4. Stream through an agent
       
     </span>
   </a>
@@ -3014,21 +3033,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-streaming-through-agents" class="md-nav__link">
+  <a href="#5-stream-through-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Streaming through agents
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-images-through-workflows" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. Images through workflows
+        5. Stream through workflows
       
     </span>
   </a>
@@ -3066,40 +3074,29 @@
   
 
 
-<h1 id="vision-and-streaming">Vision and streaming<a class="headerlink" href="#vision-and-streaming" title="Permanent link">&para;</a></h1>
-<p>In ~10 minutes you'll send an image to a vision-capable model and learn the full <code>StreamChunk</code> API along the way.</p>
-<p>If you've done the first three tutorials, this one consolidates what you've seen and fills in the remaining I/O patterns.</p>
+<h1 id="streaming">Streaming<a class="headerlink" href="#streaming" title="Permanent link">&para;</a></h1>
+<p>In ~10 minutes you'll learn the full streaming API — one <code>StreamChunk</code> type that flows through plain
+chats, agents, and workflows alike.</p>
+<p>If you've done the first three tutorials you've seen <code>stream=True</code> in passing; this is the one place
+that teaches it end-to-end.</p>
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
-<p>You need a vision-capable model. The fastest free option is <strong>Ollama with Gemma 4</strong>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ollama<span class="w"> </span>pull<span class="w"> </span>gemma4:e4b
+<p>Any model works. We'll use Ollama:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Or use any cloud model that supports vision (GPT-4o, Claude 4.x, Gemini 1.5+/2.x).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:gemma4:e4b&quot;</span><span class="p">)</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">client</span><span class="o">.</span><span class="n">is_vision_model</span>   <span class="c1"># True</span>
+<h2 id="1-stream-a-response">1. Stream a response<a class="headerlink" href="#1-stream-a-response" title="Permanent link">&para;</a></h2>
+<p>Pass <code>stream=True</code> to <code>chat()</code> (or <code>aimu.chat()</code>) and you get a <code>StreamChunk</code> iterator instead of a
+string. Consume it with a <code>for</code> loop and print tokens as they arrive:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Tell me a short story.&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="1-send-an-image">1. Send an image<a class="headerlink" href="#1-send-an-image" title="Permanent link">&para;</a></h2>
-<p>Pass <code>images=[...]</code> to <code>chat()</code>. Each item can be a file path, raw bytes, an http(s) URL, or a <code>data:image/...</code> URL:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;What&#39;s in this image?&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./cat.jpg&quot;</span><span class="p">])</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
-</span></code></pre></div>
-<p>Multiple images? Just add to the list:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Compare these.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a.png&quot;</span><span class="p">,</span> <span class="s2">&quot;b.png&quot;</span><span class="p">])</span>
-</span></code></pre></div>
-<p>For a one-shot "look once and answer" call that <em>doesn't</em> keep history, use <code>generate(images=...)</code> instead. It's the stateless sibling of <code>chat()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">caption</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Caption this image.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./cat.jpg&quot;</span><span class="p">])</span>  <span class="c1"># client.messages stays empty</span>
-</span></code></pre></div>
-<p><code>client.messages</code> keeps everything in OpenAI content-block format internally. Each provider adapts at request time; see <a href="../../how-to/handle-vision/">how-to: handle vision</a> for the per-provider details.</p>
-<h2 id="2-stream-the-response">2. Stream the response<a class="headerlink" href="#2-stream-the-response" title="Permanent link">&para;</a></h2>
-<p><code>stream=True</code> returns a <code>StreamChunk</code> iterator instead of a string:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Describe the scene in detail.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./photo.jpg&quot;</span><span class="p">],</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="3-the-streamchunk-api">3. The StreamChunk API<a class="headerlink" href="#3-the-streamchunk-api" title="Permanent link">&para;</a></h2>
-<p>Each <code>StreamChunk</code> is a named tuple:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">StreamChunk</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">agent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">iteration</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<p><code>chunk.is_text()</code> is <code>True</code> for both <code>THINKING</code> and <code>GENERATING</code> phases, so this prints reasoning and
+answer alike. The next sections show how to tell them apart and filter.</p>
+<h2 id="2-the-streamchunk-api">2. The StreamChunk API<a class="headerlink" href="#2-the-streamchunk-api" title="Permanent link">&para;</a></h2>
+<p>Every streaming source yields the same named tuple:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">StreamChunk</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">agent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">iteration</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -3118,77 +3115,88 @@
 <tr>
 <td><code>content</code></td>
 <td><code>str</code> or <code>dict</code></td>
-<td><code>str</code> for text phases; <code>{"name", "arguments", "response"}</code> for tool calls</td>
+<td><code>str</code> for text phases; <code>{"name", "arguments", "response"}</code> for a tool call</td>
 </tr>
 <tr>
 <td><code>agent</code></td>
 <td><code>str \| None</code></td>
-<td>Agent name when emitted by an agent or workflow; <code>None</code> for plain <code>chat()</code></td>
+<td>Agent/workflow name when emitted by one; <code>None</code> for a plain <code>chat()</code></td>
 </tr>
 <tr>
 <td><code>iteration</code></td>
 <td><code>int</code></td>
-<td>Agent loop index or chain step; <code>0</code> for plain chat</td>
+<td>Agent loop index or workflow step; <code>0</code> for a plain chat</td>
 </tr>
 </tbody>
 </table>
-<p>Helpers cut the boilerplate:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">()</span>        <span class="c1"># True for THINKING, GENERATING</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>   <span class="c1"># True for TOOL_CALLING</span>
+<p>Helpers cut the phase-checking boilerplate:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">()</span>        <span class="c1"># True for THINKING, GENERATING</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>   <span class="c1"># True for TOOL_CALLING</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_done</span><span class="p">()</span>        <span class="c1"># True for the terminal DONE chunk</span>
 </span></code></pre></div>
-<h2 id="4-filter-phases">4. Filter phases<a class="headerlink" href="#4-filter-phases" title="Permanent link">&para;</a></h2>
-<p>To skip thinking output (e.g. show only the final response), pass <code>include=[...]</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Solve this puzzle...&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;generating&quot;</span><span class="p">]):</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<p>See the <a href="../../reference/stream-phases/">stream phases reference</a> for the exact phase sequence per
+call type.</p>
+<h2 id="3-filter-phases-with-include">3. Filter phases with <code>include=</code><a class="headerlink" href="#3-filter-phases-with-include" title="Permanent link">&para;</a></h2>
+<p>Thinking models emit <code>THINKING</code> chunks before the answer. To show only the final response, pass
+<code>include=[...]</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Solve this puzzle step by step...&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;generating&quot;</span><span class="p">]):</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Or to <em>only</em> show thinking (useful for debugging reasoning models):</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Reason about this...&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;thinking&quot;</span><span class="p">]):</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<p>Or, to watch <em>only</em> the reasoning (handy when debugging a reasoning model):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Reason about this...&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;thinking&quot;</span><span class="p">]):</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Accepts string names or <code>StreamingContentType</code> members.</p>
-<h2 id="5-streaming-through-agents">5. Streaming through agents<a class="headerlink" href="#5-streaming-through-agents" title="Permanent link">&para;</a></h2>
-<p>The same chunk type flows through agents and workflows. Agent context shows up in <code>chunk.agent</code> and <code>chunk.iteration</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;You are a helpful image analyst.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;vision-bot&quot;</span><span class="p">)</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">current_agent</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Describe the scene&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./photo.jpg&quot;</span><span class="p">],</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">agent</span> <span class="o">!=</span> <span class="n">current_agent</span><span class="p">:</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- [</span><span class="si">{</span><span class="n">chunk</span><span class="o">.</span><span class="n">agent</span><span class="si">}</span><span class="s2">] iteration </span><span class="si">{</span><span class="n">chunk</span><span class="o">.</span><span class="n">iteration</span><span class="si">}</span><span class="s2"> ---&quot;</span><span class="p">)</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>        <span class="n">current_agent</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">agent</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="k">elif</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">():</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[tool: </span><span class="si">{</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+<p><code>include=</code> accepts string names (<code>"thinking"</code>, <code>"tool_calling"</code>, <code>"generating"</code>, <code>"done"</code>) or
+<code>StreamingContentType</code> members. It defaults to all phases.</p>
+<h2 id="4-stream-through-an-agent">4. Stream through an agent<a class="headerlink" href="#4-stream-through-an-agent" title="Permanent link">&para;</a></h2>
+<p>The same chunk type flows through an <code>Agent</code> — now the <code>agent</code> and <code>iteration</code> fields carry context,
+and you'll see <code>TOOL_CALLING</code> chunks as the loop dispatches tools:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;You are a helpful assistant.&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="n">builtin</span><span class="o">.</span><span class="n">compute</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;assistant&quot;</span><span class="p">)</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;What is 17 * 23, and then that plus 100?&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">():</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[tool: </span><span class="si">{</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s1">&#39;arguments&#39;</span><span class="p">]</span><span class="si">!r}</span><span class="s2">)]&quot;</span><span class="p">)</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="k">elif</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
-<p>For chains, <code>chunk.iteration</code> is the chain step. For agent loops, it's the loop iteration. Same field, contextually meaningful.</p>
-<h2 id="6-images-through-workflows">6. Images through workflows<a class="headerlink" href="#6-images-through-workflows" title="Permanent link">&para;</a></h2>
-<p><code>images=</code> is threaded through every workflow's <code>run()</code>:</p>
-<ul>
-<li><code>Chain.run(task, images=[...])</code>: forwarded only to step 0</li>
-<li><code>Router.run(task, images=[...])</code>: forwarded to the dispatched handler</li>
-<li><code>Parallel.run(task, images=[...])</code>: forwarded to every worker</li>
-<li><code>EvaluatorOptimizer.run(task, images=[...])</code>: forwarded only to the initial generator turn</li>
-</ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Chain</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">Chain</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="s2">&quot;Describe what you see in detail.&quot;</span><span class="p">,</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="s2">&quot;Summarise the description in one sentence.&quot;</span><span class="p">,</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">])</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Tell me about this photo.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./photo.jpg&quot;</span><span class="p">]))</span>
+<p><code>chunk.iteration</code> increments each time the loop calls the model again after running tools, so you can
+group output by round:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">current</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">iteration</span> <span class="o">!=</span> <span class="n">current</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>        <span class="n">current</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">iteration</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- iteration </span><span class="si">{</span><span class="n">current</span><span class="si">}</span><span class="s2"> ---&quot;</span><span class="p">)</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Step 0 sees the image; step 1 sees only step 0's text output.</p>
+<h2 id="5-stream-through-workflows">5. Stream through workflows<a class="headerlink" href="#5-stream-through-workflows" title="Permanent link">&para;</a></h2>
+<p>Workflows yield the same chunks. For a <code>Chain</code>, <code>chunk.iteration</code> is the chain step:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Chain</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">Chain</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="s2">&quot;List three facts about the topic.&quot;</span><span class="p">,</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="s2">&quot;Summarise them in one sentence.&quot;</span><span class="p">,</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">])</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;The Python GIL&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">iteration</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>   <span class="c1"># step 0&#39;s output</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Same field, contextually meaningful: agent loop index for an <code>Agent</code>, step index for a <code>Chain</code>.
+<code>Router</code> streams the classifier then the matched handler; <code>Parallel</code> streams the aggregator.</p>
 <h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
-<p>You've completed the tutorials. You now know:</p>
+<p>You now know the whole streaming surface: <code>stream=True</code>, the <code>StreamChunk</code> fields and helpers, the
+<code>include=</code> filter, and how the same chunks flow through agents and workflows.</p>
 <ul>
-<li>The top-level API: <code>aimu.chat()</code>, <code>aimu.client()</code>, model strings</li>
-<li>The agent loop and the <code>@tool</code> decorator</li>
-<li>Four workflow patterns: Chain, Router, Parallel, EvaluatorOptimizer</li>
-<li>Vision input and the <code>StreamChunk</code> API</li>
+<li><strong><a href="../05-vision-and-audio/">Vision &amp; audio input</a></strong>: the last tutorial — send images and audio to a
+  model.</li>
+<li><strong><a href="../../how-to/stream-output/">How-to: stream output</a></strong>: task-focused streaming recipes.</li>
+<li><strong><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a></strong>: why there's one chunk
+  type for everything.</li>
 </ul>
-<p>For specific tasks, browse the <a href="../../how-to/">how-to guides</a>. For the design intent behind any of this, see <a href="../../explanation/">explanation</a>.</p>
 
 
 

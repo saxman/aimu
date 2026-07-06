@@ -484,6 +484,8 @@
       
         
       
+        
+      
     
     
     
@@ -658,10 +660,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-streaming" class="md-nav__link">
+  <a href="#4-swap-providers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Streaming
+        4. Swap providers
       
     </span>
   </a>
@@ -669,21 +671,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-swap-providers" class="md-nav__link">
+  <a href="#5-your-first-agent" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Swap providers
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-your-first-agent" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. Your first agent
+        5. Your first agent
       
     </span>
   </a>
@@ -773,14 +764,42 @@
   
   
     <li class="md-nav__item">
-      <a href="../04-vision-and-streaming/" class="md-nav__link">
+      <a href="../04-streaming/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Vision and streaming
+    Streaming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05-vision-and-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vision and audio input
   
 
     
@@ -3015,10 +3034,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-streaming" class="md-nav__link">
+  <a href="#4-swap-providers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Streaming
+        4. Swap providers
       
     </span>
   </a>
@@ -3026,21 +3045,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-swap-providers" class="md-nav__link">
+  <a href="#5-your-first-agent" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Swap providers
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-your-first-agent" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. Your first agent
+        5. Your first agent
       
     </span>
   </a>
@@ -3122,48 +3130,42 @@
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># &#39;You told me your favourite colour is blue.&#39;</span>
 </span></code></pre></div>
 <p><code>client.chat()</code> accumulates history in <code>client.messages</code>. The system message is set at construction time and locks once the first chat is sent. Call <code>client.reset()</code> if you need to start over.</p>
-<h2 id="4-streaming">4. Streaming<a class="headerlink" href="#4-streaming" title="Permanent link">&para;</a></h2>
-<p>For UIs and progress visibility, pass <code>stream=True</code>. You get an iterator of <code>StreamChunk</code> objects:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Tell me a short story&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span></code></pre></div>
-<p><code>chunk.is_text()</code> is <code>True</code> for both <code>THINKING</code> and <code>GENERATING</code> phases. For finer control see <a href="../../how-to/stream-output/">how-to: stream output</a>.</p>
-<h2 id="5-swap-providers">5. Swap providers<a class="headerlink" href="#5-swap-providers" title="Permanent link">&para;</a></h2>
+<p>For UIs and progress visibility, every call takes <code>stream=True</code> to yield tokens as they arrive — that gets its own <a href="../04-streaming/">Streaming tutorial</a>.</p>
+<h2 id="4-swap-providers">4. Swap providers<a class="headerlink" href="#4-swap-providers" title="Permanent link">&para;</a></h2>
 <p>The whole point of <code>ModelClient</code> is provider-agnostic code. Switch by changing the model string:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Local Ollama</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Anthropic (needs ANTHROPIC_API_KEY)</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># OpenAI (needs OPENAI_API_KEY)</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-4o-mini&quot;</span><span class="p">)</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Google Gemini (needs GOOGLE_API_KEY)</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;gemini:gemini-2.5-flash&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Local Ollama</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Anthropic (needs ANTHROPIC_API_KEY)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># OpenAI (needs OPENAI_API_KEY)</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-4o-mini&quot;</span><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># Google Gemini (needs GOOGLE_API_KEY)</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;gemini:gemini-2.5-flash&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The rest of your code is unchanged. See <a href="../../how-to/switch-providers/">how-to: switch providers</a> for the full list.</p>
-<h2 id="6-your-first-agent">6. Your first agent<a class="headerlink" href="#6-your-first-agent" title="Permanent link">&para;</a></h2>
+<h2 id="5-your-first-agent">5. Your first agent<a class="headerlink" href="#5-your-first-agent" title="Permanent link">&para;</a></h2>
 <p>So far we've called <code>chat()</code> directly. An <code>Agent</code> adds a tool-using loop on top: it keeps calling <code>chat()</code> until the model stops invoking tools.</p>
 <p>First, declare a tool:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nd">@aimu</span><span class="o">.</span><span class="n">tool</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">letter_counter</span><span class="p">(</span><span class="n">word</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">letter</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Count occurrences of a letter in a word.&quot;&quot;&quot;</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="k">return</span> <span class="n">word</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">letter</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nd">@aimu</span><span class="o">.</span><span class="n">tool</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">letter_counter</span><span class="p">(</span><span class="n">word</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">letter</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Count occurrences of a letter in a word.&quot;&quot;&quot;</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="k">return</span> <span class="n">word</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">letter</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
 </span></code></pre></div>
 <p>The <code>@aimu.tool</code> decorator inspects the signature and docstring to build a tool spec for the model. The function itself is unchanged.</p>
 <p>Then wrap a client in an <code>Agent</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;You are a helpful assistant.&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">letter_counter</span><span class="p">])</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;How many r&#39;s are in &#39;strawberry&#39;?&quot;</span><span class="p">))</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># The model calls letter_counter(word=&quot;strawberry&quot;, letter=&quot;r&quot;), gets 3,</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="c1"># and responds with the answer.</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;You are a helpful assistant.&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">letter_counter</span><span class="p">])</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;How many r&#39;s are in &#39;strawberry&#39;?&quot;</span><span class="p">))</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># The model calls letter_counter(word=&quot;strawberry&quot;, letter=&quot;r&quot;), gets 3,</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># and responds with the answer.</span>
 </span></code></pre></div>
 <p>The agent's loop: send the user's message → if the model called tools, dispatch them and continue → repeat until the model returns text without calling tools.</p>
 <h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
@@ -3177,7 +3179,8 @@
 <ul>
 <li><strong><a href="../02-first-agent-with-tools/">First agent with tools</a></strong>: deeper on <code>@tool</code> and built-in tools.</li>
 <li><strong><a href="../03-workflows/">Workflows</a></strong>: code-controlled patterns (chain / router / parallel) when you want the <em>flow</em> fixed.</li>
-<li><strong><a href="../04-vision-and-streaming/">Vision and streaming</a></strong>: image input plus the full <code>StreamChunk</code> API.</li>
+<li><strong><a href="../04-streaming/">Streaming</a></strong>: the full <code>StreamChunk</code> API across chats, agents, and workflows.</li>
+<li><strong><a href="../05-vision-and-audio/">Vision &amp; audio input</a></strong>: send images and audio to a model.</li>
 </ul>
 <p>Or jump into <a href="../../how-to/">how-to guides</a> for specific tasks.</p>
 
