@@ -66,20 +66,9 @@ print(client.chat("What did I just tell you?"))
 
 `client.chat()` accumulates history in `client.messages`. The system message is set at construction time and locks once the first chat is sent. Call `client.reset()` if you need to start over.
 
+For UIs and progress visibility, every call takes `stream=True` to yield tokens as they arrive — that gets its own [Streaming tutorial](04-streaming.md).
 
-## 4. Streaming
-
-For UIs and progress visibility, pass `stream=True`. You get an iterator of `StreamChunk` objects:
-
-```python
-for chunk in aimu.chat("Tell me a short story", model="ollama:qwen3.5:9b", stream=True):
-    if chunk.is_text():
-        print(chunk.content, end="", flush=True)
-```
-
-`chunk.is_text()` is `True` for both `THINKING` and `GENERATING` phases. For finer control see [how-to: stream output](../how-to/stream-output.md).
-
-## 5. Swap providers
+## 4. Swap providers
 
 The whole point of `ModelClient` is provider-agnostic code. Switch by changing the model string:
 
@@ -99,7 +88,7 @@ aimu.chat("hi", model="gemini:gemini-2.5-flash")
 
 The rest of your code is unchanged. See [how-to: switch providers](../how-to/switch-providers.md) for the full list.
 
-## 6. Your first agent
+## 5. Your first agent
 
 So far we've called `chat()` directly. An `Agent` adds a tool-using loop on top: it keeps calling `chat()` until the model stops invoking tools.
 
@@ -143,6 +132,7 @@ The next tutorials build on each:
 
 - **[First agent with tools](02-first-agent-with-tools.md)**: deeper on `@tool` and built-in tools.
 - **[Workflows](03-workflows.md)**: code-controlled patterns (chain / router / parallel) when you want the *flow* fixed.
-- **[Vision and streaming](04-vision-and-streaming.md)**: image input plus the full `StreamChunk` API.
+- **[Streaming](04-streaming.md)**: the full `StreamChunk` API across chats, agents, and workflows.
+- **[Vision & audio input](05-vision-and-audio.md)**: send images and audio to a model.
 
 Or jump into [how-to guides](../how-to/index.md) for specific tasks.

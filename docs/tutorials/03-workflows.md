@@ -144,7 +144,8 @@ The `messages` property merges sub-agent message dicts recursively, so you can s
 
 You've now seen all four workflow patterns plus the autonomous `Agent`. Pick the right one per task; mix freely.
 
-- **[Vision and streaming](04-vision-and-streaming.md)**: last tutorial.
+- **[Streaming](04-streaming.md)**: the full `StreamChunk` API across chats, agents, and workflows.
+- **[Vision & audio input](05-vision-and-audio.md)**: the last tutorial — images and audio in.
 - **[How-to: build an orchestrator](../how-to/build-orchestrator.md)**: when you want an LLM to dispatch to other agents *autonomously* via tools (a different pattern from `Router`, which dispatches in code).
 - **[Explanation: agents vs workflows](../explanation/agents-vs-workflows.md)**: the design argument.
 - Notebook [09 - Workflows](https://github.com/saxman/aimu/blob/main/notebooks/09%20-%20Workflows.ipynb): interactive versions of every example here.

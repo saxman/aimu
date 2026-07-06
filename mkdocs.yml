@@ -97,7 +97,8 @@ nav:
       - Getting started: tutorials/01-getting-started.md
       - First agent with tools: tutorials/02-first-agent-with-tools.md
       - Workflows: tutorials/03-workflows.md
-      - Vision and streaming: tutorials/04-vision-and-streaming.md
+      - Streaming: tutorials/04-streaming.md
+      - Vision and audio input: tutorials/05-vision-and-audio.md
   - Examples: examples.md
   - How-to:
       - how-to/index.md

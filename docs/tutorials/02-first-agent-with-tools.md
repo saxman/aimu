@@ -119,19 +119,18 @@ This is OpenAI's message format; there's no proprietary wrapper.
 
 ## 5. Stream the agent
 
-Same iterator API as `client.chat(stream=True)`, but each `StreamChunk` carries the agent name and loop iteration:
+Pass `stream=True` to watch the loop live — each `StreamChunk` carries the agent name, the loop
+iteration, and `TOOL_CALLING` chunks as tools fire:
 
 ```python
 for chunk in agent.run("count r's in strawberry and 2+2", stream=True):
     if chunk.is_tool_call():
-        name = chunk.content["name"]
-        args = chunk.content["arguments"]
-        print(f"\n[tool: {name}({args!r})]")
+        print(f"\n[tool: {chunk.content['name']}({chunk.content['arguments']!r})]")
     elif chunk.is_text():
         print(chunk.content, end="")
 ```
 
-See [how-to: stream output](../how-to/stream-output.md) for full streaming patterns.
+The [Streaming tutorial](04-streaming.md) covers the full `StreamChunk` API and the `include=` filter.
 
 ## What's next
 
