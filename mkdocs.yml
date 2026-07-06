@@ -60,7 +60,11 @@ markdown_extensions:
   - toc:
       permalink: true
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.highlight:
@@ -160,5 +164,6 @@ nav:
       - Tool integration: explanation/tool-integration.md
       - A2A vs MCP: explanation/a2a-vs-mcp.md
       - Async design: explanation/async-design.md
+      - Thinking and context: explanation/thinking-and-context.md
   - Changelog: changelog.md
   - Contributing: contributing.md
