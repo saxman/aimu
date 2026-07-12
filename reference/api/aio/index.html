@@ -2533,6 +2533,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.make_async_subagent_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_async_subagent_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#personal-assistant" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4162,6 +4173,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.make_async_subagent_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_async_subagent_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#personal-assistant" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5670,6 +5692,33 @@ agent = aio.Agent(client, tools=await mcp.as_tools())
 
 
   </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.aio.tools.builtin.make_async_subagent_tool" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.aio.tools.builtin.make_async_subagent_tool</span>
+
+
+<a href="#aimu.aio.tools.builtin.make_async_subagent_tool" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_async_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;spawn_subagent&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Async twin of :func:<code>aimu.tools.builtin.make_subagent_tool</code>.</p>
+<p>Produces an <code>async def spawn_subagent</code> tool (<code>__tool_is_async__=True</code>) that builds a fresh,
+isolated :class:<code>aimu.aio.Agent</code> per call and awaits its <code>run</code>. Parallelism is free: give the
+parent :class:<code>aimu.aio.Agent</code> <code>concurrent_tool_calls=True</code> and multiple spawn calls in one turn
+overlap under an <code>asyncio.TaskGroup</code>. See the sync docstring for the full contract (generic vs
+typed mode, <code>max_depth</code> recursion guard, unknown-<code>agent_type</code> handling).</p>
+<p>In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
+surface can't construct them from an enum); the process weight cache prevents reloading weights.</p>
+
 
     </div>
 

@@ -2689,6 +2689,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The orchestrator pattern">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#static-orchestration-vs-dynamic-spawning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static orchestration vs dynamic spawning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3019,6 +3036,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The orchestrator pattern">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#static-orchestration-vs-dynamic-spawning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static orchestration vs dynamic spawning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3126,6 +3160,9 @@
 <p><code>OrchestratorAgent</code> is a third pattern that sits between agents and workflows: an <em>autonomous</em> agent whose tools are other agents. The orchestrator LLM decides which worker agents to call (and in what order), but each worker runs its own agentic loop.</p>
 <p>This is most useful when the workers themselves benefit from tool use. A research orchestrator might have three workers (overview, examples, counterpoints), each of which can call web-search tools. The orchestrator decides which workers to dispatch; the workers decide how to do their work.</p>
 <p>Use <code>OrchestratorAgent.assemble(client, system_message, workers=[...])</code> for the simple case (each worker is auto-wrapped as a <code>@tool</code>), or subclass and call <code>self._init_orchestrator(...)</code> when you need custom tool signatures.</p>
+<h3 id="static-orchestration-vs-dynamic-spawning">Static orchestration vs dynamic spawning<a class="headerlink" href="#static-orchestration-vs-dynamic-spawning" title="Permanent link">&para;</a></h3>
+<p><code>OrchestratorAgent</code> wires a <strong>fixed roster</strong> of workers up front — the orchestrator LLM only chooses <em>among</em> them. When you instead want the LLM to decide the roster at runtime — how many sub-agents to launch and what each one does — give it a <code>spawn_subagent</code> tool built by <a href="../../how-to/spawn-subagents/"><code>make_subagent_tool</code></a>. Each spawn is a fresh <code>Agent</code> with its own isolated context, and several spawned in one turn run in parallel (via <code>concurrent_tool_calls</code>).</p>
+<p>Both reduce to <code>subagent.run(task)</code>; the difference is <em>who decides the roster</em>. Static orchestration when the specialists are known; dynamic spawning when the fan-out is data-dependent. Typed mode (<code>agent_types=</code>) is the middle ground: the LLM picks <em>how many</em> and <em>which kind</em>, but only from specialist types you defined.</p>
 <h2 id="further-reading">Further reading<a class="headerlink" href="#further-reading" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a>: the original taxonomy.</li>

@@ -2391,6 +2391,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_subagent_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_subagent_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3445,6 +3456,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_subagent_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_subagent_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4281,6 +4303,218 @@ agent = Agent(client, tools=[make_retrieval_tool(store)])
 </code></pre></div>
 <p>Like :func:<code>make_memory_tools</code>, there is no env-var singleton; the store (and what was
 ingested into it) is a meaningful, explicit choice.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.make_subagent_tool" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.make_subagent_tool</span>
+
+
+<a href="#aimu.tools.builtin.make_subagent_tool" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;spawn_subagent&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Build a <code>spawn_subagent</code> tool that delegates subtasks to fresh, isolated sub-agents.</p>
+<p>This is AIMU's answer to dynamic sub-agent spawning (as in Claude Code's <code>Task</code> tool): the
+LLM decides at runtime to hand an independent subtask to a brand-new :class:<code>~aimu.agents.Agent</code>
+with its own context, rather than choosing among a fixed roster. It is the <em>dynamic complement</em>
+to :class:<code>~aimu.agents.OrchestratorAgent</code> (which wires a known set of workers up front); both
+reduce to <code>subagent.run(task)</code> — the difference is who decides the roster.</p>
+<p>Each invocation builds a fresh <code>ModelClient(model)</code> (its own message history — the
+:func:<code>aimu.agents.prebuilt._base.make_workers</code> isolation idiom), so concurrent spawns share no
+state. <strong>Parallelism is free</strong>: give the <em>parent</em> <code>Agent</code> <code>concurrent_tool_calls=True</code> and,
+when the model emits several <code>spawn_subagent</code> calls in one turn, they run concurrently
+(<code>ThreadPoolExecutor</code>). Genuine overlap is for cloud models — a single local model serializes on
+the GIL/CUDA, and a shared <code>deps</code> object handed to concurrent spawns must be thread-safe.</p>
+<p>Two shapes, chosen by <code>agent_types</code>:</p>
+<ul>
+<li>Generic (<code>agent_types=None</code>): the tool is <code>spawn_subagent(task)</code> — a fresh general-purpose
+  sub-agent using <code>system_message</code> + <code>tools</code>.</li>
+<li>Typed (<code>agent_types</code> given): the tool is <code>spawn_subagent(agent_type, task)</code> over a registry
+  of named specialists (each value a dict with <code>"system_message"</code> and optional <code>"tools"</code> /
+  <code>"model"</code>); the available names are listed in the tool description. An unknown <code>agent_type</code>
+  is returned to the model as a tool result (self-correction), not raised.</li>
+</ul>
+<p><code>max_depth</code> (default 1) is the recursion guard: it counts the caller's agent as level 1, so the
+default gives spawned sub-agents <em>no</em> spawn tool of their own. <code>max_depth=2</code> lets one more level
+spawn, and so on; the nested tool is rebuilt with a decremented depth, so recursion is finite.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>Model</code> enum member, a <code>"provider:model_id"</code> string, or a <code>BaseModelClient</code>
+to clone the model from (a fresh client is built per spawn regardless — the live client
+is never shared).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>system_message</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Persona for generic sub-agents.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="aimu.tools.builtin.DEFAULT_SUBAGENT_SYSTEM_MESSAGE">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span></code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tools</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="list">list</span>[<span title="typing.Callable">Callable</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tools each generic sub-agent receives (<code>None</code> = text-only).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>agent_types</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="dict">dict</span>[<span title="str">str</span>, <span title="dict">dict</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional registry that switches the tool to typed mode.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_depth</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Spawn levels permitted, counting the caller's agent as 1 (must be &gt;= 1).</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_iterations</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tool-loop cap forwarded to each spawned agent.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>concurrent_tool_calls</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Applied to <em>spawned</em> agents (so nested spawns overlap). The parent's
+own concurrency is set by its author.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>deps</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>ToolContext.deps</code> passed to each spawned agent.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tool_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the produced tool (mint several differently-named spawn tools on one agent).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;spawn_subagent&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+        <p>Example::</p>
+<div class="language-text highlight"><pre><span></span><code>from aimu.tools.builtin import make_subagent_tool, web
+
+spawn = make_subagent_tool(&quot;anthropic:claude-sonnet-4-6&quot;, tools=web)
+agent = Agent(client, &quot;Break the request into subtasks and spawn a sub-agent for each.&quot;,
+              tools=[spawn], concurrent_tool_calls=True)
+print(agent.run(&quot;Compare the GDP growth of France, Japan, and Brazil since 2019.&quot;))
+</code></pre></div>
 
 
     </div>
