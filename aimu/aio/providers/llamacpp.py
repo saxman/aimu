@@ -124,9 +124,7 @@ class AsyncLlamaCppClient(AsyncBaseModelClient):
                 user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio
             )
             return self._stream_via_thread(sync_iter)
-        return await asyncio.to_thread(
-            self._sync._chat, user_message, generate_kwargs, use_tools, False, images, audio
-        )
+        return await asyncio.to_thread(self._sync._chat, user_message, generate_kwargs, use_tools, False, images, audio)
 
     async def _stream_via_thread(self, sync_iterator) -> AsyncIterator[StreamChunk]:
         sentinel = object()
