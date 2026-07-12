@@ -8,9 +8,10 @@ generation.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from aimu.tools.builtin import (  # noqa: F401 (re-exports)
+    DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
     calculate,
     compute,
     echo,
@@ -28,6 +29,7 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     web,
     wikipedia,
 )
+from aimu.tools.builtin import _subagent_docstring, _validate_subagent_config
 from aimu.tools.decorator import tool
 
 _async_image_client = None
@@ -115,3 +117,124 @@ def make_async_image_tool(client, *, preview_every: Optional[int] = None):
 
 
 image = [generate_image]
+
+
+def _is_in_process_model(model) -> bool:
+    """True for HuggingFace / LlamaCpp enum members (which the aio surface must wrap, not construct)."""
+    try:
+        from aimu.models.providers.hf.text import HuggingFaceModel
+
+        if isinstance(model, HuggingFaceModel):
+            return True
+    except ImportError:
+        pass
+    try:
+        from aimu.models.providers.llamacpp import LlamaCppModel
+
+        if isinstance(model, LlamaCppModel):
+            return True
+    except ImportError:
+        pass
+    return False
+
+
+def _fresh_async_subagent_client(model):
+    """Build a fresh isolated :class:`AsyncModelClient` for one spawn.
+
+    Cloud/Ollama models are constructed directly. In-process providers (HuggingFace, LlamaCpp) can't
+    be built from an enum on the aio surface, so a *fresh* sync client is wrapped per spawn — fresh
+    preserves message isolation, and the process weight cache prevents a reload.
+    """
+    from aimu.aio._model_client import AsyncModelClient
+    from aimu.models.model_client import resolve_model_string
+
+    resolved = resolve_model_string(model) if isinstance(model, str) else model
+    if _is_in_process_model(resolved):
+        import aimu
+
+        return AsyncModelClient(aimu.client(resolved))
+    return AsyncModelClient(resolved)
+
+
+def make_async_subagent_tool(
+    model,
+    *,
+    system_message: str = DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
+    tools: Optional[list[Callable]] = None,
+    agent_types: Optional[dict[str, dict]] = None,
+    max_depth: int = 1,
+    max_iterations: int = 10,
+    concurrent_tool_calls: bool = True,
+    deps: Any = None,
+    tool_name: str = "spawn_subagent",
+) -> Callable:
+    """Async twin of :func:`aimu.tools.builtin.make_subagent_tool`.
+
+    Produces an ``async def spawn_subagent`` tool (``__tool_is_async__=True``) that builds a fresh,
+    isolated :class:`aimu.aio.Agent` per call and awaits its ``run``. Parallelism is free: give the
+    parent :class:`aimu.aio.Agent` ``concurrent_tool_calls=True`` and multiple spawn calls in one turn
+    overlap under an ``asyncio.TaskGroup``. See the sync docstring for the full contract (generic vs
+    typed mode, ``max_depth`` recursion guard, unknown-``agent_type`` handling).
+
+    In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
+    surface can't construct them from an enum); the process weight cache prevents reloading weights.
+    """
+    from aimu.models.base import BaseModelClient
+
+    _validate_subagent_config(max_depth, agent_types)
+    default_model = model.model if isinstance(model, BaseModelClient) else model
+
+    def _build_agent(sys_msg: str, agent_tools: Optional[list[Callable]], name: str, model_override=None):
+        from aimu.aio.agent import Agent
+
+        m = model_override if model_override is not None else default_model
+        child_tools = list(agent_tools or [])
+        if max_depth > 1:
+            child_tools.append(
+                make_async_subagent_tool(
+                    m,
+                    system_message=system_message,
+                    tools=tools,
+                    agent_types=agent_types,
+                    max_depth=max_depth - 1,
+                    max_iterations=max_iterations,
+                    concurrent_tool_calls=concurrent_tool_calls,
+                    deps=deps,
+                    tool_name=tool_name,
+                )
+            )
+        return Agent(
+            _fresh_async_subagent_client(m),
+            system_message=sys_msg,
+            name=name,
+            tools=child_tools,
+            max_iterations=max_iterations,
+            concurrent_tool_calls=concurrent_tool_calls,
+            deps=deps,
+        )
+
+    if agent_types is None:
+
+        async def spawn_subagent(task: str) -> str:
+            return await _build_agent(system_message, tools, name="subagent").run(task)
+
+    else:
+
+        async def spawn_subagent(agent_type: str, task: str) -> str:
+            spec = agent_types.get(agent_type)
+            if spec is None:
+                return (
+                    f"Unknown agent_type {agent_type!r}. Available agent_type values: {', '.join(sorted(agent_types))}."
+                )
+            agent = _build_agent(
+                spec["system_message"],
+                spec.get("tools", tools),
+                name=f"subagent-{agent_type}",
+                model_override=spec.get("model"),
+            )
+            return await agent.run(task)
+
+    spawn_subagent.__name__ = tool_name
+    spawn_subagent.__qualname__ = tool_name
+    spawn_subagent.__doc__ = _subagent_docstring(agent_types)
+    return tool(spawn_subagent)

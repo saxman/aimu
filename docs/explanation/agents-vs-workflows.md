@@ -66,6 +66,12 @@ This is most useful when the workers themselves benefit from tool use. A researc
 
 Use `OrchestratorAgent.assemble(client, system_message, workers=[...])` for the simple case (each worker is auto-wrapped as a `@tool`), or subclass and call `self._init_orchestrator(...)` when you need custom tool signatures.
 
+### Static orchestration vs dynamic spawning
+
+`OrchestratorAgent` wires a **fixed roster** of workers up front — the orchestrator LLM only chooses *among* them. When you instead want the LLM to decide the roster at runtime — how many sub-agents to launch and what each one does — give it a `spawn_subagent` tool built by [`make_subagent_tool`](../how-to/spawn-subagents.md). Each spawn is a fresh `Agent` with its own isolated context, and several spawned in one turn run in parallel (via `concurrent_tool_calls`).
+
+Both reduce to `subagent.run(task)`; the difference is *who decides the roster*. Static orchestration when the specialists are known; dynamic spawning when the fan-out is data-dependent. Typed mode (`agent_types=`) is the middle ground: the LLM picks *how many* and *which kind*, but only from specialist types you defined.
+
 ## Further reading
 
 - [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents): the original taxonomy.

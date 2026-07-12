@@ -88,7 +88,7 @@ Or install only what you need. AIMU's extras fall into two kinds:
 
 ### Agents and workflows
 
-- **[Autonomous agents](https://saxman.github.io/aimu/tutorials/02-first-agent-with-tools/).** An `Agent` runs a tool-using loop until the model stops calling tools, while `OrchestratorAgent` coordinates sub-agents and ships three prebuilt variants (`CodeReviewAgent`, `ContentCreationAgent`, `ResearchReportAgent`).
+- **[Autonomous agents](https://saxman.github.io/aimu/tutorials/02-first-agent-with-tools/).** An `Agent` runs a tool-using loop until the model stops calling tools, while `OrchestratorAgent` coordinates a fixed roster of sub-agents and ships three prebuilt variants (`CodeReviewAgent`, `ContentCreationAgent`, `ResearchReportAgent`). For [dynamic sub-agent spawning](https://saxman.github.io/aimu/how-to/spawn-subagents/), `make_subagent_tool(model, ...)` gives an agent a `spawn_subagent` tool so the model decides at runtime how many isolated sub-agents to launch, in parallel.
 - **[Code-controlled workflows](https://saxman.github.io/aimu/tutorials/03-workflows/).** Build pipelines from `Chain`, `Router`, `Parallel`, and `EvaluatorOptimizer`, each with a `from_client()` factory, then compose them freely: workflows take agents as steps, and `runner.as_tool()` hands any agent or workflow to another agent as a tool.
 - **[Interchangeable clients](https://saxman.github.io/aimu/how-to/benchmark-models/#compare-with-an-agentic-client).** Calling `agent.as_model_client()` makes any agent a drop-in `BaseModelClient`, so agentic and non-agentic clients substitute for each other.
 - **[A2A interop](https://saxman.github.io/aimu/how-to/connect-agents-a2a/).** With the optional `a2a` extra, `serve_a2a(runner)` exposes any agent or workflow over the Agent2Agent protocol, and `RemoteAgent.connect(url)` consumes a remote agent as a local `Runner`, so it composes (as a tool, a workflow step, or an orchestrator worker) exactly like a local one. The agent-level analog of MCP for tools.
@@ -354,7 +354,7 @@ The [`examples/`](examples/) directory ships larger, real-world programs organiz
 
 - [text-refinement/](examples/text-refinement/): A generate → judge → refine loop over **text**, implemented four ways (code loop, `Agent`, `EvaluatorOptimizer`, simulated annealing). GPU-free, Ollama-only.
 - [image-refinement/](examples/image-refinement/): The same loop over **images** (diffusion + vision evaluator), five variants including img2img. Needs `aimu[hf]` and a GPU.
-- [news-summarizer/](examples/news-summarizer/): One task (*summarize recent AI news*) solved with `Agent`, `Chain`, `Parallel`, and `OrchestratorAgent`, selected via `--method`.
+- [news-summarizer/](examples/news-summarizer/): One task (*summarize recent AI news*) solved with `Agent`, `Chain`, `Parallel`, `OrchestratorAgent`, and dynamic sub-agent spawning (`make_subagent_tool`), selected via `--method`.
 - [personal-assistant/](examples/personal-assistant/): An always-on, single-user assistant (OpenClaw / Hermes style) from AIMU primitives: a `CLIChannel`, a `Scheduler` for proactive reminders, and a `SkillAgent` that authors its own skills and runnable Python/shell scripts.
 - [skills/](examples/skills/): Demo `SKILL.md` skills (`haiku-poet`, `unit-converter`) for `SkillAgent` discovery, exposed as `aimu.paths.skills`.
 

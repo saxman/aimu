@@ -17,7 +17,7 @@ import re
 import traceback
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 from urllib.parse import quote
 
 import requests
@@ -968,6 +968,184 @@ def make_document_tools(store):
         return "\n\n".join(f"{m['path']}:\n{m['content']}" for m in matches)
 
     return [save_document, read_document, list_documents, search_documents]
+
+
+DEFAULT_SUBAGENT_SYSTEM_MESSAGE = (
+    "You are a focused sub-agent handling one delegated subtask in isolation. You do not share "
+    "memory or conversation history with other agents. Use the tools available to you to complete "
+    "the task, and return a single complete, self-contained answer as plain text."
+)
+
+
+def _subagent_first_line(spec: dict) -> str:
+    lines = spec["system_message"].strip().splitlines()
+    return lines[0] if lines else "(no description)"
+
+
+def _subagent_docstring(agent_types: Optional[dict[str, dict]]) -> str:
+    """Build the ``spawn_subagent`` docstring; its first paragraph becomes the model-facing description.
+
+    In typed mode the menu of ``agent_type`` names is folded into that first paragraph (the ``@tool``
+    decorator keeps only the first paragraph), so the model sees the available specialists.
+    """
+    if agent_types is None:
+        return (
+            "Delegate an independent subtask to a fresh general-purpose sub-agent with its own "
+            "isolated context, and return its final answer. The sub-agent shares no conversation "
+            "history with you or with other sub-agents, so give it a complete, self-contained task. "
+            "Emit multiple calls to this tool in a single turn to run subtasks in parallel.\n\n"
+            "Args:\n"
+            "    task: A complete, self-contained description of the subtask to delegate."
+        )
+    menu = "; ".join(f"{name} — {_subagent_first_line(spec)}" for name, spec in sorted(agent_types.items()))
+    return (
+        "Delegate an independent subtask to a fresh specialized sub-agent (chosen by agent_type) and "
+        "return its final answer; each runs in isolation with its own context and tools. Emit multiple "
+        "calls to this tool in a single turn to run subtasks in parallel. "
+        f"Available agent_type values: {menu}.\n\n"
+        "Args:\n"
+        "    agent_type: Which specialist to delegate to (one of the names listed above).\n"
+        "    task: A complete, self-contained description of the subtask to delegate."
+    )
+
+
+def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, dict]]) -> None:
+    """Raise ``ValueError`` for programmer errors at factory-call time (failures apparent)."""
+    if max_depth < 1:
+        raise ValueError(f"max_depth must be >= 1 (got {max_depth}).")
+    if agent_types is not None:
+        if not agent_types:
+            raise ValueError("agent_types must be a non-empty dict, or None for a generic sub-agent.")
+        for type_name, spec in agent_types.items():
+            if "system_message" not in spec:
+                raise ValueError(f"agent_types[{type_name!r}] is missing the required 'system_message' key.")
+
+
+def make_subagent_tool(
+    model,
+    *,
+    system_message: str = DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
+    tools: Optional[list[Callable]] = None,
+    agent_types: Optional[dict[str, dict]] = None,
+    max_depth: int = 1,
+    max_iterations: int = 10,
+    concurrent_tool_calls: bool = True,
+    deps: Any = None,
+    tool_name: str = "spawn_subagent",
+) -> Callable:
+    """Build a ``spawn_subagent`` tool that delegates subtasks to fresh, isolated sub-agents.
+
+    This is AIMU's answer to dynamic sub-agent spawning (as in Claude Code's ``Task`` tool): the
+    LLM decides at runtime to hand an independent subtask to a brand-new :class:`~aimu.agents.Agent`
+    with its own context, rather than choosing among a fixed roster. It is the *dynamic complement*
+    to :class:`~aimu.agents.OrchestratorAgent` (which wires a known set of workers up front); both
+    reduce to ``subagent.run(task)`` — the difference is who decides the roster.
+
+    Each invocation builds a fresh ``ModelClient(model)`` (its own message history — the
+    :func:`aimu.agents.prebuilt._base.make_workers` isolation idiom), so concurrent spawns share no
+    state. **Parallelism is free**: give the *parent* ``Agent`` ``concurrent_tool_calls=True`` and,
+    when the model emits several ``spawn_subagent`` calls in one turn, they run concurrently
+    (``ThreadPoolExecutor``). Genuine overlap is for cloud models — a single local model serializes on
+    the GIL/CUDA, and a shared ``deps`` object handed to concurrent spawns must be thread-safe.
+
+    Two shapes, chosen by ``agent_types``:
+
+    * Generic (``agent_types=None``): the tool is ``spawn_subagent(task)`` — a fresh general-purpose
+      sub-agent using ``system_message`` + ``tools``.
+    * Typed (``agent_types`` given): the tool is ``spawn_subagent(agent_type, task)`` over a registry
+      of named specialists (each value a dict with ``"system_message"`` and optional ``"tools"`` /
+      ``"model"``); the available names are listed in the tool description. An unknown ``agent_type``
+      is returned to the model as a tool result (self-correction), not raised.
+
+    ``max_depth`` (default 1) is the recursion guard: it counts the caller's agent as level 1, so the
+    default gives spawned sub-agents *no* spawn tool of their own. ``max_depth=2`` lets one more level
+    spawn, and so on; the nested tool is rebuilt with a decremented depth, so recursion is finite.
+
+    Args:
+        model: A ``Model`` enum member, a ``"provider:model_id"`` string, or a ``BaseModelClient``
+            to clone the model from (a fresh client is built per spawn regardless — the live client
+            is never shared).
+        system_message: Persona for generic sub-agents.
+        tools: Tools each generic sub-agent receives (``None`` = text-only).
+        agent_types: Optional registry that switches the tool to typed mode.
+        max_depth: Spawn levels permitted, counting the caller's agent as 1 (must be >= 1).
+        max_iterations: Tool-loop cap forwarded to each spawned agent.
+        concurrent_tool_calls: Applied to *spawned* agents (so nested spawns overlap). The parent's
+            own concurrency is set by its author.
+        deps: ``ToolContext.deps`` passed to each spawned agent.
+        tool_name: Name of the produced tool (mint several differently-named spawn tools on one agent).
+
+    Example::
+
+        from aimu.tools.builtin import make_subagent_tool, web
+
+        spawn = make_subagent_tool("anthropic:claude-sonnet-4-6", tools=web)
+        agent = Agent(client, "Break the request into subtasks and spawn a sub-agent for each.",
+                      tools=[spawn], concurrent_tool_calls=True)
+        print(agent.run("Compare the GDP growth of France, Japan, and Brazil since 2019."))
+    """
+    from aimu.models.base import BaseModelClient
+
+    _validate_subagent_config(max_depth, agent_types)
+
+    # Normalize to an enum/string the sub-agent client is rebuilt from each call (never share a live client).
+    default_model = model.model if isinstance(model, BaseModelClient) else model
+
+    def _build_agent(sys_msg: str, agent_tools: Optional[list[Callable]], name: str, model_override=None):
+        from aimu.agents.agent import Agent
+        from aimu.models.model_client import ModelClient
+
+        m = model_override if model_override is not None else default_model
+        child_tools = list(agent_tools or [])
+        if max_depth > 1:
+            child_tools.append(
+                make_subagent_tool(
+                    m,
+                    system_message=system_message,
+                    tools=tools,
+                    agent_types=agent_types,
+                    max_depth=max_depth - 1,
+                    max_iterations=max_iterations,
+                    concurrent_tool_calls=concurrent_tool_calls,
+                    deps=deps,
+                    tool_name=tool_name,
+                )
+            )
+        return Agent(
+            ModelClient(m),
+            system_message=sys_msg,
+            name=name,
+            tools=child_tools,
+            max_iterations=max_iterations,
+            concurrent_tool_calls=concurrent_tool_calls,
+            deps=deps,
+        )
+
+    if agent_types is None:
+
+        def spawn_subagent(task: str) -> str:
+            return _build_agent(system_message, tools, name="subagent").run(task)
+
+    else:
+
+        def spawn_subagent(agent_type: str, task: str) -> str:
+            spec = agent_types.get(agent_type)
+            if spec is None:
+                return (
+                    f"Unknown agent_type {agent_type!r}. Available agent_type values: {', '.join(sorted(agent_types))}."
+                )
+            agent = _build_agent(
+                spec["system_message"],
+                spec.get("tools", tools),
+                name=f"subagent-{agent_type}",
+                model_override=spec.get("model"),
+            )
+            return agent.run(task)
+
+    spawn_subagent.__name__ = tool_name
+    spawn_subagent.__qualname__ = tool_name
+    spawn_subagent.__doc__ = _subagent_docstring(agent_types)
+    return tool(spawn_subagent)
 
 
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.

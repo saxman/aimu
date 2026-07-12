@@ -12,6 +12,8 @@ AIMU's autonomous-agent and code-controlled-workflow surfaces:
                   aggregator merges their digests into one.
     orchestrator  Orchestrator-workers: an orchestrator LLM treats a "searcher" agent and
                   a "summarizer" agent as tools and decides how to combine them.
+    spawn         Dynamic sub-agent spawning: one agent holds a single spawn_subagent tool and
+                  decides at runtime how many isolated sub-agents to launch (in parallel).
 
 Usage::
 
@@ -321,11 +323,59 @@ def build_orchestrator(model: str, fmt: str) -> OrchestratorAgent:
     )
 
 
+def build_spawn(model: str, fmt: str) -> Agent:
+    """Dynamic sub-agent spawning: the LLM decides how many isolated sub-agents to launch.
+
+    Unlike --method orchestrator (a fixed 'searcher'+'summarizer' roster wired up front), the
+    parent agent here holds a single ``spawn_subagent`` tool over a typed registry and decides at
+    runtime how many sub-agents to spawn and with what tasks -- e.g. several 'searcher' spawns in
+    one turn (which run concurrently, each with its own isolated context) for different topics,
+    then a 'summarizer' spawn to condense the combined findings.
+    """
+    _note("Single agent with a spawn_subagent tool; the LLM spawns isolated sub-agents (parallel).")
+    spawn = builtin.make_subagent_tool(
+        model,
+        agent_types={
+            "searcher": {
+                "system_message": (
+                    "Search the web for AI technical news published in the last 24 hours and return "
+                    "raw findings: title, source URL, publication time, and key facts."
+                ),
+                "tools": TOOLS,
+            },
+            "summarizer": {
+                "system_message": (
+                    "Condense the provided article notes into concise summaries, preserving every "
+                    "source link. Drop anything older than 24 hours."
+                ),
+                "tools": [],  # text-only; the summarizer works from notes handed to it
+            },
+        },
+        max_iterations=MAX_ITERATIONS,
+    )
+    return Agent(
+        aimu.client(model),
+        system_message=(
+            "You coordinate AI-news summarization by spawning sub-agents. Spawn one or more "
+            "'searcher' sub-agents (issue the calls in a single turn so they run in parallel) to "
+            "gather recent articles across different topics, then spawn a 'summarizer' sub-agent to "
+            "condense the combined findings. Produce a final dated digest with a source link for "
+            "every item. Only include articles from the last 24 hours." + FORMAT_DIRECTIVE[fmt]
+        ),
+        name="news-spawn",
+        tools=[spawn],
+        max_iterations=MAX_ITERATIONS,
+        concurrent_tool_calls=True,
+        final_answer_prompt=FINAL_ANSWER_PROMPT,
+    )
+
+
 METHODS = {
     "agent": build_agent,
     "chain": build_chain,
     "parallel": build_parallel,
     "orchestrator": build_orchestrator,
+    "spawn": build_spawn,
 }
 
 # How to extract the final answer from each method's stream (see run_with_progress).
@@ -334,6 +384,7 @@ METHODS = {
 RESULT_COMBINE = {
     "agent": "after_tools",
     "orchestrator": "after_tools",
+    "spawn": "after_tools",
     "chain": "last_step",
     "parallel": "last_step",
 }

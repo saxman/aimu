@@ -32,6 +32,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 - [Use skills](use-skills.md): `SkillAgent` and the `SKILL.md` format
 - [Build a personal assistant](build-personal-assistant.md): channels, a scheduler, and runtime skill authoring for an always-on assistant
 - [Build an orchestrator](build-orchestrator.md): `OrchestratorAgent.assemble` or subclass
+- [Spawn sub-agents](spawn-subagents.md): `make_subagent_tool` for dynamic, parallel, isolated sub-agents (the runtime complement to `OrchestratorAgent`)
 - [Connect agents (A2A)](connect-agents-a2a.md): consume a remote agent as a `Runner`, or expose one with `serve_a2a`
 - [Plan, execute, evaluate, replan](plan-execute-evaluate.md): `PlanExecuteEvaluator` for tasks with measurable success criteria
 

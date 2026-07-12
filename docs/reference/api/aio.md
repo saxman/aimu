@@ -45,6 +45,8 @@ Differences from the sync surface:
 
 ::: aimu.aio.MCPClient
 
+::: aimu.aio.tools.builtin.make_async_subagent_tool
+
 ## Personal assistant
 
 Primitives for building an always-on assistant. See [how-to: build a personal assistant](../../how-to/build-personal-assistant.md).
