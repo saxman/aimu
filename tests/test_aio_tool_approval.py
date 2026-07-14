@@ -111,6 +111,42 @@ async def test_streaming_deny():
     assert client.messages[-1]["content"] == "Tool 'streamer' was not approved."
 
 
+async def test_async_subagent_factory_deny_gate_prevents_child_tool_execution(monkeypatch):
+    """Behavioral: tool_approval passed to make_async_subagent_tool gates child tool calls.
+
+    A real aio.Agent is built by the factory (not _RecordingAsyncAgent); a MockAsyncModelClient
+    drives the child's scripted turn so the child requests the gated tool. The approval gate
+    denies it, so the side-effect list stays empty and the transcript carries the refusal message.
+    """
+    ran = []
+
+    @tool
+    def danger() -> str:
+        """Risky child tool."""
+        ran.append(1)
+        return "ran"
+
+    from aimu.aio.tools import builtin as _aio_builtin
+
+    # Patch _fresh_async_subagent_client so the child agent gets a scripted mock instead of
+    # making network calls.
+    monkeypatch.setattr(
+        _aio_builtin,
+        "_fresh_async_subagent_client",
+        lambda model: MockAsyncModelClient(["tool", "done"]),
+    )
+
+    from aimu.aio.tools.builtin import make_async_subagent_tool
+
+    spawn = make_async_subagent_tool("anthropic:claude-sonnet-4-6", tools=[danger], tool_approval=_deny_all)
+    result = await spawn("do the risky thing")
+
+    # The child ran and returned "done" (the second scripted response after the denied tool turn).
+    assert result == "done"
+    # The danger tool body never ran.
+    assert ran == []
+
+
 async def test_agent_tool_approval_field_denies_and_per_run_override_approves():
     """Behavioral: the async Agent's ``tool_approval`` field gates tool execution during a run,
     and a per-run ``run(tool_approval=)`` override wins over the field. (Replaces the old test that

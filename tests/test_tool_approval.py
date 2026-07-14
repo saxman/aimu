@@ -135,6 +135,38 @@ def test_sync_coroutine_policy_raises():
         _ToolLoop(client, [add], tool_approval=acoro)._dispatch()
 
 
+def test_subagent_factory_deny_gate_prevents_child_tool_execution(monkeypatch):
+    """Behavioral: tool_approval passed to make_subagent_tool actually gates child tool calls.
+
+    A real Agent is built by the factory (not _RecordingAgent); a MockModelClient drives the
+    child's scripted turn so the child requests the gated tool. The approval gate denies it,
+    so the side-effect list stays empty and the transcript carries the refusal message.
+    """
+    ran = []
+
+    @tool
+    def danger() -> str:
+        """Risky child tool."""
+        ran.append(1)
+        return "ran"
+
+    from aimu.tools.builtin import make_subagent_tool
+
+    # Patch ModelClient so the child agent gets a scripted mock instead of making network calls.
+    monkeypatch.setattr(
+        "aimu.models.model_client.ModelClient",
+        lambda model: MockModelClient(["tool", "done"]),
+    )
+
+    spawn = make_subagent_tool("anthropic:claude-sonnet-4-6", tools=[danger], tool_approval=_deny_all)
+    result = spawn("do the risky thing")
+
+    # The child ran and returned "done" (the second scripted response after the denied tool turn).
+    assert result == "done"
+    # The danger tool body never ran.
+    assert ran == []
+
+
 def test_agent_tool_approval_field_denies_and_per_run_override_approves():
     """Behavioral: the Agent's ``tool_approval`` field gates tool execution during a run, and a
     per-run ``run(tool_approval=)`` override wins over the field. (Replaces the old test that
