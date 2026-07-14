@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.12.0 (2026-07-14): tool-calling refactor, dynamic sub-agent spawning
 
 ### Agents and workflows
 

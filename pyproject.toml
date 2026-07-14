@@ -1,6 +1,6 @@
 [project]
 name = "aimu"
-version = "0.10.1"
+version = "0.12.0"
 description = "AI Modeling Utilities: A Python package containing support for working with numerous AI models and services."
 readme = "README.md"
 requires-python = ">=3.11"
