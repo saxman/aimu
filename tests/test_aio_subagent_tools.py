@@ -40,6 +40,7 @@ class _RecordingAsyncAgent:
         max_iterations=10,
         concurrent_tool_calls=False,
         deps=None,
+        tool_approval=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -48,6 +49,7 @@ class _RecordingAsyncAgent:
         self.max_iterations = max_iterations
         self.concurrent_tool_calls = concurrent_tool_calls
         self.deps = deps
+        self.tool_approval = tool_approval
         self.enter = None
         self.exit = None
         _RecordingAsyncAgent.instances.append(self)
@@ -246,3 +248,41 @@ def test_fresh_client_in_process_wraps_sync(monkeypatch):
 
     _REAL_FRESH_CLIENT(object())
     assert seen["wrapped"] is sync_sentinel  # wrapped a fresh sync client
+
+
+# ---------------------------------------------------------------------------
+# tool_approval forwarding
+# ---------------------------------------------------------------------------
+
+
+async def test_tool_approval_forwarded_to_child_agent():
+    gate = lambda name, args: False  # noqa: E731
+
+    spawn = make_async_subagent_tool(MODEL, tool_approval=gate)
+    await spawn("some task")
+
+    agent = _RecordingAsyncAgent.instances[0]
+    assert agent.tool_approval is gate
+
+
+async def test_tool_approval_forwarded_through_recursive_depth():
+    gate = lambda name, args: False  # noqa: E731
+
+    spawn = make_async_subagent_tool(MODEL, max_depth=2, tool_approval=gate)
+    await spawn("task")
+
+    child = _RecordingAsyncAgent.instances[0]
+    assert child.tool_approval is gate
+
+    child_spawn = next(t for t in child.tools if t.__tool_spec__["function"]["name"] == "spawn_subagent")
+    await child_spawn("nested task")
+    grandchild = _RecordingAsyncAgent.instances[-1]
+    assert grandchild.tool_approval is gate
+
+
+async def test_no_tool_approval_defaults_to_none():
+    spawn = make_async_subagent_tool(MODEL)
+    await spawn("task")
+
+    agent = _RecordingAsyncAgent.instances[0]
+    assert agent.tool_approval is None

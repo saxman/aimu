@@ -38,6 +38,7 @@ class _RecordingAgent:
         max_iterations=10,
         concurrent_tool_calls=False,
         deps=None,
+        tool_approval=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -46,6 +47,7 @@ class _RecordingAgent:
         self.max_iterations = max_iterations
         self.concurrent_tool_calls = concurrent_tool_calls
         self.deps = deps
+        self.tool_approval = tool_approval
         self.enter = None
         self.exit = None
         _RecordingAgent.instances.append(self)
@@ -253,3 +255,42 @@ def test_concurrent_dispatch_overlaps_spawns():
     # Results were appended as tool messages.
     tool_msgs = [m for m in client.messages if m.get("role") == "tool"]
     assert len(tool_msgs) == 2
+
+
+# ---------------------------------------------------------------------------
+# tool_approval forwarding
+# ---------------------------------------------------------------------------
+
+
+def test_tool_approval_forwarded_to_child_agent():
+    gate = lambda name, args: False  # noqa: E731
+
+    spawn = make_subagent_tool(MODEL, tool_approval=gate)
+    spawn("some task")
+
+    agent = _RecordingAgent.instances[0]
+    assert agent.tool_approval is gate
+
+
+def test_tool_approval_forwarded_through_recursive_depth():
+    gate = lambda name, args: False  # noqa: E731
+
+    spawn = make_subagent_tool(MODEL, max_depth=2, tool_approval=gate)
+    spawn("task")
+
+    child = _RecordingAgent.instances[0]
+    assert child.tool_approval is gate
+
+    # The nested spawn tool the child received should also carry the gate forward.
+    child_spawn = next(t for t in child.tools if t.__tool_spec__["function"]["name"] == "spawn_subagent")
+    child_spawn("nested task")
+    grandchild = _RecordingAgent.instances[-1]
+    assert grandchild.tool_approval is gate
+
+
+def test_no_tool_approval_defaults_to_none():
+    spawn = make_subagent_tool(MODEL)
+    spawn("task")
+
+    agent = _RecordingAgent.instances[0]
+    assert agent.tool_approval is None

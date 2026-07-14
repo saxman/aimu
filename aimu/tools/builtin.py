@@ -1031,6 +1031,7 @@ def make_subagent_tool(
     max_iterations: int = 10,
     concurrent_tool_calls: bool = True,
     deps: Any = None,
+    tool_approval: Optional[Callable] = None,
     tool_name: str = "spawn_subagent",
 ) -> Callable:
     """Build a ``spawn_subagent`` tool that delegates subtasks to fresh, isolated sub-agents.
@@ -1073,6 +1074,9 @@ def make_subagent_tool(
         concurrent_tool_calls: Applied to *spawned* agents (so nested spawns overlap). The parent's
             own concurrency is set by its author.
         deps: ``ToolContext.deps`` passed to each spawned agent.
+        tool_approval: Callback ``(name, arguments) -> bool`` (may be a coroutine) run before each of
+            the sub-agent's tool calls; returning False appends a refusal instead of executing the tool.
+            Matches :class:`~aimu.agents.Agent`/:meth:`~aimu.agents.Agent.run`'s ``tool_approval`` semantics.
         tool_name: Name of the produced tool (mint several differently-named spawn tools on one agent).
 
     Example::
@@ -1108,6 +1112,7 @@ def make_subagent_tool(
                     max_iterations=max_iterations,
                     concurrent_tool_calls=concurrent_tool_calls,
                     deps=deps,
+                    tool_approval=tool_approval,
                     tool_name=tool_name,
                 )
             )
@@ -1119,6 +1124,7 @@ def make_subagent_tool(
             max_iterations=max_iterations,
             concurrent_tool_calls=concurrent_tool_calls,
             deps=deps,
+            tool_approval=tool_approval,
         )
 
     if agent_types is None:

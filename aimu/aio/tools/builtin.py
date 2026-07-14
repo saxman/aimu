@@ -166,6 +166,7 @@ def make_async_subagent_tool(
     max_iterations: int = 10,
     concurrent_tool_calls: bool = True,
     deps: Any = None,
+    tool_approval: Optional[Callable] = None,
     tool_name: str = "spawn_subagent",
 ) -> Callable:
     """Async twin of :func:`aimu.tools.builtin.make_subagent_tool`.
@@ -200,6 +201,7 @@ def make_async_subagent_tool(
                     max_iterations=max_iterations,
                     concurrent_tool_calls=concurrent_tool_calls,
                     deps=deps,
+                    tool_approval=tool_approval,
                     tool_name=tool_name,
                 )
             )
@@ -211,6 +213,7 @@ def make_async_subagent_tool(
             max_iterations=max_iterations,
             concurrent_tool_calls=concurrent_tool_calls,
             deps=deps,
+            tool_approval=tool_approval,
         )
 
     if agent_types is None:
