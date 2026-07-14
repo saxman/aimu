@@ -63,6 +63,21 @@ spawn = make_subagent_tool(model, max_depth=2)   # sub-agents may spawn one more
 
 The nested tool is rebuilt with a decremented depth, so recursion always terminates.
 
+## Gate a sub-agent's tools
+
+`tool_approval` forwards an approval gate to every spawned sub-agent (and, with `max_depth > 1`, to the sub-agents they spawn). It is the same hook `Agent` accepts — a callable `(name, arguments) -> bool` (may be a coroutine) run before each tool call; returning `False` skips the call and feeds the model a refusal. Use it so a delegated sub-agent does not run a sensitive tool unattended:
+
+```python
+from aimu.tools.builtin import make_subagent_tool, web, compute
+
+def approve(name, arguments):
+    return name != "execute_python"   # let sub-agents look things up, but not run code unattended
+
+spawn = make_subagent_tool("anthropic:claude-sonnet-4-6", tools=[*web, *compute], tool_approval=approve)
+```
+
+Without `tool_approval` a sub-agent runs its tools unattended (the default `approve_all`). See [Gate tool calls](gate-tool-calls.md) for the gate contract.
+
 ## Async
 
 `aimu.aio.tools.builtin.make_async_subagent_tool` has the identical surface and produces an `async def` tool that builds an `aio.Agent` per spawn:
