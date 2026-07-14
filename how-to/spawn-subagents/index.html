@@ -2887,6 +2887,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#gate-a-sub-agents-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate a sub-agent's tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#async" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2984,14 +2995,24 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>   <span class="c1"># sub-agents may spawn one more level, no deeper</span>
 </span></code></pre></div>
 <p>The nested tool is rebuilt with a decremented depth, so recursion always terminates.</p>
+<h2 id="gate-a-sub-agents-tools">Gate a sub-agent's tools<a class="headerlink" href="#gate-a-sub-agents-tools" title="Permanent link">&para;</a></h2>
+<p><code>tool_approval</code> forwards an approval gate to every spawned sub-agent (and, with <code>max_depth &gt; 1</code>, to the sub-agents they spawn). It is the same hook <code>Agent</code> accepts — a callable <code>(name, arguments) -&gt; bool</code> (may be a coroutine) run before each tool call; returning <code>False</code> skips the call and feeds the model a refusal. Use it so a delegated sub-agent does not run a sensitive tool unattended:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_subagent_tool</span><span class="p">,</span> <span class="n">web</span><span class="p">,</span> <span class="n">compute</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">approve</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">return</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;execute_python&quot;</span>   <span class="c1"># let sub-agents look things up, but not run code unattended</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_subagent_tool</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="o">*</span><span class="n">web</span><span class="p">,</span> <span class="o">*</span><span class="n">compute</span><span class="p">],</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">approve</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Without <code>tool_approval</code> a sub-agent runs its tools unattended (the default <code>approve_all</code>). See <a href="../gate-tool-calls/">Gate tool calls</a> for the gate contract.</p>
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
 <p><code>aimu.aio.tools.builtin.make_async_subagent_tool</code> has the identical surface and produces an <code>async def</code> tool that builds an <code>aio.Agent</code> per spawn:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_async_subagent_tool</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_async_subagent_tool</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">spawn</span><span class="p">],</span> <span class="n">concurrent_tool_calls</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">print</span><span class="p">(</span><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Fan out three independent lookups and combine them.&quot;</span><span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_async_subagent_tool</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_async_subagent_tool</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">spawn</span><span class="p">],</span> <span class="n">concurrent_tool_calls</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">print</span><span class="p">(</span><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Fan out three independent lookups and combine them.&quot;</span><span class="p">))</span>
 </span></code></pre></div>
 <p>In-process providers (HuggingFace, LlamaCpp) can't be constructed from an enum on the async surface, so each spawn wraps a <strong>fresh</strong> sync client (fresh preserves isolation; the process weight cache prevents reloading weights).</p>
 <h2 id="when-to-use-this-vs-orchestratoragent">When to use this vs <code>OrchestratorAgent</code><a class="headerlink" href="#when-to-use-this-vs-orchestratoragent" title="Permanent link">&para;</a></h2>
