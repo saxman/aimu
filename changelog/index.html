@@ -2887,6 +2887,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3121,7 +3132,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation" class="md-nav__link">
+  <a href="#documentation_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -3210,7 +3221,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation_1" class="md-nav__link">
+  <a href="#documentation_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -3282,7 +3293,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation_2" class="md-nav__link">
+  <a href="#documentation_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -3536,7 +3547,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation_3" class="md-nav__link">
+  <a href="#documentation_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -3763,7 +3774,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation_4" class="md-nav__link">
+  <a href="#documentation_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -3873,6 +3884,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4107,7 +4129,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation" class="md-nav__link">
+  <a href="#documentation_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -4196,7 +4218,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation_1" class="md-nav__link">
+  <a href="#documentation_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -4268,7 +4290,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation_2" class="md-nav__link">
+  <a href="#documentation_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -4522,7 +4544,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation_3" class="md-nav__link">
+  <a href="#documentation_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -4749,7 +4771,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#documentation_4" class="md-nav__link">
+  <a href="#documentation_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Documentation
@@ -4806,6 +4828,10 @@ not this stub.
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <strong>web-interaction tools</strong> in <code>aimu.tools.builtin</code>. <code>get_webpage_html(url)</code> is a stateless <code>@tool</code> (added to <code>builtin.web</code> + <code>ALL_TOOLS</code> + the MCP server) that returns a page's <strong>raw HTML markup</strong> (truncated), complementing the existing text-stripping <code>get_webpage</code>. <code>make_web_tools(*, session=None, timeout=15, max_content_chars=20000, user_agent=...)</code> is a factory returning <code>[find_forms, submit_form]</code> closing over a shared <code>requests.Session</code>, so cookies persist across calls and a GET-then-POST form flow works: <code>find_forms(url)</code> parses every <code>&lt;form&gt;</code> (stdlib <code>html.parser</code>; <strong>no new dependency</strong>) into a listing of resolved-absolute action / method / fields including <code>type=hidden</code> (CSRF tokens surface), and <code>submit_form(url, method="POST", data=None)</code> submits via POST (form body) or GET (query params), returning status + final URL + truncated body — <code>method="GET"</code> doubles as a session-aware raw fetch for pages behind a login. Pass them together: <code>Agent(client, tools=[get_webpage_html, *make_web_tools()])</code>. <strong>Server-rendered HTML only</strong> (no JavaScript execution): JS-rendered SPAs and anti-bot-protected pages are out of scope; a headless-browser backend is a possible future addition. <code>submit_form</code> is the mutating tool — gate it via the <code>tool_approval</code> hook when confirmation is wanted. Both are re-exported from <code>aimu.aio.tools.builtin</code> (dispatched via <code>asyncio.to_thread</code>). How-to: <a href="https://saxman.github.io/aimu/how-to/browse-and-submit-forms/">Fetch HTML and submit web forms</a>. Tests: <code>tests/test_web_tools.py</code>.</li>
+</ul>
+<h3 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Change</strong> The <code>notebooks/</code> tutorial collection migrated from Jupyter <code>.ipynb</code> to plain-text <a href="https://quarto.org">Quarto</a> <code>.qmd</code> (markdown with executable <code>python</code> cells), so notebooks diff cleanly and are easy to edit or hand to an AI assistant. Files are renamed to kebab-case (<code>01 - Model Client.ipynb</code> → <code>01-model-client.qmd</code>), and a <code>notebooks/_quarto.yml</code> makes the set a browsable Quarto website (<code>quarto preview notebooks/</code>). Notebooks are <strong>not executed at render time</strong> (<code>execute: eval: false</code>): most need a live backend (Ollama, a cloud API key, or a GPU) and gracefully skip; opt a cheap notebook into <code>eval: true</code> + <code>freeze: auto</code> per file. The docs site (MkDocs + Material) is unchanged; how-to/tutorial deep-links now point at the <code>.qmd</code> files. The <code>[notebooks]</code> extra is now <code>jupyter</code> + <code>jupytext</code> (the latter lets JupyterLab open the <code>.qmd</code> files as native notebooks); the Quarto CLI installs separately (a standalone binary). Convention documented in <a href="https://saxman.github.io/aimu/contributing/#work-on-the-notebooks">Contributing</a>.</li>
 </ul>
 <h2 id="v0120-2026-07-14-tool-calling-refactor-dynamic-sub-agent-spawning">v0.12.0 (2026-07-14): tool-calling refactor, dynamic sub-agent spawning<a class="headerlink" href="#v0120-2026-07-14-tool-calling-refactor-dynamic-sub-agent-spawning" title="Permanent link">&para;</a></h2>
 <h3 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h3>
@@ -4901,7 +4927,7 @@ not this stub.
 <li><strong>Expose:</strong> <code>serve_a2a(runner)</code> (blocking) / <code>build_a2a_app(runner)</code> (returns a Starlette ASGI app) wrap any <code>Runner</code> as an A2A server with an agent card at <code>/.well-known/agent-card.json</code>. CLI: <code>python -m aimu.agents.a2a --model ... --system ... --port 9000</code>.</li>
 <li>Pinned to the <code>a2a-sdk</code> <code>0.3.x</code> line (pydantic-native API matching the A2A ecosystem); the protobuf <code>1.x</code> line is a tracked future migration. Connection / call failures raise <code>A2AConnectionError</code>.</li>
 </ul>
-<h3 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h3>
+<h3 id="documentation_1">Documentation<a class="headerlink" href="#documentation_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> notebook <code>23 - Composing Agents (A2A)</code>, explanation page <em>A2A vs MCP</em>, and how-to <em>Connect agents (A2A)</em>.</li>
 </ul>
@@ -4925,7 +4951,7 @@ not this stub.
 <ul>
 <li><strong>New</strong> <code>aimu.pretty_print(stream, *, file=None, show_thinking=False, show_tools=True)</code>: render the <code>StreamChunk</code> iterator from <code>client.chat(stream=True)</code>, <code>Agent.run(stream=True)</code>, or any workflow run to a readable transcript (tool calls flagged, generated text streamed inline, thinking optional), and return the concatenated generated text. Saves callers from re-implementing the <code>chunk.is_tool_call()</code> / <code>chunk.is_text()</code> dispatch loop. Exported from <code>aimu</code>.</li>
 </ul>
-<h3 id="documentation_1">Documentation<a class="headerlink" href="#documentation_1" title="Permanent link">&para;</a></h3>
+<h3 id="documentation_2">Documentation<a class="headerlink" href="#documentation_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> README "Agents and workflows", "Tools", "Output and utilities", and quick-start sections cover <code>ToolContext</code> injection, the configurable <code>EvaluatorOptimizer</code> acceptance (<code>pass_keyword</code> / <code>stop_when</code> / <code>verdict_schema</code>), and <code>pretty_print</code>, with a runnable example combining all three.</li>
 </ul>
@@ -4957,7 +4983,7 @@ not this stub.
 <li>Mirrored on the async surface (<code>aimu.aio</code>): same signature on <code>aio.chat()</code> and <code>aio.generate()</code>.</li>
 <li><strong>Fix</strong> <code>ModelClient._generate</code> (and the async <code>AsyncModelClient._generate</code> / <code>_chat</code>) now accept and forward <code>audio=</code>. They were missing the parameter while the base <code>generate()</code>/<code>chat()</code> always pass it, so every <code>aimu.client().generate()</code> / <code>aimu.chat(...)</code> call through the factory raised <code>TypeError: _generate() got an unexpected keyword argument 'audio'</code>. (Concrete provider clients were unaffected, which is why the live test suite, which constructs them directly, didn't surface it.)</li>
 </ul>
-<h3 id="documentation_2">Documentation<a class="headerlink" href="#documentation_2" title="Permanent link">&para;</a></h3>
+<h3 id="documentation_3">Documentation<a class="headerlink" href="#documentation_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>docs/how-to/handle-audio-input.md</code>: accepted input forms, model selection, stateful vs. stateless, async surface, per-provider adaptation.</li>
 <li><strong>New</strong> <code>notebooks/05 - Audio Input.ipynb</code>: capability flags, all input forms, multiple clips per turn, stateful/stateless split, multi-turn conversations, capability check, mutual-exclusion demo, Gemini and HuggingFace sections, async surface.</li>
@@ -5090,7 +5116,7 @@ not this stub.
 <li><strong>New</strong> <code>EvaluatorOptimizer.restore(messages)</code>: delegates to <code>generator.restore()</code>.</li>
 <li><strong>New</strong> <code>Chain.restore(messages, step=0)</code>: restores the specified step's agent client.</li>
 </ul>
-<h3 id="documentation_3">Documentation<a class="headerlink" href="#documentation_3" title="Permanent link">&para;</a></h3>
+<h3 id="documentation_4">Documentation<a class="headerlink" href="#documentation_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>docs/how-to/using-llms-inside-tools.md</code>: covers the history pollution problem, <code>generate()</code> for stateless in-tool LLM calls, the HuggingFace weight caching model (including <code>clear_hf_cache()</code> / <code>clear_llamacpp_cache()</code>), and the save/restore checkpointing pattern with a full try/except example.</li>
 </ul>
@@ -5210,7 +5236,7 @@ not this stub.
 <li><strong>Breaking</strong> <code>Skill</code> renamed to <code>AgentSkill</code> (no back-compat alias).</li>
 <li><strong>New</strong> Skills logged at <code>INFO</code> on discovery.</li>
 </ul>
-<h3 id="documentation_4">Documentation<a class="headerlink" href="#documentation_4" title="Permanent link">&para;</a></h3>
+<h3 id="documentation_5">Documentation<a class="headerlink" href="#documentation_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li>New documentation site built with MkDocs Material and hosted on GitHub Pages.</li>
 <li>Diátaxis structure: tutorials, how-to guides, reference, explanation.</li>

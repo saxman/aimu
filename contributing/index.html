@@ -2934,6 +2934,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#work-on-the-notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Work on the notebooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#coding-conventions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3078,6 +3089,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#work-on-the-notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Work on the notebooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#coding-conventions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3200,6 +3222,42 @@
 <p>To check for broken links and missing pages:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>mkdocs<span class="w"> </span>build<span class="w"> </span>--strict
 </span></code></pre></div>
+<h2 id="work-on-the-notebooks">Work on the notebooks<a class="headerlink" href="#work-on-the-notebooks" title="Permanent link">&para;</a></h2>
+<p>The <code>notebooks/</code> collection is authored as plain-text <a href="https://quarto.org">Quarto</a> <code>.qmd</code>
+files (markdown with executable <code>python</code> cells), <em>not</em> <code>.ipynb</code> JSON, so they diff cleanly
+and are easy to edit or hand to an AI assistant. Install the <a href="https://quarto.org/docs/get-started/">Quarto CLI</a>
+(a standalone binary, e.g. <code>brew install quarto</code>) plus the Python toolchain:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[notebooks]&#39;</span><span class="w">    </span><span class="c1"># or: uv sync --extra notebooks — installs jupyter + jupytext</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>quarto<span class="w"> </span>preview<span class="w"> </span>notebooks/<span class="w">        </span><span class="c1"># browsable local render of the whole collection</span>
+</span></code></pre></div>
+<p><code>quarto preview</code>/<code>render</code> produce the rendered site; they are <strong>not</strong> how you iterate
+cell-by-cell. For interactive execution, pick one:</p>
+<ul>
+<li><strong>Convert to <code>.ipynb</code> (best inline experience).</strong> <code>python notebooks/convert.py to-ipynb</code>
+  generates local, git-ignored <code>.ipynb</code> you open natively in VS Code or Jupyter with inline
+  cell execution. <code>.qmd</code> stays the source of truth, so after editing a notebook run
+  <code>python notebooks/convert.py to-qmd &lt;stem&gt;</code> to sync it back (the helper defends against the
+  string-source newline mangling noted below).</li>
+<li><strong>VS Code + Quarto extension.</strong> Runs <code>.qmd</code> cells in the Jupyter <em>Interactive Window</em> (a side
+  panel, not inline). A <code>.vscode/settings.json</code> pins the <code>.venv</code> interpreter; rebind
+  "Quarto: Run Cell" (<code>Ctrl+Shift+Enter</code>) to <code>Shift+Enter</code> (<code>when: editorLangId == 'quarto'</code>)
+  for Jupyter muscle memory.</li>
+<li><strong>JupyterLab via jupytext</strong> (in the <code>[notebooks]</code> extra). Run <code>jupyter lab</code> and open a <code>.qmd</code>
+  directly as a native notebook; edits save back to the <code>.qmd</code> plain text.</li>
+</ul>
+<p>Conventions:</p>
+<ul>
+<li><strong>Naming.</strong> Kebab-case with a zero-padded ordinal, e.g. <code>07-agents.qmd</code>. The number sets
+  the reading order (and the sidebar order in <code>notebooks/_quarto.yml</code>).</li>
+<li><strong>Not executed at render time.</strong> <code>_quarto.yml</code> sets <code>execute: eval: false</code> because most
+  notebooks need a live backend (Ollama, a cloud API key, or a GPU) and gracefully skip. Run
+  cells yourself against your own backend. To bake real outputs for a cheap (e.g. Ollama-only)
+  notebook, set <code>eval: true</code> + <code>freeze: auto</code> in that notebook's own front matter.</li>
+<li><strong>Convert an existing <code>.ipynb</code>.</strong> <code>quarto convert</code> mangles string-typed cell sources, so
+  normalize them to line lists first:
+  <code>python -c "import json,sys; nb=json.load(open(sys.argv[1])); [c.__setitem__('source', c['source'].splitlines(keepends=True)) for c in nb['cells'] if isinstance(c['source'],str)]; json.dump(nb, open(sys.argv[1],'w'))" nb.ipynb</code>
+  then <code>quarto convert nb.ipynb</code>.</li>
+</ul>
 <h2 id="coding-conventions">Coding conventions<a class="headerlink" href="#coding-conventions" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Plain Python over framework primitives.</strong> No <code>Runnable</code> protocol, no <code>BaseTool</code>, no LCEL <code>|</code>, no Pydantic for tool args. See <a href="../explanation/design-principles/">design principles</a> for the full list of what's deliberately out of scope.</li>
