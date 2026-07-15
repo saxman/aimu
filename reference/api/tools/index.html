@@ -791,6 +791,8 @@
       
         
       
+        
+      
     
     
     
@@ -1000,6 +1002,34 @@
     
   
     Gate tool calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/browse-and-submit-forms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fetch HTML and submit web forms
   
 
     
@@ -2304,10 +2334,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.execute_python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        execute_python
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.get_webpage" class="md-nav__link">
     <span class="md-ellipsis">
       
         get_webpage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.get_webpage_html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_webpage_html
       
     </span>
   </a>
@@ -2396,6 +2448,17 @@
     <span class="md-ellipsis">
       
         make_subagent_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_web_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_web_tools
       
     </span>
   </a>
@@ -3369,10 +3432,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.execute_python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        execute_python
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.get_webpage" class="md-nav__link">
     <span class="md-ellipsis">
       
         get_webpage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.get_webpage_html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_webpage_html
       
     </span>
   </a>
@@ -3461,6 +3546,17 @@
     <span class="md-ellipsis">
       
         make_subagent_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_web_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_web_tools
       
     </span>
   </a>
@@ -3781,7 +3877,7 @@ the connection.</p>
 <tbody>
 <tr>
 <td><code>builtin.web</code></td>
-<td><code>get_weather</code>, <code>get_webpage</code>, <code>web_search</code>, <code>wikipedia</code></td>
+<td><code>get_weather</code>, <code>get_webpage</code>, <code>get_webpage_html</code>, <code>web_search</code>, <code>wikipedia</code></td>
 </tr>
 <tr>
 <td><code>builtin.fs</code></td>
@@ -3789,7 +3885,7 @@ the connection.</p>
 </tr>
 <tr>
 <td><code>builtin.compute</code></td>
-<td><code>calculate</code></td>
+<td><code>calculate</code>, <code>execute_python</code></td>
 </tr>
 <tr>
 <td><code>builtin.misc</code></td>
@@ -3797,7 +3893,7 @@ the connection.</p>
 </tr>
 <tr>
 <td><code>builtin.ALL_TOOLS</code></td>
-<td>All of the above</td>
+<td>All of the above <strong>except</strong> <code>execute_python</code> (sandboxed REPL; opt in via <code>builtin.compute</code>)</td>
 </tr>
 </tbody>
 </table>
@@ -3917,6 +4013,61 @@ the connection.</p>
 <div class="doc doc-object doc-function">
 
 
+<h2 id="aimu.tools.builtin.execute_python" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.execute_python</span>
+
+
+<a href="#aimu.tools.builtin.execute_python" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute_python</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Execute Python code in a sandboxed environment and return the output.</p>
+<p>Captures stdout and the value of the last expression. Imports are limited
+to: math, statistics, json, re, itertools, functools, datetime, and
+numpy/pandas/scipy/matplotlib when installed. File system and subprocess
+access are not available.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>code</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Python code to execute.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h2 id="aimu.tools.builtin.get_webpage" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.get_webpage</span>
 
@@ -3931,6 +4082,64 @@ the connection.</p>
 <p>When the page exposes a publication timestamp (in <meta> tags, JSON-LD, or a
 <time> element), it is prepended as a "Published:" line so the date isn't lost
 when the HTML is stripped.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>url</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The URL of the page to retrieve.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.get_webpage_html" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.get_webpage_html</span>
+
+
+<a href="#aimu.tools.builtin.get_webpage_html" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_webpage_html</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Fetches a web page and returns its raw HTML markup (tags and all).</p>
+<p>Use this when you need to see the page structure, e.g. to locate links, attributes,
+or form markup. For readable article text instead, use <code>get_webpage</code>. For inspecting
+and submitting forms with cookie/session persistence, use the tools from
+<code>make_web_tools()</code>.</p>
+<p>Note: this fetches server-rendered HTML only; it does not execute JavaScript, so
+pages built client-side (SPAs) will return their pre-render markup. Long pages are
+truncated to keep the output within a model's context window.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4533,6 +4742,40 @@ agent = Agent(client, &quot;Break the request into subtasks and spawn a sub-agen
               tools=[spawn], concurrent_tool_calls=True)
 print(agent.run(&quot;Compare the GDP growth of France, Japan, and Brazil since 2019.&quot;))
 </code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.make_web_tools" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.make_web_tools</span>
+
+
+<a href="#aimu.tools.builtin.make_web_tools" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_web_tools</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span> <span class="n">max_content_chars</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span> <span class="n">user_agent</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_DEFAULT_USER_AGENT</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Build <code>find_forms</code> and <code>submit_form</code> tools sharing a <code>requests.Session</code>.</p>
+<p>The shared session preserves cookies across calls, so a GET-then-POST form flow
+works: <code>find_forms</code> scrapes hidden fields (including CSRF tokens) from the page,
+then <code>submit_form</code> echoes them back with the session's cookies intact. Pass these
+to an agent alongside the stateless <code>get_webpage_html</code>::</p>
+<div class="language-text highlight"><pre><span></span><code>agent = Agent(client, tools=[get_webpage_html, *make_web_tools()])
+</code></pre></div>
+<p>Pass your own <em>session</em> to control its lifecycle (e.g. pre-set auth headers) or to
+share one across several tool sets; otherwise a fresh <code>requests.Session</code> is created.</p>
+<p>Note: these fetch server-rendered HTML only and do not execute JavaScript, so
+JS-rendered (SPA) forms and anti-bot-protected pages are out of scope; a headless
+browser backend is a possible future addition.</p>
+<p><code>submit_form</code> performs writes (POST). To require confirmation before it runs, gate
+it via the <code>tool_approval</code> hook, e.g. <code>Agent(..., tool_approval=policy)</code> where the
+policy inspects the tool name (see docs/how-to/gate-tool-calls.md).</p>
 
 
     </div>
