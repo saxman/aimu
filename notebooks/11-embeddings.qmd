@@ -1,0 +1,164 @@
+---
+title: "Embeddings"
+jupyter: python3
+---
+
+
+AIMU provides a dedicated text-embedding surface via `aimu.embedding_client()` and `aimu.embed()`, parallel to the other modality clients (text, image, audio, speech, transcription). An embedding maps text to a fixed-length vector so you can measure semantic similarity, cluster, retrieve, and back semantic memory / RAG.
+
+## What this notebook covers
+
+1. One-shot embedding with `aimu.embed()`
+2. Reusable client: single vs. list, and `dimensions`
+3. Semantic similarity (cosine)
+4. Providers: OpenAI (cloud), Ollama (local server), HuggingFace (local)
+5. Pluggable embeddings in `SemanticMemoryStore`
+6. Async surface
+7. Model catalog
+
+## Setup
+
+OpenAI models read `OPENAI_API_KEY` from your environment (or a `.env` file in the project root). Ollama models need a running local server with the model pulled (`ollama pull nomic-embed-text`). HuggingFace models run locally and require the `[hf]` extra (which includes `sentence-transformers`).
+
+
+## 1. One-shot with `aimu.embed()`
+
+The simplest path. A single string returns one vector (`list[float]`); a list of strings returns a list of vectors (`list[list[float]]`), preserving order.
+
+```{python}
+import aimu
+
+vector = aimu.embed("The quick brown fox", model="openai:text-embedding-3-small")
+print(type(vector).__name__, "of length", len(vector))
+print("first 5 dims:", [round(x, 4) for x in vector[:5]])
+```
+
+## 2. Reusable client
+
+For more than a one-off, construct a client once and reuse it. `embed()` accepts a single string or a list; `dimensions` reports the vector width declared by the model spec.
+
+```{python}
+client = aimu.embedding_client("openai:text-embedding-3-small")
+print("declared dimensions:", client.dimensions)
+
+one = client.embed("hello")  # -> list[float]
+many = client.embed(["hello", "world"])  # -> list[list[float]]
+print("single vector length:", len(one))
+print("batch:", len(many), "vectors x", len(many[0]), "dims")
+
+# An empty list returns [] without calling the provider.
+print("empty:", client.embed([]))
+```
+
+## 3. Semantic similarity
+
+Embeddings put related text close together in vector space. Cosine similarity (1.0 = identical direction, 0.0 = unrelated) is the usual measure. Notice the two animal phrases score far higher against each other than against the unrelated finance phrase.
+
+```{python}
+import math
+
+
+def cosine(a, b):
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    return dot / (na * nb)
+
+
+cat, kitten, taxes = client.embed(["a small cat", "a tiny kitten", "quarterly tax filing"])
+print(f"cat vs kitten: {cosine(cat, kitten):.3f}")
+print(f"cat vs taxes:  {cosine(cat, taxes):.3f}")
+```
+
+## 4. Providers
+
+Pick a provider with a `"provider:model_id"` string (or pass a provider `EmbeddingModel` enum member). The `embed()` surface is identical across providers.
+
+- **OpenAI** (cloud) - reads `OPENAI_API_KEY`.
+- **Ollama** (local server) - pull the model first, e.g. `ollama pull nomic-embed-text`.
+- **HuggingFace** (local, `sentence-transformers`) - weights download on first use and are cached; each model's own pooling/normalization config is honoured. Free the weights with `aimu.clear_hf_cache()`.
+
+```{python}
+# Ollama - local server. Requires: `ollama pull nomic-embed-text`
+ollama_client = aimu.embedding_client("ollama:nomic-embed-text")
+print("ollama dims:", ollama_client.dimensions)
+print("vector length:", len(ollama_client.embed("hello from ollama")))
+```
+
+```{python}
+# HuggingFace - local sentence-transformers (requires the [hf] extra).
+# Retrieval-tuned models (BGE / E5) expect "query: " / "passage: " prefixes for
+# asymmetric retrieval; pass already-prefixed strings when you need that.
+hf_client = aimu.embedding_client("hf:BAAI/bge-small-en-v1.5")
+print("hf dims:", hf_client.dimensions)
+print("vector length:", len(hf_client.embed("hello from huggingface")))
+```
+
+## 5. Pluggable embeddings in `SemanticMemoryStore`
+
+`SemanticMemoryStore` embeds and retrieves facts by meaning. By default it uses ChromaDB's built-in embedding model; pass `embedding_client=` to choose your own model instead. (A custom embedding model isn't persisted in the collection config, so reopen a persistent store with the same `embedding_client=`.)
+
+```{python}
+from aimu.memory import SemanticMemoryStore
+
+emb = aimu.embedding_client("openai:text-embedding-3-small")
+store = SemanticMemoryStore(embedding_client=emb)
+
+store.store("Paul works at Google")
+store.store("Paul is married to Sarah")
+store.store("Sarah is the sister of Emma")
+
+print("employment:", store.search("employment", n_results=1))
+print("family:    ", store.search("family relationships", n_results=2))
+```
+
+## 6. Async surface
+
+Embedding clients have no chat lifecycle, so the async surface wraps an existing sync client and routes `embed()` through `asyncio.to_thread` (the same Decision 7 pattern used by every other AIMU modality). Construct a sync client first, then wrap it.
+
+```{python}
+import asyncio
+from aimu import aio
+
+sync_client = aimu.embedding_client("openai:text-embedding-3-small")
+async_client = aio.embedding_client(sync_client)
+
+
+async def main():
+    vectors = await async_client.embed(["alpha", "beta", "gamma"])
+    print(len(vectors), "vectors x", len(vectors[0]), "dims")
+
+
+asyncio.run(main())
+```
+
+## 7. Model catalog
+
+AIMU ships curated specs per provider. Only providers whose optional dependency is installed appear below.
+
+```{python}
+from aimu.models import HAS_HF_EMBEDDING, HAS_OLLAMA_EMBEDDING, HAS_OPENAI_EMBEDDING
+
+
+def show(title, enum):
+    print(title)
+    for m in enum:
+        s = m.spec
+        print(f"  {m.name:24s} id={s.id!r:42s} dims={s.dimensions}")
+    print()
+
+
+if HAS_OPENAI_EMBEDDING:
+    from aimu.models import OpenAIEmbeddingModel
+
+    show("OpenAI embedding models:", OpenAIEmbeddingModel)
+if HAS_OLLAMA_EMBEDDING:
+    from aimu.models import OllamaEmbeddingModel
+
+    show("Ollama embedding models:", OllamaEmbeddingModel)
+if HAS_HF_EMBEDDING:
+    from aimu.models import HuggingFaceEmbeddingModel
+
+    show("HuggingFace embedding models:", HuggingFaceEmbeddingModel)
+```
+

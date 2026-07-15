@@ -66,6 +66,46 @@ To check for broken links and missing pages:
 mkdocs build --strict
 ```
 
+## Work on the notebooks
+
+The `notebooks/` collection is authored as plain-text [Quarto](https://quarto.org) `.qmd`
+files (markdown with executable `python` cells), *not* `.ipynb` JSON, so they diff cleanly
+and are easy to edit or hand to an AI assistant. Install the [Quarto CLI](https://quarto.org/docs/get-started/)
+(a standalone binary, e.g. `brew install quarto`) plus the Python toolchain:
+
+```bash
+pip install -e '.[notebooks]'    # or: uv sync --extra notebooks — installs jupyter + jupytext
+quarto preview notebooks/        # browsable local render of the whole collection
+```
+
+`quarto preview`/`render` produce the rendered site; they are **not** how you iterate
+cell-by-cell. For interactive execution, pick one:
+
+- **Convert to `.ipynb` (best inline experience).** `python notebooks/convert.py to-ipynb`
+  generates local, git-ignored `.ipynb` you open natively in VS Code or Jupyter with inline
+  cell execution. `.qmd` stays the source of truth, so after editing a notebook run
+  `python notebooks/convert.py to-qmd <stem>` to sync it back (the helper defends against the
+  string-source newline mangling noted below).
+- **VS Code + Quarto extension.** Runs `.qmd` cells in the Jupyter *Interactive Window* (a side
+  panel, not inline). A `.vscode/settings.json` pins the `.venv` interpreter; rebind
+  "Quarto: Run Cell" (`Ctrl+Shift+Enter`) to `Shift+Enter` (`when: editorLangId == 'quarto'`)
+  for Jupyter muscle memory.
+- **JupyterLab via jupytext** (in the `[notebooks]` extra). Run `jupyter lab` and open a `.qmd`
+  directly as a native notebook; edits save back to the `.qmd` plain text.
+
+Conventions:
+
+- **Naming.** Kebab-case with a zero-padded ordinal, e.g. `07-agents.qmd`. The number sets
+  the reading order (and the sidebar order in `notebooks/_quarto.yml`).
+- **Not executed at render time.** `_quarto.yml` sets `execute: eval: false` because most
+  notebooks need a live backend (Ollama, a cloud API key, or a GPU) and gracefully skip. Run
+  cells yourself against your own backend. To bake real outputs for a cheap (e.g. Ollama-only)
+  notebook, set `eval: true` + `freeze: auto` in that notebook's own front matter.
+- **Convert an existing `.ipynb`.** `quarto convert` mangles string-typed cell sources, so
+  normalize them to line lists first:
+  `python -c "import json,sys; nb=json.load(open(sys.argv[1])); [c.__setitem__('source', c['source'].splitlines(keepends=True)) for c in nb['cells'] if isinstance(c['source'],str)]; json.dump(nb, open(sys.argv[1],'w'))" nb.ipynb`
+  then `quarto convert nb.ipynb`.
+
 ## Coding conventions
 
 - **Plain Python over framework primitives.** No `Runnable` protocol, no `BaseTool`, no LCEL `|`, no Pydantic for tool args. See [design principles](explanation/design-principles.md) for the full list of what's deliberately out of scope.

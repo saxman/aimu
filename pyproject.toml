@@ -103,8 +103,13 @@ dev = [
     "pytest-asyncio",
 ]
 notebooks = [
-    "ipykernel",
-    "ipywidgets",
+    # The notebooks/ collection is authored as Quarto .qmd. Install the Quarto CLI
+    # separately (https://quarto.org/docs/get-started/): it's a standalone binary, not a
+    # pip package. `jupyter` supplies the Python kernel Quarto's engine drives; `jupytext`
+    # lets JupyterLab open the .qmd files directly as native notebooks (it shells out to the
+    # `quarto` binary, so Quarto must be on PATH for that path).
+    "jupyter",
+    "jupytext",
 ]
 docs = [
     "mkdocs>=1.6",

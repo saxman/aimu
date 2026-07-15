@@ -118,4 +118,4 @@ asyncio.run(main())
 ## See also
 
 - [Use semantic memory](use-semantic-memory.md): store and retrieve facts by meaning
-- Notebook [11 - Embeddings](https://github.com/saxman/aimu/blob/main/notebooks/11%20-%20Embeddings.ipynb)
+- Notebook [11 - Embeddings](https://github.com/saxman/aimu/blob/main/notebooks/11-embeddings.qmd)

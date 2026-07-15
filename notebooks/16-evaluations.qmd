@@ -1,0 +1,264 @@
+---
+title: "Evaluations"
+jupyter: python3
+---
+
+
+`DeepEvalModel` is a thin adapter that wraps any AIMU `ModelClient` so it can act as the judge model for DeepEval metrics. This lets you use a local Ollama model, a HuggingFace model, or any cloud provider as your evaluator without leaving the AIMU interface.
+
+| Section | Metric | What it measures |
+|---|---|---|
+| A | Setup | Create the judge adapter |
+| B | GEval | Custom natural-language criteria (correctness, helpfulness, etc.) |
+| C | Answer Relevancy | Whether the response directly addresses the input question |
+| D | Faithfulness | Whether the response is grounded in retrieved context (RAG) |
+| E | Batch Evaluation | Running multiple metrics across a full test suite |
+
+Install the optional dependency before running: `pip install -e '.[deepeval]'`
+
+
+## A - Setup
+
+Create a `ModelClient` and wrap it with `DeepEvalModel`. Any AIMU client can be the judge: swap in a cloud model for more reliable evaluations on complex tasks.
+
+```{python}
+from aimu.evals import HAS_DEEPEVAL, DeepEvalModel
+from aimu.models import OllamaClient, OllamaModel
+
+# Use any BaseModelClient as the judge.
+# A stronger model produces more consistent judgments.
+# from aimu.models import AnthropicClient, AnthropicModel
+# judge_client = AnthropicClient(AnthropicModel.CLAUDE_SONNET_4)
+
+print(f"DeepEval available: {HAS_DEEPEVAL}")
+
+judge_client = OllamaClient(OllamaModel.QWEN_3_5_9B)
+judge = DeepEvalModel(judge_client)
+
+print(f"Judge model: {judge.get_model_name()}")
+```
+
+## B - GEval (Custom Criteria)
+
+`GEval` is DeepEval's most flexible metric. You describe your evaluation criteria in plain language and the judge model assigns a score (0–1) with a written reason. Use it for any quality dimension: correctness, conciseness, tone, safety, etc.
+
+`evaluation_params` tells GEval which fields from the test case to pass to the judge. Common choices are `INPUT` and `ACTUAL_OUTPUT`; add `EXPECTED_OUTPUT` when you have a reference answer.
+
+```{python}
+from deepeval.metrics import GEval
+from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+
+correctness = GEval(
+    name="Correctness",
+    criteria=(
+        "Determine whether the actual output is factually correct and directly answers "
+        "the input question. Penalise hallucinated or inaccurate facts."
+    ),
+    evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+    model=judge,
+    threshold=0.5,
+)
+```
+
+```{python}
+test_cases = [
+    LLMTestCase(
+        input="What is the capital of France?",
+        actual_output="The capital of France is Paris.",
+    ),
+    LLMTestCase(
+        input="What is the capital of Australia?",
+        actual_output="The capital of Australia is Sydney.",  # wrong, it's Canberra
+    ),
+    LLMTestCase(
+        input="Who wrote Romeo and Juliet?",
+        actual_output="Romeo and Juliet was written by William Shakespeare.",
+    ),
+]
+
+for tc in test_cases:
+    correctness.measure(tc)
+    status = "PASS" if correctness.passed else "FAIL"
+    print(f"[{status}] score={correctness.score:.2f}")
+    print(f"  Q: {tc.input}")
+    print(f"  A: {tc.actual_output}")
+    print(f"  Reason: {correctness.reason}")
+    print()
+```
+
+Add `expected_output` and `LLMTestCaseParams.EXPECTED_OUTPUT` when you have a reference answer. The judge can then compare against the gold standard directly.
+
+```{python}
+correctness_with_ref = GEval(
+    name="Correctness (with reference)",
+    criteria="Does the actual output convey the same facts as the expected output?",
+    evaluation_params=[
+        LLMTestCaseParams.INPUT,
+        LLMTestCaseParams.ACTUAL_OUTPUT,
+        LLMTestCaseParams.EXPECTED_OUTPUT,
+    ],
+    model=judge,
+    threshold=0.5,
+)
+
+tc = LLMTestCase(
+    input="Summarise the water cycle in one sentence.",
+    actual_output="Water evaporates from surfaces, condenses into clouds, and falls back as precipitation.",
+    expected_output="The water cycle involves evaporation, condensation, and precipitation.",
+)
+
+correctness_with_ref.measure(tc)
+print(f"Score: {correctness_with_ref.score:.2f}  Passed: {correctness_with_ref.passed}")
+print(f"Reason: {correctness_with_ref.reason}")
+```
+
+## C - Answer Relevancy
+
+`AnswerRelevancyMetric` checks whether the response actually addresses the question, useful for catching responses that are accurate but off-topic. It works by extracting claims from the output and classifying each one as relevant or irrelevant to the input.
+
+```{python}
+from deepeval.metrics import AnswerRelevancyMetric
+
+relevancy = AnswerRelevancyMetric(threshold=0.5, model=judge)
+
+relevancy_cases = [
+    LLMTestCase(
+        input="How do I reverse a list in Python?",
+        actual_output=(
+            "You can reverse a list in Python using list.reverse() to reverse in place, "
+            "or list[::-1] to return a new reversed list."
+        ),
+    ),
+    LLMTestCase(
+        input="How do I reverse a list in Python?",
+        actual_output=(
+            "Python is a popular high-level programming language created by Guido van Rossum "
+            "and first released in 1991."
+        ),  # true, but irrelevant to the question
+    ),
+]
+
+for tc in relevancy_cases:
+    relevancy.measure(tc)
+    status = "PASS" if relevancy.passed else "FAIL"
+    print(f"[{status}] score={relevancy.score:.2f}")
+    print(f"  A: {tc.actual_output[:100]}")
+    print(f"  Reason: {relevancy.reason}")
+    print()
+```
+
+## D - Faithfulness (RAG Grounding)
+
+`FaithfulnessMetric` checks whether every claim in the response is supported by the retrieved context: the core hallucination-detection metric for RAG pipelines. Test cases require a `retrieval_context` field (list of retrieved chunks).
+
+```{python}
+from deepeval.metrics import FaithfulnessMetric
+
+faithfulness = FaithfulnessMetric(threshold=0.7, model=judge)
+
+context = [
+    "The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars in Paris, France. "
+    "It was designed by engineer Gustave Eiffel and completed in 1889 as the entrance arch "
+    "for the 1889 World's Fair. It stands 330 metres tall."
+]
+
+rag_cases = [
+    LLMTestCase(
+        input="When was the Eiffel Tower completed and how tall is it?",
+        actual_output="The Eiffel Tower was completed in 1889 and stands 330 metres tall.",
+        retrieval_context=context,
+    ),
+    LLMTestCase(
+        input="When was the Eiffel Tower completed and how tall is it?",
+        actual_output=(
+            "The Eiffel Tower was completed in 1901 and is the tallest structure in Europe."
+        ),  # hallucinated date and unsupported claim
+        retrieval_context=context,
+    ),
+]
+
+for tc in rag_cases:
+    faithfulness.measure(tc)
+    status = "PASS" if faithfulness.passed else "FAIL"
+    print(f"[{status}] score={faithfulness.score:.2f}")
+    print(f"  A: {tc.actual_output}")
+    print(f"  Reason: {faithfulness.reason}")
+    print()
+```
+
+## E - Batch Evaluation
+
+Run multiple metrics across a list of test cases and collect results into a summary. This is the typical pattern for evaluating a model or pipeline against a labelled dataset before shipping.
+
+```{python}
+batch_cases = [
+    LLMTestCase(
+        input="What is the boiling point of water at sea level?",
+        actual_output="Water boils at 100°C (212°F) at standard atmospheric pressure.",
+        retrieval_context=[
+            "Water boils at 100 degrees Celsius (212 degrees Fahrenheit) at standard "
+            "atmospheric pressure (sea level, 1 atm)."
+        ],
+    ),
+    LLMTestCase(
+        input="Who invented the telephone?",
+        actual_output="The telephone was invented by Alexander Graham Bell, who received the first patent for it in 1876.",
+        retrieval_context=[
+            "Alexander Graham Bell is widely credited with inventing the telephone and "
+            "received the first patent in 1876."
+        ],
+    ),
+    LLMTestCase(
+        input="What is the speed of light in a vacuum?",
+        actual_output="The speed of light in a vacuum is approximately 300,000 kilometres per second.",
+        retrieval_context=[
+            "The speed of light in a vacuum is exactly 299,792,458 metres per second, "
+            "commonly approximated as 300,000 km/s."
+        ],
+    ),
+    LLMTestCase(
+        input="What is the chemical formula for table salt?",
+        actual_output="Table salt is made of hydrogen and oxygen.",  # wrong
+        retrieval_context=[
+            "Table salt is sodium chloride, with the chemical formula NaCl. It consists of sodium and chlorine ions."
+        ],
+    ),
+]
+
+batch_correctness = GEval(
+    name="Correctness",
+    criteria="Is the actual output factually correct and directly responsive to the question?",
+    evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+    model=judge,
+    threshold=0.5,
+)
+batch_faithfulness = FaithfulnessMetric(threshold=0.7, model=judge)
+
+metrics = [("Correctness", batch_correctness), ("Faithfulness", batch_faithfulness)]
+```
+
+```{python}
+import pandas as pd
+
+rows = []
+for tc in batch_cases:
+    row = {
+        "question": tc.input,
+        "answer": tc.actual_output[:60] + "..." if len(tc.actual_output) > 60 else tc.actual_output,
+    }
+    for name, metric in metrics:
+        metric.measure(tc)
+        row[f"{name} score"] = round(metric.score, 2)
+        row[f"{name} pass"] = metric.passed
+    rows.append(row)
+
+results_df = pd.DataFrame(rows)
+print(results_df.to_string(index=False))
+
+print()
+for name, _ in metrics:
+    pass_rate = results_df[f"{name} pass"].mean()
+    mean_score = results_df[f"{name} score"].mean()
+    print(f"{name}: mean_score={mean_score:.2f}  pass_rate={pass_rate:.0%}")
+```
+

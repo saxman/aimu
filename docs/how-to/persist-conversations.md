@@ -73,4 +73,4 @@ The key is one of `PROVENANCE_CONTINUATION`, `PROVENANCE_FINAL_ANSWER`, or `PROV
 
 - [`aimu.history.ConversationManager`](../reference/api/history.md)
 - [Thinking and context](../explanation/thinking-and-context.md#the-provenance-key-distinguishing-framework-injected-turns): the inert-key mechanism behind `provenance`
-- Notebook [02 - Conversations](https://github.com/saxman/aimu/blob/main/notebooks/02%20-%20Conversations.ipynb)
+- Notebook [02 - Conversations](https://github.com/saxman/aimu/blob/main/notebooks/02-conversations.qmd)

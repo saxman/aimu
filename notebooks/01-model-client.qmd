@@ -1,0 +1,347 @@
+---
+title: "Model Client"
+jupyter: python3
+---
+
+
+`ModelClient` is AIMU's unified entry point for talking to any supported backend: local (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) or cloud (OpenAI, Anthropic, Google Gemini). The same call shape (`generate()`, `chat()`, `chat(..., stream=True)`) works against every provider, so you can swap models without rewriting the surrounding code. Streaming yields a single `StreamChunk` type with explicit `THINKING`, `TOOL_CALLING`, and `GENERATING` phases. The client advertises tools and records the model's tool-call requests, but executing tools in a loop is the job of an `Agent` ([notebook 07](07-agents.qmd)); image input is built into the base client.
+
+Use a `ModelClient` whenever you want a turn-by-turn conversation with a model: building a chat UI, prototyping prompts, wiring up tools, or experimenting with thinking/reasoning models. For autonomous tool-calling loops on top of the same client, see [notebook 07](07-agents.qmd) (Agents).
+
+## What this notebook covers
+
+| Section | Topic |
+|---|---|
+| A | Stateless text generation with `generate()`, streaming, and generation kwargs |
+| B | Multi-turn chat, message history, and custom system messages |
+| C | Thinking models: accessing `last_thinking` and filtering streamed phases |
+| D | Tool calling: wrapping the client in an `Agent` with an in-memory MCP server |
+| E | Parallel tool calls in one model turn |
+| F | Releasing resources |
+
+
+## A - Text Generation
+
+`ModelClient` is a factory that accepts any provider model enum and automatically selects the right backend. The cell below picks the model used throughout this notebook; change `model_enum` to try a different provider or model.
+
+```{python}
+from aimu.models import ModelClient, HAS_OLLAMA, HAS_HF
+
+# Pick the model used throughout this notebook. Swap this assignment to try a
+# different backend; every later cell reads `model_enum` unchanged.
+if HAS_OLLAMA:
+    from aimu.models import OllamaModel
+
+    model_enum = OllamaModel.QWEN_3_5_9B
+elif HAS_HF:
+    from aimu.models import HuggingFaceModel
+
+    model_enum = HuggingFaceModel.QWEN_3_8B
+else:
+    raise RuntimeError("Install a provider backend, e.g. `pip install aimu[ollama]`.")
+```
+
+The `ModelClient` factory dispatches to the right backend based on the model enum type. You can also instantiate a specific client directly when you prefer explicit control:
+
+```python
+from aimu.models import ModelClient, OllamaModel
+
+model_client = ModelClient(OllamaModel.QWEN_3_5_9B)  # factory: picks OllamaClient automatically
+
+# Or directly:
+from aimu.models import OllamaClient
+model_client = OllamaClient(OllamaModel.QWEN_3_5_9B)
+```
+
+Here, we'll use the model enum assigned above.
+
+```{python}
+model_client = ModelClient(model_enum)
+print(model_client.model.name + "\n" + model_client.model.value)
+```
+
+For non-interactive (chat-based) generation, the *generate* method is used. This method allows you to specify a prompt and receive a generated response.
+
+```{python}
+model_client.generate("Name the capital of France.")
+```
+
+If the model supports thinking/reasoning, the thinking output for generation can be accessed via `model_client.last_thinking`.
+
+```{python}
+model_client.last_thinking
+```
+
+Output can be streamed as well.
+
+```{python}
+response = model_client.generate("Name the capital of England.", stream=True)
+
+for chunk in response:
+    print(chunk.content, end="", flush=True)
+```
+
+The thinking output can be filtered by specifying which streaming content types to include.
+
+```{python}
+from aimu.models import StreamingContentType
+
+response = model_client.generate(
+    "Name the capital of the United States.", stream=True, include=[StreamingContentType.GENERATING]
+)
+
+for chunk in response:
+    print(chunk.content, end="", flush=True)
+```
+
+Parameters can be passed to the generate (and chat) methods to control the output. For thinking/reasoning models, max_tokens should be large enough to capture both the reasoning output, which happens first, and the generation output.
+
+For generate_kwargs, see https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
+
+```{python}
+model_client.generate(
+    "Name the capital of Germany.",
+    generate_kwargs={
+        "temperature": 1.0,
+        "top_p": 0.9,
+        "top_k": 40,
+        "max_tokens": 1024,
+        "repeat_penalty": 1.1,
+    },
+)
+```
+
+## B - Basic Chat
+
+Chatting with a model simply involves passing a message and receiving a response. The Model Client handles the conversation history automatically.
+
+```{python}
+model_client.chat("What is the capital of China?")
+```
+
+Chat responses can be streamed as well.
+
+```{python}
+for chunk in model_client.chat("How long has it been the capital?", stream=True):
+    print(chunk.content, end="", flush=True)
+```
+
+The complete message history, including the model thinking/reasoning, can be accessed via the `messages` property of the Model Client.
+
+```{python}
+model_client.messages
+```
+
+A custom system message can be set, or re-set, as desired.
+
+```{python}
+model_client.system_message = "You are a helpful assistant that responds using pirate speak."
+model_client.messages[0]
+```
+
+```{python}
+model_client.chat("Name a famous pirate from there.")
+```
+
+## C - Model Thinking
+
+Some models support extended reasoning (also called "thinking"), where the model works through a problem step-by-step before producing a final response. AIMU automatically enables thinking for models in `THINKING_MODELS` (e.g., `DEEPSEEK_R1_8B`, `QWEN_3_5_9B`, `GPT_OSS_20B`).
+
+A thinking model must be used for the cells in this section.
+
+```{python}
+print(f"Model: {model_client.model.value}")
+print(f"Thinking enabled: {model_client.is_thinking_model}")
+```
+
+After calling `generate()` or `chat()`, the model's reasoning process is available via `last_thinking`.
+
+```{python}
+response = model_client.generate("What is the sum of the first 10 prime numbers?")
+print("Response:\n", response)
+print("\nThinking:\n", model_client.last_thinking)
+```
+
+When streaming with `chat(..., stream=True)`, each chunk has a `phase` (`StreamingContentType`) and `content`. Use the phase to separate thinking tokens from the final response.
+
+```{python}
+from aimu.models import StreamingContentType
+
+was_thinking = True
+
+print("[Thinking]\n")
+for chunk in model_client.chat("What is 17 multiplied by 23?", stream=True):
+    if was_thinking and chunk.phase == StreamingContentType.GENERATING:
+        print("\n[Generating]\n")
+        was_thinking = False
+
+    print(chunk.content, end="", flush=True)
+```
+
+### Adaptive vs. budget thinking (Anthropic)
+
+`supports_thinking` is universal, but *how* a model is asked to reason is provider-specific. Anthropic models carry a `ThinkingStyle` (an enum analogous to HuggingFace's `ToolCallFormat`) that fixes the request shape:
+
+- **`ENABLED`** (budget): `thinking={"type": "enabled", "budget_tokens": N}`; the model always thinks up to the budget. Opus 4.6, Sonnet 4.6, Haiku 4.5.
+- **`ADAPTIVE`**: `thinking={"type": "adaptive", "display": "summarized"}` (sampling params dropped); the model decides per request whether and how much to think, and may emit none on a simple prompt. Required by Opus 4.7+ and Fable 5, since the budget form returns a 400 on those.
+
+Either way, AIMU surfaces reasoning identically: `last_thinking` and `THINKING` stream chunks. The cell below needs the `[anthropic]` extra and `ANTHROPIC_API_KEY`; it prints each model's style, then shows an adaptive model skipping thinking on a trivial prompt but engaging it on a reasoning prompt.
+
+```{python}
+import os
+from aimu.models import HAS_ANTHROPIC
+
+if not (HAS_ANTHROPIC and os.environ.get("ANTHROPIC_API_KEY")):
+    print("Skipping: install aimu[anthropic] and set ANTHROPIC_API_KEY to run this section.")
+else:
+    from aimu.models import AnthropicModel
+
+    # Each Anthropic model fixes its thinking request shape via ThinkingStyle.
+    for m in (AnthropicModel.CLAUDE_HAIKU_4_5, AnthropicModel.CLAUDE_OPUS_4_7):
+        print(f"{m.name:18s} -> ThinkingStyle.{m.thinking_style.name}")
+
+    # An adaptive model decides per request whether to think -- generate() is stateless,
+    # so last_thinking just reflects the most recent call.
+    adaptive = ModelClient(AnthropicModel.CLAUDE_OPUS_4_7)
+
+    adaptive.generate("What is the capital of France?")
+    print(f"\nTrivial prompt   -> {len(adaptive.last_thinking)} thinking chars (often 0; adaptive skips it)")
+
+    adaptive.generate("Compute the sum of all integers from 1 to 200 that are divisible by 7. Show your work.")
+    print(f"Reasoning prompt -> {len(adaptive.last_thinking)} thinking chars (the model chose to think)")
+```
+
+## D - Tool Usage
+
+Create an MCP tool to use. See the "02 - MCP Tools" notebook for more examples of how to set up and use MCP tools.
+
+```{python}
+import datetime
+from fastmcp import FastMCP
+
+mcp = FastMCP("AIMU Tools")
+
+
+@mcp.tool()
+def get_current_date_and_time() -> str:
+    """Returns the current data and time as a string."""
+    return str(datetime.datetime.now())
+```
+
+Create a new AIMU MCPClient for handling MCP tool requests.
+
+```{python}
+from aimu.tools import MCPClient
+from aimu.agents import Agent
+
+mcp_client = MCPClient(server=mcp)
+agent = Agent(model_client, tools=mcp_client.as_tools())
+```
+
+`chat()` on a bare client only advertises the tools and records any tool call the model requests -- it does not run them. To actually execute tools, wrap the client in an `Agent` and call `run()`. The agent drives the model -> tools -> repeat loop and returns the final answer once the model stops calling tools.
+
+```{python}
+agent.run("What time is it?")
+```
+
+The messages should include the tool call, the tool response, and then final response generated by model.
+
+```{python}
+model_client.messages
+```
+
+When streaming, THINKING, TOOL_CALLING, and GENERATING phases can be handled separately.
+
+```{python}
+from aimu.models import StreamingContentType
+
+current_phase = None
+
+for chunk in agent.run("What time is it now?", stream=True):
+    if chunk.phase != current_phase:
+        print(f"\n[{chunk.phase.value}]\n")
+        current_phase = chunk.phase
+
+    print(chunk.content, end="", flush=True)
+```
+
+## E - Multiple parallel tool calls
+
+Some LLMs can use mutiple tools in parallel by making concurrent calls to different MCP tools and aggregating the results.
+
+```{python}
+@mcp.tool()
+def get_current_temperature(location: str) -> str:
+    """
+    Get the current temperature for a given location.
+
+    Args:
+        location (str): The location to get the temperature for.
+
+    Returns:
+        str: The current temperature in Celsius.
+    """
+
+    return "21.0"
+
+
+@mcp.tool()
+def get_current_weather_conditions(location: str) -> str:
+    """
+    Get the current weather conditions for a given location.
+
+    Args:
+        location (str): The location to get the weather conditions for.
+
+    Returns:
+        str: The current weather conditions.
+    """
+
+    return "sunny"
+
+
+# Re-fetch the tool callables now that the server has more tools registered,
+# and rebuild the agent so it advertises the full set.
+mcp_client = MCPClient(server=mcp)
+agent = Agent(model_client, tools=mcp_client.as_tools())
+
+[fn.__name__ for fn in agent.tools]
+```
+
+```{python}
+agent.run("What is the current temperature and weather conditions in New York City?")
+model_client.messages
+```
+
+## F - HuggingFace Model Weight Caching
+
+All four HuggingFace modality clients share a module-level weight registry. A second instance for the same model reuses loaded weights rather than calling `from_pretrained()` again.
+
+```{python}
+from aimu.models import HAS_HF
+
+if HAS_HF:
+    from aimu.models.hf import HuggingFaceClient, HuggingFaceModel
+    import aimu
+
+    m = HuggingFaceModel.QWEN_3_8B
+    c1 = HuggingFaceClient(m)
+    c2 = HuggingFaceClient(m)  # reuses weights from c1
+
+    print("Same model object?", c1._hf_model is c2._hf_model)  # True
+
+    # Free all HF weights and VRAM when done
+    aimu.clear_hf_cache()
+    print("Cache cleared.")
+else:
+    print("HuggingFace not installed, skipping.")
+```
+
+## G - Clean Up
+
+When done, close the model clients to free up resources.
+
+```{python}
+del model_client
+```
+

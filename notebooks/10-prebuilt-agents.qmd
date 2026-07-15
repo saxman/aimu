@@ -1,0 +1,323 @@
+---
+title: "Prebuilt Agents"
+jupyter: python3
+---
+
+
+Demonstrates the **orchestrator + worker tools** pattern using three ready-to-use prebuilt agents from `aimu.agents.prebuilt`.
+
+Each agent class wraps an orchestrator `Agent` that coordinates specialist worker sub-agents exposed as `@aimu.tool`-decorated dispatch functions. The LLM decides which workers to call, in what order, and how many times.
+
+| Agent | Workers |
+|---|---|
+| `ResearchReportAgent` | `research_overview`, `find_examples`, `find_counterpoints` |
+| `CodeReviewAgent` | `review_security`, `review_performance`, `review_readability` |
+| `ContentCreationAgent` | `research_topic`, `create_outline`, `write_section` |
+
+All three agents are subclasses of `OrchestratorAgent` (from `aimu.agents`), which provides the `run()` and `messages` interface and handles the tool wiring. The last section shows how to subclass `OrchestratorAgent` to build your own orchestrator agent.
+
+
+---
+
+## ResearchReportAgent
+
+An orchestrator `Agent` autonomously coordinates three worker sub-agents. The LLM decides which workers to call, in what order, and how many times, rather than following a predetermined code path.
+
+```
+research-report-agent  (orchestrator)
+  ├─ [tool] research_overview   →  overview-worker      (Agent)
+  ├─ [tool] find_examples       →  examples-worker      (Agent)
+  └─ [tool] find_counterpoints  →  counterpoints-worker (Agent)
+```
+
+### Setup
+
+Create an `OllamaClient` and pass it to `ResearchReportAgent`. The agent internally creates fresh client instances for each worker.
+
+```{python}
+from aimu.models import OllamaClient
+from aimu.agents.prebuilt import ResearchReportAgent
+
+model_client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+agent = ResearchReportAgent(model_client)
+
+print("Orchestrator model:", model_client.model.value)
+print("Worker tools:", [t.__name__ for t in model_client.tools])
+```
+
+### Live Web Search (optional)
+
+`ResearchReportAgent` accepts an optional `worker_tools=` list of `@aimu.tool`-decorated functions. When provided, each worker gets access to those tools (e.g. web search, page fetching) and the orchestrator automatically enables **concurrent worker dispatch**: all three workers can be called in a single round-trip when the model returns multiple tool calls at once.
+
+```python
+# Requires SEARXNG_BASE_URL env var pointing to a SearXNG instance
+from aimu.tools import builtin
+
+agent = ResearchReportAgent(model_client, worker_tools=[builtin.web_search, builtin.get_webpage])
+# Workers can now call: web_search(query, num_results), get_webpage(url).
+# The orchestrator will dispatch all three workers concurrently.
+```
+
+Without `worker_tools=`, workers are pure text-only agents (the default shown below).
+
+### Run
+
+Call `agent.run()` with a research topic. The orchestrator will call each worker tool, then synthesize the results into a final report.
+
+```{python}
+task = "What is retrieval-augmented generation?"
+
+result = agent.run(task)
+print(result)
+```
+
+Inspect the orchestrator's message history to see the full tool-calling sequence.
+
+```{python}
+agent.messages
+```
+
+### Streaming
+
+`run(stream=True)` yields `StreamChunk` objects. `TOOL_CALLING` chunks show which worker was invoked and the worker's response; `GENERATING` chunks are the orchestrator's synthesis.
+
+```{python}
+from aimu.models import StreamingContentType
+
+task = "What is retrieval-augmented generation?"
+
+for chunk in agent.run(task, stream=True):
+    if chunk.phase == StreamingContentType.TOOL_CALLING:
+        worker = chunk.content["name"]
+        response_preview = chunk.content["response"][:80].replace("\n", " ")
+        print(f"\n[tool: {worker}]\n  {response_preview}...\n")
+    elif chunk.phase == StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)
+```
+
+```{python}
+del agent, model_client
+```
+
+---
+
+## CodeReviewAgent
+
+An orchestrator `Agent` autonomously coordinates three specialist reviewer sub-agents. The LLM decides which reviewers to engage based on the submitted code.
+
+```
+code-review-agent  (orchestrator)
+  ├─ [tool] review_security     →  security-reviewer    (Agent)
+  ├─ [tool] review_performance  →  performance-reviewer (Agent)
+  └─ [tool] review_readability  →  readability-reviewer (Agent)
+```
+
+### Setup
+
+Create an `OllamaClient` and pass it to `CodeReviewAgent`.
+
+```{python}
+from aimu.models import OllamaClient
+from aimu.agents.prebuilt import CodeReviewAgent
+
+model_client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+agent = CodeReviewAgent(model_client)
+
+print("Orchestrator model:", model_client.model.value)
+print("Reviewer tools:", [t.__name__ for t in model_client.tools])
+```
+
+### Sample Code
+
+A short snippet with an SQL injection vulnerability and an O(n²) search loop: two issues that span different review dimensions.
+
+```{python}
+code_snippet = """
+import sqlite3
+
+def get_user(db_path, username):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    # Fetch user record
+    cursor.execute("SELECT * FROM users WHERE name = '" + username + "'")
+    return cursor.fetchone()
+
+def find_duplicates(items):
+    dupes = []
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            if items[i] == items[j] and items[i] not in dupes:
+                dupes.append(items[i])
+    return dupes
+"""
+```
+
+### Run
+
+Pass the code to `agent.run()`. The orchestrator will call each specialist reviewer, then synthesize findings into a prioritized report.
+
+```{python}
+result = agent.run(f"Review this Python code:\n\n{code_snippet}")
+print(result)
+```
+
+Inspect the orchestrator's message history to see each reviewer call and its response.
+
+```{python}
+agent.messages
+```
+
+### Streaming
+
+`TOOL_CALLING` chunks reveal which reviewer was called and a preview of their findings; `GENERATING` chunks are the orchestrator's synthesis.
+
+```{python}
+from aimu.models import StreamingContentType
+
+for chunk in agent.run(f"Review this Python code:\n\n{code_snippet}", stream=True):
+    if chunk.phase == StreamingContentType.TOOL_CALLING:
+        reviewer = chunk.content["name"]
+        response_preview = chunk.content["response"][:80].replace("\n", " ")
+        print(f"\n[tool: {reviewer}]\n  {response_preview}...\n")
+    elif chunk.phase == StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)
+```
+
+```{python}
+del agent, model_client
+```
+
+---
+
+## ContentCreationAgent
+
+An orchestrator `Agent` builds content step by step. The LLM determines how many sections to write and how many times to call each worker.
+
+```
+content-creation-agent  (orchestrator)
+  ├─ [tool] research_topic   →  research-worker  (Agent)
+  ├─ [tool] create_outline   →  outline-worker   (Agent)
+  └─ [tool] write_section    →  section-writer   (Agent)
+```
+
+### Setup
+
+Create an `OllamaClient` and pass it to `ContentCreationAgent`.
+
+```{python}
+from aimu.models import OllamaClient
+from aimu.agents.prebuilt import ContentCreationAgent
+
+model_client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+agent = ContentCreationAgent(model_client)
+
+print("Orchestrator model:", model_client.model.value)
+print("Worker tools:", [t.__name__ for t in model_client.tools])
+```
+
+### Run
+
+Give the agent a content brief. It will research the topic, build an outline, write each section, then assemble the final piece.
+
+```{python}
+task = "Write about the benefits of test-driven development as a blog post for software developers"
+
+result = agent.run(task)
+print(result)
+```
+
+Inspect the orchestrator's message history to trace the research → outline → write loop.
+
+```{python}
+agent.messages
+```
+
+### Streaming
+
+`TOOL_CALLING` chunks show which worker was called (and reveal the step-by-step construction); `GENERATING` chunks are the orchestrator assembling the final output.
+
+```{python}
+from aimu.models import StreamingContentType
+
+task = "Write about the benefits of test-driven development as a blog post for software developers"
+
+for chunk in agent.run(task, stream=True):
+    if chunk.phase == StreamingContentType.TOOL_CALLING:
+        worker = chunk.content["name"]
+        response_preview = chunk.content["response"][:80].replace("\n", " ")
+        print(f"\n[tool: {worker}]\n  {response_preview}...\n")
+    elif chunk.phase == StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)
+```
+
+---
+
+## Build Your Own Orchestrator Agent
+
+All three example agents follow the same pattern because they inherit from `OrchestratorAgent`. There are two ways to build your own:
+
+1. **`OrchestratorAgent.assemble(client, system_message, workers=[...])`**: no subclass needed. Each worker `Agent` is auto-wrapped as a `@aimu.tool` named after the worker, with the description taken from the worker's `system_message`. Use this when each worker can be dispatched by passing the user's task verbatim.
+
+2. **Subclass `OrchestratorAgent`** for full control over each dispatch tool (custom names, descriptions, signatures). The pattern:
+   1. Create worker `Agent` instances (one per specialization)
+   2. Wrap each worker's `.run()` in an `@aimu.tool`-decorated dispatch function
+   3. Call `self._init_orchestrator(model_client, name=..., system_message=..., tools=[...])`, and that's it
+
+`run()` and `messages` are inherited from `OrchestratorAgent`. The next cell shows the subclass form.
+
+```{python}
+from aimu.agents import Agent, OrchestratorAgent
+from aimu.models import OllamaClient
+from aimu.models.model_client import ModelClient
+import aimu
+
+
+class TranslationAgent(OrchestratorAgent):
+    def __init__(self, model_client):
+        translator = Agent(
+            ModelClient(model_client.model),
+            "Translate the given text accurately. Output only the translation.",
+            name="translator",
+        )
+        proofreader = Agent(
+            ModelClient(model_client.model),
+            "Review the translation for errors and return the corrected version.",
+            name="proofreader",
+        )
+
+        @aimu.tool
+        def translate(text_and_target_language: str) -> str:
+            """Translate text to the specified target language."""
+            return translator.run(text_and_target_language)
+
+        @aimu.tool
+        def proofread(translated_text: str) -> str:
+            """Review and correct a translation for accuracy and naturalness."""
+            return proofreader.run(translated_text)
+
+        self._init_orchestrator(
+            model_client,
+            name="translation-agent",
+            system_message=(
+                "You are a translation coordinator. "
+                "First use the translate tool to translate the text, "
+                "then use the proofread tool to check the result. "
+                "Return the final proofread translation."
+            ),
+            tools=[translate, proofread],
+        )
+
+
+model_client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+agent = TranslationAgent(model_client)
+
+result = agent.run("Translate to French: 'The quick brown fox jumps over the lazy dog'")
+print(result)
+```
+
+## Clean Up
+
+```{python}
+del agent, model_client
+```
+

@@ -1,0 +1,302 @@
+---
+title: "Audio Generation"
+jupyter: python3
+---
+
+
+AIMU ships a text-to-audio surface backed by HuggingFace `transformers` (MusicGen) and `diffusers` (AudioLDM2, Stable Audio Open). The shape mirrors image generation: a base ABC (`BaseAudioClient`), a factory class (`AudioClient`), and one-line entry points (`aimu.audio_client()` / `aimu.generate_audio()`).
+
+Scope: music and sound generation. Not text-to-speech.
+
+## Install
+
+```bash
+pip install -e '.[hf]'
+```
+
+The `[hf]` extra already ships `torch`, `transformers`, and `diffusers` for the HuggingFace text and image clients. Audio adds `soundfile` for WAV encoding, with no separate install step.
+
+## Layers of progressive disclosure
+
+1. **One-shot**: `aimu.generate_audio(prompt, model=...)` for quick scripts.
+2. **Direct client**: `aimu.audio_client(model)` reuses loaded weights across calls.
+3. **As an agent tool**: `from aimu.tools import builtin; Agent(client, tools=[builtin.generate_audio])` lets a chat LLM call audio generation when the user asks.
+4. **Async**: `await aio.audio_client(sync_client).generate(...)`. In-process providers wrap an existing sync client so weights aren't loaded twice.
+
+
+## 1. One-shot generation
+
+```{python}
+import aimu
+from IPython.display import Audio
+
+# Returns (sample_rate, np.ndarray) by default
+sr, audio = aimu.generate_audio(
+    "a lo-fi hip-hop beat with soft piano and warm drums",
+    model="hf:facebook/musicgen-small",
+    duration_s=5.0,
+)
+
+print(f"Sample rate: {sr} Hz, shape: {audio.shape}")
+Audio(audio, rate=sr)
+```
+
+```{python}
+# Save directly to a WAV file
+path = aimu.generate_audio(
+    "gentle ocean waves with distant seagulls",
+    model="hf:facebook/musicgen-small",
+    duration_s=5.0,
+    format="path",
+)
+print(f"Saved to: {path}")
+```
+
+### Output formats
+
+`format=` selects how the audio is returned:
+
+- `"numpy"` (default): `(sample_rate: int, audio: np.ndarray)` tuple, the native representation
+- `"path"`: saves a WAV file under `output/audio/{timestamp}-{hash}.wav` and returns the path
+- `"bytes"`: raw WAV-encoded bytes
+- `"data_url"`: `data:audio/wav;base64,...` for inline embedding
+
+## 2. Choosing a model
+
+Three pipeline families ship in `HuggingFaceAudioModel`:
+
+| Enum member | Pipeline | Description |
+|---|---|---|
+| `MUSICGEN_SMALL` | `musicgen` | Fastest; 300M params; 32 kHz |
+| `MUSICGEN_MEDIUM` | `musicgen` | Balanced quality |
+| `MUSICGEN_LARGE` | `musicgen` | Best quality; 3.3B params |
+| `AUDIOLDM2` | `audioldm2` | Latent diffusion; general sound; 16 kHz |
+| `STABLE_AUDIO_OPEN` | `stable_audio` | Latent diffusion; stereo; 44.1 kHz |
+
+**MusicGen** generates directly without a diffusion loop; duration maps to token count (~50 tokens/s). Fast, deterministic with a seed.
+
+**AudioLDM2** and **Stable Audio Open** use latent diffusion. They accept `num_inference_steps` (more = higher quality, slower) and stream progress chunks per step.
+
+```{python}
+from aimu import audio_client
+from aimu.models import HuggingFaceAudioModel
+
+# Pass an enum member for IDE autocomplete
+client = audio_client(HuggingFaceAudioModel.MUSICGEN_SMALL)
+
+# Or a string for ad-hoc models not in the enum
+client = audio_client("hf:facebook/musicgen-small")
+```
+
+## 3. Direct client: reuse loaded weights
+
+```{python}
+from aimu import audio_client
+from IPython.display import Audio
+
+client = audio_client("hf:facebook/musicgen-small")
+
+prompts = [
+    "lo-fi jazz with upright bass",
+    "driving electronic beat with synths",
+    "calm acoustic guitar fingerpicking",
+]
+
+for prompt in prompts:
+    sr, audio = client.generate(prompt, duration_s=5.0)
+    print(f"  {prompt}")
+    display(Audio(audio, rate=sr))
+```
+
+### Per-call kwargs
+
+| Kwarg | Applies to | Default |
+|---|---|---|
+| `duration_s` | all | 10.0 s |
+| `num_inference_steps` | diffusers only | 200 |
+| `seed` | all | None |
+| `num_audio` | all | 1 |
+
+```{python}
+import numpy as np
+
+# Seed for reproducibility (MusicGen)
+sr1, a1 = client.generate("lo-fi jazz", duration_s=5.0, seed=42)
+sr2, a2 = client.generate("lo-fi jazz", duration_s=5.0, seed=42)
+
+print(f"Same output: {np.array_equal(a1, a2)}")
+```
+
+```{python}
+# Generate two clips in one call
+results = client.generate("ambient forest sounds", num_audio=2, duration_s=5.0)
+for i, (sr, audio) in enumerate(results):
+    print(f"Clip {i + 1}: {audio.shape} at {sr} Hz")
+    display(Audio(audio, rate=sr))
+```
+
+## 4. Diffusion models: AudioLDM2
+
+AudioLDM2 uses latent diffusion for general sound generation. Reduce `num_inference_steps` for faster (lower quality) results during experimentation.
+
+```{python}
+from aimu import audio_client
+from IPython.display import Audio
+
+ldm_client = audio_client("hf:cvssp/audioldm2")
+
+sr, audio = ldm_client.generate(
+    "heavy thunderstorm with rain on a tin roof",
+    duration_s=5.0,
+    num_inference_steps=20,  # reduce for speed; default 200
+)
+Audio(audio, rate=sr)
+```
+
+## 5. Streaming progress
+
+Pass `stream=True` to get `AUDIO_GENERATING` chunks.
+
+- **MusicGen**: one final chunk (no intermediate steps).
+- **AudioLDM2 / Stable Audio**: one chunk per diffusion step, then a final chunk.
+
+`chunk.content` shape:
+```python
+{
+    "step": int,        # current step (1-based)
+    "total_steps": int, # total steps (1 for MusicGen)
+    "final": bool,      # True on the last chunk
+    "result": ...,      # encoded output on final chunk, None otherwise
+    "duration_s": float,
+}
+```
+
+```{python}
+from aimu import audio_client
+from IPython.display import Audio
+
+ldm_client = audio_client("hf:cvssp/audioldm2")
+
+result = None
+for chunk in ldm_client.generate(
+    "summer thunderstorm",
+    stream=True,
+    duration_s=5.0,
+    num_inference_steps=20,
+):
+    c = chunk.content
+    if c["final"]:
+        print(f"\nDone (step {c['step']}/{c['total_steps']})")
+        result = c["result"]  # (sample_rate, np.ndarray) for default format
+    else:
+        print(f"Step {c['step']}/{c['total_steps']}", end="\r")
+
+sr, audio = result
+Audio(audio, rate=sr)
+```
+
+## 6. Audio generation as an agent tool
+
+The built-in `generate_audio` tool lets any chat LLM call audio generation when the user asks. The LLM decides when to call it; the tool saves a WAV and returns the path as part of the conversation history.
+
+The first call loads weights (slow); subsequent calls reuse the singleton.
+
+```{python}
+import os
+
+# Optional: pick the singleton's default model via env var.
+os.environ["AIMU_AUDIO_MODEL"] = "hf:facebook/musicgen-small"
+
+from aimu import client
+from aimu.agents import Agent
+from aimu.tools import builtin
+
+text_client = client("anthropic:claude-sonnet-4-6")
+
+agent = Agent(
+    text_client,
+    system_message=(
+        "You can generate audio using the generate_audio tool. When the user asks for music "
+        "or a sound effect, write a descriptive prompt and call the tool. Tell the user where "
+        "the file was saved."
+    ),
+    tools=[builtin.generate_audio],
+)
+
+response = agent.run("Can you make me a short lo-fi beat I can study to?")
+print(response)
+```
+
+### Per-agent model: `make_audio_tool`
+
+If you don't want the singleton (e.g. each agent should use a different model), use `make_audio_tool` to build a tool bound to a specific client.
+
+```{python}
+from aimu import audio_client
+from aimu.tools.builtin import make_audio_tool
+
+medium_client = audio_client("hf:facebook/musicgen-medium")
+medium_tool = make_audio_tool(medium_client, duration_s=10.0)
+
+agent = Agent(text_client, tools=[medium_tool])
+agent.run("Generate a cinematic orchestral piece.")
+```
+
+### Streaming through an agent
+
+Because `generate_audio` is a generator-decorated `@tool`, its `AUDIO_GENERATING` chunks flow through `Agent.run(stream=True)` with no extra wiring.
+
+```{python}
+for chunk in agent.run("Make me a lo-fi beat", stream=True):
+    if chunk.is_audio_progress():
+        c = chunk.content
+        if not c["final"]:
+            print(f"  {c['step']}/{c['total_steps']}", end="\r")
+        else:
+            print(f"\n  Saved: {c['result']}")
+    elif chunk.is_text():
+        print(chunk.content, end="")
+```
+
+## 7. Async surface
+
+The async surface mirrors the sync surface one-for-one. Because HuggingFace models load weights in-process, the factory wraps an existing sync client rather than re-loading weights; passing a `HuggingFaceAudioModel` enum directly is refused with a pointer to the correct pattern.
+
+```{python}
+import asyncio
+from aimu import aio, audio_client
+from IPython.display import Audio
+
+sync_client = audio_client("hf:facebook/musicgen-small")
+async_client = aio.audio_client(sync_client)
+
+
+async def make_two():
+    a, b = await asyncio.gather(
+        async_client.generate("lo-fi jazz loop", duration_s=5.0),
+        async_client.generate("ambient wind through trees", duration_s=5.0),
+    )
+    return a, b
+
+
+# In a Jupyter kernel:
+jazz, wind = await make_two()
+display(Audio(jazz[1], rate=jazz[0]))
+display(Audio(wind[1], rate=wind[0]))
+```
+
+```{python}
+# Async one-shot
+from aimu import aio
+
+path = await aio.generate_audio(
+    "driving electronic beat with synths",
+    model="hf:facebook/musicgen-small",
+    format="path",
+    duration_s=10.0,
+)
+print(f"Saved to: {path}")
+```
+
+Note: on a single GPU, the two `gather`-ed calls don't truly overlap on the device (CUDA streams + GIL serialise inference), but the event loop stays free for other coroutines. For true overlap, load models on separate devices.
+

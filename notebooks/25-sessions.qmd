@@ -1,0 +1,137 @@
+---
+title: "Sessions (multi-user)"
+jupyter: python3
+---
+
+
+`ConversationManager` ([notebook 02](02-conversations.qmd)) holds **one** conversation. When a single process serves many users or chats, e.g. an always-on assistant on multiple channels, you need **per-conversation** state keyed by who is talking. `aimu.sessions` provides that: a `Session` (one conversation's history + optional memory scope + metadata) and a `SessionStore` that persists sessions by key.
+
+**What this notebook covers:**
+- The `SessionStore` API (`InMemorySessionStore`) + `session_key`
+- Durable sessions with `TinyDBSessionStore`
+- Routing two users to two isolated conversations through **one** agent (the reset + restore + save pattern)
+- `SessionLocks` for per-session serialization
+
+> It's a thin, sync layer (same family as `MemoryStore` / `ConversationManager`); the async assistant loop calls it directly. Section C runs a local Ollama model; the rest is model-free.
+
+> **Gotcha:** put the system prompt on the *client* (`aio.client(system=...)`), not the agent. An agent with `system_message` set resets its client each run (`_prepare_run`), which would discard the history you just restored.
+
+
+## Setup
+
+```{python}
+from aimu.sessions import (
+    InMemorySessionStore,
+    Session,
+    SessionLocks,
+    TinyDBSessionStore,
+    session_key,
+)
+
+MODEL = "ollama:qwen3:8b"  # any local/cloud model AIMU supports (only section C needs it)
+```
+
+## A - The store API
+
+`session_key(channel, sender)` is the canonical key; single-user collapses to `"default:default"`. `get` returns a **detached snapshot** (mutating it does nothing until `save`).
+
+```{python}
+store = InMemorySessionStore()
+
+print("single-user key:", session_key(None, None))
+print("telegram key:   ", session_key("telegram", "12345"))
+
+key = session_key("telegram", "12345")
+s = store.get(key)  # fresh empty Session; not persisted yet
+print("empty:", s.messages, "| stored keys:", store.list_keys())
+
+s.messages.append({"role": "user", "content": "hi"})
+print("not persisted until save:", store.get(key).messages)
+
+store.save(s)
+print("after save:", store.get(key).messages, "| keys:", store.list_keys())
+```
+
+## B - Durable sessions
+
+Swap the store; everything else is unchanged. `TinyDBSessionStore` writes one row per session and survives restarts.
+
+```{python}
+import pathlib
+import tempfile
+
+db = str(pathlib.Path(tempfile.mkdtemp()) / "sessions.json")
+
+store = TinyDBSessionStore(db)
+store.save(
+    Session(
+        key="web:default",
+        messages=[{"role": "user", "content": "remember the gate code is 4242"}],
+        metadata={"name": "Ada"},
+    )
+)
+store.close()
+
+# A fresh store over the same file (a "restart") sees the saved session.
+reopened = TinyDBSessionStore(db)
+s = reopened.get("web:default")
+print("restored:", s.messages)
+print("metadata:", s.metadata, "| keys:", reopened.list_keys())
+reopened.close()
+```
+
+## C - Routing two users through one agent
+
+Agents never share a live `messages` list across sessions. Each turn loads that session's history via `restore()`, runs, then snapshots back. A single agent instance serves both users; the store is the source of truth.
+
+> **Gotcha:** put the system prompt on the *client* (`aio.client(system=...)`), not the agent. An agent with `system_message` set resets its client each run (`_prepare_run`), which would discard the history you just restored.
+
+```{python}
+from aimu import aio
+
+# Put the system prompt on the CLIENT, not the agent. The agent's per-run _prepare_run resets the
+# client when agent.system_message is set, which would wipe the history we restore below; with the
+# prompt on the client and agent.system_message left None, reset() preserves it and restore survives.
+agent = aio.Agent(aio.client(MODEL, system="You are concise. Answer in one short sentence."))
+store = InMemorySessionStore()
+locks = SessionLocks()
+
+
+async def handle(channel, sender, text, *, agent=agent, store=store, locks=locks):
+    key = session_key(channel, sender)
+    async with locks(key):  # serialize this session's turns
+        session = store.get(key)
+        agent.restore(session.messages)  # load THIS conversation (reset + set)
+        reply = await agent.run(text)
+        session.messages = list(agent.model_client.messages)  # snapshot back
+        store.save(session)
+        return reply
+```
+
+```{python}
+# Two users, interleaved, sharing one agent.
+print("Ada:", await handle("web", "ada", "My name is Ada. Remember it."))
+print("Bob:", await handle("web", "bob", "My name is Bob. Remember it."))
+# Each session recalls only its own history:
+print("Ada ->", await handle("web", "ada", "What is my name?"))
+print("Bob ->", await handle("web", "bob", "What is my name?"))
+
+print("\nsessions stored:", store.list_keys())
+```
+
+## D - Concurrency and the single-user path
+
+`SessionLocks` gives a lazy per-key `asyncio.Lock`: a single session's turns serialize (shared message state), while **different** sessions run concurrently, the whole point of multi-user. Single-user needs no ceremony: `session_key(None, None)` is `"default:default"`, one fixed key for the only conversation (and plain `ConversationManager` is also fine for that case).
+
+This session store is the substrate for an always-on, multi-channel personal assistant: a channel adapter supplies `channel` + `sender`, and `handle()` above is the per-message routing core. See the [Build a personal assistant](https://saxman.github.io/aimu/how-to/build-personal-assistant/) and [Use sessions](https://saxman.github.io/aimu/how-to/use-sessions/) guides.
+
+## Clean up
+
+```{python}
+import shutil
+
+shutil.rmtree(pathlib.Path(db).parent, ignore_errors=True)
+del agent, store
+print("Cleaned up.")
+```
+

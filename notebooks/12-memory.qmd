@@ -1,0 +1,330 @@
+---
+title: "Memory"
+jupyter: python3
+---
+
+
+Demonstrates AIMU's two complementary memory stores:
+
+- **`SemanticMemoryStore`** - stores facts as natural-language strings and retrieves them by semantic topic using ChromaDB vector embeddings.
+- **`DocumentStore`** - path-based document store mirroring Anthropic's Managed Agents Memory API; supports named paths (e.g. `/preferences.md`) with full-text search.
+
+
+## A - SemanticMemoryStore: Basic Setup
+
+`SemanticMemoryStore` stores facts as natural-language strings in subject-predicate-object form (e.g. `"Paul works at Google"`). By default it uses an in-memory ephemeral store; pass `persist_path` to save facts to disk across sessions.
+
+```{python}
+from aimu.memory import SemanticMemoryStore
+
+# In-memory store (ephemeral; facts are lost when the process exits)
+store = SemanticMemoryStore()
+
+print(f"Store created. Facts stored: {len(store)}")
+```
+
+## B - Storing Facts
+
+Use `store()` to add a fact string. The string should follow subject-predicate-object form, but any natural-language sentence works; ChromaDB embeds it for semantic retrieval.
+
+```{python}
+# Store facts about people
+store.store("Paul works at Google")
+store.store("Paul is married to Sarah")
+store.store("Paul enjoys hiking on weekends")
+store.store("Sarah is the sister of Emma")
+store.store("Emma lives in Paris")
+store.store("Emma teaches mathematics at a university")
+store.store("Sarah volunteers at a local animal shelter")
+
+print(f"Facts stored: {len(store)}")
+```
+
+## C - Retrieving Facts by Topic
+
+`search(topic)` uses ChromaDB's vector similarity search to find facts semantically related to the topic. A query like `"employment"` will match `"Paul works at Google"` even though the word "employment" doesn't appear in the fact.
+
+```{python}
+print("=== Topic: 'work and employment' ===")
+for fact in store.search("work and employment"):
+    print(f"  {fact}")
+
+print()
+print("=== Topic: 'family relationships' ===")
+for fact in store.search("family relationships"):
+    print(f"  {fact}")
+
+print()
+print("=== Topic: 'hobbies and leisure' ===")
+for fact in store.search("hobbies and leisure"):
+    print(f"  {fact}")
+```
+
+## D - Controlling Search Results
+
+Two optional parameters let you narrow what `search()` returns:
+
+- **`n_results`**: caps the number of results (default 10). Results are always ordered by relevance (lowest distance first).
+- **`max_distance`**: cosine-distance threshold (0 = identical, 2 = maximally dissimilar). Facts with a distance above this value are excluded. Useful values are roughly 0.3 (tight match) to 0.6 (broad match). Defaults to `None` (no cutoff).
+
+```{python}
+# Cap the number of results
+top_facts = store.search("people and where they live or work", n_results=2)
+print("Top 2 facts (n_results=2):")
+for fact in top_facts:
+    print(f"  {fact}")
+
+print()
+
+# Filter by cosine distance; only return closely matching facts
+print("Tight filter (max_distance=0.4):")
+tight = store.search("work and employment", max_distance=0.4)
+for fact in tight:
+    print(f"  {fact}")
+
+print()
+
+# Looser filter (broader recall)
+print("Loose filter (max_distance=0.7):")
+loose = store.search("work and employment", max_distance=0.7)
+for fact in loose:
+    print(f"  {fact}")
+```
+
+## E - Deleting Facts
+
+`delete()` removes all stored facts that exactly match the given string.
+
+```{python}
+print(f"Before deletion: {len(store)} facts")
+
+store.delete("Emma lives in Paris")
+
+print(f"After deletion:  {len(store)} facts")
+
+# Confirm it's gone
+results = store.search("Paris")
+print(f"\nSearch for 'Paris' after deletion: {results}")
+```
+
+## F - Listing All Facts
+
+`list_all()` returns every stored fact string, unordered.
+
+```{python}
+all_facts = store.list_all()
+print(f"All {len(all_facts)} stored facts:")
+for fact in sorted(all_facts):
+    print(f"  {fact}")
+```
+
+## G - Persistent Storage
+
+Pass a `persist_path` to save facts to disk. The store survives process restarts and can be shared across sessions.
+
+```{python}
+import tempfile
+import shutil
+
+# Use a temp directory so this notebook is self-contained
+persist_dir = tempfile.mkdtemp(prefix="memory_store_")
+
+# Session 1: populate
+store1 = SemanticMemoryStore(persist_path=persist_dir)
+store1.store("Paul works at Google")
+store1.store("Sarah is the sister of Emma")
+print(f"Session 1: stored {len(store1)} facts to {persist_dir}")
+
+# Session 2: reload from disk (simulating a new process)
+store2 = SemanticMemoryStore(persist_path=persist_dir)
+print(f"Session 2: loaded {len(store2)} facts from disk")
+for fact in store2.search("people"):
+    print(f"  {fact}")
+
+# Clean up
+shutil.rmtree(persist_dir)
+```
+
+## H - Using SemanticMemoryStore with a Model Client
+
+A natural integration pattern: retrieve relevant facts from the memory store and inject them into the model's system prompt before a conversation, giving the model grounded knowledge about the user or domain.
+
+```{python}
+# Retrieve facts relevant to an upcoming conversation topic
+topic = "Paul's professional background"
+relevant_facts = store.search(topic, n_results=3)
+
+# Build a system prompt grounded in stored facts
+facts_block = "\n".join(f"- {f}" for f in relevant_facts)
+system_prompt = f"""You are a helpful assistant. Here are some facts you know about the user:
+
+{facts_block}
+
+Use these facts to personalise your responses."""
+
+print("Generated system prompt:")
+print(system_prompt)
+
+# To use with a model client:
+# from aimu.models import OllamaClient as ModelClient
+# model_client = ModelClient(ModelClient.MODELS.QWEN_3_5_9B)
+# model_client.system_message = system_prompt
+# response = model_client.chat("What do you know about my job?")
+```
+
+---
+
+## I - DocumentStore: Basic Setup
+
+`DocumentStore` stores content at named paths (e.g. `/preferences.md`, `/notes/meeting.md`). It mirrors Anthropic's Managed Agents Memory API, making it a drop-in replacement in local deployments. By default the store is ephemeral; pass `persist_path` to save documents to disk.
+
+```{python}
+from aimu.memory import DocumentStore
+
+# In-memory store (ephemeral)
+docs = DocumentStore()
+
+print(f"Document store created. Documents stored: {len(docs)}")
+```
+
+## J - Writing and Reading Documents
+
+`write(path, content)` creates or overwrites a document at the given path. `read(path)` retrieves it. Paths are arbitrary strings; use a directory-like convention for organisation.
+
+```{python}
+docs.write("/preferences.md", "Always use concise responses.\nPrefer bullet points over prose.")
+docs.write("/notes/meeting-2024-01.md", "Discussed Q3 roadmap with team.\nDecided to prioritise API improvements.")
+docs.write("/notes/meeting-2024-02.md", "Reviewed roadmap progress. API work on track.")
+docs.write("/profile.md", "Name: Paul\nRole: Senior Engineer\nTeam: Platform")
+
+print(f"Documents stored: {len(docs)}")
+print()
+
+# Read a document back
+content = docs.read("/preferences.md")
+print("=== /preferences.md ===")
+print(content)
+```
+
+## K - Editing Documents
+
+`edit(path, old_str, new_str)` replaces the first occurrence of `old_str` with `new_str` in the named document. Raises `ValueError` if `old_str` is not found.
+
+```{python}
+print("Before edit:")
+print(docs.read("/preferences.md"))
+
+docs.edit("/preferences.md", "concise responses", "detailed, thorough responses")
+
+print("\nAfter edit:")
+print(docs.read("/preferences.md"))
+```
+
+## L - Listing and Searching Documents
+
+`list_paths(prefix)` returns sorted paths, optionally filtered by a path prefix. `search_full_text(query)` does a case-insensitive substring search across all documents and returns a list of `{"path": ..., "content": ...}` dicts.
+
+```{python}
+# List all paths
+print("All paths:")
+for path in docs.list_paths():
+    print(f"  {path}")
+
+print()
+
+# List only paths under /notes/
+print("Paths under /notes/:")
+for path in docs.list_paths(prefix="/notes/"):
+    print(f"  {path}")
+
+print()
+
+# Full-text search
+print("Full-text search for 'roadmap':")
+for result in docs.search_full_text("roadmap"):
+    print(f"  {result['path']}: {result['content'][:60]}...")
+```
+
+## M - Deleting Documents
+
+`delete(path)` removes the document at the given path. It is a no-op if the path doesn't exist.
+
+```{python}
+print(f"Before deletion: {len(docs)} documents")
+print(f"Paths: {docs.list_paths()}")
+
+docs.delete("/notes/meeting-2024-01.md")
+
+print(f"\nAfter deletion: {len(docs)} documents")
+print(f"Paths: {docs.list_paths()}")
+```
+
+## N - DocumentStore Persistent Storage
+
+Pass `persist_path` to save documents to disk. Documents are stored as individual files and reloaded automatically on the next instantiation.
+
+```{python}
+import tempfile
+import shutil
+
+persist_dir = tempfile.mkdtemp(prefix="doc_store_")
+
+# Session 1: write documents
+docs1 = DocumentStore(persist_path=persist_dir)
+docs1.write("/preferences.md", "Always use concise responses.")
+docs1.write("/profile.md", "Name: Paul\nRole: Senior Engineer")
+print(f"Session 1: stored {len(docs1)} documents to {persist_dir}")
+
+# Session 2: reload from disk
+docs2 = DocumentStore(persist_path=persist_dir)
+print(f"Session 2: loaded {len(docs2)} documents from disk")
+for path in docs2.list_paths():
+    print(f"  {path}: {docs2.read(path)[:40]}...")
+
+# Clean up
+shutil.rmtree(persist_dir)
+```
+
+---
+
+## O - Memory as Agent Tools
+
+`make_memory_tools(store)` wraps any `MemoryStore` instance as three `@aimu.tool`-decorated functions (`store_memory`, `search_memories`, and `list_memories`) that an agent can call directly. This is the in-process alternative to the FastMCP servers in `aimu.memory.mcp` / `aimu.memory.document_mcp`.
+
+Unlike the image, audio, and speech built-in tools, there is no lazy singleton here: the store instance is always explicit because persistence semantics (ephemeral vs. on-disk, which `persist_path`, semantic vs. document) are meaningful choices the caller should make deliberately.
+
+```{python}
+from aimu.memory import SemanticMemoryStore
+from aimu.tools.builtin import make_memory_tools
+
+store = SemanticMemoryStore()
+memory_tools = make_memory_tools(store)
+
+# Three @tool-decorated functions, ready to pass to Agent(tools=...)
+for t in memory_tools:
+    spec = t.__tool_spec__["function"]
+    params = list(spec["parameters"]["properties"].keys())
+    print(f"{spec['name']}({', '.join(params)}):  {spec['description'].splitlines()[0]}")
+```
+
+```{python}
+from aimu.models import ModelClient, OllamaModel
+from aimu.agents import Agent
+
+store = SemanticMemoryStore()
+agent = Agent(
+    ModelClient(OllamaModel.QWEN_3_5_9B),
+    system_message="You are a helpful assistant with access to a persistent memory store. "
+    "Use store_memory to save important facts the user shares, "
+    "and search_memories before answering questions about the user.",
+    tools=make_memory_tools(store),
+)
+
+# Store a fact
+print(agent.run("Please remember that my preferred programming language is Python."))
+print()
+
+# Retrieve it in a fresh turn
+print(agent.run("What do you know about my programming preferences?"))
+```
+

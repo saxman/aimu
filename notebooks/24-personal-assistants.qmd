@@ -1,0 +1,280 @@
+---
+title: "Personal Assistants"
+jupyter: python3
+---
+
+
+AIMU ships three async-first primitives for building an always-on personal assistant in the style of [OpenClaw](https://github.com/openclaw/openclaw) or [Hermes Agent](https://hermes-agent.nousresearch.com/): a **channel** transport, a **scheduler** for proactive triggers, and runtime **skill authoring** so an agent grows its own skills. These are *library primitives*; a complete, interactive single-user daemon lives in [`examples/personal-assistant/`](../examples/personal-assistant/).
+
+**What this notebook covers:**
+- `Scheduler`: interval and one-shot async jobs, with per-job exception isolation
+- Skill authoring: `write_skill` and the `author_skill` tool (`make_skill_authoring_tool`) + `SkillManager.refresh()`
+- `Channel`: the transport ABC, demonstrated with an in-memory adapter driving a `SkillAgent`
+- Proactivity and persistence, then a pointer to the assembled daemon
+
+> **Note.** This notebook uses the async surface (`aimu.aio`) and relies on Jupyter's top-level `await`. The real assistant is *interactive and always-on* (`CLIChannel` blocks on stdin; `run()` loops forever), which a notebook can't host, so here we use an **in-memory channel** and **bounded** scheduler runs. Sections C and D need a local Ollama model.
+
+
+## Setup
+
+We use a throwaway skills directory so the notebook doesn't write into the repo, and a shared async client against a local Ollama model.
+
+```{python}
+import asyncio
+import tempfile
+from pathlib import Path
+
+from aimu import aio
+
+MODEL = "ollama:qwen3:8b"  # any local/cloud model AIMU supports
+
+# A throwaway skills directory for the authoring demos.
+tmp_dir = Path(tempfile.mkdtemp(prefix="aimu-assistant-"))
+skills_dir = tmp_dir / "skills"
+skills_dir.mkdir()
+print("Scratch skills dir:", skills_dir)
+```
+
+## A - Scheduler: proactive triggers
+
+`Scheduler` runs interval (`every`) and one-shot (`at`) async jobs concurrently under one `asyncio.TaskGroup`. A job is a zero-argument coroutine factory; bind context (an agent, a channel) with a closure or `functools.partial`. `run()` blocks until `stop()`. Here we start it in a background task and stop it after a short window.
+
+The key property: **a job that raises is isolated**. It's logged and (for interval jobs) retried next tick, so one misbehaving reminder can't tear down the daemon.
+(In the next cell you'll see `bad`'s traceback logged on every tick. That logging *is* the isolation in action: the scheduler keeps running and `good` keeps firing.)
+
+```{python}
+from aimu.aio import Scheduler
+
+good_fires = []
+
+
+async def good():
+    good_fires.append(1)
+
+
+async def bad():
+    raise RuntimeError("boom")  # logged and swallowed, sibling keeps firing
+
+
+sched = Scheduler()
+sched.every(0.03, good, first_delay=0.0, name="good")
+sched.every(0.03, bad, first_delay=0.0, name="bad")
+
+task = asyncio.create_task(sched.run())
+await asyncio.sleep(0.2)
+sched.stop()
+await task
+
+print(f"'good' fired {len(good_fires)} times despite 'bad' raising every tick")
+```
+
+One-shot jobs fire once after a delay. `at()` returns a job id you can `cancel()`.
+
+```{python}
+log = []
+
+
+async def remind():
+    log.append("reminder fired")
+
+
+sched = Scheduler()
+sched.at(0.05, remind, name="welcome")
+cancelled_id = sched.at(10.0, remind, name="later")
+sched.cancel(cancelled_id)  # cancel the far-future one before it fires
+
+task = asyncio.create_task(sched.run())
+await asyncio.sleep(0.15)
+sched.stop()
+await task
+
+print(log, "(the cancelled 10s job never fired)")
+```
+
+## B - Skill authoring: an agent that grows its own skills
+
+`write_skill(...)` creates a discoverable `SKILL.md` (validating the name as a slug, refusing to clobber, and round-tripping through the parser). `SkillManager.refresh()` invalidates the discovery cache so a skill authored at runtime becomes visible immediately.
+
+```{python}
+from aimu.skills import SkillManager, write_skill
+
+manager = SkillManager(skill_dirs=[str(skills_dir)])
+print("Skills before:", list(manager.skills))
+
+path = write_skill(
+    "format-standup",
+    "Format a standup update as three bullets.",
+    "# Standup format\n\nReply with exactly three bullets: Yesterday, Today, Blockers.",
+    skills_dir=skills_dir,
+)
+print("Wrote:", path)
+
+manager.refresh()  # re-discover so the new skill is visible mid-run
+print("Skills after refresh:", list(manager.skills))
+```
+
+`make_skill_authoring_tool(manager, skills_dir)` returns an async `author_skill` `@tool`. Hand it to an agent and the assistant can save a procedure it just worked out (the Hermes-style self-improvement loop). Here we call the tool directly to show what the agent would do.
+
+```{python}
+from aimu.skills import make_skill_authoring_tool
+
+author_skill = make_skill_authoring_tool(manager, skills_dir)
+print("async tool:", author_skill.__tool_is_async__, "| name:", author_skill.__tool_spec__["function"]["name"])
+
+result = await author_skill(
+    name="weekly-review",
+    description="Run a weekly review.",
+    body="# Weekly review\n\n1. List wins. 2. List misses. 3. Pick next week's focus.",
+)
+print(result)
+print("Discoverable now:", "weekly-review" in manager.skills)
+```
+
+### Skill scripts: author and run code
+
+A skill can bundle executable scripts. AIMU registers every `scripts/*.py` and `scripts/*.sh` as a `{skill}__{stem}` tool that runs the script as a subprocess (`.py` via the current Python, `.sh` via `bash`), with an optional `args` string forwarded to the script. `write_skill(..., scripts={...})` authors them; below we run them directly via the skills server.
+
+> **Full access.** Skill scripts run with your user privileges, no sandbox (the OpenClaw/Hermes model). Only enable this for a model and inputs you trust. `builtin.execute_python` is the sandboxed alternative.
+
+```{python}
+from aimu.skills import build_skills_server, write_skill
+from aimu.tools import MCPClient
+
+# Author a skill bundling a Python and a shell helper script.
+write_skill(
+    "sysinfo",
+    "Report basic system info.",
+    "# System info\n\nRun the bundled scripts.",
+    skills_dir=skills_dir,
+    scripts={
+        "py_version.py": "import platform\nprint('python', platform.python_version())\n",
+        "echo_args.sh": '#!/usr/bin/env bash\necho "shell args: $@"\n',
+    },
+)
+manager.refresh()
+
+# Each script is now a {skill}__{stem} tool. Run them (the .sh tool takes an args string).
+client = MCPClient(server=build_skills_server(manager))
+print("script tools:", [t.name for t in client.list_tools() if t.name.startswith("sysinfo__")])
+print(client.call_tool("sysinfo__py_version", {}).content[0].text.strip())
+print(client.call_tool("sysinfo__echo_args", {"args": "hello world"}).content[0].text.strip())
+```
+
+In the assembled assistant, `make_skill_script_tool(agent, manager, skills_dir)` gives the agent an `add_skill_script` tool that writes the script and calls `agent.reload_skills()`, so a script the assistant authors becomes a callable tool **in the same turn**. See [`examples/personal-assistant/`](../examples/personal-assistant/).
+
+## C - Channel: the transport ABC
+
+A `Channel` is a tiny transport: `receive()` is an async generator of inbound `ChannelMessage`s; `send()` takes a finished string or an `AsyncIterator[StreamChunk]` to relay a streamed reply. `CLIChannel` (terminal) ships with AIMU, but it blocks on stdin, so for the notebook we define an **in-memory** channel that feeds scripted messages and captures replies.
+
+```{python}
+from aimu.aio import Channel, ChannelMessage
+from aimu.models import StreamingContentType
+
+
+class MemoryChannel(Channel):
+    """An in-notebook Channel: scripted inbound messages, captured replies."""
+
+    name = "memory"
+
+    def __init__(self, inbound):
+        self._inbound = list(inbound)
+        self.sent = []
+
+    async def receive(self):
+        for text in self._inbound:
+            yield ChannelMessage(text=text, sender="demo", channel=self.name)
+
+    async def send(self, content, *, reply_to=None):
+        if isinstance(content, str):
+            text = content
+        else:  # AsyncIterator[StreamChunk] -> keep generated text
+            parts = [c.content async for c in content if c.phase == StreamingContentType.GENERATING]
+            text = "".join(parts)
+        self.sent.append(text)
+        print("assistant >", text)
+```
+
+Now wire the channel to a `SkillAgent` and run the receive -> agent -> send loop. The agent's `author_skill` tool is attached, and the system prompt lives on the client (so multi-turn history persists across messages, the same setup the reference daemon uses).
+
+```{python}
+from aimu.skills import SkillManager, make_skill_authoring_tool
+
+manager = SkillManager(skill_dirs=[str(skills_dir)])
+author_skill = make_skill_authoring_tool(manager, skills_dir)
+
+client = aio.client(
+    MODEL,
+    system="You are a concise personal assistant. When the user teaches you a repeatable "
+    "procedure, call author_skill to save it.",
+)
+agent = aio.SkillAgent(client, tools=[author_skill], skill_manager=manager, name="assistant")
+
+channel = MemoryChannel(["My name is Ada.", "What did I just tell you my name was?"])
+async for msg in channel.receive():
+    print("user      >", msg.text)
+    reply = await agent.run(msg.text, stream=True)  # stream the reply through the channel
+    await channel.send(reply, reply_to=msg)
+```
+
+## D - Proactivity and persistence
+
+**Proactivity.** In the daemon a `Scheduler` job calls the agent and pushes the result through the channel unprompted. Here we invoke that callback directly to show the unprompted message (in the daemon it is registered via `scheduler.at(...)` / `scheduler.every(...)`).
+
+```{python}
+async def proactive(agent, channel):
+    reply = await agent.run("Proactively suggest one short productivity tip.")
+    await channel.send(reply)
+
+
+await proactive(agent, channel)  # the assistant speaks without a user prompt
+```
+
+**Persistence.** `ConversationManager` (TinyDB) saves the conversation; a later session restores it with `agent.restore(...)`, which de-duplicates the system message so history resumes cleanly.
+
+```{python}
+from aimu.history import ConversationManager
+
+history_path = str(tmp_dir / "history.json")
+
+conv = ConversationManager(history_path, use_last_conversation=True)
+conv.update_conversation([dict(m) for m in agent.model_client.messages])
+conv.close()
+print("Saved", len(conv.messages), "messages")
+
+# A fresh session restores prior context.
+conv2 = ConversationManager(history_path, use_last_conversation=True)
+resumed = aio.SkillAgent(aio.client(MODEL), skill_manager=SkillManager(skill_dirs=[str(skills_dir)]), name="assistant")
+resumed.restore(conv2.messages)
+restored_user_turns = [m["content"] for m in resumed.model_client.messages if m.get("role") == "user"]
+print("Restored user turns:", restored_user_turns)
+conv2.close()
+```
+
+## E - The assembled daemon
+
+The reference app in [`examples/personal-assistant/`](../examples/personal-assistant/) wires all of this into one process: a top-level `asyncio.TaskGroup` runs the channel listener and the scheduler concurrently, each inbound message runs the agent and streams the reply back, and history is persisted after every turn. The shape:
+
+```python
+async with asyncio.TaskGroup() as tg:
+    tg.create_task(serve_channel())   # async for msg in channel.receive(): handle(msg)
+    tg.create_task(scheduler.run())   # proactive reminders
+```
+
+Run it interactively (chat at the `>` prompt; a reminder fires after 30s):
+
+```bash
+python examples/personal-assistant/assistant.py --model anthropic:claude-sonnet-4-6 --reminder-seconds 30
+```
+
+See the [Build a personal assistant](https://saxman.github.io/aimu/how-to/build-personal-assistant/) how-to guide for the full walkthrough.
+
+## Clean up
+
+```{python}
+import shutil
+
+shutil.rmtree(tmp_dir, ignore_errors=True)
+del client, agent, channel, resumed
+print("Cleaned up", tmp_dir)
+```
+

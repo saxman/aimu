@@ -1,0 +1,188 @@
+---
+title: "Prompt Management"
+jupyter: python3
+---
+
+
+`PromptCatalog` is a SQLite-backed store for the prompts you ship to production. Every `Prompt` row carries a name, the prompt text, the `model_id` it targets, an auto-assigned version number, optional mutation/reasoning prompts, and a free-form `metrics` dict for evaluation scores. Lookups are keyed on `(name, model_id)`, so the same prompt can have independent version lineages per model (e.g. an `"assistant"` prompt evolving differently on GPT-4 and Claude). Prompts can reference a `parent_id` to track how one version was derived from another.
+
+Use the catalog when prompts are a moving target: when you're iterating with `PromptTuner` ([notebook 15](15-prompt-tuning.qmd)), comparing models with `Benchmark` ([notebook 17](17-benchmarking.qmd)), or simply wanting a durable record of which prompt produced which results. For ad-hoc one-off prompts you don't need this; just inline the string.
+
+## What this notebook covers
+
+| Section | Topic |
+|---|---|
+| A | Constructing a `Prompt` row with metrics and metadata |
+| B | Initialising a SQLite-backed `PromptCatalog` |
+| C | Storing multiple prompts across versions and models |
+| D | Retrieving the latest version, or every version, of a prompt |
+| E | Listing the model IDs present in the catalog |
+| F | Linking versions with `parent_id` to track prompt lineage |
+| G | Bulk-deleting all prompts for a model and cleaning up |
+
+
+## A - Creating and Managing Prompts
+
+The Prompt class is a SQLAlchemy model that stores prompt data including versioning, metrics, and mutation/reasoning prompts.
+
+```{python}
+from aimu.prompts import Prompt, PromptCatalog
+
+# Create a new prompt instance
+prompt = Prompt(
+    name="assistant",
+    prompt="You are a helpful assistant that provides clear and concise answers.",
+    model_id="gpt-4",
+    version=1,
+    mutation_prompt="Vary the tone to be more friendly",
+    reasoning_prompt="Think step by step before answering",
+    metrics={"accuracy": 0.95, "response_time": 1.2},
+)
+```
+
+## B - Setting up a PromptCatalog
+
+The PromptCatalog class provides a SQLite-backed database for storing and retrieving prompts. It handles database connections and provides methods for CRUD operations.
+
+```{python}
+import tempfile
+import os
+
+# Create a temporary database file for this example
+temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+temp_db.close()
+
+# Initialize the catalog with the database path
+catalog = PromptCatalog(temp_db.name)
+```
+
+## C - Storing Prompts
+
+You can store prompts in the catalog for later retrieval. Each prompt can be associated with a model ID and version for organization.
+
+```{python}
+# Store the first prompt
+catalog.store_prompt(prompt)
+
+# Create and store additional prompts for the same model
+prompt_v2 = Prompt(
+    name="assistant",
+    prompt="You are a helpful assistant that provides detailed explanations with examples.",
+    model_id="gpt-4",
+    version=2,
+    mutation_prompt="Add more technical details",
+    reasoning_prompt="Provide reasoning with examples",
+    metrics={"accuracy": 0.97, "response_time": 1.5},
+)
+
+catalog.store_prompt(prompt_v2)
+
+# Create prompts for a different model
+claude_prompt = Prompt(
+    name="assistant",
+    prompt="You are Claude, an AI assistant created by Anthropic.",
+    model_id="claude-3",
+    version=1,
+    mutation_prompt="Be more conversational",
+    reasoning_prompt="Consider multiple perspectives",
+    metrics={"accuracy": 0.93, "response_time": 0.8},
+)
+
+catalog.store_prompt(claude_prompt)
+```
+
+## D - Retrieving Prompts
+
+The catalog provides methods to retrieve the latest prompt for a model, or all prompts for a model ordered by version.
+
+```{python}
+# Retrieve the latest prompt for GPT-4
+latest_gpt4 = catalog.retrieve_last("assistant", "gpt-4")
+print(f"Latest GPT-4 prompt (v{latest_gpt4.version}): {latest_gpt4.prompt}")
+print(f"Metrics: {latest_gpt4.metrics}")
+print()
+
+# Retrieve all prompts for GPT-4
+all_gpt4 = catalog.retrieve_all("assistant", "gpt-4")
+print(f"All GPT-4 prompts ({len(all_gpt4)} total):")
+for p in all_gpt4:
+    print(f"  v{p.version}: {p.prompt[:50]}...")
+print()
+
+# Retrieve the latest prompt for Claude
+latest_claude = catalog.retrieve_last("assistant", "claude-3")
+print(f"Latest Claude prompt: {latest_claude.prompt}")
+```
+
+## E - Managing Model IDs
+
+You can retrieve a list of all model IDs that have prompts stored in the catalog.
+
+```{python}
+# Get all model IDs in the catalog
+model_ids = catalog.retrieve_model_ids()
+print(f"Models in catalog: {model_ids}")
+
+# Show summary of prompts for each model
+for model_id in model_ids:
+    prompts = catalog.retrieve_all("assistant", model_id)
+    print(f"  {model_id}: {len(prompts)} prompt(s)")
+```
+
+## F - Working with Prompt Hierarchies
+
+Prompts can have parent-child relationships through the parent_id field, allowing you to track prompt evolution and mutations.
+
+```{python}
+# Create a child prompt that references the parent
+parent_prompt = catalog.retrieve_last("assistant", "gpt-4")
+
+child_prompt = Prompt(
+    name="assistant",
+    parent_id=parent_prompt.id,
+    prompt="You are a helpful assistant that provides detailed explanations with examples and references.",
+    model_id="gpt-4",
+    version=3,
+    mutation_prompt="Add citations and references",
+    reasoning_prompt="Provide reasoning with examples and sources",
+    metrics={"accuracy": 0.98, "response_time": 1.8},
+)
+
+catalog.store_prompt(child_prompt)
+print(f"Created child prompt with parent ID: {child_prompt.parent_id}")
+
+# Verify the relationship
+updated_latest = catalog.retrieve_last("assistant", "gpt-4")
+print(f"Latest prompt version: {updated_latest.version}")
+print(f"Parent ID: {updated_latest.parent_id}")
+```
+
+## G - Cleaning Up
+
+You can delete all prompts for a specific model when needed.
+
+```{python}
+# Show current state
+print("Before cleanup:")
+for model_id in catalog.retrieve_model_ids():
+    count = len(catalog.retrieve_all("assistant", model_id))
+    print(f"  {model_id}: {count} prompt(s)")
+print()
+
+# Delete all GPT-4 prompts
+deleted_count = catalog.delete_all("assistant", "gpt-4")
+print(f"Deleted {deleted_count} GPT-4 prompts")
+print()
+
+# Show state after cleanup
+print("After cleanup:")
+for model_id in catalog.retrieve_model_ids():
+    count = len(catalog.retrieve_all("assistant", model_id))
+    print(f"  {model_id}: {count} prompt(s)")
+
+# Clean up the temporary database file
+del catalog  # This will close the session
+os.unlink(temp_db.name)
+print(f"Cleaned up temporary database: {temp_db.name}")
+```
+

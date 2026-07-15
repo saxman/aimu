@@ -1,0 +1,330 @@
+---
+title: "Async (`aimu.aio`)"
+jupyter: python3
+---
+
+
+The optional async surface, `aimu.aio`, mirrors the entire public sync API one-for-one. The sync ladder (notebooks 01–13) is unchanged; this notebook shows when and how to switch to the async surface.
+
+The differences from the sync surface are small:
+
+| Aspect | Sync (`aimu`) | Async (`aimu.aio`) |
+|---|---|---|
+| Construction | `aimu.client(...)` | `aio.client(...)` |
+| Call site | `client.chat(...)` | `await client.chat(...)` |
+| Streaming type | `Iterator[StreamChunk]` | `AsyncIterator[StreamChunk]` |
+| `Parallel` primitive | `ThreadPoolExecutor` | `asyncio.TaskGroup` |
+| `@aimu.tool` async functions | rejected with clear error | awaited; sync tools via `asyncio.to_thread` |
+
+The headline benefit is **`asyncio.TaskGroup`-backed `Parallel`**: real coroutine concurrency, structured cancellation when one worker fails, and `ExceptionGroup` aggregation. Otherwise async is mostly syntactic, with the same class names, same `Runner` decision tree, and same `StreamChunk` type.
+
+Use this surface when you're embedding AIMU in an async app (FastAPI, Starlette, Discord bot, async pipelines). Stick with sync for notebooks/scripts unless you genuinely need event-loop integration.
+
+> **Note**: Jupyter supports top-level `await` natively (IPython 7+), so the cells below work as-is. No `asyncio.run()` wrapping needed in the notebook.
+
+See also:
+- [docs/how-to/use-async.md](../docs/how-to/use-async.md): task-oriented guide
+- [docs/explanation/async-design.md](../docs/explanation/async-design.md): seven design decisions with rationale
+
+
+## Setup
+
+Construct a shared async client against a local Ollama model. `aio.client(...)` accepts the same `"provider:model_id"` strings as `aimu.client(...)`.
+
+```{python}
+from aimu import aio
+
+client = aio.client("ollama:qwen3:8b", system="You are concise.")
+print("Async client:", type(client).__name__)
+print("Model:", client.model.value)
+print("Supports tools:", client.model.supports_tools)
+print("Supports thinking:", client.model.supports_thinking)
+```
+
+## A. One-shot and multi-turn chat
+
+`aio.chat(...)` is the one-shot helper; `aio.client(...).chat(...)` keeps multi-turn history.
+
+```{python}
+# One-shot
+reply = await aio.chat("Name three colours.", model="ollama:qwen3:8b")
+print(reply)
+```
+
+```{python}
+# Multi-turn: history is preserved across awaits
+client.reset()  # start fresh
+await client.chat("My name is Ada.")
+follow_up = await client.chat("What did I tell you my name was?")
+print(follow_up)
+```
+
+## B. Streaming
+
+`await client.chat(..., stream=True)` returns an `AsyncIterator[StreamChunk]`. Consume with `async for`. The same `include=` phase filter works on both surfaces.
+
+```{python}
+client.reset()
+
+stream = await client.chat("Count slowly from one to five.", stream=True)
+async for chunk in stream:
+    if chunk.is_text():
+        print(chunk.content, end="", flush=True)
+print()
+```
+
+```{python}
+# Phase filter: same include= semantics as sync
+client.reset()
+
+stream = await client.chat(
+    "Count slowly from one to five.",
+    stream=True,
+    include=["generating"],  # drop THINKING and TOOL_CALLING chunks
+)
+phases_seen = set()
+async for chunk in stream:
+    phases_seen.add(chunk.phase.value)
+    if chunk.is_text():
+        print(chunk.content, end="", flush=True)
+print()
+print("phases yielded:", phases_seen)
+```
+
+## C. Async `@aimu.tool` functions
+
+`@aimu.tool` auto-detects `async def` (sets `func.__tool_is_async__`). The same decorator works on both surfaces, but:
+
+- **Sync surface**: raises `ValueError` if you hand it an async tool. Loud, immediate.
+- **Async surface**: `await`s async tools directly; routes sync (CPU-bound) tools through `asyncio.to_thread` so the event loop stays free.
+
+Same `@aimu.tool` function, same `Agent` shape; only the surface decides which dispatch behaviour kicks in.
+
+```{python}
+import asyncio
+import aimu
+
+
+@aimu.tool
+async def fetch_price(symbol: str) -> str:
+    """Look up the current price of a ticker (stub that sleeps to simulate I/O)."""
+    await asyncio.sleep(0.3)  # pretend we hit an API
+    prices = {"AAPL": "188.42", "GOOG": "142.11", "MSFT": "419.07"}
+    return prices.get(symbol.upper(), "unknown")
+
+
+@aimu.tool
+def to_caps(text: str) -> str:
+    """Return the input in all caps."""
+    return text.upper()
+
+
+print("fetch_price is async tool:", fetch_price.__tool_is_async__)
+print("to_caps    is async tool:", to_caps.__tool_is_async__)
+```
+
+```{python}
+# Drop both tools onto an async Agent; the async dispatcher handles each correctly.
+agent = aio.Agent(
+    aio.client("ollama:qwen3:8b"),
+    system_message="Use the tools to answer accurately. Be brief.",
+    tools=[fetch_price, to_caps],
+    name="ticker-agent",
+)
+
+reply = await agent.run("What is AAPL trading at? Then return the symbol in caps.")
+print(reply)
+```
+
+The per-call tool override mirrors the sync surface: pass `tools=` to `await client.chat(...)` or `await agent.run(...)` to swap the tool set for a single call/run (`tools=[]` disables them), restored afterward. Since MCP tools also live in `tools` (via `await mcp.as_tools()`), the override covers them too. See **[notebook 06](06-tools.qmd) §A** and **[notebook 07](07-agents.qmd) §A** for the sync demos; the semantics are identical here.
+
+## D. `aio.Parallel` with `asyncio.TaskGroup` (the headline win)
+
+Sync `Parallel` uses `ThreadPoolExecutor`, which is fine, but each worker holds a thread and the GIL serializes hot loops. `aio.Parallel` uses `asyncio.TaskGroup` instead, which gives you:
+
+1. **True coroutine concurrency**: no thread overhead, scales to hundreds of in-flight workers.
+2. **Structured cancellation**: if one worker raises, in-flight siblings are cancelled cleanly (instead of running to completion).
+3. **`ExceptionGroup` aggregation**: when multiple workers fail, you see all of them at once, not just the first.
+
+The wall-clock timing below makes the overlap visible.
+
+```{python}
+import time
+from aimu.aio.agent import AsyncRunner
+
+
+class SlowWorker(AsyncRunner):
+    """Toy worker that sleeps for `delay` seconds then returns `label`.
+
+    Standing in for an LLM call so we can isolate the concurrency primitive
+    from the model's variable latency.
+    """
+
+    def __init__(self, label, delay, raises=False):
+        self.name = label
+        self.delay = delay
+        self.label = label
+        self.raises = raises
+
+    async def run(self, task, generate_kwargs=None, stream=False, images=None):
+        await asyncio.sleep(self.delay)
+        if self.raises:
+            raise RuntimeError(f"worker '{self.label}' boom")
+        return f"{self.label}: done in {self.delay}s"
+
+    @property
+    def messages(self):
+        return {self.name: []}
+
+
+# Three workers, each sleeps 0.5s. Wall-clock should be ~0.5s (overlap), not ~1.5s.
+parallel = aio.Parallel(
+    workers=[SlowWorker(f"w{i}", 0.5) for i in range(3)],
+)
+
+t0 = time.perf_counter()
+result = await parallel.run("ignored; workers don't read the task")
+elapsed = time.perf_counter() - t0
+
+print(result)
+print(f"\nwall-clock: {elapsed:.2f}s   (serial would be ~1.5s)")
+```
+
+```{python}
+# Structured concurrency: one worker raises, siblings are cancelled.
+# Wall-clock should be ~0.05s (the failing worker's delay), NOT ~5s (the slow worker).
+# The error surfaces as an ExceptionGroup containing every failure.
+
+parallel_fail = aio.Parallel(
+    workers=[
+        SlowWorker("slow", 5.0),  # never reaches the end
+        SlowWorker("bad", 0.05, raises=True),  # fails fast
+    ],
+)
+
+t0 = time.perf_counter()
+try:
+    await parallel_fail.run("ignored")
+except* RuntimeError as eg:
+    elapsed = time.perf_counter() - t0
+    print(f"caught ExceptionGroup with {len(eg.exceptions)} error(s)")
+    for e in eg.exceptions:
+        print(f"  - {type(e).__name__}: {e}")
+    print(f"\nwall-clock: {elapsed:.2f}s   (sync ThreadPoolExecutor would have waited 5s)")
+```
+
+### `aio.Parallel.from_client(...)`: real LLM workers
+
+The factory method mirrors the sync version: build N workers from one async client and a list of system messages, optionally pass an aggregator.
+
+```{python}
+analysis = aio.Parallel.from_client(
+    aio.client("ollama:qwen3:8b"),
+    worker_prompts=[
+        "Give one benefit of the proposal in one sentence.",
+        "Give one risk of the proposal in one sentence.",
+        "Give one practical next step in one sentence.",
+    ],
+    aggregator_prompt="Synthesize the three perspectives into one balanced paragraph.",
+)
+
+print(await analysis.run("Adopting a four-day work week at our company."))
+```
+
+## E. `aio.MCPClient` lifecycle
+
+The async MCP wrapper is a thin parallel to `aimu.tools.MCPClient`, with the same construction signature (`config=` / `server=` / `file=`) and the same method names. Construction is a classmethod factory (`await MCPClient.connect(...)`) because `__init__` can't be `async`.
+
+The sync `aimu.tools.MCPClient` is still supported and unchanged; use it if you want MCP tools without writing any async code.
+
+```{python}
+from fastmcp import FastMCP
+
+# Stand up a tiny in-process MCP server
+mcp_server = FastMCP("demo")
+
+
+@mcp_server.tool()
+def add(a: int, b: int) -> int:
+    """Add two integers."""
+    return a + b
+
+
+@mcp_server.tool()
+def reverse(text: str) -> str:
+    """Reverse a string."""
+    return text[::-1]
+
+
+# Connect via the async classmethod
+mcp = await aio.MCPClient.connect(server=mcp_server)
+try:
+    tools = await mcp.as_tools()  # async @tool-style callables for the agent's tools list
+    print("tool names:", [fn.__name__ for fn in tools])
+
+    tool_agent = aio.Agent(
+        aio.client("ollama:qwen3:8b"),
+        system_message="Use the tools to answer the user's question.",
+        tools=tools,
+        name="mcp-agent",
+    )
+    print()
+    print(await tool_agent.run("Add 42 and 8, then reverse the result as text."))
+finally:
+    await mcp.aclose()  # idempotent; safe in `finally`
+```
+
+## F. In-process providers (HuggingFace, LlamaCpp)
+
+In-process providers load model weights into memory, often 10–100 GB. Constructing both a sync `HuggingFaceClient` and an async `AsyncHuggingFaceClient` for the same model would load weights **twice** and likely OOM the host.
+
+The async surface enforces a wrapping pattern instead: build the sync client once, then pass it to `aio.client(...)`. State (`messages`, `system_message`, `tools`) is shared with the wrapped sync client.
+
+```python
+import aimu
+from aimu import aio
+from aimu.models import HuggingFaceModel
+
+# 1. Load weights once via the sync client
+sync_client = aimu.client(HuggingFaceModel.QWEN_3_8B)
+
+# 2. Wrap for the async surface, no second load
+async_client = aio.client(sync_client)
+
+# 3. Use it like any aio.client
+async_agent = aio.Agent(async_client, tools=[...])
+reply = await async_agent.run("...")
+```
+
+Calling `aio.client(HuggingFaceModel.X)` with a model enum directly raises a `ValueError` pointing you at the wrapping pattern. Demo:
+
+```{python}
+# Demonstrate the guard without actually loading any weights
+try:
+    from aimu.models import HuggingFaceModel
+
+    aio.client(HuggingFaceModel.QWEN_3_8B)  # would load weights twice
+except ValueError as exc:
+    print(type(exc).__name__, "raised:")
+    print()
+    print(exc)
+except ImportError:
+    print("(HuggingFace extra not installed; skipping demo)")
+```
+
+**Caveat for in-process providers**: "async" here only buys event-loop integration. Your handler doesn't block on inference, so other coroutines can run between forward passes. It does **not** unlock coroutine-level concurrency, because the GIL and CUDA stream serialize execution anyway. If you need batch throughput from one HF model, use `model.generate(input_ids=batched)` directly, not concurrent `await` calls.
+
+## G. When *not* to use the async surface
+
+- **Notebooks and CLI scripts**: sync is one less concept to manage. This notebook only exists because async deserves its own demo.
+- **One-shot calls in otherwise-sync code**: wrapping with `asyncio.run` per call wins you nothing.
+- **HuggingFace / LlamaCpp with concurrency in mind**: in-process inference is GIL-bound; you get event-loop integration, not parallelism.
+
+The sync ladder (`aimu.chat()` → `aimu.client()` → `Agent` → workflows) is unchanged and remains the default. Reach for `aimu.aio` when you have a running event loop or when `aio.Parallel`'s structured concurrency is the right tool for the job.
+
+## Clean up
+
+```{python}
+del client, agent, parallel, parallel_fail, analysis, tool_agent, mcp_server
+```
+

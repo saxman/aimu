@@ -85,4 +85,4 @@ except SkillNotFoundError as exc:
 
 - [Tutorial: first agent with tools](../tutorials/02-first-agent-with-tools.md): start here if `SkillAgent` is overkill
 - [`aimu.skills` API reference](../reference/api/skills.md)
-- Notebook [08 - Agent Skills](https://github.com/saxman/aimu/blob/main/notebooks/08%20-%20Agent%20Skills.ipynb)
+- Notebook [08 - Agent Skills](https://github.com/saxman/aimu/blob/main/notebooks/08-agent-skills.qmd)

@@ -1,0 +1,155 @@
+---
+title: "Structured Output"
+jupyter: python3
+---
+
+
+Pass `schema=` to `chat()` or `generate()` to get a **validated, typed object** back instead
+of a string. `schema` may be a dataclass (dependency-free) or a Pydantic v2 model.
+
+AIMU uses the best method the model supports, automatically:
+
+- **Native enforcement** when the model has `supports_structured_output=True`: the provider
+  constrains generation to the schema (OpenAI `response_format`, Ollama `format=`, Anthropic
+  forced-tool).
+- **Prompt-and-parse** otherwise: the schema is appended to the prompt and the response is
+  parsed.
+
+Either way you get a validated instance or a `ValueError`. This notebook builds on
+[Model Client](01-model-client.qmd).
+
+## Setup
+
+The chat cells call a model. This notebook uses OpenAI (`OPENAI_API_KEY`), but any
+`provider:model_id` works (Ollama enforces natively for every model; HuggingFace/llama-cpp
+use prompt-and-parse). The capability-flag and guard cells run offline.
+
+
+## 1. A typed response from a dataclass
+
+Define the shape you want, pass it as `schema=`, get an instance back.
+
+```{python}
+from dataclasses import dataclass
+
+import aimu
+
+
+@dataclass
+class Person:
+    name: str
+    age: int
+    occupation: str
+
+
+client = aimu.client("openai:gpt-4.1")
+person = client.chat("Extract the person: Ada Lovelace, age 36, mathematician.", schema=Person)
+print(type(person).__name__, "->", person)
+print(person.name, "|", person.age, "|", person.occupation)
+```
+
+## 2. Native vs. parse: the capability flag
+
+`supports_structured_output` (on every model enum member and client) tells you which path a
+model uses. It's a static capability: the branch is decided up front, not by catching a
+runtime error, so a genuine provider failure surfaces rather than silently degrading.
+
+```{python}
+from aimu.models import OllamaModel, OpenAIModel
+
+print("OpenAI gpt-4.1:      ", OpenAIModel.GPT_4_1.supports_structured_output)  # True (native)
+print("Ollama qwen3:8b:     ", OllamaModel.QWEN_3_8B.supports_structured_output)  # True (format=)
+# HuggingFace / llama-cpp models report False -> prompt-and-parse fallback.
+
+print("client flag:         ", client.supports_structured_output)
+```
+
+## 3. `generate()` and Pydantic
+
+`schema=` works on the stateless `generate()` too, and accepts a Pydantic v2 model
+(optional dependency; dataclasses need nothing extra).
+
+```{python}
+from pydantic import BaseModel
+
+
+class Invoice(BaseModel):
+    vendor: str
+    total: float
+    paid: bool
+
+
+invoice = client.generate("Acme Corp billed $1,250.00 and it has not been paid.", schema=Invoice)
+print(invoice)
+```
+
+## 4. Composing with tools
+
+`schema=` composes with tool calling on OpenAI-compatible and parse-path providers: tools
+run in the loop, and the final answer obeys the schema.
+
+**Anthropic is the exception.** Its native structured output *is* a forced tool, which
+conflicts with offering action tools, so combining `schema=` with active `tools=` raises a
+`ValueError`. Drop the tools (or `use_tools=False`), or use a provider whose
+`response_format` composes with tools.
+
+## 5. Streaming structured output
+
+`schema=` combines with `stream=True`. You get a `StreamChunk` iterator (show thinking /
+generation live), and the validated object is delivered two ways: a terminal chunk with
+`phase == DONE` whose `content` is `{"result": <object>}`, and `client.last_structured`
+(set once the stream is fully consumed, mirroring `client.last_usage`).
+
+An `include=` filter still applies to the thinking/generation phases, but the terminal
+result chunk is always emitted. Anthropic streams the answer JSON (not thinking), because
+its structured mode is a forced tool the API forbids alongside extended thinking; Ollama and
+OpenAI-compatible thinking models stream thinking normally.
+
+```{python}
+from aimu.models import StreamingContentType
+
+for chunk in client.chat("Extract the person: Alan Turing, age 41, computer scientist.", schema=Person, stream=True):
+    if chunk.phase is StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)  # JSON being built
+    elif chunk.is_done():
+        print("\n\nresult ->", chunk.content["result"])
+
+print("last_structured ->", client.last_structured)
+```
+
+Structured output never changes `self.messages`: the typed object is a return value only,
+and the assistant turn is stored as the plain JSON string. Conversation history stays in
+plain OpenAI format, so it remains portable across providers.
+
+## 6. Async
+
+Identical on the async surface: `await client.chat(..., schema=...)`.
+
+```{python}
+import asyncio
+
+from aimu import aio
+
+
+async def main():
+    aclient = aio.client("openai:gpt-4.1")
+    person = await aclient.chat("Grace Hopper, age 79, computer scientist.", schema=Person)
+    print(person)
+
+
+asyncio.run(main())
+```
+
+## 7. Which models enforce natively
+
+`Client.STRUCTURED_MODELS` lists the structured-capable models per provider (the OpenAI,
+Gemini, Ollama, and Anthropic catalogs). HuggingFace and llama-cpp use prompt-and-parse.
+
+```{python}
+from aimu.models.providers.openai.text import OpenAIClient
+
+print("OpenAI structured models:")
+for m in OpenAIClient.STRUCTURED_MODELS:
+    print("  ", m.name, "->", m.value)
+```
+

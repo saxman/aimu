@@ -1,0 +1,12 @@
+{
+  // Pin the project virtualenv so the Quarto/Jupyter kernel and the Python
+  // extension resolve to it without prompting (kernel = .venv/share/jupyter/kernels/python3).
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+
+  // One persistent Interactive Window per .qmd so cell state doesn't bleed between notebooks.
+  "jupyter.interactiveWindow.creationMode": "perFile",
+
+  // Let Shift+Enter send the current selection/line from a .qmd text editor to the
+  // Interactive Window (closer to Jupyter's run-and-continue muscle memory).
+  "jupyter.interactiveWindow.textEditor.executeSelection": true
+}

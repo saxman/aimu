@@ -346,7 +346,18 @@ asyncio.run(main())
 
 ### Notebooks
 
-The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, numbered `01` to `25` and ordered to build up incrementally, from the model client, tools, and agents through workflows, memory, RAG, the generative modalities, the async surface, agent composition / A2A interop, personal-assistant primitives, and multi-user sessions. The filenames are self-describing; open the directory to browse and run them.
+The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, ordered to build up knowledge incrementally (model client, tools, agents, workflows, memory, RAG, generative modalities, async, A2A, personal-assistant primitives, sessions). They are plain-text [Quarto](https://quarto.org) `.qmd` files (markdown with executable `python` cells), which you can use in several ways:
+
+- **Read and edit** them in any editor. Being plain text, they diff cleanly and are easy to hand to an AI assistant.
+- **Render** the collection to a browsable site with the Quarto CLI, which needs to be [installed locally](https://quarto.org/docs/get-started/). `quarto preview notebooks/` serves the notebooks locally and live-reloads as you edit. The notebooks default to `eval: false`, so Quarto will not execute code, however. To turn on automatic code execution, `pip install -e '.[notebooks]'` and set `eval: true` (or `freeze`) in `_quarto.yml`.
+- **Run cell by cell in VS Code** with the Quarto extension. Cells run in the Jupyter Interactive Window through the kernel. Requires both the VS Code Quarto and Jupyter extensions, and a Jupyter kernel (`pip install -e '.[notebooks]'`).
+- **Run cell by cell in JupyterLab** via [jupytext](https://jupytext.readthedocs.io). Requires Quarto CLI and JupyterLab/jupytext via `pip install -e '.[notebooks]'`.*
+- **Run cell by cell by converting to Jupyter notebooks**, using the native VS Code / Jupyter notebook editor:
+
+  ```bash
+  python notebooks/convert.py to-ipynb          # .qmd -> local .ipynb (git-ignored), edit/run inline
+  python notebooks/convert.py to-qmd 06-tools    # sync your notebook edits back to the .qmd source
+  ```
 
 ### Examples
 

@@ -79,7 +79,7 @@ The [`examples/`](https://github.com/saxman/aimu/tree/main/examples) directory s
 
 ## Notebooks
 
-The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 22 runnable demos ordered to build up incrementally, from `01 - Model Client`, `03 - Structured Output`, and `06 - Tools` through `07 - Agents`, `11 - Embeddings`, `13 - RAG`, and the generative-modality and `22 - Async` notebooks. The numbered filenames are self-describing; browse the directory to run them.
+The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 26 runnable demos ordered to build up incrementally, from `01-model-client`, `03-structured-output`, and `06-tools` through `07-agents`, `11-embeddings`, `13-rag`, and the generative-modality and `22-async` notebooks. They are authored as plain-text [Quarto](https://quarto.org) `.qmd` files (markdown with executable `python` cells); the numbered filenames are self-describing, so browse the directory to read or run them.
 
 ## Web apps
 

@@ -1,0 +1,354 @@
+---
+title: "Agents"
+jupyter: python3
+---
+
+
+Demonstrate AIMU's autonomous agents: an LLM that loops over its own tool calls until it decides to stop. The agent owns the control flow; you give it tools and a goal, and the model picks which tools to call, in what order, and when to finish.
+
+This notebook covers:
+
+- `Agent`: the basic agentic loop with `@aimu.tool`-decorated functions and MCP tools
+- System messages and per-config construction
+- Streaming with `StreamChunk` (`phase`, `content`, `agent`, `iteration`)
+- `agent.as_model_client()`: drop an agent into any API that wants a `BaseModelClient`
+
+For code-controlled patterns (`Chain`, `Router`, `Parallel`, `EvaluatorOptimizer`, `PlanExecuteEvaluator`) see **[notebook 09](09-workflows.qmd)**. For filesystem-discovered skills (`SkillAgent`) see **[notebook 08](08-agent-skills.qmd)**. For ready-to-use orchestrator agents see **[notebook 10](10-prebuilt-agents.qmd)**.
+
+For a worked example that solves one task with an `Agent`, a `Chain`, a `Parallel`, and an `OrchestratorAgent` side by side, see [`examples/news-summarizer/`](../examples/news-summarizer/).
+
+
+## Quick start: `@aimu.tool` and `Agent`
+
+The shortest path to a working agent: decorate any Python function with `@aimu.tool` and pass it to an `Agent`. The decorator inspects the signature and docstring to build an OpenAI-format tool spec; the agent registers the function on its `ModelClient` and dispatches calls in-process.
+
+Use this route for tools that live in the same process as your code. For cross-process tools (a shared tool server, a fleet of agents sharing a catalog), use `MCPClient` as shown in the next section. The two routes can be combined on the same agent.
+
+```{python}
+from aimu.models import ModelClient, OllamaModel
+from aimu.agents import Agent
+import aimu
+
+
+@aimu.tool
+def letter_counter(word: str, letter: str) -> int:
+    """Count occurrences of a letter in a word."""
+    return word.lower().count(letter.lower())
+
+
+quickstart_client = ModelClient(OllamaModel.QWEN_3_5_9B)
+quickstart_agent = Agent(quickstart_client, tools=[letter_counter], max_iterations=3)
+
+print(quickstart_agent.run("How many r's are in the word strawberry?"))
+```
+
+## Setup
+
+Create an `OllamaClient` with a tool-capable model and build a few demo tools from an in-process `MCPClient` via `as_tools()`. The tools are passed to each `Agent` via `tools=`; the same `model_client` and `demo_tools` are reused across all sections.
+
+```{python}
+import datetime
+from fastmcp import FastMCP
+
+from aimu.models import OllamaClient
+from aimu.tools import MCPClient
+
+mcp = FastMCP("Demo Tools")
+
+
+@mcp.tool()
+def get_current_date_and_time() -> str:
+    """Returns the current date and time."""
+    return str(datetime.datetime.now())
+
+
+@mcp.tool()
+def get_weather(location: str) -> str:
+    """Returns the current weather for a given location."""
+    # Stubbed for demo purposes
+    return f"Sunny, 22Â°C in {location}"
+
+
+@mcp.tool()
+def calculate(expression: str) -> str:
+    """Evaluates a simple arithmetic expression and returns the result."""
+    try:
+        return str(eval(expression, {"__builtins__": {}}))
+    except Exception as e:
+        return f"Error: {e}"
+
+
+model_client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+# MCPClient.as_tools() turns the server's tools into @tool-style callables. Tools now live
+# on the Agent (pass them via tools=), not on the client; keep the MCPClient reference alive.
+mcp_client = MCPClient(server=mcp)
+demo_tools = mcp_client.as_tools()
+
+print("Model:", model_client.model.value)
+print("Tools:", [fn.__name__ for fn in demo_tools])
+```
+
+## A - Basic Agent
+
+An `Agent` wraps a `ModelClient` and runs an agentic loop: on each turn the model may call tools, which the agent executes and feeds back; the agent then continues until the model responds without calling any tools (or `max_iterations` is reached). The model client handles a single turn; the loop lives in the agent.
+
+This is the simplest possible usage â€” two lines.
+
+```{python}
+from aimu.agents import Agent
+
+model_client.messages = []
+
+agent = Agent(model_client, name="assistant", tools=demo_tools, max_iterations=5)
+result = agent.run("Get the current date and time. Subsequently calculate 123 * 456.")
+
+print(result)
+```
+
+The agent called both tools â€” date/time and calculator â€” and assembled the results into a final answer. Inspect the full message history to see every step.
+
+```{python}
+model_client.messages
+```
+
+### Per-run tool override
+
+`Agent(tools=...)` sets the agent's *configured* tools. To use a different set for a single run (a narrower set for a quick task, or none at all) pass `tools=` to `run()`. It applies to every turn of that run's agentic loop and is restored afterward; `tools=None` (the default) uses the configured tools, and `tools=[]` disables tools for the run. (Since MCP tools are also just callables in the agent's `tools` via `as_tools()`, the override covers them too.)
+
+```{python}
+import aimu
+
+
+@aimu.tool
+def add(a: int, b: int) -> int:
+    """Add two integers."""
+    return a + b
+
+
+@aimu.tool
+def multiply(a: int, b: int) -> int:
+    """Multiply two integers."""
+    return a * b
+
+
+override_client = ModelClient(OllamaModel.QWEN_3_5_9B)
+override_agent = Agent(override_client, tools=[add, multiply], max_iterations=4)
+
+# Configured with both tools, but expose only `add` for this run.
+print(override_agent.run("What is 12 + 30?", tools=[add]))
+
+# Next run with no override uses the configured tools again (add + multiply).
+print(override_agent.run("What is 6 times 7?"))
+```
+
+### Guaranteed final answer at the iteration cap
+
+By default, if an agent reaches `max_iterations` while still calling tools, `run()` returns whatever that last (possibly tool-only) turn produced, which can be empty. Set `final_answer_prompt` to guarantee a usable result: when the cap is hit with a tool call still pending, the agent sends that prompt **once with tools disabled**, forcing the model to synthesize an answer from what it has gathered so far. This wrap-up turn is *not* counted against `max_iterations`, and it never fires on a normal finish (a turn with no tool calls). `OrchestratorAgent.assemble(..., final_answer_prompt=...)` forwards it to the inner orchestrator.
+
+```{python}
+from aimu.tools import builtin
+
+capped_client = ModelClient(OllamaModel.QWEN_3_5_9B)
+capped_agent = Agent(
+    capped_client,
+    system_message="You are a maths assistant. Use the calculate tool for each arithmetic step.",
+    tools=[builtin.calculate],
+    max_iterations=2,  # deliberately tight, so the loop may hit the cap mid-task
+    final_answer_prompt="Stop using tools and give your best final answer now from what you have.",
+)
+
+# If the agent exhausts its iterations while still calling tools, the forced wrap-up
+# turn (tools disabled) ensures a non-empty answer instead of a blank result.
+print(capped_agent.run("Compute (12 + 30) * 7, then subtract 5, then halve the result."))
+```
+
+## B - Agent with System Message
+
+Pass a `system_message` to give the agent a specific persona or set of instructions.
+
+```{python}
+model_client.messages = []
+
+agent = Agent(
+    model_client,
+    name="weather-bot",
+    tools=demo_tools,
+    max_iterations=5,
+)
+model_client.system_message = "You are a travel assistant. Always check the weather before giving advice. Be concise. If you've answered the original query and don't need to use any more tools, repeat the final answer."
+
+result = agent.run("Should I visit Paris or London today?")
+print(result)
+```
+
+```{python}
+model_client.messages
+```
+
+## C - Agent from Config
+
+`Agent.from_config()` creates an agent from a plain dict. This makes it easy to define agents in configuration files or environment settings without writing boilerplate code.
+
+```{python}
+agent_config = {
+    "name": "calculator-agent",
+    "system_message": "You are a maths assistant. Use the calculate tool for all arithmetic. If you've answered the original query and don't need to use any more tools, repeat the final answer.",
+    "max_iterations": 8,
+    "continuation_prompt": "Continue solving the problem step by step.",
+}
+
+model_client.messages = []
+agent = Agent.from_config(agent_config, model_client)
+agent.tools = demo_tools  # from_config configs are plain dicts; attach tool callables directly
+
+print(f"Agent name:       {agent.name}")
+print(f"Max iterations:   {agent.max_iterations}")
+print(f"System message:   {model_client.system_message}")
+```
+
+```{python}
+result = agent.run("What is (17 * 23) + (88 / 4)?")
+print(result)
+```
+
+```{python}
+model_client.messages
+```
+
+## D - Streaming Agent Output
+
+`run(stream=True)` yields `StreamChunk` objects, each with `phase`, `content`, `agent`, and `iteration`. The same chunk type flows through `client.chat(stream=True)` and every workflow; `agent` and `iteration` are populated by the agent/workflow runner (and default to `None` / `0` for plain client chats).
+
+The `iteration` field shows which loop round produced each chunk, making it easy to follow multi-step reasoning. Use `chunk.is_text()` / `chunk.is_tool_call()` to dispatch without writing out the phase comparison.
+
+```{python}
+from aimu.models import StreamingContentType
+
+model_client.messages = []
+model_client.system_message = None
+
+agent = Agent(model_client, name="streamer", tools=demo_tools, max_iterations=6)
+
+current_iteration = -1
+current_phase = None
+
+for chunk in agent.run("What is the weather in Tokyo, and what is 99 * 11?", stream=True):
+    if chunk.iteration != current_iteration:
+        current_iteration = chunk.iteration
+        print(f"\n--- iteration {current_iteration} ---")
+
+    if chunk.phase != current_phase:
+        current_phase = chunk.phase
+        print(f"\n--- phase {current_phase.value} ---")
+
+    if chunk.phase == StreamingContentType.THINKING:
+        print(f"{chunk.content}", end="", flush=True)
+    elif chunk.phase == StreamingContentType.TOOL_CALLING:
+        print(f"{chunk.content['name']}({chunk.content['arguments']!r}) > {chunk.content['response']}")
+    elif chunk.phase == StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)
+```
+
+```{python}
+model_client.messages
+```
+
+## E - agent.as_model_client()
+
+`agent.as_model_client()` returns a `BaseModelClient` view backed by the agent. Use it anywhere a plain model client is accepted (web UIs, conversation managers, etc.) to get the full agentic loop transparently.
+
+`chat()` on the returned view runs the complete `Agent` loop and returns once the model stops calling tools. `generate()` bypasses the loop and calls the inner client directly. State (`messages`, `system_message`) delegates to `agent.model_client`, so the view is a true drop-in replacement.
+
+To run a workflow (`Chain`, `Router`, etc.), call its `run()` or `run(stream=True)` directly; see **[notebook 09](09-workflows.qmd)** for workflow patterns.
+
+```{python}
+client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+tools = MCPClient(server=mcp).as_tools()
+
+agentic_client = Agent(client, tools=tools, max_iterations=5).as_model_client()
+
+# chat() drives the full agentic loop: identical call site to a plain ModelClient
+result = agentic_client.chat("What is the weather in Berlin, and what is 42 * 7?")
+print(result)
+```
+
+## F - execute_python Tool
+
+The `execute_python` built-in runs sandboxed Python code inside an agent -- useful for data analysis and computation. It is in `builtin.compute` but not `ALL_TOOLS`; opt in explicitly.
+
+```{python}
+from aimu.tools import builtin
+from aimu.agents import Agent
+from aimu.models import OllamaClient, OllamaModel
+
+compute_client = OllamaClient(OllamaModel.QWEN_3_8B)
+compute_agent = Agent(
+    compute_client,
+    system_message="You are a data analysis assistant. Use execute_python for calculations.",
+    name="compute-agent",
+    tools=builtin.compute,  # includes calculate and execute_python
+)
+
+result = compute_agent.run("Compute the mean and standard deviation of [4, 8, 15, 16, 23, 42].")
+print(result)
+```
+
+## G - Inspecting Agent Tool Calls
+
+`extract_tool_calls(messages)` converts the raw OpenAI-format message history into a structured list of `{iteration, tool, arguments, result}` records.
+
+```{python}
+from aimu import extract_tool_calls
+
+calls = extract_tool_calls(compute_agent.model_client.messages)
+for call in calls:
+    print(f"Iteration {call['iteration']}: {call['tool']}({call['arguments']}) -> {str(call['result'])[:80]!r}")
+```
+
+### Distinguishing agent-loop turns from user input
+
+To reach its answer the agent injects its own `{"role": "user", ...}` turns (the continuation prompt between tool rounds, and a final-answer prompt if it hits `max_iterations`). In a replayed history these look identical to what the user typed. AIMU marks them with an inert `provenance` key so a UI can tell them apart; genuine user input is left untagged. The key is stripped from every provider request (like the `thinking` key), so it never reaches the model.
+
+```{python}
+import aimu
+
+# Only the first user turn was typed by the user; the rest are agent-loop prompts.
+for message in compute_agent.model_client.messages:
+    if message["role"] != "user":
+        continue
+    origin = message.get(aimu.PROVENANCE_KEY) or "typed by the user"
+    print(f"[{origin}] {message['content'][:70]!r}")
+```
+
+## H - Checkpointing (save/restore after failure)
+
+Save the live partial state on failure and restore before retrying. `agent.restore()` strips the system message to prevent duplication.
+
+```{python}
+import json
+
+save_path = "/tmp/agent_checkpoint.json"
+
+# Simulate a run that saves state (in production: save on exception)
+compute_agent.model_client.messages = []
+result = compute_agent.run("What is 2 ** 32?")
+with open(save_path, "w") as f:
+    json.dump(compute_agent.model_client.messages, f)
+print("Checkpoint saved. Restoring and running a follow-up...")
+
+# Restore and continue
+with open(save_path) as f:
+    saved = json.load(f)
+compute_agent.restore(saved)
+follow_up = compute_agent.run("Now square that result.")
+print(follow_up)
+```
+
+## I - Clean Up
+
+Delete model clients to release any held resources.
+
+```{python}
+del model_client, agentic_client
+```
+

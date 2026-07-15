@@ -1,0 +1,307 @@
+---
+title: "Image Generation"
+jupyter: python3
+---
+
+
+AIMU ships a text-to-image surface backed by HuggingFace `diffusers` that runs in parallel to the text-chat surface. The two stay distinct because diffusion is a different modality with a different shape (`generate(prompt) -> Image` vs. `chat(message, ...) -> text + tool calls`).
+
+## Install
+
+```bash
+pip install -e '.[hf,google]'
+```
+
+This pulls `diffusers`, `accelerate`, `safetensors`, `Pillow`, `torch`, and `transformers`.
+
+## Layers of progressive disclosure
+
+1. **One-shot**: `aimu.generate_image(prompt, model=...)` for quick scripts.
+2. **Direct client**: `aimu.image_client(model)` reuses loaded weights across calls.
+3. **Image-to-image**: pass `reference_image=` to steer generation from an existing image (`strength=` for SD/FLUX 1; unified for FLUX 2 Klein; editing for Gemini).
+4. **As an agent tool**: `from aimu.tools import builtin; Agent(client, tools=[builtin.generate_image])` lets a chat LLM call image gen when the user asks for one.
+5. **As a skill**: a `SKILL.md` adds prompt-engineering guidance on top of the tool for `SkillAgent` users.
+6. **Async**: `await aio.image_client(sync_client).generate(...)`. In-process providers wrap an existing sync client so weights aren't loaded twice.
+
+
+## 1. One-shot generation
+
+```{python}
+import aimu
+
+image = aimu.generate_image(
+    "a watercolor of a fox in a snowy forest, soft morning light",
+    model="hf:runwayml/stable-diffusion-v1-5",
+    width=512,
+    height=512,
+    num_inference_steps=20,
+    seed=42,
+)
+image  # displays inline in Jupyter
+```
+
+### Cloud alternative: Google Nano Banana
+
+`gemini:nano-banana` (alias for `gemini-2.5-flash-image`) is Google's image model accessible via the Gemini API. The same `aimu.image_client()` / `aimu.generate_image()` entry points dispatch to it based on the `gemini:` prefix. Requires `GOOGLE_API_KEY` in the environment (or `.env`).
+
+No weights to load, so a fast first call, but every call hits the cloud. Aspect ratio is the main knob (`"1:1"`, `"16:9"`, `"3:4"`, …).
+
+```{python}
+# Requires GOOGLE_API_KEY in env or .env.
+nb_image = aimu.generate_image(
+    "a watercolor of a fox in a snowy forest, soft morning light",
+    model="gemini:nano-banana",
+    aspect_ratio="16:9",
+)
+nb_image
+```
+
+## 2. Direct client (reuse loaded weights)
+
+Constructing a fresh client per call reloads weights, which is slow. For repeated generation, build one client and call `generate()` on it.
+
+```{python}
+from aimu import image_client
+
+client = image_client("hf:runwayml/stable-diffusion-v1-5")
+
+for prompt in [
+    "a watercolor of a fox",
+    "a watercolor of a deer",
+    "a watercolor of an owl",
+]:
+    img = client.generate(prompt, width=512, height=512, num_inference_steps=20)
+    display(img)
+```
+
+### Output formats
+
+`format=` selects how the image is returned:
+
+- `"pil"` (default): `PIL.Image` for direct manipulation / display
+- `"path"`: saves PNG under `output/images/{timestamp}-{hash}.png` and returns the path
+- `"bytes"`: raw PNG bytes
+- `"data_url"`: `data:image/png;base64,...` for embedding in HTML / responses
+
+```{python}
+path = client.generate("a watercolor of a heron in flight", format="path", width=512, height=512)
+print(f"Saved to: {path}")
+
+data_url = client.generate("a small icon of a leaf", format="data_url", width=256, height=256)
+print(data_url[:80], "...")
+```
+
+## 3. Image-to-image (img2img)
+
+Pass `reference_image=` to steer generation from an existing image. The output blends the reference with the text prompt rather than starting from pure noise.
+
+Accepted input forms are the same as vision input: a file path string, `pathlib.Path`, raw `bytes`, a `data:image/...` URL, an `http(s)://` URL, or a PIL Image.
+
+`strength=` controls how much the output can deviate from the reference:
+- `0.0`: nearly identical to the reference
+- `1.0`: ignore it entirely (equivalent to txt2img)
+- `0.75`: default, preserves composition and colour but applies the prompt freely
+
+The img2img pipeline is loaded lazily from the already-loaded txt2img pipeline via `from_pipe()`, so shared weights, no extra VRAM cost.
+
+## 4. Image generation as an agent tool
+
+The built-in `generate_image` tool lets any chat LLM produce images when the user asks. The LLM decides *when* to call it; the tool returns a saved file path which becomes part of the conversation history.
+
+The first call loads weights (slow); subsequent calls reuse the singleton.
+
+### FLUX.2 Klein: unified pipeline, no `strength`
+
+FLUX.2 Klein uses a single `Flux2KleinPipeline` for both txt2img and img2img. It conditions on the reference image directly without a `strength` scalar; the prompt describes what to change. 4-step distillation makes it as fast as FLUX.1 Schnell with better output quality.
+
+```{python}
+from aimu import image_client
+from aimu.models import HuggingFaceImageModel
+
+# Load once: the same Flux2KleinPipeline handles both txt2img and img2img
+klein = image_client(HuggingFaceImageModel.FLUX_2_KLEIN_4B)
+
+# txt2img: 4 steps, good text rendering and hand/face quality
+base = klein.generate("a tabby cat sitting in a sunlit garden, photorealistic")
+display(base)
+
+# img2img: same loaded weights, no from_pipe() overhead for the unified pipeline
+winter = klein.generate(
+    "a tabby cat sitting in a winter garden, snow on the ground, cold light",
+    reference_image=base,
+)
+display(winter)
+```
+
+### Gemini: cloud image editing
+
+Nano Banana supports image editing: pass `reference_image=` alongside a prompt describing the change. The reference and prompt are sent together as a multipart request; no `strength` parameter, the model interprets the edit instruction directly.
+
+## 5. As a skill: deeper integration with `SkillAgent`
+
+A skill layers *instructions* on top of the tool. Create `.agents/skills/image-generation/SKILL.md`:
+
+```markdown
+---
+name: image-generation
+description: Generate images using a diffusion model. Use this when the user asks for a picture, illustration, sketch, or photo.
+---
+
+## When to use
+
+Activate this skill when the user requests an image, illustration, sketch, photo, drawing, or visual.
+
+## Prompt engineering for diffusion
+
+When calling `generate_image`, write descriptive prompts that include:
+
+1. **Subject**: what is in the image
+2. **Style**: watercolor, oil painting, photograph, line drawing, 3D render, anime, etc.
+3. **Composition**: close-up, wide shot, low angle, top-down, etc.
+4. **Lighting**: soft morning light, golden hour, studio lighting, dramatic shadows
+5. **Detail level**: "highly detailed", "minimalist", "painterly"
+
+Combine 2-4 descriptors per prompt. More than that often hurts coherence.
+
+## Tools
+
+- `generate_image(prompt)`: returns the saved file path.
+```
+
+Then use `SkillAgent`. It auto-discovers `SKILL.md` files and injects the catalog.
+
+## 3. Image generation as an agent tool
+
+The built-in `generate_image` tool lets any chat LLM produce images when the user asks. The LLM decides *when* to call it; the tool returns a saved file path which becomes part of the conversation history.
+
+The first call loads weights (slow); subsequent calls reuse the singleton.
+
+## 6. Async surface
+
+The async surface mirrors the sync surface one-for-one. Because diffusers loads model weights in-process, the async factory wraps an existing sync client rather than re-loading weights; passing a `HuggingFaceImageModel` enum directly is refused with a pointer to the correct pattern.
+
+Async `generate()` routes the inference call through `asyncio.to_thread` so the event loop stays free.
+
+### Per-agent model: `make_image_tool`
+
+If you don't want the singleton (e.g. each agent should use a different diffusion model), use `make_image_tool` to build a tool bound to a specific client.
+
+```{python}
+import aimu
+from aimu.agents import Agent
+from aimu.tools.builtin import make_image_tool
+
+text_client = aimu.client("anthropic:claude-sonnet-4-6")
+
+fast_client = image_client("hf:black-forest-labs/FLUX.1-schnell")  # 4-step model, very fast
+fast_image_tool = make_image_tool(fast_client)
+
+agent = Agent(text_client, tools=[fast_image_tool])
+agent.run("Sketch me a cyberpunk fox.")
+```
+
+## 7. Streaming progress
+
+Pass `stream=True` to get an iterator of `IMAGE_GENERATING` chunks during denoising. Each chunk carries `step`, `total_steps`, an optional intermediate `image` (when `preview_every=N` opts in), and a `final` flag.
+
+Because the built-in `generate_image` tool is itself a generator-decorated `@tool`, these chunks also flow through `Agent.run(stream=True)` when an agent invokes the tool, with no side-channel callbacks needed.
+
+```{python}
+from aimu.agents import SkillAgent
+from aimu.tools import builtin
+
+# SkillAgent will discover the SKILL.md you placed under .agents/skills/.
+skill_agent = SkillAgent(text_client, tools=[builtin.generate_image])
+skill_agent.run("I want a sketch of a robot fixing a vintage typewriter.")
+```
+
+## 5. Async surface
+
+The async surface mirrors the sync surface one-for-one. Because diffusers loads model weights in-process, the async factory wraps an existing sync client rather than re-loading weights; passing a `HuggingFaceImageModel` enum directly is refused with a pointer to the correct pattern.
+
+Async `generate()` routes the inference call through `asyncio.to_thread` so the event loop stays free.
+
+## 8. Generate then describe: closing the loop
+
+Pair `generate_image` with `describe_image` and the agent can look at what it just produced, then tell the user what's in it. The factory `make_describe_image_tool(client)` binds to whatever vision-capable chat client you're already using (no second model load, no extra API key), and the tool snapshots conversation state so the vision Q&A doesn't pollute the agent's history.
+
+Note: on a single GPU, the two `gather`-ed calls don't truly overlap on the device (CUDA streams + GIL serialise inference), but the event loop stays free for other coroutines (request handlers, I/O, etc.). For true overlap across GPUs, build separate sync clients per device and wrap each.
+
+## 6. Streaming progress
+
+Pass `stream=True` to get an iterator of `IMAGE_GENERATING` chunks during denoising. Each chunk carries `step`, `total_steps`, an optional intermediate `image` (when `preview_every=N` opts in), and a `final` flag.
+
+Because the built-in `generate_image` tool is itself a generator-decorated `@tool`, these chunks also flow through `Agent.run(stream=True)` when an agent invokes the tool, with no side-channel callbacks needed.
+
+```{python}
+# Direct streaming, bypassing the agent for clarity.
+from aimu import image_client
+
+client = image_client("hf:runwayml/stable-diffusion-v1-5")
+
+for chunk in client.generate(
+    "a watercolor of a fox in a snowy forest",
+    stream=True,
+    num_inference_steps=20,
+    preview_every=5,  # decode VAE every 5 steps for a preview
+):
+    c = chunk.content
+    if c["final"]:
+        print(f"\nFinal step {c['step']}/{c['total_steps']}")
+        display(c["image"])
+    else:
+        print(f"step {c['step']}/{c['total_steps']}", end="\r")
+        if c["image"] is not None:
+            print(f"\n  preview at step {c['step']}:")
+            display(c["image"])
+```
+
+```{python}
+# Through an agent: generate_image's progress chunks flow through agent.run(stream=True).
+import aimu
+from aimu.agents import Agent
+from aimu.tools import builtin
+from aimu.tools.builtin import make_image_tool
+
+text_client = aimu.client("anthropic:claude-sonnet-4-6")
+# Use make_image_tool for opt-in previews (the default builtin.generate_image keeps preview_every=None).
+img_tool = make_image_tool(image_client("hf:runwayml/stable-diffusion-v1-5"), preview_every=5)
+agent = Agent(text_client, tools=[img_tool])
+
+for chunk in agent.run("draw me a watercolor of a fox in a snowy forest", stream=True):
+    if chunk.is_image_progress():
+        c = chunk.content
+        marker = "✓" if c["final"] else " "
+        print(f"  [{marker}] step {c['step']}/{c['total_steps']}")
+    elif chunk.is_tool_call():
+        print(f"  Tool done: {chunk.content['response']}")
+    elif chunk.is_text():
+        print(chunk.content, end="")
+```
+
+## 7. Generate then describe: closing the loop
+
+Pair `generate_image` with `describe_image` and the agent can look at what it just produced, then tell the user what's in it. The factory `make_describe_image_tool(client)` binds to whatever vision-capable chat client you're already using (no second model load, no extra API key), and the tool snapshots conversation state so the vision Q&A doesn't pollute the agent's history.
+
+```{python}
+import aimu
+from aimu.agents import Agent
+from aimu.tools import builtin
+from aimu.tools.builtin import make_describe_image_tool
+
+# A vision-capable chat model (Anthropic Sonnet supports vision and tool calling).
+chat_client = aimu.client("anthropic:claude-sonnet-4-6")
+
+agent = Agent(
+    chat_client,
+    system_message=(
+        "You can both generate images and describe them. When the user asks for an image, "
+        "call generate_image, then call describe_image on the saved path to confirm what "
+        "you produced before answering."
+    ),
+    tools=[builtin.generate_image, make_describe_image_tool(chat_client)],
+)
+
+print(agent.run("Make me an image of a fox in a snowy forest, then tell me what's in it."))
+```
+

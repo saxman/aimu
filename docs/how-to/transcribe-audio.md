@@ -105,4 +105,4 @@ For a custom client: `make_transcription_tool(client)` returns a bound version.
 ## See also
 
 - [Handle audio input](handle-audio-input.md) -- `audio=` on text models for analysis/QA without dedicated transcription
-- Notebook [21 - Transcription](https://github.com/saxman/aimu/blob/main/notebooks/21%20-%20Transcription.ipynb)
+- Notebook [21 - Transcription](https://github.com/saxman/aimu/blob/main/notebooks/21-transcription.qmd)

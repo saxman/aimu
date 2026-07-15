@@ -1,0 +1,271 @@
+---
+title: "Agent Skills"
+jupyter: python3
+---
+
+
+Demonstrate AIMU's skill support: giving agents reusable, on-demand capabilities via `SKILL.md` files.
+
+Skills are discovered from the filesystem, injected as a catalog into the agent's system message, and loaded on demand via an `activate_skill` MCP tool call. Python scripts inside a skill's `scripts/` directory are automatically exposed as additional MCP tools.
+
+**What this notebook covers:**
+- Discovering and inspecting skills with `SkillManager`
+- The skills MCP server (`build_skills_server`)
+- Running a `SkillAgent` that discovers and activates skills
+- Streaming skill-aware agent output
+- Script tools from a skill's `scripts/` directory
+- `SkillAgent.from_config` with `skill_dirs`
+
+
+## Setup
+
+Skills are directories containing a `SKILL.md` file with YAML frontmatter followed by markdown instructions. Two sample skills ship with AIMU under [`examples/skills/`](../examples/skills/), exposed as `aimu.paths.skills` (== `aimu.paths.examples / "skills"`).
+
+```{python}
+from aimu import paths
+
+skills_dir = paths.examples / "skills"  # aimu.paths.skills points here too
+conv_dir = skills_dir / "unit-converter"
+
+print("Skills directory:", skills_dir)
+for d in sorted(skills_dir.iterdir()):
+    print(f"  {d.name}/SKILL.md")
+```
+
+## A - Discovering Skills with `SkillManager`
+
+`SkillManager` scans one or more directories for skill subdirectories, each containing a
+`SKILL.md` file with YAML frontmatter. By default it scans `.agents/skills/` and `.claude/skills/`
+at both project and user scope. Here we pass `skill_dirs` to point it at our sample directory.
+
+```{python}
+from aimu.skills import SkillManager
+
+manager = SkillManager(skill_dirs=[str(skills_dir)])
+
+print(f"Discovered {len(manager.skills)} skill(s):")
+for name, skill in manager.skills.items():
+    print(f"  {name!r:25s}  {skill.description[:70]}")
+```
+
+`catalog_prompt()` builds the XML block that gets injected into the agent's system message.
+This is the *catalog tier* (tier 1) of progressive disclosure: only names and descriptions,
+no full instructions.
+
+```{python}
+print(manager.catalog_prompt())
+```
+
+`get_skill_body()` loads the full markdown instructions for a skill; this is what the model
+receives when it calls `activate_skill` (tier 2 of progressive disclosure).
+
+```{python}
+print(manager.get_skill_body("haiku-poet"))
+```
+
+## B - The Skills MCP Server
+
+`build_skills_server()` creates an in-process FastMCP server from a `SkillManager`. It
+registers an `activate_skill` tool and one tool per Python script found in any skill's
+`scripts/` directory. Wrap it in `MCPClient(server=...)` to use it directly.
+
+```{python}
+from aimu.skills import build_skills_server
+from aimu.tools import MCPClient
+
+skills_server = build_skills_server(manager)
+skills_client = MCPClient(server=skills_server)
+
+print("Tools exposed by the skills server:")
+for tool in skills_client.list_tools():
+    print(f"  {tool.name}")
+```
+
+You can call `activate_skill` directly through the client to inspect what the model receives:
+
+```{python}
+result = skills_client.call_tool("activate_skill", {"name": "unit-converter"})
+print(result.content[0].text)
+```
+
+## C - SkillAgent
+
+`SkillAgent` extends `Agent` with skill support. Pass a `SkillManager` at construction
+(or omit it to auto-discover from default paths). On the first `run()`, `_setup_skills()` fires
+once: it appends the skill catalog to the system message and attaches the skills MCPClient.
+The model then decides which skills are relevant and calls `activate_skill` to load them.
+
+You can inspect what gets injected into the system message before running:
+
+```{python}
+from aimu.models import OllamaClient
+from aimu.agents import SkillAgent
+
+model_client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+model_client.system_message = "You are a helpful assistant. Always activate the most relevant skill before answering."
+
+agent = SkillAgent(
+    model_client,
+    name="skilled-assistant",
+    max_iterations=6,
+    skill_manager=SkillManager(skill_dirs=[str(skills_dir)]),
+)
+
+# Peek at the system message after skill injection (before run)
+agent._setup_skills()
+print("--- System message (truncated) ---")
+print(model_client.system_message[:500], "...")
+```
+
+```{python}
+# Fresh client; run() calls _setup_skills() automatically on first invocation
+model_client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+model_client.system_message = "You are a helpful assistant. Always activate the most relevant skill before answering."
+
+agent = SkillAgent(
+    model_client,
+    name="skilled-assistant",
+    max_iterations=6,
+    skill_manager=SkillManager(skill_dirs=[str(skills_dir)]),
+)
+
+result = agent.run("Write me a haiku about autumn rain.")
+print(result)
+```
+
+```{python}
+# Inspect the full message history to see the activate_skill tool call
+for msg in model_client.messages:
+    role = msg["role"]
+    if role == "system":
+        print("[system]  (omitted; contains catalog)")
+    elif role == "user":
+        print(f"[user]    {msg['content']}")
+    elif role == "assistant" and "tool_calls" in msg:
+        for tc in msg["tool_calls"]:
+            print(f"[tool→]  {tc['function']['name']}({tc['function']['arguments']})")
+    elif role == "tool":
+        preview = str(msg["content"])[:120].replace("\n", " ")
+        print(f"[←tool]  {msg['name']}: {preview}...")
+    elif role == "assistant":
+        print(f"[asst]    {str(msg['content'])[:200]}")
+```
+
+## D - Streaming SkillAgent Output
+
+`run(stream=True)` yields `StreamChunk` objects. The `TOOL_CALLING` phase shows when the model
+activates a skill, and `GENERATING` shows the final answer produced using the loaded instructions.
+
+```{python}
+from aimu.models import StreamingContentType
+
+model_client2 = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+model_client2.system_message = "You are a helpful assistant. Always activate the most relevant skill before answering."
+
+agent2 = SkillAgent(
+    model_client2,
+    name="streamer",
+    max_iterations=6,
+    skill_manager=SkillManager(skill_dirs=[str(skills_dir)]),
+)
+
+current_iteration = -1
+current_phase = None
+
+for chunk in agent2.run("How many kilometres is 26.2 miles (a marathon)?", stream=True):
+    if chunk.iteration != current_iteration:
+        current_iteration = chunk.iteration
+        print(f"\n--- iteration {current_iteration} ---")
+
+    if chunk.phase != current_phase:
+        current_phase = chunk.phase
+        print(f"\n[{chunk.phase.value}]")
+
+    if chunk.phase == StreamingContentType.THINKING:
+        print(chunk.content, end="", flush=True)
+    elif chunk.phase == StreamingContentType.TOOL_CALLING:
+        print(f"  {chunk.content['name']}({chunk.content['arguments']!r}) → {str(chunk.content['response'])[:120]}")
+    elif chunk.phase == StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)
+```
+
+## E - Script Tools
+
+A skill can include Python scripts in a `scripts/` subdirectory. Each `*.py` file is
+automatically registered as an MCP tool named `{skill_name}__{script_stem}`. Scripts are
+run via `subprocess` and their stdout is returned as the tool result.
+
+Here we add a `scripts/now.py` script to the `unit-converter` skill:
+
+```{python}
+# Add a scripts/ directory to the unit-converter skill
+scripts_dir_path = conv_dir / "scripts"
+scripts_dir_path.mkdir(exist_ok=True)
+
+(scripts_dir_path / "now.py").write_text("import datetime\nprint(datetime.datetime.now().isoformat())\n")
+
+print("Script added:", scripts_dir_path / "now.py")
+print("Contents:")
+print((scripts_dir_path / "now.py").read_text())
+```
+
+```{python}
+# Rebuild the skills server; it now picks up the new script tool
+manager3 = SkillManager(skill_dirs=[str(skills_dir)])  # re-discover to pick up scripts/
+server3 = build_skills_server(manager3)
+client3 = MCPClient(server=server3)
+
+print("Tools exposed (including script tools):")
+for tool in client3.list_tools():
+    print(f"  {tool.name}")
+    if tool.description:
+        print(f"      {tool.description}")
+```
+
+```{python}
+# Call the script tool directly
+result3 = client3.call_tool("unit-converter__now", {})
+print("unit-converter__now returned:", result3.content[0].text)
+```
+
+## F - `SkillAgent.from_config`
+
+`SkillAgent.from_config` accepts a `skill_dirs` key to create a `SkillManager` automatically.
+Omit `skill_dirs` to auto-discover skills from the standard search paths
+(`.agents/skills/` and `.claude/skills/` at project and user scope).
+
+```{python}
+model_client4 = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+
+agent4 = SkillAgent.from_config(
+    {
+        "name": "cfg-agent",
+        "system_message": "You are a helpful assistant. Activate relevant skills before answering.",
+        "max_iterations": 6,
+        "skill_dirs": [str(skills_dir)],
+    },
+    model_client4,
+)
+
+print("Agent name:      ", agent4.name)
+print("Skill manager:   ", agent4.skill_manager)
+print("Skills found:    ", list(agent4.skill_manager.skills.keys()))
+```
+
+```{python}
+result4 = agent4.run("Write a haiku about the ocean at dawn.")
+print(result4)
+```
+
+## G - Clean Up
+
+```{python}
+# Remove the scripts/ directory added in section E
+import shutil
+
+shutil.rmtree(conv_dir / "scripts", ignore_errors=True)
+
+del model_client, model_client2, model_client4, agent, agent2, agent4
+print("Cleaned up.")
+```
+

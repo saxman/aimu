@@ -1,0 +1,96 @@
+---
+title: "Remote MCP Servers"
+jupyter: python3
+---
+
+
+A personal assistant becomes far more useful when it can call a *hosted* service's tools. [MCP](https://modelcontextprotocol.io) servers expose tools over a transport; AIMU's `MCPClient` wraps any MCP server and turns its tools into `@tool`-style callables you drop straight into an agent.
+
+[Tools](06-tools.qmd) covered local MCP servers (a config dict, an in-process server, a script file). This one covers **remote** servers reached by **URL** over HTTP/SSE, plus authentication. The only new surface is the `url=` / `auth=` / `headers=` arguments; everything downstream (`as_tools()`, handing tools to an `Agent`) is identical to the local case.
+
+
+## Setup
+
+To keep the notebook self-contained, we run AIMU's built-in tool server (`python -m aimu.tools.mcp`) over HTTP in a background thread, then connect to it by URL, exactly as you would a third-party service.
+
+```{python}
+import threading
+import time
+
+from aimu import aio
+from aimu.tools.mcp import mcp  # the built-in FastMCP server (exposes builtin.ALL_TOOLS)
+
+PORT = 8769
+URL = f"http://127.0.0.1:{PORT}/mcp"  # streamable-HTTP endpoint
+
+
+def _serve():
+    # FastMCP infers a streamable-HTTP server from transport="http".
+    mcp.run(transport="http", host="127.0.0.1", port=PORT)
+
+
+threading.Thread(target=_serve, daemon=True).start()
+time.sleep(3)  # give the server a moment to bind
+print("serving builtin MCP tools at", URL)
+```
+
+## A - Connect to a remote server by URL
+
+`await aio.MCPClient.connect(url=...)` resolves the transport from the URL (streamable-HTTP here; a `.../sse` URL infers SSE). `list_tools()` shows what the service offers.
+
+```{python}
+client = await aio.MCPClient.connect(url=URL)
+
+tools = await client.list_tools()
+print(f"{len(tools)} tools available")
+print("names:", sorted(t.name for t in tools)[:8], "...")
+```
+
+## B - Call a tool directly
+
+`call_tool(name, params)` invokes a tool cross-process and returns its result content.
+
+```{python}
+result = await client.call_tool("calculate", {"expression": "17 * 23"})
+text = "".join(p.text for p in result.content if getattr(p, "type", None) == "text")
+print("17 * 23 =", text)
+```
+
+## C - Give the remote tools to an agent
+
+`as_tools()` returns one callable per server tool, each carrying its `__tool_spec__`. Hand them to an `aio.Agent` and the model can call the remote service as if the tools were local. (Needs a model; set `MODEL` to any local or cloud model AIMU supports.)
+
+```{python}
+MODEL = "ollama:qwen3:8b"  # any tool-capable model AIMU supports
+
+remote_tools = await client.as_tools()
+agent = aio.Agent(aio.client(MODEL), tools=remote_tools)
+
+reply = await agent.run("What is 128 divided by 4? Use the calculate tool.")
+print(reply)
+```
+
+## D - Authentication
+
+Most hosted MCP services require auth. Pass a bearer token (or the literal `"oauth"`) via `auth=`, and custom headers via `headers=`. These apply only with `url=`. The cell below is illustrative (the local demo server needs no auth), so it is not executed.
+
+```python
+mcp = await aio.MCPClient.connect(
+    url="https://mcp.example.com/sse",
+    auth="my-bearer-token",            # or the literal "oauth"
+    headers={"X-Workspace": "acme"},  # optional custom headers
+)
+agent = aio.Agent(aio.client(MODEL), tools=await mcp.as_tools())
+```
+
+The sync surface mirrors this: `MCPClient(url="https://...", auth="token")`.
+
+> **Trust:** a remote server's tools run with whatever access the service grants, and the model decides when to call them. Only connect to services you trust. In the personal-assistant example (`examples/personal-assistant/`), remote servers are opt-in via `--mcp <url>` or the `add_mcp_server` tool.
+
+## Cleanup
+
+```{python}
+await client.aclose()
+print("closed")
+```
+

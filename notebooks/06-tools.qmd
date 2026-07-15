@@ -1,0 +1,234 @@
+---
+title: "Tools"
+jupyter: python3
+---
+
+
+AIMU supports two routes for giving an agent tools, and **both end up as callables in one place: the agent's `tools` list**:
+
+1. **`@aimu.tool` decorator** (in-process): decorate a plain Python function with `@aimu.tool` and pass it via `Agent(tools=[...])`. The decorator inspects the signature and docstring to build the OpenAI-format spec. Best for tools that live in the same process.
+
+2. **`MCPClient` + `.as_tools()`** (cross-process): wrap a [FastMCP](https://gofastmcp.com) server with `MCPClient`, then call `.as_tools()` to turn its tools into `@aimu.tool`-style callables you pass to `Agent(tools=[...])`. Best for tools that already run as a separate process, or that you want to share across many agents.
+
+Because both are just callables in the agent's `tools`, you mix them with `+` and there is a single dispatch path (on a name collision the last entry wins). Executing tools is the agent's job: the model client only advertises tools and records the model's tool-call requests. This notebook covers both.
+
+
+## A - `@aimu.tool` decorator
+
+Decorate a Python function with `@aimu.tool`. The decorator attaches an OpenAI-format spec at `__tool_spec__` and leaves the function otherwise unchanged.
+
+```{python}
+import aimu
+
+
+@aimu.tool
+def letter_counter(word: str, letter: str) -> int:
+    """Count occurrences of a letter in a word."""
+    return word.lower().count(letter.lower())
+
+
+letter_counter.__tool_spec__
+```
+
+Hand decorated functions to an `Agent` via the `tools=` kwarg. The agent advertises them to the model each turn and dispatches the calls in-process, without an MCP round-trip.
+
+```{python}
+from aimu.models import ModelClient, OllamaModel
+from aimu.agents import Agent
+
+client = ModelClient(OllamaModel.QWEN_3_5_9B)
+agent = Agent(client, tools=[letter_counter], max_iterations=3)
+
+print(agent.run("How many r's are in the word strawberry?"))
+```
+
+### Argument validation
+
+Before a tool runs, the arguments the model supplied are validated and lax-coerced against the function's type hints. A stringified scalar like `"5"` becomes `5` for an `int` parameter; a value that can't be coerced, a missing required argument, or an unknown argument raises `ToolArgumentError`. At dispatch the agent catches that and hands the message back to the model as a tool result, so the model can correct itself and retry.
+
+`aimu.tools.coerce_tool_arguments(fn, arguments)` is the same function the dispatch path calls; here we invoke it directly to see both outcomes.
+
+```{python}
+from aimu.tools import ToolArgumentError, coerce_tool_arguments
+
+
+@aimu.tool
+def set_volume(level: int) -> str:
+    """Set the volume (0-100)."""
+    return f"volume={level}"
+
+
+# A coercible mismatch is coerced to the declared type.
+print(coerce_tool_arguments(set_volume, {"level": "40"}))  # -> {'level': 40}
+
+# An uncoercible value is rejected; the tool body never runs.
+try:
+    coerce_tool_arguments(set_volume, {"level": "loud"})
+except ToolArgumentError as exc:
+    print(exc)
+```
+
+### Per-run tool override
+
+`Agent(tools=...)` sets the agent's *configured* tools. To use a different set for a single run, without mutating that state, pass `tools=` to `Agent.run()`. `tools=None` (default) uses the configured tools; any other value, including `[]` to disable tools, applies to that run only and is restored afterward. Since MCP tools are also just callables in the agent's `tools` (via `as_tools()`), the override covers them too.
+
+```{python}
+from aimu.tools import builtin
+
+# Configure the agent with two tools...
+agent = Agent(client, tools=[letter_counter, builtin.calculate], max_iterations=3)
+
+# ...but expose only `letter_counter` for this single run.
+print(agent.run("How many e's in 'effervescence'?", tools=[letter_counter]))
+
+# Configured tools are still in place afterward.
+print("configured tools:", [fn.__name__ for fn in agent.tools])
+```
+
+### Tool context (dependency injection)
+
+A tool often needs shared state (a store, a cache, configuration) that the *model* should neither see nor supply. Declare a `ctx: ToolContext[Deps]` parameter and AIMU fills it at call time from the agent's `deps=` field (or a per-run `run(deps=)` override), while hiding it from the tool's JSON schema. This replaces module-level globals and keeps tools unit-testable.
+
+```{python}
+from dataclasses import dataclass, field
+
+from aimu import ToolContext
+
+
+@dataclass
+class Notes:
+    items: dict = field(default_factory=dict)
+
+
+@aimu.tool
+def save_note(ctx: ToolContext[Notes], key: str, text: str) -> str:
+    """Save a note under a key."""
+    ctx.deps.items[key] = text
+    return f"saved {key}"
+
+
+# `ctx` is injected by the agent, so the model-facing schema lists only key + text:
+print("schema params:", list(save_note.__tool_spec__["function"]["parameters"]["properties"]))
+
+notes = Notes()
+agent = Agent(client, tools=[save_note], deps=notes, max_iterations=3)
+agent.run("Save a note under 'todo' that says 'water the plants'.")
+print("stored:", notes.items)
+```
+
+## B - Built-in tools
+
+`aimu.tools.builtin` exposes a small library of general-purpose tools, each decorated with `@aimu.tool` and ready to drop into any agent: `echo`, `get_current_date_and_time`, `get_weather`, `calculate`, `get_webpage`, `search`, `list_directory`, `read_file`. `builtin.ALL_TOOLS` is the full list.
+
+These same callables are also registered on the [aimu/tools/mcp.py](../aimu/tools/mcp.py) FastMCP server so they can be reused cross-process. See section D below.
+
+```{python}
+from aimu.tools import builtin
+
+# Use a few selected tools
+agent = Agent(client, tools=[builtin.calculate, builtin.get_current_date_and_time], max_iterations=4)
+print(agent.run("What's 17 * 23 plus the current minute?"))
+```
+
+## C - MCPClient with file server
+
+For cross-process tools, point `MCPClient` at a Python file that implements an MCP server. AIMU ships `aimu/tools/mcp.py` which exposes the same built-in tools as section B.
+
+```{python}
+from aimu.tools import MCPClient
+from aimu import paths
+
+mcp_client = MCPClient(file=str(paths.package / "tools" / "mcp.py"))
+mcp_client.list_tools()
+```
+
+Once connected, you can list all available tools provided by the MCP server. This shows the tools, their descriptions, and required parameters.
+
+```{python}
+mcp_client.call_tool("echo", {"echo_string": "Hello, world!"})
+```
+
+You can call individual tools by their name and pass the required parameters. The tool will execute and return its result.
+
+## D - MCPClient with configuration
+
+For multiple MCP servers, or a server that must be launched as a subprocess, provide a configuration dictionary.
+
+```{python}
+config = {
+    "mcpServers": {"aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]}},
+}
+
+mcp_client = MCPClient(config=config)
+mcp_client.list_tools()
+```
+
+The configuration-based client provides the same interface for listing and calling tools, but can aggregate tools from multiple servers.
+
+```{python}
+mcp_client.call_tool("echo", {"echo_string": "Hello, world!"})
+```
+
+Tools work exactly the same way regardless of how the MCPClient was initialized.
+
+## E - MCPClient with in-memory FastMCP server
+
+For ad-hoc tools defined inline, pass a `FastMCP` instance directly. No subprocess; tools live in your Python process but go through the MCP protocol.
+
+```{python}
+from fastmcp import FastMCP
+
+mcp = FastMCP("AIMU Tools")
+
+
+@mcp.tool()
+def echo(echo_string: str) -> str:
+    return echo_string
+
+
+mcp_client = MCPClient(server=mcp)
+mcp_client.list_tools()
+```
+
+This approach creates an MCP server with tools defined using Python decorators, then wraps it with an MCPClient for easy access.
+
+```{python}
+mcp_client.call_tool("echo", {"echo_string": "Hello, world!"})
+```
+
+The FastMCP-based client works identically to file-based and configuration-based clients, providing a consistent interface for tool interaction.
+
+### Attaching MCP tools to an agent: `as_tools()`
+
+`call_tool()` above is for using a server standalone. To let a **model** use the server's tools, call `mcp_client.as_tools()`. It returns one `@aimu.tool`-style callable per server tool (each carries its `__tool_spec__` and dispatches cross-process behind the scenes). Pass them to `Agent(tools=...)`, mixing freely with in-process `@aimu.tool` functions.
+
+Keep a reference to the `MCPClient` (the callables hold one, so the connection stays alive). The list is a snapshot; call `as_tools()` again to pick up server-side changes.
+
+```{python}
+# mcp_client wraps the in-memory `echo` server from section E.
+mcp_tools = mcp_client.as_tools()
+print("MCP tools as callables:", [fn.__name__ for fn in mcp_tools])
+
+# Pass them to an agent, mixed with an in-process @tool. Last-in-list wins on
+# a name collision, so a local override would go after mcp_tools.
+agent = Agent(client, tools=mcp_tools + [letter_counter])
+print("agent tools:", [fn.__name__ for fn in agent.tools])
+```
+
+## F - Web search and retrieval tools
+
+The built-in `search` and `get_webpage` tools demonstrate live external lookups. `search` queries a [SearXNG](https://docs.searxng.org) instance (set `SEARXNG_BASE_URL` to point at your own); `get_webpage` fetches a URL and strips HTML to visible text.
+
+```{python}
+mcp_client = MCPClient(file=str(paths.package / "tools" / "mcp.py"))
+mcp_client.list_tools()
+```
+
+```{python}
+mcp_client.call_tool("search", {"query": "Python programming"})
+```
+
+```{python}
+mcp_client.call_tool("get_webpage", {"url": "https://www.python.org/"})
+```
+

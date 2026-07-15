@@ -1,0 +1,35 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "AIMU Notebooks"
+  description: "Runnable, plain-text (Quarto) tutorial notebooks for AIMU."
+  repo-url: https://github.com/saxman/aimu
+  page-navigation: true
+  sidebar:
+    style: floating
+    search: true
+    contents:
+      - text: Overview
+        href: index.qmd
+      - section: Notebooks
+        contents:
+          - auto: "[0-9]*.qmd"
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    code-copy: true
+    code-overflow: wrap
+    code-tools: true
+
+# Notebooks are authored as plain-text .qmd and are NOT executed at render time:
+# most need a live backend (Ollama, API keys, or a GPU) and gracefully skip.
+# To bake real outputs for a cheap (e.g. Ollama-only) notebook, set
+# `eval: true` + `freeze: auto` in that notebook's own front matter; results
+# compute locally and are reused from _freeze/ on later renders.
+execute:
+  eval: false

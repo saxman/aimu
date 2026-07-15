@@ -1,0 +1,43 @@
+---
+title: "AIMU Notebooks"
+---
+
+Runnable tutorial notebooks for [AIMU](https://github.com/saxman/aimu), ordered to
+build understanding incrementally. They are authored as plain-text Quarto `.qmd`
+files (markdown with executable `python` cells), so they diff cleanly and are easy
+to edit or hand to an AI assistant.
+
+Most notebooks need a live backend (a running Ollama server, a cloud API key, or a
+GPU for HuggingFace image/audio models) and gracefully skip sections when a
+dependency is missing. By default they are **not executed at render time** (see
+`_quarto.yml`); run a cell yourself in Jupyter, or `quarto preview` a notebook, to
+execute against your own backend.
+
+## Notebooks
+
+1. [Model Client](01-model-client.qmd)
+2. [Conversations](02-conversations.qmd)
+3. [Structured Output](03-structured-output.qmd)
+4. [Vision Input](04-vision.qmd)
+5. [Audio Input](05-audio-input.qmd)
+6. [Tools](06-tools.qmd)
+7. [Agents](07-agents.qmd)
+8. [Agent Skills](08-agent-skills.qmd)
+9. [Workflows](09-workflows.qmd)
+10. [Prebuilt Agents](10-prebuilt-agents.qmd)
+11. [Embeddings](11-embeddings.qmd)
+12. [Memory](12-memory.qmd)
+13. [Retrieval-Augmented Generation (RAG)](13-rag.qmd)
+14. [Prompt Management](14-prompt-management.qmd)
+15. [Prompt Tuning](15-prompt-tuning.qmd)
+16. [Evaluations](16-evaluations.qmd)
+17. [Benchmarking](17-benchmarking.qmd)
+18. [Image Generation](18-image-generation.qmd)
+19. [Audio Generation](19-audio-generation.qmd)
+20. [Speech](20-speech.qmd)
+21. [Transcription](21-transcription.qmd)
+22. [Async (`aimu.aio`)](22-async.qmd)
+23. [Composing Agents (A2A)](23-composing-agents-a2a.qmd)
+24. [Personal Assistants](24-personal-assistants.qmd)
+25. [Sessions (multi-user)](25-sessions.qmd)
+26. [Remote MCP Servers](26-remote-mcp-servers.qmd)

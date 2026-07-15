@@ -120,6 +120,6 @@ AIMU keeps `self.messages` in OpenAI format always (`input_audio` content blocks
 
 ## See also
 
-- Notebook [05 - Audio Input](https://github.com/saxman/aimu/blob/main/notebooks/05%20-%20Audio%20Input.ipynb)
+- Notebook [05 - Audio Input](https://github.com/saxman/aimu/blob/main/notebooks/05-audio-input.qmd)
 - [Handle vision input](handle-vision.md): parallel surface for image input
 - [Model matrix](../reference/model-matrix.md): `supports_audio` column

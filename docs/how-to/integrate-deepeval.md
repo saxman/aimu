@@ -107,4 +107,4 @@ For benchmark data with a `reference` column, `DeepEvalScorer` populates `LLMTes
 - [`aimu.evals.DeepEvalModel`](../reference/api/evals.md#aimu.evals.DeepEvalModel) / [`DeepEvalScorer`](../reference/api/evals.md#aimu.evals.DeepEvalScorer)
 - [Benchmark models](benchmark-models.md)
 - [Tune prompts](tune-prompts.md): full tuning workflow
-- Notebook [16 - Evaluations](https://github.com/saxman/aimu/blob/main/notebooks/16%20-%20Evaluations.ipynb)
+- Notebook [16 - Evaluations](https://github.com/saxman/aimu/blob/main/notebooks/16-evaluations.qmd)

@@ -1,0 +1,188 @@
+---
+title: "Transcription"
+jupyter: python3
+---
+
+
+AIMU provides a dedicated speech-to-text surface via `aimu.transcription_client()` and `aimu.transcribe()`. This is distinct from the `audio=` parameter on text models (which handles audio analysis/QA by audio-capable chat models like GPT-4o); this surface uses dedicated ASR models (the Whisper family and gpt-4o-transcribe) optimised for accurate transcription.
+
+## What this notebook covers
+
+1. One-shot transcription with `aimu.transcribe()`
+2. Reusable client and accepted audio forms
+3. Structured output with timestamps (`response_format="verbose_json"`)
+4. Language hint
+5. HuggingFace local provider
+6. Async surface
+7. Using transcription as an agent tool
+8. Model catalog
+
+## Setup
+
+OpenAI models read `OPENAI_API_KEY` from your environment (or a `.env` file in the project root). HuggingFace models run locally and require the `[hf]` extra.
+
+
+```{python}
+import base64
+import struct
+from pathlib import Path
+
+
+def _make_wav(sample_rate: int = 16000, num_samples: int = 16000) -> bytes:
+    """Build a minimal valid 16-bit mono WAV in memory (1 second of silence)."""
+    data = b"\x00\x00" * num_samples
+    data_size = len(data)
+    fmt_size = 16
+    riff_size = 4 + 8 + fmt_size + 8 + data_size
+    header = struct.pack("<4sI4s", b"RIFF", riff_size, b"WAVE")
+    fmt = struct.pack("<4sIHHIIHH", b"fmt ", fmt_size, 1, 1, sample_rate, sample_rate * 2, 2, 16)
+    data_chunk = struct.pack("<4sI", b"data", data_size) + data
+    return header + fmt + data_chunk
+
+
+# A tiny synthetic WAV we can use for all examples in this notebook.
+audio_bytes = _make_wav()
+audio_path = Path("./test_transcription.wav")
+audio_path.write_bytes(audio_bytes)
+audio_data_url = "data:audio/wav;base64," + base64.b64encode(audio_bytes).decode("ascii")
+print("file:", audio_path, "  bytes:", len(audio_bytes))
+```
+
+## 1. OpenAI cloud provider
+
+The simplest path: one-shot `aimu.transcribe()`. Pass the audio as a file path string, raw bytes, a `data:` URL, or an `https://` URL.
+
+```{python}
+import aimu
+
+# One-shot: builds a fresh client, transcribes, returns the text.
+text = aimu.transcribe(str(audio_path), model="openai:whisper-1")
+print(repr(text))
+```
+
+```{python}
+# Reusable client: better when transcribing many files (avoids re-creating the client).
+client = aimu.transcription_client("openai:whisper-1")
+
+# File path
+print("file path:", repr(client.transcribe(str(audio_path))))
+
+# Raw bytes (WAV format assumed)
+print("raw bytes:", repr(client.transcribe(audio_bytes)))
+
+# data: URL
+print("data URL: ", repr(client.transcribe(audio_data_url)))
+```
+
+## 2. Structured output with timestamps
+
+Pass `response_format="verbose_json"` to get the full transcript broken into timed segments. All catalog models support this.
+
+```{python}
+import json
+
+result = client.transcribe(str(audio_path), response_format="verbose_json")
+# result is a dict with keys: text, language, duration, segments
+print(json.dumps(result, indent=2))
+```
+
+## 3. Language hint
+
+Pass a BCP-47 language code to skip auto-detection. Useful when you know the source language and want faster, more accurate results.
+
+```{python}
+text_fr = client.transcribe(str(audio_path), language="fr")
+print(repr(text_fr))
+```
+
+## 4. HuggingFace local provider
+
+HuggingFace Whisper models run entirely on your machine. Model weights are downloaded on first use and cached (the standard HuggingFace cache). Requires the `[hf]` extra.
+
+The client wraps `transformers.pipeline("automatic-speech-recognition")` with lazy load and module-level weight caching -- a second client for the same model reuses the already-loaded weights.
+
+```{python}
+hf_client = aimu.transcription_client("hf:openai/whisper-tiny")
+text = hf_client.transcribe(str(audio_path))
+print(repr(text))
+```
+
+```{python}
+# verbose_json works on HuggingFace too -- returns segments with start/end times.
+result = hf_client.transcribe(str(audio_path), response_format="verbose_json")
+print(json.dumps(result, indent=2))
+```
+
+## 5. Async surface
+
+The async mirror wraps a sync client via `asyncio.to_thread` -- the same Decision 7 pattern used by every other AIMU modality. Construct a sync client first, then wrap it.
+
+```{python}
+import asyncio
+from aimu import aio
+
+sync_client = aimu.transcription_client("openai:whisper-1")
+async_client = aio.transcription_client(sync_client)
+
+
+async def main():
+    text = await async_client.transcribe(str(audio_path))
+    print(repr(text))
+
+
+asyncio.run(main())
+```
+
+## 6. As an agent tool
+
+`transcribe_audio` in `aimu.tools.builtin` is a `@tool`-decorated function backed by a lazy singleton. Set `AIMU_TRANSCRIPTION_MODEL` and pass it to any `Agent`.
+
+For a custom client, `make_transcription_tool(client)` returns a bound version.
+
+```{python}
+import os
+from aimu.tools.builtin import transcribe_audio, make_transcription_tool
+from aimu.agents import Agent
+
+# The built-in tool reads AIMU_TRANSCRIPTION_MODEL from the environment.
+os.environ["AIMU_TRANSCRIPTION_MODEL"] = "openai:whisper-1"
+
+text_client = aimu.client("openai:gpt-4o-mini")
+agent = Agent(text_client, tools=[transcribe_audio])
+result = agent.run(f"Transcribe the file at {audio_path} and tell me what was said.")
+print(result)
+```
+
+```{python}
+# Bind a specific transcription client with make_transcription_tool.
+transcription_client = aimu.transcription_client("openai:gpt-4o-mini-transcribe")
+custom_tool = make_transcription_tool(transcription_client)
+print(custom_tool.__tool_spec__["function"]["name"])
+```
+
+## 7. Model catalog
+
+All catalog members have `supports_timestamps=True` (required for `response_format="verbose_json"`) and `supports_translation=True` (OpenAI Whisper and HuggingFace models support translation to English alongside transcription; gpt-4o-transcribe and gpt-4o-mini-transcribe are transcription-only).
+
+```{python}
+from aimu.models.providers.openai.transcription import OpenAITranscriptionModel
+from aimu.models.providers.hf.transcription import HuggingFaceTranscriptionModel
+
+print("OpenAI transcription models:")
+for m in OpenAITranscriptionModel:
+    s = m.spec
+    print(f"  {m.name:35s}  id={s.id!r:35s}  timestamps={s.supports_timestamps}  translation={s.supports_translation}")
+
+print()
+print("HuggingFace transcription models:")
+for m in HuggingFaceTranscriptionModel:
+    s = m.spec
+    print(f"  {m.name:35s}  id={s.id!r:45s}  timestamps={s.supports_timestamps}  translation={s.supports_translation}")
+```
+
+## Cleanup
+
+```{python}
+audio_path.unlink(missing_ok=True)
+```
+

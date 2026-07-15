@@ -1,0 +1,201 @@
+---
+title: "Benchmarking"
+jupyter: python3
+---
+
+
+`Benchmark` runs the same prompt and dataset across multiple `BaseModelClient` instances and aggregates per-row scores into a comparison DataFrame. Because the harness drives rows through `chat()` (calling `client.reset()` between rows), it works uniformly for plain `ModelClient` instances and for `agent.as_model_client()` views of an `Agent`.
+
+Scoring is delegated to any `Scorer` implementation: `LLMJudgeScorer` for an LLM-as-judge, or `DeepEvalScorer` for DeepEval-backed metrics.
+
+| Section | Topic |
+|---|---|
+| A | Setup: dataset and scorer |
+| B | Single-model benchmark |
+| C | Compare multiple models |
+| D | Benchmark an agentic workflow |
+| E | Export results: CSV / JSON / PromptCatalog |
+| F | DeepEval-backed scoring |
+
+
+## A - Setup
+
+A benchmark needs three things: a prompt template containing a `{content}` placeholder, a DataFrame with a `content` column (and optionally a `reference` column with ideal answers), and a `Scorer` to grade outputs.
+
+For this notebook we use a small summarisation dataset and an `LLMJudgeScorer` powered by a local Ollama model. Swap in any cloud client for stronger judgments.
+
+```{python}
+import pandas as pd
+
+from aimu.evals import Benchmark
+from aimu.models import OllamaClient, OllamaModel
+from aimu.prompts.tuners.scorers import LLMJudgeScorer
+
+df = pd.DataFrame(
+    {
+        "content": [
+            "The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars in Paris, France. "
+            "Designed by Gustave Eiffel, it was completed in 1889 as the entrance to the World's Fair "
+            "and stands 330 metres tall.",
+            "Photosynthesis is the process by which plants, algae, and some bacteria convert light energy "
+            "into chemical energy. Carbon dioxide and water are transformed into glucose and oxygen using "
+            "sunlight absorbed by chlorophyll.",
+            "The Apollo 11 mission landed the first humans on the Moon on 20 July 1969. Neil Armstrong and "
+            "Buzz Aldrin spent about two and a half hours on the lunar surface while Michael Collins "
+            "orbited above in the command module.",
+            "A black hole is a region of spacetime where gravity is so strong that nothing, including "
+            "light, can escape once it crosses the event horizon. They form when massive stars collapse "
+            "at the end of their life cycle.",
+        ]
+    }
+)
+
+prompt = (
+    "Summarise the following passage in a single sentence of no more than 25 words. "
+    "Return only the summary, with no preamble.\n\n"
+    "Passage: {content}"
+)
+
+judge_client = OllamaClient(OllamaModel.QWEN_3_5_9B)
+scorer = LLMJudgeScorer(
+    judge_client,
+    criteria="A good summary is a single sentence under 25 words that captures the key facts of the passage.",
+)
+
+print(f"Dataset: {len(df)} rows")
+```
+
+## B - Single-Model Benchmark
+
+The simplest case: one client, one prompt, one dataset. `Benchmark.run()` accepts a `dict[str, BaseModelClient]` where the keys become row labels in the result DataFrame and `model_id`s when persisting to a catalog.
+
+```{python}
+writer_client = OllamaClient(OllamaModel.QWEN_3_5_9B)
+
+bench = Benchmark(prompt=prompt, data=df, scorer=scorer, pass_threshold=0.7)
+results = bench.run({"qwen3.5-9b": writer_client})
+
+print(results.metrics)
+```
+
+## C - Compare Multiple Models
+
+To compare models, pass several clients in the same call. Each client is run in insertion order; rows in the result DataFrame match that order. Provider mixing is supported because every client implements `BaseModelClient`.
+
+Uncomment any of the cloud clients below if you have the relevant API keys configured.
+
+```{python}
+# Cloud examples (require API keys):
+# from aimu.models import AnthropicClient
+# from aimu.models import AnthropicModel
+# from aimu.models import OpenAIClient
+# from aimu.models import OpenAIModel
+
+clients = {
+    "qwen3.5-9b": OllamaClient(OllamaModel.QWEN_3_5_9B),
+    "gemma4-e4b": OllamaClient(OllamaModel.GEMMA_4_E4B),
+    # "claude-sonnet": AnthropicClient(AnthropicModel.CLAUDE_SONNET_4_6),
+    # "gpt-5": OpenAIClient(OpenAIModel.GPT_5),
+}
+
+results = bench.run(clients)
+print(results.metrics.sort_values("score", ascending=False))
+```
+
+## D - Benchmark an Agentic Workflow
+
+`Agent.as_model_client()` returns a `BaseModelClient` view backed by the agent. Drop one into the `clients` dict alongside plain model clients to compare agentic and non-agentic performance on the same task.
+
+The harness calls `client.reset()` between rows, which clears the conversation for the next chat. `system_message` is preserved by `reset()` (it lives outside the messages list), so attached system prompts and skill catalogs survive between rows.
+
+```{python}
+from aimu.agents import Agent
+
+agent_inner = OllamaClient(OllamaModel.QWEN_3_5_9B)
+agent = Agent(
+    agent_inner,
+    (
+        "You are a careful summariser. Read the passage, identify the two or three most important "
+        "facts, then produce a single concise sentence that captures them. Avoid filler."
+    ),
+    name="summariser",
+    max_iterations=2,
+)
+agentic_client = agent.as_model_client()
+
+results = bench.run(
+    {
+        "qwen3.5-9b (plain)": OllamaClient(OllamaModel.QWEN_3_5_9B),
+        "qwen3.5-9b (agentic)": agentic_client,
+    }
+)
+print(results.metrics)
+```
+
+## E - Export Results
+
+`BenchmarkResults` exposes three persistence helpers:
+
+- `to_csv(path)` and `to_json(path)` write the metrics DataFrame to disk for sharing or tracking over time.
+- `to_catalog(catalog, prompt_name)` stores one `Prompt` row per client in a `PromptCatalog`, keyed by `(prompt_name, client_name)`. The catalog auto-versions on each store, so re-running the benchmark with the same `prompt_name` appends new versions rather than overwriting.
+
+```{python}
+import tempfile
+from pathlib import Path
+
+tmp = Path(tempfile.mkdtemp())
+results.to_csv(str(tmp / "summary_bench.csv"))
+results.to_json(str(tmp / "summary_bench.json"))
+
+print((tmp / "summary_bench.csv").read_text())
+print("---")
+print((tmp / "summary_bench.json").read_text())
+```
+
+```{python}
+from aimu.prompts.catalog import PromptCatalog
+
+catalog = PromptCatalog(db_path=str(tmp / "benchmarks.db"))
+results.to_catalog(catalog, prompt_name="summary-bench")
+
+for model_id in catalog.retrieve_model_ids():
+    rows = catalog.retrieve_all("summary-bench", model_id)
+    latest = rows[0]
+    print(
+        f"{model_id}: v{latest.version}  score={latest.metrics['score']:.3f}  pass_rate={latest.metrics['pass_rate']:.2f}"
+    )
+```
+
+## F - DeepEval-Backed Scoring
+
+`DeepEvalScorer` plugs any DeepEval `BaseMetric` (e.g. `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`) into the `Benchmark` harness. Each row is converted to an `LLMTestCase`; per-metric scores are averaged into a single 0-1 score per row.
+
+Includes a `reference` column in the dataset to populate `LLMTestCase.expected_output` when the metric expects it.
+
+Requires `aimu[deepeval]`.
+
+```{python}
+from deepeval.metrics import GEval
+from deepeval.test_case import LLMTestCaseParams
+
+from aimu.evals import DeepEvalModel, DeepEvalScorer
+
+geval = GEval(
+    name="summary-quality",
+    criteria="A good summary is a single sentence under 25 words that captures the key facts of the passage.",
+    evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+    model=DeepEvalModel(judge_client),
+    threshold=0.7,
+)
+
+deepeval_bench = Benchmark(
+    prompt=prompt,
+    data=df,
+    scorer=DeepEvalScorer([geval]),
+    pass_threshold=0.7,
+)
+
+deepeval_results = deepeval_bench.run({"qwen3.5-9b": OllamaClient(OllamaModel.QWEN_3_5_9B)})
+print(deepeval_results.metrics)
+```
+

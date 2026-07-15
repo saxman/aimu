@@ -1,0 +1,342 @@
+---
+title: "Speech"
+jupyter: python3
+---
+
+
+AIMU ships a speech surface that covers both **text-to-speech (TTS)** and, in a future release, **speech-to-text (STT / transcription)**. This notebook focuses on TTS; the STT section at the end is a placeholder that will be filled in when `aimu.transcription_client()` lands.
+
+The TTS surface mirrors image and audio generation: a base ABC (`BaseSpeechClient`), a factory class (`SpeechClient`), and one-line entry points (`aimu.speech_client()` / `aimu.generate_speech()`). Two providers ship today:
+
+- **HuggingFace**: local generation. Three models: MMS-TTS (fast, English), SpeechT5 (good quality English, speaker-embedding voice control), BARK (zero-shot voice cloning, multilingual). Requires `aimu[hf]`.
+- **OpenAI**: cloud TTS via `openai.audio.speech.create`. Models: `tts-1` (fast) and `tts-1-hd` (higher quality). Requires `aimu[openai_compat]` and `OPENAI_API_KEY`.
+
+Audio output encoding is handled by the same `encode_audio()` helper shared with the audio modality, so no new encoder is needed.
+
+---
+
+## Part 1: Text-to-Speech (TTS)
+
+
+## 1. One-shot generation
+
+```{python}
+import aimu
+from IPython.display import Audio
+
+# SpeechT5: default HF model. Returns a path by default.
+path = aimu.generate_speech(
+    "Hello! This is AIMU text-to-speech.",
+    model="hf:microsoft/speecht5_tts",
+)
+print(f"Saved to: {path}")
+Audio(filename=path)
+```
+
+```{python}
+# Return as numpy for immediate playback without saving
+sr, audio = aimu.generate_speech(
+    "The quick brown fox jumps over the lazy dog.",
+    model="hf:microsoft/speecht5_tts",
+    format="numpy",
+)
+print(f"Sample rate: {sr} Hz, shape: {audio.shape}")
+Audio(audio, rate=sr)
+```
+
+### Output formats
+
+`format=` selects how the audio is returned:
+
+- `"path"` (default): saves a WAV file under `output/speech/{timestamp}-{hash}.wav`, returns the path string
+- `"numpy"`: `(sample_rate: int, audio: np.ndarray)` tuple, the native representation
+- `"bytes"`: raw WAV-encoded bytes
+- `"data_url"`: `data:audio/wav;base64,...` for inline embedding
+
+## 2. Choosing a model
+
+### HuggingFace (`HuggingFaceSpeechModel`)
+
+| Enum member | Repo id | Sample rate | Notes |
+|---|---|:---:|---|
+| `MMS_TTS_ENG` | `facebook/mms-tts-eng` | 16 kHz | Fast; English only |
+| `SPEECHT5` | `microsoft/speecht5_tts` | 16 kHz | Good quality English; x-vector voice control |
+| `BARK` | `suno/bark` | 24 kHz | Zero-shot voice cloning; multilingual |
+
+### OpenAI (`OpenAISpeechModel`), requires `OPENAI_API_KEY`
+
+| Enum member | Model id | Notes |
+|---|---|---|
+| `TTS_1` | `tts-1` | Fast, standard quality. Recommended for live narration. |
+| `TTS_1_HD` | `tts-1-hd` | Slower, higher quality |
+
+Pass enum members for IDE autocomplete, or `"provider:model_id"` strings for ad-hoc use.
+
+```{python}
+from aimu import speech_client
+from aimu.models import HuggingFaceSpeechModel
+
+# Enum member: full IDE autocomplete
+client = speech_client(HuggingFaceSpeechModel.SPEECHT5)
+print(client)
+
+# String form: convenient for ad-hoc models
+client = speech_client("hf:microsoft/speecht5_tts")
+print(client)
+```
+
+## 3. Direct client: reuse loaded weights
+
+HuggingFace models load weights on the first `generate()` call. Build a client once and reuse it to avoid reloading.
+
+```{python}
+from aimu import speech_client
+from IPython.display import Audio, display
+
+client = speech_client("hf:microsoft/speecht5_tts")
+
+lines = [
+    "Welcome to AIMU.",
+    "It provides a unified interface for AI-powered applications.",
+    "Text, images, audio, and speech, all in plain Python.",
+]
+
+for line in lines:
+    sr, audio = client.generate(line, format="numpy")
+    print(f"> {line}")
+    display(Audio(audio, rate=sr))
+```
+
+## 4. SpeechT5: voice selection
+
+SpeechT5 uses x-vector speaker embeddings for voice control. The default is a pre-loaded embedding from the CMU Arctic dataset (index 7306). Pass `voice="N"` to use a different speaker index (0–1132 in `Matthijs/cmu-arctic-xvectors`).
+
+```{python}
+from aimu import speech_client
+from IPython.display import Audio, display
+
+client = speech_client("hf:microsoft/speecht5_tts")
+text = "The rain in Spain stays mainly in the plain."
+
+# Sample a few speaker indices to hear different voices
+for idx in [7306, 100, 500, 1000]:
+    sr, audio = client.generate(text, voice=str(idx), format="numpy")
+    print(f"Speaker {idx}:")
+    display(Audio(audio, rate=sr))
+```
+
+## 5. OpenAI TTS: voices and quality tiers
+
+OpenAI TTS requires `OPENAI_API_KEY` but needs no local GPU. Latency is ~200–500 ms per sentence, well-suited for live narration. Six voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`.
+
+```{python}
+from aimu import speech_client
+from aimu.models import OpenAISpeechModel
+from IPython.display import Audio, display
+
+client = speech_client(OpenAISpeechModel.TTS_1)
+text = "Hello from AIMU. How can I help you today?"
+
+for voice in ["alloy", "nova", "onyx", "shimmer"]:
+    wav_bytes = client.generate(text, voice=voice, format="bytes")
+    print(f"Voice: {voice}")
+    display(Audio(wav_bytes, format="audio/wav"))
+```
+
+```{python}
+# tts-1-hd: higher quality, slower
+client_hd = speech_client("openai:tts-1-hd")
+wav = client_hd.generate(
+    "This is the high-definition voice model.",
+    voice="nova",
+    format="bytes",
+)
+Audio(wav, format="audio/wav")
+```
+
+### Speed control
+
+Both providers accept `speed=` (float, default `1.0`). Supported range is provider-dependent; OpenAI accepts 0.25–4.0.
+
+```{python}
+from aimu import speech_client
+from IPython.display import Audio, display
+
+client = speech_client("openai:tts-1")
+text = "Adjusting the speed changes the pace of speech."
+
+for speed in [0.75, 1.0, 1.5]:
+    wav = client.generate(text, voice="alloy", speed=speed, format="bytes")
+    print(f"Speed: {speed}x")
+    display(Audio(wav, format="audio/wav"))
+```
+
+## 6. Streaming progress
+
+Pass `stream=True` to get `SPEECH_GENERATING` chunks. For HuggingFace (single-pass models), one final chunk is emitted. For OpenAI, chunks arrive as the HTTP response streams in, useful for starting playback before the full clip is ready.
+
+`chunk.content` shape:
+```python
+{
+    "chunk_index": int,          # 1-based
+    "total_chunks": int | None,  # None for OpenAI; 1 for HF single-pass
+    "final": bool,               # True on the last chunk
+    "result": ...,               # encoded output on final chunk, None otherwise
+}
+```
+
+```{python}
+from aimu import speech_client
+from IPython.display import Audio
+
+client = speech_client("hf:microsoft/speecht5_tts")
+
+result = None
+for chunk in client.generate("Streaming TTS generation.", stream=True, format="numpy"):
+    c = chunk.content
+    if c["final"]:
+        sr, audio = c["result"]
+        print(f"Done: {len(audio)} samples at {sr} Hz")
+    else:
+        print(f"Chunk {c['chunk_index']}")
+
+Audio(audio, rate=sr)
+```
+
+```{python}
+# OpenAI streaming: chunks arrive as HTTP bytes stream in
+client = speech_client("openai:tts-1")
+
+for chunk in client.generate(
+    "OpenAI TTS streams the audio as it arrives from the API.",
+    voice="nova",
+    stream=True,
+    format="bytes",
+):
+    c = chunk.content
+    if c["final"]:
+        print(f"Final chunk: {len(c['result'])} bytes total")
+    else:
+        print(f"Chunk {c['chunk_index']} received")
+```
+
+## 7. Speech as an agent tool
+
+The built-in `generate_speech` tool lets any chat LLM call TTS when the user asks. The LLM decides when to call it; the tool saves a WAV and returns the path.
+
+The first HuggingFace call loads weights (slow); subsequent calls reuse them. `AIMU_SPEECH_MODEL` controls which model the singleton uses.
+
+```{python}
+import os
+from IPython.display import Audio
+
+# Use SpeechT5 for the built-in tool singleton
+os.environ["AIMU_SPEECH_MODEL"] = "hf:microsoft/speecht5_tts"
+
+from aimu import client
+from aimu.agents import Agent
+from aimu.tools import builtin
+
+text_client = client("anthropic:claude-sonnet-4-6")
+agent = Agent(
+    text_client,
+    system_message=(
+        "You can generate speech with the generate_speech tool. "
+        "When the user asks you to say something aloud, call the tool."
+    ),
+    tools=[builtin.generate_speech],
+)
+
+response = agent.run("Please say: 'Hello from your AI assistant.' ")
+print(response)
+```
+
+### Per-agent model: `make_speech_tool`
+
+If you don't want the singleton (e.g. each agent should use a different voice), use `make_speech_tool` to bind a tool to a specific client.
+
+```{python}
+from aimu import speech_client
+from aimu.tools.builtin import make_speech_tool
+
+# Build a tool locked to OpenAI tts-1-hd with the "nova" voice
+hd_client = speech_client("openai:tts-1-hd")
+hd_tool = make_speech_tool(hd_client, voice="nova")
+
+agent = Agent(text_client, tools=[hd_tool])
+agent.run("Say: 'This is the high-definition voice.'")
+```
+
+### Streaming through an agent
+
+Because `generate_speech` is a generator `@tool`, its `SPEECH_GENERATING` chunks flow through `Agent.run(stream=True)`.
+
+```{python}
+from IPython.display import Audio
+
+for chunk in agent.run("Say: 'Streaming TTS through an agent.'  ", stream=True):
+    if chunk.is_speech_progress():
+        c = chunk.content
+        if c["final"]:
+            print(f"Saved: {c['result']}")
+            Audio(filename=c["result"])
+    elif chunk.is_text():
+        print(chunk.content, end="", flush=True)
+```
+
+## 8. Async surface
+
+The async surface mirrors sync one-for-one. Build a sync client first and pass it to `aio.speech_client()`, with no second weight load.
+
+```{python}
+import asyncio
+from aimu import aio, speech_client
+from IPython.display import Audio
+
+sync = speech_client("hf:microsoft/speecht5_tts")
+async_client = aio.speech_client(sync)
+
+
+async def narrate_lines(lines):
+    results = await asyncio.gather(*[async_client.generate(line, format="numpy") for line in lines])
+    return results
+
+
+lines = ["First sentence.", "Second sentence.", "Third sentence."]
+clips = await narrate_lines(lines)
+for line, (sr, audio) in zip(lines, clips):
+    print(line)
+    display(Audio(audio, rate=sr))
+```
+
+```{python}
+# Async one-shot: pass a sync client as the model argument
+sync = speech_client("openai:tts-1")
+wav = await aio.generate_speech("Async one-shot TTS.", model=sync, format="bytes")
+Audio(wav, format="audio/wav")
+```
+
+---
+
+## Part 2: Speech Transcription (STT), coming soon
+
+Speech-to-text transcription is planned as a parallel surface under `aimu.transcription_client()` / `aimu.transcribe()`. It will use its own `BaseTranscriptionClient` ABC, distinct from `BaseSpeechClient`, and will not share the TTS client hierarchy.
+
+Planned providers:
+- **OpenAI Whisper** (cloud) via `openai.audio.transcriptions.create()`
+- **HuggingFace Whisper** (`openai/whisper-large-v3`, etc.) for local transcription
+
+Planned API shape (mirrors `speech_client`):
+
+```python
+# One-shot
+text = aimu.transcribe("recording.wav", model="openai:whisper-1")
+text = aimu.transcribe("recording.wav", model="hf:openai/whisper-large-v3")
+
+# Reuse client
+client = aimu.transcription_client("openai:whisper-1")
+text = client.transcribe("recording.wav", language="en")
+```
+
+This section will be filled in when `BaseTranscriptionClient` lands. The STT surface is explicitly out of scope for the current `BaseSpeechClient`; see `docs/superpowers/specs/2026-05-28-speech-generation-design.md` for the rationale.
+

@@ -1,0 +1,173 @@
+---
+title: "Vision Input"
+jupyter: python3
+---
+
+
+AIMU's `ModelClient.chat()` accepts an optional `images=` argument for vision-capable models. Image inputs are normalized to OpenAI-style content blocks internally, then adapted per-provider where needed (Anthropic, Ollama-native, HuggingFace).
+
+## What this notebook covers
+
+1. The `supports_vision` capability flag on `Model` enums and the `VISION_MODELS` classproperty
+2. Passing images as file paths, raw bytes, `data:` URLs, and `http(s)://` URLs
+3. Multiple images in one turn
+4. Vision against OpenAI, Anthropic, Gemini, and Ollama (native)
+5. The capability check that raises `ValueError` on non-vision models
+
+## Setup
+
+API-key-based providers read `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GOOGLE_API_KEY` from your environment (or a `.env` file in the project root). Ollama needs a vision-capable model pulled locally (e.g. `ollama pull gemma3:12b`).
+
+
+```{python}
+import base64
+import io
+from pathlib import Path
+
+from PIL import Image
+
+# Build a tiny test image we can use with any vision model.
+img = Image.new("RGB", (64, 64), color=(255, 128, 0))
+buf = io.BytesIO()
+img.save(buf, format="PNG")
+image_bytes = buf.getvalue()
+
+image_path = Path("./test_image.png")
+image_path.write_bytes(image_bytes)
+
+image_data_url = "data:image/png;base64," + base64.b64encode(image_bytes).decode("ascii")
+print("file:", image_path, "bytes:", len(image_bytes))
+```
+
+## 1. Capability flags
+
+Every `Model` enum member carries a `supports_vision` boolean. Each provider client also exposes a `VISION_MODELS` classproperty mirroring `THINKING_MODELS` and `TOOL_MODELS`.
+
+```{python}
+from aimu.models import OpenAIClient, AnthropicClient, GeminiClient, OllamaClient
+
+for client_cls in (OpenAIClient, AnthropicClient, GeminiClient, OllamaClient):
+    print(client_cls.__name__, "vision models:", [m.name for m in client_cls.VISION_MODELS])
+```
+
+Create a `ModelClient` for the first set of examples.
+
+```{python}
+from aimu.models import ModelClient
+from aimu.models.ollama import OllamaModel
+
+client = ModelClient(OllamaModel.GEMMA_4_E4B)
+```
+
+## 2. Single image: file path
+
+The simplest case: pass a file path string. AIMU reads the file, base64-encodes it, and inlines it as a `data:image/...` URL.
+
+```{python}
+response = client.chat("What color is this image?", images=[str(image_path)])
+print(response)
+```
+
+## 3. Single image: raw bytes
+
+Useful when the image is already in memory (e.g. a Streamlit upload, a screenshot, or output from PIL). Bytes are encoded as `image/png` by default.
+
+```{python}
+response = client.chat("Describe what you see in two short sentences.", images=[image_bytes])
+print(response)
+```
+
+## 4. Single image: data URL (already encoded)
+
+If you have a `data:image/...;base64,...` string already, pass it through unchanged.
+
+```{python}
+response = client.chat("Is this image warm or cool toned?", images=[image_data_url])
+print(response)
+```
+
+## 5. Multiple images in one turn
+
+Pass a list. The model sees them in order, alongside the text prompt.
+
+```{python}
+img2 = Image.new("RGB", (64, 64), color=(0, 128, 255))
+buf2 = io.BytesIO()
+img2.save(buf2, format="PNG")
+image_bytes_2 = buf2.getvalue()
+
+response = client.chat(
+    "Compare these two images and tell me how their colors differ.",
+    images=[image_bytes, image_bytes_2],
+)
+print(response)
+```
+
+## 6. Anthropic Claude
+
+AIMU converts the OpenAI-format content blocks to Anthropic's native `image` blocks (base64 source) at request time; nothing in your code changes.
+
+```{python}
+from aimu.models.anthropic.anthropic_client import AnthropicModel
+
+client = ModelClient(AnthropicModel.CLAUDE_HAIKU_4_5)
+response = client.chat("What is the dominant color in this image?", images=[image_bytes])
+print(response)
+```
+
+## 7. Google Gemini
+
+Gemini uses Google's OpenAI-compatible endpoint, so image_url blocks pass through directly.
+
+```{python}
+from aimu.models.openai_compat.gemini_client import GeminiModel
+
+client = ModelClient(GeminiModel.GEMINI_2_5_FLASH)
+response = client.chat("What color is this image?", images=[image_bytes])
+print(response)
+```
+
+## 8. Ollama (native API)
+
+AIMU rewrites image_url content blocks to Ollama's message-level `images=` field at request time. Requires a vision-capable model pulled locally (Gemma 3, Gemma 4, etc.).
+
+```{python}
+from aimu.models.ollama.ollama_client import OllamaModel
+
+client = ModelClient(OllamaModel.GEMMA_3_12B)  # pull first: ollama pull gemma3:12b
+response = client.chat("What color is this image?", images=[image_bytes])
+print(response)
+```
+
+## 9. Capability check
+
+Passing `images=` to a non-vision model raises `ValueError` up front, before any API call.
+
+```{python}
+client = ModelClient(OllamaModel.QWEN_3_8B)
+try:
+    client.chat("Describe this.", images=[image_bytes])
+except ValueError as e:
+    print("caught:", e)
+```
+
+## 10. Stateless one-shot: `generate(images=)`
+
+`chat(images=...)` keeps the turn in `client.messages` for follow-ups. For a one-shot "look once and answer" call (captioning, scoring, classification) that should *not* accumulate history, use `generate(images=...)`, the stateless sibling of `chat()`. Each call stands alone; no `reset()` needed between calls.
+
+```{python}
+vision_client = ModelClient(OllamaModel.GEMMA_4_E4B)
+
+caption = vision_client.generate("Caption this image in one short sentence.", images=[str(image_path)])
+print(caption)
+
+# generate() never touches message state; the client stays stateless across calls.
+print("messages after generate():", vision_client.messages)
+```
+
+## Cleanup
+
+```{python}
+image_path.unlink(missing_ok=True)
+```
+

@@ -1,0 +1,269 @@
+---
+title: "Conversations"
+jupyter: python3
+---
+
+
+`ConversationManager` is AIMU's persistent chat history layer. It stores OpenAI-format messages (`role`/`content`) in a TinyDB JSON file, attaches a timestamp each time you write, and supports multiple independent conversations in the same database. Messages returned via the `messages` property are copies, so callers can mutate them freely without corrupting persisted state.
+
+Use it when a chat needs to survive process restarts: a Streamlit/Gradio app that resumes the user's last session, a CLI tool that keeps a running log, or any place where `ModelClient.messages` (which is in-memory only) isn't enough. The integration pattern is simple: drive your model client's `chat()` calls as usual, then push `model_client.messages` to the manager after each turn. Pass `use_last_conversation=True` on startup to pick up where the previous session left off.
+
+## What this notebook covers
+
+| Section | Topic |
+|---|---|
+| A | Creating a `ConversationManager` backed by a TinyDB JSON file |
+| B | Writing messages and inspecting the auto-attached timestamps |
+| C | Extending an existing conversation across multiple turns |
+| D | Running several conversations in parallel (same DB or separate files) |
+| E | Resuming the last conversation with `use_last_conversation=True` |
+| F | Working with the `messages` copy semantics |
+| G | Wiring a `ConversationManager` into a model client |
+| H | Closing the database and cleaning up |
+
+
+## A - Basic Conversation Manager Setup
+
+The ConversationManager class provides persistent storage for chat conversations using TinyDB. It automatically handles conversation creation, message storage, and timestamping.
+
+```{python}
+from aimu.history import ConversationManager
+import tempfile
+import os
+
+# Create a temporary database file for this example
+temp_db = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+temp_db.close()
+
+# Initialize a new conversation manager
+conv_manager = ConversationManager(db_path=temp_db.name)
+
+print(f"Created conversation manager with database: {temp_db.name}")
+print(f"Initial messages: {len(conv_manager.messages)}")
+```
+
+## B - Adding Messages to Conversation
+
+Messages are stored as dictionaries with role and content. The ConversationManager automatically adds timestamps when updating conversations.
+
+```{python}
+# Create initial messages for a conversation
+initial_messages = [
+    {"role": "user", "content": "Hello, can you help me with Python programming?"},
+    {
+        "role": "assistant",
+        "content": "Of course! I'd be happy to help you with Python programming. What specific topic would you like to explore?",
+    },
+]
+
+# Update the conversation with these messages
+conv_manager.update_conversation(initial_messages)
+
+print(f"Added {len(initial_messages)} messages to the conversation")
+print(f"Total messages: {len(conv_manager.messages)}")
+print("\nCurrent messages:")
+for i, msg in enumerate(conv_manager.messages):
+    print(f"  {i + 1}. {msg['role']}: {msg['content'][:50]}...")
+    print(f"     Timestamp: {msg.get('timestamp', 'N/A')}")
+```
+
+## C - Continuing a Conversation
+
+You can continue adding messages to an existing conversation. The manager tracks which messages are new and adds timestamps accordingly.
+
+```{python}
+import time
+
+# Get current messages and add more
+current_messages = conv_manager.messages
+new_messages = current_messages + [
+    {"role": "user", "content": "I want to learn about list comprehensions."},
+    {
+        "role": "assistant",
+        "content": "List comprehensions are a concise way to create lists in Python. Here's a basic example: [x**2 for x in range(5)] creates [0, 1, 4, 9, 16].",
+    },
+]
+
+# Small delay to show timestamp difference
+time.sleep(0.1)
+
+# Update with the extended conversation
+conv_manager.update_conversation(new_messages)
+
+print(f"Extended conversation to {len(conv_manager.messages)} messages")
+print("\nAll messages with timestamps:")
+for i, msg in enumerate(conv_manager.messages):
+    print(f"  {i + 1}. [{msg.get('timestamp', 'N/A')}] {msg['role']}: {msg['content'][:60]}...")
+```
+
+## D - Working with Multiple Conversations
+
+You can create multiple conversations by creating new ConversationManager instances or by explicitly starting new conversations.
+
+```{python}
+# Start a new conversation in the same manager
+new_doc_id, new_messages = conv_manager.create_new_conversation()
+print(f"Created new conversation with ID: {new_doc_id}")
+print(f"New conversation messages: {len(new_messages)}")
+
+# Note: The current manager is still using the original conversation
+print(f"Current manager still has: {len(conv_manager.messages)} messages")
+
+# Create a second manager for a different topic
+temp_db2 = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+temp_db2.close()
+
+conv_manager2 = ConversationManager(db_path=temp_db2.name)
+
+# Add different content to the second conversation
+math_messages = [
+    {"role": "user", "content": "Can you help me with calculus?"},
+    {
+        "role": "assistant",
+        "content": "Absolutely! Calculus deals with rates of change and areas under curves. What specific topic in calculus would you like to explore?",
+    },
+]
+
+conv_manager2.update_conversation(math_messages)
+
+print(f"\nSecond conversation has {len(conv_manager2.messages)} messages")
+print("Second conversation content:")
+for msg in conv_manager2.messages:
+    print(f"  {msg['role']}: {msg['content'][:50]}...")
+```
+
+## E - Resuming Previous Conversations
+
+You can resume the last conversation by setting `use_last_conversation=True` when initializing the ConversationManager.
+
+```{python}
+# Close the first manager
+conv_manager.close()
+
+# Create a new manager that resumes the last conversation
+resumed_manager = ConversationManager(db_path=temp_db.name, use_last_conversation=True)
+
+print(f"Resumed conversation with {len(resumed_manager.messages)} messages")
+print("\nResumed conversation content:")
+for i, msg in enumerate(resumed_manager.messages):
+    print(f"  {i + 1}. {msg['role']}: {msg['content'][:60]}...")
+
+# Continue the resumed conversation
+continued_messages = resumed_manager.messages + [
+    {"role": "user", "content": "Can you show me more advanced list comprehension examples?"},
+    {
+        "role": "assistant",
+        "content": "Sure! Here are some advanced examples:\n- Nested: [[x*y for x in range(3)] for y in range(2)]\n- Conditional: [x for x in range(10) if x % 2 == 0]",
+    },
+]
+
+resumed_manager.update_conversation(continued_messages)
+print(f"\nContinued conversation now has {len(resumed_manager.messages)} messages")
+```
+
+## F - Message Properties and Structure
+
+Messages returned by the ConversationManager are copies, so you can safely manipulate them without affecting the stored conversation.
+
+```{python}
+# Get messages (returns a copy)
+messages_copy = resumed_manager.messages
+
+print(f"Retrieved {len(messages_copy)} messages")
+print("\nMessage structure analysis:")
+
+for i, msg in enumerate(messages_copy[:3]):  # Show first 3 messages
+    print(f"\nMessage {i + 1}:")
+    print(f"  Keys: {list(msg.keys())}")
+    print(f"  Role: {msg['role']}")
+    print(f"  Content length: {len(msg['content'])} characters")
+    print(f"  Has timestamp: {'timestamp' in msg}")
+    if "timestamp" in msg:
+        print(f"  Timestamp: {msg['timestamp']}")
+
+# Modify the copy - this won't affect the stored conversation
+messages_copy[0]["content"] = "Modified content"
+print("\nModified copy, but original remains unchanged:")
+print(f"Copy first message: {messages_copy[0]['content'][:20]}...")
+print(f"Original first message: {resumed_manager.messages[0]['content'][:20]}...")
+```
+
+## G - Integration with Model Clients
+
+The ConversationManager can be integrated with model clients to automatically persist chat history.
+
+```{python}
+# Simulate a model client integration pattern
+class SimpleModelClient:
+    def __init__(self, conversation_manager):
+        self.conv_manager = conversation_manager
+
+    def chat(self, user_message):
+        # Simulate model response
+        responses = {
+            "hello": "Hello! How can I help you today?",
+            "python": "Python is a versatile programming language. What would you like to know?",
+            "goodbye": "Goodbye! Feel free to ask if you have more questions.",
+        }
+
+        # Simple keyword-based response
+        assistant_response = "I understand. Can you tell me more?"
+        for keyword, response in responses.items():
+            if keyword.lower() in user_message.lower():
+                assistant_response = response
+                break
+
+        # Update conversation with both messages
+        current_messages = self.conv_manager.messages
+        new_messages = current_messages + [
+            {"role": "user", "content": user_message},
+            {"role": "assistant", "content": assistant_response},
+        ]
+
+        self.conv_manager.update_conversation(new_messages)
+        return assistant_response
+
+
+# Create a client with our conversation manager
+client = SimpleModelClient(resumed_manager)
+
+# Have a conversation
+print("Starting conversation with integrated client:")
+print(f"Initial messages: {len(client.conv_manager.messages)}")
+
+response1 = client.chat("Hello there!")
+print("\nUser: Hello there!")
+print(f"Assistant: {response1}")
+
+response2 = client.chat("Tell me about Python")
+print("\nUser: Tell me about Python")
+print(f"Assistant: {response2}")
+
+print(f"\nFinal message count: {len(client.conv_manager.messages)}")
+```
+
+## H - Cleanup and Resource Management
+
+The ConversationManager automatically closes the database connection when deleted, but you can also explicitly close it.
+
+```{python}
+# Show final state of conversations
+print("Final conversation states:")
+print(f"Main conversation: {len(resumed_manager.messages)} messages")
+print(f"Second conversation: {len(conv_manager2.messages)} messages")
+
+# Explicitly close the managers
+resumed_manager.close()
+conv_manager2.close()
+
+print("\nClosed all conversation managers")
+
+# Clean up temporary files
+try:
+    os.unlink(temp_db.name)
+    os.unlink(temp_db2.name)
+    print("Cleaned up temporary database files")
+except OSError:
+    print("Note: Some temporary files may need manual cleanup")
+```
+

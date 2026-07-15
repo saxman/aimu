@@ -1,0 +1,219 @@
+---
+title: "Audio Input"
+jupyter: python3
+---
+
+
+AIMU's `ModelClient.chat()` and `ModelClient.generate()` accept an optional `audio=` argument for audio-capable text models. Audio inputs are normalised to OpenAI `input_audio` content blocks internally and adapted per-provider where needed (Anthropic, HuggingFace).
+
+## What this notebook covers
+
+1. The `supports_audio` capability flag and the `AUDIO_MODELS` classproperty
+2. Passing audio as file paths, raw bytes, `data:` URLs, and `https://` URLs
+3. Multiple clips in one turn
+4. Stateful `chat()` vs. stateless `generate()`
+5. Multi-turn conversations (follow-up questions after the initial audio turn)
+6. Mutually exclusive with `images=`
+7. Async surface (`aimu.aio`)
+
+## Setup
+
+API-key-based providers read `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GOOGLE_API_KEY` from your environment (or a `.env` file in the project root).
+
+
+```{python}
+import base64
+import struct
+from pathlib import Path
+
+
+def _make_wav(sample_rate: int = 16000, num_samples: int = 4000) -> bytes:
+    """Build a minimal valid 16-bit mono WAV in memory."""
+    data = b"\x00\x00" * num_samples
+    data_size = len(data)
+    fmt_size = 16
+    riff_size = 4 + 8 + fmt_size + 8 + data_size
+    header = struct.pack("<4sI4s", b"RIFF", riff_size, b"WAVE")
+    fmt = struct.pack("<4sIHHIIHH", b"fmt ", fmt_size, 1, 1, sample_rate, sample_rate * 2, 2, 16)
+    data_chunk = struct.pack("<4sI", b"data", data_size) + data
+    return header + fmt + data_chunk
+
+
+# A tiny synthetic WAV clip we can use with any audio model.
+audio_bytes = _make_wav()
+
+audio_path = Path("./test_audio.wav")
+audio_path.write_bytes(audio_bytes)
+
+audio_data_url = "data:audio/wav;base64," + base64.b64encode(audio_bytes).decode("ascii")
+print("file:", audio_path, "  bytes:", len(audio_bytes))
+```
+
+## 1. Capability flags
+
+Every `Model` enum member carries a `supports_audio` boolean. Each provider client also exposes an `AUDIO_MODELS` classproperty mirroring `VISION_MODELS`, `THINKING_MODELS`, and `TOOL_MODELS`.
+
+```{python}
+from aimu.models import OpenAIClient, AnthropicClient, GeminiClient, OllamaClient
+
+for client_cls in (OpenAIClient, AnthropicClient, GeminiClient, OllamaClient):
+    print(client_cls.__name__, "audio models:", [m.name for m in client_cls.AUDIO_MODELS])
+```
+
+## 2. Single clip: file path
+
+The simplest case: pass a file path string. AIMU reads the file, base64-encodes it, and inlines it as an `input_audio` block. Format is inferred from the file extension.
+
+```{python}
+from aimu.models import ModelClient
+from aimu.models.providers.openai.text import OpenAIModel
+
+client = ModelClient(OpenAIModel.GPT_4O)
+response = client.chat("Describe what you hear in this audio clip.", audio=[str(audio_path)])
+print(response)
+```
+
+## 3. Single clip: raw bytes
+
+Useful when audio is already in memory. Bytes default to `wav` format.
+
+```{python}
+response = client.chat("What can you hear in this clip?", audio=[audio_bytes])
+print(response)
+```
+
+## 4. Single clip: data URL
+
+If you already have a `data:audio/...;base64,...` string, pass it through unchanged. The format is extracted from the MIME type.
+
+```{python}
+response = client.chat("Transcribe this audio.", audio=[audio_data_url])
+print(response)
+```
+
+## 5. Multiple clips in one turn
+
+Pass a list. The model sees them in order alongside the text prompt.
+
+```{python}
+audio_bytes_2 = _make_wav(sample_rate=8000)  # different sample rate
+
+response = client.chat(
+    "I have two audio clips. Compare their characteristics.",
+    audio=[audio_bytes, audio_bytes_2],
+)
+print(response)
+```
+
+## 6. Stateless one-shot: `generate(audio=)`
+
+`chat(audio=...)` keeps the turn in `client.messages` for follow-ups. For a one-shot "listen once and answer" call (transcription, classification, QA) that should *not* accumulate history, use `generate(audio=...)`. Each call stands alone; no `reset()` needed between calls.
+
+```{python}
+audio_client = ModelClient(OpenAIModel.GPT_4O)
+
+# Each call is independent.
+result1 = audio_client.generate("Describe this audio in one sentence.", audio=[str(audio_path)])
+result2 = audio_client.generate("Is there speech or music in this clip?", audio=[audio_bytes])
+print(result1)
+print(result2)
+
+# generate() never touches message state.
+print("messages after generate():", audio_client.messages)
+```
+
+## 7. Multi-turn conversation
+
+Audio blocks persist in `self.messages`, so the model can refer back to the earlier clip when you ask follow-up questions.
+
+```{python}
+client.reset()
+client.chat("What is the main content of this recording?", audio=[str(audio_path)])
+followup = client.chat("Can you give me a one-line summary of what you just heard?")
+print(followup)
+print("turns in history:", len([m for m in client.messages if m["role"] == "user"]))
+```
+
+## 8. Capability check
+
+Passing `audio=` to a non-audio model raises `ValueError` up front, before any API call.
+
+```{python}
+from aimu.models.providers.openai.text import OpenAIModel
+
+# o4-mini has supports_audio=False.
+non_audio_client = ModelClient(OpenAIModel.O4_MINI)
+try:
+    non_audio_client.chat("Transcribe this.", audio=[audio_bytes])
+except ValueError as e:
+    print("caught:", e)
+```
+
+## 9. `images=` and `audio=` are mutually exclusive
+
+Passing both raises `ValueError` before any message history is touched.
+
+```{python}
+import io
+from PIL import Image
+
+img = Image.new("RGB", (32, 32), color=(0, 128, 255))
+buf = io.BytesIO()
+img.save(buf, format="PNG")
+image_bytes = buf.getvalue()
+
+try:
+    client.chat("Describe both.", images=[image_bytes], audio=[audio_bytes])
+except ValueError as e:
+    print("caught:", e)
+```
+
+## 10. Google Gemini
+
+Gemini 2.x uses Google's OpenAI-compatible endpoint, so `input_audio` blocks pass through directly. Requires `GOOGLE_API_KEY`.
+
+```{python}
+from aimu.models.providers.gemini.text import GeminiModel
+
+gemini_client = ModelClient(GeminiModel.GEMINI_2_5_FLASH)
+response = gemini_client.generate("Describe this audio clip.", audio=[str(audio_path)])
+print(response)
+```
+
+## 11. HuggingFace (Gemma 4)
+
+HuggingFace Gemma 4 E4B/12B accept audio alongside text. AIMU decodes `input_audio` blocks to float32 numpy arrays via `soundfile` and passes them to the `AutoProcessor` alongside the text. Requires the `[hf]` extra.
+
+```{python}
+from aimu.models.providers.hf.text import HuggingFaceModel
+
+hf_client = ModelClient(HuggingFaceModel.GEMMA_4_E4B)
+response = hf_client.generate("What do you hear in this clip?", audio=[str(audio_path)])
+print(response)
+```
+
+## 12. Async surface
+
+`audio=` is available on `aio.chat()` and `aio.generate()` with the same signature.
+
+```{python}
+import asyncio
+from aimu import aio
+from aimu.models.providers.openai.text import OpenAIModel
+
+
+async def transcribe_async(path: str) -> str:
+    client = aio.client(f"openai:{OpenAIModel.GPT_4O.value}")
+    return await client.generate("Transcribe this audio.", audio=[path])
+
+
+result = asyncio.run(transcribe_async(str(audio_path)))
+print(result)
+```
+
+## Cleanup
+
+```{python}
+audio_path.unlink(missing_ok=True)
+```
+

@@ -98,4 +98,4 @@ print(agent.run("What is retrieval-augmented generation?"))
 
 - [Tutorial: workflows](../tutorials/03-workflows.md): Chain, Router, Parallel, EvaluatorOptimizer
 - [`aimu.agents.OrchestratorAgent`](../reference/api/agents.md#aimu.agents.OrchestratorAgent)
-- Notebook [11 - Agent Examples](https://github.com/saxman/aimu/blob/main/notebooks/11%20-%20Agent%20Examples.ipynb)
+- Notebook [10 - Prebuilt Agents](https://github.com/saxman/aimu/blob/main/notebooks/10-prebuilt-agents.qmd)

@@ -1,0 +1,654 @@
+---
+title: "Workflows"
+jupyter: python3
+---
+
+
+Demonstrates AIMU's code-controlled workflow patterns, aligned with the [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) taxonomy.
+
+**Workflows** execute through predetermined code paths: the code controls routing, sequencing, and aggregation; LLMs are invoked at defined points rather than directing their own process.
+
+| Class | Pattern | When to use |
+|---|---|---|
+| `Chain` | Prompt chaining | Sequential steps; each step's output becomes the next step's input |
+| `Router` | Routing | Classify the input, dispatch to a specialist handler |
+| `Parallel` | Parallelization | Run multiple agents concurrently, aggregate results |
+| `EvaluatorOptimizer` | Evaluator-optimizer | Generate → evaluate → revise loop |
+| `PlanExecuteEvaluator` | Plan-execute-evaluate | Plan → execute with tools → score → replan if it failed |
+
+All five implement the single `Runner` interface and are imported from `aimu.agents`. For autonomous agents see **[notebook 07](07-agents.qmd)**; for prebuilt orchestrator agents see **[notebook 10](10-prebuilt-agents.qmd)**.
+
+For runnable scripts that build a generate → evaluate → revise loop both as a code loop *and* as an `EvaluatorOptimizer`, see [`examples/text-refinement/`](../examples/text-refinement/) (text) and [`examples/image-refinement/`](../examples/image-refinement/) (images).
+
+
+## Setup
+
+Create a shared `OllamaClient` with a tool-capable model and build a few demo tools from an in-process `MCPClient` via `as_tools()`. The tools are passed to the agents that need them via `tools=`; the same `model_client` and `demo_tools` are reused across all sections.
+
+```{python}
+import datetime
+from fastmcp import FastMCP
+
+from aimu.models import OllamaClient
+from aimu.models import StreamingContentType
+from aimu.tools import MCPClient
+
+mcp = FastMCP("Demo Tools")
+
+
+@mcp.tool()
+def get_current_date_and_time() -> str:
+    """Returns the current date and time."""
+    return str(datetime.datetime.now())
+
+
+@mcp.tool()
+def get_weather(location: str) -> str:
+    """Returns the current weather for a given location."""
+    return f"Sunny, 22°C in {location}"  # stubbed
+
+
+@mcp.tool()
+def calculate(expression: str) -> str:
+    """Evaluates a simple arithmetic expression and returns the result."""
+    try:
+        return str(eval(expression, {"__builtins__": {}}))
+    except Exception as e:
+        return f"Error: {e}"
+
+
+model_client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+# Build the MCP server's tools as @tool-style callables via as_tools(); keep the client alive.
+# Tools live on each Agent now (pass them via tools=), not on the model client.
+mcp_client = MCPClient(server=mcp)
+demo_tools = mcp_client.as_tools()
+
+print("Model:", model_client.model.value)
+print("Tools:", [fn.__name__ for fn in demo_tools])
+```
+
+## A - Chain (Prompt Chaining Pattern)
+
+A `Chain` chains agents sequentially: the text output of each step becomes the input to the next. Each agent runs its own agentic loop independently. This is the **Prompt Chaining** pattern; AIMU names it `Chain` because the units being chained are full `Agent` objects, not raw prompts.
+
+`Chain.from_config()` accepts a list of config dicts and a single `ModelClient`. The client is shared across all steps; before each step, `messages` are cleared and `system_message` is applied from the step's config, keeping steps isolated.
+
+Here a three-step pipeline: a **researcher** gathers facts using tools, an **analyst** interprets them, and a **formatter** produces a clean summary.
+
+```{python}
+from aimu.agents import Agent, Chain
+
+chain_configs = [
+    {
+        "name": "researcher",
+        "system_message": (
+            "You are a research assistant. Use available tools to collect facts. "
+            "Output only the raw facts you found, one per line."
+        ),
+        "max_iterations": 6,
+    },
+    {
+        "name": "analyst",
+        "system_message": "You are a data analyst. Interpret the provided facts and draw conclusions. Be concise.",
+        "max_iterations": 3,
+    },
+    {
+        "name": "formatter",
+        "system_message": (
+            "You are a copywriter. Rewrite the provided analysis as a short, friendly "
+            "paragraph suitable for a general audience. No bullet points."
+        ),
+        "max_iterations": 1,
+    },
+]
+
+chain = Chain.from_config(chain_configs, model_client)
+# from_config configs are plain dicts (no tool callables); give the researcher step its tools.
+chain.agents[0].tools = demo_tools
+
+result = chain.run("Gather the current date/time and the weather in London, then summarise.")
+print(result)
+```
+
+### Streaming the Chain
+
+`chain.run(stream=True)` yields the same `StreamChunk` type as `Agent`; the chain step is carried in `chunk.iteration`, letting you track progress across the full pipeline in real time.
+
+```{python}
+chain2 = Chain.from_config(chain_configs, model_client)
+chain2.agents[0].tools = demo_tools  # researcher step needs the tools
+
+current_step = -1
+
+for chunk in chain2.run("Get the current time and weather in Sydney, then summarise.", stream=True):
+    if chunk.iteration != current_step:
+        current_step = chunk.iteration
+        agent_name = chain_configs[current_step]["name"]
+        print(f"\n=== Step {current_step}: {agent_name} ===")
+
+    if chunk.phase == StreamingContentType.TOOL_CALLING:
+        print(f"  [tool: {chunk.content['name']}({chunk.content['arguments']!r})] → {chunk.content['response']}")
+    elif chunk.phase == StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)
+```
+
+## B - Router (Routing Pattern)
+
+A `Router` classifies the input with a `routing_agent`, then dispatches the task to the matching handler. Route names are compared case-insensitively.
+
+Handlers can be any `Runner`: an `Agent`, another `Router`, a `Parallel`, or a `Chain`. An optional `fallback` runner handles unrecognised routes.
+
+Here we set up a router that classifies a query as `weather`, `math`, or `datetime`, and dispatches to a specialist agent with the appropriate system message.
+
+```{python}
+from aimu.agents import Router
+
+router = Router(
+    routing_agent=Agent(
+        model_client,
+        name="classifier",
+        system_message=(
+            "Classify the user's query into exactly one of these categories: "
+            "weather, math, datetime. "
+            "Reply with only the category name; no other text."
+        ),
+    ),
+    handlers={
+        "weather": Agent(
+            model_client,
+            name="weather-specialist",
+            system_message="You are a weather expert. Use the get_weather tool to answer.",
+            tools=demo_tools,
+            max_iterations=3,
+        ),
+        "math": Agent(
+            model_client,
+            name="math-specialist",
+            system_message="You are a maths expert. Use the calculate tool for all arithmetic.",
+            tools=demo_tools,
+            max_iterations=3,
+        ),
+        "datetime": Agent(
+            model_client,
+            name="datetime-specialist",
+            system_message="You are a time expert. Use the get_current_date_and_time tool.",
+            tools=demo_tools,
+            max_iterations=3,
+        ),
+    },
+    fallback=Agent(
+        model_client,
+        name="general",
+        system_message="Answer the user's question as helpfully as possible.",
+    ),
+)
+```
+
+```{python}
+router.run("What is the weather like in Tokyo?")
+```
+
+```{python}
+model_client.messages
+```
+
+```{python}
+router.messages
+```
+
+```{python}
+result = router.run("What is 17 multiplied by 23?")
+result
+```
+
+```{python}
+model_client.messages
+```
+
+```{python}
+router.messages
+```
+
+```{python}
+result = router.run("What time is it right now?")
+result
+```
+
+```{python}
+model_client.messages
+```
+
+### Streaming the Router
+
+`run(stream=True)` first yields the classifier's chunks (the route name), then the selected handler's chunks. This lets you see the routing decision in real time.
+
+```{python}
+model_client.messages = []
+current_agent = None
+
+for chunk in router.run("What is 99 squared?", stream=True):
+    if chunk.agent != current_agent:
+        current_agent = chunk.agent
+        print(f"\n--- [{current_agent}] ---")
+    if chunk.phase == StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)
+    elif chunk.phase == StreamingContentType.TOOL_CALLING:
+        print(f"[tool: {chunk.content['name']}({chunk.content['arguments']!r})] → {chunk.content['response']}")
+```
+
+### Router from Config
+
+`Router.from_config()` builds the router from plain dicts; useful for config-driven setups.
+
+```{python}
+model_client.messages = []
+
+router_from_cfg = Router.from_config(
+    routing_config={
+        "name": "classifier",
+        "system_message": "Classify as one of: weather, math. Reply with only the category name.",
+    },
+    handler_configs={
+        "weather": {"name": "weather-bot", "system_message": "Use the get_weather tool.", "max_iterations": 3},
+        "math": {"name": "math-bot", "system_message": "Use the calculate tool.", "max_iterations": 3},
+    },
+    client=model_client,
+)
+# from_config builds handlers from dicts; attach the tool callables to each handler.
+for handler in router_from_cfg.handlers.values():
+    handler.tools = demo_tools
+
+model_client.messages = []
+print(router_from_cfg.run("What is 42 times 7?"))
+```
+
+## C - Parallel (Parallelization Pattern)
+
+A `Parallel` runs multiple worker runners concurrently (via `ThreadPoolExecutor`) and optionally passes their combined output to an aggregator runner.
+
+- Without an aggregator: worker outputs are joined with `separator` and returned directly.
+- With an aggregator: the joined outputs become the aggregator's task, which produces the final result.
+
+Workers run to completion before the aggregator starts; this avoids interleaved streaming output.
+
+```{python}
+from aimu.agents import Parallel
+
+model_client.messages = []
+
+parallel = Parallel(
+    workers=[
+        Agent(
+            model_client,
+            name="optimist",
+            system_message="You are an optimist. Give 2-3 benefits of the idea in bullet points.",
+        ),
+        Agent(
+            model_client,
+            name="skeptic",
+            system_message="You are a skeptic. Give 2-3 risks or weaknesses of the idea in bullet points.",
+        ),
+        Agent(
+            model_client,
+            name="pragmatist",
+            system_message="You are a pragmatist. Give 2-3 practical implementation steps in bullet points.",
+        ),
+    ],
+    aggregator=Agent(
+        model_client,
+        name="synthesizer",
+        system_message=(
+            "You are given three perspectives on an idea: benefits, risks, and implementation steps. "
+            "Synthesize them into a balanced 2-paragraph executive summary."
+        ),
+    ),
+    separator="\n\n---\n\n",
+)
+
+task = "Build an internal AI assistant for our customer support team."
+model_client.messages = []
+result = parallel.run(task)
+print(result)
+```
+
+### Parallel without an aggregator
+
+Without an aggregator, the worker outputs are joined with `separator` and returned as-is. Useful when you want to collect multiple independent responses and process them yourself.
+
+```{python}
+model_client.messages = []
+
+perspectives = Parallel(
+    workers=[
+        Agent(model_client, name="uk", system_message="Answer from a UK perspective in one sentence."),
+        Agent(model_client, name="us", system_message="Answer from a US perspective in one sentence."),
+        Agent(model_client, name="jp", system_message="Answer from a Japanese perspective in one sentence."),
+    ],
+    separator="\n",
+)
+
+model_client.messages = []
+print(perspectives.run("What is the most important meal of the day?"))
+```
+
+### Streaming Parallel output
+
+`run(stream=True)` collects all worker results concurrently (not interleaved), then streams the aggregator's response.
+
+```{python}
+model_client.messages = []
+
+for chunk in parallel.run("Use AI to improve hospital patient scheduling.", stream=True):
+    if chunk.phase == StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)
+```
+
+### Parallel with `asyncio.TaskGroup` (`aio.Parallel`)
+
+The sync `Parallel` above uses `ThreadPoolExecutor`. The async mirror `aio.Parallel` uses `asyncio.TaskGroup` instead, which is the **one place async delivers behaviourally different semantics**, not just syntactic variation:
+
+- **True coroutine concurrency**: no thread overhead, scales much further than a thread pool.
+- **Structured cancellation**: if one worker raises, in-flight siblings are cancelled cleanly instead of running to completion.
+- **`ExceptionGroup` aggregation**: when multiple workers fail, every failure surfaces at once.
+
+The cells below isolate the concurrency primitive from LLM latency by using a toy `SlowWorker` (just `asyncio.sleep`). For the full async surface walkthrough see **[notebook 22 - Async](22-async.qmd)**.
+
+```{python}
+import asyncio
+import time
+
+from aimu import aio
+from aimu.aio.agent import AsyncRunner
+
+
+class SlowWorker(AsyncRunner):
+    """Toy worker: sleeps for `delay` seconds, then returns or raises.
+
+    Stands in for an LLM call so we can isolate the concurrency primitive
+    from the model's variable latency.
+    """
+
+    def __init__(self, label, delay, raises=False):
+        self.name = label
+        self.label = label
+        self.delay = delay
+        self.raises = raises
+
+    async def run(self, task, generate_kwargs=None, stream=False, images=None):
+        await asyncio.sleep(self.delay)
+        if self.raises:
+            raise RuntimeError(f"worker '{self.label}' boom")
+        return f"{self.label}: done in {self.delay}s"
+
+    @property
+    def messages(self):
+        return {self.name: []}
+
+
+# Overlap: three 0.5s workers should finish in ~0.5s (not 1.5s).
+parallel_aio = aio.Parallel(workers=[SlowWorker(f"w{i}", 0.5) for i in range(3)])
+t0 = time.perf_counter()
+print(await parallel_aio.run("ignored"))
+print(f"\nwall-clock: {time.perf_counter() - t0:.2f}s   (serial would be 1.5s)")
+
+# Structured cancellation: bad worker fails fast, slow worker is cancelled.
+print()
+parallel_fail = aio.Parallel(workers=[SlowWorker("slow", 5.0), SlowWorker("bad", 0.05, raises=True)])
+t0 = time.perf_counter()
+try:
+    await parallel_fail.run("ignored")
+except* RuntimeError as eg:
+    print(f"cancelled after {time.perf_counter() - t0:.2f}s   (sync would wait 5s)")
+    print(f"ExceptionGroup with {len(eg.exceptions)} error(s):")
+    for e in eg.exceptions:
+        print(f"  - {type(e).__name__}: {e}")
+```
+
+## D - EvaluatorOptimizer (Evaluator-Optimizer Pattern)
+
+An `EvaluatorOptimizer` runs a generate → evaluate → revise loop:
+
+1. The `generator` produces an initial response.
+2. The `evaluator` receives the task + response and replies with either `PASS` (accepted) or revision feedback.
+3. On revision feedback, the generator revises its output.
+4. The loop continues until the evaluator returns `PASS` or `max_rounds` is reached.
+
+The key to reliable behaviour is the evaluator's `system_message`; it should say exactly what "good" looks like and use the exact `pass_keyword` string (default `PASS`) when satisfied.
+
+```{python}
+from aimu.agents import EvaluatorOptimizer
+
+model_client.messages = []
+
+eo = EvaluatorOptimizer(
+    generator=Agent(
+        model_client,
+        name="writer",
+        system_message=(
+            "Write a clear, accurate, one-paragraph explanation suitable for a technical audience. "
+            "Use precise language."
+        ),
+    ),
+    evaluator=Agent(
+        model_client,
+        name="critic",
+        system_message=(
+            "You are a technical editor. Review the response for accuracy, clarity, and completeness. "
+            "If the response is accurate and clearly written, reply with exactly: PASS\n"
+            "Otherwise reply with: REVISE: <specific actionable feedback>"
+        ),
+    ),
+    max_rounds=4,
+)
+
+model_client.messages = []
+result = eo.run("Explain how transformer attention mechanisms work.")
+print(result)
+```
+
+### Streaming EvaluatorOptimizer
+
+`run(stream=True)` runs all rounds internally and yields the **final accepted output** as a single `GENERATING` chunk; intermediate drafts are not streamed, so the caller only ever sees the accepted result.
+
+```{python}
+model_client.messages = []
+
+for chunk in eo.run("Explain the difference between precision and recall.", stream=True):
+    if chunk.phase == StreamingContentType.GENERATING:
+        print(chunk.content, end="", flush=True)
+```
+
+### Typed verdict + `pretty_print`
+
+Matching a `PASS` substring is brittle. Instead, give the evaluator a `verdict_schema`: it returns a typed `Verdict(passed, feedback)` via structured output, and the loop reads `passed` to decide acceptance and `feedback` to drive the revision. (A `stop_when` predicate is also available for full control.)
+
+`aimu.pretty_print` renders any streamed run (tool calls flagged, text inline) and returns the generated text, so you don't hand-write a `chunk.is_tool_call()` / `chunk.is_text()` loop.
+
+```{python}
+import aimu
+from pydantic import BaseModel
+
+model_client.messages = []
+
+
+class Verdict(BaseModel):
+    passed: bool
+    feedback: str = ""
+
+
+typed_eo = EvaluatorOptimizer(
+    generator=Agent(
+        model_client,
+        name="writer",
+        system_message="Write a clear, one-paragraph explanation for a technical audience.",
+    ),
+    evaluator=Agent(
+        model_client,
+        name="critic",
+        system_message=(
+            "Judge the response for accuracy and clarity. Set passed=true when it is good; "
+            "otherwise set passed=false and put specific actionable feedback in the feedback field."
+        ),
+    ),
+    verdict_schema=Verdict,
+    max_rounds=3,
+)
+
+# pretty_print renders the streamed generator run (tool calls + text) and returns the text.
+model_client.messages = []
+writer = Agent(
+    model_client,
+    name="writer",
+    system_message="Answer concisely, using tools when useful.",
+    tools=demo_tools,
+    max_iterations=3,
+)
+aimu.pretty_print(writer.run("What is 17 * 23?", stream=True))
+
+print("\n--- typed-verdict review ---")
+print(typed_eo.run("Explain what a hash table is."))
+```
+
+## E - PlanExecuteEvaluator (Plan-Execute-Evaluate Pattern)
+
+A `PlanExecuteEvaluator` runs a four-phase loop:
+
+1. **Plan**: a `SkillAgent` planner produces a numbered plan for the task.
+2. **Execute**: an `Agent` executor runs the plan using its tools.
+3. **Evaluate**: a pluggable `Scorer` (default: `LLMJudgeScorer`) judges the output against criteria.
+4. **Replan**: if the score is below `pass_threshold`, the planner is invoked again with the prior round's feedback to produce a *new* plan (not a revision of the same one).
+
+The loop bounds at `max_rounds`. On exhaustion, the workflow returns the **highest-scoring** attempt (not necessarily the last one).
+
+Two criteria modes:
+
+- **User-supplied** (`criteria="..."`): pass the criteria string at construction; it's included in every planner prompt and used as the scorer's `reference` field. *Recommended for most uses*, since the planner can't quietly soften its own rubric on replan.
+- **Planner-invented** (`criteria=None`): the planner returns its response in two sections (`## Evaluation criteria` and `## Plan`); the workflow parses both. More flexible for open-ended tasks; pair with a stronger separate judge.
+
+The example below uses `.from_client()`, a one-line factory that builds a `SkillAgent` planner, an `Agent` executor with your tools, and an `LLMJudgeScorer` default scorer.
+
+```{python}
+from aimu.agents import PlanExecuteEvaluator
+
+# A task that combines tool use with strict output formatting: a good test
+# of the plan-execute-evaluate loop. The executor gets its tools via
+# executor_tools= (calculate, get_weather, get_current_date_and_time).
+task = "Calculate the total cost: 3 widgets at $4.99 each plus 7% sales tax, with $5.50 shipping added at the end."
+
+criteria = (
+    "The response must show each calculation step on its own line, prefixed "
+    "with 'Step N: '. The final line must start with 'TOTAL: $' followed by "
+    "the total to two decimal places."
+)
+
+pee = PlanExecuteEvaluator.from_client(
+    client=model_client,
+    criteria=criteria,
+    executor_tools=demo_tools,
+    max_rounds=3,
+    pass_threshold=0.7,
+)
+
+result = pee.run(task)
+print(result)
+```
+
+### Inspecting attempts
+
+`wf.last_attempts` records the plan, criteria, output, score, and feedback for every round of the most recent `run()`. Useful for understanding *why* a particular round failed and what the planner did differently on the next attempt.
+
+```{python}
+for attempt in pee.last_attempts:
+    print(f"--- Round {attempt['round']} (score={attempt['score']:.2f}) ---")
+    print(f"Plan preview:    {attempt['plan'][:100]}...")
+    print(f"Output preview:  {attempt['output'][:100]}...")
+    print(f"Judge feedback:  {attempt['feedback'][:120]}")
+    print()
+```
+
+## F - Composing Patterns
+
+All workflow classes accept any `Runner` as their sub-components (agents, workflows, or nested combinations). This enables arbitrarily deep composition.
+
+Here a `Router` dispatches to either:
+- A `Parallel` that gathers multiple perspectives (for open-ended questions), or
+- An `EvaluatorOptimizer` that produces a polished factual answer (for factual questions).
+
+```{python}
+model_client.messages = []
+
+# Parallel: gather multiple perspectives on an open-ended question
+multi_perspective = Parallel(
+    workers=[
+        Agent(model_client, name="angle-1", system_message="Give one key insight on this topic in 2 sentences."),
+        Agent(model_client, name="angle-2", system_message="Give one counterargument or limitation in 2 sentences."),
+    ],
+    aggregator=Agent(
+        model_client,
+        name="synthesizer",
+        system_message="Combine the two perspectives into a balanced one-paragraph answer.",
+    ),
+)
+
+# EvaluatorOptimizer: produce a polished factual answer
+factual_eo = EvaluatorOptimizer(
+    generator=Agent(
+        model_client,
+        name="factual-writer",
+        system_message="Give a concise, accurate factual answer in one paragraph.",
+    ),
+    evaluator=Agent(
+        model_client,
+        name="fact-checker",
+        system_message=(
+            "Check if the factual answer is accurate and concise. "
+            "If yes, reply: PASS\nIf not, reply: REVISE: <feedback>"
+        ),
+    ),
+    max_rounds=3,
+)
+
+# Router dispatches between the two
+composed_router = Router(
+    routing_agent=Agent(
+        model_client,
+        name="type-classifier",
+        system_message=("Classify the question as one of: opinion, factual. Reply with only the category name."),
+    ),
+    handlers={
+        "opinion": multi_perspective,
+        "factual": factual_eo,
+    },
+)
+
+for question in [
+    "Should companies adopt four-day work weeks?",
+    "What is the speed of light in a vacuum?",
+]:
+    model_client.messages = []
+    result = composed_router.run(question)
+    print(f"Q: {question}")
+    print(f"A: {result}\n{'─' * 60}\n")
+```
+
+## Clean Up
+
+```{python}
+del (
+    model_client,
+    chain,
+    chain2,
+    router,
+    router_from_cfg,
+    parallel,
+    parallel_aio,
+    parallel_fail,
+    perspectives,
+    eo,
+    pee,
+    multi_perspective,
+    factual_eo,
+    composed_router,
+)
+```
+
