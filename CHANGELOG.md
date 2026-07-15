@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Tools
+
+- **New** **web-interaction tools** in `aimu.tools.builtin`. `get_webpage_html(url)` is a stateless `@tool` (added to `builtin.web` + `ALL_TOOLS` + the MCP server) that returns a page's **raw HTML markup** (truncated), complementing the existing text-stripping `get_webpage`. `make_web_tools(*, session=None, timeout=15, max_content_chars=20000, user_agent=...)` is a factory returning `[find_forms, submit_form]` closing over a shared `requests.Session`, so cookies persist across calls and a GET-then-POST form flow works: `find_forms(url)` parses every `<form>` (stdlib `html.parser`; **no new dependency**) into a listing of resolved-absolute action / method / fields including `type=hidden` (CSRF tokens surface), and `submit_form(url, method="POST", data=None)` submits via POST (form body) or GET (query params), returning status + final URL + truncated body — `method="GET"` doubles as a session-aware raw fetch for pages behind a login. Pass them together: `Agent(client, tools=[get_webpage_html, *make_web_tools()])`. **Server-rendered HTML only** (no JavaScript execution): JS-rendered SPAs and anti-bot-protected pages are out of scope; a headless-browser backend is a possible future addition. `submit_form` is the mutating tool — gate it via the `tool_approval` hook when confirmation is wanted. Both are re-exported from `aimu.aio.tools.builtin` (dispatched via `asyncio.to_thread`). How-to: [Fetch HTML and submit web forms](https://saxman.github.io/aimu/how-to/browse-and-submit-forms/). Tests: `tests/test_web_tools.py`.
+
 ## v0.12.0 (2026-07-14): tool-calling refactor, dynamic sub-agent spawning
 
 ### Agents and workflows

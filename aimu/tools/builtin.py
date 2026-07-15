@@ -18,7 +18,7 @@ import traceback
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Optional
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 import requests
 from dotenv import load_dotenv
@@ -259,6 +259,98 @@ def _extract_publish_date(html: str) -> str:
     return ""
 
 
+_DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; aimu-tools/1.0)"
+
+
+def _truncate(text: str, limit: int) -> str:
+    """Cap *text* at *limit* characters, appending a marker when it was cut.
+
+    Raw HTML is token-heavy; an untruncated page can overflow a model's context window.
+    """
+    if limit is None or len(text) <= limit:
+        return text
+    dropped = len(text) - limit
+    return f"{text[:limit]}\n[... truncated {dropped} chars]"
+
+
+def _fetch_html(url: str, *, session=None, timeout: int = 15, method: str = "GET", **request_kwargs):
+    """Issue an HTTP request and return the raw ``requests.Response``.
+
+    Uses *session* (preserving cookies) when given, else a module-level request.
+    ``request_kwargs`` forwards ``params`` / ``data`` to the underlying call.
+    Raises ``requests.RequestException`` on transport/HTTP errors (callers translate
+    to a tool-visible message).
+    """
+    requester = session or requests
+    headers = {"User-Agent": _DEFAULT_USER_AGENT}
+    response = requester.request(method, url, headers=headers, timeout=timeout, **request_kwargs)
+    response.raise_for_status()
+    return response
+
+
+class _FormExtractor(HTMLParser):
+    """Collects ``<form>`` elements and their fields from raw HTML.
+
+    Each form is a dict with ``action``, ``method``, and ``fields`` (a list of
+    ``{"name", "type", "value"}`` dicts). ``type=hidden`` inputs are kept so CSRF
+    tokens surface for re-submission. ``<select>`` and ``<textarea>`` are recorded as
+    fields with types ``"select"`` / ``"textarea"``.
+    """
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.forms: list[dict] = []
+        self._current: Optional[dict] = None
+
+    def handle_starttag(self, tag, attrs):
+        attr = dict(attrs)
+        if tag == "form":
+            self._current = {
+                "action": attr.get("action", ""),
+                "method": (attr.get("method") or "GET").upper(),
+                "fields": [],
+            }
+        elif tag in ("input", "select", "textarea") and self._current is not None:
+            field_type = "input" if tag == "input" else tag
+            self._current["fields"].append(
+                {
+                    "name": attr.get("name", ""),
+                    "type": attr.get("type", field_type),
+                    "value": attr.get("value", ""),
+                }
+            )
+
+    def handle_endtag(self, tag):
+        if tag == "form" and self._current is not None:
+            self.forms.append(self._current)
+            self._current = None
+
+
+def _parse_forms(html: str, base_url: str) -> list[dict]:
+    """Parse forms from *html*, resolving each ``action`` against *base_url*."""
+    extractor = _FormExtractor()
+    extractor.feed(html)
+    for form in extractor.forms:
+        form["action"] = urljoin(base_url, form["action"]) if form["action"] else base_url
+    return extractor.forms
+
+
+def _format_forms(forms: list[dict]) -> str:
+    """Render parsed forms as a model-readable text listing."""
+    if not forms:
+        return "No forms found on the page."
+    lines = []
+    for i, form in enumerate(forms):
+        lines.append(f"Form {i}: {form['method']} {form['action']}")
+        if not form["fields"]:
+            lines.append("  (no fields)")
+        for field in form["fields"]:
+            name = field["name"] or "(unnamed)"
+            value = f" = {field['value']!r}" if field["value"] else ""
+            lines.append(f"  - {name} [{field['type']}]{value}")
+    return "\n".join(lines)
+
+
 @tool
 def get_webpage(url: str) -> str:
     """Fetches a web page and returns its visible text content with HTML stripped.
@@ -285,6 +377,29 @@ def get_webpage(url: str) -> str:
     extractor.feed(response.text)
     text = extractor.get_text()
     return f"Published: {published}\n\n{text}" if published else text
+
+
+@tool
+def get_webpage_html(url: str) -> str:
+    """Fetches a web page and returns its raw HTML markup (tags and all).
+
+    Use this when you need to see the page structure, e.g. to locate links, attributes,
+    or form markup. For readable article text instead, use ``get_webpage``. For inspecting
+    and submitting forms with cookie/session persistence, use the tools from
+    ``make_web_tools()``.
+
+    Note: this fetches server-rendered HTML only; it does not execute JavaScript, so
+    pages built client-side (SPAs) will return their pre-render markup. Long pages are
+    truncated to keep the output within a model's context window.
+
+    Args:
+        url: The URL of the page to retrieve.
+    """
+    try:
+        response = _fetch_html(url)
+    except requests.RequestException as e:
+        return f"Error fetching page: {e}"
+    return _truncate(response.text, 20000)
 
 
 @tool
@@ -1154,8 +1269,83 @@ def make_subagent_tool(
     return tool(spawn_subagent)
 
 
+def make_web_tools(
+    *,
+    session=None,
+    timeout: int = 15,
+    max_content_chars: int = 20000,
+    user_agent: str = _DEFAULT_USER_AGENT,
+):
+    """Build ``find_forms`` and ``submit_form`` tools sharing a ``requests.Session``.
+
+    The shared session preserves cookies across calls, so a GET-then-POST form flow
+    works: ``find_forms`` scrapes hidden fields (including CSRF tokens) from the page,
+    then ``submit_form`` echoes them back with the session's cookies intact. Pass these
+    to an agent alongside the stateless ``get_webpage_html``::
+
+        agent = Agent(client, tools=[get_webpage_html, *make_web_tools()])
+
+    Pass your own *session* to control its lifecycle (e.g. pre-set auth headers) or to
+    share one across several tool sets; otherwise a fresh ``requests.Session`` is created.
+
+    Note: these fetch server-rendered HTML only and do not execute JavaScript, so
+    JS-rendered (SPA) forms and anti-bot-protected pages are out of scope; a headless
+    browser backend is a possible future addition.
+
+    ``submit_form`` performs writes (POST). To require confirmation before it runs, gate
+    it via the ``tool_approval`` hook, e.g. ``Agent(..., tool_approval=policy)`` where the
+    policy inspects the tool name (see docs/how-to/gate-tool-calls.md).
+    """
+    session = session or requests.Session()
+    session.headers.setdefault("User-Agent", user_agent)
+
+    @tool
+    def find_forms(url: str) -> str:
+        """Fetch a web page and list its HTML forms and fields.
+
+        Returns each form's index, submission URL, HTTP method, and fields (name, type,
+        and current value), including hidden fields such as CSRF tokens. Use the reported
+        method and URL with ``submit_form``, echoing back any hidden field values.
+
+        Args:
+            url: The URL of the page containing the form(s).
+        """
+        try:
+            response = _fetch_html(url, session=session, timeout=timeout)
+        except requests.RequestException as e:
+            return f"Error fetching page: {e}"
+        return _format_forms(_parse_forms(response.text, response.url))
+
+    @tool
+    def submit_form(url: str, method: str = "POST", data: Optional[dict] = None) -> str:
+        """Submit data to a URL via GET or POST, reusing the shared session's cookies.
+
+        ``method="POST"`` sends *data* as a form-encoded body; ``method="GET"`` sends it
+        as query parameters (and, with no data, simply fetches the page using the session's
+        cookies, e.g. to read a page behind a login). Returns the response status, final URL
+        after redirects, and the response body (raw HTML, truncated).
+
+        Args:
+            url: The URL to submit to (the form's action URL from ``find_forms``).
+            method: "POST" (default) or "GET".
+            data: Mapping of field names to values to submit.
+        """
+        method = method.upper()
+        if method not in ("GET", "POST"):
+            return f"Unsupported method {method!r}; use 'GET' or 'POST'."
+        payload = "params" if method == "GET" else "data"
+        try:
+            response = _fetch_html(url, session=session, timeout=timeout, method=method, **{payload: data or {}})
+        except requests.RequestException as e:
+            return f"Error submitting form: {e}"
+        body = _truncate(response.text, max_content_chars)
+        return f"Status: {response.status_code}\nURL: {response.url}\n\n{body}"
+
+    return [find_forms, submit_form]
+
+
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.
-web = [get_weather, get_webpage, web_search, wikipedia]
+web = [get_weather, get_webpage, get_webpage_html, web_search, wikipedia]
 fs = [list_directory, read_file]
 compute = [calculate, execute_python]
 misc = [echo, get_current_date_and_time]
@@ -1221,6 +1411,7 @@ ALL_TOOLS = [
     get_weather,
     calculate,
     get_webpage,
+    get_webpage_html,
     web_search,
     wikipedia,
     *fs,

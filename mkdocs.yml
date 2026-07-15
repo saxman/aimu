@@ -108,6 +108,7 @@ nav:
       - Add or update a provider: how-to/add-new-provider.md
       - Use MCP tools: how-to/use-mcp-tools.md
       - Gate tool calls: how-to/gate-tool-calls.md
+      - Fetch HTML and submit web forms: how-to/browse-and-submit-forms.md
       - Cancel a run: how-to/cancel-a-run.md
       - Use skills: how-to/use-skills.md
       - Stream output: how-to/stream-output.md

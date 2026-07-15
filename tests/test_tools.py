@@ -395,7 +395,7 @@ def test_read_file_on_directory():
 
 def test_builtin_web_group_contains_expected_tools():
     names = {t.__name__ for t in builtin.web}
-    assert names == {"get_weather", "get_webpage", "web_search", "wikipedia"}
+    assert names == {"get_weather", "get_webpage", "get_webpage_html", "web_search", "wikipedia"}
 
 
 def test_builtin_fs_group_contains_expected_tools():
