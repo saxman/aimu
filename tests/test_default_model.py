@@ -11,6 +11,17 @@ import pytest
 from aimu.models._internal import model_defaults as _defaults
 
 
+@pytest.fixture(autouse=True)
+def _no_dotenv(monkeypatch):
+    """Neutralize the resolvers' ``_load_dotenv()`` call.
+
+    The resolvers read a project ``.env`` on entry, which would repopulate an env var a
+    test just cleared with ``monkeypatch.delenv`` (and leak a developer's real ``.env``
+    into these mock-only tests). No-op it so every test controls the environment itself.
+    """
+    monkeypatch.setattr(_defaults, "_load_dotenv", lambda: None)
+
+
 class _FakeMember:
     """Stand-in for a provider Model enum member: ``.value`` + ``.supports_tools``."""
 
