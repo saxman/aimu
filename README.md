@@ -346,7 +346,7 @@ asyncio.run(main())
 
 ### Notebooks
 
-The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, ordered to build up knowledge incrementally (model client, tools, agents, workflows, memory, RAG, generative modalities, async, A2A, personal-assistant primitives, sessions). They are plain-text [Quarto](https://quarto.org) `.qmd` files (markdown with executable `python` cells), which you can use in several ways:
+The [`notebooks/`](notebooks/) directory ships one runnable demo per subsystem, ordered to build up knowledge incrementally (model client, tools, agents, workflows, memory, RAG, generative modalities, async, A2A, personal-assistant primitives, sessions). They are plain-text [Quarto](https://quarto.org) `.qmd` files (markdown with executable `python` cells). Browse them [rendered online](https://saxman.github.io/aimu/notebooks/), or work with them locally in several ways:
 
 - **Read and edit** them in any editor. Being plain text, they diff cleanly and are easy to hand to an AI assistant.
 - **Render** the collection to a browsable site with the Quarto CLI, which needs to be [installed locally](https://quarto.org/docs/get-started/). `quarto preview notebooks/` serves the notebooks locally and live-reloads as you edit. The notebooks default to `eval: false`, so Quarto will not execute code, however. To turn on automatic code execution, `pip install -e '.[notebooks]'` and set `eval: true` (or `freeze`) in `_quarto.yml`.

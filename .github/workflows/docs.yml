@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - 'notebooks/**'
       - 'CHANGELOG.md'
       - 'mkdocs.yml'
       - 'aimu/**'
@@ -25,7 +26,19 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-      - name: Install docs dependencies
-        run: pip install -e '.[docs]'
-      - name: Build and deploy
-        run: mkdocs gh-deploy --force --clean
+      - uses: quarto-dev/quarto-actions/setup@v2
+      - name: Install dependencies
+        run: pip install -e '.[docs,notebooks]'
+      - name: Build the docs site
+        run: mkdocs build
+      - name: Render notebooks into the site (/notebooks/)
+        # eval:false in notebooks/_quarto.yml means cells are not executed at render.
+        run: |
+          quarto render notebooks/
+          mkdir -p site/notebooks
+          cp -r notebooks/_site/. site/notebooks/
+      - name: Publish to GitHub Pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          ghp-import --no-jekyll --force --push --message "Deploy docs + notebooks" site

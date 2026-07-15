@@ -1,6 +1,11 @@
 project:
   type: website
   output-dir: _site
+  # Render only the notebooks and the landing page; README.md is the GitHub
+  # folder view (a pointer to this rendered site), not a site page.
+  render:
+    - "index.qmd"
+    - "[0-9]*.qmd"
 
 website:
   title: "AIMU Notebooks"
