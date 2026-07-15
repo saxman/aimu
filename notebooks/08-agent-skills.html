@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Agent Skills – AIMU Notebooks</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./09-workflows.html" rel="next">
+<link href="./07-agents.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-637a8987fd156daea465eecdbde71ac9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./08-agent-skills.html">Agent Skills</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">AIMU Notebooks</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Notebooks</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-model-client.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model Client</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-conversations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Conversations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-structured-output.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Structured Output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-vision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vision Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-audio-input.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tools</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-agent-skills.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Agent Skills</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-workflows.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Workflows</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-prebuilt-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prebuilt Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-embeddings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Embeddings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./13-rag.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Retrieval-Augmented Generation (RAG)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./14-prompt-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Management</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./15-prompt-tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Tuning</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./16-evaluations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Evaluations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./17-benchmarking.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benchmarking</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./18-image-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Image Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./19-audio-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./20-speech.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Speech</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./21-transcription.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Transcription</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22-async.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Async (<code>aimu.aio</code>)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./23-composing-agents-a2a.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Composing Agents (A2A)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./24-personal-assistants.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Personal Assistants</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./25-sessions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sessions (multi-user)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./26-remote-mcp-servers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote MCP Servers</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#setup" id="toc-setup" class="nav-link active" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#a---discovering-skills-with-skillmanager" id="toc-a---discovering-skills-with-skillmanager" class="nav-link" data-scroll-target="#a---discovering-skills-with-skillmanager">A - Discovering Skills with <code>SkillManager</code></a></li>
+  <li><a href="#b---the-skills-mcp-server" id="toc-b---the-skills-mcp-server" class="nav-link" data-scroll-target="#b---the-skills-mcp-server">B - The Skills MCP Server</a></li>
+  <li><a href="#c---skillagent" id="toc-c---skillagent" class="nav-link" data-scroll-target="#c---skillagent">C - SkillAgent</a></li>
+  <li><a href="#d---streaming-skillagent-output" id="toc-d---streaming-skillagent-output" class="nav-link" data-scroll-target="#d---streaming-skillagent-output">D - Streaming SkillAgent Output</a></li>
+  <li><a href="#e---script-tools" id="toc-e---script-tools" class="nav-link" data-scroll-target="#e---script-tools">E - Script Tools</a></li>
+  <li><a href="#f---skillagent.from_config" id="toc-f---skillagent.from_config" class="nav-link" data-scroll-target="#f---skillagent.from_config">F - <code>SkillAgent.from_config</code></a></li>
+  <li><a href="#g---clean-up" id="toc-g---clean-up" class="nav-link" data-scroll-target="#g---clean-up">G - Clean Up</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./08-agent-skills.html">Agent Skills</a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Agent Skills</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>Demonstrate AIMU’s skill support: giving agents reusable, on-demand capabilities via <code>SKILL.md</code> files.</p>
+<p>Skills are discovered from the filesystem, injected as a catalog into the agent’s system message, and loaded on demand via an <code>activate_skill</code> MCP tool call. Python scripts inside a skill’s <code>scripts/</code> directory are automatically exposed as additional MCP tools.</p>
+<p><strong>What this notebook covers:</strong> - Discovering and inspecting skills with <code>SkillManager</code> - The skills MCP server (<code>build_skills_server</code>) - Running a <code>SkillAgent</code> that discovers and activates skills - Streaming skill-aware agent output - Script tools from a skill’s <code>scripts/</code> directory - <code>SkillAgent.from_config</code> with <code>skill_dirs</code></p>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<p>Skills are directories containing a <code>SKILL.md</code> file with YAML frontmatter followed by markdown instructions. Two sample skills ship with AIMU under <a href="../examples/skills/"><code>examples/skills/</code></a>, exposed as <code>aimu.paths.skills</code> (== <code>aimu.paths.examples / "skills"</code>).</p>
+<div id="2d51f028" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> paths</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>skills_dir <span class="op">=</span> paths.examples <span class="op">/</span> <span class="st">"skills"</span>  <span class="co"># aimu.paths.skills points here too</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>conv_dir <span class="op">=</span> skills_dir <span class="op">/</span> <span class="st">"unit-converter"</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Skills directory:"</span>, skills_dir)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> d <span class="kw">in</span> <span class="bu">sorted</span>(skills_dir.iterdir()):</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>d<span class="sc">.</span>name<span class="sc">}</span><span class="ss">/SKILL.md"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="a---discovering-skills-with-skillmanager" class="level2">
+<h2 class="anchored" data-anchor-id="a---discovering-skills-with-skillmanager">A - Discovering Skills with <code>SkillManager</code></h2>
+<p><code>SkillManager</code> scans one or more directories for skill subdirectories, each containing a <code>SKILL.md</code> file with YAML frontmatter. By default it scans <code>.agents/skills/</code> and <code>.claude/skills/</code> at both project and user scope. Here we pass <code>skill_dirs</code> to point it at our sample directory.</p>
+<div id="df0a776e" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> SkillManager</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>manager <span class="op">=</span> SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)])</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Discovered </span><span class="sc">{</span><span class="bu">len</span>(manager.skills)<span class="sc">}</span><span class="ss"> skill(s):"</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name, skill <span class="kw">in</span> manager.skills.items():</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>name<span class="sc">!r:25s}</span><span class="ss">  </span><span class="sc">{</span>skill<span class="sc">.</span>description[:<span class="dv">70</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><code>catalog_prompt()</code> builds the XML block that gets injected into the agent’s system message. This is the <em>catalog tier</em> (tier 1) of progressive disclosure: only names and descriptions, no full instructions.</p>
+<div id="95d32c5b" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(manager.catalog_prompt())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><code>get_skill_body()</code> loads the full markdown instructions for a skill; this is what the model receives when it calls <code>activate_skill</code> (tier 2 of progressive disclosure).</p>
+<div id="e2e7a910" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(manager.get_skill_body(<span class="st">"haiku-poet"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="b---the-skills-mcp-server" class="level2">
+<h2 class="anchored" data-anchor-id="b---the-skills-mcp-server">B - The Skills MCP Server</h2>
+<p><code>build_skills_server()</code> creates an in-process FastMCP server from a <code>SkillManager</code>. It registers an <code>activate_skill</code> tool and one tool per Python script found in any skill’s <code>scripts/</code> directory. Wrap it in <code>MCPClient(server=...)</code> to use it directly.</p>
+<div id="3ccf49ac" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> build_skills_server</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>skills_server <span class="op">=</span> build_skills_server(manager)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>skills_client <span class="op">=</span> MCPClient(server<span class="op">=</span>skills_server)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Tools exposed by the skills server:"</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> tool <span class="kw">in</span> skills_client.list_tools():</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>tool<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>You can call <code>activate_skill</code> directly through the client to inspect what the model receives:</p>
+<div id="5e7497d6" class="cell" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> skills_client.call_tool(<span class="st">"activate_skill"</span>, {<span class="st">"name"</span>: <span class="st">"unit-converter"</span>})</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result.content[<span class="dv">0</span>].text)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="c---skillagent" class="level2">
+<h2 class="anchored" data-anchor-id="c---skillagent">C - SkillAgent</h2>
+<p><code>SkillAgent</code> extends <code>Agent</code> with skill support. Pass a <code>SkillManager</code> at construction (or omit it to auto-discover from default paths). On the first <code>run()</code>, <code>_setup_skills()</code> fires once: it appends the skill catalog to the system message and attaches the skills MCPClient. The model then decides which skills are relevant and calls <code>activate_skill</code> to load them.</p>
+<p>You can inspect what gets injected into the system message before running:</p>
+<div id="32627d7f" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> SkillAgent</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant. Always activate the most relevant skill before answering."</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> SkillAgent(</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    model_client,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"skilled-assistant"</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">6</span>,</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    skill_manager<span class="op">=</span>SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)]),</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Peek at the system message after skill injection (before run)</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>agent._setup_skills()</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"--- System message (truncated) ---"</span>)</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model_client.system_message[:<span class="dv">500</span>], <span class="st">"..."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="e5dcff66" class="cell" data-execution_count="8">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fresh client; run() calls _setup_skills() automatically on first invocation</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant. Always activate the most relevant skill before answering."</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> SkillAgent(</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    model_client,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"skilled-assistant"</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">6</span>,</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    skill_manager<span class="op">=</span>SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)]),</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"Write me a haiku about autumn rain."</span>)</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="cf519e8a" class="cell" data-execution_count="9">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Inspect the full message history to see the activate_skill tool call</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> msg <span class="kw">in</span> model_client.messages:</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    role <span class="op">=</span> msg[<span class="st">"role"</span>]</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> role <span class="op">==</span> <span class="st">"system"</span>:</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"[system]  (omitted; contains catalog)"</span>)</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> role <span class="op">==</span> <span class="st">"user"</span>:</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"[user]    </span><span class="sc">{</span>msg[<span class="st">'content'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> role <span class="op">==</span> <span class="st">"assistant"</span> <span class="kw">and</span> <span class="st">"tool_calls"</span> <span class="kw">in</span> msg:</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> tc <span class="kw">in</span> msg[<span class="st">"tool_calls"</span>]:</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"[tool→]  </span><span class="sc">{</span>tc[<span class="st">'function'</span>][<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span>tc[<span class="st">'function'</span>][<span class="st">'arguments'</span>]<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> role <span class="op">==</span> <span class="st">"tool"</span>:</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>        preview <span class="op">=</span> <span class="bu">str</span>(msg[<span class="st">"content"</span>])[:<span class="dv">120</span>].replace(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span>, <span class="st">" "</span>)</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"[←tool]  </span><span class="sc">{</span>msg[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>preview<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> role <span class="op">==</span> <span class="st">"assistant"</span>:</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"[asst]    </span><span class="sc">{</span><span class="bu">str</span>(msg[<span class="st">'content'</span>])[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="d---streaming-skillagent-output" class="level2">
+<h2 class="anchored" data-anchor-id="d---streaming-skillagent-output">D - Streaming SkillAgent Output</h2>
+<p><code>run(stream=True)</code> yields <code>StreamChunk</code> objects. The <code>TOOL_CALLING</code> phase shows when the model activates a skill, and <code>GENERATING</code> shows the final answer produced using the loaded instructions.</p>
+<div id="8ce50f40" class="cell" data-execution_count="10">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>model_client2 <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>model_client2.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant. Always activate the most relevant skill before answering."</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>agent2 <span class="op">=</span> SkillAgent(</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    model_client2,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"streamer"</span>,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">6</span>,</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    skill_manager<span class="op">=</span>SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)]),</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>current_iteration <span class="op">=</span> <span class="op">-</span><span class="dv">1</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent2.run(<span class="st">"How many kilometres is 26.2 miles (a marathon)?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.iteration <span class="op">!=</span> current_iteration:</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>        current_iteration <span class="op">=</span> chunk.iteration</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- iteration </span><span class="sc">{</span>current_iteration<span class="sc">}</span><span class="ss"> ---"</span>)</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>chunk<span class="sc">.</span>phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss">]"</span>)</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">==</span> StreamingContentType.THINKING:</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.TOOL_CALLING:</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'arguments'</span>]<span class="sc">!r}</span><span class="ss">) → </span><span class="sc">{</span><span class="bu">str</span>(chunk.content[<span class="st">'response'</span>])[:<span class="dv">120</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="e---script-tools" class="level2">
+<h2 class="anchored" data-anchor-id="e---script-tools">E - Script Tools</h2>
+<p>A skill can include Python scripts in a <code>scripts/</code> subdirectory. Each <code>*.py</code> file is automatically registered as an MCP tool named <code>{skill_name}__{script_stem}</code>. Scripts are run via <code>subprocess</code> and their stdout is returned as the tool result.</p>
+<p>Here we add a <code>scripts/now.py</code> script to the <code>unit-converter</code> skill:</p>
+<div id="0d837321" class="cell" data-execution_count="11">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add a scripts/ directory to the unit-converter skill</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>scripts_dir_path <span class="op">=</span> conv_dir <span class="op">/</span> <span class="st">"scripts"</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>scripts_dir_path.mkdir(exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>(scripts_dir_path <span class="op">/</span> <span class="st">"now.py"</span>).write_text(<span class="st">"import datetime</span><span class="ch">\n</span><span class="st">print(datetime.datetime.now().isoformat())</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Script added:"</span>, scripts_dir_path <span class="op">/</span> <span class="st">"now.py"</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Contents:"</span>)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>((scripts_dir_path <span class="op">/</span> <span class="st">"now.py"</span>).read_text())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="b4f1f917" class="cell" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Rebuild the skills server; it now picks up the new script tool</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>manager3 <span class="op">=</span> SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)])  <span class="co"># re-discover to pick up scripts/</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>server3 <span class="op">=</span> build_skills_server(manager3)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>client3 <span class="op">=</span> MCPClient(server<span class="op">=</span>server3)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Tools exposed (including script tools):"</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> tool <span class="kw">in</span> client3.list_tools():</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>tool<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> tool.description:</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"      </span><span class="sc">{</span>tool<span class="sc">.</span>description<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="4da58fd2" class="cell" data-execution_count="13">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Call the script tool directly</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>result3 <span class="op">=</span> client3.call_tool(<span class="st">"unit-converter__now"</span>, {})</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"unit-converter__now returned:"</span>, result3.content[<span class="dv">0</span>].text)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="f---skillagent.from_config" class="level2">
+<h2 class="anchored" data-anchor-id="f---skillagent.from_config">F - <code>SkillAgent.from_config</code></h2>
+<p><code>SkillAgent.from_config</code> accepts a <code>skill_dirs</code> key to create a <code>SkillManager</code> automatically. Omit <code>skill_dirs</code> to auto-discover skills from the standard search paths (<code>.agents/skills/</code> and <code>.claude/skills/</code> at project and user scope).</p>
+<div id="0c895514" class="cell" data-execution_count="14">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>model_client4 <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>agent4 <span class="op">=</span> SkillAgent.from_config(</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"name"</span>: <span class="st">"cfg-agent"</span>,</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"system_message"</span>: <span class="st">"You are a helpful assistant. Activate relevant skills before answering."</span>,</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">"max_iterations"</span>: <span class="dv">6</span>,</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">"skill_dirs"</span>: [<span class="bu">str</span>(skills_dir)],</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    model_client4,</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Agent name:      "</span>, agent4.name)</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Skill manager:   "</span>, agent4.skill_manager)</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Skills found:    "</span>, <span class="bu">list</span>(agent4.skill_manager.skills.keys()))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="cf7e3c27" class="cell" data-execution_count="15">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>result4 <span class="op">=</span> agent4.run(<span class="st">"Write a haiku about the ocean at dawn."</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result4)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="g---clean-up" class="level2">
+<h2 class="anchored" data-anchor-id="g---clean-up">G - Clean Up</h2>
+<div id="92d545e0" class="cell" data-execution_count="16">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove the scripts/ directory added in section E</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> shutil</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>shutil.rmtree(conv_dir <span class="op">/</span> <span class="st">"scripts"</span>, ignore_errors<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client, model_client2, model_client4, agent, agent2, agent4</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./07-agents.html" class="pagination-link" aria-label="Agents">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Agents</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./09-workflows.html" class="pagination-link" aria-label="Workflows">
+        <span class="nav-page-text">Workflows</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Agent Skills"</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>Demonstrate AIMU's skill support: giving agents reusable, on-demand capabilities via <span class="in">`SKILL.md`</span> files.</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>Skills are discovered from the filesystem, injected as a catalog into the agent's system message, and loaded on demand via an <span class="in">`activate_skill`</span> MCP tool call. Python scripts inside a skill's <span class="in">`scripts/`</span> directory are automatically exposed as additional MCP tools.</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>**What this notebook covers:**</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Discovering and inspecting skills with <span class="in">`SkillManager`</span></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The skills MCP server (<span class="in">`build_skills_server`</span>)</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Running a <span class="in">`SkillAgent`</span> that discovers and activates skills</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Streaming skill-aware agent output</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Script tools from a skill's <span class="in">`scripts/`</span> directory</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`SkillAgent.from_config`</span> with <span class="in">`skill_dirs`</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>Skills are directories containing a <span class="in">`SKILL.md`</span> file with YAML frontmatter followed by markdown instructions. Two sample skills ship with AIMU under <span class="co">[</span><span class="ot">`examples/skills/`</span><span class="co">](../examples/skills/)</span>, exposed as <span class="in">`aimu.paths.skills`</span> (== <span class="in">`aimu.paths.examples / "skills"`</span>).</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> paths</span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a>skills_dir <span class="op">=</span> paths.examples <span class="op">/</span> <span class="st">"skills"</span>  <span class="co"># aimu.paths.skills points here too</span></span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a>conv_dir <span class="op">=</span> skills_dir <span class="op">/</span> <span class="st">"unit-converter"</span></span>
+<span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-32"><a href="#cb17-32" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Skills directory:"</span>, skills_dir)</span>
+<span id="cb17-33"><a href="#cb17-33" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> d <span class="kw">in</span> <span class="bu">sorted</span>(skills_dir.iterdir()):</span>
+<span id="cb17-34"><a href="#cb17-34" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>d<span class="sc">.</span>name<span class="sc">}</span><span class="ss">/SKILL.md"</span>)</span>
+<span id="cb17-35"><a href="#cb17-35" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-36"><a href="#cb17-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-37"><a href="#cb17-37" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Discovering Skills with `SkillManager`</span></span>
+<span id="cb17-38"><a href="#cb17-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-39"><a href="#cb17-39" aria-hidden="true" tabindex="-1"></a><span class="in">`SkillManager`</span> scans one or more directories for skill subdirectories, each containing a</span>
+<span id="cb17-40"><a href="#cb17-40" aria-hidden="true" tabindex="-1"></a><span class="in">`SKILL.md`</span> file with YAML frontmatter. By default it scans <span class="in">`.agents/skills/`</span> and <span class="in">`.claude/skills/`</span></span>
+<span id="cb17-41"><a href="#cb17-41" aria-hidden="true" tabindex="-1"></a>at both project and user scope. Here we pass <span class="in">`skill_dirs`</span> to point it at our sample directory.</span>
+<span id="cb17-42"><a href="#cb17-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-45"><a href="#cb17-45" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-46"><a href="#cb17-46" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> SkillManager</span>
+<span id="cb17-47"><a href="#cb17-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-48"><a href="#cb17-48" aria-hidden="true" tabindex="-1"></a>manager <span class="op">=</span> SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)])</span>
+<span id="cb17-49"><a href="#cb17-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-50"><a href="#cb17-50" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Discovered </span><span class="sc">{</span><span class="bu">len</span>(manager.skills)<span class="sc">}</span><span class="ss"> skill(s):"</span>)</span>
+<span id="cb17-51"><a href="#cb17-51" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name, skill <span class="kw">in</span> manager.skills.items():</span>
+<span id="cb17-52"><a href="#cb17-52" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>name<span class="sc">!r:25s}</span><span class="ss">  </span><span class="sc">{</span>skill<span class="sc">.</span>description[:<span class="dv">70</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-53"><a href="#cb17-53" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-54"><a href="#cb17-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-55"><a href="#cb17-55" aria-hidden="true" tabindex="-1"></a><span class="in">`catalog_prompt()`</span> builds the XML block that gets injected into the agent's system message.</span>
+<span id="cb17-56"><a href="#cb17-56" aria-hidden="true" tabindex="-1"></a>This is the *catalog tier* (tier 1) of progressive disclosure: only names and descriptions,</span>
+<span id="cb17-57"><a href="#cb17-57" aria-hidden="true" tabindex="-1"></a>no full instructions.</span>
+<span id="cb17-58"><a href="#cb17-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-61"><a href="#cb17-61" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-62"><a href="#cb17-62" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(manager.catalog_prompt())</span>
+<span id="cb17-63"><a href="#cb17-63" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-64"><a href="#cb17-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-65"><a href="#cb17-65" aria-hidden="true" tabindex="-1"></a><span class="in">`get_skill_body()`</span> loads the full markdown instructions for a skill; this is what the model</span>
+<span id="cb17-66"><a href="#cb17-66" aria-hidden="true" tabindex="-1"></a>receives when it calls <span class="in">`activate_skill`</span> (tier 2 of progressive disclosure).</span>
+<span id="cb17-67"><a href="#cb17-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-70"><a href="#cb17-70" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-71"><a href="#cb17-71" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(manager.get_skill_body(<span class="st">"haiku-poet"</span>))</span>
+<span id="cb17-72"><a href="#cb17-72" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-73"><a href="#cb17-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-74"><a href="#cb17-74" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - The Skills MCP Server</span></span>
+<span id="cb17-75"><a href="#cb17-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-76"><a href="#cb17-76" aria-hidden="true" tabindex="-1"></a><span class="in">`build_skills_server()`</span> creates an in-process FastMCP server from a <span class="in">`SkillManager`</span>. It</span>
+<span id="cb17-77"><a href="#cb17-77" aria-hidden="true" tabindex="-1"></a>registers an <span class="in">`activate_skill`</span> tool and one tool per Python script found in any skill's</span>
+<span id="cb17-78"><a href="#cb17-78" aria-hidden="true" tabindex="-1"></a><span class="in">`scripts/`</span> directory. Wrap it in <span class="in">`MCPClient(server=...)`</span> to use it directly.</span>
+<span id="cb17-79"><a href="#cb17-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-82"><a href="#cb17-82" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-83"><a href="#cb17-83" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> build_skills_server</span>
+<span id="cb17-84"><a href="#cb17-84" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
+<span id="cb17-85"><a href="#cb17-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-86"><a href="#cb17-86" aria-hidden="true" tabindex="-1"></a>skills_server <span class="op">=</span> build_skills_server(manager)</span>
+<span id="cb17-87"><a href="#cb17-87" aria-hidden="true" tabindex="-1"></a>skills_client <span class="op">=</span> MCPClient(server<span class="op">=</span>skills_server)</span>
+<span id="cb17-88"><a href="#cb17-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-89"><a href="#cb17-89" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Tools exposed by the skills server:"</span>)</span>
+<span id="cb17-90"><a href="#cb17-90" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> tool <span class="kw">in</span> skills_client.list_tools():</span>
+<span id="cb17-91"><a href="#cb17-91" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>tool<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-92"><a href="#cb17-92" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-93"><a href="#cb17-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-94"><a href="#cb17-94" aria-hidden="true" tabindex="-1"></a>You can call <span class="in">`activate_skill`</span> directly through the client to inspect what the model receives:</span>
+<span id="cb17-95"><a href="#cb17-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-98"><a href="#cb17-98" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-99"><a href="#cb17-99" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> skills_client.call_tool(<span class="st">"activate_skill"</span>, {<span class="st">"name"</span>: <span class="st">"unit-converter"</span>})</span>
+<span id="cb17-100"><a href="#cb17-100" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result.content[<span class="dv">0</span>].text)</span>
+<span id="cb17-101"><a href="#cb17-101" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-102"><a href="#cb17-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-103"><a href="#cb17-103" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - SkillAgent</span></span>
+<span id="cb17-104"><a href="#cb17-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-105"><a href="#cb17-105" aria-hidden="true" tabindex="-1"></a><span class="in">`SkillAgent`</span> extends <span class="in">`Agent`</span> with skill support. Pass a <span class="in">`SkillManager`</span> at construction</span>
+<span id="cb17-106"><a href="#cb17-106" aria-hidden="true" tabindex="-1"></a>(or omit it to auto-discover from default paths). On the first <span class="in">`run()`</span>, <span class="in">`_setup_skills()`</span> fires</span>
+<span id="cb17-107"><a href="#cb17-107" aria-hidden="true" tabindex="-1"></a>once: it appends the skill catalog to the system message and attaches the skills MCPClient.</span>
+<span id="cb17-108"><a href="#cb17-108" aria-hidden="true" tabindex="-1"></a>The model then decides which skills are relevant and calls <span class="in">`activate_skill`</span> to load them.</span>
+<span id="cb17-109"><a href="#cb17-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-110"><a href="#cb17-110" aria-hidden="true" tabindex="-1"></a>You can inspect what gets injected into the system message before running:</span>
+<span id="cb17-111"><a href="#cb17-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-114"><a href="#cb17-114" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-115"><a href="#cb17-115" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
+<span id="cb17-116"><a href="#cb17-116" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> SkillAgent</span>
+<span id="cb17-117"><a href="#cb17-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-118"><a href="#cb17-118" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb17-119"><a href="#cb17-119" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant. Always activate the most relevant skill before answering."</span></span>
+<span id="cb17-120"><a href="#cb17-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-121"><a href="#cb17-121" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> SkillAgent(</span>
+<span id="cb17-122"><a href="#cb17-122" aria-hidden="true" tabindex="-1"></a>    model_client,</span>
+<span id="cb17-123"><a href="#cb17-123" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"skilled-assistant"</span>,</span>
+<span id="cb17-124"><a href="#cb17-124" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">6</span>,</span>
+<span id="cb17-125"><a href="#cb17-125" aria-hidden="true" tabindex="-1"></a>    skill_manager<span class="op">=</span>SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)]),</span>
+<span id="cb17-126"><a href="#cb17-126" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-127"><a href="#cb17-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-128"><a href="#cb17-128" aria-hidden="true" tabindex="-1"></a><span class="co"># Peek at the system message after skill injection (before run)</span></span>
+<span id="cb17-129"><a href="#cb17-129" aria-hidden="true" tabindex="-1"></a>agent._setup_skills()</span>
+<span id="cb17-130"><a href="#cb17-130" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"--- System message (truncated) ---"</span>)</span>
+<span id="cb17-131"><a href="#cb17-131" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model_client.system_message[:<span class="dv">500</span>], <span class="st">"..."</span>)</span>
+<span id="cb17-132"><a href="#cb17-132" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-133"><a href="#cb17-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-136"><a href="#cb17-136" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-137"><a href="#cb17-137" aria-hidden="true" tabindex="-1"></a><span class="co"># Fresh client; run() calls _setup_skills() automatically on first invocation</span></span>
+<span id="cb17-138"><a href="#cb17-138" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb17-139"><a href="#cb17-139" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant. Always activate the most relevant skill before answering."</span></span>
+<span id="cb17-140"><a href="#cb17-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-141"><a href="#cb17-141" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> SkillAgent(</span>
+<span id="cb17-142"><a href="#cb17-142" aria-hidden="true" tabindex="-1"></a>    model_client,</span>
+<span id="cb17-143"><a href="#cb17-143" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"skilled-assistant"</span>,</span>
+<span id="cb17-144"><a href="#cb17-144" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">6</span>,</span>
+<span id="cb17-145"><a href="#cb17-145" aria-hidden="true" tabindex="-1"></a>    skill_manager<span class="op">=</span>SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)]),</span>
+<span id="cb17-146"><a href="#cb17-146" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-147"><a href="#cb17-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-148"><a href="#cb17-148" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"Write me a haiku about autumn rain."</span>)</span>
+<span id="cb17-149"><a href="#cb17-149" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
+<span id="cb17-150"><a href="#cb17-150" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-151"><a href="#cb17-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-154"><a href="#cb17-154" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-155"><a href="#cb17-155" aria-hidden="true" tabindex="-1"></a><span class="co"># Inspect the full message history to see the activate_skill tool call</span></span>
+<span id="cb17-156"><a href="#cb17-156" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> msg <span class="kw">in</span> model_client.messages:</span>
+<span id="cb17-157"><a href="#cb17-157" aria-hidden="true" tabindex="-1"></a>    role <span class="op">=</span> msg[<span class="st">"role"</span>]</span>
+<span id="cb17-158"><a href="#cb17-158" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> role <span class="op">==</span> <span class="st">"system"</span>:</span>
+<span id="cb17-159"><a href="#cb17-159" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"[system]  (omitted; contains catalog)"</span>)</span>
+<span id="cb17-160"><a href="#cb17-160" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> role <span class="op">==</span> <span class="st">"user"</span>:</span>
+<span id="cb17-161"><a href="#cb17-161" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"[user]    </span><span class="sc">{</span>msg[<span class="st">'content'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-162"><a href="#cb17-162" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> role <span class="op">==</span> <span class="st">"assistant"</span> <span class="kw">and</span> <span class="st">"tool_calls"</span> <span class="kw">in</span> msg:</span>
+<span id="cb17-163"><a href="#cb17-163" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> tc <span class="kw">in</span> msg[<span class="st">"tool_calls"</span>]:</span>
+<span id="cb17-164"><a href="#cb17-164" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"[tool→]  </span><span class="sc">{</span>tc[<span class="st">'function'</span>][<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span>tc[<span class="st">'function'</span>][<span class="st">'arguments'</span>]<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb17-165"><a href="#cb17-165" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> role <span class="op">==</span> <span class="st">"tool"</span>:</span>
+<span id="cb17-166"><a href="#cb17-166" aria-hidden="true" tabindex="-1"></a>        preview <span class="op">=</span> <span class="bu">str</span>(msg[<span class="st">"content"</span>])[:<span class="dv">120</span>].replace(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span>, <span class="st">" "</span>)</span>
+<span id="cb17-167"><a href="#cb17-167" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"[←tool]  </span><span class="sc">{</span>msg[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>preview<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb17-168"><a href="#cb17-168" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> role <span class="op">==</span> <span class="st">"assistant"</span>:</span>
+<span id="cb17-169"><a href="#cb17-169" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"[asst]    </span><span class="sc">{</span><span class="bu">str</span>(msg[<span class="st">'content'</span>])[:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-170"><a href="#cb17-170" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-171"><a href="#cb17-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-172"><a href="#cb17-172" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Streaming SkillAgent Output</span></span>
+<span id="cb17-173"><a href="#cb17-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-174"><a href="#cb17-174" aria-hidden="true" tabindex="-1"></a><span class="in">`run(stream=True)`</span> yields <span class="in">`StreamChunk`</span> objects. The <span class="in">`TOOL_CALLING`</span> phase shows when the model</span>
+<span id="cb17-175"><a href="#cb17-175" aria-hidden="true" tabindex="-1"></a>activates a skill, and <span class="in">`GENERATING`</span> shows the final answer produced using the loaded instructions.</span>
+<span id="cb17-176"><a href="#cb17-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-179"><a href="#cb17-179" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-180"><a href="#cb17-180" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb17-181"><a href="#cb17-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-182"><a href="#cb17-182" aria-hidden="true" tabindex="-1"></a>model_client2 <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb17-183"><a href="#cb17-183" aria-hidden="true" tabindex="-1"></a>model_client2.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant. Always activate the most relevant skill before answering."</span></span>
+<span id="cb17-184"><a href="#cb17-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-185"><a href="#cb17-185" aria-hidden="true" tabindex="-1"></a>agent2 <span class="op">=</span> SkillAgent(</span>
+<span id="cb17-186"><a href="#cb17-186" aria-hidden="true" tabindex="-1"></a>    model_client2,</span>
+<span id="cb17-187"><a href="#cb17-187" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"streamer"</span>,</span>
+<span id="cb17-188"><a href="#cb17-188" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">6</span>,</span>
+<span id="cb17-189"><a href="#cb17-189" aria-hidden="true" tabindex="-1"></a>    skill_manager<span class="op">=</span>SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)]),</span>
+<span id="cb17-190"><a href="#cb17-190" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-191"><a href="#cb17-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-192"><a href="#cb17-192" aria-hidden="true" tabindex="-1"></a>current_iteration <span class="op">=</span> <span class="op">-</span><span class="dv">1</span></span>
+<span id="cb17-193"><a href="#cb17-193" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb17-194"><a href="#cb17-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-195"><a href="#cb17-195" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent2.run(<span class="st">"How many kilometres is 26.2 miles (a marathon)?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb17-196"><a href="#cb17-196" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.iteration <span class="op">!=</span> current_iteration:</span>
+<span id="cb17-197"><a href="#cb17-197" aria-hidden="true" tabindex="-1"></a>        current_iteration <span class="op">=</span> chunk.iteration</span>
+<span id="cb17-198"><a href="#cb17-198" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- iteration </span><span class="sc">{</span>current_iteration<span class="sc">}</span><span class="ss"> ---"</span>)</span>
+<span id="cb17-199"><a href="#cb17-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-200"><a href="#cb17-200" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
+<span id="cb17-201"><a href="#cb17-201" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
+<span id="cb17-202"><a href="#cb17-202" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>chunk<span class="sc">.</span>phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss">]"</span>)</span>
+<span id="cb17-203"><a href="#cb17-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-204"><a href="#cb17-204" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">==</span> StreamingContentType.THINKING:</span>
+<span id="cb17-205"><a href="#cb17-205" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb17-206"><a href="#cb17-206" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.TOOL_CALLING:</span>
+<span id="cb17-207"><a href="#cb17-207" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'arguments'</span>]<span class="sc">!r}</span><span class="ss">) → </span><span class="sc">{</span><span class="bu">str</span>(chunk.content[<span class="st">'response'</span>])[:<span class="dv">120</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-208"><a href="#cb17-208" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
+<span id="cb17-209"><a href="#cb17-209" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb17-210"><a href="#cb17-210" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-211"><a href="#cb17-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-212"><a href="#cb17-212" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - Script Tools</span></span>
+<span id="cb17-213"><a href="#cb17-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-214"><a href="#cb17-214" aria-hidden="true" tabindex="-1"></a>A skill can include Python scripts in a <span class="in">`scripts/`</span> subdirectory. Each <span class="in">`*.py`</span> file is</span>
+<span id="cb17-215"><a href="#cb17-215" aria-hidden="true" tabindex="-1"></a>automatically registered as an MCP tool named <span class="in">`{skill_name}__{script_stem}`</span>. Scripts are</span>
+<span id="cb17-216"><a href="#cb17-216" aria-hidden="true" tabindex="-1"></a>run via <span class="in">`subprocess`</span> and their stdout is returned as the tool result.</span>
+<span id="cb17-217"><a href="#cb17-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-218"><a href="#cb17-218" aria-hidden="true" tabindex="-1"></a>Here we add a <span class="in">`scripts/now.py`</span> script to the <span class="in">`unit-converter`</span> skill:</span>
+<span id="cb17-219"><a href="#cb17-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-222"><a href="#cb17-222" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-223"><a href="#cb17-223" aria-hidden="true" tabindex="-1"></a><span class="co"># Add a scripts/ directory to the unit-converter skill</span></span>
+<span id="cb17-224"><a href="#cb17-224" aria-hidden="true" tabindex="-1"></a>scripts_dir_path <span class="op">=</span> conv_dir <span class="op">/</span> <span class="st">"scripts"</span></span>
+<span id="cb17-225"><a href="#cb17-225" aria-hidden="true" tabindex="-1"></a>scripts_dir_path.mkdir(exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb17-226"><a href="#cb17-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-227"><a href="#cb17-227" aria-hidden="true" tabindex="-1"></a>(scripts_dir_path <span class="op">/</span> <span class="st">"now.py"</span>).write_text(<span class="st">"import datetime</span><span class="ch">\n</span><span class="st">print(datetime.datetime.now().isoformat())</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb17-228"><a href="#cb17-228" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-229"><a href="#cb17-229" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Script added:"</span>, scripts_dir_path <span class="op">/</span> <span class="st">"now.py"</span>)</span>
+<span id="cb17-230"><a href="#cb17-230" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Contents:"</span>)</span>
+<span id="cb17-231"><a href="#cb17-231" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>((scripts_dir_path <span class="op">/</span> <span class="st">"now.py"</span>).read_text())</span>
+<span id="cb17-232"><a href="#cb17-232" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-233"><a href="#cb17-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-236"><a href="#cb17-236" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-237"><a href="#cb17-237" aria-hidden="true" tabindex="-1"></a><span class="co"># Rebuild the skills server; it now picks up the new script tool</span></span>
+<span id="cb17-238"><a href="#cb17-238" aria-hidden="true" tabindex="-1"></a>manager3 <span class="op">=</span> SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)])  <span class="co"># re-discover to pick up scripts/</span></span>
+<span id="cb17-239"><a href="#cb17-239" aria-hidden="true" tabindex="-1"></a>server3 <span class="op">=</span> build_skills_server(manager3)</span>
+<span id="cb17-240"><a href="#cb17-240" aria-hidden="true" tabindex="-1"></a>client3 <span class="op">=</span> MCPClient(server<span class="op">=</span>server3)</span>
+<span id="cb17-241"><a href="#cb17-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-242"><a href="#cb17-242" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Tools exposed (including script tools):"</span>)</span>
+<span id="cb17-243"><a href="#cb17-243" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> tool <span class="kw">in</span> client3.list_tools():</span>
+<span id="cb17-244"><a href="#cb17-244" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>tool<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-245"><a href="#cb17-245" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> tool.description:</span>
+<span id="cb17-246"><a href="#cb17-246" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"      </span><span class="sc">{</span>tool<span class="sc">.</span>description<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-247"><a href="#cb17-247" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-248"><a href="#cb17-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-251"><a href="#cb17-251" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-252"><a href="#cb17-252" aria-hidden="true" tabindex="-1"></a><span class="co"># Call the script tool directly</span></span>
+<span id="cb17-253"><a href="#cb17-253" aria-hidden="true" tabindex="-1"></a>result3 <span class="op">=</span> client3.call_tool(<span class="st">"unit-converter__now"</span>, {})</span>
+<span id="cb17-254"><a href="#cb17-254" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"unit-converter__now returned:"</span>, result3.content[<span class="dv">0</span>].text)</span>
+<span id="cb17-255"><a href="#cb17-255" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-256"><a href="#cb17-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-257"><a href="#cb17-257" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - `SkillAgent.from_config`</span></span>
+<span id="cb17-258"><a href="#cb17-258" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-259"><a href="#cb17-259" aria-hidden="true" tabindex="-1"></a><span class="in">`SkillAgent.from_config`</span> accepts a <span class="in">`skill_dirs`</span> key to create a <span class="in">`SkillManager`</span> automatically.</span>
+<span id="cb17-260"><a href="#cb17-260" aria-hidden="true" tabindex="-1"></a>Omit <span class="in">`skill_dirs`</span> to auto-discover skills from the standard search paths</span>
+<span id="cb17-261"><a href="#cb17-261" aria-hidden="true" tabindex="-1"></a>(<span class="in">`.agents/skills/`</span> and <span class="in">`.claude/skills/`</span> at project and user scope).</span>
+<span id="cb17-262"><a href="#cb17-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-265"><a href="#cb17-265" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-266"><a href="#cb17-266" aria-hidden="true" tabindex="-1"></a>model_client4 <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb17-267"><a href="#cb17-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-268"><a href="#cb17-268" aria-hidden="true" tabindex="-1"></a>agent4 <span class="op">=</span> SkillAgent.from_config(</span>
+<span id="cb17-269"><a href="#cb17-269" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb17-270"><a href="#cb17-270" aria-hidden="true" tabindex="-1"></a>        <span class="st">"name"</span>: <span class="st">"cfg-agent"</span>,</span>
+<span id="cb17-271"><a href="#cb17-271" aria-hidden="true" tabindex="-1"></a>        <span class="st">"system_message"</span>: <span class="st">"You are a helpful assistant. Activate relevant skills before answering."</span>,</span>
+<span id="cb17-272"><a href="#cb17-272" aria-hidden="true" tabindex="-1"></a>        <span class="st">"max_iterations"</span>: <span class="dv">6</span>,</span>
+<span id="cb17-273"><a href="#cb17-273" aria-hidden="true" tabindex="-1"></a>        <span class="st">"skill_dirs"</span>: [<span class="bu">str</span>(skills_dir)],</span>
+<span id="cb17-274"><a href="#cb17-274" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb17-275"><a href="#cb17-275" aria-hidden="true" tabindex="-1"></a>    model_client4,</span>
+<span id="cb17-276"><a href="#cb17-276" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-277"><a href="#cb17-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-278"><a href="#cb17-278" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Agent name:      "</span>, agent4.name)</span>
+<span id="cb17-279"><a href="#cb17-279" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Skill manager:   "</span>, agent4.skill_manager)</span>
+<span id="cb17-280"><a href="#cb17-280" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Skills found:    "</span>, <span class="bu">list</span>(agent4.skill_manager.skills.keys()))</span>
+<span id="cb17-281"><a href="#cb17-281" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-282"><a href="#cb17-282" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-285"><a href="#cb17-285" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-286"><a href="#cb17-286" aria-hidden="true" tabindex="-1"></a>result4 <span class="op">=</span> agent4.run(<span class="st">"Write a haiku about the ocean at dawn."</span>)</span>
+<span id="cb17-287"><a href="#cb17-287" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result4)</span>
+<span id="cb17-288"><a href="#cb17-288" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb17-289"><a href="#cb17-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-290"><a href="#cb17-290" aria-hidden="true" tabindex="-1"></a><span class="fu">## G - Clean Up</span></span>
+<span id="cb17-291"><a href="#cb17-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-294"><a href="#cb17-294" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb17-295"><a href="#cb17-295" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove the scripts/ directory added in section E</span></span>
+<span id="cb17-296"><a href="#cb17-296" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> shutil</span>
+<span id="cb17-297"><a href="#cb17-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-298"><a href="#cb17-298" aria-hidden="true" tabindex="-1"></a>shutil.rmtree(conv_dir <span class="op">/</span> <span class="st">"scripts"</span>, ignore_errors<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb17-299"><a href="#cb17-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-300"><a href="#cb17-300" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client, model_client2, model_client4, agent, agent2, agent4</span>
+<span id="cb17-301"><a href="#cb17-301" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span>
+<span id="cb17-302"><a href="#cb17-302" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

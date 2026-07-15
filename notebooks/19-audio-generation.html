@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Audio Generation – AIMU Notebooks</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./20-speech.html" rel="next">
+<link href="./18-image-generation.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-637a8987fd156daea465eecdbde71ac9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./19-audio-generation.html">Audio Generation</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">AIMU Notebooks</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Notebooks</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-model-client.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model Client</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-conversations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Conversations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-structured-output.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Structured Output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-vision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vision Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-audio-input.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tools</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-agent-skills.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agent Skills</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-workflows.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Workflows</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-prebuilt-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prebuilt Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-embeddings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Embeddings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./13-rag.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Retrieval-Augmented Generation (RAG)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./14-prompt-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Management</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./15-prompt-tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Tuning</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./16-evaluations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Evaluations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./17-benchmarking.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benchmarking</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./18-image-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Image Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./19-audio-generation.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Audio Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./20-speech.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Speech</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./21-transcription.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Transcription</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22-async.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Async (<code>aimu.aio</code>)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./23-composing-agents-a2a.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Composing Agents (A2A)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./24-personal-assistants.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Personal Assistants</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./25-sessions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sessions (multi-user)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./26-remote-mcp-servers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote MCP Servers</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#install" id="toc-install" class="nav-link active" data-scroll-target="#install">Install</a></li>
+  <li><a href="#layers-of-progressive-disclosure" id="toc-layers-of-progressive-disclosure" class="nav-link" data-scroll-target="#layers-of-progressive-disclosure">Layers of progressive disclosure</a></li>
+  <li><a href="#one-shot-generation" id="toc-one-shot-generation" class="nav-link" data-scroll-target="#one-shot-generation">1. One-shot generation</a>
+  <ul class="collapse">
+  <li><a href="#output-formats" id="toc-output-formats" class="nav-link" data-scroll-target="#output-formats">Output formats</a></li>
+  </ul></li>
+  <li><a href="#choosing-a-model" id="toc-choosing-a-model" class="nav-link" data-scroll-target="#choosing-a-model">2. Choosing a model</a></li>
+  <li><a href="#direct-client-reuse-loaded-weights" id="toc-direct-client-reuse-loaded-weights" class="nav-link" data-scroll-target="#direct-client-reuse-loaded-weights">3. Direct client: reuse loaded weights</a>
+  <ul class="collapse">
+  <li><a href="#per-call-kwargs" id="toc-per-call-kwargs" class="nav-link" data-scroll-target="#per-call-kwargs">Per-call kwargs</a></li>
+  </ul></li>
+  <li><a href="#diffusion-models-audioldm2" id="toc-diffusion-models-audioldm2" class="nav-link" data-scroll-target="#diffusion-models-audioldm2">4. Diffusion models: AudioLDM2</a></li>
+  <li><a href="#streaming-progress" id="toc-streaming-progress" class="nav-link" data-scroll-target="#streaming-progress">5. Streaming progress</a></li>
+  <li><a href="#audio-generation-as-an-agent-tool" id="toc-audio-generation-as-an-agent-tool" class="nav-link" data-scroll-target="#audio-generation-as-an-agent-tool">6. Audio generation as an agent tool</a>
+  <ul class="collapse">
+  <li><a href="#per-agent-model-make_audio_tool" id="toc-per-agent-model-make_audio_tool" class="nav-link" data-scroll-target="#per-agent-model-make_audio_tool">Per-agent model: <code>make_audio_tool</code></a></li>
+  <li><a href="#streaming-through-an-agent" id="toc-streaming-through-an-agent" class="nav-link" data-scroll-target="#streaming-through-an-agent">Streaming through an agent</a></li>
+  </ul></li>
+  <li><a href="#async-surface" id="toc-async-surface" class="nav-link" data-scroll-target="#async-surface">7. Async surface</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./19-audio-generation.html">Audio Generation</a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Audio Generation</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>AIMU ships a text-to-audio surface backed by HuggingFace <code>transformers</code> (MusicGen) and <code>diffusers</code> (AudioLDM2, Stable Audio Open). The shape mirrors image generation: a base ABC (<code>BaseAudioClient</code>), a factory class (<code>AudioClient</code>), and one-line entry points (<code>aimu.audio_client()</code> / <code>aimu.generate_audio()</code>).</p>
+<p>Scope: music and sound generation. Not text-to-speech.</p>
+<section id="install" class="level2">
+<h2 class="anchored" data-anchor-id="install">Install</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> <span class="st">'.[hf]'</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The <code>[hf]</code> extra already ships <code>torch</code>, <code>transformers</code>, and <code>diffusers</code> for the HuggingFace text and image clients. Audio adds <code>soundfile</code> for WAV encoding, with no separate install step.</p>
+</section>
+<section id="layers-of-progressive-disclosure" class="level2">
+<h2 class="anchored" data-anchor-id="layers-of-progressive-disclosure">Layers of progressive disclosure</h2>
+<ol type="1">
+<li><strong>One-shot</strong>: <code>aimu.generate_audio(prompt, model=...)</code> for quick scripts.</li>
+<li><strong>Direct client</strong>: <code>aimu.audio_client(model)</code> reuses loaded weights across calls.</li>
+<li><strong>As an agent tool</strong>: <code>from aimu.tools import builtin; Agent(client, tools=[builtin.generate_audio])</code> lets a chat LLM call audio generation when the user asks.</li>
+<li><strong>Async</strong>: <code>await aio.audio_client(sync_client).generate(...)</code>. In-process providers wrap an existing sync client so weights aren’t loaded twice.</li>
+</ol>
+</section>
+<section id="one-shot-generation" class="level2">
+<h2 class="anchored" data-anchor-id="one-shot-generation">1. One-shot generation</h2>
+<div id="6bf0c9d4" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Returns (sample_rate, np.ndarray) by default</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>sr, audio <span class="op">=</span> aimu.generate_audio(</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">"a lo-fi hip-hop beat with soft piano and warm drums"</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span><span class="st">"hf:facebook/musicgen-small"</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">5.0</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Sample rate: </span><span class="sc">{</span>sr<span class="sc">}</span><span class="ss"> Hz, shape: </span><span class="sc">{</span>audio<span class="sc">.</span>shape<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>Audio(audio, rate<span class="op">=</span>sr)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="df5cf64a" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Save directly to a WAV file</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>path <span class="op">=</span> aimu.generate_audio(</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"gentle ocean waves with distant seagulls"</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span><span class="st">"hf:facebook/musicgen-small"</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">5.0</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">format</span><span class="op">=</span><span class="st">"path"</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Saved to: </span><span class="sc">{</span>path<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="output-formats" class="level3">
+<h3 class="anchored" data-anchor-id="output-formats">Output formats</h3>
+<p><code>format=</code> selects how the audio is returned:</p>
+<ul>
+<li><code>"numpy"</code> (default): <code>(sample_rate: int, audio: np.ndarray)</code> tuple, the native representation</li>
+<li><code>"path"</code>: saves a WAV file under <code>output/audio/{timestamp}-{hash}.wav</code> and returns the path</li>
+<li><code>"bytes"</code>: raw WAV-encoded bytes</li>
+<li><code>"data_url"</code>: <code>data:audio/wav;base64,...</code> for inline embedding</li>
+</ul>
+</section>
+</section>
+<section id="choosing-a-model" class="level2">
+<h2 class="anchored" data-anchor-id="choosing-a-model">2. Choosing a model</h2>
+<p>Three pipeline families ship in <code>HuggingFaceAudioModel</code>:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Enum member</th>
+<th>Pipeline</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>MUSICGEN_SMALL</code></td>
+<td><code>musicgen</code></td>
+<td>Fastest; 300M params; 32 kHz</td>
+</tr>
+<tr class="even">
+<td><code>MUSICGEN_MEDIUM</code></td>
+<td><code>musicgen</code></td>
+<td>Balanced quality</td>
+</tr>
+<tr class="odd">
+<td><code>MUSICGEN_LARGE</code></td>
+<td><code>musicgen</code></td>
+<td>Best quality; 3.3B params</td>
+</tr>
+<tr class="even">
+<td><code>AUDIOLDM2</code></td>
+<td><code>audioldm2</code></td>
+<td>Latent diffusion; general sound; 16 kHz</td>
+</tr>
+<tr class="odd">
+<td><code>STABLE_AUDIO_OPEN</code></td>
+<td><code>stable_audio</code></td>
+<td>Latent diffusion; stereo; 44.1 kHz</td>
+</tr>
+</tbody>
+</table>
+<p><strong>MusicGen</strong> generates directly without a diffusion loop; duration maps to token count (~50 tokens/s). Fast, deterministic with a seed.</p>
+<p><strong>AudioLDM2</strong> and <strong>Stable Audio Open</strong> use latent diffusion. They accept <code>num_inference_steps</code> (more = higher quality, slower) and stream progress chunks per step.</p>
+<div id="820388e2" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceAudioModel</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Pass an enum member for IDE autocomplete</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> audio_client(HuggingFaceAudioModel.MUSICGEN_SMALL)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Or a string for ad-hoc models not in the enum</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> audio_client(<span class="st">"hf:facebook/musicgen-small"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="direct-client-reuse-loaded-weights" class="level2">
+<h2 class="anchored" data-anchor-id="direct-client-reuse-loaded-weights">3. Direct client: reuse loaded weights</h2>
+<div id="a2676508" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> audio_client(<span class="st">"hf:facebook/musicgen-small"</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>prompts <span class="op">=</span> [</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"lo-fi jazz with upright bass"</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">"driving electronic beat with synths"</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">"calm acoustic guitar fingerpicking"</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> prompt <span class="kw">in</span> prompts:</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    sr, audio <span class="op">=</span> client.generate(prompt, duration_s<span class="op">=</span><span class="fl">5.0</span>)</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>prompt<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    display(Audio(audio, rate<span class="op">=</span>sr))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="per-call-kwargs" class="level3">
+<h3 class="anchored" data-anchor-id="per-call-kwargs">Per-call kwargs</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Kwarg</th>
+<th>Applies to</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>duration_s</code></td>
+<td>all</td>
+<td>10.0 s</td>
+</tr>
+<tr class="even">
+<td><code>num_inference_steps</code></td>
+<td>diffusers only</td>
+<td>200</td>
+</tr>
+<tr class="odd">
+<td><code>seed</code></td>
+<td>all</td>
+<td>None</td>
+</tr>
+<tr class="even">
+<td><code>num_audio</code></td>
+<td>all</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<div id="83351edc" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Seed for reproducibility (MusicGen)</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>sr1, a1 <span class="op">=</span> client.generate(<span class="st">"lo-fi jazz"</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>, seed<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>sr2, a2 <span class="op">=</span> client.generate(<span class="st">"lo-fi jazz"</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>, seed<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Same output: </span><span class="sc">{</span>np<span class="sc">.</span>array_equal(a1, a2)<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="e0b293b9" class="cell" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate two clips in one call</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> client.generate(<span class="st">"ambient forest sounds"</span>, num_audio<span class="op">=</span><span class="dv">2</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, (sr, audio) <span class="kw">in</span> <span class="bu">enumerate</span>(results):</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Clip </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>audio<span class="sc">.</span>shape<span class="sc">}</span><span class="ss"> at </span><span class="sc">{</span>sr<span class="sc">}</span><span class="ss"> Hz"</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    display(Audio(audio, rate<span class="op">=</span>sr))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="diffusion-models-audioldm2" class="level2">
+<h2 class="anchored" data-anchor-id="diffusion-models-audioldm2">4. Diffusion models: AudioLDM2</h2>
+<p>AudioLDM2 uses latent diffusion for general sound generation. Reduce <code>num_inference_steps</code> for faster (lower quality) results during experimentation.</p>
+<div id="6d2f6431" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>ldm_client <span class="op">=</span> audio_client(<span class="st">"hf:cvssp/audioldm2"</span>)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>sr, audio <span class="op">=</span> ldm_client.generate(</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"heavy thunderstorm with rain on a tin roof"</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">5.0</span>,</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    num_inference_steps<span class="op">=</span><span class="dv">20</span>,  <span class="co"># reduce for speed; default 200</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>Audio(audio, rate<span class="op">=</span>sr)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="streaming-progress" class="level2">
+<h2 class="anchored" data-anchor-id="streaming-progress">5. Streaming progress</h2>
+<p>Pass <code>stream=True</code> to get <code>AUDIO_GENERATING</code> chunks.</p>
+<ul>
+<li><strong>MusicGen</strong>: one final chunk (no intermediate steps).</li>
+<li><strong>AudioLDM2 / Stable Audio</strong>: one chunk per diffusion step, then a final chunk.</li>
+</ul>
+<p><code>chunk.content</code> shape:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"step"</span>: <span class="bu">int</span>,        <span class="co"># current step (1-based)</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"total_steps"</span>: <span class="bu">int</span>, <span class="co"># total steps (1 for MusicGen)</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"final"</span>: <span class="bu">bool</span>,      <span class="co"># True on the last chunk</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"result"</span>: ...,      <span class="co"># encoded output on final chunk, None otherwise</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">"duration_s"</span>: <span class="bu">float</span>,</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="f6fc56cb" class="cell" data-execution_count="8">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>ldm_client <span class="op">=</span> audio_client(<span class="st">"hf:cvssp/audioldm2"</span>)</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> ldm_client.generate(</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">"summer thunderstorm"</span>,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    stream<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">5.0</span>,</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    num_inference_steps<span class="op">=</span><span class="dv">20</span>,</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>):</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    c <span class="op">=</span> chunk.content</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> c[<span class="st">"final"</span>]:</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Done (step </span><span class="sc">{</span>c[<span class="st">'step'</span>]<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>c[<span class="st">'total_steps'</span>]<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>        result <span class="op">=</span> c[<span class="st">"result"</span>]  <span class="co"># (sample_rate, np.ndarray) for default format</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Step </span><span class="sc">{</span>c[<span class="st">'step'</span>]<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>c[<span class="st">'total_steps'</span>]<span class="sc">}</span><span class="ss">"</span>, end<span class="op">=</span><span class="st">"</span><span class="ch">\r</span><span class="st">"</span>)</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>sr, audio <span class="op">=</span> result</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>Audio(audio, rate<span class="op">=</span>sr)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="audio-generation-as-an-agent-tool" class="level2">
+<h2 class="anchored" data-anchor-id="audio-generation-as-an-agent-tool">6. Audio generation as an agent tool</h2>
+<p>The built-in <code>generate_audio</code> tool lets any chat LLM call audio generation when the user asks. The LLM decides when to call it; the tool saves a WAV and returns the path as part of the conversation history.</p>
+<p>The first call loads weights (slow); subsequent calls reuse the singleton.</p>
+<div id="cbfd1fb2" class="cell" data-execution_count="9">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: pick the singleton's default model via env var.</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>os.environ[<span class="st">"AIMU_AUDIO_MODEL"</span>] <span class="op">=</span> <span class="st">"hf:facebook/musicgen-small"</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> client</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>text_client <span class="op">=</span> client(<span class="st">"anthropic:claude-sonnet-4-6"</span>)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    text_client,</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    system_message<span class="op">=</span>(</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">"You can generate audio using the generate_audio tool. When the user asks for music "</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">"or a sound effect, write a descriptive prompt and call the tool. Tell the user where "</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">"the file was saved."</span></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[builtin.generate_audio],</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> agent.run(<span class="st">"Can you make me a short lo-fi beat I can study to?"</span>)</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="per-agent-model-make_audio_tool" class="level3">
+<h3 class="anchored" data-anchor-id="per-agent-model-make_audio_tool">Per-agent model: <code>make_audio_tool</code></h3>
+<p>If you don’t want the singleton (e.g.&nbsp;each agent should use a different model), use <code>make_audio_tool</code> to build a tool bound to a specific client.</p>
+<div id="cbfd4db7" class="cell" data-execution_count="10">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools.builtin <span class="im">import</span> make_audio_tool</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>medium_client <span class="op">=</span> audio_client(<span class="st">"hf:facebook/musicgen-medium"</span>)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>medium_tool <span class="op">=</span> make_audio_tool(medium_client, duration_s<span class="op">=</span><span class="fl">10.0</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(text_client, tools<span class="op">=</span>[medium_tool])</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"Generate a cinematic orchestral piece."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="streaming-through-an-agent" class="level3">
+<h3 class="anchored" data-anchor-id="streaming-through-an-agent">Streaming through an agent</h3>
+<p>Because <code>generate_audio</code> is a generator-decorated <code>@tool</code>, its <code>AUDIO_GENERATING</code> chunks flow through <code>Agent.run(stream=True)</code> with no extra wiring.</p>
+<div id="dd556283" class="cell" data-execution_count="11">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"Make me a lo-fi beat"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.is_audio_progress():</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>        c <span class="op">=</span> chunk.content</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> c[<span class="st">"final"</span>]:</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>c[<span class="st">'step'</span>]<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>c[<span class="st">'total_steps'</span>]<span class="sc">}</span><span class="ss">"</span>, end<span class="op">=</span><span class="st">"</span><span class="ch">\r</span><span class="st">"</span>)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">  Saved: </span><span class="sc">{</span>c[<span class="st">'result'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.is_text():</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="async-surface" class="level2">
+<h2 class="anchored" data-anchor-id="async-surface">7. Async surface</h2>
+<p>The async surface mirrors the sync surface one-for-one. Because HuggingFace models load weights in-process, the factory wraps an existing sync client rather than re-loading weights; passing a <code>HuggingFaceAudioModel</code> enum directly is refused with a pointer to the correct pattern.</p>
+<div id="53cc0381" class="cell" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio, audio_client</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>sync_client <span class="op">=</span> audio_client(<span class="st">"hf:facebook/musicgen-small"</span>)</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>async_client <span class="op">=</span> aio.audio_client(sync_client)</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> make_two():</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    a, b <span class="op">=</span> <span class="cf">await</span> asyncio.gather(</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>        async_client.generate(<span class="st">"lo-fi jazz loop"</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>),</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>        async_client.generate(<span class="st">"ambient wind through trees"</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>),</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a, b</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a><span class="co"># In a Jupyter kernel:</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>jazz, wind <span class="op">=</span> <span class="cf">await</span> make_two()</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>display(Audio(jazz[<span class="dv">1</span>], rate<span class="op">=</span>jazz[<span class="dv">0</span>]))</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>display(Audio(wind[<span class="dv">1</span>], rate<span class="op">=</span>wind[<span class="dv">0</span>]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="f828c0ee" class="cell" data-execution_count="13">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Async one-shot</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>path <span class="op">=</span> <span class="cf">await</span> aio.generate_audio(</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"driving electronic beat with synths"</span>,</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span><span class="st">"hf:facebook/musicgen-small"</span>,</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">format</span><span class="op">=</span><span class="st">"path"</span>,</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">10.0</span>,</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Saved to: </span><span class="sc">{</span>path<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Note: on a single GPU, the two <code>gather</code>-ed calls don’t truly overlap on the device (CUDA streams + GIL serialise inference), but the event loop stays free for other coroutines. For true overlap, load models on separate devices.</p>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./18-image-generation.html" class="pagination-link" aria-label="Image Generation">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Image Generation</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./20-speech.html" class="pagination-link" aria-label="Speech">
+        <span class="nav-page-text">Speech</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Audio Generation"</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>AIMU ships a text-to-audio surface backed by HuggingFace <span class="in">`transformers`</span> (MusicGen) and <span class="in">`diffusers`</span> (AudioLDM2, Stable Audio Open). The shape mirrors image generation: a base ABC (<span class="in">`BaseAudioClient`</span>), a factory class (<span class="in">`AudioClient`</span>), and one-line entry points (<span class="in">`aimu.audio_client()`</span> / <span class="in">`aimu.generate_audio()`</span>).</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>Scope: music and sound generation. Not text-to-speech.</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a><span class="fu">## Install</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> <span class="st">'.[hf]'</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>The <span class="in">`[hf]`</span> extra already ships <span class="in">`torch`</span>, <span class="in">`transformers`</span>, and <span class="in">`diffusers`</span> for the HuggingFace text and image clients. Audio adds <span class="in">`soundfile`</span> for WAV encoding, with no separate install step.</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## Layers of progressive disclosure</span></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**One-shot**: <span class="in">`aimu.generate_audio(prompt, model=...)`</span> for quick scripts.</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Direct client**: <span class="in">`aimu.audio_client(model)`</span> reuses loaded weights across calls.</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**As an agent tool**: <span class="in">`from aimu.tools import builtin; Agent(client, tools=[builtin.generate_audio])`</span> lets a chat LLM call audio generation when the user asks.</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Async**: <span class="in">`await aio.audio_client(sync_client).generate(...)`</span>. In-process providers wrap an existing sync client so weights aren't loaded twice.</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1. One-shot generation</span></span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Returns (sample_rate, np.ndarray) by default</span></span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a>sr, audio <span class="op">=</span> aimu.generate_audio(</span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>    <span class="st">"a lo-fi hip-hop beat with soft piano and warm drums"</span>,</span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span><span class="st">"hf:facebook/musicgen-small"</span>,</span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">5.0</span>,</span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Sample rate: </span><span class="sc">{</span>sr<span class="sc">}</span><span class="ss"> Hz, shape: </span><span class="sc">{</span>audio<span class="sc">.</span>shape<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-43"><a href="#cb16-43" aria-hidden="true" tabindex="-1"></a>Audio(audio, rate<span class="op">=</span>sr)</span>
+<span id="cb16-44"><a href="#cb16-44" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-45"><a href="#cb16-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-48"><a href="#cb16-48" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-49"><a href="#cb16-49" aria-hidden="true" tabindex="-1"></a><span class="co"># Save directly to a WAV file</span></span>
+<span id="cb16-50"><a href="#cb16-50" aria-hidden="true" tabindex="-1"></a>path <span class="op">=</span> aimu.generate_audio(</span>
+<span id="cb16-51"><a href="#cb16-51" aria-hidden="true" tabindex="-1"></a>    <span class="st">"gentle ocean waves with distant seagulls"</span>,</span>
+<span id="cb16-52"><a href="#cb16-52" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span><span class="st">"hf:facebook/musicgen-small"</span>,</span>
+<span id="cb16-53"><a href="#cb16-53" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">5.0</span>,</span>
+<span id="cb16-54"><a href="#cb16-54" aria-hidden="true" tabindex="-1"></a>    <span class="bu">format</span><span class="op">=</span><span class="st">"path"</span>,</span>
+<span id="cb16-55"><a href="#cb16-55" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-56"><a href="#cb16-56" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Saved to: </span><span class="sc">{</span>path<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-57"><a href="#cb16-57" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-58"><a href="#cb16-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-59"><a href="#cb16-59" aria-hidden="true" tabindex="-1"></a><span class="fu">### Output formats</span></span>
+<span id="cb16-60"><a href="#cb16-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-61"><a href="#cb16-61" aria-hidden="true" tabindex="-1"></a><span class="in">`format=`</span> selects how the audio is returned:</span>
+<span id="cb16-62"><a href="#cb16-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-63"><a href="#cb16-63" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`"numpy"`</span> (default): <span class="in">`(sample_rate: int, audio: np.ndarray)`</span> tuple, the native representation</span>
+<span id="cb16-64"><a href="#cb16-64" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`"path"`</span>: saves a WAV file under <span class="in">`output/audio/{timestamp}-{hash}.wav`</span> and returns the path</span>
+<span id="cb16-65"><a href="#cb16-65" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`"bytes"`</span>: raw WAV-encoded bytes</span>
+<span id="cb16-66"><a href="#cb16-66" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`"data_url"`</span>: <span class="in">`data:audio/wav;base64,...`</span> for inline embedding</span>
+<span id="cb16-67"><a href="#cb16-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-68"><a href="#cb16-68" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2. Choosing a model</span></span>
+<span id="cb16-69"><a href="#cb16-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-70"><a href="#cb16-70" aria-hidden="true" tabindex="-1"></a>Three pipeline families ship in <span class="in">`HuggingFaceAudioModel`</span>:</span>
+<span id="cb16-71"><a href="#cb16-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-72"><a href="#cb16-72" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Enum member <span class="pp">|</span> Pipeline <span class="pp">|</span> Description <span class="pp">|</span></span>
+<span id="cb16-73"><a href="#cb16-73" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb16-74"><a href="#cb16-74" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MUSICGEN_SMALL`</span> <span class="pp">|</span> <span class="in">`musicgen`</span> <span class="pp">|</span> Fastest; 300M params; 32 kHz <span class="pp">|</span></span>
+<span id="cb16-75"><a href="#cb16-75" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MUSICGEN_MEDIUM`</span> <span class="pp">|</span> <span class="in">`musicgen`</span> <span class="pp">|</span> Balanced quality <span class="pp">|</span></span>
+<span id="cb16-76"><a href="#cb16-76" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`MUSICGEN_LARGE`</span> <span class="pp">|</span> <span class="in">`musicgen`</span> <span class="pp">|</span> Best quality; 3.3B params <span class="pp">|</span></span>
+<span id="cb16-77"><a href="#cb16-77" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`AUDIOLDM2`</span> <span class="pp">|</span> <span class="in">`audioldm2`</span> <span class="pp">|</span> Latent diffusion; general sound; 16 kHz <span class="pp">|</span></span>
+<span id="cb16-78"><a href="#cb16-78" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`STABLE_AUDIO_OPEN`</span> <span class="pp">|</span> <span class="in">`stable_audio`</span> <span class="pp">|</span> Latent diffusion; stereo; 44.1 kHz <span class="pp">|</span></span>
+<span id="cb16-79"><a href="#cb16-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-80"><a href="#cb16-80" aria-hidden="true" tabindex="-1"></a>**MusicGen** generates directly without a diffusion loop; duration maps to token count (~50 tokens/s). Fast, deterministic with a seed.</span>
+<span id="cb16-81"><a href="#cb16-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-82"><a href="#cb16-82" aria-hidden="true" tabindex="-1"></a>**AudioLDM2** and **Stable Audio Open** use latent diffusion. They accept <span class="in">`num_inference_steps`</span> (more = higher quality, slower) and stream progress chunks per step.</span>
+<span id="cb16-83"><a href="#cb16-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-86"><a href="#cb16-86" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-87"><a href="#cb16-87" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb16-88"><a href="#cb16-88" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceAudioModel</span>
+<span id="cb16-89"><a href="#cb16-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-90"><a href="#cb16-90" aria-hidden="true" tabindex="-1"></a><span class="co"># Pass an enum member for IDE autocomplete</span></span>
+<span id="cb16-91"><a href="#cb16-91" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> audio_client(HuggingFaceAudioModel.MUSICGEN_SMALL)</span>
+<span id="cb16-92"><a href="#cb16-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-93"><a href="#cb16-93" aria-hidden="true" tabindex="-1"></a><span class="co"># Or a string for ad-hoc models not in the enum</span></span>
+<span id="cb16-94"><a href="#cb16-94" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> audio_client(<span class="st">"hf:facebook/musicgen-small"</span>)</span>
+<span id="cb16-95"><a href="#cb16-95" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-96"><a href="#cb16-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-97"><a href="#cb16-97" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3. Direct client: reuse loaded weights</span></span>
+<span id="cb16-98"><a href="#cb16-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-101"><a href="#cb16-101" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-102"><a href="#cb16-102" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb16-103"><a href="#cb16-103" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb16-104"><a href="#cb16-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-105"><a href="#cb16-105" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> audio_client(<span class="st">"hf:facebook/musicgen-small"</span>)</span>
+<span id="cb16-106"><a href="#cb16-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-107"><a href="#cb16-107" aria-hidden="true" tabindex="-1"></a>prompts <span class="op">=</span> [</span>
+<span id="cb16-108"><a href="#cb16-108" aria-hidden="true" tabindex="-1"></a>    <span class="st">"lo-fi jazz with upright bass"</span>,</span>
+<span id="cb16-109"><a href="#cb16-109" aria-hidden="true" tabindex="-1"></a>    <span class="st">"driving electronic beat with synths"</span>,</span>
+<span id="cb16-110"><a href="#cb16-110" aria-hidden="true" tabindex="-1"></a>    <span class="st">"calm acoustic guitar fingerpicking"</span>,</span>
+<span id="cb16-111"><a href="#cb16-111" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb16-112"><a href="#cb16-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-113"><a href="#cb16-113" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> prompt <span class="kw">in</span> prompts:</span>
+<span id="cb16-114"><a href="#cb16-114" aria-hidden="true" tabindex="-1"></a>    sr, audio <span class="op">=</span> client.generate(prompt, duration_s<span class="op">=</span><span class="fl">5.0</span>)</span>
+<span id="cb16-115"><a href="#cb16-115" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>prompt<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-116"><a href="#cb16-116" aria-hidden="true" tabindex="-1"></a>    display(Audio(audio, rate<span class="op">=</span>sr))</span>
+<span id="cb16-117"><a href="#cb16-117" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-118"><a href="#cb16-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-119"><a href="#cb16-119" aria-hidden="true" tabindex="-1"></a><span class="fu">### Per-call kwargs</span></span>
+<span id="cb16-120"><a href="#cb16-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-121"><a href="#cb16-121" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Kwarg <span class="pp">|</span> Applies to <span class="pp">|</span> Default <span class="pp">|</span></span>
+<span id="cb16-122"><a href="#cb16-122" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb16-123"><a href="#cb16-123" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`duration_s`</span> <span class="pp">|</span> all <span class="pp">|</span> 10.0 s <span class="pp">|</span></span>
+<span id="cb16-124"><a href="#cb16-124" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`num_inference_steps`</span> <span class="pp">|</span> diffusers only <span class="pp">|</span> 200 <span class="pp">|</span></span>
+<span id="cb16-125"><a href="#cb16-125" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`seed`</span> <span class="pp">|</span> all <span class="pp">|</span> None <span class="pp">|</span></span>
+<span id="cb16-126"><a href="#cb16-126" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`num_audio`</span> <span class="pp">|</span> all <span class="pp">|</span> 1 <span class="pp">|</span></span>
+<span id="cb16-127"><a href="#cb16-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-130"><a href="#cb16-130" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-131"><a href="#cb16-131" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb16-132"><a href="#cb16-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-133"><a href="#cb16-133" aria-hidden="true" tabindex="-1"></a><span class="co"># Seed for reproducibility (MusicGen)</span></span>
+<span id="cb16-134"><a href="#cb16-134" aria-hidden="true" tabindex="-1"></a>sr1, a1 <span class="op">=</span> client.generate(<span class="st">"lo-fi jazz"</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>, seed<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb16-135"><a href="#cb16-135" aria-hidden="true" tabindex="-1"></a>sr2, a2 <span class="op">=</span> client.generate(<span class="st">"lo-fi jazz"</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>, seed<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb16-136"><a href="#cb16-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-137"><a href="#cb16-137" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Same output: </span><span class="sc">{</span>np<span class="sc">.</span>array_equal(a1, a2)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-138"><a href="#cb16-138" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-139"><a href="#cb16-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-142"><a href="#cb16-142" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-143"><a href="#cb16-143" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate two clips in one call</span></span>
+<span id="cb16-144"><a href="#cb16-144" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> client.generate(<span class="st">"ambient forest sounds"</span>, num_audio<span class="op">=</span><span class="dv">2</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>)</span>
+<span id="cb16-145"><a href="#cb16-145" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, (sr, audio) <span class="kw">in</span> <span class="bu">enumerate</span>(results):</span>
+<span id="cb16-146"><a href="#cb16-146" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Clip </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>audio<span class="sc">.</span>shape<span class="sc">}</span><span class="ss"> at </span><span class="sc">{</span>sr<span class="sc">}</span><span class="ss"> Hz"</span>)</span>
+<span id="cb16-147"><a href="#cb16-147" aria-hidden="true" tabindex="-1"></a>    display(Audio(audio, rate<span class="op">=</span>sr))</span>
+<span id="cb16-148"><a href="#cb16-148" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-149"><a href="#cb16-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-150"><a href="#cb16-150" aria-hidden="true" tabindex="-1"></a><span class="fu">## 4. Diffusion models: AudioLDM2</span></span>
+<span id="cb16-151"><a href="#cb16-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-152"><a href="#cb16-152" aria-hidden="true" tabindex="-1"></a>AudioLDM2 uses latent diffusion for general sound generation. Reduce <span class="in">`num_inference_steps`</span> for faster (lower quality) results during experimentation.</span>
+<span id="cb16-153"><a href="#cb16-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-156"><a href="#cb16-156" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-157"><a href="#cb16-157" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb16-158"><a href="#cb16-158" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb16-159"><a href="#cb16-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-160"><a href="#cb16-160" aria-hidden="true" tabindex="-1"></a>ldm_client <span class="op">=</span> audio_client(<span class="st">"hf:cvssp/audioldm2"</span>)</span>
+<span id="cb16-161"><a href="#cb16-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-162"><a href="#cb16-162" aria-hidden="true" tabindex="-1"></a>sr, audio <span class="op">=</span> ldm_client.generate(</span>
+<span id="cb16-163"><a href="#cb16-163" aria-hidden="true" tabindex="-1"></a>    <span class="st">"heavy thunderstorm with rain on a tin roof"</span>,</span>
+<span id="cb16-164"><a href="#cb16-164" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">5.0</span>,</span>
+<span id="cb16-165"><a href="#cb16-165" aria-hidden="true" tabindex="-1"></a>    num_inference_steps<span class="op">=</span><span class="dv">20</span>,  <span class="co"># reduce for speed; default 200</span></span>
+<span id="cb16-166"><a href="#cb16-166" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-167"><a href="#cb16-167" aria-hidden="true" tabindex="-1"></a>Audio(audio, rate<span class="op">=</span>sr)</span>
+<span id="cb16-168"><a href="#cb16-168" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-169"><a href="#cb16-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-170"><a href="#cb16-170" aria-hidden="true" tabindex="-1"></a><span class="fu">## 5. Streaming progress</span></span>
+<span id="cb16-171"><a href="#cb16-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-172"><a href="#cb16-172" aria-hidden="true" tabindex="-1"></a>Pass <span class="in">`stream=True`</span> to get <span class="in">`AUDIO_GENERATING`</span> chunks.</span>
+<span id="cb16-173"><a href="#cb16-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-174"><a href="#cb16-174" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**MusicGen**: one final chunk (no intermediate steps).</span>
+<span id="cb16-175"><a href="#cb16-175" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**AudioLDM2 / Stable Audio**: one chunk per diffusion step, then a final chunk.</span>
+<span id="cb16-176"><a href="#cb16-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-177"><a href="#cb16-177" aria-hidden="true" tabindex="-1"></a><span class="in">`chunk.content`</span> shape:</span>
+<span id="cb16-178"><a href="#cb16-178" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb16-179"><a href="#cb16-179" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb16-180"><a href="#cb16-180" aria-hidden="true" tabindex="-1"></a>    <span class="st">"step"</span>: <span class="bu">int</span>,        <span class="co"># current step (1-based)</span></span>
+<span id="cb16-181"><a href="#cb16-181" aria-hidden="true" tabindex="-1"></a>    <span class="st">"total_steps"</span>: <span class="bu">int</span>, <span class="co"># total steps (1 for MusicGen)</span></span>
+<span id="cb16-182"><a href="#cb16-182" aria-hidden="true" tabindex="-1"></a>    <span class="st">"final"</span>: <span class="bu">bool</span>,      <span class="co"># True on the last chunk</span></span>
+<span id="cb16-183"><a href="#cb16-183" aria-hidden="true" tabindex="-1"></a>    <span class="st">"result"</span>: ...,      <span class="co"># encoded output on final chunk, None otherwise</span></span>
+<span id="cb16-184"><a href="#cb16-184" aria-hidden="true" tabindex="-1"></a>    <span class="st">"duration_s"</span>: <span class="bu">float</span>,</span>
+<span id="cb16-185"><a href="#cb16-185" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb16-186"><a href="#cb16-186" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-187"><a href="#cb16-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-190"><a href="#cb16-190" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-191"><a href="#cb16-191" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb16-192"><a href="#cb16-192" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb16-193"><a href="#cb16-193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-194"><a href="#cb16-194" aria-hidden="true" tabindex="-1"></a>ldm_client <span class="op">=</span> audio_client(<span class="st">"hf:cvssp/audioldm2"</span>)</span>
+<span id="cb16-195"><a href="#cb16-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-196"><a href="#cb16-196" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb16-197"><a href="#cb16-197" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> ldm_client.generate(</span>
+<span id="cb16-198"><a href="#cb16-198" aria-hidden="true" tabindex="-1"></a>    <span class="st">"summer thunderstorm"</span>,</span>
+<span id="cb16-199"><a href="#cb16-199" aria-hidden="true" tabindex="-1"></a>    stream<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb16-200"><a href="#cb16-200" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">5.0</span>,</span>
+<span id="cb16-201"><a href="#cb16-201" aria-hidden="true" tabindex="-1"></a>    num_inference_steps<span class="op">=</span><span class="dv">20</span>,</span>
+<span id="cb16-202"><a href="#cb16-202" aria-hidden="true" tabindex="-1"></a>):</span>
+<span id="cb16-203"><a href="#cb16-203" aria-hidden="true" tabindex="-1"></a>    c <span class="op">=</span> chunk.content</span>
+<span id="cb16-204"><a href="#cb16-204" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> c[<span class="st">"final"</span>]:</span>
+<span id="cb16-205"><a href="#cb16-205" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Done (step </span><span class="sc">{</span>c[<span class="st">'step'</span>]<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>c[<span class="st">'total_steps'</span>]<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb16-206"><a href="#cb16-206" aria-hidden="true" tabindex="-1"></a>        result <span class="op">=</span> c[<span class="st">"result"</span>]  <span class="co"># (sample_rate, np.ndarray) for default format</span></span>
+<span id="cb16-207"><a href="#cb16-207" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb16-208"><a href="#cb16-208" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Step </span><span class="sc">{</span>c[<span class="st">'step'</span>]<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>c[<span class="st">'total_steps'</span>]<span class="sc">}</span><span class="ss">"</span>, end<span class="op">=</span><span class="st">"</span><span class="ch">\r</span><span class="st">"</span>)</span>
+<span id="cb16-209"><a href="#cb16-209" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-210"><a href="#cb16-210" aria-hidden="true" tabindex="-1"></a>sr, audio <span class="op">=</span> result</span>
+<span id="cb16-211"><a href="#cb16-211" aria-hidden="true" tabindex="-1"></a>Audio(audio, rate<span class="op">=</span>sr)</span>
+<span id="cb16-212"><a href="#cb16-212" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-213"><a href="#cb16-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-214"><a href="#cb16-214" aria-hidden="true" tabindex="-1"></a><span class="fu">## 6. Audio generation as an agent tool</span></span>
+<span id="cb16-215"><a href="#cb16-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-216"><a href="#cb16-216" aria-hidden="true" tabindex="-1"></a>The built-in <span class="in">`generate_audio`</span> tool lets any chat LLM call audio generation when the user asks. The LLM decides when to call it; the tool saves a WAV and returns the path as part of the conversation history.</span>
+<span id="cb16-217"><a href="#cb16-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-218"><a href="#cb16-218" aria-hidden="true" tabindex="-1"></a>The first call loads weights (slow); subsequent calls reuse the singleton.</span>
+<span id="cb16-219"><a href="#cb16-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-222"><a href="#cb16-222" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-223"><a href="#cb16-223" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb16-224"><a href="#cb16-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-225"><a href="#cb16-225" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: pick the singleton's default model via env var.</span></span>
+<span id="cb16-226"><a href="#cb16-226" aria-hidden="true" tabindex="-1"></a>os.environ[<span class="st">"AIMU_AUDIO_MODEL"</span>] <span class="op">=</span> <span class="st">"hf:facebook/musicgen-small"</span></span>
+<span id="cb16-227"><a href="#cb16-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-228"><a href="#cb16-228" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> client</span>
+<span id="cb16-229"><a href="#cb16-229" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb16-230"><a href="#cb16-230" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
+<span id="cb16-231"><a href="#cb16-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-232"><a href="#cb16-232" aria-hidden="true" tabindex="-1"></a>text_client <span class="op">=</span> client(<span class="st">"anthropic:claude-sonnet-4-6"</span>)</span>
+<span id="cb16-233"><a href="#cb16-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-234"><a href="#cb16-234" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
+<span id="cb16-235"><a href="#cb16-235" aria-hidden="true" tabindex="-1"></a>    text_client,</span>
+<span id="cb16-236"><a href="#cb16-236" aria-hidden="true" tabindex="-1"></a>    system_message<span class="op">=</span>(</span>
+<span id="cb16-237"><a href="#cb16-237" aria-hidden="true" tabindex="-1"></a>        <span class="st">"You can generate audio using the generate_audio tool. When the user asks for music "</span></span>
+<span id="cb16-238"><a href="#cb16-238" aria-hidden="true" tabindex="-1"></a>        <span class="st">"or a sound effect, write a descriptive prompt and call the tool. Tell the user where "</span></span>
+<span id="cb16-239"><a href="#cb16-239" aria-hidden="true" tabindex="-1"></a>        <span class="st">"the file was saved."</span></span>
+<span id="cb16-240"><a href="#cb16-240" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb16-241"><a href="#cb16-241" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[builtin.generate_audio],</span>
+<span id="cb16-242"><a href="#cb16-242" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-243"><a href="#cb16-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-244"><a href="#cb16-244" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> agent.run(<span class="st">"Can you make me a short lo-fi beat I can study to?"</span>)</span>
+<span id="cb16-245"><a href="#cb16-245" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span>
+<span id="cb16-246"><a href="#cb16-246" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-247"><a href="#cb16-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-248"><a href="#cb16-248" aria-hidden="true" tabindex="-1"></a><span class="fu">### Per-agent model: `make_audio_tool`</span></span>
+<span id="cb16-249"><a href="#cb16-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-250"><a href="#cb16-250" aria-hidden="true" tabindex="-1"></a>If you don't want the singleton (e.g. each agent should use a different model), use <span class="in">`make_audio_tool`</span> to build a tool bound to a specific client.</span>
+<span id="cb16-251"><a href="#cb16-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-254"><a href="#cb16-254" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-255"><a href="#cb16-255" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> audio_client</span>
+<span id="cb16-256"><a href="#cb16-256" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools.builtin <span class="im">import</span> make_audio_tool</span>
+<span id="cb16-257"><a href="#cb16-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-258"><a href="#cb16-258" aria-hidden="true" tabindex="-1"></a>medium_client <span class="op">=</span> audio_client(<span class="st">"hf:facebook/musicgen-medium"</span>)</span>
+<span id="cb16-259"><a href="#cb16-259" aria-hidden="true" tabindex="-1"></a>medium_tool <span class="op">=</span> make_audio_tool(medium_client, duration_s<span class="op">=</span><span class="fl">10.0</span>)</span>
+<span id="cb16-260"><a href="#cb16-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-261"><a href="#cb16-261" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(text_client, tools<span class="op">=</span>[medium_tool])</span>
+<span id="cb16-262"><a href="#cb16-262" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"Generate a cinematic orchestral piece."</span>)</span>
+<span id="cb16-263"><a href="#cb16-263" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-264"><a href="#cb16-264" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-265"><a href="#cb16-265" aria-hidden="true" tabindex="-1"></a><span class="fu">### Streaming through an agent</span></span>
+<span id="cb16-266"><a href="#cb16-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-267"><a href="#cb16-267" aria-hidden="true" tabindex="-1"></a>Because <span class="in">`generate_audio`</span> is a generator-decorated <span class="in">`@tool`</span>, its <span class="in">`AUDIO_GENERATING`</span> chunks flow through <span class="in">`Agent.run(stream=True)`</span> with no extra wiring.</span>
+<span id="cb16-268"><a href="#cb16-268" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-271"><a href="#cb16-271" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-272"><a href="#cb16-272" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"Make me a lo-fi beat"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb16-273"><a href="#cb16-273" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.is_audio_progress():</span>
+<span id="cb16-274"><a href="#cb16-274" aria-hidden="true" tabindex="-1"></a>        c <span class="op">=</span> chunk.content</span>
+<span id="cb16-275"><a href="#cb16-275" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> c[<span class="st">"final"</span>]:</span>
+<span id="cb16-276"><a href="#cb16-276" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>c[<span class="st">'step'</span>]<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>c[<span class="st">'total_steps'</span>]<span class="sc">}</span><span class="ss">"</span>, end<span class="op">=</span><span class="st">"</span><span class="ch">\r</span><span class="st">"</span>)</span>
+<span id="cb16-277"><a href="#cb16-277" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb16-278"><a href="#cb16-278" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">  Saved: </span><span class="sc">{</span>c[<span class="st">'result'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-279"><a href="#cb16-279" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.is_text():</span>
+<span id="cb16-280"><a href="#cb16-280" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>)</span>
+<span id="cb16-281"><a href="#cb16-281" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-282"><a href="#cb16-282" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-283"><a href="#cb16-283" aria-hidden="true" tabindex="-1"></a><span class="fu">## 7. Async surface</span></span>
+<span id="cb16-284"><a href="#cb16-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-285"><a href="#cb16-285" aria-hidden="true" tabindex="-1"></a>The async surface mirrors the sync surface one-for-one. Because HuggingFace models load weights in-process, the factory wraps an existing sync client rather than re-loading weights; passing a <span class="in">`HuggingFaceAudioModel`</span> enum directly is refused with a pointer to the correct pattern.</span>
+<span id="cb16-286"><a href="#cb16-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-289"><a href="#cb16-289" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-290"><a href="#cb16-290" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
+<span id="cb16-291"><a href="#cb16-291" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio, audio_client</span>
+<span id="cb16-292"><a href="#cb16-292" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Audio</span>
+<span id="cb16-293"><a href="#cb16-293" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-294"><a href="#cb16-294" aria-hidden="true" tabindex="-1"></a>sync_client <span class="op">=</span> audio_client(<span class="st">"hf:facebook/musicgen-small"</span>)</span>
+<span id="cb16-295"><a href="#cb16-295" aria-hidden="true" tabindex="-1"></a>async_client <span class="op">=</span> aio.audio_client(sync_client)</span>
+<span id="cb16-296"><a href="#cb16-296" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-297"><a href="#cb16-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-298"><a href="#cb16-298" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> make_two():</span>
+<span id="cb16-299"><a href="#cb16-299" aria-hidden="true" tabindex="-1"></a>    a, b <span class="op">=</span> <span class="cf">await</span> asyncio.gather(</span>
+<span id="cb16-300"><a href="#cb16-300" aria-hidden="true" tabindex="-1"></a>        async_client.generate(<span class="st">"lo-fi jazz loop"</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>),</span>
+<span id="cb16-301"><a href="#cb16-301" aria-hidden="true" tabindex="-1"></a>        async_client.generate(<span class="st">"ambient wind through trees"</span>, duration_s<span class="op">=</span><span class="fl">5.0</span>),</span>
+<span id="cb16-302"><a href="#cb16-302" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb16-303"><a href="#cb16-303" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a, b</span>
+<span id="cb16-304"><a href="#cb16-304" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-305"><a href="#cb16-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-306"><a href="#cb16-306" aria-hidden="true" tabindex="-1"></a><span class="co"># In a Jupyter kernel:</span></span>
+<span id="cb16-307"><a href="#cb16-307" aria-hidden="true" tabindex="-1"></a>jazz, wind <span class="op">=</span> <span class="cf">await</span> make_two()</span>
+<span id="cb16-308"><a href="#cb16-308" aria-hidden="true" tabindex="-1"></a>display(Audio(jazz[<span class="dv">1</span>], rate<span class="op">=</span>jazz[<span class="dv">0</span>]))</span>
+<span id="cb16-309"><a href="#cb16-309" aria-hidden="true" tabindex="-1"></a>display(Audio(wind[<span class="dv">1</span>], rate<span class="op">=</span>wind[<span class="dv">0</span>]))</span>
+<span id="cb16-310"><a href="#cb16-310" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-311"><a href="#cb16-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-314"><a href="#cb16-314" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb16-315"><a href="#cb16-315" aria-hidden="true" tabindex="-1"></a><span class="co"># Async one-shot</span></span>
+<span id="cb16-316"><a href="#cb16-316" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
+<span id="cb16-317"><a href="#cb16-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-318"><a href="#cb16-318" aria-hidden="true" tabindex="-1"></a>path <span class="op">=</span> <span class="cf">await</span> aio.generate_audio(</span>
+<span id="cb16-319"><a href="#cb16-319" aria-hidden="true" tabindex="-1"></a>    <span class="st">"driving electronic beat with synths"</span>,</span>
+<span id="cb16-320"><a href="#cb16-320" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span><span class="st">"hf:facebook/musicgen-small"</span>,</span>
+<span id="cb16-321"><a href="#cb16-321" aria-hidden="true" tabindex="-1"></a>    <span class="bu">format</span><span class="op">=</span><span class="st">"path"</span>,</span>
+<span id="cb16-322"><a href="#cb16-322" aria-hidden="true" tabindex="-1"></a>    duration_s<span class="op">=</span><span class="fl">10.0</span>,</span>
+<span id="cb16-323"><a href="#cb16-323" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-324"><a href="#cb16-324" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Saved to: </span><span class="sc">{</span>path<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-325"><a href="#cb16-325" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb16-326"><a href="#cb16-326" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-327"><a href="#cb16-327" aria-hidden="true" tabindex="-1"></a>Note: on a single GPU, the two <span class="in">`gather`</span>-ed calls don't truly overlap on the device (CUDA streams + GIL serialise inference), but the event loop stays free for other coroutines. For true overlap, load models on separate devices.</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Model Client – AIMU Notebooks</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./02-conversations.html" rel="next">
+<link href="./index.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-637a8987fd156daea465eecdbde71ac9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./01-model-client.html">Model Client</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">AIMU Notebooks</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Notebooks</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-model-client.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Model Client</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-conversations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Conversations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-structured-output.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Structured Output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-vision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vision Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-audio-input.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tools</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-agent-skills.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agent Skills</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-workflows.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Workflows</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-prebuilt-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prebuilt Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-embeddings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Embeddings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./13-rag.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Retrieval-Augmented Generation (RAG)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./14-prompt-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Management</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./15-prompt-tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Tuning</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./16-evaluations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Evaluations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./17-benchmarking.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benchmarking</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./18-image-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Image Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./19-audio-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./20-speech.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Speech</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./21-transcription.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Transcription</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22-async.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Async (<code>aimu.aio</code>)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./23-composing-agents-a2a.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Composing Agents (A2A)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./24-personal-assistants.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Personal Assistants</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./25-sessions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sessions (multi-user)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./26-remote-mcp-servers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote MCP Servers</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#what-this-notebook-covers" id="toc-what-this-notebook-covers" class="nav-link active" data-scroll-target="#what-this-notebook-covers">What this notebook covers</a></li>
+  <li><a href="#a---text-generation" id="toc-a---text-generation" class="nav-link" data-scroll-target="#a---text-generation">A - Text Generation</a></li>
+  <li><a href="#b---basic-chat" id="toc-b---basic-chat" class="nav-link" data-scroll-target="#b---basic-chat">B - Basic Chat</a></li>
+  <li><a href="#c---model-thinking" id="toc-c---model-thinking" class="nav-link" data-scroll-target="#c---model-thinking">C - Model Thinking</a>
+  <ul class="collapse">
+  <li><a href="#adaptive-vs.-budget-thinking-anthropic" id="toc-adaptive-vs.-budget-thinking-anthropic" class="nav-link" data-scroll-target="#adaptive-vs.-budget-thinking-anthropic">Adaptive vs.&nbsp;budget thinking (Anthropic)</a></li>
+  </ul></li>
+  <li><a href="#d---tool-usage" id="toc-d---tool-usage" class="nav-link" data-scroll-target="#d---tool-usage">D - Tool Usage</a></li>
+  <li><a href="#e---multiple-parallel-tool-calls" id="toc-e---multiple-parallel-tool-calls" class="nav-link" data-scroll-target="#e---multiple-parallel-tool-calls">E - Multiple parallel tool calls</a></li>
+  <li><a href="#f---huggingface-model-weight-caching" id="toc-f---huggingface-model-weight-caching" class="nav-link" data-scroll-target="#f---huggingface-model-weight-caching">F - HuggingFace Model Weight Caching</a></li>
+  <li><a href="#g---clean-up" id="toc-g---clean-up" class="nav-link" data-scroll-target="#g---clean-up">G - Clean Up</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./01-model-client.html">Model Client</a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Model Client</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p><code>ModelClient</code> is AIMU’s unified entry point for talking to any supported backend: local (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) or cloud (OpenAI, Anthropic, Google Gemini). The same call shape (<code>generate()</code>, <code>chat()</code>, <code>chat(..., stream=True)</code>) works against every provider, so you can swap models without rewriting the surrounding code. Streaming yields a single <code>StreamChunk</code> type with explicit <code>THINKING</code>, <code>TOOL_CALLING</code>, and <code>GENERATING</code> phases. The client advertises tools and records the model’s tool-call requests, but executing tools in a loop is the job of an <code>Agent</code> (<a href="./07-agents.html">notebook 07</a>); image input is built into the base client.</p>
+<p>Use a <code>ModelClient</code> whenever you want a turn-by-turn conversation with a model: building a chat UI, prototyping prompts, wiring up tools, or experimenting with thinking/reasoning models. For autonomous tool-calling loops on top of the same client, see <a href="./07-agents.html">notebook 07</a> (Agents).</p>
+<section id="what-this-notebook-covers" class="level2">
+<h2 class="anchored" data-anchor-id="what-this-notebook-covers">What this notebook covers</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Section</th>
+<th>Topic</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A</td>
+<td>Stateless text generation with <code>generate()</code>, streaming, and generation kwargs</td>
+</tr>
+<tr class="even">
+<td>B</td>
+<td>Multi-turn chat, message history, and custom system messages</td>
+</tr>
+<tr class="odd">
+<td>C</td>
+<td>Thinking models: accessing <code>last_thinking</code> and filtering streamed phases</td>
+</tr>
+<tr class="even">
+<td>D</td>
+<td>Tool calling: wrapping the client in an <code>Agent</code> with an in-memory MCP server</td>
+</tr>
+<tr class="odd">
+<td>E</td>
+<td>Parallel tool calls in one model turn</td>
+</tr>
+<tr class="even">
+<td>F</td>
+<td>Releasing resources</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="a---text-generation" class="level2">
+<h2 class="anchored" data-anchor-id="a---text-generation">A - Text Generation</h2>
+<p><code>ModelClient</code> is a factory that accepts any provider model enum and automatically selects the right backend. The cell below picks the model used throughout this notebook; change <code>model_enum</code> to try a different provider or model.</p>
+<div id="739fd07f" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, HAS_OLLAMA, HAS_HF</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Pick the model used throughout this notebook. Swap this assignment to try a</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># different backend; every later cell reads `model_enum` unchanged.</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_OLLAMA:</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> OllamaModel</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    model_enum <span class="op">=</span> OllamaModel.QWEN_3_5_9B</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> HAS_HF:</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceModel</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    model_enum <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">RuntimeError</span>(<span class="st">"Install a provider backend, e.g. `pip install aimu[ollama]`."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The <code>ModelClient</code> factory dispatches to the right backend based on the model enum type. You can also instantiate a specific client directly when you prefer explicit control:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, OllamaModel</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)  <span class="co"># factory: picks OllamaClient automatically</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Or directly:</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_5_9B)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Here, we’ll use the model enum assigned above.</p>
+<div id="e4f7cc66" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(model_enum)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model_client.model.name <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> model_client.model.value)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>For non-interactive (chat-based) generation, the <em>generate</em> method is used. This method allows you to specify a prompt and receive a generated response.</p>
+<div id="a3a4bde7" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>model_client.generate(<span class="st">"Name the capital of France."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>If the model supports thinking/reasoning, the thinking output for generation can be accessed via <code>model_client.last_thinking</code>.</p>
+<div id="5daf00d5" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>model_client.last_thinking</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Output can be streamed as well.</p>
+<div id="12c36531" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"Name the capital of England."</span>, stream<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The thinking output can be filtered by specifying which streaming content types to include.</p>
+<div id="a698229b" class="cell" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of the United States."</span>, stream<span class="op">=</span><span class="va">True</span>, include<span class="op">=</span>[StreamingContentType.GENERATING]</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Parameters can be passed to the generate (and chat) methods to control the output. For thinking/reasoning models, max_tokens should be large enough to capture both the reasoning output, which happens first, and the generation output.</p>
+<p>For generate_kwargs, see https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values</p>
+<div id="ec511844" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>model_client.generate(</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of Germany."</span>,</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    generate_kwargs<span class="op">=</span>{</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">"temperature"</span>: <span class="fl">1.0</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"top_p"</span>: <span class="fl">0.9</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"top_k"</span>: <span class="dv">40</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">"max_tokens"</span>: <span class="dv">1024</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">"repeat_penalty"</span>: <span class="fl">1.1</span>,</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="b---basic-chat" class="level2">
+<h2 class="anchored" data-anchor-id="b---basic-chat">B - Basic Chat</h2>
+<p>Chatting with a model simply involves passing a message and receiving a response. The Model Client handles the conversation history automatically.</p>
+<div id="5df31e1b" class="cell" data-execution_count="8">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"What is the capital of China?"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Chat responses can be streamed as well.</p>
+<div id="6496953d" class="cell" data-execution_count="9">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"How long has it been the capital?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The complete message history, including the model thinking/reasoning, can be accessed via the <code>messages</code> property of the Model Client.</p>
+<div id="2bcdf2ff" class="cell" data-execution_count="10">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A custom system message can be set, or re-set, as desired.</p>
+<div id="a10c2f08" class="cell" data-execution_count="11">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant that responds using pirate speak."</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>model_client.messages[<span class="dv">0</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="77aff13c" class="cell" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"Name a famous pirate from there."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="c---model-thinking" class="level2">
+<h2 class="anchored" data-anchor-id="c---model-thinking">C - Model Thinking</h2>
+<p>Some models support extended reasoning (also called “thinking”), where the model works through a problem step-by-step before producing a final response. AIMU automatically enables thinking for models in <code>THINKING_MODELS</code> (e.g., <code>DEEPSEEK_R1_8B</code>, <code>QWEN_3_5_9B</code>, <code>GPT_OSS_20B</code>).</p>
+<p>A thinking model must be used for the cells in this section.</p>
+<div id="25ab8c29" class="cell" data-execution_count="13">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Model: </span><span class="sc">{</span>model_client<span class="sc">.</span>model<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Thinking enabled: </span><span class="sc">{</span>model_client<span class="sc">.</span>is_thinking_model<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>After calling <code>generate()</code> or <code>chat()</code>, the model’s reasoning process is available via <code>last_thinking</code>.</p>
+<div id="339f8f36" class="cell" data-execution_count="14">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"What is the sum of the first 10 prime numbers?"</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Response:</span><span class="ch">\n</span><span class="st">"</span>, response)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Thinking:</span><span class="ch">\n</span><span class="st">"</span>, model_client.last_thinking)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>When streaming with <code>chat(..., stream=True)</code>, each chunk has a <code>phase</code> (<code>StreamingContentType</code>) and <code>content</code>. Use the phase to separate thinking tokens from the final response.</p>
+<div id="143ba2a6" class="cell" data-execution_count="15">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>was_thinking <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"[Thinking]</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"What is 17 multiplied by 23?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> was_thinking <span class="kw">and</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">[Generating]</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>        was_thinking <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="adaptive-vs.-budget-thinking-anthropic" class="level3">
+<h3 class="anchored" data-anchor-id="adaptive-vs.-budget-thinking-anthropic">Adaptive vs.&nbsp;budget thinking (Anthropic)</h3>
+<p><code>supports_thinking</code> is universal, but <em>how</em> a model is asked to reason is provider-specific. Anthropic models carry a <code>ThinkingStyle</code> (an enum analogous to HuggingFace’s <code>ToolCallFormat</code>) that fixes the request shape:</p>
+<ul>
+<li><strong><code>ENABLED</code></strong> (budget): <code>thinking={"type": "enabled", "budget_tokens": N}</code>; the model always thinks up to the budget. Opus 4.6, Sonnet 4.6, Haiku 4.5.</li>
+<li><strong><code>ADAPTIVE</code></strong>: <code>thinking={"type": "adaptive", "display": "summarized"}</code> (sampling params dropped); the model decides per request whether and how much to think, and may emit none on a simple prompt. Required by Opus 4.7+ and Fable 5, since the budget form returns a 400 on those.</li>
+</ul>
+<p>Either way, AIMU surfaces reasoning identically: <code>last_thinking</code> and <code>THINKING</code> stream chunks. The cell below needs the <code>[anthropic]</code> extra and <code>ANTHROPIC_API_KEY</code>; it prints each model’s style, then shows an adaptive model skipping thinking on a trivial prompt but engaging it on a reasoning prompt.</p>
+<div id="4e98349e" class="cell" data-execution_count="16">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_ANTHROPIC</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">not</span> (HAS_ANTHROPIC <span class="kw">and</span> os.environ.get(<span class="st">"ANTHROPIC_API_KEY"</span>)):</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Skipping: install aimu[anthropic] and set ANTHROPIC_API_KEY to run this section."</span>)</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> AnthropicModel</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Each Anthropic model fixes its thinking request shape via ThinkingStyle.</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> m <span class="kw">in</span> (AnthropicModel.CLAUDE_HAIKU_4_5, AnthropicModel.CLAUDE_OPUS_4_7):</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>m<span class="sc">.</span>name<span class="sc">:18s}</span><span class="ss"> -&gt; ThinkingStyle.</span><span class="sc">{</span>m<span class="sc">.</span>thinking_style<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># An adaptive model decides per request whether to think -- generate() is stateless,</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># so last_thinking just reflects the most recent call.</span></span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    adaptive <span class="op">=</span> ModelClient(AnthropicModel.CLAUDE_OPUS_4_7)</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>    adaptive.generate(<span class="st">"What is the capital of France?"</span>)</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Trivial prompt   -&gt; </span><span class="sc">{</span><span class="bu">len</span>(adaptive.last_thinking)<span class="sc">}</span><span class="ss"> thinking chars (often 0; adaptive skips it)"</span>)</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>    adaptive.generate(<span class="st">"Compute the sum of all integers from 1 to 200 that are divisible by 7. Show your work."</span>)</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Reasoning prompt -&gt; </span><span class="sc">{</span><span class="bu">len</span>(adaptive.last_thinking)<span class="sc">}</span><span class="ss"> thinking chars (the model chose to think)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="d---tool-usage" class="level2">
+<h2 class="anchored" data-anchor-id="d---tool-usage">D - Tool Usage</h2>
+<p>Create an MCP tool to use. See the “02 - MCP Tools” notebook for more examples of how to set up and use MCP tools.</p>
+<div id="f5efc725" class="cell" data-execution_count="17">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>mcp <span class="op">=</span> FastMCP(<span class="st">"AIMU Tools"</span>)</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_date_and_time() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Returns the current data and time as a string."""</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">str</span>(datetime.datetime.now())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Create a new AIMU MCPClient for handling MCP tool requests.</p>
+<div id="0ac75370" class="cell" data-execution_count="18">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>mcp_client.as_tools())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><code>chat()</code> on a bare client only advertises the tools and records any tool call the model requests – it does not run them. To actually execute tools, wrap the client in an <code>Agent</code> and call <code>run()</code>. The agent drives the model -&gt; tools -&gt; repeat loop and returns the final answer once the model stops calling tools.</p>
+<div id="673b7850" class="cell" data-execution_count="19">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What time is it?"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The messages should include the tool call, the tool response, and then final response generated by model.</p>
+<div id="c9fdee53" class="cell" data-execution_count="20">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>When streaming, THINKING, TOOL_CALLING, and GENERATING phases can be handled separately.</p>
+<div id="963d0c4d" class="cell" data-execution_count="21">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"What time is it now?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>chunk<span class="sc">.</span>phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss">]</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="e---multiple-parallel-tool-calls" class="level2">
+<h2 class="anchored" data-anchor-id="e---multiple-parallel-tool-calls">E - Multiple parallel tool calls</h2>
+<p>Some LLMs can use mutiple tools in parallel by making concurrent calls to different MCP tools and aggregating the results.</p>
+<div id="3a3be0b2" class="cell" data-execution_count="22">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_temperature(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current temperature for a given location.</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the temperature for.</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current temperature in Celsius.</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"21.0"</span></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_weather_conditions(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current weather conditions for a given location.</span></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the weather conditions for.</span></span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current weather conditions.</span></span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"sunny"</span></span>
+<span id="cb23-29"><a href="#cb23-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-fetch the tool callables now that the server has more tools registered,</span></span>
+<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a><span class="co"># and rebuild the agent so it advertises the full set.</span></span>
+<span id="cb23-33"><a href="#cb23-33" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb23-34"><a href="#cb23-34" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>mcp_client.as_tools())</span>
+<span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-36"><a href="#cb23-36" aria-hidden="true" tabindex="-1"></a>[fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> agent.tools]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="8befeecc" class="cell" data-execution_count="23">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What is the current temperature and weather conditions in New York City?"</span>)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="f---huggingface-model-weight-caching" class="level2">
+<h2 class="anchored" data-anchor-id="f---huggingface-model-weight-caching">F - HuggingFace Model Weight Caching</h2>
+<p>All four HuggingFace modality clients share a module-level weight registry. A second instance for the same model reuses loaded weights rather than calling <code>from_pretrained()</code> again.</p>
+<div id="603bf5cc" class="cell" data-execution_count="24">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_HF:</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models.hf <span class="im">import</span> HuggingFaceClient, HuggingFaceModel</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> aimu</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>    c1 <span class="op">=</span> HuggingFaceClient(m)</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>    c2 <span class="op">=</span> HuggingFaceClient(m)  <span class="co"># reuses weights from c1</span></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Same model object?"</span>, c1._hf_model <span class="kw">is</span> c2._hf_model)  <span class="co"># True</span></span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Free all HF weights and VRAM when done</span></span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>    aimu.clear_hf_cache()</span>
+<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Cache cleared."</span>)</span>
+<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"HuggingFace not installed, skipping."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="g---clean-up" class="level2">
+<h2 class="anchored" data-anchor-id="g---clean-up">G - Clean Up</h2>
+<p>When done, close the model clients to free up resources.</p>
+<div id="8502f8fc" class="cell" data-execution_count="25">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./index.html" class="pagination-link" aria-label="Overview">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Overview</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./02-conversations.html" class="pagination-link" aria-label="Conversations">
+        <span class="nav-page-text">Conversations</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Model Client"</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelClient`</span> is AIMU's unified entry point for talking to any supported backend: local (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) or cloud (OpenAI, Anthropic, Google Gemini). The same call shape (<span class="in">`generate()`</span>, <span class="in">`chat()`</span>, <span class="in">`chat(..., stream=True)`</span>) works against every provider, so you can swap models without rewriting the surrounding code. Streaming yields a single <span class="in">`StreamChunk`</span> type with explicit <span class="in">`THINKING`</span>, <span class="in">`TOOL_CALLING`</span>, and <span class="in">`GENERATING`</span> phases. The client advertises tools and records the model's tool-call requests, but executing tools in a loop is the job of an <span class="in">`Agent`</span> (<span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span>); image input is built into the base client.</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>Use a <span class="in">`ModelClient`</span> whenever you want a turn-by-turn conversation with a model: building a chat UI, prototyping prompts, wiring up tools, or experimenting with thinking/reasoning models. For autonomous tool-calling loops on top of the same client, see <span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span> (Agents).</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this notebook covers</span></span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Section <span class="pp">|</span> Topic <span class="pp">|</span></span>
+<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|</span></span>
+<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> A <span class="pp">|</span> Stateless text generation with <span class="in">`generate()`</span>, streaming, and generation kwargs <span class="pp">|</span></span>
+<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> B <span class="pp">|</span> Multi-turn chat, message history, and custom system messages <span class="pp">|</span></span>
+<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> C <span class="pp">|</span> Thinking models: accessing <span class="in">`last_thinking`</span> and filtering streamed phases <span class="pp">|</span></span>
+<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D <span class="pp">|</span> Tool calling: wrapping the client in an <span class="in">`Agent`</span> with an in-memory MCP server <span class="pp">|</span></span>
+<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> E <span class="pp">|</span> Parallel tool calls in one model turn <span class="pp">|</span></span>
+<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> F <span class="pp">|</span> Releasing resources <span class="pp">|</span></span>
+<span id="cb27-21"><a href="#cb27-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-22"><a href="#cb27-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-23"><a href="#cb27-23" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Text Generation</span></span>
+<span id="cb27-24"><a href="#cb27-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-25"><a href="#cb27-25" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelClient`</span> is a factory that accepts any provider model enum and automatically selects the right backend. The cell below picks the model used throughout this notebook; change <span class="in">`model_enum`</span> to try a different provider or model.</span>
+<span id="cb27-26"><a href="#cb27-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-29"><a href="#cb27-29" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-30"><a href="#cb27-30" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, HAS_OLLAMA, HAS_HF</span>
+<span id="cb27-31"><a href="#cb27-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-32"><a href="#cb27-32" aria-hidden="true" tabindex="-1"></a><span class="co"># Pick the model used throughout this notebook. Swap this assignment to try a</span></span>
+<span id="cb27-33"><a href="#cb27-33" aria-hidden="true" tabindex="-1"></a><span class="co"># different backend; every later cell reads `model_enum` unchanged.</span></span>
+<span id="cb27-34"><a href="#cb27-34" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_OLLAMA:</span>
+<span id="cb27-35"><a href="#cb27-35" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> OllamaModel</span>
+<span id="cb27-36"><a href="#cb27-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-37"><a href="#cb27-37" aria-hidden="true" tabindex="-1"></a>    model_enum <span class="op">=</span> OllamaModel.QWEN_3_5_9B</span>
+<span id="cb27-38"><a href="#cb27-38" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> HAS_HF:</span>
+<span id="cb27-39"><a href="#cb27-39" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceModel</span>
+<span id="cb27-40"><a href="#cb27-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-41"><a href="#cb27-41" aria-hidden="true" tabindex="-1"></a>    model_enum <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
+<span id="cb27-42"><a href="#cb27-42" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb27-43"><a href="#cb27-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">RuntimeError</span>(<span class="st">"Install a provider backend, e.g. `pip install aimu[ollama]`."</span>)</span>
+<span id="cb27-44"><a href="#cb27-44" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-45"><a href="#cb27-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-46"><a href="#cb27-46" aria-hidden="true" tabindex="-1"></a>The <span class="in">`ModelClient`</span> factory dispatches to the right backend based on the model enum type. You can also instantiate a specific client directly when you prefer explicit control:</span>
+<span id="cb27-47"><a href="#cb27-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-48"><a href="#cb27-48" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb27-49"><a href="#cb27-49" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, OllamaModel</span>
+<span id="cb27-50"><a href="#cb27-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-51"><a href="#cb27-51" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)  <span class="co"># factory: picks OllamaClient automatically</span></span>
+<span id="cb27-52"><a href="#cb27-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-53"><a href="#cb27-53" aria-hidden="true" tabindex="-1"></a><span class="co"># Or directly:</span></span>
+<span id="cb27-54"><a href="#cb27-54" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
+<span id="cb27-55"><a href="#cb27-55" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_5_9B)</span>
+<span id="cb27-56"><a href="#cb27-56" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-57"><a href="#cb27-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-58"><a href="#cb27-58" aria-hidden="true" tabindex="-1"></a>Here, we'll use the model enum assigned above.</span>
+<span id="cb27-59"><a href="#cb27-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-62"><a href="#cb27-62" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-63"><a href="#cb27-63" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(model_enum)</span>
+<span id="cb27-64"><a href="#cb27-64" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model_client.model.name <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> model_client.model.value)</span>
+<span id="cb27-65"><a href="#cb27-65" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-66"><a href="#cb27-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-67"><a href="#cb27-67" aria-hidden="true" tabindex="-1"></a>For non-interactive (chat-based) generation, the *generate* method is used. This method allows you to specify a prompt and receive a generated response.</span>
+<span id="cb27-68"><a href="#cb27-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-71"><a href="#cb27-71" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-72"><a href="#cb27-72" aria-hidden="true" tabindex="-1"></a>model_client.generate(<span class="st">"Name the capital of France."</span>)</span>
+<span id="cb27-73"><a href="#cb27-73" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-74"><a href="#cb27-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-75"><a href="#cb27-75" aria-hidden="true" tabindex="-1"></a>If the model supports thinking/reasoning, the thinking output for generation can be accessed via <span class="in">`model_client.last_thinking`</span>.</span>
+<span id="cb27-76"><a href="#cb27-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-79"><a href="#cb27-79" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-80"><a href="#cb27-80" aria-hidden="true" tabindex="-1"></a>model_client.last_thinking</span>
+<span id="cb27-81"><a href="#cb27-81" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-82"><a href="#cb27-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-83"><a href="#cb27-83" aria-hidden="true" tabindex="-1"></a>Output can be streamed as well.</span>
+<span id="cb27-84"><a href="#cb27-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-87"><a href="#cb27-87" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-88"><a href="#cb27-88" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"Name the capital of England."</span>, stream<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb27-89"><a href="#cb27-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-90"><a href="#cb27-90" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
+<span id="cb27-91"><a href="#cb27-91" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb27-92"><a href="#cb27-92" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-93"><a href="#cb27-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-94"><a href="#cb27-94" aria-hidden="true" tabindex="-1"></a>The thinking output can be filtered by specifying which streaming content types to include.</span>
+<span id="cb27-95"><a href="#cb27-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-98"><a href="#cb27-98" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-99"><a href="#cb27-99" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb27-100"><a href="#cb27-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-101"><a href="#cb27-101" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(</span>
+<span id="cb27-102"><a href="#cb27-102" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of the United States."</span>, stream<span class="op">=</span><span class="va">True</span>, include<span class="op">=</span>[StreamingContentType.GENERATING]</span>
+<span id="cb27-103"><a href="#cb27-103" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb27-104"><a href="#cb27-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-105"><a href="#cb27-105" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
+<span id="cb27-106"><a href="#cb27-106" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb27-107"><a href="#cb27-107" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-108"><a href="#cb27-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-109"><a href="#cb27-109" aria-hidden="true" tabindex="-1"></a>Parameters can be passed to the generate (and chat) methods to control the output. For thinking/reasoning models, max_tokens should be large enough to capture both the reasoning output, which happens first, and the generation output.</span>
+<span id="cb27-110"><a href="#cb27-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-111"><a href="#cb27-111" aria-hidden="true" tabindex="-1"></a>For generate_kwargs, see https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values</span>
+<span id="cb27-112"><a href="#cb27-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-115"><a href="#cb27-115" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-116"><a href="#cb27-116" aria-hidden="true" tabindex="-1"></a>model_client.generate(</span>
+<span id="cb27-117"><a href="#cb27-117" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of Germany."</span>,</span>
+<span id="cb27-118"><a href="#cb27-118" aria-hidden="true" tabindex="-1"></a>    generate_kwargs<span class="op">=</span>{</span>
+<span id="cb27-119"><a href="#cb27-119" aria-hidden="true" tabindex="-1"></a>        <span class="st">"temperature"</span>: <span class="fl">1.0</span>,</span>
+<span id="cb27-120"><a href="#cb27-120" aria-hidden="true" tabindex="-1"></a>        <span class="st">"top_p"</span>: <span class="fl">0.9</span>,</span>
+<span id="cb27-121"><a href="#cb27-121" aria-hidden="true" tabindex="-1"></a>        <span class="st">"top_k"</span>: <span class="dv">40</span>,</span>
+<span id="cb27-122"><a href="#cb27-122" aria-hidden="true" tabindex="-1"></a>        <span class="st">"max_tokens"</span>: <span class="dv">1024</span>,</span>
+<span id="cb27-123"><a href="#cb27-123" aria-hidden="true" tabindex="-1"></a>        <span class="st">"repeat_penalty"</span>: <span class="fl">1.1</span>,</span>
+<span id="cb27-124"><a href="#cb27-124" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb27-125"><a href="#cb27-125" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb27-126"><a href="#cb27-126" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-127"><a href="#cb27-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-128"><a href="#cb27-128" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - Basic Chat</span></span>
+<span id="cb27-129"><a href="#cb27-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-130"><a href="#cb27-130" aria-hidden="true" tabindex="-1"></a>Chatting with a model simply involves passing a message and receiving a response. The Model Client handles the conversation history automatically.</span>
+<span id="cb27-131"><a href="#cb27-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-134"><a href="#cb27-134" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-135"><a href="#cb27-135" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"What is the capital of China?"</span>)</span>
+<span id="cb27-136"><a href="#cb27-136" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-137"><a href="#cb27-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-138"><a href="#cb27-138" aria-hidden="true" tabindex="-1"></a>Chat responses can be streamed as well.</span>
+<span id="cb27-139"><a href="#cb27-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-142"><a href="#cb27-142" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-143"><a href="#cb27-143" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"How long has it been the capital?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb27-144"><a href="#cb27-144" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb27-145"><a href="#cb27-145" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-146"><a href="#cb27-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-147"><a href="#cb27-147" aria-hidden="true" tabindex="-1"></a>The complete message history, including the model thinking/reasoning, can be accessed via the <span class="in">`messages`</span> property of the Model Client.</span>
+<span id="cb27-148"><a href="#cb27-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-151"><a href="#cb27-151" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-152"><a href="#cb27-152" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb27-153"><a href="#cb27-153" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-154"><a href="#cb27-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-155"><a href="#cb27-155" aria-hidden="true" tabindex="-1"></a>A custom system message can be set, or re-set, as desired.</span>
+<span id="cb27-156"><a href="#cb27-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-159"><a href="#cb27-159" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-160"><a href="#cb27-160" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant that responds using pirate speak."</span></span>
+<span id="cb27-161"><a href="#cb27-161" aria-hidden="true" tabindex="-1"></a>model_client.messages[<span class="dv">0</span>]</span>
+<span id="cb27-162"><a href="#cb27-162" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-163"><a href="#cb27-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-166"><a href="#cb27-166" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-167"><a href="#cb27-167" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"Name a famous pirate from there."</span>)</span>
+<span id="cb27-168"><a href="#cb27-168" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-169"><a href="#cb27-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-170"><a href="#cb27-170" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - Model Thinking</span></span>
+<span id="cb27-171"><a href="#cb27-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-172"><a href="#cb27-172" aria-hidden="true" tabindex="-1"></a>Some models support extended reasoning (also called "thinking"), where the model works through a problem step-by-step before producing a final response. AIMU automatically enables thinking for models in <span class="in">`THINKING_MODELS`</span> (e.g., <span class="in">`DEEPSEEK_R1_8B`</span>, <span class="in">`QWEN_3_5_9B`</span>, <span class="in">`GPT_OSS_20B`</span>).</span>
+<span id="cb27-173"><a href="#cb27-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-174"><a href="#cb27-174" aria-hidden="true" tabindex="-1"></a>A thinking model must be used for the cells in this section.</span>
+<span id="cb27-175"><a href="#cb27-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-178"><a href="#cb27-178" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-179"><a href="#cb27-179" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Model: </span><span class="sc">{</span>model_client<span class="sc">.</span>model<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb27-180"><a href="#cb27-180" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Thinking enabled: </span><span class="sc">{</span>model_client<span class="sc">.</span>is_thinking_model<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb27-181"><a href="#cb27-181" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-182"><a href="#cb27-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-183"><a href="#cb27-183" aria-hidden="true" tabindex="-1"></a>After calling <span class="in">`generate()`</span> or <span class="in">`chat()`</span>, the model's reasoning process is available via <span class="in">`last_thinking`</span>.</span>
+<span id="cb27-184"><a href="#cb27-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-187"><a href="#cb27-187" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-188"><a href="#cb27-188" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"What is the sum of the first 10 prime numbers?"</span>)</span>
+<span id="cb27-189"><a href="#cb27-189" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Response:</span><span class="ch">\n</span><span class="st">"</span>, response)</span>
+<span id="cb27-190"><a href="#cb27-190" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Thinking:</span><span class="ch">\n</span><span class="st">"</span>, model_client.last_thinking)</span>
+<span id="cb27-191"><a href="#cb27-191" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-192"><a href="#cb27-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-193"><a href="#cb27-193" aria-hidden="true" tabindex="-1"></a>When streaming with <span class="in">`chat(..., stream=True)`</span>, each chunk has a <span class="in">`phase`</span> (<span class="in">`StreamingContentType`</span>) and <span class="in">`content`</span>. Use the phase to separate thinking tokens from the final response.</span>
+<span id="cb27-194"><a href="#cb27-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-197"><a href="#cb27-197" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-198"><a href="#cb27-198" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb27-199"><a href="#cb27-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-200"><a href="#cb27-200" aria-hidden="true" tabindex="-1"></a>was_thinking <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb27-201"><a href="#cb27-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-202"><a href="#cb27-202" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"[Thinking]</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb27-203"><a href="#cb27-203" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"What is 17 multiplied by 23?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb27-204"><a href="#cb27-204" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> was_thinking <span class="kw">and</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
+<span id="cb27-205"><a href="#cb27-205" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">[Generating]</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb27-206"><a href="#cb27-206" aria-hidden="true" tabindex="-1"></a>        was_thinking <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb27-207"><a href="#cb27-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-208"><a href="#cb27-208" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb27-209"><a href="#cb27-209" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-210"><a href="#cb27-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-211"><a href="#cb27-211" aria-hidden="true" tabindex="-1"></a><span class="fu">### Adaptive vs. budget thinking (Anthropic)</span></span>
+<span id="cb27-212"><a href="#cb27-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-213"><a href="#cb27-213" aria-hidden="true" tabindex="-1"></a><span class="in">`supports_thinking`</span> is universal, but *how* a model is asked to reason is provider-specific. Anthropic models carry a <span class="in">`ThinkingStyle`</span> (an enum analogous to HuggingFace's <span class="in">`ToolCallFormat`</span>) that fixes the request shape:</span>
+<span id="cb27-214"><a href="#cb27-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-215"><a href="#cb27-215" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`ENABLED`** (budget): <span class="in">`thinking={"type": "enabled", "budget_tokens": N}`</span>; the model always thinks up to the budget. Opus 4.6, Sonnet 4.6, Haiku 4.5.</span>
+<span id="cb27-216"><a href="#cb27-216" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`ADAPTIVE`**: <span class="in">`thinking={"type": "adaptive", "display": "summarized"}`</span> (sampling params dropped); the model decides per request whether and how much to think, and may emit none on a simple prompt. Required by Opus 4.7+ and Fable 5, since the budget form returns a 400 on those.</span>
+<span id="cb27-217"><a href="#cb27-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-218"><a href="#cb27-218" aria-hidden="true" tabindex="-1"></a>Either way, AIMU surfaces reasoning identically: <span class="in">`last_thinking`</span> and <span class="in">`THINKING`</span> stream chunks. The cell below needs the <span class="in">`[anthropic]`</span> extra and <span class="in">`ANTHROPIC_API_KEY`</span>; it prints each model's style, then shows an adaptive model skipping thinking on a trivial prompt but engaging it on a reasoning prompt.</span>
+<span id="cb27-219"><a href="#cb27-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-222"><a href="#cb27-222" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-223"><a href="#cb27-223" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb27-224"><a href="#cb27-224" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_ANTHROPIC</span>
+<span id="cb27-225"><a href="#cb27-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-226"><a href="#cb27-226" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">not</span> (HAS_ANTHROPIC <span class="kw">and</span> os.environ.get(<span class="st">"ANTHROPIC_API_KEY"</span>)):</span>
+<span id="cb27-227"><a href="#cb27-227" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Skipping: install aimu[anthropic] and set ANTHROPIC_API_KEY to run this section."</span>)</span>
+<span id="cb27-228"><a href="#cb27-228" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb27-229"><a href="#cb27-229" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> AnthropicModel</span>
+<span id="cb27-230"><a href="#cb27-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-231"><a href="#cb27-231" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Each Anthropic model fixes its thinking request shape via ThinkingStyle.</span></span>
+<span id="cb27-232"><a href="#cb27-232" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> m <span class="kw">in</span> (AnthropicModel.CLAUDE_HAIKU_4_5, AnthropicModel.CLAUDE_OPUS_4_7):</span>
+<span id="cb27-233"><a href="#cb27-233" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>m<span class="sc">.</span>name<span class="sc">:18s}</span><span class="ss"> -&gt; ThinkingStyle.</span><span class="sc">{</span>m<span class="sc">.</span>thinking_style<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb27-234"><a href="#cb27-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-235"><a href="#cb27-235" aria-hidden="true" tabindex="-1"></a>    <span class="co"># An adaptive model decides per request whether to think -- generate() is stateless,</span></span>
+<span id="cb27-236"><a href="#cb27-236" aria-hidden="true" tabindex="-1"></a>    <span class="co"># so last_thinking just reflects the most recent call.</span></span>
+<span id="cb27-237"><a href="#cb27-237" aria-hidden="true" tabindex="-1"></a>    adaptive <span class="op">=</span> ModelClient(AnthropicModel.CLAUDE_OPUS_4_7)</span>
+<span id="cb27-238"><a href="#cb27-238" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-239"><a href="#cb27-239" aria-hidden="true" tabindex="-1"></a>    adaptive.generate(<span class="st">"What is the capital of France?"</span>)</span>
+<span id="cb27-240"><a href="#cb27-240" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Trivial prompt   -&gt; </span><span class="sc">{</span><span class="bu">len</span>(adaptive.last_thinking)<span class="sc">}</span><span class="ss"> thinking chars (often 0; adaptive skips it)"</span>)</span>
+<span id="cb27-241"><a href="#cb27-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-242"><a href="#cb27-242" aria-hidden="true" tabindex="-1"></a>    adaptive.generate(<span class="st">"Compute the sum of all integers from 1 to 200 that are divisible by 7. Show your work."</span>)</span>
+<span id="cb27-243"><a href="#cb27-243" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Reasoning prompt -&gt; </span><span class="sc">{</span><span class="bu">len</span>(adaptive.last_thinking)<span class="sc">}</span><span class="ss"> thinking chars (the model chose to think)"</span>)</span>
+<span id="cb27-244"><a href="#cb27-244" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-245"><a href="#cb27-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-246"><a href="#cb27-246" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Tool Usage</span></span>
+<span id="cb27-247"><a href="#cb27-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-248"><a href="#cb27-248" aria-hidden="true" tabindex="-1"></a>Create an MCP tool to use. See the "02 - MCP Tools" notebook for more examples of how to set up and use MCP tools.</span>
+<span id="cb27-249"><a href="#cb27-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-252"><a href="#cb27-252" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-253"><a href="#cb27-253" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span>
+<span id="cb27-254"><a href="#cb27-254" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
+<span id="cb27-255"><a href="#cb27-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-256"><a href="#cb27-256" aria-hidden="true" tabindex="-1"></a>mcp <span class="op">=</span> FastMCP(<span class="st">"AIMU Tools"</span>)</span>
+<span id="cb27-257"><a href="#cb27-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-258"><a href="#cb27-258" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-259"><a href="#cb27-259" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb27-260"><a href="#cb27-260" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_date_and_time() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb27-261"><a href="#cb27-261" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Returns the current data and time as a string."""</span></span>
+<span id="cb27-262"><a href="#cb27-262" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">str</span>(datetime.datetime.now())</span>
+<span id="cb27-263"><a href="#cb27-263" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-264"><a href="#cb27-264" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-265"><a href="#cb27-265" aria-hidden="true" tabindex="-1"></a>Create a new AIMU MCPClient for handling MCP tool requests.</span>
+<span id="cb27-266"><a href="#cb27-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-269"><a href="#cb27-269" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-270"><a href="#cb27-270" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
+<span id="cb27-271"><a href="#cb27-271" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb27-272"><a href="#cb27-272" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-273"><a href="#cb27-273" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb27-274"><a href="#cb27-274" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>mcp_client.as_tools())</span>
+<span id="cb27-275"><a href="#cb27-275" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-276"><a href="#cb27-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-277"><a href="#cb27-277" aria-hidden="true" tabindex="-1"></a><span class="in">`chat()`</span> on a bare client only advertises the tools and records any tool call the model requests -- it does not run them. To actually execute tools, wrap the client in an <span class="in">`Agent`</span> and call <span class="in">`run()`</span>. The agent drives the model -&gt; tools -&gt; repeat loop and returns the final answer once the model stops calling tools.</span>
+<span id="cb27-278"><a href="#cb27-278" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-281"><a href="#cb27-281" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-282"><a href="#cb27-282" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What time is it?"</span>)</span>
+<span id="cb27-283"><a href="#cb27-283" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-284"><a href="#cb27-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-285"><a href="#cb27-285" aria-hidden="true" tabindex="-1"></a>The messages should include the tool call, the tool response, and then final response generated by model.</span>
+<span id="cb27-286"><a href="#cb27-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-289"><a href="#cb27-289" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-290"><a href="#cb27-290" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb27-291"><a href="#cb27-291" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-292"><a href="#cb27-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-293"><a href="#cb27-293" aria-hidden="true" tabindex="-1"></a>When streaming, THINKING, TOOL_CALLING, and GENERATING phases can be handled separately.</span>
+<span id="cb27-294"><a href="#cb27-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-297"><a href="#cb27-297" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-298"><a href="#cb27-298" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb27-299"><a href="#cb27-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-300"><a href="#cb27-300" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb27-301"><a href="#cb27-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-302"><a href="#cb27-302" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"What time is it now?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb27-303"><a href="#cb27-303" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
+<span id="cb27-304"><a href="#cb27-304" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>chunk<span class="sc">.</span>phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss">]</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb27-305"><a href="#cb27-305" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
+<span id="cb27-306"><a href="#cb27-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-307"><a href="#cb27-307" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb27-308"><a href="#cb27-308" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-309"><a href="#cb27-309" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-310"><a href="#cb27-310" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - Multiple parallel tool calls</span></span>
+<span id="cb27-311"><a href="#cb27-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-312"><a href="#cb27-312" aria-hidden="true" tabindex="-1"></a>Some LLMs can use mutiple tools in parallel by making concurrent calls to different MCP tools and aggregating the results.</span>
+<span id="cb27-313"><a href="#cb27-313" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-316"><a href="#cb27-316" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-317"><a href="#cb27-317" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb27-318"><a href="#cb27-318" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_temperature(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb27-319"><a href="#cb27-319" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb27-320"><a href="#cb27-320" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current temperature for a given location.</span></span>
+<span id="cb27-321"><a href="#cb27-321" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-322"><a href="#cb27-322" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb27-323"><a href="#cb27-323" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the temperature for.</span></span>
+<span id="cb27-324"><a href="#cb27-324" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-325"><a href="#cb27-325" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb27-326"><a href="#cb27-326" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current temperature in Celsius.</span></span>
+<span id="cb27-327"><a href="#cb27-327" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb27-328"><a href="#cb27-328" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-329"><a href="#cb27-329" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"21.0"</span></span>
+<span id="cb27-330"><a href="#cb27-330" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-331"><a href="#cb27-331" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-332"><a href="#cb27-332" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb27-333"><a href="#cb27-333" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_weather_conditions(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb27-334"><a href="#cb27-334" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb27-335"><a href="#cb27-335" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current weather conditions for a given location.</span></span>
+<span id="cb27-336"><a href="#cb27-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-337"><a href="#cb27-337" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb27-338"><a href="#cb27-338" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the weather conditions for.</span></span>
+<span id="cb27-339"><a href="#cb27-339" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-340"><a href="#cb27-340" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb27-341"><a href="#cb27-341" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current weather conditions.</span></span>
+<span id="cb27-342"><a href="#cb27-342" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb27-343"><a href="#cb27-343" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-344"><a href="#cb27-344" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"sunny"</span></span>
+<span id="cb27-345"><a href="#cb27-345" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-346"><a href="#cb27-346" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-347"><a href="#cb27-347" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-fetch the tool callables now that the server has more tools registered,</span></span>
+<span id="cb27-348"><a href="#cb27-348" aria-hidden="true" tabindex="-1"></a><span class="co"># and rebuild the agent so it advertises the full set.</span></span>
+<span id="cb27-349"><a href="#cb27-349" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb27-350"><a href="#cb27-350" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>mcp_client.as_tools())</span>
+<span id="cb27-351"><a href="#cb27-351" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-352"><a href="#cb27-352" aria-hidden="true" tabindex="-1"></a>[fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> agent.tools]</span>
+<span id="cb27-353"><a href="#cb27-353" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-354"><a href="#cb27-354" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-357"><a href="#cb27-357" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-358"><a href="#cb27-358" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What is the current temperature and weather conditions in New York City?"</span>)</span>
+<span id="cb27-359"><a href="#cb27-359" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb27-360"><a href="#cb27-360" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-361"><a href="#cb27-361" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-362"><a href="#cb27-362" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - HuggingFace Model Weight Caching</span></span>
+<span id="cb27-363"><a href="#cb27-363" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-364"><a href="#cb27-364" aria-hidden="true" tabindex="-1"></a>All four HuggingFace modality clients share a module-level weight registry. A second instance for the same model reuses loaded weights rather than calling <span class="in">`from_pretrained()`</span> again.</span>
+<span id="cb27-365"><a href="#cb27-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-368"><a href="#cb27-368" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-369"><a href="#cb27-369" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF</span>
+<span id="cb27-370"><a href="#cb27-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-371"><a href="#cb27-371" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_HF:</span>
+<span id="cb27-372"><a href="#cb27-372" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models.hf <span class="im">import</span> HuggingFaceClient, HuggingFaceModel</span>
+<span id="cb27-373"><a href="#cb27-373" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> aimu</span>
+<span id="cb27-374"><a href="#cb27-374" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-375"><a href="#cb27-375" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
+<span id="cb27-376"><a href="#cb27-376" aria-hidden="true" tabindex="-1"></a>    c1 <span class="op">=</span> HuggingFaceClient(m)</span>
+<span id="cb27-377"><a href="#cb27-377" aria-hidden="true" tabindex="-1"></a>    c2 <span class="op">=</span> HuggingFaceClient(m)  <span class="co"># reuses weights from c1</span></span>
+<span id="cb27-378"><a href="#cb27-378" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-379"><a href="#cb27-379" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Same model object?"</span>, c1._hf_model <span class="kw">is</span> c2._hf_model)  <span class="co"># True</span></span>
+<span id="cb27-380"><a href="#cb27-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-381"><a href="#cb27-381" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Free all HF weights and VRAM when done</span></span>
+<span id="cb27-382"><a href="#cb27-382" aria-hidden="true" tabindex="-1"></a>    aimu.clear_hf_cache()</span>
+<span id="cb27-383"><a href="#cb27-383" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Cache cleared."</span>)</span>
+<span id="cb27-384"><a href="#cb27-384" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb27-385"><a href="#cb27-385" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"HuggingFace not installed, skipping."</span>)</span>
+<span id="cb27-386"><a href="#cb27-386" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb27-387"><a href="#cb27-387" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-388"><a href="#cb27-388" aria-hidden="true" tabindex="-1"></a><span class="fu">## G - Clean Up</span></span>
+<span id="cb27-389"><a href="#cb27-389" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-390"><a href="#cb27-390" aria-hidden="true" tabindex="-1"></a>When done, close the model clients to free up resources.</span>
+<span id="cb27-391"><a href="#cb27-391" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-394"><a href="#cb27-394" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb27-395"><a href="#cb27-395" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client</span>
+<span id="cb27-396"><a href="#cb27-396" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

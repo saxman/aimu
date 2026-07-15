@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Composing Agents (A2A) – AIMU Notebooks</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./24-personal-assistants.html" rel="next">
+<link href="./22-async.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-637a8987fd156daea465eecdbde71ac9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./23-composing-agents-a2a.html">Composing Agents (A2A)</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">AIMU Notebooks</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Notebooks</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-model-client.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model Client</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-conversations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Conversations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-structured-output.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Structured Output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-vision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vision Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-audio-input.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tools</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-agent-skills.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agent Skills</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-workflows.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Workflows</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-prebuilt-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prebuilt Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-embeddings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Embeddings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./13-rag.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Retrieval-Augmented Generation (RAG)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./14-prompt-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Management</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./15-prompt-tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Tuning</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./16-evaluations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Evaluations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./17-benchmarking.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benchmarking</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./18-image-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Image Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./19-audio-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./20-speech.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Speech</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./21-transcription.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Transcription</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22-async.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Async (<code>aimu.aio</code>)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./23-composing-agents-a2a.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Composing Agents (A2A)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./24-personal-assistants.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Personal Assistants</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./25-sessions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sessions (multi-user)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./26-remote-mcp-servers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote MCP Servers</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#setup" id="toc-setup" class="nav-link active" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#a---composing-runners-in-process" id="toc-a---composing-runners-in-process" class="nav-link" data-scroll-target="#a---composing-runners-in-process">A - Composing runners in-process</a>
+  <ul class="collapse">
+  <li><a href="#runner.as_tool-turn-any-runner-into-a-tool" id="toc-runner.as_tool-turn-any-runner-into-a-tool" class="nav-link" data-scroll-target="#runner.as_tool-turn-any-runner-into-a-tool"><code>runner.as_tool()</code>: turn any runner into a tool</a></li>
+  <li><a href="#orchestratoragent.assemble-accepts-any-runner-as-a-worker" id="toc-orchestratoragent.assemble-accepts-any-runner-as-a-worker" class="nav-link" data-scroll-target="#orchestratoragent.assemble-accepts-any-runner-as-a-worker"><code>OrchestratorAgent.assemble()</code> accepts any <code>Runner</code> as a worker</a></li>
+  <li><a href="#a-workflow-as-a-tool-inside-an-autonomous-agent" id="toc-a-workflow-as-a-tool-inside-an-autonomous-agent" class="nav-link" data-scroll-target="#a-workflow-as-a-tool-inside-an-autonomous-agent">A workflow as a tool inside an autonomous agent</a></li>
+  </ul></li>
+  <li><a href="#b---cross-process-interop-with-a2a" id="toc-b---cross-process-interop-with-a2a" class="nav-link" data-scroll-target="#b---cross-process-interop-with-a2a">B - Cross-process interop with A2A</a>
+  <ul class="collapse">
+  <li><a href="#expose-a-runner-as-an-a2a-server" id="toc-expose-a-runner-as-an-a2a-server" class="nav-link" data-scroll-target="#expose-a-runner-as-an-a2a-server">Expose a runner as an A2A server</a></li>
+  <li><a href="#inspect-the-agent-card" id="toc-inspect-the-agent-card" class="nav-link" data-scroll-target="#inspect-the-agent-card">Inspect the agent card</a></li>
+  <li><a href="#consume-the-remote-agent-as-a-local-runner" id="toc-consume-the-remote-agent-as-a-local-runner" class="nav-link" data-scroll-target="#consume-the-remote-agent-as-a-local-runner">Consume the remote agent as a local <code>Runner</code></a></li>
+  <li><a href="#the-payoff-a-remote-agent-composes-exactly-like-a-local-one" id="toc-the-payoff-a-remote-agent-composes-exactly-like-a-local-one" class="nav-link" data-scroll-target="#the-payoff-a-remote-agent-composes-exactly-like-a-local-one">The payoff: a remote agent composes exactly like a local one</a></li>
+  <li><a href="#tear-down-the-server" id="toc-tear-down-the-server" class="nav-link" data-scroll-target="#tear-down-the-server">Tear down the server</a></li>
+  </ul></li>
+  <li><a href="#c---async-aimu.aio" id="toc-c---async-aimu.aio" class="nav-link" data-scroll-target="#c---async-aimu.aio">C - Async (<code>aimu.aio</code>)</a></li>
+  <li><a href="#serving-from-the-command-line" id="toc-serving-from-the-command-line" class="nav-link" data-scroll-target="#serving-from-the-command-line">Serving from the command line</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./23-composing-agents-a2a.html">Composing Agents (A2A)</a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Composing Agents (A2A)</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>Every agent and workflow in AIMU implements the single <code>Runner</code> interface (<code>run()</code> + <code>messages</code>), so they compose freely. This notebook shows two layers of composition:</p>
+<ul>
+<li><strong>In-process</strong>: <code>runner.as_tool()</code> turns <em>any</em> agent or workflow into a tool another agent can call, and <code>OrchestratorAgent.assemble()</code> accepts any <code>Runner</code> as a worker.</li>
+<li><strong>Cross-process (A2A)</strong>: the optional <a href="https://a2a-protocol.org/">Agent2Agent</a> layer exposes a <code>Runner</code> as an HTTP server (<code>serve_a2a</code>) and consumes a remote agent as a local <code>Runner</code> (<code>RemoteAgent</code>). Because <code>RemoteAgent</code> <em>is a</em> <code>Runner</code>, a remote agent composes exactly like a local one.</li>
+</ul>
+<p><strong>A2A vs MCP:</strong> MCP (<code>aimu.tools.MCPClient</code>) shares <em>tools</em> across a process boundary; A2A shares whole <em>agents</em>. They are complementary; see <a href="../docs/explanation/a2a-vs-mcp.md">docs/explanation/a2a-vs-mcp.md</a>.</p>
+<p>The A2A sections require the optional extra: <code>pip install 'aimu[a2a]'</code>.</p>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<p>The model-backed cells (the orchestrator and the routing agent) use a small local Ollama model so the notebook runs quickly. Swap in any tool-capable model, or <code>aimu.client()</code> to auto-resolve a local default.</p>
+<div id="e489c01a" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:03.748920Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:03.748716Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:15.843707Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:15.843263Z&quot;}}" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaModel</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> OllamaModel.QWEN_3_8B  <span class="co"># small + tool-capable; change to taste</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="a---composing-runners-in-process" class="level2">
+<h2 class="anchored" data-anchor-id="a---composing-runners-in-process">A - Composing runners in-process</h2>
+<p>The <code>Runner</code> interface is tiny: a <code>run(task)</code> method and a <code>messages</code> property. Here are two deterministic runners (no model needed) so the composition mechanics are easy to see. In real use these would be an <code>Agent</code>, <code>Chain</code>, <code>Router</code>, etc.</p>
+<div id="92262044" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:15.845129Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:15.844969Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:15.847856Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:15.847538Z&quot;}}" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Runner</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> FAQRunner(Runner):</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""A trivial knowledge-base lookup, used to demo composition without a model backend."""</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    _FAQ <span class="op">=</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">"refund"</span>: <span class="st">"Refunds are processed within 5 business days."</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">"hours"</span>: <span class="st">"Support is available 9am-5pm, Monday to Friday."</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, name<span class="op">=</span><span class="st">"faq"</span>):</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.name <span class="op">=</span> name</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.system_message <span class="op">=</span> <span class="st">"Answer questions from the support knowledge base."</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> run(<span class="va">self</span>, task, generate_kwargs<span class="op">=</span><span class="va">None</span>, stream<span class="op">=</span><span class="va">False</span>, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> key, answer <span class="kw">in</span> <span class="va">self</span>._FAQ.items():</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> key <span class="kw">in</span> task.lower():</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> answer</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="st">"No knowledge-base entry matched."</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">@property</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> messages(<span class="va">self</span>):</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {<span class="va">self</span>.name: []}</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> GreetingRunner(Runner):</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, name<span class="op">=</span><span class="st">"greeter"</span>):</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.name <span class="op">=</span> name</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.system_message <span class="op">=</span> <span class="st">"Produce a friendly greeting for the user."</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> run(<span class="va">self</span>, task, generate_kwargs<span class="op">=</span><span class="va">None</span>, stream<span class="op">=</span><span class="va">False</span>, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="st">"Hello, and welcome to ACME support!"</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    <span class="at">@property</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> messages(<span class="va">self</span>):</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {<span class="va">self</span>.name: []}</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>faq <span class="op">=</span> FAQRunner()</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(faq.run(<span class="st">"What are your support hours?"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="runner.as_tool-turn-any-runner-into-a-tool" class="level3">
+<h3 class="anchored" data-anchor-id="runner.as_tool-turn-any-runner-into-a-tool"><code>runner.as_tool()</code>: turn any runner into a tool</h3>
+<p><code>as_tool()</code> wraps a runner’s <code>run()</code> as a <code>@aimu.tool</code>-style callable. The tool name comes from the runner’s <code>name</code>; the description from its <code>system_message</code> (or a generic fallback for workflows). This is the seam that lets an autonomous agent call another agent or workflow. No model needed to inspect it.</p>
+<div id="592cba6f" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:15.848813Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:15.848765Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:15.850341Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:15.850022Z&quot;}}" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>tool_fn <span class="op">=</span> faq.as_tool()</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"tool name: "</span>, tool_fn.<span class="va">__name__</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"description:"</span>, tool_fn.__tool_spec__[<span class="st">"function"</span>][<span class="st">"description"</span>])</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"schema:     "</span>, tool_fn.__tool_spec__[<span class="st">"function"</span>][<span class="st">"parameters"</span>])</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"call:       "</span>, tool_fn(<span class="st">"Tell me about your refund policy"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="orchestratoragent.assemble-accepts-any-runner-as-a-worker" class="level3">
+<h3 class="anchored" data-anchor-id="orchestratoragent.assemble-accepts-any-runner-as-a-worker"><code>OrchestratorAgent.assemble()</code> accepts any <code>Runner</code> as a worker</h3>
+<p><code>assemble()</code> wraps each worker via <code>as_tool()</code>, so workers can be any <code>Runner</code>: an <code>Agent</code>, a <code>Chain</code>, a <code>Router</code>, a remote A2A agent, or the deterministic runners above. The orchestrator itself is a model-driven <code>Agent</code> that dispatches to workers by name.</p>
+<div id="1f9816b0" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:15.851265Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:15.851210Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:29.875123Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:29.873927Z&quot;}}" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> OrchestratorAgent</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>orchestrator <span class="op">=</span> OrchestratorAgent.assemble(</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    aimu.client(MODEL),</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"You coordinate support. Use the greeter tool to greet, and the faq tool for policy questions."</span>,</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    workers<span class="op">=</span>[GreetingRunner(), FAQRunner()],</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"workers registered as tools:"</span>, [t.<span class="va">__name__</span> <span class="cf">for</span> t <span class="kw">in</span> orchestrator._orchestrator.model_client.tools])</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>()</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(orchestrator.run(<span class="st">"Greet me, then tell me your refund policy."</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="a-workflow-as-a-tool-inside-an-autonomous-agent" class="level3">
+<h3 class="anchored" data-anchor-id="a-workflow-as-a-tool-inside-an-autonomous-agent">A workflow as a tool inside an autonomous agent</h3>
+<p><code>Chain</code>/<code>Router</code>/<code>Parallel</code> already accept other runners as members. The new piece is the reverse direction: handing a <em>workflow</em> to an autonomous <code>Agent</code> as a tool, via <code>as_tool()</code>.</p>
+<div id="aef840e2" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:29.877876Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:29.877699Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:41.102666Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:41.101528Z&quot;}}" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent, Chain</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># A two-step chain (deterministic runners) exposed as a single tool.</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>lookup_then_greet <span class="op">=</span> Chain(agents<span class="op">=</span>[FAQRunner(), GreetingRunner()], name<span class="op">=</span><span class="st">"lookup_then_greet"</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    aimu.client(MODEL),</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">"You are a router. For any support enquiry, call the lookup_then_greet tool, then report its result."</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[lookup_then_greet.as_tool()],</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">3</span>,</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(agent.run(<span class="st">"A customer is asking about refunds."</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="b---cross-process-interop-with-a2a" class="level2">
+<h2 class="anchored" data-anchor-id="b---cross-process-interop-with-a2a">B - Cross-process interop with A2A</h2>
+<p>A2A exposes a whole agent over HTTP. AIMU gives you both directions:</p>
+<ul>
+<li><strong>Serve:</strong> <code>serve_a2a(runner)</code> (blocking) or <code>build_a2a_app(runner)</code> (returns a Starlette ASGI app).</li>
+<li><strong>Consume:</strong> <code>RemoteAgent.connect(url)</code> resolves the remote <em>agent card</em> and returns a local <code>Runner</code>.</li>
+</ul>
+<p><code>serve_a2a</code> blocks, so in a notebook we run the ASGI app under uvicorn in a background thread.</p>
+<div id="ea16df35" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:41.104582Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:41.104432Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:41.109337Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:41.108539Z&quot;}}" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> socket</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> threading</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> contextlib <span class="im">import</span> contextmanager</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> uvicorn</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="at">@contextmanager</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> serve_in_background(app):</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Run an ASGI app on a free port in a daemon thread; yield its base URL."""</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    sock <span class="op">=</span> socket.socket()</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    sock.bind((<span class="st">"127.0.0.1"</span>, <span class="dv">0</span>))</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    port <span class="op">=</span> sock.getsockname()[<span class="dv">1</span>]</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    sock.close()</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    config <span class="op">=</span> uvicorn.Config(app, host<span class="op">=</span><span class="st">"127.0.0.1"</span>, port<span class="op">=</span>port, log_level<span class="op">=</span><span class="st">"warning"</span>)</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    server <span class="op">=</span> uvicorn.Server(config)</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    thread <span class="op">=</span> threading.Thread(target<span class="op">=</span>server.run, daemon<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    thread.start()</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="kw">not</span> server.started:</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>            time.sleep(<span class="fl">0.02</span>)</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">yield</span> <span class="ss">f"http://127.0.0.1:</span><span class="sc">{</span>port<span class="sc">}</span><span class="ss">/"</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">finally</span>:</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        server.should_exit <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>        thread.join(timeout<span class="op">=</span><span class="dv">5</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="expose-a-runner-as-an-a2a-server" class="level3">
+<h3 class="anchored" data-anchor-id="expose-a-runner-as-an-a2a-server">Expose a runner as an A2A server</h3>
+<p><code>build_a2a_app</code> wraps the runner in an A2A executor and advertises it via an agent card at <code>/.well-known/agent-card.json</code>. We serve the deterministic <code>FAQRunner</code> here so calls are instant, but any <code>Runner</code> (including a model-backed <code>Agent</code> or <code>Chain</code>) works identically.</p>
+<div id="59429ce2" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:41.111310Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:41.111244Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:41.425944Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:41.424917Z&quot;}}" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents.a2a <span class="im">import</span> build_a2a_app</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>faq_server <span class="op">=</span> FAQRunner(name<span class="op">=</span><span class="st">"support-faq"</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>app <span class="op">=</span> build_a2a_app(faq_server, url<span class="op">=</span><span class="st">"http://placeholder/"</span>, description<span class="op">=</span><span class="st">"ACME support FAQ agent."</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>server_ctx <span class="op">=</span> serve_in_background(app)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>base_url <span class="op">=</span> server_ctx.<span class="fu">__enter__</span>()  <span class="co"># keep the server alive across cells</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"serving at"</span>, base_url)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="inspect-the-agent-card" class="level3">
+<h3 class="anchored" data-anchor-id="inspect-the-agent-card">Inspect the agent card</h3>
+<p>Any A2A client (AIMU’s or another framework’s) discovers the agent by fetching its card.</p>
+<div id="6efcbdd4" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:41.429562Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:41.429326Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:41.442514Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:41.441817Z&quot;}}" data-execution_count="8">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> httpx</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>card <span class="op">=</span> httpx.get(base_url <span class="op">+</span> <span class="st">".well-known/agent-card.json"</span>).json()</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"name:       "</span>, card[<span class="st">"name"</span>])</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"description:"</span>, card[<span class="st">"description"</span>])</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"skills:     "</span>, [s[<span class="st">"name"</span>] <span class="cf">for</span> s <span class="kw">in</span> card[<span class="st">"skills"</span>]])</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"streaming:  "</span>, card[<span class="st">"capabilities"</span>].get(<span class="st">"streaming"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="consume-the-remote-agent-as-a-local-runner" class="level3">
+<h3 class="anchored" data-anchor-id="consume-the-remote-agent-as-a-local-runner">Consume the remote agent as a local <code>Runner</code></h3>
+<p><code>RemoteAgent.connect(url)</code> resolves the card and returns a <code>Runner</code>. From here it behaves like any local runner: <code>run()</code>, <code>messages</code>, and <code>as_tool()</code> all work, and it slots into workflows.</p>
+<div id="f905db35" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:41.444154Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:41.444041Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:41.484057Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:41.483674Z&quot;}}" data-execution_count="9">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> RemoteAgent</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>remote <span class="op">=</span> RemoteAgent.<span class="ex">connect</span>(base_url)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"connected to:"</span>, remote.name)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"run():       "</span>, remote.run(<span class="st">"What is your refund policy?"</span>))</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"messages:    "</span>, remote.messages)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="the-payoff-a-remote-agent-composes-exactly-like-a-local-one" class="level3">
+<h3 class="anchored" data-anchor-id="the-payoff-a-remote-agent-composes-exactly-like-a-local-one">The payoff: a remote agent composes exactly like a local one</h3>
+<p>Because <code>RemoteAgent</code> is a <code>Runner</code>, the same composition tools from Part A apply with <strong>zero</strong> A2A-specific wiring: <code>as_tool()</code> into a local agent, or a <code>Chain</code> step.</p>
+<div id="3e6c7c36" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:41.485667Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:41.485595Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:41.491113Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:41.490774Z&quot;}}" data-execution_count="10">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. As a tool for a local autonomous agent (description comes from the remote card).</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>remote_tool <span class="op">=</span> remote.as_tool()</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"remote as tool:"</span>, remote_tool.<span class="va">__name__</span>, <span class="st">"-&gt;"</span>, remote_tool(<span class="st">"refund"</span>))</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. As a step in a local workflow.</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> Chain(agents<span class="op">=</span>[remote])</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"remote in Chain:"</span>, pipeline.run(<span class="st">"What are your hours?"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="tear-down-the-server" class="level3">
+<h3 class="anchored" data-anchor-id="tear-down-the-server">Tear down the server</h3>
+<div id="1c82a7bc" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:41.492330Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:41.492249Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:41.608805Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:41.607782Z&quot;}}" data-execution_count="11">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>remote.close()</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>server_ctx.<span class="fu">__exit__</span>(<span class="va">None</span>, <span class="va">None</span>, <span class="va">None</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"server stopped"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="c---async-aimu.aio" class="level2">
+<h2 class="anchored" data-anchor-id="c---async-aimu.aio">C - Async (<code>aimu.aio</code>)</h2>
+<p>The async surface mirrors the sync one. <code>aio.a2a.RemoteAgent</code> uses the A2A SDK’s async client natively (no thread portal) and supports real incremental streaming via <code>message/stream</code>. Jupyter allows top-level <code>await</code>.</p>
+<div id="21181766" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:41.611038Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:41.610895Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:41.641694Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:41.641074Z&quot;}}" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.aio.agent <span class="im">import</span> AsyncRunner</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.aio.a2a <span class="im">import</span> build_a2a_app <span class="im">as</span> aio_build_a2a_app</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> AsyncFAQRunner(AsyncRunner):</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, name<span class="op">=</span><span class="st">"async-faq"</span>):</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.name <span class="op">=</span> name</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.system_message <span class="op">=</span> <span class="st">"Async support FAQ."</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">async</span> <span class="kw">def</span> run(<span class="va">self</span>, task, generate_kwargs<span class="op">=</span><span class="va">None</span>, stream<span class="op">=</span><span class="va">False</span>, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="st">"Refunds take 5 business days."</span> <span class="cf">if</span> <span class="st">"refund"</span> <span class="kw">in</span> task.lower() <span class="cf">else</span> <span class="st">"Ask me about refunds."</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">@property</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> messages(<span class="va">self</span>):</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {<span class="va">self</span>.name: []}</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>aio_app <span class="op">=</span> aio_build_a2a_app(AsyncFAQRunner(), url<span class="op">=</span><span class="st">"http://placeholder/"</span>)</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>aio_ctx <span class="op">=</span> serve_in_background(aio_app)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>aio_url <span class="op">=</span> aio_ctx.<span class="fu">__enter__</span>()</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"async server at"</span>, aio_url)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="2eda1d2c" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-06-22T04:46:41.643866Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-06-22T04:46:41.643741Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-06-22T04:46:41.826046Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-06-22T04:46:41.825527Z&quot;}}" data-execution_count="13">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.aio.a2a <span class="im">import</span> RemoteAgent <span class="im">as</span> AsyncRemoteAgent</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>aio_remote <span class="op">=</span> <span class="cf">await</span> AsyncRemoteAgent.<span class="ex">connect</span>(aio_url)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"await run():"</span>, <span class="cf">await</span> aio_remote.run(<span class="st">"refund please"</span>))</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Streaming: message/stream -&gt; StreamChunks</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>stream <span class="op">=</span> <span class="cf">await</span> aio_remote.run(<span class="st">"refund please"</span>, stream<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="cf">for</span> chunk <span class="kw">in</span> stream:</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.phase.value, <span class="bu">repr</span>(chunk.content))</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> aio_remote.aclose()</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>_ <span class="op">=</span> aio_ctx.<span class="fu">__exit__</span>(<span class="va">None</span>, <span class="va">None</span>, <span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="serving-from-the-command-line" class="level2">
+<h2 class="anchored" data-anchor-id="serving-from-the-command-line">Serving from the command line</h2>
+<p>To expose an agent as a standalone service (the agent-level analog of <code>python -m aimu.tools.mcp</code>, which serves <em>tools</em>):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> aimu.agents.a2a <span class="at">--model</span> anthropic:claude-sonnet-4-6 <span class="dt">\</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--system</span> <span class="st">"You are a helpful research assistant."</span> <span class="at">--port</span> 9000</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Then from anywhere: <code>RemoteAgent.connect("http://localhost:9000")</code>.</p>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./22-async.html" class="pagination-link" aria-label="Async (`aimu.aio`)">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Async (<code>aimu.aio</code>)</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./24-personal-assistants.html" class="pagination-link" aria-label="Personal Assistants">
+        <span class="nav-page-text">Personal Assistants</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Composing Agents (A2A)"</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>Every agent and workflow in AIMU implements the single <span class="in">`Runner`</span> interface (<span class="in">`run()`</span> + <span class="in">`messages`</span>), so they compose freely. This notebook shows two layers of composition:</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**In-process**: <span class="in">`runner.as_tool()`</span> turns *any* agent or workflow into a tool another agent can call, and <span class="in">`OrchestratorAgent.assemble()`</span> accepts any <span class="in">`Runner`</span> as a worker.</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Cross-process (A2A)**: the optional <span class="co">[</span><span class="ot">Agent2Agent</span><span class="co">](https://a2a-protocol.org/)</span> layer exposes a <span class="in">`Runner`</span> as an HTTP server (<span class="in">`serve_a2a`</span>) and consumes a remote agent as a local <span class="in">`Runner`</span> (<span class="in">`RemoteAgent`</span>). Because <span class="in">`RemoteAgent`</span> *is a* <span class="in">`Runner`</span>, a remote agent composes exactly like a local one.</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>**A2A vs MCP:** MCP (<span class="in">`aimu.tools.MCPClient`</span>) shares *tools* across a process boundary; A2A shares whole *agents*. They are complementary; see <span class="co">[</span><span class="ot">docs/explanation/a2a-vs-mcp.md</span><span class="co">](../docs/explanation/a2a-vs-mcp.md)</span>.</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>The A2A sections require the optional extra: <span class="in">`pip install 'aimu[a2a]'`</span>.</span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>The model-backed cells (the orchestrator and the routing agent) use a small local Ollama model so the notebook runs quickly. Swap in any tool-capable model, or <span class="in">`aimu.client()`</span> to auto-resolve a local default.</span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:03.748920Z', iopub.status.busy: '2026-06-22T04:46:03.748716Z', iopub.status.idle: '2026-06-22T04:46:15.843707Z', shell.execute_reply: '2026-06-22T04:46:15.843263Z'}</span></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaModel</span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> OllamaModel.QWEN_3_8B  <span class="co"># small + tool-capable; change to taste</span></span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Composing runners in-process</span></span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>The <span class="in">`Runner`</span> interface is tiny: a <span class="in">`run(task)`</span> method and a <span class="in">`messages`</span> property. Here are two deterministic runners (no model needed) so the composition mechanics are easy to see. In real use these would be an <span class="in">`Agent`</span>, <span class="in">`Chain`</span>, <span class="in">`Router`</span>, etc.</span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:15.845129Z', iopub.status.busy: '2026-06-22T04:46:15.844969Z', iopub.status.idle: '2026-06-22T04:46:15.847856Z', shell.execute_reply: '2026-06-22T04:46:15.847538Z'}</span></span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Runner</span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> FAQRunner(Runner):</span>
+<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""A trivial knowledge-base lookup, used to demo composition without a model backend."""</span></span>
+<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a>    _FAQ <span class="op">=</span> {</span>
+<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a>        <span class="st">"refund"</span>: <span class="st">"Refunds are processed within 5 business days."</span>,</span>
+<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>        <span class="st">"hours"</span>: <span class="st">"Support is available 9am-5pm, Monday to Friday."</span>,</span>
+<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb15-49"><a href="#cb15-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-50"><a href="#cb15-50" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, name<span class="op">=</span><span class="st">"faq"</span>):</span>
+<span id="cb15-51"><a href="#cb15-51" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.name <span class="op">=</span> name</span>
+<span id="cb15-52"><a href="#cb15-52" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.system_message <span class="op">=</span> <span class="st">"Answer questions from the support knowledge base."</span></span>
+<span id="cb15-53"><a href="#cb15-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-54"><a href="#cb15-54" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> run(<span class="va">self</span>, task, generate_kwargs<span class="op">=</span><span class="va">None</span>, stream<span class="op">=</span><span class="va">False</span>, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb15-55"><a href="#cb15-55" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> key, answer <span class="kw">in</span> <span class="va">self</span>._FAQ.items():</span>
+<span id="cb15-56"><a href="#cb15-56" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> key <span class="kw">in</span> task.lower():</span>
+<span id="cb15-57"><a href="#cb15-57" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> answer</span>
+<span id="cb15-58"><a href="#cb15-58" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="st">"No knowledge-base entry matched."</span></span>
+<span id="cb15-59"><a href="#cb15-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-60"><a href="#cb15-60" aria-hidden="true" tabindex="-1"></a>    <span class="at">@property</span></span>
+<span id="cb15-61"><a href="#cb15-61" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> messages(<span class="va">self</span>):</span>
+<span id="cb15-62"><a href="#cb15-62" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {<span class="va">self</span>.name: []}</span>
+<span id="cb15-63"><a href="#cb15-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-64"><a href="#cb15-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-65"><a href="#cb15-65" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> GreetingRunner(Runner):</span>
+<span id="cb15-66"><a href="#cb15-66" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, name<span class="op">=</span><span class="st">"greeter"</span>):</span>
+<span id="cb15-67"><a href="#cb15-67" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.name <span class="op">=</span> name</span>
+<span id="cb15-68"><a href="#cb15-68" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.system_message <span class="op">=</span> <span class="st">"Produce a friendly greeting for the user."</span></span>
+<span id="cb15-69"><a href="#cb15-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-70"><a href="#cb15-70" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> run(<span class="va">self</span>, task, generate_kwargs<span class="op">=</span><span class="va">None</span>, stream<span class="op">=</span><span class="va">False</span>, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb15-71"><a href="#cb15-71" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="st">"Hello, and welcome to ACME support!"</span></span>
+<span id="cb15-72"><a href="#cb15-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-73"><a href="#cb15-73" aria-hidden="true" tabindex="-1"></a>    <span class="at">@property</span></span>
+<span id="cb15-74"><a href="#cb15-74" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> messages(<span class="va">self</span>):</span>
+<span id="cb15-75"><a href="#cb15-75" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {<span class="va">self</span>.name: []}</span>
+<span id="cb15-76"><a href="#cb15-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-77"><a href="#cb15-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-78"><a href="#cb15-78" aria-hidden="true" tabindex="-1"></a>faq <span class="op">=</span> FAQRunner()</span>
+<span id="cb15-79"><a href="#cb15-79" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(faq.run(<span class="st">"What are your support hours?"</span>))</span>
+<span id="cb15-80"><a href="#cb15-80" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-81"><a href="#cb15-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-82"><a href="#cb15-82" aria-hidden="true" tabindex="-1"></a><span class="fu">### `runner.as_tool()`: turn any runner into a tool</span></span>
+<span id="cb15-83"><a href="#cb15-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-84"><a href="#cb15-84" aria-hidden="true" tabindex="-1"></a><span class="in">`as_tool()`</span> wraps a runner's <span class="in">`run()`</span> as a <span class="in">`@aimu.tool`</span>-style callable. The tool name comes from the runner's <span class="in">`name`</span>; the description from its <span class="in">`system_message`</span> (or a generic fallback for workflows). This is the seam that lets an autonomous agent call another agent or workflow. No model needed to inspect it.</span>
+<span id="cb15-85"><a href="#cb15-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-88"><a href="#cb15-88" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-89"><a href="#cb15-89" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:15.848813Z', iopub.status.busy: '2026-06-22T04:46:15.848765Z', iopub.status.idle: '2026-06-22T04:46:15.850341Z', shell.execute_reply: '2026-06-22T04:46:15.850022Z'}</span></span>
+<span id="cb15-90"><a href="#cb15-90" aria-hidden="true" tabindex="-1"></a>tool_fn <span class="op">=</span> faq.as_tool()</span>
+<span id="cb15-91"><a href="#cb15-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-92"><a href="#cb15-92" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"tool name: "</span>, tool_fn.<span class="va">__name__</span>)</span>
+<span id="cb15-93"><a href="#cb15-93" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"description:"</span>, tool_fn.__tool_spec__[<span class="st">"function"</span>][<span class="st">"description"</span>])</span>
+<span id="cb15-94"><a href="#cb15-94" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"schema:     "</span>, tool_fn.__tool_spec__[<span class="st">"function"</span>][<span class="st">"parameters"</span>])</span>
+<span id="cb15-95"><a href="#cb15-95" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"call:       "</span>, tool_fn(<span class="st">"Tell me about your refund policy"</span>))</span>
+<span id="cb15-96"><a href="#cb15-96" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-97"><a href="#cb15-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-98"><a href="#cb15-98" aria-hidden="true" tabindex="-1"></a><span class="fu">### `OrchestratorAgent.assemble()` accepts any `Runner` as a worker</span></span>
+<span id="cb15-99"><a href="#cb15-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-100"><a href="#cb15-100" aria-hidden="true" tabindex="-1"></a><span class="in">`assemble()`</span> wraps each worker via <span class="in">`as_tool()`</span>, so workers can be any <span class="in">`Runner`</span>: an <span class="in">`Agent`</span>, a <span class="in">`Chain`</span>, a <span class="in">`Router`</span>, a remote A2A agent, or the deterministic runners above. The orchestrator itself is a model-driven <span class="in">`Agent`</span> that dispatches to workers by name.</span>
+<span id="cb15-101"><a href="#cb15-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-104"><a href="#cb15-104" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-105"><a href="#cb15-105" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:15.851265Z', iopub.status.busy: '2026-06-22T04:46:15.851210Z', iopub.status.idle: '2026-06-22T04:46:29.875123Z', shell.execute_reply: '2026-06-22T04:46:29.873927Z'}</span></span>
+<span id="cb15-106"><a href="#cb15-106" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> OrchestratorAgent</span>
+<span id="cb15-107"><a href="#cb15-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-108"><a href="#cb15-108" aria-hidden="true" tabindex="-1"></a>orchestrator <span class="op">=</span> OrchestratorAgent.assemble(</span>
+<span id="cb15-109"><a href="#cb15-109" aria-hidden="true" tabindex="-1"></a>    aimu.client(MODEL),</span>
+<span id="cb15-110"><a href="#cb15-110" aria-hidden="true" tabindex="-1"></a>    <span class="st">"You coordinate support. Use the greeter tool to greet, and the faq tool for policy questions."</span>,</span>
+<span id="cb15-111"><a href="#cb15-111" aria-hidden="true" tabindex="-1"></a>    workers<span class="op">=</span>[GreetingRunner(), FAQRunner()],</span>
+<span id="cb15-112"><a href="#cb15-112" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-113"><a href="#cb15-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-114"><a href="#cb15-114" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"workers registered as tools:"</span>, [t.<span class="va">__name__</span> <span class="cf">for</span> t <span class="kw">in</span> orchestrator._orchestrator.model_client.tools])</span>
+<span id="cb15-115"><a href="#cb15-115" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>()</span>
+<span id="cb15-116"><a href="#cb15-116" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(orchestrator.run(<span class="st">"Greet me, then tell me your refund policy."</span>))</span>
+<span id="cb15-117"><a href="#cb15-117" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-118"><a href="#cb15-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-119"><a href="#cb15-119" aria-hidden="true" tabindex="-1"></a><span class="fu">### A workflow as a tool inside an autonomous agent</span></span>
+<span id="cb15-120"><a href="#cb15-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-121"><a href="#cb15-121" aria-hidden="true" tabindex="-1"></a><span class="in">`Chain`</span>/<span class="in">`Router`</span>/<span class="in">`Parallel`</span> already accept other runners as members. The new piece is the reverse direction: handing a *workflow* to an autonomous <span class="in">`Agent`</span> as a tool, via <span class="in">`as_tool()`</span>.</span>
+<span id="cb15-122"><a href="#cb15-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-125"><a href="#cb15-125" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-126"><a href="#cb15-126" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:29.877876Z', iopub.status.busy: '2026-06-22T04:46:29.877699Z', iopub.status.idle: '2026-06-22T04:46:41.102666Z', shell.execute_reply: '2026-06-22T04:46:41.101528Z'}</span></span>
+<span id="cb15-127"><a href="#cb15-127" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent, Chain</span>
+<span id="cb15-128"><a href="#cb15-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-129"><a href="#cb15-129" aria-hidden="true" tabindex="-1"></a><span class="co"># A two-step chain (deterministic runners) exposed as a single tool.</span></span>
+<span id="cb15-130"><a href="#cb15-130" aria-hidden="true" tabindex="-1"></a>lookup_then_greet <span class="op">=</span> Chain(agents<span class="op">=</span>[FAQRunner(), GreetingRunner()], name<span class="op">=</span><span class="st">"lookup_then_greet"</span>)</span>
+<span id="cb15-131"><a href="#cb15-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-132"><a href="#cb15-132" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
+<span id="cb15-133"><a href="#cb15-133" aria-hidden="true" tabindex="-1"></a>    aimu.client(MODEL),</span>
+<span id="cb15-134"><a href="#cb15-134" aria-hidden="true" tabindex="-1"></a>    <span class="st">"You are a router. For any support enquiry, call the lookup_then_greet tool, then report its result."</span>,</span>
+<span id="cb15-135"><a href="#cb15-135" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[lookup_then_greet.as_tool()],</span>
+<span id="cb15-136"><a href="#cb15-136" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">3</span>,</span>
+<span id="cb15-137"><a href="#cb15-137" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-138"><a href="#cb15-138" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(agent.run(<span class="st">"A customer is asking about refunds."</span>))</span>
+<span id="cb15-139"><a href="#cb15-139" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-140"><a href="#cb15-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-141"><a href="#cb15-141" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - Cross-process interop with A2A</span></span>
+<span id="cb15-142"><a href="#cb15-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-143"><a href="#cb15-143" aria-hidden="true" tabindex="-1"></a>A2A exposes a whole agent over HTTP. AIMU gives you both directions:</span>
+<span id="cb15-144"><a href="#cb15-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-145"><a href="#cb15-145" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Serve:** <span class="in">`serve_a2a(runner)`</span> (blocking) or <span class="in">`build_a2a_app(runner)`</span> (returns a Starlette ASGI app).</span>
+<span id="cb15-146"><a href="#cb15-146" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Consume:** <span class="in">`RemoteAgent.connect(url)`</span> resolves the remote *agent card* and returns a local <span class="in">`Runner`</span>.</span>
+<span id="cb15-147"><a href="#cb15-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-148"><a href="#cb15-148" aria-hidden="true" tabindex="-1"></a><span class="in">`serve_a2a`</span> blocks, so in a notebook we run the ASGI app under uvicorn in a background thread.</span>
+<span id="cb15-149"><a href="#cb15-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-152"><a href="#cb15-152" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-153"><a href="#cb15-153" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:41.104582Z', iopub.status.busy: '2026-06-22T04:46:41.104432Z', iopub.status.idle: '2026-06-22T04:46:41.109337Z', shell.execute_reply: '2026-06-22T04:46:41.108539Z'}</span></span>
+<span id="cb15-154"><a href="#cb15-154" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> socket</span>
+<span id="cb15-155"><a href="#cb15-155" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> threading</span>
+<span id="cb15-156"><a href="#cb15-156" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
+<span id="cb15-157"><a href="#cb15-157" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> contextlib <span class="im">import</span> contextmanager</span>
+<span id="cb15-158"><a href="#cb15-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-159"><a href="#cb15-159" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> uvicorn</span>
+<span id="cb15-160"><a href="#cb15-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-161"><a href="#cb15-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-162"><a href="#cb15-162" aria-hidden="true" tabindex="-1"></a><span class="at">@contextmanager</span></span>
+<span id="cb15-163"><a href="#cb15-163" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> serve_in_background(app):</span>
+<span id="cb15-164"><a href="#cb15-164" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Run an ASGI app on a free port in a daemon thread; yield its base URL."""</span></span>
+<span id="cb15-165"><a href="#cb15-165" aria-hidden="true" tabindex="-1"></a>    sock <span class="op">=</span> socket.socket()</span>
+<span id="cb15-166"><a href="#cb15-166" aria-hidden="true" tabindex="-1"></a>    sock.bind((<span class="st">"127.0.0.1"</span>, <span class="dv">0</span>))</span>
+<span id="cb15-167"><a href="#cb15-167" aria-hidden="true" tabindex="-1"></a>    port <span class="op">=</span> sock.getsockname()[<span class="dv">1</span>]</span>
+<span id="cb15-168"><a href="#cb15-168" aria-hidden="true" tabindex="-1"></a>    sock.close()</span>
+<span id="cb15-169"><a href="#cb15-169" aria-hidden="true" tabindex="-1"></a>    config <span class="op">=</span> uvicorn.Config(app, host<span class="op">=</span><span class="st">"127.0.0.1"</span>, port<span class="op">=</span>port, log_level<span class="op">=</span><span class="st">"warning"</span>)</span>
+<span id="cb15-170"><a href="#cb15-170" aria-hidden="true" tabindex="-1"></a>    server <span class="op">=</span> uvicorn.Server(config)</span>
+<span id="cb15-171"><a href="#cb15-171" aria-hidden="true" tabindex="-1"></a>    thread <span class="op">=</span> threading.Thread(target<span class="op">=</span>server.run, daemon<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb15-172"><a href="#cb15-172" aria-hidden="true" tabindex="-1"></a>    thread.start()</span>
+<span id="cb15-173"><a href="#cb15-173" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb15-174"><a href="#cb15-174" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="kw">not</span> server.started:</span>
+<span id="cb15-175"><a href="#cb15-175" aria-hidden="true" tabindex="-1"></a>            time.sleep(<span class="fl">0.02</span>)</span>
+<span id="cb15-176"><a href="#cb15-176" aria-hidden="true" tabindex="-1"></a>        <span class="cf">yield</span> <span class="ss">f"http://127.0.0.1:</span><span class="sc">{</span>port<span class="sc">}</span><span class="ss">/"</span></span>
+<span id="cb15-177"><a href="#cb15-177" aria-hidden="true" tabindex="-1"></a>    <span class="cf">finally</span>:</span>
+<span id="cb15-178"><a href="#cb15-178" aria-hidden="true" tabindex="-1"></a>        server.should_exit <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb15-179"><a href="#cb15-179" aria-hidden="true" tabindex="-1"></a>        thread.join(timeout<span class="op">=</span><span class="dv">5</span>)</span>
+<span id="cb15-180"><a href="#cb15-180" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-181"><a href="#cb15-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-182"><a href="#cb15-182" aria-hidden="true" tabindex="-1"></a><span class="fu">### Expose a runner as an A2A server</span></span>
+<span id="cb15-183"><a href="#cb15-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-184"><a href="#cb15-184" aria-hidden="true" tabindex="-1"></a><span class="in">`build_a2a_app`</span> wraps the runner in an A2A executor and advertises it via an agent card at <span class="in">`/.well-known/agent-card.json`</span>. We serve the deterministic <span class="in">`FAQRunner`</span> here so calls are instant, but any <span class="in">`Runner`</span> (including a model-backed <span class="in">`Agent`</span> or <span class="in">`Chain`</span>) works identically.</span>
+<span id="cb15-185"><a href="#cb15-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-188"><a href="#cb15-188" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-189"><a href="#cb15-189" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:41.111310Z', iopub.status.busy: '2026-06-22T04:46:41.111244Z', iopub.status.idle: '2026-06-22T04:46:41.425944Z', shell.execute_reply: '2026-06-22T04:46:41.424917Z'}</span></span>
+<span id="cb15-190"><a href="#cb15-190" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents.a2a <span class="im">import</span> build_a2a_app</span>
+<span id="cb15-191"><a href="#cb15-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-192"><a href="#cb15-192" aria-hidden="true" tabindex="-1"></a>faq_server <span class="op">=</span> FAQRunner(name<span class="op">=</span><span class="st">"support-faq"</span>)</span>
+<span id="cb15-193"><a href="#cb15-193" aria-hidden="true" tabindex="-1"></a>app <span class="op">=</span> build_a2a_app(faq_server, url<span class="op">=</span><span class="st">"http://placeholder/"</span>, description<span class="op">=</span><span class="st">"ACME support FAQ agent."</span>)</span>
+<span id="cb15-194"><a href="#cb15-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-195"><a href="#cb15-195" aria-hidden="true" tabindex="-1"></a>server_ctx <span class="op">=</span> serve_in_background(app)</span>
+<span id="cb15-196"><a href="#cb15-196" aria-hidden="true" tabindex="-1"></a>base_url <span class="op">=</span> server_ctx.<span class="fu">__enter__</span>()  <span class="co"># keep the server alive across cells</span></span>
+<span id="cb15-197"><a href="#cb15-197" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"serving at"</span>, base_url)</span>
+<span id="cb15-198"><a href="#cb15-198" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-199"><a href="#cb15-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-200"><a href="#cb15-200" aria-hidden="true" tabindex="-1"></a><span class="fu">### Inspect the agent card</span></span>
+<span id="cb15-201"><a href="#cb15-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-202"><a href="#cb15-202" aria-hidden="true" tabindex="-1"></a>Any A2A client (AIMU's or another framework's) discovers the agent by fetching its card.</span>
+<span id="cb15-203"><a href="#cb15-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-206"><a href="#cb15-206" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-207"><a href="#cb15-207" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:41.429562Z', iopub.status.busy: '2026-06-22T04:46:41.429326Z', iopub.status.idle: '2026-06-22T04:46:41.442514Z', shell.execute_reply: '2026-06-22T04:46:41.441817Z'}</span></span>
+<span id="cb15-208"><a href="#cb15-208" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> httpx</span>
+<span id="cb15-209"><a href="#cb15-209" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-210"><a href="#cb15-210" aria-hidden="true" tabindex="-1"></a>card <span class="op">=</span> httpx.get(base_url <span class="op">+</span> <span class="st">".well-known/agent-card.json"</span>).json()</span>
+<span id="cb15-211"><a href="#cb15-211" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"name:       "</span>, card[<span class="st">"name"</span>])</span>
+<span id="cb15-212"><a href="#cb15-212" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"description:"</span>, card[<span class="st">"description"</span>])</span>
+<span id="cb15-213"><a href="#cb15-213" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"skills:     "</span>, [s[<span class="st">"name"</span>] <span class="cf">for</span> s <span class="kw">in</span> card[<span class="st">"skills"</span>]])</span>
+<span id="cb15-214"><a href="#cb15-214" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"streaming:  "</span>, card[<span class="st">"capabilities"</span>].get(<span class="st">"streaming"</span>))</span>
+<span id="cb15-215"><a href="#cb15-215" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-216"><a href="#cb15-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-217"><a href="#cb15-217" aria-hidden="true" tabindex="-1"></a><span class="fu">### Consume the remote agent as a local `Runner`</span></span>
+<span id="cb15-218"><a href="#cb15-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-219"><a href="#cb15-219" aria-hidden="true" tabindex="-1"></a><span class="in">`RemoteAgent.connect(url)`</span> resolves the card and returns a <span class="in">`Runner`</span>. From here it behaves like any local runner: <span class="in">`run()`</span>, <span class="in">`messages`</span>, and <span class="in">`as_tool()`</span> all work, and it slots into workflows.</span>
+<span id="cb15-220"><a href="#cb15-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-223"><a href="#cb15-223" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-224"><a href="#cb15-224" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:41.444154Z', iopub.status.busy: '2026-06-22T04:46:41.444041Z', iopub.status.idle: '2026-06-22T04:46:41.484057Z', shell.execute_reply: '2026-06-22T04:46:41.483674Z'}</span></span>
+<span id="cb15-225"><a href="#cb15-225" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> RemoteAgent</span>
+<span id="cb15-226"><a href="#cb15-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-227"><a href="#cb15-227" aria-hidden="true" tabindex="-1"></a>remote <span class="op">=</span> RemoteAgent.<span class="ex">connect</span>(base_url)</span>
+<span id="cb15-228"><a href="#cb15-228" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"connected to:"</span>, remote.name)</span>
+<span id="cb15-229"><a href="#cb15-229" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"run():       "</span>, remote.run(<span class="st">"What is your refund policy?"</span>))</span>
+<span id="cb15-230"><a href="#cb15-230" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"messages:    "</span>, remote.messages)</span>
+<span id="cb15-231"><a href="#cb15-231" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-232"><a href="#cb15-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-233"><a href="#cb15-233" aria-hidden="true" tabindex="-1"></a><span class="fu">### The payoff: a remote agent composes exactly like a local one</span></span>
+<span id="cb15-234"><a href="#cb15-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-235"><a href="#cb15-235" aria-hidden="true" tabindex="-1"></a>Because <span class="in">`RemoteAgent`</span> is a <span class="in">`Runner`</span>, the same composition tools from Part A apply with **zero** A2A-specific wiring: <span class="in">`as_tool()`</span> into a local agent, or a <span class="in">`Chain`</span> step.</span>
+<span id="cb15-236"><a href="#cb15-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-239"><a href="#cb15-239" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-240"><a href="#cb15-240" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:41.485667Z', iopub.status.busy: '2026-06-22T04:46:41.485595Z', iopub.status.idle: '2026-06-22T04:46:41.491113Z', shell.execute_reply: '2026-06-22T04:46:41.490774Z'}</span></span>
+<span id="cb15-241"><a href="#cb15-241" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. As a tool for a local autonomous agent (description comes from the remote card).</span></span>
+<span id="cb15-242"><a href="#cb15-242" aria-hidden="true" tabindex="-1"></a>remote_tool <span class="op">=</span> remote.as_tool()</span>
+<span id="cb15-243"><a href="#cb15-243" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"remote as tool:"</span>, remote_tool.<span class="va">__name__</span>, <span class="st">"-&gt;"</span>, remote_tool(<span class="st">"refund"</span>))</span>
+<span id="cb15-244"><a href="#cb15-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-245"><a href="#cb15-245" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. As a step in a local workflow.</span></span>
+<span id="cb15-246"><a href="#cb15-246" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">=</span> Chain(agents<span class="op">=</span>[remote])</span>
+<span id="cb15-247"><a href="#cb15-247" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"remote in Chain:"</span>, pipeline.run(<span class="st">"What are your hours?"</span>))</span>
+<span id="cb15-248"><a href="#cb15-248" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-249"><a href="#cb15-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-250"><a href="#cb15-250" aria-hidden="true" tabindex="-1"></a><span class="fu">### Tear down the server</span></span>
+<span id="cb15-251"><a href="#cb15-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-254"><a href="#cb15-254" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-255"><a href="#cb15-255" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:41.492330Z', iopub.status.busy: '2026-06-22T04:46:41.492249Z', iopub.status.idle: '2026-06-22T04:46:41.608805Z', shell.execute_reply: '2026-06-22T04:46:41.607782Z'}</span></span>
+<span id="cb15-256"><a href="#cb15-256" aria-hidden="true" tabindex="-1"></a>remote.close()</span>
+<span id="cb15-257"><a href="#cb15-257" aria-hidden="true" tabindex="-1"></a>server_ctx.<span class="fu">__exit__</span>(<span class="va">None</span>, <span class="va">None</span>, <span class="va">None</span>)</span>
+<span id="cb15-258"><a href="#cb15-258" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"server stopped"</span>)</span>
+<span id="cb15-259"><a href="#cb15-259" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-260"><a href="#cb15-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-261"><a href="#cb15-261" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - Async (`aimu.aio`)</span></span>
+<span id="cb15-262"><a href="#cb15-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-263"><a href="#cb15-263" aria-hidden="true" tabindex="-1"></a>The async surface mirrors the sync one. <span class="in">`aio.a2a.RemoteAgent`</span> uses the A2A SDK's async client natively (no thread portal) and supports real incremental streaming via <span class="in">`message/stream`</span>. Jupyter allows top-level <span class="in">`await`</span>.</span>
+<span id="cb15-264"><a href="#cb15-264" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-267"><a href="#cb15-267" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-268"><a href="#cb15-268" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:41.611038Z', iopub.status.busy: '2026-06-22T04:46:41.610895Z', iopub.status.idle: '2026-06-22T04:46:41.641694Z', shell.execute_reply: '2026-06-22T04:46:41.641074Z'}</span></span>
+<span id="cb15-269"><a href="#cb15-269" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.aio.agent <span class="im">import</span> AsyncRunner</span>
+<span id="cb15-270"><a href="#cb15-270" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.aio.a2a <span class="im">import</span> build_a2a_app <span class="im">as</span> aio_build_a2a_app</span>
+<span id="cb15-271"><a href="#cb15-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-272"><a href="#cb15-272" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-273"><a href="#cb15-273" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> AsyncFAQRunner(AsyncRunner):</span>
+<span id="cb15-274"><a href="#cb15-274" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, name<span class="op">=</span><span class="st">"async-faq"</span>):</span>
+<span id="cb15-275"><a href="#cb15-275" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.name <span class="op">=</span> name</span>
+<span id="cb15-276"><a href="#cb15-276" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.system_message <span class="op">=</span> <span class="st">"Async support FAQ."</span></span>
+<span id="cb15-277"><a href="#cb15-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-278"><a href="#cb15-278" aria-hidden="true" tabindex="-1"></a>    <span class="cf">async</span> <span class="kw">def</span> run(<span class="va">self</span>, task, generate_kwargs<span class="op">=</span><span class="va">None</span>, stream<span class="op">=</span><span class="va">False</span>, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb15-279"><a href="#cb15-279" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="st">"Refunds take 5 business days."</span> <span class="cf">if</span> <span class="st">"refund"</span> <span class="kw">in</span> task.lower() <span class="cf">else</span> <span class="st">"Ask me about refunds."</span></span>
+<span id="cb15-280"><a href="#cb15-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-281"><a href="#cb15-281" aria-hidden="true" tabindex="-1"></a>    <span class="at">@property</span></span>
+<span id="cb15-282"><a href="#cb15-282" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> messages(<span class="va">self</span>):</span>
+<span id="cb15-283"><a href="#cb15-283" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {<span class="va">self</span>.name: []}</span>
+<span id="cb15-284"><a href="#cb15-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-285"><a href="#cb15-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-286"><a href="#cb15-286" aria-hidden="true" tabindex="-1"></a>aio_app <span class="op">=</span> aio_build_a2a_app(AsyncFAQRunner(), url<span class="op">=</span><span class="st">"http://placeholder/"</span>)</span>
+<span id="cb15-287"><a href="#cb15-287" aria-hidden="true" tabindex="-1"></a>aio_ctx <span class="op">=</span> serve_in_background(aio_app)</span>
+<span id="cb15-288"><a href="#cb15-288" aria-hidden="true" tabindex="-1"></a>aio_url <span class="op">=</span> aio_ctx.<span class="fu">__enter__</span>()</span>
+<span id="cb15-289"><a href="#cb15-289" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"async server at"</span>, aio_url)</span>
+<span id="cb15-290"><a href="#cb15-290" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-291"><a href="#cb15-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-294"><a href="#cb15-294" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-295"><a href="#cb15-295" aria-hidden="true" tabindex="-1"></a><span class="co">#| execution: {iopub.execute_input: '2026-06-22T04:46:41.643866Z', iopub.status.busy: '2026-06-22T04:46:41.643741Z', iopub.status.idle: '2026-06-22T04:46:41.826046Z', shell.execute_reply: '2026-06-22T04:46:41.825527Z'}</span></span>
+<span id="cb15-296"><a href="#cb15-296" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.aio.a2a <span class="im">import</span> RemoteAgent <span class="im">as</span> AsyncRemoteAgent</span>
+<span id="cb15-297"><a href="#cb15-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-298"><a href="#cb15-298" aria-hidden="true" tabindex="-1"></a>aio_remote <span class="op">=</span> <span class="cf">await</span> AsyncRemoteAgent.<span class="ex">connect</span>(aio_url)</span>
+<span id="cb15-299"><a href="#cb15-299" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"await run():"</span>, <span class="cf">await</span> aio_remote.run(<span class="st">"refund please"</span>))</span>
+<span id="cb15-300"><a href="#cb15-300" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-301"><a href="#cb15-301" aria-hidden="true" tabindex="-1"></a><span class="co"># Streaming: message/stream -&gt; StreamChunks</span></span>
+<span id="cb15-302"><a href="#cb15-302" aria-hidden="true" tabindex="-1"></a>stream <span class="op">=</span> <span class="cf">await</span> aio_remote.run(<span class="st">"refund please"</span>, stream<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb15-303"><a href="#cb15-303" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="cf">for</span> chunk <span class="kw">in</span> stream:</span>
+<span id="cb15-304"><a href="#cb15-304" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.phase.value, <span class="bu">repr</span>(chunk.content))</span>
+<span id="cb15-305"><a href="#cb15-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-306"><a href="#cb15-306" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> aio_remote.aclose()</span>
+<span id="cb15-307"><a href="#cb15-307" aria-hidden="true" tabindex="-1"></a>_ <span class="op">=</span> aio_ctx.<span class="fu">__exit__</span>(<span class="va">None</span>, <span class="va">None</span>, <span class="va">None</span>)</span>
+<span id="cb15-308"><a href="#cb15-308" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-309"><a href="#cb15-309" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-310"><a href="#cb15-310" aria-hidden="true" tabindex="-1"></a><span class="fu">## Serving from the command line</span></span>
+<span id="cb15-311"><a href="#cb15-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-312"><a href="#cb15-312" aria-hidden="true" tabindex="-1"></a>To expose an agent as a standalone service (the agent-level analog of <span class="in">`python -m aimu.tools.mcp`</span>, which serves *tools*):</span>
+<span id="cb15-313"><a href="#cb15-313" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-314"><a href="#cb15-314" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb15-315"><a href="#cb15-315" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> aimu.agents.a2a <span class="at">--model</span> anthropic:claude-sonnet-4-6 <span class="dt">\</span></span>
+<span id="cb15-316"><a href="#cb15-316" aria-hidden="true" tabindex="-1"></a>    <span class="at">--system</span> <span class="st">"You are a helpful research assistant."</span> <span class="at">--port</span> 9000</span>
+<span id="cb15-317"><a href="#cb15-317" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-318"><a href="#cb15-318" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-319"><a href="#cb15-319" aria-hidden="true" tabindex="-1"></a>Then from anywhere: <span class="in">`RemoteAgent.connect("http://localhost:9000")`</span>.</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

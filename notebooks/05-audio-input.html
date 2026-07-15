@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Audio Input – AIMU Notebooks</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./06-tools.html" rel="next">
+<link href="./04-vision.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-637a8987fd156daea465eecdbde71ac9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./05-audio-input.html">Audio Input</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">AIMU Notebooks</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Notebooks</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-model-client.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model Client</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-conversations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Conversations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-structured-output.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Structured Output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-vision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vision Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-audio-input.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Audio Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tools</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-agent-skills.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agent Skills</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-workflows.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Workflows</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-prebuilt-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prebuilt Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-embeddings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Embeddings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./13-rag.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Retrieval-Augmented Generation (RAG)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./14-prompt-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Management</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./15-prompt-tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Tuning</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./16-evaluations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Evaluations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./17-benchmarking.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benchmarking</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./18-image-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Image Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./19-audio-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./20-speech.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Speech</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./21-transcription.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Transcription</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22-async.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Async (<code>aimu.aio</code>)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./23-composing-agents-a2a.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Composing Agents (A2A)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./24-personal-assistants.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Personal Assistants</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./25-sessions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sessions (multi-user)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./26-remote-mcp-servers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote MCP Servers</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#what-this-notebook-covers" id="toc-what-this-notebook-covers" class="nav-link active" data-scroll-target="#what-this-notebook-covers">What this notebook covers</a></li>
+  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#capability-flags" id="toc-capability-flags" class="nav-link" data-scroll-target="#capability-flags">1. Capability flags</a></li>
+  <li><a href="#single-clip-file-path" id="toc-single-clip-file-path" class="nav-link" data-scroll-target="#single-clip-file-path">2. Single clip: file path</a></li>
+  <li><a href="#single-clip-raw-bytes" id="toc-single-clip-raw-bytes" class="nav-link" data-scroll-target="#single-clip-raw-bytes">3. Single clip: raw bytes</a></li>
+  <li><a href="#single-clip-data-url" id="toc-single-clip-data-url" class="nav-link" data-scroll-target="#single-clip-data-url">4. Single clip: data URL</a></li>
+  <li><a href="#multiple-clips-in-one-turn" id="toc-multiple-clips-in-one-turn" class="nav-link" data-scroll-target="#multiple-clips-in-one-turn">5. Multiple clips in one turn</a></li>
+  <li><a href="#stateless-one-shot-generateaudio" id="toc-stateless-one-shot-generateaudio" class="nav-link" data-scroll-target="#stateless-one-shot-generateaudio">6. Stateless one-shot: <code>generate(audio=)</code></a></li>
+  <li><a href="#multi-turn-conversation" id="toc-multi-turn-conversation" class="nav-link" data-scroll-target="#multi-turn-conversation">7. Multi-turn conversation</a></li>
+  <li><a href="#capability-check" id="toc-capability-check" class="nav-link" data-scroll-target="#capability-check">8. Capability check</a></li>
+  <li><a href="#images-and-audio-are-mutually-exclusive" id="toc-images-and-audio-are-mutually-exclusive" class="nav-link" data-scroll-target="#images-and-audio-are-mutually-exclusive">9. <code>images=</code> and <code>audio=</code> are mutually exclusive</a></li>
+  <li><a href="#google-gemini" id="toc-google-gemini" class="nav-link" data-scroll-target="#google-gemini">10. Google Gemini</a></li>
+  <li><a href="#huggingface-gemma-4" id="toc-huggingface-gemma-4" class="nav-link" data-scroll-target="#huggingface-gemma-4">11. HuggingFace (Gemma 4)</a></li>
+  <li><a href="#async-surface" id="toc-async-surface" class="nav-link" data-scroll-target="#async-surface">12. Async surface</a></li>
+  <li><a href="#cleanup" id="toc-cleanup" class="nav-link" data-scroll-target="#cleanup">Cleanup</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./05-audio-input.html">Audio Input</a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Audio Input</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>AIMU’s <code>ModelClient.chat()</code> and <code>ModelClient.generate()</code> accept an optional <code>audio=</code> argument for audio-capable text models. Audio inputs are normalised to OpenAI <code>input_audio</code> content blocks internally and adapted per-provider where needed (Anthropic, HuggingFace).</p>
+<section id="what-this-notebook-covers" class="level2">
+<h2 class="anchored" data-anchor-id="what-this-notebook-covers">What this notebook covers</h2>
+<ol type="1">
+<li>The <code>supports_audio</code> capability flag and the <code>AUDIO_MODELS</code> classproperty</li>
+<li>Passing audio as file paths, raw bytes, <code>data:</code> URLs, and <code>https://</code> URLs</li>
+<li>Multiple clips in one turn</li>
+<li>Stateful <code>chat()</code> vs.&nbsp;stateless <code>generate()</code></li>
+<li>Multi-turn conversations (follow-up questions after the initial audio turn)</li>
+<li>Mutually exclusive with <code>images=</code></li>
+<li>Async surface (<code>aimu.aio</code>)</li>
+</ol>
+</section>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<p>API-key-based providers read <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, and <code>GOOGLE_API_KEY</code> from your environment (or a <code>.env</code> file in the project root).</p>
+<div id="bc37fad5" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> base64</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> struct</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _make_wav(sample_rate: <span class="bu">int</span> <span class="op">=</span> <span class="dv">16000</span>, num_samples: <span class="bu">int</span> <span class="op">=</span> <span class="dv">4000</span>) <span class="op">-&gt;</span> <span class="bu">bytes</span>:</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Build a minimal valid 16-bit mono WAV in memory."""</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> <span class="st">b"</span><span class="ch">\x00\x00</span><span class="st">"</span> <span class="op">*</span> num_samples</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    data_size <span class="op">=</span> <span class="bu">len</span>(data)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    fmt_size <span class="op">=</span> <span class="dv">16</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    riff_size <span class="op">=</span> <span class="dv">4</span> <span class="op">+</span> <span class="dv">8</span> <span class="op">+</span> fmt_size <span class="op">+</span> <span class="dv">8</span> <span class="op">+</span> data_size</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    header <span class="op">=</span> struct.pack(<span class="st">"&lt;4sI4s"</span>, <span class="st">b"RIFF"</span>, riff_size, <span class="st">b"WAVE"</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    fmt <span class="op">=</span> struct.pack(<span class="st">"&lt;4sIHHIIHH"</span>, <span class="st">b"fmt "</span>, fmt_size, <span class="dv">1</span>, <span class="dv">1</span>, sample_rate, sample_rate <span class="op">*</span> <span class="dv">2</span>, <span class="dv">2</span>, <span class="dv">16</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    data_chunk <span class="op">=</span> struct.pack(<span class="st">"&lt;4sI"</span>, <span class="st">b"data"</span>, data_size) <span class="op">+</span> data</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> header <span class="op">+</span> fmt <span class="op">+</span> data_chunk</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co"># A tiny synthetic WAV clip we can use with any audio model.</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>audio_bytes <span class="op">=</span> _make_wav()</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>audio_path <span class="op">=</span> Path(<span class="st">"./test_audio.wav"</span>)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>audio_path.write_bytes(audio_bytes)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>audio_data_url <span class="op">=</span> <span class="st">"data:audio/wav;base64,"</span> <span class="op">+</span> base64.b64encode(audio_bytes).decode(<span class="st">"ascii"</span>)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"file:"</span>, audio_path, <span class="st">"  bytes:"</span>, <span class="bu">len</span>(audio_bytes))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="capability-flags" class="level2">
+<h2 class="anchored" data-anchor-id="capability-flags">1. Capability flags</h2>
+<p>Every <code>Model</code> enum member carries a <code>supports_audio</code> boolean. Each provider client also exposes an <code>AUDIO_MODELS</code> classproperty mirroring <code>VISION_MODELS</code>, <code>THINKING_MODELS</code>, and <code>TOOL_MODELS</code>.</p>
+<div id="4fa27891" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OpenAIClient, AnthropicClient, GeminiClient, OllamaClient</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> client_cls <span class="kw">in</span> (OpenAIClient, AnthropicClient, GeminiClient, OllamaClient):</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(client_cls.<span class="va">__name__</span>, <span class="st">"audio models:"</span>, [m.name <span class="cf">for</span> m <span class="kw">in</span> client_cls.AUDIO_MODELS])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="single-clip-file-path" class="level2">
+<h2 class="anchored" data-anchor-id="single-clip-file-path">2. Single clip: file path</h2>
+<p>The simplest case: pass a file path string. AIMU reads the file, base64-encodes it, and inlines it as an <code>input_audio</code> block. Format is inferred from the file extension.</p>
+<div id="5e261113" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIModel</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> ModelClient(OpenAIModel.GPT_4O)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"Describe what you hear in this audio clip."</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="single-clip-raw-bytes" class="level2">
+<h2 class="anchored" data-anchor-id="single-clip-raw-bytes">3. Single clip: raw bytes</h2>
+<p>Useful when audio is already in memory. Bytes default to <code>wav</code> format.</p>
+<div id="ec8a8d9f" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"What can you hear in this clip?"</span>, audio<span class="op">=</span>[audio_bytes])</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="single-clip-data-url" class="level2">
+<h2 class="anchored" data-anchor-id="single-clip-data-url">4. Single clip: data URL</h2>
+<p>If you already have a <code>data:audio/...;base64,...</code> string, pass it through unchanged. The format is extracted from the MIME type.</p>
+<div id="bc5d955f" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"Transcribe this audio."</span>, audio<span class="op">=</span>[audio_data_url])</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="multiple-clips-in-one-turn" class="level2">
+<h2 class="anchored" data-anchor-id="multiple-clips-in-one-turn">5. Multiple clips in one turn</h2>
+<p>Pass a list. The model sees them in order alongside the text prompt.</p>
+<div id="1d583e4c" class="cell" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>audio_bytes_2 <span class="op">=</span> _make_wav(sample_rate<span class="op">=</span><span class="dv">8000</span>)  <span class="co"># different sample rate</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"I have two audio clips. Compare their characteristics."</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    audio<span class="op">=</span>[audio_bytes, audio_bytes_2],</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="stateless-one-shot-generateaudio" class="level2">
+<h2 class="anchored" data-anchor-id="stateless-one-shot-generateaudio">6. Stateless one-shot: <code>generate(audio=)</code></h2>
+<p><code>chat(audio=...)</code> keeps the turn in <code>client.messages</code> for follow-ups. For a one-shot “listen once and answer” call (transcription, classification, QA) that should <em>not</em> accumulate history, use <code>generate(audio=...)</code>. Each call stands alone; no <code>reset()</code> needed between calls.</p>
+<div id="42678a20" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>audio_client <span class="op">=</span> ModelClient(OpenAIModel.GPT_4O)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Each call is independent.</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>result1 <span class="op">=</span> audio_client.generate(<span class="st">"Describe this audio in one sentence."</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>result2 <span class="op">=</span> audio_client.generate(<span class="st">"Is there speech or music in this clip?"</span>, audio<span class="op">=</span>[audio_bytes])</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result1)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result2)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co"># generate() never touches message state.</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"messages after generate():"</span>, audio_client.messages)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="multi-turn-conversation" class="level2">
+<h2 class="anchored" data-anchor-id="multi-turn-conversation">7. Multi-turn conversation</h2>
+<p>Audio blocks persist in <code>self.messages</code>, so the model can refer back to the earlier clip when you ask follow-up questions.</p>
+<div id="e2ed7ed4" class="cell" data-execution_count="8">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>client.reset()</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>client.chat(<span class="st">"What is the main content of this recording?"</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>followup <span class="op">=</span> client.chat(<span class="st">"Can you give me a one-line summary of what you just heard?"</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(followup)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"turns in history:"</span>, <span class="bu">len</span>([m <span class="cf">for</span> m <span class="kw">in</span> client.messages <span class="cf">if</span> m[<span class="st">"role"</span>] <span class="op">==</span> <span class="st">"user"</span>]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="capability-check" class="level2">
+<h2 class="anchored" data-anchor-id="capability-check">8. Capability check</h2>
+<p>Passing <code>audio=</code> to a non-audio model raises <code>ValueError</code> up front, before any API call.</p>
+<div id="eb3f5193" class="cell" data-execution_count="9">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIModel</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># o4-mini has supports_audio=False.</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>non_audio_client <span class="op">=</span> ModelClient(OpenAIModel.O4_MINI)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    non_audio_client.chat(<span class="st">"Transcribe this."</span>, audio<span class="op">=</span>[audio_bytes])</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">ValueError</span> <span class="im">as</span> e:</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"caught:"</span>, e)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="images-and-audio-are-mutually-exclusive" class="level2">
+<h2 class="anchored" data-anchor-id="images-and-audio-are-mutually-exclusive">9. <code>images=</code> and <code>audio=</code> are mutually exclusive</h2>
+<p>Passing both raises <code>ValueError</code> before any message history is touched.</p>
+<div id="c0eb504b" class="cell" data-execution_count="10">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> io</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> PIL <span class="im">import</span> Image</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>img <span class="op">=</span> Image.new(<span class="st">"RGB"</span>, (<span class="dv">32</span>, <span class="dv">32</span>), color<span class="op">=</span>(<span class="dv">0</span>, <span class="dv">128</span>, <span class="dv">255</span>))</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>buf <span class="op">=</span> io.BytesIO()</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>img.save(buf, <span class="bu">format</span><span class="op">=</span><span class="st">"PNG"</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>image_bytes <span class="op">=</span> buf.getvalue()</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    client.chat(<span class="st">"Describe both."</span>, images<span class="op">=</span>[image_bytes], audio<span class="op">=</span>[audio_bytes])</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">ValueError</span> <span class="im">as</span> e:</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"caught:"</span>, e)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="google-gemini" class="level2">
+<h2 class="anchored" data-anchor-id="google-gemini">10. Google Gemini</h2>
+<p>Gemini 2.x uses Google’s OpenAI-compatible endpoint, so <code>input_audio</code> blocks pass through directly. Requires <code>GOOGLE_API_KEY</code>.</p>
+<div id="ca73ba61" class="cell" data-execution_count="11">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.gemini.text <span class="im">import</span> GeminiModel</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>gemini_client <span class="op">=</span> ModelClient(GeminiModel.GEMINI_2_5_FLASH)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> gemini_client.generate(<span class="st">"Describe this audio clip."</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="huggingface-gemma-4" class="level2">
+<h2 class="anchored" data-anchor-id="huggingface-gemma-4">11. HuggingFace (Gemma 4)</h2>
+<p>HuggingFace Gemma 4 E4B/12B accept audio alongside text. AIMU decodes <code>input_audio</code> blocks to float32 numpy arrays via <code>soundfile</code> and passes them to the <code>AutoProcessor</code> alongside the text. Requires the <code>[hf]</code> extra.</p>
+<div id="6ad4c689" class="cell" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.hf.text <span class="im">import</span> HuggingFaceModel</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>hf_client <span class="op">=</span> ModelClient(HuggingFaceModel.GEMMA_4_E4B)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> hf_client.generate(<span class="st">"What do you hear in this clip?"</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="async-surface" class="level2">
+<h2 class="anchored" data-anchor-id="async-surface">12. Async surface</h2>
+<p><code>audio=</code> is available on <code>aio.chat()</code> and <code>aio.generate()</code> with the same signature.</p>
+<div id="79d98a1c" class="cell" data-execution_count="13">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIModel</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> transcribe_async(path: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    client <span class="op">=</span> aio.client(<span class="ss">f"openai:</span><span class="sc">{</span>OpenAIModel<span class="sc">.</span>GPT_4O<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cf">await</span> client.generate(<span class="st">"Transcribe this audio."</span>, audio<span class="op">=</span>[path])</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> asyncio.run(transcribe_async(<span class="bu">str</span>(audio_path)))</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="cleanup" class="level2">
+<h2 class="anchored" data-anchor-id="cleanup">Cleanup</h2>
+<div id="a242a82e" class="cell" data-execution_count="14">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>audio_path.unlink(missing_ok<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./04-vision.html" class="pagination-link" aria-label="Vision Input">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Vision Input</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./06-tools.html" class="pagination-link" aria-label="Tools">
+        <span class="nav-page-text">Tools</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Audio Input"</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>AIMU's <span class="in">`ModelClient.chat()`</span> and <span class="in">`ModelClient.generate()`</span> accept an optional <span class="in">`audio=`</span> argument for audio-capable text models. Audio inputs are normalised to OpenAI <span class="in">`input_audio`</span> content blocks internally and adapted per-provider where needed (Anthropic, HuggingFace).</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this notebook covers</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>The <span class="in">`supports_audio`</span> capability flag and the <span class="in">`AUDIO_MODELS`</span> classproperty</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Passing audio as file paths, raw bytes, <span class="in">`data:`</span> URLs, and <span class="in">`https://`</span> URLs</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Multiple clips in one turn</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>Stateful <span class="in">`chat()`</span> vs. stateless <span class="in">`generate()`</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>Multi-turn conversations (follow-up questions after the initial audio turn)</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>Mutually exclusive with <span class="in">`images=`</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>Async surface (<span class="in">`aimu.aio`</span>)</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>API-key-based providers read <span class="in">`OPENAI_API_KEY`</span>, <span class="in">`ANTHROPIC_API_KEY`</span>, and <span class="in">`GOOGLE_API_KEY`</span> from your environment (or a <span class="in">`.env`</span> file in the project root).</span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> base64</span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> struct</span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _make_wav(sample_rate: <span class="bu">int</span> <span class="op">=</span> <span class="dv">16000</span>, num_samples: <span class="bu">int</span> <span class="op">=</span> <span class="dv">4000</span>) <span class="op">-&gt;</span> <span class="bu">bytes</span>:</span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Build a minimal valid 16-bit mono WAV in memory."""</span></span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> <span class="st">b"</span><span class="ch">\x00\x00</span><span class="st">"</span> <span class="op">*</span> num_samples</span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>    data_size <span class="op">=</span> <span class="bu">len</span>(data)</span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a>    fmt_size <span class="op">=</span> <span class="dv">16</span></span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>    riff_size <span class="op">=</span> <span class="dv">4</span> <span class="op">+</span> <span class="dv">8</span> <span class="op">+</span> fmt_size <span class="op">+</span> <span class="dv">8</span> <span class="op">+</span> data_size</span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a>    header <span class="op">=</span> struct.pack(<span class="st">"&lt;4sI4s"</span>, <span class="st">b"RIFF"</span>, riff_size, <span class="st">b"WAVE"</span>)</span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a>    fmt <span class="op">=</span> struct.pack(<span class="st">"&lt;4sIHHIIHH"</span>, <span class="st">b"fmt "</span>, fmt_size, <span class="dv">1</span>, <span class="dv">1</span>, sample_rate, sample_rate <span class="op">*</span> <span class="dv">2</span>, <span class="dv">2</span>, <span class="dv">16</span>)</span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>    data_chunk <span class="op">=</span> struct.pack(<span class="st">"&lt;4sI"</span>, <span class="st">b"data"</span>, data_size) <span class="op">+</span> data</span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> header <span class="op">+</span> fmt <span class="op">+</span> data_chunk</span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a><span class="co"># A tiny synthetic WAV clip we can use with any audio model.</span></span>
+<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a>audio_bytes <span class="op">=</span> _make_wav()</span>
+<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>audio_path <span class="op">=</span> Path(<span class="st">"./test_audio.wav"</span>)</span>
+<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a>audio_path.write_bytes(audio_bytes)</span>
+<span id="cb15-49"><a href="#cb15-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-50"><a href="#cb15-50" aria-hidden="true" tabindex="-1"></a>audio_data_url <span class="op">=</span> <span class="st">"data:audio/wav;base64,"</span> <span class="op">+</span> base64.b64encode(audio_bytes).decode(<span class="st">"ascii"</span>)</span>
+<span id="cb15-51"><a href="#cb15-51" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"file:"</span>, audio_path, <span class="st">"  bytes:"</span>, <span class="bu">len</span>(audio_bytes))</span>
+<span id="cb15-52"><a href="#cb15-52" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-53"><a href="#cb15-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-54"><a href="#cb15-54" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1. Capability flags</span></span>
+<span id="cb15-55"><a href="#cb15-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-56"><a href="#cb15-56" aria-hidden="true" tabindex="-1"></a>Every <span class="in">`Model`</span> enum member carries a <span class="in">`supports_audio`</span> boolean. Each provider client also exposes an <span class="in">`AUDIO_MODELS`</span> classproperty mirroring <span class="in">`VISION_MODELS`</span>, <span class="in">`THINKING_MODELS`</span>, and <span class="in">`TOOL_MODELS`</span>.</span>
+<span id="cb15-57"><a href="#cb15-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-60"><a href="#cb15-60" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-61"><a href="#cb15-61" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OpenAIClient, AnthropicClient, GeminiClient, OllamaClient</span>
+<span id="cb15-62"><a href="#cb15-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-63"><a href="#cb15-63" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> client_cls <span class="kw">in</span> (OpenAIClient, AnthropicClient, GeminiClient, OllamaClient):</span>
+<span id="cb15-64"><a href="#cb15-64" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(client_cls.<span class="va">__name__</span>, <span class="st">"audio models:"</span>, [m.name <span class="cf">for</span> m <span class="kw">in</span> client_cls.AUDIO_MODELS])</span>
+<span id="cb15-65"><a href="#cb15-65" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-66"><a href="#cb15-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-67"><a href="#cb15-67" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2. Single clip: file path</span></span>
+<span id="cb15-68"><a href="#cb15-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-69"><a href="#cb15-69" aria-hidden="true" tabindex="-1"></a>The simplest case: pass a file path string. AIMU reads the file, base64-encodes it, and inlines it as an <span class="in">`input_audio`</span> block. Format is inferred from the file extension.</span>
+<span id="cb15-70"><a href="#cb15-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-73"><a href="#cb15-73" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-74"><a href="#cb15-74" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient</span>
+<span id="cb15-75"><a href="#cb15-75" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIModel</span>
+<span id="cb15-76"><a href="#cb15-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-77"><a href="#cb15-77" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> ModelClient(OpenAIModel.GPT_4O)</span>
+<span id="cb15-78"><a href="#cb15-78" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"Describe what you hear in this audio clip."</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb15-79"><a href="#cb15-79" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span>
+<span id="cb15-80"><a href="#cb15-80" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-81"><a href="#cb15-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-82"><a href="#cb15-82" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3. Single clip: raw bytes</span></span>
+<span id="cb15-83"><a href="#cb15-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-84"><a href="#cb15-84" aria-hidden="true" tabindex="-1"></a>Useful when audio is already in memory. Bytes default to <span class="in">`wav`</span> format.</span>
+<span id="cb15-85"><a href="#cb15-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-88"><a href="#cb15-88" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-89"><a href="#cb15-89" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"What can you hear in this clip?"</span>, audio<span class="op">=</span>[audio_bytes])</span>
+<span id="cb15-90"><a href="#cb15-90" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span>
+<span id="cb15-91"><a href="#cb15-91" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-92"><a href="#cb15-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-93"><a href="#cb15-93" aria-hidden="true" tabindex="-1"></a><span class="fu">## 4. Single clip: data URL</span></span>
+<span id="cb15-94"><a href="#cb15-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-95"><a href="#cb15-95" aria-hidden="true" tabindex="-1"></a>If you already have a <span class="in">`data:audio/...;base64,...`</span> string, pass it through unchanged. The format is extracted from the MIME type.</span>
+<span id="cb15-96"><a href="#cb15-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-99"><a href="#cb15-99" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-100"><a href="#cb15-100" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"Transcribe this audio."</span>, audio<span class="op">=</span>[audio_data_url])</span>
+<span id="cb15-101"><a href="#cb15-101" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span>
+<span id="cb15-102"><a href="#cb15-102" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-103"><a href="#cb15-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-104"><a href="#cb15-104" aria-hidden="true" tabindex="-1"></a><span class="fu">## 5. Multiple clips in one turn</span></span>
+<span id="cb15-105"><a href="#cb15-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-106"><a href="#cb15-106" aria-hidden="true" tabindex="-1"></a>Pass a list. The model sees them in order alongside the text prompt.</span>
+<span id="cb15-107"><a href="#cb15-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-110"><a href="#cb15-110" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-111"><a href="#cb15-111" aria-hidden="true" tabindex="-1"></a>audio_bytes_2 <span class="op">=</span> _make_wav(sample_rate<span class="op">=</span><span class="dv">8000</span>)  <span class="co"># different sample rate</span></span>
+<span id="cb15-112"><a href="#cb15-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-113"><a href="#cb15-113" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(</span>
+<span id="cb15-114"><a href="#cb15-114" aria-hidden="true" tabindex="-1"></a>    <span class="st">"I have two audio clips. Compare their characteristics."</span>,</span>
+<span id="cb15-115"><a href="#cb15-115" aria-hidden="true" tabindex="-1"></a>    audio<span class="op">=</span>[audio_bytes, audio_bytes_2],</span>
+<span id="cb15-116"><a href="#cb15-116" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-117"><a href="#cb15-117" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span>
+<span id="cb15-118"><a href="#cb15-118" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-119"><a href="#cb15-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-120"><a href="#cb15-120" aria-hidden="true" tabindex="-1"></a><span class="fu">## 6. Stateless one-shot: `generate(audio=)`</span></span>
+<span id="cb15-121"><a href="#cb15-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-122"><a href="#cb15-122" aria-hidden="true" tabindex="-1"></a><span class="in">`chat(audio=...)`</span> keeps the turn in <span class="in">`client.messages`</span> for follow-ups. For a one-shot "listen once and answer" call (transcription, classification, QA) that should *not* accumulate history, use <span class="in">`generate(audio=...)`</span>. Each call stands alone; no <span class="in">`reset()`</span> needed between calls.</span>
+<span id="cb15-123"><a href="#cb15-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-126"><a href="#cb15-126" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-127"><a href="#cb15-127" aria-hidden="true" tabindex="-1"></a>audio_client <span class="op">=</span> ModelClient(OpenAIModel.GPT_4O)</span>
+<span id="cb15-128"><a href="#cb15-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-129"><a href="#cb15-129" aria-hidden="true" tabindex="-1"></a><span class="co"># Each call is independent.</span></span>
+<span id="cb15-130"><a href="#cb15-130" aria-hidden="true" tabindex="-1"></a>result1 <span class="op">=</span> audio_client.generate(<span class="st">"Describe this audio in one sentence."</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb15-131"><a href="#cb15-131" aria-hidden="true" tabindex="-1"></a>result2 <span class="op">=</span> audio_client.generate(<span class="st">"Is there speech or music in this clip?"</span>, audio<span class="op">=</span>[audio_bytes])</span>
+<span id="cb15-132"><a href="#cb15-132" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result1)</span>
+<span id="cb15-133"><a href="#cb15-133" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result2)</span>
+<span id="cb15-134"><a href="#cb15-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-135"><a href="#cb15-135" aria-hidden="true" tabindex="-1"></a><span class="co"># generate() never touches message state.</span></span>
+<span id="cb15-136"><a href="#cb15-136" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"messages after generate():"</span>, audio_client.messages)</span>
+<span id="cb15-137"><a href="#cb15-137" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-138"><a href="#cb15-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-139"><a href="#cb15-139" aria-hidden="true" tabindex="-1"></a><span class="fu">## 7. Multi-turn conversation</span></span>
+<span id="cb15-140"><a href="#cb15-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-141"><a href="#cb15-141" aria-hidden="true" tabindex="-1"></a>Audio blocks persist in <span class="in">`self.messages`</span>, so the model can refer back to the earlier clip when you ask follow-up questions.</span>
+<span id="cb15-142"><a href="#cb15-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-145"><a href="#cb15-145" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-146"><a href="#cb15-146" aria-hidden="true" tabindex="-1"></a>client.reset()</span>
+<span id="cb15-147"><a href="#cb15-147" aria-hidden="true" tabindex="-1"></a>client.chat(<span class="st">"What is the main content of this recording?"</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb15-148"><a href="#cb15-148" aria-hidden="true" tabindex="-1"></a>followup <span class="op">=</span> client.chat(<span class="st">"Can you give me a one-line summary of what you just heard?"</span>)</span>
+<span id="cb15-149"><a href="#cb15-149" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(followup)</span>
+<span id="cb15-150"><a href="#cb15-150" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"turns in history:"</span>, <span class="bu">len</span>([m <span class="cf">for</span> m <span class="kw">in</span> client.messages <span class="cf">if</span> m[<span class="st">"role"</span>] <span class="op">==</span> <span class="st">"user"</span>]))</span>
+<span id="cb15-151"><a href="#cb15-151" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-152"><a href="#cb15-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-153"><a href="#cb15-153" aria-hidden="true" tabindex="-1"></a><span class="fu">## 8. Capability check</span></span>
+<span id="cb15-154"><a href="#cb15-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-155"><a href="#cb15-155" aria-hidden="true" tabindex="-1"></a>Passing <span class="in">`audio=`</span> to a non-audio model raises <span class="in">`ValueError`</span> up front, before any API call.</span>
+<span id="cb15-156"><a href="#cb15-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-159"><a href="#cb15-159" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-160"><a href="#cb15-160" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIModel</span>
+<span id="cb15-161"><a href="#cb15-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-162"><a href="#cb15-162" aria-hidden="true" tabindex="-1"></a><span class="co"># o4-mini has supports_audio=False.</span></span>
+<span id="cb15-163"><a href="#cb15-163" aria-hidden="true" tabindex="-1"></a>non_audio_client <span class="op">=</span> ModelClient(OpenAIModel.O4_MINI)</span>
+<span id="cb15-164"><a href="#cb15-164" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb15-165"><a href="#cb15-165" aria-hidden="true" tabindex="-1"></a>    non_audio_client.chat(<span class="st">"Transcribe this."</span>, audio<span class="op">=</span>[audio_bytes])</span>
+<span id="cb15-166"><a href="#cb15-166" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">ValueError</span> <span class="im">as</span> e:</span>
+<span id="cb15-167"><a href="#cb15-167" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"caught:"</span>, e)</span>
+<span id="cb15-168"><a href="#cb15-168" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-169"><a href="#cb15-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-170"><a href="#cb15-170" aria-hidden="true" tabindex="-1"></a><span class="fu">## 9. `images=` and `audio=` are mutually exclusive</span></span>
+<span id="cb15-171"><a href="#cb15-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-172"><a href="#cb15-172" aria-hidden="true" tabindex="-1"></a>Passing both raises <span class="in">`ValueError`</span> before any message history is touched.</span>
+<span id="cb15-173"><a href="#cb15-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-176"><a href="#cb15-176" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-177"><a href="#cb15-177" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> io</span>
+<span id="cb15-178"><a href="#cb15-178" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> PIL <span class="im">import</span> Image</span>
+<span id="cb15-179"><a href="#cb15-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-180"><a href="#cb15-180" aria-hidden="true" tabindex="-1"></a>img <span class="op">=</span> Image.new(<span class="st">"RGB"</span>, (<span class="dv">32</span>, <span class="dv">32</span>), color<span class="op">=</span>(<span class="dv">0</span>, <span class="dv">128</span>, <span class="dv">255</span>))</span>
+<span id="cb15-181"><a href="#cb15-181" aria-hidden="true" tabindex="-1"></a>buf <span class="op">=</span> io.BytesIO()</span>
+<span id="cb15-182"><a href="#cb15-182" aria-hidden="true" tabindex="-1"></a>img.save(buf, <span class="bu">format</span><span class="op">=</span><span class="st">"PNG"</span>)</span>
+<span id="cb15-183"><a href="#cb15-183" aria-hidden="true" tabindex="-1"></a>image_bytes <span class="op">=</span> buf.getvalue()</span>
+<span id="cb15-184"><a href="#cb15-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-185"><a href="#cb15-185" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb15-186"><a href="#cb15-186" aria-hidden="true" tabindex="-1"></a>    client.chat(<span class="st">"Describe both."</span>, images<span class="op">=</span>[image_bytes], audio<span class="op">=</span>[audio_bytes])</span>
+<span id="cb15-187"><a href="#cb15-187" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">ValueError</span> <span class="im">as</span> e:</span>
+<span id="cb15-188"><a href="#cb15-188" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"caught:"</span>, e)</span>
+<span id="cb15-189"><a href="#cb15-189" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-190"><a href="#cb15-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-191"><a href="#cb15-191" aria-hidden="true" tabindex="-1"></a><span class="fu">## 10. Google Gemini</span></span>
+<span id="cb15-192"><a href="#cb15-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-193"><a href="#cb15-193" aria-hidden="true" tabindex="-1"></a>Gemini 2.x uses Google's OpenAI-compatible endpoint, so <span class="in">`input_audio`</span> blocks pass through directly. Requires <span class="in">`GOOGLE_API_KEY`</span>.</span>
+<span id="cb15-194"><a href="#cb15-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-197"><a href="#cb15-197" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-198"><a href="#cb15-198" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.gemini.text <span class="im">import</span> GeminiModel</span>
+<span id="cb15-199"><a href="#cb15-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-200"><a href="#cb15-200" aria-hidden="true" tabindex="-1"></a>gemini_client <span class="op">=</span> ModelClient(GeminiModel.GEMINI_2_5_FLASH)</span>
+<span id="cb15-201"><a href="#cb15-201" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> gemini_client.generate(<span class="st">"Describe this audio clip."</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb15-202"><a href="#cb15-202" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span>
+<span id="cb15-203"><a href="#cb15-203" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-204"><a href="#cb15-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-205"><a href="#cb15-205" aria-hidden="true" tabindex="-1"></a><span class="fu">## 11. HuggingFace (Gemma 4)</span></span>
+<span id="cb15-206"><a href="#cb15-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-207"><a href="#cb15-207" aria-hidden="true" tabindex="-1"></a>HuggingFace Gemma 4 E4B/12B accept audio alongside text. AIMU decodes <span class="in">`input_audio`</span> blocks to float32 numpy arrays via <span class="in">`soundfile`</span> and passes them to the <span class="in">`AutoProcessor`</span> alongside the text. Requires the <span class="in">`[hf]`</span> extra.</span>
+<span id="cb15-208"><a href="#cb15-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-211"><a href="#cb15-211" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-212"><a href="#cb15-212" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.hf.text <span class="im">import</span> HuggingFaceModel</span>
+<span id="cb15-213"><a href="#cb15-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-214"><a href="#cb15-214" aria-hidden="true" tabindex="-1"></a>hf_client <span class="op">=</span> ModelClient(HuggingFaceModel.GEMMA_4_E4B)</span>
+<span id="cb15-215"><a href="#cb15-215" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> hf_client.generate(<span class="st">"What do you hear in this clip?"</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
+<span id="cb15-216"><a href="#cb15-216" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span>
+<span id="cb15-217"><a href="#cb15-217" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-218"><a href="#cb15-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-219"><a href="#cb15-219" aria-hidden="true" tabindex="-1"></a><span class="fu">## 12. Async surface</span></span>
+<span id="cb15-220"><a href="#cb15-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-221"><a href="#cb15-221" aria-hidden="true" tabindex="-1"></a><span class="in">`audio=`</span> is available on <span class="in">`aio.chat()`</span> and <span class="in">`aio.generate()`</span> with the same signature.</span>
+<span id="cb15-222"><a href="#cb15-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-225"><a href="#cb15-225" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-226"><a href="#cb15-226" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
+<span id="cb15-227"><a href="#cb15-227" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
+<span id="cb15-228"><a href="#cb15-228" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIModel</span>
+<span id="cb15-229"><a href="#cb15-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-230"><a href="#cb15-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-231"><a href="#cb15-231" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> transcribe_async(path: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb15-232"><a href="#cb15-232" aria-hidden="true" tabindex="-1"></a>    client <span class="op">=</span> aio.client(<span class="ss">f"openai:</span><span class="sc">{</span>OpenAIModel<span class="sc">.</span>GPT_4O<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb15-233"><a href="#cb15-233" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cf">await</span> client.generate(<span class="st">"Transcribe this audio."</span>, audio<span class="op">=</span>[path])</span>
+<span id="cb15-234"><a href="#cb15-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-235"><a href="#cb15-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-236"><a href="#cb15-236" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> asyncio.run(transcribe_async(<span class="bu">str</span>(audio_path)))</span>
+<span id="cb15-237"><a href="#cb15-237" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
+<span id="cb15-238"><a href="#cb15-238" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-239"><a href="#cb15-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-240"><a href="#cb15-240" aria-hidden="true" tabindex="-1"></a><span class="fu">## Cleanup</span></span>
+<span id="cb15-241"><a href="#cb15-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-244"><a href="#cb15-244" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-245"><a href="#cb15-245" aria-hidden="true" tabindex="-1"></a>audio_path.unlink(missing_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb15-246"><a href="#cb15-246" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

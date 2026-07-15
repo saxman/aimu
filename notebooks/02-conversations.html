@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Conversations – AIMU Notebooks</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./03-structured-output.html" rel="next">
+<link href="./01-model-client.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-637a8987fd156daea465eecdbde71ac9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./02-conversations.html">Conversations</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">AIMU Notebooks</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Notebooks</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-model-client.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model Client</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-conversations.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Conversations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-structured-output.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Structured Output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-vision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vision Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-audio-input.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tools</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-agent-skills.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agent Skills</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-workflows.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Workflows</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-prebuilt-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prebuilt Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-embeddings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Embeddings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./13-rag.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Retrieval-Augmented Generation (RAG)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./14-prompt-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Management</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./15-prompt-tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Tuning</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./16-evaluations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Evaluations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./17-benchmarking.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benchmarking</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./18-image-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Image Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./19-audio-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./20-speech.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Speech</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./21-transcription.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Transcription</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22-async.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Async (<code>aimu.aio</code>)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./23-composing-agents-a2a.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Composing Agents (A2A)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./24-personal-assistants.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Personal Assistants</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./25-sessions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sessions (multi-user)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./26-remote-mcp-servers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote MCP Servers</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#what-this-notebook-covers" id="toc-what-this-notebook-covers" class="nav-link active" data-scroll-target="#what-this-notebook-covers">What this notebook covers</a></li>
+  <li><a href="#a---basic-conversation-manager-setup" id="toc-a---basic-conversation-manager-setup" class="nav-link" data-scroll-target="#a---basic-conversation-manager-setup">A - Basic Conversation Manager Setup</a></li>
+  <li><a href="#b---adding-messages-to-conversation" id="toc-b---adding-messages-to-conversation" class="nav-link" data-scroll-target="#b---adding-messages-to-conversation">B - Adding Messages to Conversation</a></li>
+  <li><a href="#c---continuing-a-conversation" id="toc-c---continuing-a-conversation" class="nav-link" data-scroll-target="#c---continuing-a-conversation">C - Continuing a Conversation</a></li>
+  <li><a href="#d---working-with-multiple-conversations" id="toc-d---working-with-multiple-conversations" class="nav-link" data-scroll-target="#d---working-with-multiple-conversations">D - Working with Multiple Conversations</a></li>
+  <li><a href="#e---resuming-previous-conversations" id="toc-e---resuming-previous-conversations" class="nav-link" data-scroll-target="#e---resuming-previous-conversations">E - Resuming Previous Conversations</a></li>
+  <li><a href="#f---message-properties-and-structure" id="toc-f---message-properties-and-structure" class="nav-link" data-scroll-target="#f---message-properties-and-structure">F - Message Properties and Structure</a></li>
+  <li><a href="#g---integration-with-model-clients" id="toc-g---integration-with-model-clients" class="nav-link" data-scroll-target="#g---integration-with-model-clients">G - Integration with Model Clients</a></li>
+  <li><a href="#h---cleanup-and-resource-management" id="toc-h---cleanup-and-resource-management" class="nav-link" data-scroll-target="#h---cleanup-and-resource-management">H - Cleanup and Resource Management</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./02-conversations.html">Conversations</a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Conversations</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p><code>ConversationManager</code> is AIMU’s persistent chat history layer. It stores OpenAI-format messages (<code>role</code>/<code>content</code>) in a TinyDB JSON file, attaches a timestamp each time you write, and supports multiple independent conversations in the same database. Messages returned via the <code>messages</code> property are copies, so callers can mutate them freely without corrupting persisted state.</p>
+<p>Use it when a chat needs to survive process restarts: a Streamlit/Gradio app that resumes the user’s last session, a CLI tool that keeps a running log, or any place where <code>ModelClient.messages</code> (which is in-memory only) isn’t enough. The integration pattern is simple: drive your model client’s <code>chat()</code> calls as usual, then push <code>model_client.messages</code> to the manager after each turn. Pass <code>use_last_conversation=True</code> on startup to pick up where the previous session left off.</p>
+<section id="what-this-notebook-covers" class="level2">
+<h2 class="anchored" data-anchor-id="what-this-notebook-covers">What this notebook covers</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Section</th>
+<th>Topic</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A</td>
+<td>Creating a <code>ConversationManager</code> backed by a TinyDB JSON file</td>
+</tr>
+<tr class="even">
+<td>B</td>
+<td>Writing messages and inspecting the auto-attached timestamps</td>
+</tr>
+<tr class="odd">
+<td>C</td>
+<td>Extending an existing conversation across multiple turns</td>
+</tr>
+<tr class="even">
+<td>D</td>
+<td>Running several conversations in parallel (same DB or separate files)</td>
+</tr>
+<tr class="odd">
+<td>E</td>
+<td>Resuming the last conversation with <code>use_last_conversation=True</code></td>
+</tr>
+<tr class="even">
+<td>F</td>
+<td>Working with the <code>messages</code> copy semantics</td>
+</tr>
+<tr class="odd">
+<td>G</td>
+<td>Wiring a <code>ConversationManager</code> into a model client</td>
+</tr>
+<tr class="even">
+<td>H</td>
+<td>Closing the database and cleaning up</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="a---basic-conversation-manager-setup" class="level2">
+<h2 class="anchored" data-anchor-id="a---basic-conversation-manager-setup">A - Basic Conversation Manager Setup</h2>
+<p>The ConversationManager class provides persistent storage for chat conversations using TinyDB. It automatically handles conversation creation, message storage, and timestamping.</p>
+<div id="7a1f84c7" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.history <span class="im">import</span> ConversationManager</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tempfile</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a temporary database file for this example</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>temp_db <span class="op">=</span> tempfile.NamedTemporaryFile(suffix<span class="op">=</span><span class="st">".json"</span>, delete<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>temp_db.close()</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize a new conversation manager</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>conv_manager <span class="op">=</span> ConversationManager(db_path<span class="op">=</span>temp_db.name)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Created conversation manager with database: </span><span class="sc">{</span>temp_db<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Initial messages: </span><span class="sc">{</span><span class="bu">len</span>(conv_manager.messages)<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="b---adding-messages-to-conversation" class="level2">
+<h2 class="anchored" data-anchor-id="b---adding-messages-to-conversation">B - Adding Messages to Conversation</h2>
+<p>Messages are stored as dictionaries with role and content. The ConversationManager automatically adds timestamps when updating conversations.</p>
+<div id="817057af" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create initial messages for a conversation</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>initial_messages <span class="op">=</span> [</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Hello, can you help me with Python programming?"</span>},</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"role"</span>: <span class="st">"assistant"</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"content"</span>: <span class="st">"Of course! I'd be happy to help you with Python programming. What specific topic would you like to explore?"</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Update the conversation with these messages</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>conv_manager.update_conversation(initial_messages)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Added </span><span class="sc">{</span><span class="bu">len</span>(initial_messages)<span class="sc">}</span><span class="ss"> messages to the conversation"</span>)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Total messages: </span><span class="sc">{</span><span class="bu">len</span>(conv_manager.messages)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Current messages:"</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, msg <span class="kw">in</span> <span class="bu">enumerate</span>(conv_manager.messages):</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">. </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>msg[<span class="st">'content'</span>][:<span class="dv">50</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"     Timestamp: </span><span class="sc">{</span>msg<span class="sc">.</span>get(<span class="st">'timestamp'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="c---continuing-a-conversation" class="level2">
+<h2 class="anchored" data-anchor-id="c---continuing-a-conversation">C - Continuing a Conversation</h2>
+<p>You can continue adding messages to an existing conversation. The manager tracks which messages are new and adds timestamps accordingly.</p>
+<div id="ad108280" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Get current messages and add more</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>current_messages <span class="op">=</span> conv_manager.messages</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>new_messages <span class="op">=</span> current_messages <span class="op">+</span> [</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"I want to learn about list comprehensions."</span>},</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">"role"</span>: <span class="st">"assistant"</span>,</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">"content"</span>: <span class="st">"List comprehensions are a concise way to create lists in Python. Here's a basic example: [x**2 for x in range(5)] creates [0, 1, 4, 9, 16]."</span>,</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Small delay to show timestamp difference</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>time.sleep(<span class="fl">0.1</span>)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Update with the extended conversation</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>conv_manager.update_conversation(new_messages)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Extended conversation to </span><span class="sc">{</span><span class="bu">len</span>(conv_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">All messages with timestamps:"</span>)</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, msg <span class="kw">in</span> <span class="bu">enumerate</span>(conv_manager.messages):</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">. [</span><span class="sc">{</span>msg<span class="sc">.</span>get(<span class="st">'timestamp'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">] </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>msg[<span class="st">'content'</span>][:<span class="dv">60</span>]<span class="sc">}</span><span class="ss">..."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="d---working-with-multiple-conversations" class="level2">
+<h2 class="anchored" data-anchor-id="d---working-with-multiple-conversations">D - Working with Multiple Conversations</h2>
+<p>You can create multiple conversations by creating new ConversationManager instances or by explicitly starting new conversations.</p>
+<div id="68c4bb9b" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Start a new conversation in the same manager</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>new_doc_id, new_messages <span class="op">=</span> conv_manager.create_new_conversation()</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Created new conversation with ID: </span><span class="sc">{</span>new_doc_id<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"New conversation messages: </span><span class="sc">{</span><span class="bu">len</span>(new_messages)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: The current manager is still using the original conversation</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Current manager still has: </span><span class="sc">{</span><span class="bu">len</span>(conv_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a second manager for a different topic</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>temp_db2 <span class="op">=</span> tempfile.NamedTemporaryFile(suffix<span class="op">=</span><span class="st">".json"</span>, delete<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>temp_db2.close()</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>conv_manager2 <span class="op">=</span> ConversationManager(db_path<span class="op">=</span>temp_db2.name)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Add different content to the second conversation</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>math_messages <span class="op">=</span> [</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Can you help me with calculus?"</span>},</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">"role"</span>: <span class="st">"assistant"</span>,</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">"content"</span>: <span class="st">"Absolutely! Calculus deals with rates of change and areas under curves. What specific topic in calculus would you like to explore?"</span>,</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>conv_manager2.update_conversation(math_messages)</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Second conversation has </span><span class="sc">{</span><span class="bu">len</span>(conv_manager2.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Second conversation content:"</span>)</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> msg <span class="kw">in</span> conv_manager2.messages:</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>msg[<span class="st">'content'</span>][:<span class="dv">50</span>]<span class="sc">}</span><span class="ss">..."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="e---resuming-previous-conversations" class="level2">
+<h2 class="anchored" data-anchor-id="e---resuming-previous-conversations">E - Resuming Previous Conversations</h2>
+<p>You can resume the last conversation by setting <code>use_last_conversation=True</code> when initializing the ConversationManager.</p>
+<div id="cc3bb81c" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Close the first manager</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>conv_manager.close()</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a new manager that resumes the last conversation</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>resumed_manager <span class="op">=</span> ConversationManager(db_path<span class="op">=</span>temp_db.name, use_last_conversation<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Resumed conversation with </span><span class="sc">{</span><span class="bu">len</span>(resumed_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Resumed conversation content:"</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, msg <span class="kw">in</span> <span class="bu">enumerate</span>(resumed_manager.messages):</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">. </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>msg[<span class="st">'content'</span>][:<span class="dv">60</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Continue the resumed conversation</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>continued_messages <span class="op">=</span> resumed_manager.messages <span class="op">+</span> [</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Can you show me more advanced list comprehension examples?"</span>},</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">"role"</span>: <span class="st">"assistant"</span>,</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">"content"</span>: <span class="st">"Sure! Here are some advanced examples:</span><span class="ch">\n</span><span class="st">- Nested: [[x*y for x in range(3)] for y in range(2)]</span><span class="ch">\n</span><span class="st">- Conditional: [x for x in range(10) if x % 2 == 0]"</span>,</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>resumed_manager.update_conversation(continued_messages)</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Continued conversation now has </span><span class="sc">{</span><span class="bu">len</span>(resumed_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="f---message-properties-and-structure" class="level2">
+<h2 class="anchored" data-anchor-id="f---message-properties-and-structure">F - Message Properties and Structure</h2>
+<p>Messages returned by the ConversationManager are copies, so you can safely manipulate them without affecting the stored conversation.</p>
+<div id="d51704e5" class="cell" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get messages (returns a copy)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>messages_copy <span class="op">=</span> resumed_manager.messages</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Retrieved </span><span class="sc">{</span><span class="bu">len</span>(messages_copy)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Message structure analysis:"</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, msg <span class="kw">in</span> <span class="bu">enumerate</span>(messages_copy[:<span class="dv">3</span>]):  <span class="co"># Show first 3 messages</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Message </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">:"</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Keys: </span><span class="sc">{</span><span class="bu">list</span>(msg.keys())<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Role: </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Content length: </span><span class="sc">{</span><span class="bu">len</span>(msg[<span class="st">'content'</span>])<span class="sc">}</span><span class="ss"> characters"</span>)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Has timestamp: </span><span class="sc">{</span><span class="st">'timestamp'</span> <span class="kw">in</span> msg<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="st">"timestamp"</span> <span class="kw">in</span> msg:</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  Timestamp: </span><span class="sc">{</span>msg[<span class="st">'timestamp'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Modify the copy - this won't affect the stored conversation</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>messages_copy[<span class="dv">0</span>][<span class="st">"content"</span>] <span class="op">=</span> <span class="st">"Modified content"</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Modified copy, but original remains unchanged:"</span>)</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Copy first message: </span><span class="sc">{</span>messages_copy[<span class="dv">0</span>][<span class="st">'content'</span>][:<span class="dv">20</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Original first message: </span><span class="sc">{</span>resumed_manager<span class="sc">.</span>messages[<span class="dv">0</span>][<span class="st">'content'</span>][:<span class="dv">20</span>]<span class="sc">}</span><span class="ss">..."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="g---integration-with-model-clients" class="level2">
+<h2 class="anchored" data-anchor-id="g---integration-with-model-clients">G - Integration with Model Clients</h2>
+<p>The ConversationManager can be integrated with model clients to automatically persist chat history.</p>
+<div id="e643166d" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate a model client integration pattern</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SimpleModelClient:</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, conversation_manager):</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.conv_manager <span class="op">=</span> conversation_manager</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> chat(<span class="va">self</span>, user_message):</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Simulate model response</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        responses <span class="op">=</span> {</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">"hello"</span>: <span class="st">"Hello! How can I help you today?"</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>            <span class="st">"python"</span>: <span class="st">"Python is a versatile programming language. What would you like to know?"</span>,</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>            <span class="st">"goodbye"</span>: <span class="st">"Goodbye! Feel free to ask if you have more questions."</span>,</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Simple keyword-based response</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        assistant_response <span class="op">=</span> <span class="st">"I understand. Can you tell me more?"</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> keyword, response <span class="kw">in</span> responses.items():</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> keyword.lower() <span class="kw">in</span> user_message.lower():</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>                assistant_response <span class="op">=</span> response</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Update conversation with both messages</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>        current_messages <span class="op">=</span> <span class="va">self</span>.conv_manager.messages</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        new_messages <span class="op">=</span> current_messages <span class="op">+</span> [</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>            {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: user_message},</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>            {<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: assistant_response},</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.conv_manager.update_conversation(new_messages)</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> assistant_response</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a client with our conversation manager</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> SimpleModelClient(resumed_manager)</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Have a conversation</span></span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Starting conversation with integrated client:"</span>)</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Initial messages: </span><span class="sc">{</span><span class="bu">len</span>(client.conv_manager.messages)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>response1 <span class="op">=</span> client.chat(<span class="st">"Hello there!"</span>)</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">User: Hello there!"</span>)</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Assistant: </span><span class="sc">{</span>response1<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>response2 <span class="op">=</span> client.chat(<span class="st">"Tell me about Python"</span>)</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">User: Tell me about Python"</span>)</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Assistant: </span><span class="sc">{</span>response2<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Final message count: </span><span class="sc">{</span><span class="bu">len</span>(client.conv_manager.messages)<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="h---cleanup-and-resource-management" class="level2">
+<h2 class="anchored" data-anchor-id="h---cleanup-and-resource-management">H - Cleanup and Resource Management</h2>
+<p>The ConversationManager automatically closes the database connection when deleted, but you can also explicitly close it.</p>
+<div id="806c428c" class="cell" data-execution_count="8">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show final state of conversations</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Final conversation states:"</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Main conversation: </span><span class="sc">{</span><span class="bu">len</span>(resumed_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Second conversation: </span><span class="sc">{</span><span class="bu">len</span>(conv_manager2.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Explicitly close the managers</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>resumed_manager.close()</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>conv_manager2.close()</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Closed all conversation managers"</span>)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Clean up temporary files</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    os.unlink(temp_db.name)</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    os.unlink(temp_db2.name)</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Cleaned up temporary database files"</span>)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">OSError</span>:</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Note: Some temporary files may need manual cleanup"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./01-model-client.html" class="pagination-link" aria-label="Model Client">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Model Client</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./03-structured-output.html" class="pagination-link" aria-label="Structured Output">
+        <span class="nav-page-text">Structured Output</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Conversations"</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="in">`ConversationManager`</span> is AIMU's persistent chat history layer. It stores OpenAI-format messages (<span class="in">`role`</span>/<span class="in">`content`</span>) in a TinyDB JSON file, attaches a timestamp each time you write, and supports multiple independent conversations in the same database. Messages returned via the <span class="in">`messages`</span> property are copies, so callers can mutate them freely without corrupting persisted state.</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>Use it when a chat needs to survive process restarts: a Streamlit/Gradio app that resumes the user's last session, a CLI tool that keeps a running log, or any place where <span class="in">`ModelClient.messages`</span> (which is in-memory only) isn't enough. The integration pattern is simple: drive your model client's <span class="in">`chat()`</span> calls as usual, then push <span class="in">`model_client.messages`</span> to the manager after each turn. Pass <span class="in">`use_last_conversation=True`</span> on startup to pick up where the previous session left off.</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this notebook covers</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Section <span class="pp">|</span> Topic <span class="pp">|</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> A <span class="pp">|</span> Creating a <span class="in">`ConversationManager`</span> backed by a TinyDB JSON file <span class="pp">|</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> B <span class="pp">|</span> Writing messages and inspecting the auto-attached timestamps <span class="pp">|</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> C <span class="pp">|</span> Extending an existing conversation across multiple turns <span class="pp">|</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D <span class="pp">|</span> Running several conversations in parallel (same DB or separate files) <span class="pp">|</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> E <span class="pp">|</span> Resuming the last conversation with <span class="in">`use_last_conversation=True`</span> <span class="pp">|</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> F <span class="pp">|</span> Working with the <span class="in">`messages`</span> copy semantics <span class="pp">|</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G <span class="pp">|</span> Wiring a <span class="in">`ConversationManager`</span> into a model client <span class="pp">|</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> H <span class="pp">|</span> Closing the database and cleaning up <span class="pp">|</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Basic Conversation Manager Setup</span></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>The ConversationManager class provides persistent storage for chat conversations using TinyDB. It automatically handles conversation creation, message storage, and timestamping.</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.history <span class="im">import</span> ConversationManager</span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tempfile</span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a temporary database file for this example</span></span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>temp_db <span class="op">=</span> tempfile.NamedTemporaryFile(suffix<span class="op">=</span><span class="st">".json"</span>, delete<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a>temp_db.close()</span>
+<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize a new conversation manager</span></span>
+<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a>conv_manager <span class="op">=</span> ConversationManager(db_path<span class="op">=</span>temp_db.name)</span>
+<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Created conversation manager with database: </span><span class="sc">{</span>temp_db<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Initial messages: </span><span class="sc">{</span><span class="bu">len</span>(conv_manager.messages)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - Adding Messages to Conversation</span></span>
+<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a>Messages are stored as dictionaries with role and content. The ConversationManager automatically adds timestamps when updating conversations.</span>
+<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a><span class="co"># Create initial messages for a conversation</span></span>
+<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a>initial_messages <span class="op">=</span> [</span>
+<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Hello, can you help me with Python programming?"</span>},</span>
+<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a>        <span class="st">"role"</span>: <span class="st">"assistant"</span>,</span>
+<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a>        <span class="st">"content"</span>: <span class="st">"Of course! I'd be happy to help you with Python programming. What specific topic would you like to explore?"</span>,</span>
+<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb9-61"><a href="#cb9-61" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb9-62"><a href="#cb9-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a><span class="co"># Update the conversation with these messages</span></span>
+<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a>conv_manager.update_conversation(initial_messages)</span>
+<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Added </span><span class="sc">{</span><span class="bu">len</span>(initial_messages)<span class="sc">}</span><span class="ss"> messages to the conversation"</span>)</span>
+<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Total messages: </span><span class="sc">{</span><span class="bu">len</span>(conv_manager.messages)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Current messages:"</span>)</span>
+<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, msg <span class="kw">in</span> <span class="bu">enumerate</span>(conv_manager.messages):</span>
+<span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">. </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>msg[<span class="st">'content'</span>][:<span class="dv">50</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"     Timestamp: </span><span class="sc">{</span>msg<span class="sc">.</span>get(<span class="st">'timestamp'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - Continuing a Conversation</span></span>
+<span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a>You can continue adding messages to an existing conversation. The manager tracks which messages are new and adds timestamps accordingly.</span>
+<span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-80"><a href="#cb9-80" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-81"><a href="#cb9-81" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
+<span id="cb9-82"><a href="#cb9-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-83"><a href="#cb9-83" aria-hidden="true" tabindex="-1"></a><span class="co"># Get current messages and add more</span></span>
+<span id="cb9-84"><a href="#cb9-84" aria-hidden="true" tabindex="-1"></a>current_messages <span class="op">=</span> conv_manager.messages</span>
+<span id="cb9-85"><a href="#cb9-85" aria-hidden="true" tabindex="-1"></a>new_messages <span class="op">=</span> current_messages <span class="op">+</span> [</span>
+<span id="cb9-86"><a href="#cb9-86" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"I want to learn about list comprehensions."</span>},</span>
+<span id="cb9-87"><a href="#cb9-87" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb9-88"><a href="#cb9-88" aria-hidden="true" tabindex="-1"></a>        <span class="st">"role"</span>: <span class="st">"assistant"</span>,</span>
+<span id="cb9-89"><a href="#cb9-89" aria-hidden="true" tabindex="-1"></a>        <span class="st">"content"</span>: <span class="st">"List comprehensions are a concise way to create lists in Python. Here's a basic example: [x**2 for x in range(5)] creates [0, 1, 4, 9, 16]."</span>,</span>
+<span id="cb9-90"><a href="#cb9-90" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb9-91"><a href="#cb9-91" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb9-92"><a href="#cb9-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-93"><a href="#cb9-93" aria-hidden="true" tabindex="-1"></a><span class="co"># Small delay to show timestamp difference</span></span>
+<span id="cb9-94"><a href="#cb9-94" aria-hidden="true" tabindex="-1"></a>time.sleep(<span class="fl">0.1</span>)</span>
+<span id="cb9-95"><a href="#cb9-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-96"><a href="#cb9-96" aria-hidden="true" tabindex="-1"></a><span class="co"># Update with the extended conversation</span></span>
+<span id="cb9-97"><a href="#cb9-97" aria-hidden="true" tabindex="-1"></a>conv_manager.update_conversation(new_messages)</span>
+<span id="cb9-98"><a href="#cb9-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-99"><a href="#cb9-99" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Extended conversation to </span><span class="sc">{</span><span class="bu">len</span>(conv_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb9-100"><a href="#cb9-100" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">All messages with timestamps:"</span>)</span>
+<span id="cb9-101"><a href="#cb9-101" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, msg <span class="kw">in</span> <span class="bu">enumerate</span>(conv_manager.messages):</span>
+<span id="cb9-102"><a href="#cb9-102" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">. [</span><span class="sc">{</span>msg<span class="sc">.</span>get(<span class="st">'timestamp'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">] </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>msg[<span class="st">'content'</span>][:<span class="dv">60</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb9-103"><a href="#cb9-103" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-104"><a href="#cb9-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-105"><a href="#cb9-105" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Working with Multiple Conversations</span></span>
+<span id="cb9-106"><a href="#cb9-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-107"><a href="#cb9-107" aria-hidden="true" tabindex="-1"></a>You can create multiple conversations by creating new ConversationManager instances or by explicitly starting new conversations.</span>
+<span id="cb9-108"><a href="#cb9-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-111"><a href="#cb9-111" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-112"><a href="#cb9-112" aria-hidden="true" tabindex="-1"></a><span class="co"># Start a new conversation in the same manager</span></span>
+<span id="cb9-113"><a href="#cb9-113" aria-hidden="true" tabindex="-1"></a>new_doc_id, new_messages <span class="op">=</span> conv_manager.create_new_conversation()</span>
+<span id="cb9-114"><a href="#cb9-114" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Created new conversation with ID: </span><span class="sc">{</span>new_doc_id<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-115"><a href="#cb9-115" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"New conversation messages: </span><span class="sc">{</span><span class="bu">len</span>(new_messages)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-116"><a href="#cb9-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-117"><a href="#cb9-117" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: The current manager is still using the original conversation</span></span>
+<span id="cb9-118"><a href="#cb9-118" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Current manager still has: </span><span class="sc">{</span><span class="bu">len</span>(conv_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb9-119"><a href="#cb9-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-120"><a href="#cb9-120" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a second manager for a different topic</span></span>
+<span id="cb9-121"><a href="#cb9-121" aria-hidden="true" tabindex="-1"></a>temp_db2 <span class="op">=</span> tempfile.NamedTemporaryFile(suffix<span class="op">=</span><span class="st">".json"</span>, delete<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb9-122"><a href="#cb9-122" aria-hidden="true" tabindex="-1"></a>temp_db2.close()</span>
+<span id="cb9-123"><a href="#cb9-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-124"><a href="#cb9-124" aria-hidden="true" tabindex="-1"></a>conv_manager2 <span class="op">=</span> ConversationManager(db_path<span class="op">=</span>temp_db2.name)</span>
+<span id="cb9-125"><a href="#cb9-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-126"><a href="#cb9-126" aria-hidden="true" tabindex="-1"></a><span class="co"># Add different content to the second conversation</span></span>
+<span id="cb9-127"><a href="#cb9-127" aria-hidden="true" tabindex="-1"></a>math_messages <span class="op">=</span> [</span>
+<span id="cb9-128"><a href="#cb9-128" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Can you help me with calculus?"</span>},</span>
+<span id="cb9-129"><a href="#cb9-129" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb9-130"><a href="#cb9-130" aria-hidden="true" tabindex="-1"></a>        <span class="st">"role"</span>: <span class="st">"assistant"</span>,</span>
+<span id="cb9-131"><a href="#cb9-131" aria-hidden="true" tabindex="-1"></a>        <span class="st">"content"</span>: <span class="st">"Absolutely! Calculus deals with rates of change and areas under curves. What specific topic in calculus would you like to explore?"</span>,</span>
+<span id="cb9-132"><a href="#cb9-132" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb9-133"><a href="#cb9-133" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb9-134"><a href="#cb9-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-135"><a href="#cb9-135" aria-hidden="true" tabindex="-1"></a>conv_manager2.update_conversation(math_messages)</span>
+<span id="cb9-136"><a href="#cb9-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-137"><a href="#cb9-137" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Second conversation has </span><span class="sc">{</span><span class="bu">len</span>(conv_manager2.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb9-138"><a href="#cb9-138" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Second conversation content:"</span>)</span>
+<span id="cb9-139"><a href="#cb9-139" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> msg <span class="kw">in</span> conv_manager2.messages:</span>
+<span id="cb9-140"><a href="#cb9-140" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>msg[<span class="st">'content'</span>][:<span class="dv">50</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb9-141"><a href="#cb9-141" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-142"><a href="#cb9-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-143"><a href="#cb9-143" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - Resuming Previous Conversations</span></span>
+<span id="cb9-144"><a href="#cb9-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-145"><a href="#cb9-145" aria-hidden="true" tabindex="-1"></a>You can resume the last conversation by setting <span class="in">`use_last_conversation=True`</span> when initializing the ConversationManager.</span>
+<span id="cb9-146"><a href="#cb9-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-149"><a href="#cb9-149" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-150"><a href="#cb9-150" aria-hidden="true" tabindex="-1"></a><span class="co"># Close the first manager</span></span>
+<span id="cb9-151"><a href="#cb9-151" aria-hidden="true" tabindex="-1"></a>conv_manager.close()</span>
+<span id="cb9-152"><a href="#cb9-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-153"><a href="#cb9-153" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a new manager that resumes the last conversation</span></span>
+<span id="cb9-154"><a href="#cb9-154" aria-hidden="true" tabindex="-1"></a>resumed_manager <span class="op">=</span> ConversationManager(db_path<span class="op">=</span>temp_db.name, use_last_conversation<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb9-155"><a href="#cb9-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-156"><a href="#cb9-156" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Resumed conversation with </span><span class="sc">{</span><span class="bu">len</span>(resumed_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb9-157"><a href="#cb9-157" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Resumed conversation content:"</span>)</span>
+<span id="cb9-158"><a href="#cb9-158" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, msg <span class="kw">in</span> <span class="bu">enumerate</span>(resumed_manager.messages):</span>
+<span id="cb9-159"><a href="#cb9-159" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">. </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>msg[<span class="st">'content'</span>][:<span class="dv">60</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb9-160"><a href="#cb9-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-161"><a href="#cb9-161" aria-hidden="true" tabindex="-1"></a><span class="co"># Continue the resumed conversation</span></span>
+<span id="cb9-162"><a href="#cb9-162" aria-hidden="true" tabindex="-1"></a>continued_messages <span class="op">=</span> resumed_manager.messages <span class="op">+</span> [</span>
+<span id="cb9-163"><a href="#cb9-163" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Can you show me more advanced list comprehension examples?"</span>},</span>
+<span id="cb9-164"><a href="#cb9-164" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb9-165"><a href="#cb9-165" aria-hidden="true" tabindex="-1"></a>        <span class="st">"role"</span>: <span class="st">"assistant"</span>,</span>
+<span id="cb9-166"><a href="#cb9-166" aria-hidden="true" tabindex="-1"></a>        <span class="st">"content"</span>: <span class="st">"Sure! Here are some advanced examples:</span><span class="ch">\n</span><span class="st">- Nested: [[x*y for x in range(3)] for y in range(2)]</span><span class="ch">\n</span><span class="st">- Conditional: [x for x in range(10) if x % 2 == 0]"</span>,</span>
+<span id="cb9-167"><a href="#cb9-167" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb9-168"><a href="#cb9-168" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb9-169"><a href="#cb9-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-170"><a href="#cb9-170" aria-hidden="true" tabindex="-1"></a>resumed_manager.update_conversation(continued_messages)</span>
+<span id="cb9-171"><a href="#cb9-171" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Continued conversation now has </span><span class="sc">{</span><span class="bu">len</span>(resumed_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb9-172"><a href="#cb9-172" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-173"><a href="#cb9-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-174"><a href="#cb9-174" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - Message Properties and Structure</span></span>
+<span id="cb9-175"><a href="#cb9-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-176"><a href="#cb9-176" aria-hidden="true" tabindex="-1"></a>Messages returned by the ConversationManager are copies, so you can safely manipulate them without affecting the stored conversation.</span>
+<span id="cb9-177"><a href="#cb9-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-180"><a href="#cb9-180" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-181"><a href="#cb9-181" aria-hidden="true" tabindex="-1"></a><span class="co"># Get messages (returns a copy)</span></span>
+<span id="cb9-182"><a href="#cb9-182" aria-hidden="true" tabindex="-1"></a>messages_copy <span class="op">=</span> resumed_manager.messages</span>
+<span id="cb9-183"><a href="#cb9-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-184"><a href="#cb9-184" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Retrieved </span><span class="sc">{</span><span class="bu">len</span>(messages_copy)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb9-185"><a href="#cb9-185" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Message structure analysis:"</span>)</span>
+<span id="cb9-186"><a href="#cb9-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-187"><a href="#cb9-187" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, msg <span class="kw">in</span> <span class="bu">enumerate</span>(messages_copy[:<span class="dv">3</span>]):  <span class="co"># Show first 3 messages</span></span>
+<span id="cb9-188"><a href="#cb9-188" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Message </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">:"</span>)</span>
+<span id="cb9-189"><a href="#cb9-189" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Keys: </span><span class="sc">{</span><span class="bu">list</span>(msg.keys())<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-190"><a href="#cb9-190" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Role: </span><span class="sc">{</span>msg[<span class="st">'role'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-191"><a href="#cb9-191" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Content length: </span><span class="sc">{</span><span class="bu">len</span>(msg[<span class="st">'content'</span>])<span class="sc">}</span><span class="ss"> characters"</span>)</span>
+<span id="cb9-192"><a href="#cb9-192" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Has timestamp: </span><span class="sc">{</span><span class="st">'timestamp'</span> <span class="kw">in</span> msg<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-193"><a href="#cb9-193" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="st">"timestamp"</span> <span class="kw">in</span> msg:</span>
+<span id="cb9-194"><a href="#cb9-194" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  Timestamp: </span><span class="sc">{</span>msg[<span class="st">'timestamp'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-195"><a href="#cb9-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-196"><a href="#cb9-196" aria-hidden="true" tabindex="-1"></a><span class="co"># Modify the copy - this won't affect the stored conversation</span></span>
+<span id="cb9-197"><a href="#cb9-197" aria-hidden="true" tabindex="-1"></a>messages_copy[<span class="dv">0</span>][<span class="st">"content"</span>] <span class="op">=</span> <span class="st">"Modified content"</span></span>
+<span id="cb9-198"><a href="#cb9-198" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Modified copy, but original remains unchanged:"</span>)</span>
+<span id="cb9-199"><a href="#cb9-199" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Copy first message: </span><span class="sc">{</span>messages_copy[<span class="dv">0</span>][<span class="st">'content'</span>][:<span class="dv">20</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb9-200"><a href="#cb9-200" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Original first message: </span><span class="sc">{</span>resumed_manager<span class="sc">.</span>messages[<span class="dv">0</span>][<span class="st">'content'</span>][:<span class="dv">20</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb9-201"><a href="#cb9-201" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-202"><a href="#cb9-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-203"><a href="#cb9-203" aria-hidden="true" tabindex="-1"></a><span class="fu">## G - Integration with Model Clients</span></span>
+<span id="cb9-204"><a href="#cb9-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-205"><a href="#cb9-205" aria-hidden="true" tabindex="-1"></a>The ConversationManager can be integrated with model clients to automatically persist chat history.</span>
+<span id="cb9-206"><a href="#cb9-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-209"><a href="#cb9-209" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-210"><a href="#cb9-210" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate a model client integration pattern</span></span>
+<span id="cb9-211"><a href="#cb9-211" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SimpleModelClient:</span>
+<span id="cb9-212"><a href="#cb9-212" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, conversation_manager):</span>
+<span id="cb9-213"><a href="#cb9-213" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.conv_manager <span class="op">=</span> conversation_manager</span>
+<span id="cb9-214"><a href="#cb9-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-215"><a href="#cb9-215" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> chat(<span class="va">self</span>, user_message):</span>
+<span id="cb9-216"><a href="#cb9-216" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Simulate model response</span></span>
+<span id="cb9-217"><a href="#cb9-217" aria-hidden="true" tabindex="-1"></a>        responses <span class="op">=</span> {</span>
+<span id="cb9-218"><a href="#cb9-218" aria-hidden="true" tabindex="-1"></a>            <span class="st">"hello"</span>: <span class="st">"Hello! How can I help you today?"</span>,</span>
+<span id="cb9-219"><a href="#cb9-219" aria-hidden="true" tabindex="-1"></a>            <span class="st">"python"</span>: <span class="st">"Python is a versatile programming language. What would you like to know?"</span>,</span>
+<span id="cb9-220"><a href="#cb9-220" aria-hidden="true" tabindex="-1"></a>            <span class="st">"goodbye"</span>: <span class="st">"Goodbye! Feel free to ask if you have more questions."</span>,</span>
+<span id="cb9-221"><a href="#cb9-221" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb9-222"><a href="#cb9-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-223"><a href="#cb9-223" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Simple keyword-based response</span></span>
+<span id="cb9-224"><a href="#cb9-224" aria-hidden="true" tabindex="-1"></a>        assistant_response <span class="op">=</span> <span class="st">"I understand. Can you tell me more?"</span></span>
+<span id="cb9-225"><a href="#cb9-225" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> keyword, response <span class="kw">in</span> responses.items():</span>
+<span id="cb9-226"><a href="#cb9-226" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> keyword.lower() <span class="kw">in</span> user_message.lower():</span>
+<span id="cb9-227"><a href="#cb9-227" aria-hidden="true" tabindex="-1"></a>                assistant_response <span class="op">=</span> response</span>
+<span id="cb9-228"><a href="#cb9-228" aria-hidden="true" tabindex="-1"></a>                <span class="cf">break</span></span>
+<span id="cb9-229"><a href="#cb9-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-230"><a href="#cb9-230" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Update conversation with both messages</span></span>
+<span id="cb9-231"><a href="#cb9-231" aria-hidden="true" tabindex="-1"></a>        current_messages <span class="op">=</span> <span class="va">self</span>.conv_manager.messages</span>
+<span id="cb9-232"><a href="#cb9-232" aria-hidden="true" tabindex="-1"></a>        new_messages <span class="op">=</span> current_messages <span class="op">+</span> [</span>
+<span id="cb9-233"><a href="#cb9-233" aria-hidden="true" tabindex="-1"></a>            {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: user_message},</span>
+<span id="cb9-234"><a href="#cb9-234" aria-hidden="true" tabindex="-1"></a>            {<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: assistant_response},</span>
+<span id="cb9-235"><a href="#cb9-235" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb9-236"><a href="#cb9-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-237"><a href="#cb9-237" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.conv_manager.update_conversation(new_messages)</span>
+<span id="cb9-238"><a href="#cb9-238" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> assistant_response</span>
+<span id="cb9-239"><a href="#cb9-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-240"><a href="#cb9-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-241"><a href="#cb9-241" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a client with our conversation manager</span></span>
+<span id="cb9-242"><a href="#cb9-242" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> SimpleModelClient(resumed_manager)</span>
+<span id="cb9-243"><a href="#cb9-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-244"><a href="#cb9-244" aria-hidden="true" tabindex="-1"></a><span class="co"># Have a conversation</span></span>
+<span id="cb9-245"><a href="#cb9-245" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Starting conversation with integrated client:"</span>)</span>
+<span id="cb9-246"><a href="#cb9-246" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Initial messages: </span><span class="sc">{</span><span class="bu">len</span>(client.conv_manager.messages)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-247"><a href="#cb9-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-248"><a href="#cb9-248" aria-hidden="true" tabindex="-1"></a>response1 <span class="op">=</span> client.chat(<span class="st">"Hello there!"</span>)</span>
+<span id="cb9-249"><a href="#cb9-249" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">User: Hello there!"</span>)</span>
+<span id="cb9-250"><a href="#cb9-250" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Assistant: </span><span class="sc">{</span>response1<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-251"><a href="#cb9-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-252"><a href="#cb9-252" aria-hidden="true" tabindex="-1"></a>response2 <span class="op">=</span> client.chat(<span class="st">"Tell me about Python"</span>)</span>
+<span id="cb9-253"><a href="#cb9-253" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">User: Tell me about Python"</span>)</span>
+<span id="cb9-254"><a href="#cb9-254" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Assistant: </span><span class="sc">{</span>response2<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-255"><a href="#cb9-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-256"><a href="#cb9-256" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Final message count: </span><span class="sc">{</span><span class="bu">len</span>(client.conv_manager.messages)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-257"><a href="#cb9-257" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-258"><a href="#cb9-258" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-259"><a href="#cb9-259" aria-hidden="true" tabindex="-1"></a><span class="fu">## H - Cleanup and Resource Management</span></span>
+<span id="cb9-260"><a href="#cb9-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-261"><a href="#cb9-261" aria-hidden="true" tabindex="-1"></a>The ConversationManager automatically closes the database connection when deleted, but you can also explicitly close it.</span>
+<span id="cb9-262"><a href="#cb9-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-265"><a href="#cb9-265" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-266"><a href="#cb9-266" aria-hidden="true" tabindex="-1"></a><span class="co"># Show final state of conversations</span></span>
+<span id="cb9-267"><a href="#cb9-267" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Final conversation states:"</span>)</span>
+<span id="cb9-268"><a href="#cb9-268" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Main conversation: </span><span class="sc">{</span><span class="bu">len</span>(resumed_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb9-269"><a href="#cb9-269" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Second conversation: </span><span class="sc">{</span><span class="bu">len</span>(conv_manager2.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
+<span id="cb9-270"><a href="#cb9-270" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-271"><a href="#cb9-271" aria-hidden="true" tabindex="-1"></a><span class="co"># Explicitly close the managers</span></span>
+<span id="cb9-272"><a href="#cb9-272" aria-hidden="true" tabindex="-1"></a>resumed_manager.close()</span>
+<span id="cb9-273"><a href="#cb9-273" aria-hidden="true" tabindex="-1"></a>conv_manager2.close()</span>
+<span id="cb9-274"><a href="#cb9-274" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-275"><a href="#cb9-275" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Closed all conversation managers"</span>)</span>
+<span id="cb9-276"><a href="#cb9-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-277"><a href="#cb9-277" aria-hidden="true" tabindex="-1"></a><span class="co"># Clean up temporary files</span></span>
+<span id="cb9-278"><a href="#cb9-278" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb9-279"><a href="#cb9-279" aria-hidden="true" tabindex="-1"></a>    os.unlink(temp_db.name)</span>
+<span id="cb9-280"><a href="#cb9-280" aria-hidden="true" tabindex="-1"></a>    os.unlink(temp_db2.name)</span>
+<span id="cb9-281"><a href="#cb9-281" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Cleaned up temporary database files"</span>)</span>
+<span id="cb9-282"><a href="#cb9-282" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">OSError</span>:</span>
+<span id="cb9-283"><a href="#cb9-283" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Note: Some temporary files may need manual cleanup"</span>)</span>
+<span id="cb9-284"><a href="#cb9-284" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

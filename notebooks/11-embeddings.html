@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Embeddings – AIMU Notebooks</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./12-memory.html" rel="next">
+<link href="./10-prebuilt-agents.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-637a8987fd156daea465eecdbde71ac9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./11-embeddings.html">Embeddings</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">AIMU Notebooks</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Notebooks</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-model-client.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model Client</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-conversations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Conversations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-structured-output.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Structured Output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-vision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vision Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-audio-input.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tools</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-agent-skills.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agent Skills</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-workflows.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Workflows</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-prebuilt-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prebuilt Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-embeddings.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Embeddings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./13-rag.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Retrieval-Augmented Generation (RAG)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./14-prompt-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Management</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./15-prompt-tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Tuning</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./16-evaluations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Evaluations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./17-benchmarking.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benchmarking</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./18-image-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Image Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./19-audio-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./20-speech.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Speech</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./21-transcription.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Transcription</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22-async.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Async (<code>aimu.aio</code>)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./23-composing-agents-a2a.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Composing Agents (A2A)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./24-personal-assistants.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Personal Assistants</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./25-sessions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sessions (multi-user)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./26-remote-mcp-servers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote MCP Servers</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#what-this-notebook-covers" id="toc-what-this-notebook-covers" class="nav-link active" data-scroll-target="#what-this-notebook-covers">What this notebook covers</a></li>
+  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#one-shot-with-aimu.embed" id="toc-one-shot-with-aimu.embed" class="nav-link" data-scroll-target="#one-shot-with-aimu.embed">1. One-shot with <code>aimu.embed()</code></a></li>
+  <li><a href="#reusable-client" id="toc-reusable-client" class="nav-link" data-scroll-target="#reusable-client">2. Reusable client</a></li>
+  <li><a href="#semantic-similarity" id="toc-semantic-similarity" class="nav-link" data-scroll-target="#semantic-similarity">3. Semantic similarity</a></li>
+  <li><a href="#providers" id="toc-providers" class="nav-link" data-scroll-target="#providers">4. Providers</a></li>
+  <li><a href="#pluggable-embeddings-in-semanticmemorystore" id="toc-pluggable-embeddings-in-semanticmemorystore" class="nav-link" data-scroll-target="#pluggable-embeddings-in-semanticmemorystore">5. Pluggable embeddings in <code>SemanticMemoryStore</code></a></li>
+  <li><a href="#async-surface" id="toc-async-surface" class="nav-link" data-scroll-target="#async-surface">6. Async surface</a></li>
+  <li><a href="#model-catalog" id="toc-model-catalog" class="nav-link" data-scroll-target="#model-catalog">7. Model catalog</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./11-embeddings.html">Embeddings</a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Embeddings</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>AIMU provides a dedicated text-embedding surface via <code>aimu.embedding_client()</code> and <code>aimu.embed()</code>, parallel to the other modality clients (text, image, audio, speech, transcription). An embedding maps text to a fixed-length vector so you can measure semantic similarity, cluster, retrieve, and back semantic memory / RAG.</p>
+<section id="what-this-notebook-covers" class="level2">
+<h2 class="anchored" data-anchor-id="what-this-notebook-covers">What this notebook covers</h2>
+<ol type="1">
+<li>One-shot embedding with <code>aimu.embed()</code></li>
+<li>Reusable client: single vs.&nbsp;list, and <code>dimensions</code></li>
+<li>Semantic similarity (cosine)</li>
+<li>Providers: OpenAI (cloud), Ollama (local server), HuggingFace (local)</li>
+<li>Pluggable embeddings in <code>SemanticMemoryStore</code></li>
+<li>Async surface</li>
+<li>Model catalog</li>
+</ol>
+</section>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<p>OpenAI models read <code>OPENAI_API_KEY</code> from your environment (or a <code>.env</code> file in the project root). Ollama models need a running local server with the model pulled (<code>ollama pull nomic-embed-text</code>). HuggingFace models run locally and require the <code>[hf]</code> extra (which includes <code>sentence-transformers</code>).</p>
+</section>
+<section id="one-shot-with-aimu.embed" class="level2">
+<h2 class="anchored" data-anchor-id="one-shot-with-aimu.embed">1. One-shot with <code>aimu.embed()</code></h2>
+<p>The simplest path. A single string returns one vector (<code>list[float]</code>); a list of strings returns a list of vectors (<code>list[list[float]]</code>), preserving order.</p>
+<div id="fb8b08f4" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>vector <span class="op">=</span> aimu.embed(<span class="st">"The quick brown fox"</span>, model<span class="op">=</span><span class="st">"openai:text-embedding-3-small"</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="bu">type</span>(vector).<span class="va">__name__</span>, <span class="st">"of length"</span>, <span class="bu">len</span>(vector))</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"first 5 dims:"</span>, [<span class="bu">round</span>(x, <span class="dv">4</span>) <span class="cf">for</span> x <span class="kw">in</span> vector[:<span class="dv">5</span>]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="reusable-client" class="level2">
+<h2 class="anchored" data-anchor-id="reusable-client">2. Reusable client</h2>
+<p>For more than a one-off, construct a client once and reuse it. <code>embed()</code> accepts a single string or a list; <code>dimensions</code> reports the vector width declared by the model spec.</p>
+<div id="9f163108" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> aimu.embedding_client(<span class="st">"openai:text-embedding-3-small"</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"declared dimensions:"</span>, client.dimensions)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>one <span class="op">=</span> client.embed(<span class="st">"hello"</span>)  <span class="co"># -&gt; list[float]</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>many <span class="op">=</span> client.embed([<span class="st">"hello"</span>, <span class="st">"world"</span>])  <span class="co"># -&gt; list[list[float]]</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"single vector length:"</span>, <span class="bu">len</span>(one))</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"batch:"</span>, <span class="bu">len</span>(many), <span class="st">"vectors x"</span>, <span class="bu">len</span>(many[<span class="dv">0</span>]), <span class="st">"dims"</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co"># An empty list returns [] without calling the provider.</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"empty:"</span>, client.embed([]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="semantic-similarity" class="level2">
+<h2 class="anchored" data-anchor-id="semantic-similarity">3. Semantic similarity</h2>
+<p>Embeddings put related text close together in vector space. Cosine similarity (1.0 = identical direction, 0.0 = unrelated) is the usual measure. Notice the two animal phrases score far higher against each other than against the unrelated finance phrase.</p>
+<div id="7e54574c" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cosine(a, b):</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    dot <span class="op">=</span> <span class="bu">sum</span>(x <span class="op">*</span> y <span class="cf">for</span> x, y <span class="kw">in</span> <span class="bu">zip</span>(a, b))</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    na <span class="op">=</span> math.sqrt(<span class="bu">sum</span>(x <span class="op">*</span> x <span class="cf">for</span> x <span class="kw">in</span> a))</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    nb <span class="op">=</span> math.sqrt(<span class="bu">sum</span>(y <span class="op">*</span> y <span class="cf">for</span> y <span class="kw">in</span> b))</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> dot <span class="op">/</span> (na <span class="op">*</span> nb)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>cat, kitten, taxes <span class="op">=</span> client.embed([<span class="st">"a small cat"</span>, <span class="st">"a tiny kitten"</span>, <span class="st">"quarterly tax filing"</span>])</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"cat vs kitten: </span><span class="sc">{</span>cosine(cat, kitten)<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"cat vs taxes:  </span><span class="sc">{</span>cosine(cat, taxes)<span class="sc">:.3f}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="providers" class="level2">
+<h2 class="anchored" data-anchor-id="providers">4. Providers</h2>
+<p>Pick a provider with a <code>"provider:model_id"</code> string (or pass a provider <code>EmbeddingModel</code> enum member). The <code>embed()</code> surface is identical across providers.</p>
+<ul>
+<li><strong>OpenAI</strong> (cloud) - reads <code>OPENAI_API_KEY</code>.</li>
+<li><strong>Ollama</strong> (local server) - pull the model first, e.g.&nbsp;<code>ollama pull nomic-embed-text</code>.</li>
+<li><strong>HuggingFace</strong> (local, <code>sentence-transformers</code>) - weights download on first use and are cached; each model’s own pooling/normalization config is honoured. Free the weights with <code>aimu.clear_hf_cache()</code>.</li>
+</ul>
+<div id="28ca7aff" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Ollama - local server. Requires: `ollama pull nomic-embed-text`</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>ollama_client <span class="op">=</span> aimu.embedding_client(<span class="st">"ollama:nomic-embed-text"</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"ollama dims:"</span>, ollama_client.dimensions)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"vector length:"</span>, <span class="bu">len</span>(ollama_client.embed(<span class="st">"hello from ollama"</span>)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="891cd398" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># HuggingFace - local sentence-transformers (requires the [hf] extra).</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrieval-tuned models (BGE / E5) expect "query: " / "passage: " prefixes for</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># asymmetric retrieval; pass already-prefixed strings when you need that.</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>hf_client <span class="op">=</span> aimu.embedding_client(<span class="st">"hf:BAAI/bge-small-en-v1.5"</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"hf dims:"</span>, hf_client.dimensions)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"vector length:"</span>, <span class="bu">len</span>(hf_client.embed(<span class="st">"hello from huggingface"</span>)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="pluggable-embeddings-in-semanticmemorystore" class="level2">
+<h2 class="anchored" data-anchor-id="pluggable-embeddings-in-semanticmemorystore">5. Pluggable embeddings in <code>SemanticMemoryStore</code></h2>
+<p><code>SemanticMemoryStore</code> embeds and retrieves facts by meaning. By default it uses ChromaDB’s built-in embedding model; pass <code>embedding_client=</code> to choose your own model instead. (A custom embedding model isn’t persisted in the collection config, so reopen a persistent store with the same <code>embedding_client=</code>.)</p>
+<div id="bc2920c0" class="cell" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.memory <span class="im">import</span> SemanticMemoryStore</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>emb <span class="op">=</span> aimu.embedding_client(<span class="st">"openai:text-embedding-3-small"</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>store <span class="op">=</span> SemanticMemoryStore(embedding_client<span class="op">=</span>emb)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>store.store(<span class="st">"Paul works at Google"</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>store.store(<span class="st">"Paul is married to Sarah"</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>store.store(<span class="st">"Sarah is the sister of Emma"</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"employment:"</span>, store.search(<span class="st">"employment"</span>, n_results<span class="op">=</span><span class="dv">1</span>))</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"family:    "</span>, store.search(<span class="st">"family relationships"</span>, n_results<span class="op">=</span><span class="dv">2</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="async-surface" class="level2">
+<h2 class="anchored" data-anchor-id="async-surface">6. Async surface</h2>
+<p>Embedding clients have no chat lifecycle, so the async surface wraps an existing sync client and routes <code>embed()</code> through <code>asyncio.to_thread</code> (the same Decision 7 pattern used by every other AIMU modality). Construct a sync client first, then wrap it.</p>
+<div id="d1c03f9d" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>sync_client <span class="op">=</span> aimu.embedding_client(<span class="st">"openai:text-embedding-3-small"</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>async_client <span class="op">=</span> aio.embedding_client(sync_client)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> main():</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    vectors <span class="op">=</span> <span class="cf">await</span> async_client.embed([<span class="st">"alpha"</span>, <span class="st">"beta"</span>, <span class="st">"gamma"</span>])</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="bu">len</span>(vectors), <span class="st">"vectors x"</span>, <span class="bu">len</span>(vectors[<span class="dv">0</span>]), <span class="st">"dims"</span>)</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>asyncio.run(main())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="model-catalog" class="level2">
+<h2 class="anchored" data-anchor-id="model-catalog">7. Model catalog</h2>
+<p>AIMU ships curated specs per provider. Only providers whose optional dependency is installed appear below.</p>
+<div id="60a613bf" class="cell" data-execution_count="8">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF_EMBEDDING, HAS_OLLAMA_EMBEDDING, HAS_OPENAI_EMBEDDING</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> show(title, enum):</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(title)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> m <span class="kw">in</span> enum:</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        s <span class="op">=</span> m.spec</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>m<span class="sc">.</span>name<span class="sc">:24s}</span><span class="ss"> id=</span><span class="sc">{</span>s<span class="sc">.</span><span class="bu">id</span><span class="sc">!r:42s}</span><span class="ss"> dims=</span><span class="sc">{</span>s<span class="sc">.</span>dimensions<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_OPENAI_EMBEDDING:</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> OpenAIEmbeddingModel</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    show(<span class="st">"OpenAI embedding models:"</span>, OpenAIEmbeddingModel)</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_OLLAMA_EMBEDDING:</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> OllamaEmbeddingModel</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    show(<span class="st">"Ollama embedding models:"</span>, OllamaEmbeddingModel)</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_HF_EMBEDDING:</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceEmbeddingModel</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    show(<span class="st">"HuggingFace embedding models:"</span>, HuggingFaceEmbeddingModel)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./10-prebuilt-agents.html" class="pagination-link" aria-label="Prebuilt Agents">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Prebuilt Agents</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./12-memory.html" class="pagination-link" aria-label="Memory">
+        <span class="nav-page-text">Memory</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Embeddings"</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>AIMU provides a dedicated text-embedding surface via <span class="in">`aimu.embedding_client()`</span> and <span class="in">`aimu.embed()`</span>, parallel to the other modality clients (text, image, audio, speech, transcription). An embedding maps text to a fixed-length vector so you can measure semantic similarity, cluster, retrieve, and back semantic memory / RAG.</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this notebook covers</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>One-shot embedding with <span class="in">`aimu.embed()`</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Reusable client: single vs. list, and <span class="in">`dimensions`</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Semantic similarity (cosine)</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>Providers: OpenAI (cloud), Ollama (local server), HuggingFace (local)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>Pluggable embeddings in <span class="in">`SemanticMemoryStore`</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>Async surface</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>Model catalog</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>OpenAI models read <span class="in">`OPENAI_API_KEY`</span> from your environment (or a <span class="in">`.env`</span> file in the project root). Ollama models need a running local server with the model pulled (<span class="in">`ollama pull nomic-embed-text`</span>). HuggingFace models run locally and require the <span class="in">`[hf]`</span> extra (which includes <span class="in">`sentence-transformers`</span>).</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1. One-shot with `aimu.embed()`</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>The simplest path. A single string returns one vector (<span class="in">`list[float]`</span>); a list of strings returns a list of vectors (<span class="in">`list[list[float]]`</span>), preserving order.</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>vector <span class="op">=</span> aimu.embed(<span class="st">"The quick brown fox"</span>, model<span class="op">=</span><span class="st">"openai:text-embedding-3-small"</span>)</span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="bu">type</span>(vector).<span class="va">__name__</span>, <span class="st">"of length"</span>, <span class="bu">len</span>(vector))</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"first 5 dims:"</span>, [<span class="bu">round</span>(x, <span class="dv">4</span>) <span class="cf">for</span> x <span class="kw">in</span> vector[:<span class="dv">5</span>]])</span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2. Reusable client</span></span>
+<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a>For more than a one-off, construct a client once and reuse it. <span class="in">`embed()`</span> accepts a single string or a list; <span class="in">`dimensions`</span> reports the vector width declared by the model spec.</span>
+<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> aimu.embedding_client(<span class="st">"openai:text-embedding-3-small"</span>)</span>
+<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"declared dimensions:"</span>, client.dimensions)</span>
+<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>one <span class="op">=</span> client.embed(<span class="st">"hello"</span>)  <span class="co"># -&gt; list[float]</span></span>
+<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a>many <span class="op">=</span> client.embed([<span class="st">"hello"</span>, <span class="st">"world"</span>])  <span class="co"># -&gt; list[list[float]]</span></span>
+<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"single vector length:"</span>, <span class="bu">len</span>(one))</span>
+<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"batch:"</span>, <span class="bu">len</span>(many), <span class="st">"vectors x"</span>, <span class="bu">len</span>(many[<span class="dv">0</span>]), <span class="st">"dims"</span>)</span>
+<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a><span class="co"># An empty list returns [] without calling the provider.</span></span>
+<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"empty:"</span>, client.embed([]))</span>
+<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3. Semantic similarity</span></span>
+<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a>Embeddings put related text close together in vector space. Cosine similarity (1.0 = identical direction, 0.0 = unrelated) is the usual measure. Notice the two animal phrases score far higher against each other than against the unrelated finance phrase.</span>
+<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cosine(a, b):</span>
+<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a>    dot <span class="op">=</span> <span class="bu">sum</span>(x <span class="op">*</span> y <span class="cf">for</span> x, y <span class="kw">in</span> <span class="bu">zip</span>(a, b))</span>
+<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a>    na <span class="op">=</span> math.sqrt(<span class="bu">sum</span>(x <span class="op">*</span> x <span class="cf">for</span> x <span class="kw">in</span> a))</span>
+<span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a>    nb <span class="op">=</span> math.sqrt(<span class="bu">sum</span>(y <span class="op">*</span> y <span class="cf">for</span> y <span class="kw">in</span> b))</span>
+<span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> dot <span class="op">/</span> (na <span class="op">*</span> nb)</span>
+<span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a>cat, kitten, taxes <span class="op">=</span> client.embed([<span class="st">"a small cat"</span>, <span class="st">"a tiny kitten"</span>, <span class="st">"quarterly tax filing"</span>])</span>
+<span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"cat vs kitten: </span><span class="sc">{</span>cosine(cat, kitten)<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"cat vs taxes:  </span><span class="sc">{</span>cosine(cat, taxes)<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-78"><a href="#cb9-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-79"><a href="#cb9-79" aria-hidden="true" tabindex="-1"></a><span class="fu">## 4. Providers</span></span>
+<span id="cb9-80"><a href="#cb9-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-81"><a href="#cb9-81" aria-hidden="true" tabindex="-1"></a>Pick a provider with a <span class="in">`"provider:model_id"`</span> string (or pass a provider <span class="in">`EmbeddingModel`</span> enum member). The <span class="in">`embed()`</span> surface is identical across providers.</span>
+<span id="cb9-82"><a href="#cb9-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-83"><a href="#cb9-83" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**OpenAI** (cloud) - reads <span class="in">`OPENAI_API_KEY`</span>.</span>
+<span id="cb9-84"><a href="#cb9-84" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Ollama** (local server) - pull the model first, e.g. <span class="in">`ollama pull nomic-embed-text`</span>.</span>
+<span id="cb9-85"><a href="#cb9-85" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**HuggingFace** (local, <span class="in">`sentence-transformers`</span>) - weights download on first use and are cached; each model's own pooling/normalization config is honoured. Free the weights with <span class="in">`aimu.clear_hf_cache()`</span>.</span>
+<span id="cb9-86"><a href="#cb9-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-89"><a href="#cb9-89" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-90"><a href="#cb9-90" aria-hidden="true" tabindex="-1"></a><span class="co"># Ollama - local server. Requires: `ollama pull nomic-embed-text`</span></span>
+<span id="cb9-91"><a href="#cb9-91" aria-hidden="true" tabindex="-1"></a>ollama_client <span class="op">=</span> aimu.embedding_client(<span class="st">"ollama:nomic-embed-text"</span>)</span>
+<span id="cb9-92"><a href="#cb9-92" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"ollama dims:"</span>, ollama_client.dimensions)</span>
+<span id="cb9-93"><a href="#cb9-93" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"vector length:"</span>, <span class="bu">len</span>(ollama_client.embed(<span class="st">"hello from ollama"</span>)))</span>
+<span id="cb9-94"><a href="#cb9-94" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-95"><a href="#cb9-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-98"><a href="#cb9-98" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-99"><a href="#cb9-99" aria-hidden="true" tabindex="-1"></a><span class="co"># HuggingFace - local sentence-transformers (requires the [hf] extra).</span></span>
+<span id="cb9-100"><a href="#cb9-100" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrieval-tuned models (BGE / E5) expect "query: " / "passage: " prefixes for</span></span>
+<span id="cb9-101"><a href="#cb9-101" aria-hidden="true" tabindex="-1"></a><span class="co"># asymmetric retrieval; pass already-prefixed strings when you need that.</span></span>
+<span id="cb9-102"><a href="#cb9-102" aria-hidden="true" tabindex="-1"></a>hf_client <span class="op">=</span> aimu.embedding_client(<span class="st">"hf:BAAI/bge-small-en-v1.5"</span>)</span>
+<span id="cb9-103"><a href="#cb9-103" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"hf dims:"</span>, hf_client.dimensions)</span>
+<span id="cb9-104"><a href="#cb9-104" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"vector length:"</span>, <span class="bu">len</span>(hf_client.embed(<span class="st">"hello from huggingface"</span>)))</span>
+<span id="cb9-105"><a href="#cb9-105" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-106"><a href="#cb9-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-107"><a href="#cb9-107" aria-hidden="true" tabindex="-1"></a><span class="fu">## 5. Pluggable embeddings in `SemanticMemoryStore`</span></span>
+<span id="cb9-108"><a href="#cb9-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-109"><a href="#cb9-109" aria-hidden="true" tabindex="-1"></a><span class="in">`SemanticMemoryStore`</span> embeds and retrieves facts by meaning. By default it uses ChromaDB's built-in embedding model; pass <span class="in">`embedding_client=`</span> to choose your own model instead. (A custom embedding model isn't persisted in the collection config, so reopen a persistent store with the same <span class="in">`embedding_client=`</span>.)</span>
+<span id="cb9-110"><a href="#cb9-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-113"><a href="#cb9-113" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-114"><a href="#cb9-114" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.memory <span class="im">import</span> SemanticMemoryStore</span>
+<span id="cb9-115"><a href="#cb9-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-116"><a href="#cb9-116" aria-hidden="true" tabindex="-1"></a>emb <span class="op">=</span> aimu.embedding_client(<span class="st">"openai:text-embedding-3-small"</span>)</span>
+<span id="cb9-117"><a href="#cb9-117" aria-hidden="true" tabindex="-1"></a>store <span class="op">=</span> SemanticMemoryStore(embedding_client<span class="op">=</span>emb)</span>
+<span id="cb9-118"><a href="#cb9-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-119"><a href="#cb9-119" aria-hidden="true" tabindex="-1"></a>store.store(<span class="st">"Paul works at Google"</span>)</span>
+<span id="cb9-120"><a href="#cb9-120" aria-hidden="true" tabindex="-1"></a>store.store(<span class="st">"Paul is married to Sarah"</span>)</span>
+<span id="cb9-121"><a href="#cb9-121" aria-hidden="true" tabindex="-1"></a>store.store(<span class="st">"Sarah is the sister of Emma"</span>)</span>
+<span id="cb9-122"><a href="#cb9-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-123"><a href="#cb9-123" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"employment:"</span>, store.search(<span class="st">"employment"</span>, n_results<span class="op">=</span><span class="dv">1</span>))</span>
+<span id="cb9-124"><a href="#cb9-124" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"family:    "</span>, store.search(<span class="st">"family relationships"</span>, n_results<span class="op">=</span><span class="dv">2</span>))</span>
+<span id="cb9-125"><a href="#cb9-125" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-126"><a href="#cb9-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-127"><a href="#cb9-127" aria-hidden="true" tabindex="-1"></a><span class="fu">## 6. Async surface</span></span>
+<span id="cb9-128"><a href="#cb9-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-129"><a href="#cb9-129" aria-hidden="true" tabindex="-1"></a>Embedding clients have no chat lifecycle, so the async surface wraps an existing sync client and routes <span class="in">`embed()`</span> through <span class="in">`asyncio.to_thread`</span> (the same Decision 7 pattern used by every other AIMU modality). Construct a sync client first, then wrap it.</span>
+<span id="cb9-130"><a href="#cb9-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-133"><a href="#cb9-133" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-134"><a href="#cb9-134" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
+<span id="cb9-135"><a href="#cb9-135" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
+<span id="cb9-136"><a href="#cb9-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-137"><a href="#cb9-137" aria-hidden="true" tabindex="-1"></a>sync_client <span class="op">=</span> aimu.embedding_client(<span class="st">"openai:text-embedding-3-small"</span>)</span>
+<span id="cb9-138"><a href="#cb9-138" aria-hidden="true" tabindex="-1"></a>async_client <span class="op">=</span> aio.embedding_client(sync_client)</span>
+<span id="cb9-139"><a href="#cb9-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-140"><a href="#cb9-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-141"><a href="#cb9-141" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> main():</span>
+<span id="cb9-142"><a href="#cb9-142" aria-hidden="true" tabindex="-1"></a>    vectors <span class="op">=</span> <span class="cf">await</span> async_client.embed([<span class="st">"alpha"</span>, <span class="st">"beta"</span>, <span class="st">"gamma"</span>])</span>
+<span id="cb9-143"><a href="#cb9-143" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="bu">len</span>(vectors), <span class="st">"vectors x"</span>, <span class="bu">len</span>(vectors[<span class="dv">0</span>]), <span class="st">"dims"</span>)</span>
+<span id="cb9-144"><a href="#cb9-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-145"><a href="#cb9-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-146"><a href="#cb9-146" aria-hidden="true" tabindex="-1"></a>asyncio.run(main())</span>
+<span id="cb9-147"><a href="#cb9-147" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-148"><a href="#cb9-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-149"><a href="#cb9-149" aria-hidden="true" tabindex="-1"></a><span class="fu">## 7. Model catalog</span></span>
+<span id="cb9-150"><a href="#cb9-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-151"><a href="#cb9-151" aria-hidden="true" tabindex="-1"></a>AIMU ships curated specs per provider. Only providers whose optional dependency is installed appear below.</span>
+<span id="cb9-152"><a href="#cb9-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-155"><a href="#cb9-155" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-156"><a href="#cb9-156" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF_EMBEDDING, HAS_OLLAMA_EMBEDDING, HAS_OPENAI_EMBEDDING</span>
+<span id="cb9-157"><a href="#cb9-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-158"><a href="#cb9-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-159"><a href="#cb9-159" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> show(title, enum):</span>
+<span id="cb9-160"><a href="#cb9-160" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(title)</span>
+<span id="cb9-161"><a href="#cb9-161" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> m <span class="kw">in</span> enum:</span>
+<span id="cb9-162"><a href="#cb9-162" aria-hidden="true" tabindex="-1"></a>        s <span class="op">=</span> m.spec</span>
+<span id="cb9-163"><a href="#cb9-163" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>m<span class="sc">.</span>name<span class="sc">:24s}</span><span class="ss"> id=</span><span class="sc">{</span>s<span class="sc">.</span><span class="bu">id</span><span class="sc">!r:42s}</span><span class="ss"> dims=</span><span class="sc">{</span>s<span class="sc">.</span>dimensions<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-164"><a href="#cb9-164" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()</span>
+<span id="cb9-165"><a href="#cb9-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-166"><a href="#cb9-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-167"><a href="#cb9-167" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_OPENAI_EMBEDDING:</span>
+<span id="cb9-168"><a href="#cb9-168" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> OpenAIEmbeddingModel</span>
+<span id="cb9-169"><a href="#cb9-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-170"><a href="#cb9-170" aria-hidden="true" tabindex="-1"></a>    show(<span class="st">"OpenAI embedding models:"</span>, OpenAIEmbeddingModel)</span>
+<span id="cb9-171"><a href="#cb9-171" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_OLLAMA_EMBEDDING:</span>
+<span id="cb9-172"><a href="#cb9-172" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> OllamaEmbeddingModel</span>
+<span id="cb9-173"><a href="#cb9-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-174"><a href="#cb9-174" aria-hidden="true" tabindex="-1"></a>    show(<span class="st">"Ollama embedding models:"</span>, OllamaEmbeddingModel)</span>
+<span id="cb9-175"><a href="#cb9-175" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_HF_EMBEDDING:</span>
+<span id="cb9-176"><a href="#cb9-176" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceEmbeddingModel</span>
+<span id="cb9-177"><a href="#cb9-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-178"><a href="#cb9-178" aria-hidden="true" tabindex="-1"></a>    show(<span class="st">"HuggingFace embedding models:"</span>, HuggingFaceEmbeddingModel)</span>
+<span id="cb9-179"><a href="#cb9-179" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
