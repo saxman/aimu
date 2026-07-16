@@ -79,7 +79,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-637a8987fd156daea465eecdbde71ac9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-20bab2b58192ebcdf7b86101a1c208b2.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -376,7 +376,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---aimu.tool-decorator" class="level2">
 <h2 class="anchored" data-anchor-id="a---aimu.tool-decorator">A - <code>@aimu.tool</code> decorator</h2>
 <p>Decorate a Python function with <code>@aimu.tool</code>. The decorator attaches an OpenAI-format spec at <code>__tool_spec__</code> and leaves the function otherwise unchanged.</p>
-<div id="5f24155e" class="cell" data-execution_count="1">
+<div id="336c2c95" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -389,7 +389,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>letter_counter.__tool_spec__</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Hand decorated functions to an <code>Agent</code> via the <code>tools=</code> kwarg. The agent advertises them to the model each turn and dispatches the calls in-process, without an MCP round-trip.</p>
-<div id="f4cd683e" class="cell" data-execution_count="2">
+<div id="19d8f171" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, OllamaModel</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -402,7 +402,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="argument-validation">Argument validation</h3>
 <p>Before a tool runs, the arguments the model supplied are validated and lax-coerced against the function’s type hints. A stringified scalar like <code>"5"</code> becomes <code>5</code> for an <code>int</code> parameter; a value that can’t be coerced, a missing required argument, or an unknown argument raises <code>ToolArgumentError</code>. At dispatch the agent catches that and hands the message back to the model as a tool result, so the model can correct itself and retry.</p>
 <p><code>aimu.tools.coerce_tool_arguments(fn, arguments)</code> is the same function the dispatch path calls; here we invoke it directly to see both outcomes.</p>
-<div id="576f0101" class="cell" data-execution_count="3">
+<div id="3aa81db5" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> ToolArgumentError, coerce_tool_arguments</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -425,7 +425,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="per-run-tool-override" class="level3">
 <h3 class="anchored" data-anchor-id="per-run-tool-override">Per-run tool override</h3>
 <p><code>Agent(tools=...)</code> sets the agent’s <em>configured</em> tools. To use a different set for a single run, without mutating that state, pass <code>tools=</code> to <code>Agent.run()</code>. <code>tools=None</code> (default) uses the configured tools; any other value, including <code>[]</code> to disable tools, applies to that run only and is restored afterward. Since MCP tools are also just callables in the agent’s <code>tools</code> (via <code>as_tools()</code>), the override covers them too.</p>
-<div id="3ad2d80e" class="cell" data-execution_count="4">
+<div id="b5ff0a61" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Configure the agent with two tools...</span></span>
@@ -441,7 +441,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="tool-context-dependency-injection" class="level3">
 <h3 class="anchored" data-anchor-id="tool-context-dependency-injection">Tool context (dependency injection)</h3>
 <p>A tool often needs shared state (a store, a cache, configuration) that the <em>model</em> should neither see nor supply. Declare a <code>ctx: ToolContext[Deps]</code> parameter and AIMU fills it at call time from the agent’s <code>deps=</code> field (or a per-run <code>run(deps=)</code> override), while hiding it from the tool’s JSON schema. This replaces module-level globals and keeps tools unit-testable.</p>
-<div id="cdaea253" class="cell" data-execution_count="5">
+<div id="c4db136f" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dataclasses <span class="im">import</span> dataclass, field</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> ToolContext</span>
@@ -473,7 +473,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="b---built-in-tools">B - Built-in tools</h2>
 <p><code>aimu.tools.builtin</code> exposes a small library of general-purpose tools, each decorated with <code>@aimu.tool</code> and ready to drop into any agent: <code>echo</code>, <code>get_current_date_and_time</code>, <code>get_weather</code>, <code>calculate</code>, <code>get_webpage</code>, <code>search</code>, <code>list_directory</code>, <code>read_file</code>. <code>builtin.ALL_TOOLS</code> is the full list.</p>
 <p>These same callables are also registered on the <a href="../aimu/tools/mcp.py">aimu/tools/mcp.py</a> FastMCP server so they can be reused cross-process. See section D below.</p>
-<div id="655763d3" class="cell" data-execution_count="6">
+<div id="abf9f73a" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Use a few selected tools</span></span>
@@ -484,7 +484,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---mcpclient-with-file-server" class="level2">
 <h2 class="anchored" data-anchor-id="c---mcpclient-with-file-server">C - MCPClient with file server</h2>
 <p>For cross-process tools, point <code>MCPClient</code> at a Python file that implements an MCP server. AIMU ships <code>aimu/tools/mcp.py</code> which exposes the same built-in tools as section B.</p>
-<div id="9928377c" class="cell" data-execution_count="7">
+<div id="dfba272d" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> paths</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -492,7 +492,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>mcp_client.list_tools()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Once connected, you can list all available tools provided by the MCP server. This shows the tools, their descriptions, and required parameters.</p>
-<div id="d637fda6" class="cell" data-execution_count="8">
+<div id="a1d2f337" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>mcp_client.call_tool(<span class="st">"echo"</span>, {<span class="st">"echo_string"</span>: <span class="st">"Hello, world!"</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>You can call individual tools by their name and pass the required parameters. The tool will execute and return its result.</p>
@@ -500,7 +500,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---mcpclient-with-configuration" class="level2">
 <h2 class="anchored" data-anchor-id="d---mcpclient-with-configuration">D - MCPClient with configuration</h2>
 <p>For multiple MCP servers, or a server that must be launched as a subprocess, provide a configuration dictionary.</p>
-<div id="98a28cfc" class="cell" data-execution_count="9">
+<div id="4bf98414" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>config <span class="op">=</span> {</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"mcpServers"</span>: {<span class="st">"aimu"</span>: {<span class="st">"command"</span>: <span class="st">"python"</span>, <span class="st">"args"</span>: [<span class="st">"-m"</span>, <span class="st">"aimu.tools.mcp"</span>]}},</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>}</span>
@@ -509,7 +509,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>mcp_client.list_tools()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The configuration-based client provides the same interface for listing and calling tools, but can aggregate tools from multiple servers.</p>
-<div id="d9b941f9" class="cell" data-execution_count="10">
+<div id="e87216ea" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>mcp_client.call_tool(<span class="st">"echo"</span>, {<span class="st">"echo_string"</span>: <span class="st">"Hello, world!"</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Tools work exactly the same way regardless of how the MCPClient was initialized.</p>
@@ -517,7 +517,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="e---mcpclient-with-in-memory-fastmcp-server" class="level2">
 <h2 class="anchored" data-anchor-id="e---mcpclient-with-in-memory-fastmcp-server">E - MCPClient with in-memory FastMCP server</h2>
 <p>For ad-hoc tools defined inline, pass a <code>FastMCP</code> instance directly. No subprocess; tools live in your Python process but go through the MCP protocol.</p>
-<div id="7d8da219" class="cell" data-execution_count="11">
+<div id="681d484d" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>mcp <span class="op">=</span> FastMCP(<span class="st">"AIMU Tools"</span>)</span>
@@ -532,7 +532,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>mcp_client.list_tools()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>This approach creates an MCP server with tools defined using Python decorators, then wraps it with an MCPClient for easy access.</p>
-<div id="8faaf338" class="cell" data-execution_count="12">
+<div id="d89b39a1" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>mcp_client.call_tool(<span class="st">"echo"</span>, {<span class="st">"echo_string"</span>: <span class="st">"Hello, world!"</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The FastMCP-based client works identically to file-based and configuration-based clients, providing a consistent interface for tool interaction.</p>
@@ -540,7 +540,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="attaching-mcp-tools-to-an-agent-as_tools">Attaching MCP tools to an agent: <code>as_tools()</code></h3>
 <p><code>call_tool()</code> above is for using a server standalone. To let a <strong>model</strong> use the server’s tools, call <code>mcp_client.as_tools()</code>. It returns one <code>@aimu.tool</code>-style callable per server tool (each carries its <code>__tool_spec__</code> and dispatches cross-process behind the scenes). Pass them to <code>Agent(tools=...)</code>, mixing freely with in-process <code>@aimu.tool</code> functions.</p>
 <p>Keep a reference to the <code>MCPClient</code> (the callables hold one, so the connection stays alive). The list is a snapshot; call <code>as_tools()</code> again to pick up server-side changes.</p>
-<div id="170eb82f" class="cell" data-execution_count="13">
+<div id="acd94dea" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># mcp_client wraps the in-memory `echo` server from section E.</span></span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>mcp_tools <span class="op">=</span> mcp_client.as_tools()</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"MCP tools as callables:"</span>, [fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> mcp_tools])</span>
@@ -555,14 +555,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="f---web-search-and-retrieval-tools" class="level2">
 <h2 class="anchored" data-anchor-id="f---web-search-and-retrieval-tools">F - Web search and retrieval tools</h2>
 <p>The built-in <code>search</code> and <code>get_webpage</code> tools demonstrate live external lookups. <code>search</code> queries a <a href="https://docs.searxng.org">SearXNG</a> instance (set <code>SEARXNG_BASE_URL</code> to point at your own); <code>get_webpage</code> fetches a URL and strips HTML to visible text.</p>
-<div id="2fed106a" class="cell" data-execution_count="14">
+<div id="9f0675ad" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(<span class="bu">file</span><span class="op">=</span><span class="bu">str</span>(paths.package <span class="op">/</span> <span class="st">"tools"</span> <span class="op">/</span> <span class="st">"mcp.py"</span>))</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>mcp_client.list_tools()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="b5500814" class="cell" data-execution_count="15">
+<div id="6f7bae66" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>mcp_client.call_tool(<span class="st">"search"</span>, {<span class="st">"query"</span>: <span class="st">"Python programming"</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="7085fa79" class="cell" data-execution_count="16">
+<div id="600faeee" class="cell" data-execution_count="16">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>mcp_client.call_tool(<span class="st">"get_webpage"</span>, {<span class="st">"url"</span>: <span class="st">"https://www.python.org/"</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 

@@ -3608,7 +3608,14 @@ directly callable.</p>
 <p>Each parameter must either have a type hint or a default value. Variadic parameters
 (<code>*args</code> / <code>**kwargs</code>) are not supported; declare each argument explicitly.</p>
 <p>Supported parameter types: <code>str</code>, <code>int</code>, <code>float</code>, <code>bool</code>, <code>list</code>, <code>dict</code>,
-plus <code>Optional[T]</code> and <code>T | None</code> (which unwrap to the inner type).</p>
+plus <code>Optional[T]</code> and <code>T | None</code> (which unwrap to the inner type). A
+<code>Literal[...]</code> parameter becomes a JSON Schema <code>enum</code> so the model sees the exact
+allowed values.</p>
+<p>The docstring is parsed Google-style: the prose before the first section header
+(<code>Args:</code>, <code>Returns:</code>, ...) becomes the tool description, and an <code>Args:</code> /
+<code>Arguments:</code> / <code>Parameters:</code> section supplies per-parameter descriptions (each
+<code>name: text</code> entry, continuation lines allowed). Required vs. optional args are
+derived from default values.</p>
 <p>A tool may be plain (<code>def fn() -&gt; T</code>), async (<code>async def fn() -&gt; T</code>), a generator
 (<code>def fn(): yield ...; return T</code>), or an async generator (<code>async def fn(): yield ...</code>).
 Generator and async-generator tools stream :class:<code>~aimu.models.StreamChunk</code> objects
