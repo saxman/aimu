@@ -295,6 +295,60 @@ async def test_async_agent_streamed_final_answer_prompt_forces_wrap_up():
 
 
 # ---------------------------------------------------------------------------
+# Async Agent degenerate-turn guard (empty response after a tool result)
+# ---------------------------------------------------------------------------
+
+
+async def test_async_agent_empty_turn_nudged_to_final_answer():
+    client = MockAsyncModelClient(["", "recovered answer"])
+    agent = Agent(client, name="nudged")
+    result = await agent.run("do something")
+
+    assert result == "recovered answer"
+    assert client._call_count == 2
+
+
+async def test_async_agent_empty_turn_nudge_injects_continuation_prompt_tagged():
+    client = MockAsyncModelClient(["", "recovered answer"])
+    agent = Agent(client, name="nudged", continuation_prompt="Keep going.")
+    await agent.run("do something")
+
+    injected = [m for m in client.messages if m["role"] == "user" and m["content"] == "Keep going."]
+    assert len(injected) == 1
+    assert injected[0][PROVENANCE_KEY] == PROVENANCE_CONTINUATION
+
+
+async def test_async_agent_empty_turn_nudge_keeps_tools_enabled_to_finish_plan():
+    client = MockAsyncModelClient(["", "tool", "done after tool"])
+    agent = Agent(client, name="planner", tools=[_dummy_async_tool])
+    result = await agent.run("cancel then recreate")
+
+    assert result == "done after tool"
+    assert any(m["role"] == "tool" for m in client.messages)
+
+
+async def test_async_agent_persistent_empty_turns_raise():
+    from aimu.aio import DegenerateTurnError
+
+    client = MockAsyncModelClient([""] * 6)
+    agent = Agent(client, name="broken", max_iterations=3)
+    with pytest.raises(DegenerateTurnError):
+        await agent.run("do something")
+
+
+async def test_async_agent_streamed_empty_turn_nudged_to_final_answer():
+    client = MockAsyncModelClient(["", "streamed recovered"])
+    agent = Agent(client, name="snudge")
+    chunks = []
+    stream = await agent.run("do something", stream=True)
+    async for c in stream:
+        chunks.append(c)
+
+    generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING and c.content]
+    assert any(c.content == "streamed recovered" for c in generating)
+
+
+# ---------------------------------------------------------------------------
 # AsyncRunner.as_tool(): any async runner usable as a tool
 # ---------------------------------------------------------------------------
 

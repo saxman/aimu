@@ -315,10 +315,12 @@ def test_agent_as_model_client_forwards_images():
     assert user_msg["content"][1]["type"] == "image_url"
 
 
-def test_simple_agent_only_attaches_images_to_first_turn(monkeypatch):
+def test_simple_agent_only_attaches_images_to_first_turn():
     """Continuation turns must not re-send the user's images."""
-    inner = _VisionMockClient(["intermediate", "done"])
-    inner.model.supports_tools = False  # simplify; we drive iterations manually
+    # First turn comes back empty (no content, no tool calls), so the loop injects one
+    # continuation nudge — a genuine second turn that must not re-send the images.
+    inner = _VisionMockClient(["", "done"])
+    inner.model.supports_tools = False
 
     captured: list[dict] = []
     real_chat = inner.chat
@@ -328,18 +330,6 @@ def test_simple_agent_only_attaches_images_to_first_turn(monkeypatch):
         return real_chat(user_message, generate_kwargs, use_tools, stream, images, tools=tools)
 
     inner.chat = tracking_chat  # type: ignore[method-assign]
-
-    # Force exactly one continuation by lying about tool usage in the engine's loop check
-    # (the loop condition now lives in the tool-loop engine as a module-level function).
-    import aimu.agents._tool_loop as tool_loop
-
-    call_count = {"n": 0}
-
-    def fake_last_turn(messages):
-        call_count["n"] += 1
-        return call_count["n"] == 1  # True after first turn → triggers one continuation
-
-    monkeypatch.setattr(tool_loop, "last_turn_called_tools", fake_last_turn)
 
     agent = Agent(inner, name="vision-agent", max_iterations=3)
 

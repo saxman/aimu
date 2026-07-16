@@ -18,27 +18,63 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Iterator, Optional
 
-from aimu.models._internal.message_meta import PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
+from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
 from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
+
+# Forced wrap-up prompt used when the loop hits the round cap with tools still pending and the
+# agent configured no ``final_answer_prompt``. Tools are disabled for this turn, so it asks the
+# model to answer from the context it has already gathered.
+DEFAULT_WRAP_UP_PROMPT = (
+    "You have reached the tool-use limit for this task. Do not call any more tools. "
+    "Provide your best final answer now using the information you have already gathered."
+)
+
+# Terminal-turn classifications (shared by the sync and async loops).
+TERMINAL_PENDING_TOOLS = "pending_tools"  # last turn requested tools (or a tool result trails)
+TERMINAL_EMPTY = "empty"  # last assistant turn has no tool calls and no usable content
+TERMINAL_HEALTHY = "healthy"  # last assistant turn is a real answer
+
+
+class DegenerateTurnError(RuntimeError):
+    """The loop could not obtain a real answer from the model.
+
+    Raised when, even after a forced tools-disabled wrap-up, the model's terminal turn is still
+    degenerate (empty, or still only requesting tools). Small local models occasionally emit such
+    turns; raising surfaces the failure to the caller instead of returning silent empty output.
+    """
+
+
+def classify_terminal_turn(messages: list[dict]) -> str:
+    """Classify the transcript's most recent turn as pending-tools, empty, or healthy.
+
+    ``chat()`` is single-turn: it stores parsed tool_calls but does not execute, so the transcript
+    ends in an ``assistant`` message carrying ``tool_calls`` (wants tools), a trailing ``tool``
+    result (mid dispatch), an ``assistant`` message with usable content (a real answer), or an
+    ``assistant`` message with neither (a degenerate empty turn). Shared by the sync and async loops.
+    """
+    for msg in reversed(messages):
+        role = msg.get("role")
+        if role == "tool":
+            return TERMINAL_PENDING_TOOLS
+        if role == "assistant":
+            if msg.get("tool_calls"):
+                return TERMINAL_PENDING_TOOLS
+            content = msg.get("content")
+            if content is None or (isinstance(content, str) and not content.strip()):
+                return TERMINAL_EMPTY
+            return TERMINAL_HEALTHY
+    return TERMINAL_HEALTHY
 
 
 def last_turn_called_tools(messages: list[dict]) -> bool:
     """True if the model's most recent turn ended by requesting tools.
 
-    Because ``chat()`` is single-turn (it stores parsed tool_calls but does not execute), the
-    transcript ends in an ``assistant`` message carrying ``tool_calls`` when the model wants
-    tools, or a plain ``assistant`` answer when it does not. A trailing ``tool`` result (mid
-    dispatch) also counts as "still working". Shared by the sync and async loops.
+    A trailing ``tool`` result (mid dispatch) also counts as "still working". Shared by the sync
+    and async loops. Thin wrapper over :func:`classify_terminal_turn` kept for existing callers.
     """
-    for msg in reversed(messages):
-        role = msg.get("role")
-        if role == "tool":
-            return True
-        if role == "assistant":
-            return bool(msg.get("tool_calls"))
-    return False
+    return classify_terminal_turn(messages) == TERMINAL_PENDING_TOOLS
 
 
 class _ToolLoop:
@@ -54,6 +90,7 @@ class _ToolLoop:
         concurrent_tool_calls: bool = False,
         max_rounds: int = 10,
         final_answer_prompt: Optional[str] = None,
+        continuation_prompt: Optional[str] = None,
     ):
         # ``tools`` is either the tool-callable list, or a zero-arg callable returning it
         # (re-read each round so tools added mid-run — e.g. SkillAgent.reload_skills authoring a
@@ -65,6 +102,7 @@ class _ToolLoop:
         self._concurrent = concurrent_tool_calls
         self._max_rounds = max_rounds
         self._final_answer_prompt = final_answer_prompt
+        self._continuation_prompt = continuation_prompt or DEFAULT_WRAP_UP_PROMPT
 
     def _current_tools(self) -> list[Callable]:
         return list(self._tools() if callable(self._tools) else self._tools)
@@ -84,18 +122,24 @@ class _ToolLoop:
             user_message, generate_kwargs=generate_kwargs, images=images, tools=self._current_tools()
         )
         chats = 1  # ``max_rounds`` caps the total number of model turns in the loop.
-        while last_turn_called_tools(self._client.messages) and chats < self._max_rounds:
-            self._dispatch()
-            response = self._client.chat(generate_kwargs=generate_kwargs, tools=self._current_tools())
+        while chats < self._max_rounds:
+            state = classify_terminal_turn(self._client.messages)
+            if state == TERMINAL_PENDING_TOOLS:
+                self._dispatch()
+                response = self._client.chat(generate_kwargs=generate_kwargs, tools=self._current_tools())
+            elif state == TERMINAL_EMPTY:
+                # A degenerate empty turn: nudge with tools still enabled so the model can resume
+                # a multi-step plan (not just answer from nothing).
+                injected_at = len(self._client.messages)
+                response = self._client.chat(
+                    self._continuation_prompt, generate_kwargs=generate_kwargs, tools=self._current_tools()
+                )
+                self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
+            else:  # TERMINAL_HEALTHY
+                return response
             chats += 1
 
-        # Optional forced wrap-up: at the round cap with tools still pending, disable tools so
-        # the model must synthesize an answer from the gathered context.
-        if self._final_answer_prompt is not None and last_turn_called_tools(self._client.messages):
-            injected_at = len(self._client.messages)
-            response = self._client.chat(self._final_answer_prompt, generate_kwargs=generate_kwargs, tools=[])
-            self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
-        return response
+        return self._forced_wrap_up(response, generate_kwargs)
 
     def run_streamed(
         self,
@@ -111,21 +155,68 @@ class _ToolLoop:
             ),
             iteration,
         )
-        while last_turn_called_tools(self._client.messages) and iteration + 1 < self._max_rounds:
-            yield from self._dispatch_streamed(iteration)
-            iteration += 1
-            yield from self._retag(
-                self._client.chat(generate_kwargs=generate_kwargs, stream=True, tools=self._current_tools()), iteration
-            )
+        while iteration + 1 < self._max_rounds:
+            state = classify_terminal_turn(self._client.messages)
+            if state == TERMINAL_PENDING_TOOLS:
+                yield from self._dispatch_streamed(iteration)
+                iteration += 1
+                yield from self._retag(
+                    self._client.chat(generate_kwargs=generate_kwargs, stream=True, tools=self._current_tools()),
+                    iteration,
+                )
+            elif state == TERMINAL_EMPTY:
+                iteration += 1
+                injected_at = len(self._client.messages)
+                yield from self._retag(
+                    self._client.chat(
+                        self._continuation_prompt,
+                        generate_kwargs=generate_kwargs,
+                        stream=True,
+                        tools=self._current_tools(),
+                    ),
+                    iteration,
+                )
+                self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
+            else:  # TERMINAL_HEALTHY
+                return
 
-        if self._final_answer_prompt is not None and last_turn_called_tools(self._client.messages):
+        if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
             injected_at = len(self._client.messages)
             iteration += 1
             yield from self._retag(
-                self._client.chat(self._final_answer_prompt, generate_kwargs=generate_kwargs, stream=True, tools=[]),
+                self._client.chat(
+                    self._wrap_up_prompt(), generate_kwargs=generate_kwargs, stream=True, use_tools=False, tools=[]
+                ),
                 iteration,
             )
             self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
+            if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+                raise DegenerateTurnError(
+                    "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
+                )
+
+    def _wrap_up_prompt(self) -> str:
+        """The forced tools-disabled wrap-up prompt: the configured one, else the built-in default."""
+        return self._final_answer_prompt or DEFAULT_WRAP_UP_PROMPT
+
+    def _forced_wrap_up(self, response: str, generate_kwargs: Optional[dict[str, Any]]) -> str:
+        """At the round cap with a degenerate terminal turn, force one tools-disabled answer.
+
+        Runs when the loop exhausted ``max_rounds`` while the last turn was still pending tools or
+        empty. Disables tools so the model must synthesize an answer from gathered context. Raises
+        :class:`DegenerateTurnError` if the wrap-up is *still* degenerate, rather than returning
+        silent empty output.
+        """
+        if classify_terminal_turn(self._client.messages) == TERMINAL_HEALTHY:
+            return response
+        injected_at = len(self._client.messages)
+        response = self._client.chat(self._wrap_up_prompt(), generate_kwargs=generate_kwargs, use_tools=False, tools=[])
+        self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
+        if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+            raise DegenerateTurnError(
+                "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
+            )
+        return response
 
     @staticmethod
     def _retag(chunks: Iterator[StreamChunk], iteration: int) -> Iterator[StreamChunk]:

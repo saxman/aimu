@@ -42,6 +42,7 @@ use ``asyncio.TaskGroup``: if one worker raises, siblings are cancelled and an
 from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
 from .fallback import AsyncFallbackClient
+from aimu.agents import DegenerateTurnError
 from .agent import Agent, AsyncRunner
 from .channels import CLIChannel, Channel, ChannelMessage, WebChannel
 from .run_handle import RunHandle
@@ -115,6 +116,7 @@ __all__ = [
     "Chain",
     "Channel",
     "ChannelMessage",
+    "DegenerateTurnError",
     "WebChannel",
     "EvaluatorOptimizer",
     "MCPClient",

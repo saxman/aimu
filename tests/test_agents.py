@@ -162,13 +162,16 @@ def test_agent_two_tool_rounds():
     assert client._call_count == 3
 
 
-def test_agent_max_iterations_stops_loop():
-    # Model never stops calling tools; the loop is bounded by max_iterations turns.
-    client = MockModelClient(["tool"] * 10)
-    agent = Agent(client, name="test", max_iterations=3)
-    agent.run("never-ending task")
+def test_agent_max_iterations_bounds_tool_rounds_then_forces_wrap_up():
+    # Model never stops calling tools. The tool-calling loop is bounded to max_iterations turns,
+    # then a forced wrap-up turn (tools disabled) synthesizes an answer even without a configured
+    # final_answer_prompt, so the run never ends on a dangling tool call.
+    client = _LoopingToolClient(final_text="FORCED SUMMARY")
+    agent = Agent(client, name="test", tools=[_dummy_tool], max_iterations=3)
+    result = agent.run("never-ending task")
 
-    assert client._call_count == 3
+    assert [bool(seen) for seen in client.tools_seen] == [True, True, True, False]
+    assert result == "FORCED SUMMARY"
 
 
 def test_agent_no_continuation_prompt_injected():
@@ -794,15 +797,17 @@ def test_agent_final_answer_prompt_forces_wrap_up_at_cap():
     assert any(m["content"] == "Stop using tools and answer now." for m in client.messages if m["role"] == "user")
 
 
-def test_agent_without_final_answer_prompt_returns_last_turn_at_cap():
+def test_agent_without_final_answer_prompt_still_forces_wrap_up_at_cap():
     client = _LoopingToolClient(final_text="FORCED SUMMARY")
     agent = Agent(client, name="capper", tools=[_dummy_tool], max_iterations=3)
     result = agent.run("gather forever")
 
-    # No wrap-up: returns whatever the last (tool-only) turn produced, and tools were
-    # never disabled. This is the empty-output failure the feature fixes.
-    assert result == ""
-    assert all(seen for seen in client.tools_seen)
+    # The forced wrap-up is unconditional now: hitting the cap with a tool call pending always
+    # disables tools for one final turn (using a built-in default prompt when final_answer_prompt
+    # is unset), so the run yields an answer instead of the dangling-tool-call empty output.
+    assert result == "FORCED SUMMARY"
+    assert client.tools_seen[-1] == []
+    assert all(seen for seen in client.tools_seen[:-1])
 
 
 def test_agent_final_answer_prompt_not_triggered_on_natural_finish():
@@ -829,6 +834,63 @@ def test_agent_streamed_final_answer_prompt_forces_wrap_up():
     generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING and c.content]
     assert any(c.content == "STREAMED SUMMARY" for c in generating)
     assert client.tools_seen[-1] == []  # wrap-up turn had tools disabled
+
+
+# ---------------------------------------------------------------------------
+# Agent degenerate-turn guard (empty response after a tool result)
+# ---------------------------------------------------------------------------
+
+
+def test_agent_empty_turn_nudged_to_final_answer():
+    # A model that returns an empty turn (no content, no tool calls) after a tool result is
+    # nudged with the continuation prompt to produce a real answer instead of ending silently.
+    client = MockModelClient(["", "recovered answer"])
+    agent = Agent(client, name="nudged")
+    result = agent.run("do something")
+
+    assert result == "recovered answer"
+    assert client._call_count == 2
+
+
+def test_agent_empty_turn_nudge_injects_continuation_prompt_tagged():
+    from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_KEY
+
+    client = MockModelClient(["", "recovered answer"])
+    agent = Agent(client, name="nudged", continuation_prompt="Keep going.")
+    agent.run("do something")
+
+    injected = [m for m in client.messages if m["role"] == "user" and m["content"] == "Keep going."]
+    assert len(injected) == 1
+    assert injected[0][PROVENANCE_KEY] == PROVENANCE_CONTINUATION
+
+
+def test_agent_empty_turn_nudge_keeps_tools_enabled_to_finish_plan():
+    # The nudge leaves tools enabled, so the model can complete a multi-step plan (call a tool)
+    # after an empty turn rather than being forced to answer from nothing.
+    client = MockModelClient(["", "tool", "done after tool"])
+    agent = Agent(client, name="planner", tools=[_dummy_tool])
+    result = agent.run("cancel then recreate")
+
+    assert result == "done after tool"
+    assert any(m["role"] == "tool" for m in client.messages)
+
+
+def test_agent_persistent_empty_turns_raise():
+    from aimu.agents import DegenerateTurnError
+
+    client = MockModelClient([""] * 6)
+    agent = Agent(client, name="broken", max_iterations=3)
+    with pytest.raises(DegenerateTurnError):
+        agent.run("do something")
+
+
+def test_agent_streamed_empty_turn_nudged_to_final_answer():
+    client = MockModelClient(["", "streamed recovered"])
+    agent = Agent(client, name="snudge")
+    chunks = list(agent.run("do something", stream=True))
+
+    generating = [c for c in chunks if c.phase == StreamingContentType.GENERATING and c.content]
+    assert any(c.content == "streamed recovered" for c in generating)
 
 
 def test_orchestrator_assemble_threads_final_answer_prompt():

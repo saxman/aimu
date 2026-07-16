@@ -11,9 +11,9 @@ from aimu.models.base import BaseModelClient, StreamChunk
 
 logger = logging.getLogger(__name__)
 
-# Deprecated: the agent no longer injects a continuation prompt. It continues a tool-using run
-# by calling chat() with no user message (a turn on the current messages). The ``continuation_prompt``
-# field and this constant are kept only so existing constructors / from_config configs don't break.
+# Between successful tool rounds the agent continues by calling chat() with no user message. The
+# ``continuation_prompt`` is injected only to recover a degenerate empty turn (the model returned no
+# content and no tool calls): it nudges the model to continue, with tools still enabled.
 DEFAULT_CONTINUATION_PROMPT = (
     "Continue working on the task using available tools as needed. If you have the answer "
     "and don't need to use any more tools, just provide the final response."
@@ -28,7 +28,7 @@ class Agent(_AgentLoopMixin, Runner):
     requests tools, executes them and returns. This agent is the loop over that: it calls
     ``chat(task)`` and then ``chat()`` (no user message — a continuation turn on the current
     messages) until a turn makes no tool calls, or ``max_iterations`` turns are reached. No
-    synthetic "continue" prompt is injected into the transcript.
+    synthetic "continue" prompt is injected between successful tool rounds.
 
     Tools are plain callables in ``tools=``: functions decorated with
     ``@aimu.tools.tool`` for in-process tools, and/or ``MCPClient(...).as_tools()`` for
@@ -39,13 +39,18 @@ class Agent(_AgentLoopMixin, Runner):
     clears ``model_client.messages`` and re-applies ``system_message`` before every
     run. This isolates state when a client is shared (e.g. inside a :class:`Chain`).
 
-    ``final_answer_prompt`` (opt-in, default ``None``) guarantees a final answer when the
-    loop exhausts ``max_iterations`` while the model is still calling tools. Instead of
-    returning whatever the last (possibly tool-only) turn produced, the agent sends this
-    prompt once with tools disabled, forcing the model to synthesize an answer from the
-    context it has gathered. This wrap-up turn is *not* counted against ``max_iterations``
-    (the cap bounds tool-using turns; this is the guaranteed finish). It fires only on the
-    cap-with-pending-tools path; a natural finish (a turn with no tool calls) is unaffected.
+    The loop guards against degenerate turns so a run never ends silently:
+
+    - **Empty turn.** If a turn comes back with no content and no tool calls, the agent injects
+      ``continuation_prompt`` (tools still enabled, so the model can resume a multi-step plan) and
+      continues. These nudges are bounded by ``max_iterations`` and tagged so a UI can hide them.
+    - **Cap with tools pending.** On exhausting ``max_iterations`` with a tool call still pending,
+      the agent sends one forced wrap-up turn with tools disabled, so the model must synthesize an
+      answer from the context it has gathered. ``final_answer_prompt`` customizes this wrap-up
+      prompt; when unset a built-in default is used. This turn is *not* counted against
+      ``max_iterations``. A natural finish (a real answer) is unaffected.
+    - **Still degenerate after wrap-up.** If even the wrap-up yields no answer, the agent raises
+      :class:`~aimu.agents.DegenerateTurnError` rather than returning empty output.
 
     Quick start::
 
@@ -151,6 +156,7 @@ class Agent(_AgentLoopMixin, Runner):
             concurrent_tool_calls=self.concurrent_tool_calls,
             max_rounds=self.max_iterations,
             final_answer_prompt=self.final_answer_prompt,
+            continuation_prompt=self.continuation_prompt,
         )
 
     def _run_streamed(

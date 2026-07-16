@@ -156,6 +156,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             concurrent_tool_calls=self.concurrent_tool_calls,
             max_rounds=self.max_iterations,
             final_answer_prompt=self.final_answer_prompt,
+            continuation_prompt=self.continuation_prompt,
         )
 
     async def _run_loop(
