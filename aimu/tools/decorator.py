@@ -1,6 +1,7 @@
 import inspect
+import re
 import types as _types
-from typing import Callable, Union, get_args, get_origin, get_type_hints
+from typing import Callable, Literal, Optional, Union, get_args, get_origin, get_type_hints
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -38,7 +39,15 @@ def tool(func: Callable) -> Callable:
     (``*args`` / ``**kwargs``) are not supported; declare each argument explicitly.
 
     Supported parameter types: ``str``, ``int``, ``float``, ``bool``, ``list``, ``dict``,
-    plus ``Optional[T]`` and ``T | None`` (which unwrap to the inner type).
+    plus ``Optional[T]`` and ``T | None`` (which unwrap to the inner type). A
+    ``Literal[...]`` parameter becomes a JSON Schema ``enum`` so the model sees the exact
+    allowed values.
+
+    The docstring is parsed Google-style: the prose before the first section header
+    (``Args:``, ``Returns:``, ...) becomes the tool description, and an ``Args:`` /
+    ``Arguments:`` / ``Parameters:`` section supplies per-parameter descriptions (each
+    ``name: text`` entry, continuation lines allowed). Required vs. optional args are
+    derived from default values.
 
     A tool may be plain (``def fn() -> T``), async (``async def fn() -> T``), a generator
     (``def fn(): yield ...; return T``), or an async generator (``async def fn(): yield ...``).
@@ -99,6 +108,101 @@ def _json_type_for(annotation) -> str:
     return _PY_TO_JSON.get(annotation, "string")
 
 
+def _schema_for(annotation) -> dict:
+    """JSON Schema for one parameter annotation.
+
+    Like :func:`_json_type_for` but returns the full property schema, so a ``Literal[...]`` becomes
+    an ``enum`` (with the element type when the literals are homogeneous) advertising the exact
+    allowed values to the model, instead of a bare ``"string"``.
+    """
+    annotation = _unwrap_optional(annotation)
+    if get_origin(annotation) is Literal:
+        values = list(get_args(annotation))
+        schema: dict = {"enum": values}
+        value_types = {type(v) for v in values}
+        if len(value_types) == 1:
+            schema["type"] = _PY_TO_JSON.get(value_types.pop(), "string")
+        return schema
+    origin = get_origin(annotation)
+    if origin is not None:
+        annotation = origin
+    return {"type": _PY_TO_JSON.get(annotation, "string")}
+
+
+# Google-style docstring section headers. The description is the prose before the first of these;
+# an Args/Arguments/Parameters section feeds per-parameter descriptions.
+_ARG_SECTION_NAMES = ("args", "arguments", "parameters")
+_SECTION_NAMES = _ARG_SECTION_NAMES + (
+    "returns",
+    "return",
+    "raises",
+    "yields",
+    "yield",
+    "examples",
+    "example",
+    "note",
+    "notes",
+    "attributes",
+)
+_PARAM_LINE = re.compile(r"([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s*:\s*(.*)")
+
+
+def _section_name(line: str) -> Optional[str]:
+    """Return the lowercase name if ``line`` is a docstring section header like ``Args:``, else None.
+
+    A header is a single word plus a colon (multi-word lines ending in a colon, e.g. "Do this:", are
+    ordinary prose, not headers).
+    """
+    stripped = line.strip()
+    if stripped.endswith(":"):
+        label = stripped[:-1]
+        if label and " " not in label and label.lower() in _SECTION_NAMES:
+            return label.lower()
+    return None
+
+
+def _parse_docstring(doc: str) -> tuple[str, dict[str, str]]:
+    """Split a (dedented) docstring into ``(description, per-parameter descriptions)``.
+
+    The description is all prose before the first recognized section header. Parameter descriptions
+    come from a Google-style ``Args:``/``Arguments:``/``Parameters:`` section: ``name: text`` or
+    ``name (type): text`` entries, with more-indented lines treated as continuations of the entry
+    above. Missing or malformed sections simply yield fewer entries; nothing raises.
+    """
+    lines = doc.splitlines()
+    n = len(lines)
+    i = 0
+    desc: list[str] = []
+    while i < n and _section_name(lines[i]) is None:
+        desc.append(lines[i])
+        i += 1
+    description = "\n".join(desc).strip()
+
+    params: dict[str, str] = {}
+    while i < n:
+        section = _section_name(lines[i])
+        i += 1
+        if section not in _ARG_SECTION_NAMES:
+            continue
+        base_indent: Optional[int] = None
+        current: Optional[str] = None
+        while i < n and _section_name(lines[i]) is None:
+            line = lines[i]
+            i += 1
+            if not line.strip():
+                continue
+            indent = len(line) - len(line.lstrip())
+            if base_indent is None:
+                base_indent = indent
+            match = _PARAM_LINE.fullmatch(line.strip())
+            if indent <= base_indent and match:
+                current = match.group(1)
+                params[current] = match.group(2).strip()
+            elif current is not None:
+                params[current] = f"{params[current]} {line.strip()}".strip()
+    return description, params
+
+
 def _build_spec(func: Callable) -> tuple[dict, list[str], dict[str, TypeAdapter], set[str]]:
     """Build the OpenAI-format tool spec plus the metadata used at dispatch.
 
@@ -117,7 +221,7 @@ def _build_spec(func: Callable) -> tuple[dict, list[str], dict[str, TypeAdapter]
     except Exception:
         hints = {}
     doc = (inspect.getdoc(func) or "").strip()
-    description = doc.split("\n\n", 1)[0] if doc else ""
+    description, param_docs = _parse_docstring(doc)
 
     properties: dict[str, dict] = {}
     required: list[str] = []
@@ -142,7 +246,10 @@ def _build_spec(func: Callable) -> tuple[dict, list[str], dict[str, TypeAdapter]
                 "Add a type hint (e.g. `name: str`) or a default value."
             )
         allowed_args.add(name)
-        properties[name] = {"type": _json_type_for(annotation) if has_annotation else "string"}
+        prop = _schema_for(annotation) if has_annotation else {"type": "string"}
+        if name in param_docs:
+            prop["description"] = param_docs[name]
+        properties[name] = prop
         if has_annotation:
             # Full annotation (not unwrapped) so Optional[T]/T|None still accepts None.
             param_adapters[name] = TypeAdapter(annotation)

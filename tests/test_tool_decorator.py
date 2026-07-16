@@ -70,15 +70,61 @@ def test_tool_decorator_required_vs_optional():
     assert required == ["needed"]
 
 
-def test_tool_decorator_first_paragraph_is_description():
+def test_tool_decorator_full_prose_is_description():
     @tool
     def f(x: str):
         """Short summary.
 
-        Longer details that should not be in the description.
+        Longer details that are now included (guidance the model needs must not be dropped).
         """
 
-    assert f.__tool_spec__["function"]["description"] == "Short summary."
+    assert f.__tool_spec__["function"]["description"] == (
+        "Short summary.\n\nLonger details that are now included (guidance the model needs must not be dropped)."
+    )
+
+
+def test_tool_decorator_description_stops_at_args_section():
+    @tool
+    def f(word: str, count: int = 1):
+        """Repeat a word some number of times.
+
+        Args:
+            word: The word to repeat.
+            count: How many times to repeat it.
+        """
+
+    spec = f.__tool_spec__["function"]
+    assert spec["description"] == "Repeat a word some number of times."
+    props = spec["parameters"]["properties"]
+    assert props["word"]["description"] == "The word to repeat."
+    assert props["count"]["description"] == "How many times to repeat it."
+
+
+def test_tool_decorator_arg_continuation_lines_are_joined():
+    @tool
+    def f(x: str):
+        """Do a thing.
+
+        Args:
+            x: A long description that wraps
+                onto a second indented line.
+        """
+
+    props = f.__tool_spec__["function"]["parameters"]["properties"]
+    assert props["x"]["description"] == "A long description that wraps onto a second indented line."
+
+
+def test_tool_decorator_literal_becomes_enum():
+    from typing import Literal, Optional
+
+    @tool
+    def f(mode: Literal["once", "daily", "weekly"], flag: Optional[Literal["a", "b"]] = None):
+        """Pick a mode."""
+
+    props = f.__tool_spec__["function"]["parameters"]["properties"]
+    assert props["mode"]["enum"] == ["once", "daily", "weekly"]
+    assert props["mode"]["type"] == "string"
+    assert props["flag"]["enum"] == ["a", "b"]  # enum survives Optional unwrapping
 
 
 def test_tool_decorator_function_still_callable():
