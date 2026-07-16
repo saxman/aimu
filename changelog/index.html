@@ -2877,6 +2877,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3392,7 +3403,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixes" class="md-nav__link">
+  <a href="#fixes_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixes
@@ -3464,7 +3475,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixes_1" class="md-nav__link">
+  <a href="#fixes_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixes
@@ -3874,6 +3885,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4389,7 +4411,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixes" class="md-nav__link">
+  <a href="#fixes_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixes
@@ -4461,7 +4483,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixes_1" class="md-nav__link">
+  <a href="#fixes_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixes
@@ -4825,6 +4847,10 @@ not this stub.
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="fixes">Fixes<a class="headerlink" href="#fixes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fix</strong> <strong>Ollama thinking + multi-tool-call turn crash</strong> (<code>aimu.models.providers.ollama</code> and <code>aimu.aio.providers.ollama</code>). Non-streaming <code>_chat</code> recorded the turn's <code>thinking</code> onto <code>self.messages[-1 - len(tool_calls)]</code>, but <code>_record_tool_calls</code> appends exactly <strong>one</strong> assistant message, so the offset pointed <code>len(tool_calls)</code> messages too far back: it wrote <code>thinking</code> onto an earlier message, and on a short history (e.g. a freshly spawned sub-agent's first turn, <code>messages=[user, assistant]</code>) with two or more tool calls it raised <code>IndexError: list index out of range</code>, surfacing as <code>Tool call 'spawn_subagent' failed: list index out of range</code>. Now indexes the just-appended assistant message (<code>self.messages[-1]</code>), matching the streaming path and the OpenAI-compat provider. Tests: <code>tests/test_ollama_streaming.py</code>.</li>
+</ul>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <strong>web-interaction tools</strong> in <code>aimu.tools.builtin</code>. <code>get_webpage_html(url)</code> is a stateless <code>@tool</code> (added to <code>builtin.web</code> + <code>ALL_TOOLS</code> + the MCP server) that returns a page's <strong>raw HTML markup</strong> (truncated), complementing the existing text-stripping <code>get_webpage</code>. <code>make_web_tools(*, session=None, timeout=15, max_content_chars=20000, user_agent=...)</code> is a factory returning <code>[find_forms, submit_form]</code> closing over a shared <code>requests.Session</code>, so cookies persist across calls and a GET-then-POST form flow works: <code>find_forms(url)</code> parses every <code>&lt;form&gt;</code> (stdlib <code>html.parser</code>; <strong>no new dependency</strong>) into a listing of resolved-absolute action / method / fields including <code>type=hidden</code> (CSRF tokens surface), and <code>submit_form(url, method="POST", data=None)</code> submits via POST (form body) or GET (query params), returning status + final URL + truncated body — <code>method="GET"</code> doubles as a session-aware raw fetch for pages behind a login. Pass them together: <code>Agent(client, tools=[get_webpage_html, *make_web_tools()])</code>. <strong>Server-rendered HTML only</strong> (no JavaScript execution): JS-rendered SPAs and anti-bot-protected pages are out of scope; a headless-browser backend is a possible future addition. <code>submit_form</code> is the mutating tool — gate it via the <code>tool_approval</code> hook when confirmation is wanted. Both are re-exported from <code>aimu.aio.tools.builtin</code> (dispatched via <code>asyncio.to_thread</code>). How-to: <a href="https://saxman.github.io/aimu/how-to/browse-and-submit-forms/">Fetch HTML and submit web forms</a>. Tests: <code>tests/test_web_tools.py</code>.</li>
@@ -5054,7 +5080,7 @@ not this stub.
 <ul>
 <li><strong>New</strong> Async→sync tool bridging for wrapped in-process clients. <code>AsyncHuggingFaceClient</code> / <code>AsyncLlamaCppClient</code> run their sync client's <code>_chat</code> tool-dispatch loop in a worker thread (via <code>asyncio.to_thread</code>), and that sync dispatcher refuses <code>async def</code> tools, but the async surface routinely attaches them (e.g. <code>await aio.MCPClient.as_tools()</code>). Each async tool is now wrapped as a sync callable that drives the coroutine back on the main event loop (<code>run_coroutine_threadsafe</code>) and blocks only the worker thread (no deadlock, the main loop is free, awaiting the <code>to_thread</code> future). Async-generator (streaming) tools bridge to sync generators; the OpenAI tool spec and dispatch name are preserved. Async agents using in-process models can now mix sync and async tools (including MCP) transparently.</li>
 </ul>
-<h3 id="fixes">Fixes<a class="headerlink" href="#fixes" title="Permanent link">&para;</a></h3>
+<h3 id="fixes_1">Fixes<a class="headerlink" href="#fixes_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Change</strong> HuggingFace default <code>max_new_tokens</code> raised from <code>1024</code> to <code>4096</code>. The previous default truncated reasoning models (e.g. Qwen 3.5/3.6) mid-thinking, before the closing <code>&lt;/think&gt;</code>, which left no room for the answer; the higher default leaves headroom for thinking plus a response. Override per call with <code>generate_kwargs={"max_tokens": N}</code>.</li>
 <li><strong>Fix</strong> Streamed <code>chat()</code> on a HuggingFace thinking model no longer raises <code>RuntimeError: generator raised StopIteration</code> when a turn produces reasoning but is truncated before emitting an answer. The streaming path now mirrors the non-streaming one: it surfaces the buffered thinking and finishes with empty generated content instead of doing an unguarded <code>next()</code> on an empty token stream.</li>
@@ -5082,7 +5108,7 @@ not this stub.
 <ul>
 <li><strong>New</strong> <code>Agent.final_answer_prompt</code> (opt-in, default <code>None</code>; sync and <code>aimu.aio</code>): guarantees a final answer when the agentic loop exhausts <code>max_iterations</code> while the model is still calling tools. Instead of returning whatever the last (possibly tool-only) turn produced (an empty or stub result), the agent sends this prompt once with tools disabled (<code>chat(..., tools=[])</code>), forcing the model to synthesize an answer from the context it has gathered. The trigger is the post-loop <code>_last_turn_called_tools()</code> check (no new counter); it fires only on the cap-with-pending-tools path (a natural finish, a turn with no tool calls, is unaffected) and the wrap-up turn is <strong>not</strong> counted against <code>max_iterations</code>. <code>OrchestratorAgent._init_orchestrator()</code> and <code>OrchestratorAgent.assemble(..., final_answer_prompt=...)</code> (sync + <code>aio</code>) forward it to the inner orchestrator agent, and it is accepted as a <code>from_config</code> key. Leaving it <code>None</code> preserves prior behaviour exactly.</li>
 </ul>
-<h3 id="fixes_1">Fixes<a class="headerlink" href="#fixes_1" title="Permanent link">&para;</a></h3>
+<h3 id="fixes_2">Fixes<a class="headerlink" href="#fixes_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Fix</strong> <code>SkillAgent</code> skill injection no longer wipes conversation history when applied to an already-used client. It previously called <code>reset()</code> to unlock the setter (clearing <code>messages</code>); it now assigns <code>system_message</code> directly, which swaps the system entry in place.</li>
 </ul>

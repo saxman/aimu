@@ -376,7 +376,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---semanticmemorystore-basic-setup" class="level2">
 <h2 class="anchored" data-anchor-id="a---semanticmemorystore-basic-setup">A - SemanticMemoryStore: Basic Setup</h2>
 <p><code>SemanticMemoryStore</code> stores facts as natural-language strings in subject-predicate-object form (e.g.&nbsp;<code>"Paul works at Google"</code>). By default it uses an in-memory ephemeral store; pass <code>persist_path</code> to save facts to disk across sessions.</p>
-<div id="fce96d1c" class="cell" data-execution_count="1">
+<div id="1879c897" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.memory <span class="im">import</span> SemanticMemoryStore</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># In-memory store (ephemeral; facts are lost when the process exits)</span></span>
@@ -388,7 +388,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---storing-facts" class="level2">
 <h2 class="anchored" data-anchor-id="b---storing-facts">B - Storing Facts</h2>
 <p>Use <code>store()</code> to add a fact string. The string should follow subject-predicate-object form, but any natural-language sentence works; ChromaDB embeds it for semantic retrieval.</p>
-<div id="a10d270c" class="cell" data-execution_count="2">
+<div id="77617c31" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Store facts about people</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>store.store(<span class="st">"Paul works at Google"</span>)</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>store.store(<span class="st">"Paul is married to Sarah"</span>)</span>
@@ -404,7 +404,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---retrieving-facts-by-topic" class="level2">
 <h2 class="anchored" data-anchor-id="c---retrieving-facts-by-topic">C - Retrieving Facts by Topic</h2>
 <p><code>search(topic)</code> uses ChromaDB’s vector similarity search to find facts semantically related to the topic. A query like <code>"employment"</code> will match <code>"Paul works at Google"</code> even though the word “employment” doesn’t appear in the fact.</p>
-<div id="df9e2fdc" class="cell" data-execution_count="3">
+<div id="a20cbba1" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"=== Topic: 'work and employment' ==="</span>)</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> fact <span class="kw">in</span> store.search(<span class="st">"work and employment"</span>):</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>fact<span class="sc">}</span><span class="ss">"</span>)</span>
@@ -427,7 +427,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong><code>n_results</code></strong>: caps the number of results (default 10). Results are always ordered by relevance (lowest distance first).</li>
 <li><strong><code>max_distance</code></strong>: cosine-distance threshold (0 = identical, 2 = maximally dissimilar). Facts with a distance above this value are excluded. Useful values are roughly 0.3 (tight match) to 0.6 (broad match). Defaults to <code>None</code> (no cutoff).</li>
 </ul>
-<div id="ef4ee741" class="cell" data-execution_count="4">
+<div id="071a0742" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cap the number of results</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>top_facts <span class="op">=</span> store.search(<span class="st">"people and where they live or work"</span>, n_results<span class="op">=</span><span class="dv">2</span>)</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Top 2 facts (n_results=2):"</span>)</span>
@@ -454,7 +454,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="e---deleting-facts" class="level2">
 <h2 class="anchored" data-anchor-id="e---deleting-facts">E - Deleting Facts</h2>
 <p><code>delete()</code> removes all stored facts that exactly match the given string.</p>
-<div id="44398eab" class="cell" data-execution_count="5">
+<div id="508ba1a5" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Before deletion: </span><span class="sc">{</span><span class="bu">len</span>(store)<span class="sc">}</span><span class="ss"> facts"</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>store.delete(<span class="st">"Emma lives in Paris"</span>)</span>
@@ -469,7 +469,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="f---listing-all-facts" class="level2">
 <h2 class="anchored" data-anchor-id="f---listing-all-facts">F - Listing All Facts</h2>
 <p><code>list_all()</code> returns every stored fact string, unordered.</p>
-<div id="932bd872" class="cell" data-execution_count="6">
+<div id="352a3aba" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>all_facts <span class="op">=</span> store.list_all()</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"All </span><span class="sc">{</span><span class="bu">len</span>(all_facts)<span class="sc">}</span><span class="ss"> stored facts:"</span>)</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> fact <span class="kw">in</span> <span class="bu">sorted</span>(all_facts):</span>
@@ -479,7 +479,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="g---persistent-storage" class="level2">
 <h2 class="anchored" data-anchor-id="g---persistent-storage">G - Persistent Storage</h2>
 <p>Pass a <code>persist_path</code> to save facts to disk. The store survives process restarts and can be shared across sessions.</p>
-<div id="f0c20070" class="cell" data-execution_count="7">
+<div id="dc808d45" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tempfile</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> shutil</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -505,7 +505,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="h---using-semanticmemorystore-with-a-model-client" class="level2">
 <h2 class="anchored" data-anchor-id="h---using-semanticmemorystore-with-a-model-client">H - Using SemanticMemoryStore with a Model Client</h2>
 <p>A natural integration pattern: retrieve relevant facts from the memory store and inject them into the model’s system prompt before a conversation, giving the model grounded knowledge about the user or domain.</p>
-<div id="2a040849" class="cell" data-execution_count="8">
+<div id="1176dac1" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrieve facts relevant to an upcoming conversation topic</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>topic <span class="op">=</span> <span class="st">"Paul's professional background"</span></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>relevant_facts <span class="op">=</span> store.search(topic, n_results<span class="op">=</span><span class="dv">3</span>)</span>
@@ -532,7 +532,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="i---documentstore-basic-setup" class="level2">
 <h2 class="anchored" data-anchor-id="i---documentstore-basic-setup">I - DocumentStore: Basic Setup</h2>
 <p><code>DocumentStore</code> stores content at named paths (e.g.&nbsp;<code>/preferences.md</code>, <code>/notes/meeting.md</code>). It mirrors Anthropic’s Managed Agents Memory API, making it a drop-in replacement in local deployments. By default the store is ephemeral; pass <code>persist_path</code> to save documents to disk.</p>
-<div id="f1bf98fe" class="cell" data-execution_count="9">
+<div id="670c33cb" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.memory <span class="im">import</span> DocumentStore</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># In-memory store (ephemeral)</span></span>
@@ -544,7 +544,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="j---writing-and-reading-documents" class="level2">
 <h2 class="anchored" data-anchor-id="j---writing-and-reading-documents">J - Writing and Reading Documents</h2>
 <p><code>write(path, content)</code> creates or overwrites a document at the given path. <code>read(path)</code> retrieves it. Paths are arbitrary strings; use a directory-like convention for organisation.</p>
-<div id="85b32de9" class="cell" data-execution_count="10">
+<div id="33bd82cd" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>docs.write(<span class="st">"/preferences.md"</span>, <span class="st">"Always use concise responses.</span><span class="ch">\n</span><span class="st">Prefer bullet points over prose."</span>)</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>docs.write(<span class="st">"/notes/meeting-2024-01.md"</span>, <span class="st">"Discussed Q3 roadmap with team.</span><span class="ch">\n</span><span class="st">Decided to prioritise API improvements."</span>)</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>docs.write(<span class="st">"/notes/meeting-2024-02.md"</span>, <span class="st">"Reviewed roadmap progress. API work on track."</span>)</span>
@@ -562,7 +562,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="k---editing-documents" class="level2">
 <h2 class="anchored" data-anchor-id="k---editing-documents">K - Editing Documents</h2>
 <p><code>edit(path, old_str, new_str)</code> replaces the first occurrence of <code>old_str</code> with <code>new_str</code> in the named document. Raises <code>ValueError</code> if <code>old_str</code> is not found.</p>
-<div id="00504d17" class="cell" data-execution_count="11">
+<div id="c7237075" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Before edit:"</span>)</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(docs.read(<span class="st">"/preferences.md"</span>))</span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -575,7 +575,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="l---listing-and-searching-documents" class="level2">
 <h2 class="anchored" data-anchor-id="l---listing-and-searching-documents">L - Listing and Searching Documents</h2>
 <p><code>list_paths(prefix)</code> returns sorted paths, optionally filtered by a path prefix. <code>search_full_text(query)</code> does a case-insensitive substring search across all documents and returns a list of <code>{"path": ..., "content": ...}</code> dicts.</p>
-<div id="6a4ec709" class="cell" data-execution_count="12">
+<div id="9a5920fc" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># List all paths</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"All paths:"</span>)</span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> path <span class="kw">in</span> docs.list_paths():</span>
@@ -599,7 +599,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="m---deleting-documents" class="level2">
 <h2 class="anchored" data-anchor-id="m---deleting-documents">M - Deleting Documents</h2>
 <p><code>delete(path)</code> removes the document at the given path. It is a no-op if the path doesn’t exist.</p>
-<div id="0365cb2c" class="cell" data-execution_count="13">
+<div id="f5037cf6" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Before deletion: </span><span class="sc">{</span><span class="bu">len</span>(docs)<span class="sc">}</span><span class="ss"> documents"</span>)</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Paths: </span><span class="sc">{</span>docs<span class="sc">.</span>list_paths()<span class="sc">}</span><span class="ss">"</span>)</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -612,7 +612,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="n---documentstore-persistent-storage" class="level2">
 <h2 class="anchored" data-anchor-id="n---documentstore-persistent-storage">N - DocumentStore Persistent Storage</h2>
 <p>Pass <code>persist_path</code> to save documents to disk. Documents are stored as individual files and reloaded automatically on the next instantiation.</p>
-<div id="6fed3ceb" class="cell" data-execution_count="14">
+<div id="1901c995" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tempfile</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> shutil</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -639,7 +639,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="o---memory-as-agent-tools">O - Memory as Agent Tools</h2>
 <p><code>make_memory_tools(store)</code> wraps any <code>MemoryStore</code> instance as three <code>@aimu.tool</code>-decorated functions (<code>store_memory</code>, <code>search_memories</code>, and <code>list_memories</code>) that an agent can call directly. This is the in-process alternative to the FastMCP servers in <code>aimu.memory.mcp</code> / <code>aimu.memory.document_mcp</code>.</p>
 <p>Unlike the image, audio, and speech built-in tools, there is no lazy singleton here: the store instance is always explicit because persistence semantics (ephemeral vs.&nbsp;on-disk, which <code>persist_path</code>, semantic vs.&nbsp;document) are meaningful choices the caller should make deliberately.</p>
-<div id="5688177f" class="cell" data-execution_count="15">
+<div id="cebaac14" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.memory <span class="im">import</span> SemanticMemoryStore</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools.builtin <span class="im">import</span> make_memory_tools</span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -652,7 +652,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>    params <span class="op">=</span> <span class="bu">list</span>(spec[<span class="st">"parameters"</span>][<span class="st">"properties"</span>].keys())</span>
 <span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>spec[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span><span class="st">', '</span><span class="sc">.</span>join(params)<span class="sc">}</span><span class="ss">):  </span><span class="sc">{</span>spec[<span class="st">'description'</span>]<span class="sc">.</span>splitlines()[<span class="dv">0</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="cafd22fe" class="cell" data-execution_count="16">
+<div id="ec4352f3" class="cell" data-execution_count="16">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, OllamaModel</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>

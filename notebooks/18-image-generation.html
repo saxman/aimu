@@ -399,7 +399,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="one-shot-generation" class="level2">
 <h2 class="anchored" data-anchor-id="one-shot-generation">1. One-shot generation</h2>
-<div id="e53275f6" class="cell" data-execution_count="1">
+<div id="adb3996a" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>image <span class="op">=</span> aimu.generate_image(</span>
@@ -416,7 +416,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="cloud-alternative-google-nano-banana">Cloud alternative: Google Nano Banana</h3>
 <p><code>gemini:nano-banana</code> (alias for <code>gemini-2.5-flash-image</code>) is Google’s image model accessible via the Gemini API. The same <code>aimu.image_client()</code> / <code>aimu.generate_image()</code> entry points dispatch to it based on the <code>gemini:</code> prefix. Requires <code>GOOGLE_API_KEY</code> in the environment (or <code>.env</code>).</p>
 <p>No weights to load, so a fast first call, but every call hits the cloud. Aspect ratio is the main knob (<code>"1:1"</code>, <code>"16:9"</code>, <code>"3:4"</code>, …).</p>
-<div id="dc08efae" class="cell" data-execution_count="2">
+<div id="2858fab3" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Requires GOOGLE_API_KEY in env or .env.</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>nb_image <span class="op">=</span> aimu.generate_image(</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"a watercolor of a fox in a snowy forest, soft morning light"</span>,</span>
@@ -430,7 +430,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="direct-client-reuse-loaded-weights" class="level2">
 <h2 class="anchored" data-anchor-id="direct-client-reuse-loaded-weights">2. Direct client (reuse loaded weights)</h2>
 <p>Constructing a fresh client per call reloads weights, which is slow. For repeated generation, build one client and call <code>generate()</code> on it.</p>
-<div id="964092bf" class="cell" data-execution_count="3">
+<div id="050ac3ba" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> image_client</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> image_client(<span class="st">"hf:runwayml/stable-diffusion-v1-5"</span>)</span>
@@ -452,7 +452,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><code>"bytes"</code>: raw PNG bytes</li>
 <li><code>"data_url"</code>: <code>data:image/png;base64,...</code> for embedding in HTML / responses</li>
 </ul>
-<div id="b89e14e5" class="cell" data-execution_count="4">
+<div id="504642c1" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>path <span class="op">=</span> client.generate(<span class="st">"a watercolor of a heron in flight"</span>, <span class="bu">format</span><span class="op">=</span><span class="st">"path"</span>, width<span class="op">=</span><span class="dv">512</span>, height<span class="op">=</span><span class="dv">512</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Saved to: </span><span class="sc">{</span>path<span class="sc">}</span><span class="ss">"</span>)</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -475,7 +475,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="flux.2-klein-unified-pipeline-no-strength" class="level3">
 <h3 class="anchored" data-anchor-id="flux.2-klein-unified-pipeline-no-strength">FLUX.2 Klein: unified pipeline, no <code>strength</code></h3>
 <p>FLUX.2 Klein uses a single <code>Flux2KleinPipeline</code> for both txt2img and img2img. It conditions on the reference image directly without a <code>strength</code> scalar; the prompt describes what to change. 4-step distillation makes it as fast as FLUX.1 Schnell with better output quality.</p>
-<div id="ae61d321" class="cell" data-execution_count="5">
+<div id="a2b9d807" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> image_client</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceImageModel</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -540,7 +540,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="per-agent-model-make_image_tool" class="level3">
 <h3 class="anchored" data-anchor-id="per-agent-model-make_image_tool">Per-agent model: <code>make_image_tool</code></h3>
 <p>If you don’t want the singleton (e.g.&nbsp;each agent should use a different diffusion model), use <code>make_image_tool</code> to build a tool bound to a specific client.</p>
-<div id="d10b839b" class="cell" data-execution_count="6">
+<div id="b95bf62f" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools.builtin <span class="im">import</span> make_image_tool</span>
@@ -559,7 +559,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="streaming-progress">7. Streaming progress</h2>
 <p>Pass <code>stream=True</code> to get an iterator of <code>IMAGE_GENERATING</code> chunks during denoising. Each chunk carries <code>step</code>, <code>total_steps</code>, an optional intermediate <code>image</code> (when <code>preview_every=N</code> opts in), and a <code>final</code> flag.</p>
 <p>Because the built-in <code>generate_image</code> tool is itself a generator-decorated <code>@tool</code>, these chunks also flow through <code>Agent.run(stream=True)</code> when an agent invokes the tool, with no side-channel callbacks needed.</p>
-<div id="76a24656" class="cell" data-execution_count="7">
+<div id="af933005" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> SkillAgent</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -582,7 +582,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="streaming-progress-1">6. Streaming progress</h2>
 <p>Pass <code>stream=True</code> to get an iterator of <code>IMAGE_GENERATING</code> chunks during denoising. Each chunk carries <code>step</code>, <code>total_steps</code>, an optional intermediate <code>image</code> (when <code>preview_every=N</code> opts in), and a <code>final</code> flag.</p>
 <p>Because the built-in <code>generate_image</code> tool is itself a generator-decorated <code>@tool</code>, these chunks also flow through <code>Agent.run(stream=True)</code> when an agent invokes the tool, with no side-channel callbacks needed.</p>
-<div id="682f43fe" class="cell" data-execution_count="8">
+<div id="df578fd6" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Direct streaming, bypassing the agent for clarity.</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> image_client</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -604,7 +604,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">  preview at step </span><span class="sc">{</span>c[<span class="st">'step'</span>]<span class="sc">}</span><span class="ss">:"</span>)</span>
 <span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>            display(c[<span class="st">"image"</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="b3f3d41e" class="cell" data-execution_count="9">
+<div id="9c1e4ece" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Through an agent: generate_image's progress chunks flow through agent.run(stream=True).</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
@@ -630,7 +630,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="generate-then-describe-closing-the-loop-1" class="level2">
 <h2 class="anchored" data-anchor-id="generate-then-describe-closing-the-loop-1">7. Generate then describe: closing the loop</h2>
 <p>Pair <code>generate_image</code> with <code>describe_image</code> and the agent can look at what it just produced, then tell the user what’s in it. The factory <code>make_describe_image_tool(client)</code> binds to whatever vision-capable chat client you’re already using (no second model load, no extra API key), and the tool snapshots conversation state so the vision Q&amp;A doesn’t pollute the agent’s history.</p>
-<div id="1fd84475" class="cell" data-execution_count="10">
+<div id="77547f44" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
