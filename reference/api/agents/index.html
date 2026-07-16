@@ -4282,7 +4282,7 @@ an :class:<code>OrchestratorAgent</code>'s worker list. Works for every concrete
 requests tools, executes them and returns. This agent is the loop over that: it calls
 <code>chat(task)</code> and then <code>chat()</code> (no user message — a continuation turn on the current
 messages) until a turn makes no tool calls, or <code>max_iterations</code> turns are reached. No
-synthetic "continue" prompt is injected into the transcript.</p>
+synthetic "continue" prompt is injected between successful tool rounds.</p>
 <p>Tools are plain callables in <code>tools=</code>: functions decorated with
 <code>@aimu.tools.tool</code> for in-process tools, and/or <code>MCPClient(...).as_tools()</code> for
 cross-process FastMCP tools (each MCP tool becomes a callable). Mix them freely in
@@ -4290,13 +4290,19 @@ one list, <code>tools=builtin.web + mcp.as_tools()</code>.</p>
 <p>When <code>system_message</code> is set or <code>reset_messages_on_run</code> is True, the agent
 clears <code>model_client.messages</code> and re-applies <code>system_message</code> before every
 run. This isolates state when a client is shared (e.g. inside a :class:<code>Chain</code>).</p>
-<p><code>final_answer_prompt</code> (opt-in, default <code>None</code>) guarantees a final answer when the
-loop exhausts <code>max_iterations</code> while the model is still calling tools. Instead of
-returning whatever the last (possibly tool-only) turn produced, the agent sends this
-prompt once with tools disabled, forcing the model to synthesize an answer from the
-context it has gathered. This wrap-up turn is <em>not</em> counted against <code>max_iterations</code>
-(the cap bounds tool-using turns; this is the guaranteed finish). It fires only on the
-cap-with-pending-tools path; a natural finish (a turn with no tool calls) is unaffected.</p>
+<p>The loop guards against degenerate turns so a run never ends silently:</p>
+<ul>
+<li><strong>Empty turn.</strong> If a turn comes back with no content and no tool calls, the agent injects
+  <code>continuation_prompt</code> (tools still enabled, so the model can resume a multi-step plan) and
+  continues. These nudges are bounded by <code>max_iterations</code> and tagged so a UI can hide them.</li>
+<li><strong>Cap with tools pending.</strong> On exhausting <code>max_iterations</code> with a tool call still pending,
+  the agent sends one forced wrap-up turn with tools disabled, so the model must synthesize an
+  answer from the context it has gathered. <code>final_answer_prompt</code> customizes this wrap-up
+  prompt; when unset a built-in default is used. This turn is <em>not</em> counted against
+  <code>max_iterations</code>. A natural finish (a real answer) is unaffected.</li>
+<li><strong>Still degenerate after wrap-up.</strong> If even the wrap-up yields no answer, the agent raises
+  :class:<code>~aimu.agents.DegenerateTurnError</code> rather than returning empty output.</li>
+</ul>
 <p>Quick start::</p>
 <div class="language-text highlight"><pre><span></span><code>from aimu.tools import tool
 from aimu.agents import Agent

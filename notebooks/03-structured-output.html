@@ -375,7 +375,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a-typed-response-from-a-dataclass" class="level2">
 <h2 class="anchored" data-anchor-id="a-typed-response-from-a-dataclass">1. A typed response from a dataclass</h2>
 <p>Define the shape you want, pass it as <code>schema=</code>, get an instance back.</p>
-<div id="535c9e66" class="cell" data-execution_count="1">
+<div id="15c82ce8" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dataclasses <span class="im">import</span> dataclass</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
@@ -397,7 +397,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="native-vs.-parse-the-capability-flag" class="level2">
 <h2 class="anchored" data-anchor-id="native-vs.-parse-the-capability-flag">2. Native vs.&nbsp;parse: the capability flag</h2>
 <p><code>supports_structured_output</code> (on every model enum member and client) tells you which path a model uses. It’s a static capability: the branch is decided up front, not by catching a runtime error, so a genuine provider failure surfaces rather than silently degrading.</p>
-<div id="66b58479" class="cell" data-execution_count="2">
+<div id="b73a4126" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaModel, OpenAIModel</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"OpenAI gpt-4.1:      "</span>, OpenAIModel.GPT_4_1.supports_structured_output)  <span class="co"># True (native)</span></span>
@@ -410,7 +410,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="generate-and-pydantic" class="level2">
 <h2 class="anchored" data-anchor-id="generate-and-pydantic">3. <code>generate()</code> and Pydantic</h2>
 <p><code>schema=</code> works on the stateless <code>generate()</code> too, and accepts a Pydantic v2 model (optional dependency; dataclasses need nothing extra).</p>
-<div id="94c1151d" class="cell" data-execution_count="3">
+<div id="f374ad13" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pydantic <span class="im">import</span> BaseModel</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -433,7 +433,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="streaming-structured-output">5. Streaming structured output</h2>
 <p><code>schema=</code> combines with <code>stream=True</code>. You get a <code>StreamChunk</code> iterator (show thinking / generation live), and the validated object is delivered two ways: a terminal chunk with <code>phase == DONE</code> whose <code>content</code> is <code>{"result": &lt;object&gt;}</code>, and <code>client.last_structured</code> (set once the stream is fully consumed, mirroring <code>client.last_usage</code>).</p>
 <p>An <code>include=</code> filter still applies to the thinking/generation phases, but the terminal result chunk is always emitted. Anthropic streams the answer JSON (not thinking), because its structured mode is a forced tool the API forbids alongside extended thinking; Ollama and OpenAI-compatible thinking models stream thinking normally.</p>
-<div id="3fd428b7" class="cell" data-execution_count="4">
+<div id="cbf02000" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> client.chat(<span class="st">"Extract the person: Alan Turing, age 41, computer scientist."</span>, schema<span class="op">=</span>Person, stream<span class="op">=</span><span class="va">True</span>):</span>
@@ -449,7 +449,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="async" class="level2">
 <h2 class="anchored" data-anchor-id="async">6. Async</h2>
 <p>Identical on the async surface: <code>await client.chat(..., schema=...)</code>.</p>
-<div id="ff93f8fd" class="cell" data-execution_count="5">
+<div id="850232ed" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
@@ -467,7 +467,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="which-models-enforce-natively" class="level2">
 <h2 class="anchored" data-anchor-id="which-models-enforce-natively">7. Which models enforce natively</h2>
 <p><code>Client.STRUCTURED_MODELS</code> lists the structured-capable models per provider (the OpenAI, Gemini, Ollama, and Anthropic catalogs). HuggingFace and llama-cpp use prompt-and-parse.</p>
-<div id="3d601c90" class="cell" data-execution_count="6">
+<div id="4d20d302" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIClient</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"OpenAI structured models:"</span>)</span>

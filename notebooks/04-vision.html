@@ -380,7 +380,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>API-key-based providers read <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, and <code>GOOGLE_API_KEY</code> from your environment (or a <code>.env</code> file in the project root). Ollama needs a vision-capable model pulled locally (e.g.&nbsp;<code>ollama pull gemma3:12b</code>).</p>
-<div id="a0682398" class="cell" data-execution_count="1">
+<div id="859de64d" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> base64</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> io</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
@@ -403,14 +403,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="capability-flags" class="level2">
 <h2 class="anchored" data-anchor-id="capability-flags">1. Capability flags</h2>
 <p>Every <code>Model</code> enum member carries a <code>supports_vision</code> boolean. Each provider client also exposes a <code>VISION_MODELS</code> classproperty mirroring <code>THINKING_MODELS</code> and <code>TOOL_MODELS</code>.</p>
-<div id="c92fc2f7" class="cell" data-execution_count="2">
+<div id="950663b9" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OpenAIClient, AnthropicClient, GeminiClient, OllamaClient</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> client_cls <span class="kw">in</span> (OpenAIClient, AnthropicClient, GeminiClient, OllamaClient):</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(client_cls.<span class="va">__name__</span>, <span class="st">"vision models:"</span>, [m.name <span class="cf">for</span> m <span class="kw">in</span> client_cls.VISION_MODELS])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Create a <code>ModelClient</code> for the first set of examples.</p>
-<div id="75b38a7c" class="cell" data-execution_count="3">
+<div id="f4b2dcfd" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.ollama <span class="im">import</span> OllamaModel</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -420,7 +420,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="single-image-file-path" class="level2">
 <h2 class="anchored" data-anchor-id="single-image-file-path">2. Single image: file path</h2>
 <p>The simplest case: pass a file path string. AIMU reads the file, base64-encodes it, and inlines it as a <code>data:image/...</code> URL.</p>
-<div id="22721dde" class="cell" data-execution_count="4">
+<div id="9ee5781e" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"What color is this image?"</span>, images<span class="op">=</span>[<span class="bu">str</span>(image_path)])</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -428,7 +428,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="single-image-raw-bytes" class="level2">
 <h2 class="anchored" data-anchor-id="single-image-raw-bytes">3. Single image: raw bytes</h2>
 <p>Useful when the image is already in memory (e.g.&nbsp;a Streamlit upload, a screenshot, or output from PIL). Bytes are encoded as <code>image/png</code> by default.</p>
-<div id="ca871ce0" class="cell" data-execution_count="5">
+<div id="c581b054" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"Describe what you see in two short sentences."</span>, images<span class="op">=</span>[image_bytes])</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -436,7 +436,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="single-image-data-url-already-encoded" class="level2">
 <h2 class="anchored" data-anchor-id="single-image-data-url-already-encoded">4. Single image: data URL (already encoded)</h2>
 <p>If you have a <code>data:image/...;base64,...</code> string already, pass it through unchanged.</p>
-<div id="49c54ccb" class="cell" data-execution_count="6">
+<div id="838e4944" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"Is this image warm or cool toned?"</span>, images<span class="op">=</span>[image_data_url])</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -444,7 +444,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="multiple-images-in-one-turn" class="level2">
 <h2 class="anchored" data-anchor-id="multiple-images-in-one-turn">5. Multiple images in one turn</h2>
 <p>Pass a list. The model sees them in order, alongside the text prompt.</p>
-<div id="1c798c0a" class="cell" data-execution_count="7">
+<div id="258725da" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>img2 <span class="op">=</span> Image.new(<span class="st">"RGB"</span>, (<span class="dv">64</span>, <span class="dv">64</span>), color<span class="op">=</span>(<span class="dv">0</span>, <span class="dv">128</span>, <span class="dv">255</span>))</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>buf2 <span class="op">=</span> io.BytesIO()</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>img2.save(buf2, <span class="bu">format</span><span class="op">=</span><span class="st">"PNG"</span>)</span>
@@ -460,7 +460,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="anthropic-claude" class="level2">
 <h2 class="anchored" data-anchor-id="anthropic-claude">6. Anthropic Claude</h2>
 <p>AIMU converts the OpenAI-format content blocks to Anthropic’s native <code>image</code> blocks (base64 source) at request time; nothing in your code changes.</p>
-<div id="a8f1b05e" class="cell" data-execution_count="8">
+<div id="6ffd818c" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.anthropic.anthropic_client <span class="im">import</span> AnthropicModel</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> ModelClient(AnthropicModel.CLAUDE_HAIKU_4_5)</span>
@@ -471,7 +471,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="google-gemini" class="level2">
 <h2 class="anchored" data-anchor-id="google-gemini">7. Google Gemini</h2>
 <p>Gemini uses Google’s OpenAI-compatible endpoint, so image_url blocks pass through directly.</p>
-<div id="ae6ac716" class="cell" data-execution_count="9">
+<div id="06e72c9f" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.openai_compat.gemini_client <span class="im">import</span> GeminiModel</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> ModelClient(GeminiModel.GEMINI_2_5_FLASH)</span>
@@ -482,7 +482,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="ollama-native-api" class="level2">
 <h2 class="anchored" data-anchor-id="ollama-native-api">8. Ollama (native API)</h2>
 <p>AIMU rewrites image_url content blocks to Ollama’s message-level <code>images=</code> field at request time. Requires a vision-capable model pulled locally (Gemma 3, Gemma 4, etc.).</p>
-<div id="1de0dbcb" class="cell" data-execution_count="10">
+<div id="eeaefd3a" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.ollama.ollama_client <span class="im">import</span> OllamaModel</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> ModelClient(OllamaModel.GEMMA_3_12B)  <span class="co"># pull first: ollama pull gemma3:12b</span></span>
@@ -493,7 +493,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="capability-check" class="level2">
 <h2 class="anchored" data-anchor-id="capability-check">9. Capability check</h2>
 <p>Passing <code>images=</code> to a non-vision model raises <code>ValueError</code> up front, before any API call.</p>
-<div id="36340ab0" class="cell" data-execution_count="11">
+<div id="cd907dfb" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_8B)</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    client.chat(<span class="st">"Describe this."</span>, images<span class="op">=</span>[image_bytes])</span>
@@ -504,7 +504,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="stateless-one-shot-generateimages" class="level2">
 <h2 class="anchored" data-anchor-id="stateless-one-shot-generateimages">10. Stateless one-shot: <code>generate(images=)</code></h2>
 <p><code>chat(images=...)</code> keeps the turn in <code>client.messages</code> for follow-ups. For a one-shot “look once and answer” call (captioning, scoring, classification) that should <em>not</em> accumulate history, use <code>generate(images=...)</code>, the stateless sibling of <code>chat()</code>. Each call stands alone; no <code>reset()</code> needed between calls.</p>
-<div id="92257a73" class="cell" data-execution_count="12">
+<div id="bd7810d7" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>vision_client <span class="op">=</span> ModelClient(OllamaModel.GEMMA_4_E4B)</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>caption <span class="op">=</span> vision_client.generate(<span class="st">"Caption this image in one short sentence."</span>, images<span class="op">=</span>[<span class="bu">str</span>(image_path)])</span>
@@ -516,7 +516,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="cleanup" class="level2">
 <h2 class="anchored" data-anchor-id="cleanup">Cleanup</h2>
-<div id="68766d6f" class="cell" data-execution_count="13">
+<div id="8d92f87f" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>image_path.unlink(missing_ok<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 

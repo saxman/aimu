@@ -417,7 +417,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>Construct a shared async client against a local Ollama model. <code>aio.client(...)</code> accepts the same <code>"provider:model_id"</code> strings as <code>aimu.client(...)</code>.</p>
-<div id="fc6fd13c" class="cell" data-execution_count="1">
+<div id="dee2d3bc" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> aio.client(<span class="st">"ollama:qwen3:8b"</span>, system<span class="op">=</span><span class="st">"You are concise."</span>)</span>
@@ -430,12 +430,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a.-one-shot-and-multi-turn-chat" class="level2">
 <h2 class="anchored" data-anchor-id="a.-one-shot-and-multi-turn-chat">A. One-shot and multi-turn chat</h2>
 <p><code>aio.chat(...)</code> is the one-shot helper; <code>aio.client(...).chat(...)</code> keeps multi-turn history.</p>
-<div id="a683fe38" class="cell" data-execution_count="2">
+<div id="67a48761" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># One-shot</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>reply <span class="op">=</span> <span class="cf">await</span> aio.chat(<span class="st">"Name three colours."</span>, model<span class="op">=</span><span class="st">"ollama:qwen3:8b"</span>)</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(reply)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="afa1ce60" class="cell" data-execution_count="3">
+<div id="bf859732" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Multi-turn: history is preserved across awaits</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>client.reset()  <span class="co"># start fresh</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> client.chat(<span class="st">"My name is Ada."</span>)</span>
@@ -446,7 +446,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b.-streaming" class="level2">
 <h2 class="anchored" data-anchor-id="b.-streaming">B. Streaming</h2>
 <p><code>await client.chat(..., stream=True)</code> returns an <code>AsyncIterator[StreamChunk]</code>. Consume with <code>async for</code>. The same <code>include=</code> phase filter works on both surfaces.</p>
-<div id="d96f5f59" class="cell" data-execution_count="4">
+<div id="4003d539" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>client.reset()</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>stream <span class="op">=</span> <span class="cf">await</span> client.chat(<span class="st">"Count slowly from one to five."</span>, stream<span class="op">=</span><span class="va">True</span>)</span>
@@ -455,7 +455,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="fe96014b" class="cell" data-execution_count="5">
+<div id="a293ea66" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Phase filter: same include= semantics as sync</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>client.reset()</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -481,7 +481,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong>Async surface</strong>: <code>await</code>s async tools directly; routes sync (CPU-bound) tools through <code>asyncio.to_thread</code> so the event loop stays free.</li>
 </ul>
 <p>Same <code>@aimu.tool</code> function, same <code>Agent</code> shape; only the surface decides which dispatch behaviour kicks in.</p>
-<div id="10edf082" class="cell" data-execution_count="6">
+<div id="26c40ece" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -503,7 +503,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"fetch_price is async tool:"</span>, fetch_price.__tool_is_async__)</span>
 <span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"to_caps    is async tool:"</span>, to_caps.__tool_is_async__)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="fc154257" class="cell" data-execution_count="7">
+<div id="ff31db88" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Drop both tools onto an async Agent; the async dispatcher handles each correctly.</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> aio.Agent(</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    aio.client(<span class="st">"ollama:qwen3:8b"</span>),</span>
@@ -526,7 +526,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong><code>ExceptionGroup</code> aggregation</strong>: when multiple workers fail, you see all of them at once, not just the first.</li>
 </ol>
 <p>The wall-clock timing below makes the overlap visible.</p>
-<div id="1d89da4e" class="cell" data-execution_count="8">
+<div id="17cb88b0" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.aio.agent <span class="im">import</span> AsyncRunner</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -567,7 +567,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
 <span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">wall-clock: </span><span class="sc">{</span>elapsed<span class="sc">:.2f}</span><span class="ss">s   (serial would be ~1.5s)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="d34aeca5" class="cell" data-execution_count="9">
+<div id="ff54e2d2" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Structured concurrency: one worker raises, siblings are cancelled.</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Wall-clock should be ~0.05s (the failing worker's delay), NOT ~5s (the slow worker).</span></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># The error surfaces as an ExceptionGroup containing every failure.</span></span>
@@ -592,7 +592,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="aio.parallel.from_client...-real-llm-workers" class="level3">
 <h3 class="anchored" data-anchor-id="aio.parallel.from_client...-real-llm-workers"><code>aio.Parallel.from_client(...)</code>: real LLM workers</h3>
 <p>The factory method mirrors the sync version: build N workers from one async client and a list of system messages, optionally pass an aggregator.</p>
-<div id="fb6ea4c7" class="cell" data-execution_count="10">
+<div id="21d220c8" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>analysis <span class="op">=</span> aio.Parallel.from_client(</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    aio.client(<span class="st">"ollama:qwen3:8b"</span>),</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    worker_prompts<span class="op">=</span>[</span>
@@ -611,7 +611,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="e.-aio.mcpclient-lifecycle">E. <code>aio.MCPClient</code> lifecycle</h2>
 <p>The async MCP wrapper is a thin parallel to <code>aimu.tools.MCPClient</code>, with the same construction signature (<code>config=</code> / <code>server=</code> / <code>file=</code>) and the same method names. Construction is a classmethod factory (<code>await MCPClient.connect(...)</code>) because <code>__init__</code> can’t be <code>async</code>.</p>
 <p>The sync <code>aimu.tools.MCPClient</code> is still supported and unchanged; use it if you want MCP tools without writing any async code.</p>
-<div id="eb964ed4" class="cell" data-execution_count="11">
+<div id="b7e7f89c" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Stand up a tiny in-process MCP server</span></span>
@@ -666,7 +666,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>async_agent <span class="op">=</span> aio.Agent(async_client, tools<span class="op">=</span>[...])</span>
 <span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>reply <span class="op">=</span> <span class="cf">await</span> async_agent.run(<span class="st">"..."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Calling <code>aio.client(HuggingFaceModel.X)</code> with a model enum directly raises a <code>ValueError</code> pointing you at the wrapping pattern. Demo:</p>
-<div id="78c7a736" class="cell" data-execution_count="12">
+<div id="0b94c8e7" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Demonstrate the guard without actually loading any weights</span></span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceModel</span>
@@ -692,7 +692,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="clean-up">Clean up</h2>
-<div id="b73d66a5" class="cell" data-execution_count="13">
+<div id="42f6ce82" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> client, agent, parallel, parallel_fail, analysis, tool_agent, mcp_server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 

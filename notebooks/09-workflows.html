@@ -428,7 +428,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>Create a shared <code>OllamaClient</code> with a tool-capable model and build a few demo tools from an in-process <code>MCPClient</code> via <code>as_tools()</code>. The tools are passed to the agents that need them via <code>tools=</code>; the same <code>model_client</code> and <code>demo_tools</code> are reused across all sections.</p>
-<div id="a01a83bb" class="cell" data-execution_count="1">
+<div id="3c178669" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -475,7 +475,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>A <code>Chain</code> chains agents sequentially: the text output of each step becomes the input to the next. Each agent runs its own agentic loop independently. This is the <strong>Prompt Chaining</strong> pattern; AIMU names it <code>Chain</code> because the units being chained are full <code>Agent</code> objects, not raw prompts.</p>
 <p><code>Chain.from_config()</code> accepts a list of config dicts and a single <code>ModelClient</code>. The client is shared across all steps; before each step, <code>messages</code> are cleared and <code>system_message</code> is applied from the step’s config, keeping steps isolated.</p>
 <p>Here a three-step pipeline: a <strong>researcher</strong> gathers facts using tools, an <strong>analyst</strong> interprets them, and a <strong>formatter</strong> produces a clean summary.</p>
-<div id="47e599a1" class="cell" data-execution_count="2">
+<div id="4e883c76" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent, Chain</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>chain_configs <span class="op">=</span> [</span>
@@ -512,7 +512,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="streaming-the-chain" class="level3">
 <h3 class="anchored" data-anchor-id="streaming-the-chain">Streaming the Chain</h3>
 <p><code>chain.run(stream=True)</code> yields the same <code>StreamChunk</code> type as <code>Agent</code>; the chain step is carried in <code>chunk.iteration</code>, letting you track progress across the full pipeline in real time.</p>
-<div id="49e97266" class="cell" data-execution_count="3">
+<div id="a9143ce1" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>chain2 <span class="op">=</span> Chain.from_config(chain_configs, model_client)</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>chain2.agents[<span class="dv">0</span>].tools <span class="op">=</span> demo_tools  <span class="co"># researcher step needs the tools</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -536,7 +536,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>A <code>Router</code> classifies the input with a <code>routing_agent</code>, then dispatches the task to the matching handler. Route names are compared case-insensitively.</p>
 <p>Handlers can be any <code>Runner</code>: an <code>Agent</code>, another <code>Router</code>, a <code>Parallel</code>, or a <code>Chain</code>. An optional <code>fallback</code> runner handles unrecognised routes.</p>
 <p>Here we set up a router that classifies a query as <code>weather</code>, <code>math</code>, or <code>datetime</code>, and dispatches to a specialist agent with the appropriate system message.</p>
-<div id="73a30658" class="cell" data-execution_count="4">
+<div id="01ec939d" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Router</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>router <span class="op">=</span> Router(</span>
@@ -579,36 +579,36 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>    ),</span>
 <span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="3250a01b" class="cell" data-execution_count="5">
+<div id="2049cc6d" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>router.run(<span class="st">"What is the weather like in Tokyo?"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="a3dbe7b3" class="cell" data-execution_count="6">
+<div id="be107882" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="04e008c1" class="cell" data-execution_count="7">
+<div id="05bf4cc3" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>router.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="f305bee9" class="cell" data-execution_count="8">
+<div id="25ea5acc" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> router.run(<span class="st">"What is 17 multiplied by 23?"</span>)</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>result</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="186b5a6e" class="cell" data-execution_count="9">
+<div id="7d524ecc" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="f5b9374c" class="cell" data-execution_count="10">
+<div id="2c570c3c" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>router.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="5e466fb3" class="cell" data-execution_count="11">
+<div id="28d01814" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> router.run(<span class="st">"What time is it right now?"</span>)</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>result</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="1f5f5b1d" class="cell" data-execution_count="12">
+<div id="da6b1969" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <section id="streaming-the-router" class="level3">
 <h3 class="anchored" data-anchor-id="streaming-the-router">Streaming the Router</h3>
 <p><code>run(stream=True)</code> first yields the classifier’s chunks (the route name), then the selected handler’s chunks. This lets you see the routing decision in real time.</p>
-<div id="ed1460aa" class="cell" data-execution_count="13">
+<div id="327e95f1" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>current_agent <span class="op">=</span> <span class="va">None</span></span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -625,7 +625,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="router-from-config" class="level3">
 <h3 class="anchored" data-anchor-id="router-from-config">Router from Config</h3>
 <p><code>Router.from_config()</code> builds the router from plain dicts; useful for config-driven setups.</p>
-<div id="a644ed57" class="cell" data-execution_count="14">
+<div id="e45dce9e" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>router_from_cfg <span class="op">=</span> Router.from_config(</span>
@@ -656,7 +656,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>With an aggregator: the joined outputs become the aggregator’s task, which produces the final result.</li>
 </ul>
 <p>Workers run to completion before the aggregator starts; this avoids interleaved streaming output.</p>
-<div id="95b12294" class="cell" data-execution_count="15">
+<div id="a6d73e2e" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Parallel</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
@@ -698,7 +698,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="parallel-without-an-aggregator" class="level3">
 <h3 class="anchored" data-anchor-id="parallel-without-an-aggregator">Parallel without an aggregator</h3>
 <p>Without an aggregator, the worker outputs are joined with <code>separator</code> and returned as-is. Useful when you want to collect multiple independent responses and process them yourself.</p>
-<div id="dc5b3a8e" class="cell" data-execution_count="16">
+<div id="b669e4a3" class="cell" data-execution_count="16">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>perspectives <span class="op">=</span> Parallel(</span>
@@ -717,7 +717,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="streaming-parallel-output" class="level3">
 <h3 class="anchored" data-anchor-id="streaming-parallel-output">Streaming Parallel output</h3>
 <p><code>run(stream=True)</code> collects all worker results concurrently (not interleaved), then streams the aggregator’s response.</p>
-<div id="00110af5" class="cell" data-execution_count="17">
+<div id="1d191b1f" class="cell" data-execution_count="17">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> parallel.run(<span class="st">"Use AI to improve hospital patient scheduling."</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
@@ -734,7 +734,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong><code>ExceptionGroup</code> aggregation</strong>: when multiple workers fail, every failure surfaces at once.</li>
 </ul>
 <p>The cells below isolate the concurrency primitive from LLM latency by using a toy <code>SlowWorker</code> (just <code>asyncio.sleep</code>). For the full async surface walkthrough see <strong><a href="./22-async.html">notebook 22 - Async</a></strong>.</p>
-<div id="46aee7af" class="cell" data-execution_count="18">
+<div id="7cd2e5c7" class="cell" data-execution_count="18">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -796,7 +796,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>The loop continues until the evaluator returns <code>PASS</code> or <code>max_rounds</code> is reached.</li>
 </ol>
 <p>The key to reliable behaviour is the evaluator’s <code>system_message</code>; it should say exactly what “good” looks like and use the exact <code>pass_keyword</code> string (default <code>PASS</code>) when satisfied.</p>
-<div id="0f7140ae" class="cell" data-execution_count="19">
+<div id="9179a14e" class="cell" data-execution_count="19">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> EvaluatorOptimizer</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
@@ -829,7 +829,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="streaming-evaluatoroptimizer" class="level3">
 <h3 class="anchored" data-anchor-id="streaming-evaluatoroptimizer">Streaming EvaluatorOptimizer</h3>
 <p><code>run(stream=True)</code> runs all rounds internally and yields the <strong>final accepted output</strong> as a single <code>GENERATING</code> chunk; intermediate drafts are not streamed, so the caller only ever sees the accepted result.</p>
-<div id="b6da2729" class="cell" data-execution_count="20">
+<div id="9350102b" class="cell" data-execution_count="20">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> eo.run(<span class="st">"Explain the difference between precision and recall."</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
@@ -841,7 +841,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="typed-verdict-pretty_print">Typed verdict + <code>pretty_print</code></h3>
 <p>Matching a <code>PASS</code> substring is brittle. Instead, give the evaluator a <code>verdict_schema</code>: it returns a typed <code>Verdict(passed, feedback)</code> via structured output, and the loop reads <code>passed</code> to decide acceptance and <code>feedback</code> to drive the revision. (A <code>stop_when</code> predicate is also available for full control.)</p>
 <p><code>aimu.pretty_print</code> renders any streamed run (tool calls flagged, text inline) and returns the generated text, so you don’t hand-write a <code>chunk.is_tool_call()</code> / <code>chunk.is_text()</code> loop.</p>
-<div id="11746649" class="cell" data-execution_count="21">
+<div id="7cbcfeaf" class="cell" data-execution_count="21">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pydantic <span class="im">import</span> BaseModel</span>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -903,7 +903,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong>Planner-invented</strong> (<code>criteria=None</code>): the planner returns its response in two sections (<code>## Evaluation criteria</code> and <code>## Plan</code>); the workflow parses both. More flexible for open-ended tasks; pair with a stronger separate judge.</li>
 </ul>
 <p>The example below uses <code>.from_client()</code>, a one-line factory that builds a <code>SkillAgent</code> planner, an <code>Agent</code> executor with your tools, and an <code>LLMJudgeScorer</code> default scorer.</p>
-<div id="75b2c217" class="cell" data-execution_count="22">
+<div id="53dfde5b" class="cell" data-execution_count="22">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> PlanExecuteEvaluator</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="co"># A task that combines tool use with strict output formatting: a good test</span></span>
@@ -931,7 +931,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="inspecting-attempts" class="level3">
 <h3 class="anchored" data-anchor-id="inspecting-attempts">Inspecting attempts</h3>
 <p><code>wf.last_attempts</code> records the plan, criteria, output, score, and feedback for every round of the most recent <code>run()</code>. Useful for understanding <em>why</em> a particular round failed and what the planner did differently on the next attempt.</p>
-<div id="6ded941f" class="cell" data-execution_count="23">
+<div id="895edbc5" class="cell" data-execution_count="23">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> attempt <span class="kw">in</span> pee.last_attempts:</span>
 <span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"--- Round </span><span class="sc">{</span>attempt[<span class="st">'round'</span>]<span class="sc">}</span><span class="ss"> (score=</span><span class="sc">{</span>attempt[<span class="st">'score'</span>]<span class="sc">:.2f}</span><span class="ss">) ---"</span>)</span>
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Plan preview:    </span><span class="sc">{</span>attempt[<span class="st">'plan'</span>][:<span class="dv">100</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
@@ -945,7 +945,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="f---composing-patterns">F - Composing Patterns</h2>
 <p>All workflow classes accept any <code>Runner</code> as their sub-components (agents, workflows, or nested combinations). This enables arbitrarily deep composition.</p>
 <p>Here a <code>Router</code> dispatches to either: - A <code>Parallel</code> that gathers multiple perspectives (for open-ended questions), or - An <code>EvaluatorOptimizer</code> that produces a polished factual answer (for factual questions).</p>
-<div id="ad737578" class="cell" data-execution_count="24">
+<div id="213b32cd" class="cell" data-execution_count="24">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Parallel: gather multiple perspectives on an open-ended question</span></span>
@@ -1004,7 +1004,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="clean-up">Clean Up</h2>
-<div id="e913aa08" class="cell" data-execution_count="25">
+<div id="96a4d504" class="cell" data-execution_count="25">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> (</span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    model_client,</span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    chain,</span>
