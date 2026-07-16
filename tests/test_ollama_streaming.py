@@ -122,3 +122,45 @@ async def test_aio_plain_answer_emits_no_empty_trailing_token(monkeypatch):
     chunks = [c async for c in await client.chat("hi", stream=True)]
     gen = [c.content for c in chunks if c.phase == StreamingContentType.GENERATING]
     assert gen == ["Hi there."]  # the empty done part is not yielded
+
+
+def _multi_tool_call_response():
+    # A thinking model's first turn: reasoning plus two tool calls, no user-facing content. This is
+    # the shape that triggered `list index out of range` in non-streaming _chat.
+    tool_calls = [_TC("_weather", {"city": "Paris"}), _TC("_weather", {"city": "Berlin"})]
+    return _Part(_Msg(thinking="let me check both", content="", tool_calls=tool_calls))
+
+
+def _assert_thinking_on_tool_call_message(messages):
+    assistant = next(m for m in messages if m.get("role") == "assistant" and m.get("tool_calls"))
+    assert assistant.get("thinking") == "let me check both"
+
+
+async def test_aio_thinking_recorded_on_multi_tool_call_turn(monkeypatch):
+    monkeypatch.setattr(aio_ollama, "usage_from_ollama", lambda *a, **k: None)
+    response = _multi_tool_call_response()
+
+    async def fake_chat(**kw):
+        return response
+
+    client = aio.client("ollama:qwen3:8b")
+    client.tools = [_weather]
+    client._client._client = types.SimpleNamespace(chat=fake_chat)
+
+    await client.chat("weather in Paris and Berlin?")
+    _assert_thinking_on_tool_call_message(client.messages)
+
+
+def test_sync_thinking_recorded_on_multi_tool_call_turn(monkeypatch):
+    monkeypatch.setattr(sync_ollama, "usage_from_ollama", lambda *a, **k: None)
+    response = _multi_tool_call_response()
+
+    def fake_chat(**kw):
+        return response
+
+    monkeypatch.setattr(ollama, "Client", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=fake_chat))
+    client = OllamaClient(OllamaModel.QWEN_3_8B)
+    client.tools = [_weather]
+
+    client.chat("weather in Paris and Berlin?")
+    _assert_thinking_on_tool_call_message(client.messages)

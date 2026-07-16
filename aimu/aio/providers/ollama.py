@@ -173,7 +173,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             content = response["message"].content or ""
             self._record_tool_calls(tool_calls, content=content)
             if response["message"].thinking:
-                self.messages[-1 - len(tool_calls)]["thinking"] = response["message"].thinking
+                self.messages[-1]["thinking"] = response["message"].thinking
             return content
 
         self.messages.append({"role": response["message"].role, "content": response["message"].content})
