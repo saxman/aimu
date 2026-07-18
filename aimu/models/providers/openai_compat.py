@@ -316,8 +316,13 @@ class OllamaOpenAIModel(Model):
     QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)
     QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True)
     DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True)
-    GEMMA_3_12B = ModelSpec("gemma3:12b")
-    GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True)
+    GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True)
+    # Gemma 4 E4B/12B support audio natively, but the Ollama API doesn't expose audio input yet
+    # (the native OllamaModel catalog omits audio for the same reason); leave audio=False.
+    GEMMA_4_E4B = ModelSpec("gemma4:e4b", tools=True, thinking=True, vision=True)
+    GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True, thinking=True, vision=True)
+    GEMMA_4_26B = ModelSpec("gemma4:26b", tools=True, thinking=True, vision=True)
+    GEMMA_4_31B = ModelSpec("gemma4:31b", tools=True, thinking=True, vision=True)
 
 
 class OllamaOpenAIClient(OpenAICompatClient):
@@ -339,7 +344,12 @@ class LMStudioOpenAIModel(Model):
     QWEN_3_8B = ModelSpec("qwen3-8b", tools=True, thinking=True)
     QWEN_3_5_9B = ModelSpec("qwen3.5-9b", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-distill-qwen-7b", thinking=True)
-    GEMMA_4_12B = ModelSpec("gemma-4-12b-it", tools=True)
+    # Gemma 4 E4B/12B support audio natively, but LM Studio has no audio-input path (image-only);
+    # leave audio=False.
+    GEMMA_4_E4B = ModelSpec("gemma-4-e4b-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_12B = ModelSpec("gemma-4-12b-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_26B = ModelSpec("gemma-4-26b-a4b-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_31B = ModelSpec("gemma-4-31b-it", tools=True, thinking=True, vision=True)
 
 
 class LMStudioOpenAIClient(OpenAICompatClient):
@@ -361,8 +371,13 @@ class VLLMOpenAIModel(Model):
     QWEN_3_4B = ModelSpec("Qwen/Qwen3-4B", tools=True, thinking=True)
     QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
-    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True)
-    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True)
+    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True, vision=True)
+    GEMMA_4_E4B = ModelSpec("google/gemma-4-E4B-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_26B = ModelSpec("google/gemma-4-26B-A4B-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_31B = ModelSpec("google/gemma-4-31B-it", tools=True, thinking=True, vision=True)
+    # Gemma 4 E4B/12B support audio natively; vLLM accepts input_audio blocks, but this path is
+    # unverified against these weights, so leave audio=False until confirmed. (26B/31B: no native audio.)
 
 
 class VLLMOpenAIClient(OpenAICompatClient):
@@ -384,8 +399,13 @@ class HFOpenAIModel(Model):
     QWEN_3_4B = ModelSpec("Qwen/Qwen3-4B", tools=True, thinking=True)
     QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
-    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True)
-    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True)
+    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True, vision=True)
+    GEMMA_4_E4B = ModelSpec("google/gemma-4-E4B-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_26B = ModelSpec("google/gemma-4-26B-A4B-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_31B = ModelSpec("google/gemma-4-31B-it", tools=True, thinking=True, vision=True)
+    # Gemma 4 E4B/12B support audio natively, but audio input over transformers-serve's OpenAI-compat
+    # endpoint is immature, so leave audio=False. (26B/31B: no native audio.)
 
 
 class HFOpenAIClient(OpenAICompatClient):
@@ -409,8 +429,13 @@ class LlamaServerOpenAIModel(Model):
     QWEN_3_4B = ModelSpec("qwen3-4b.gguf", tools=True, thinking=True)
     QWEN_3_8B = ModelSpec("qwen3-8b.gguf", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-distill-qwen-7b.gguf", thinking=True)
-    GEMMA_3_12B = ModelSpec("gemma-3-12b-it.gguf", tools=True)
-    GEMMA_4_12B = ModelSpec("gemma-4-12b-it.gguf", tools=True)
+    GEMMA_3_12B = ModelSpec("gemma-3-12b-it.gguf", tools=True, vision=True)
+    # Gemma 4 E4B/12B support audio natively, but llama-server (GGUF) has no audio-input path;
+    # leave audio=False.
+    GEMMA_4_E4B = ModelSpec("gemma-4-e4b-it.gguf", tools=True, thinking=True, vision=True)
+    GEMMA_4_12B = ModelSpec("gemma-4-12b-it.gguf", tools=True, thinking=True, vision=True)
+    GEMMA_4_26B = ModelSpec("gemma-4-26b-a4b-it.gguf", tools=True, thinking=True, vision=True)
+    GEMMA_4_31B = ModelSpec("gemma-4-31b-it.gguf", tools=True, thinking=True, vision=True)
 
 
 class LlamaServerOpenAIClient(OpenAICompatClient):
@@ -438,8 +463,13 @@ class SGLangOpenAIModel(Model):
     QWEN_3_4B = ModelSpec("Qwen/Qwen3-4B", tools=True, thinking=True)
     QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
-    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True)
-    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True)
+    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True, vision=True)
+    GEMMA_4_E4B = ModelSpec("google/gemma-4-E4B-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_26B = ModelSpec("google/gemma-4-26B-A4B-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_31B = ModelSpec("google/gemma-4-31B-it", tools=True, thinking=True, vision=True)
+    # Gemma 4 E4B/12B support audio natively; SGLang accepts input_audio blocks, but this path is
+    # unverified against these weights, so leave audio=False until confirmed. (26B/31B: no native audio.)
 
 
 class SGLangOpenAIClient(OpenAICompatClient):
