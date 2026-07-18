@@ -3,6 +3,11 @@ import logging
 import threading
 from typing import Iterator, Optional, Any, Union
 
+# Hard module-load import so HAS_LLAMACPP accurately reflects that llama-cpp-python is
+# installed (matches the diffusers/soundfile convention in the HuggingFace clients). The
+# Llama model itself is still constructed lazily in __init__ to defer weight loading.
+import llama_cpp
+
 from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
 from .._internal.image_input import _build_user_content_blocks
 from ._thinking import _split_thinking, _ThinkingParser
@@ -57,9 +62,7 @@ class LlamaCppClient(BaseModelClient):
                 self._llm = _model_registry[self._cache_key]
                 return
 
-        from llama_cpp import Llama
-
-        self._llm = Llama(
+        self._llm = llama_cpp.Llama(
             model_path=model_path,
             n_ctx=n_ctx,
             n_gpu_layers=n_gpu_layers,

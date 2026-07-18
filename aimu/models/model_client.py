@@ -198,7 +198,9 @@ def resolve_model(model_str: str) -> ResolvedModel:
 
     registry = _provider_registry()
     if provider not in registry:
-        available = sorted(list(registry) + [_GENERIC_COMPAT_PROVIDER])
+        # ``openai-compat`` is only usable when the openai_compat extra is installed; don't
+        # advertise it as available otherwise (it would fail with a different ImportError).
+        available = sorted(list(registry) + ([_GENERIC_COMPAT_PROVIDER] if _HAS_OPENAI_COMPAT else []))
         raise ValueError(f"Unknown provider {provider!r}. Available providers (with installed deps): {available}")
 
     if base_url is not None and provider not in _BASE_URL_PROVIDERS:
