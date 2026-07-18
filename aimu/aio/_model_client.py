@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
-from aimu.models.base import Model, ModelSpec, StreamChunk, StreamingContentType
-from aimu.models.model_client import resolve_model_string
+from aimu.models.base import AdHocModel, Model, ModelSpec, StreamChunk, StreamingContentType
+from aimu.models.model_client import _GENERIC_COMPAT_PROVIDER, resolve_model
 
 from ._base import AsyncBaseModelClient
 
@@ -69,6 +69,7 @@ try:
         AsyncLlamaServerOpenAIClient,
         AsyncLMStudioOpenAIClient,
         AsyncOllamaOpenAIClient,
+        AsyncOpenAICompatClient,
         AsyncSGLangOpenAIClient,
         AsyncVLLMOpenAIClient,
     )
@@ -78,6 +79,7 @@ except ImportError:
     _HAS_OPENAI_COMPAT = False
     AsyncOpenAIClient = AsyncGeminiClient = AsyncLMStudioOpenAIClient = AsyncOllamaOpenAIClient = None  # type: ignore[assignment,misc]
     AsyncHFOpenAIClient = AsyncVLLMOpenAIClient = AsyncLlamaServerOpenAIClient = AsyncSGLangOpenAIClient = None  # type: ignore[assignment,misc]
+    AsyncOpenAICompatClient = None  # type: ignore[assignment,misc]
     OpenAIModel = GeminiModel = LMStudioOpenAIModel = OllamaOpenAIModel = None  # type: ignore[assignment,misc]
     HFOpenAIModel = VLLMOpenAIModel = LlamaServerOpenAIModel = SGLangOpenAIModel = None  # type: ignore[assignment,misc]
 
@@ -92,6 +94,22 @@ except ImportError:
     AsyncLlamaCppClient = None  # type: ignore[assignment,misc]
     LlamaCppClient = None  # type: ignore[assignment,misc]
     LlamaCppModel = None  # type: ignore[assignment,misc]
+
+
+# Ad-hoc models are not enum members, so they are routed to the async OpenAI-compat client
+# by provider prefix rather than by isinstance (mirrors the sync _sync_compat_client).
+if _HAS_OPENAI_COMPAT:
+    _ASYNC_COMPAT_CLIENTS = {
+        "llamaserver": AsyncLlamaServerOpenAIClient,
+        "lmstudio": AsyncLMStudioOpenAIClient,
+        "vllm": AsyncVLLMOpenAIClient,
+        "hf-openai": AsyncHFOpenAIClient,
+        "sglang": AsyncSGLangOpenAIClient,
+        "ollama-openai": AsyncOllamaOpenAIClient,
+        _GENERIC_COMPAT_PROVIDER: AsyncOpenAICompatClient,
+    }
+else:
+    _ASYNC_COMPAT_CLIENTS = {}
 
 
 _IN_PROCESS_MODEL_GUIDANCE = (
@@ -129,7 +147,16 @@ class AsyncModelClient(AsyncBaseModelClient):
         else:
             # Normal construction path: model enum or string.
             if isinstance(model, str):
-                model = resolve_model_string(model)
+                resolved = resolve_model(model)
+                if resolved.base_url is not None:
+                    kwargs["base_url"] = resolved.base_url
+                if isinstance(resolved.model, AdHocModel):
+                    self._client = _ASYNC_COMPAT_CLIENTS[resolved.provider](resolved.model, **kwargs)
+                    self.model = self._client.model
+                    self.model_kwargs = self._client.model_kwargs
+                    self.default_generate_kwargs = self._client.default_generate_kwargs
+                    return
+                model = resolved.model
             elif isinstance(model, ModelSpec):
                 raise TypeError(
                     "Pass a Model enum member or a 'provider:model_id' string. "
