@@ -32,7 +32,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 AIMU is compact, direct, and easy to understand, by design. Six principles shape the API: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure of capabilities, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
 
-A curated model catalog, capturing model capabilities and nuances, is part of that design: every `"provider:model_id"` string must name a model AIMU ships a spec for. An unknown id raises rather than running with guessed capabilities. To use a one-off custom model, build the spec and pass it directly (`aimu.image_client(HuggingFaceImageSpec(...))`).
+A curated model catalog, capturing model capabilities and nuances, is part of that design: every `"provider:model_id"` string must name a model AIMU ships a spec for. An unknown id raises rather than running with guessed capabilities. To use a one-off custom model, build the spec and pass it directly (`aimu.image_client(HuggingFaceImageSpec(...))`). For an OpenAI-compatible server, the text model string also carries connection and capability details inline: `"provider:model_id@http://host:8080/v1"` overrides the endpoint, and an id not in the catalog is allowed when you declare its capabilities with `;flags` (from `tools,thinking,vision,audio,structured`), e.g. `"llamaserver:my-model.gguf@http://gpu-box:8080/v1;tools,thinking"` or the generic `"openai-compat:my-model@http://gpu-box:9000/v1;tools"`.
 
 ## Install
 
