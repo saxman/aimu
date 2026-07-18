@@ -60,6 +60,7 @@ Gemini 2.5 thinking models emit `<think>` tags on Google's OpenAI-compatible end
 | `QWEN_3_32B` | `qwen3:32b` | ✅ | ✅ | ✗ |
 | `QWEN_3_8B` | `qwen3:8b` | ✅ | ✅ | ✗ |
 | `GEMMA_4_E4B` | `gemma4:e4b` | ✅ | ✅ | ✅ |
+| `GEMMA_4_12B` | `gemma4:12b` | ✅ | ✅ | ✅ |
 | `GEMMA_4_26B` | `gemma4:26b` | ✅ | ✅ | ✅ |
 | `GEMMA_4_31B` | `gemma4:31b` | ✅ | ✅ | ✅ |
 | `GEMMA_3_12B` | `gemma3:12b` | ✗ | ✗ | ✅ |
@@ -116,7 +117,28 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 
 ## OpenAI-compatible local servers
 
-`LMStudioOpenAIModel`, `OllamaOpenAIModel`, `HFOpenAIModel`, `VLLMOpenAIModel`, `LlamaServerOpenAIModel`, and `SGLangOpenAIModel` all enumerate the same set of common open models (Llama 3.x, Mistral 7B, Phi-4 Mini, Qwen 3.x, DeepSeek R1, Gemma 3, and the full Gemma 4 suite — E4B, 12B, 26B, 31B — with `tools` + `thinking` + `vision`). The model id format differs per server (LM Studio uses loaded model keys, Ollama uses `name:tag`, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames). See the enum source for each.
+`OllamaOpenAIModel`, `LMStudioOpenAIModel`, `VLLMOpenAIModel`, `HFOpenAIModel`, `LlamaServerOpenAIModel`, and `SGLangOpenAIModel` enumerate a shared set of common open models. Capability flags for a given member are the same across servers (except where footnoted); the **model id format differs per server** — LM Studio uses loaded model keys, Ollama uses `name:tag`, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames — so consult the enum source for each server's exact ids.
+
+| Enum member | Tools | Thinking | Vision | Servers |
+|---|:---:|:---:|:---:|---|
+| `LLAMA_3_1_8B` | ✅ † | ✗ | ✗ | all |
+| `LLAMA_3_2_3B` | ✅ † | ✗ | ✗ | all except LM Studio |
+| `MISTRAL_7B` | ✅ | ✗ | ✗ | all |
+| `PHI_4_MINI` | ✅ | ✗ | ✗ | all |
+| `QWEN_3_4B` | ✅ | ✅ | ✗ | all |
+| `QWEN_3_8B` | ✅ | ✅ | ✗ | all |
+| `QWEN_3_5_9B` | ✅ | ✅ | ✗ | Ollama, LM Studio |
+| `DEEPSEEK_R1_8B` | ✗ | ✅ | ✗ | Ollama |
+| `DEEPSEEK_R1_7B` | ✗ | ✅ | ✗ | all except Ollama |
+| `GEMMA_3_12B` | ✅ † | ✗ | ✅ | all except LM Studio |
+| `GEMMA_4_E4B` | ✅ | ✅ | ✅ | all |
+| `GEMMA_4_12B` | ✅ | ✅ | ✅ | all |
+| `GEMMA_4_26B` | ✅ | ✅ | ✅ | all |
+| `GEMMA_4_31B` | ✅ | ✅ | ✅ | all |
+
+† On `OllamaOpenAIModel`, `LLAMA_3_1_8B`, `LLAMA_3_2_3B`, and `GEMMA_3_12B` are marked `tools=✗` — Ollama produces unreliable tool calls for these (matches the native `OllamaModel` policy). The HuggingFace-repo, GGUF, and LM Studio builds mark them `tools=✅`.
+
+Gemma 4 E4B/12B are natively audio-capable, but `audio` is left off for every OpenAI-compat server because audio input isn't reliably exposed by these local servers (see the inline comments in `openai_compat.py` for the per-server reason). 26B/31B have no native audio.
 
 ## Image generation
 
