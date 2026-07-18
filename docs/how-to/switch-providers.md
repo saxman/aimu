@@ -15,6 +15,36 @@ client = aimu.client("gemini:gemini-2.5-flash")
 
 Model strings have the form `"provider:model_id"`. Colons inside the model id (e.g. Ollama's `qwen3.5:9b`) are preserved.
 
+## Point at a remote or custom OpenAI-compatible server
+
+The OpenAI-compatible local-server providers default to `localhost` (see the [provider keys](#provider-keys) table). To reach one on another host or port, append `@<base_url>` to the model string:
+
+```python
+client = aimu.client("llamaserver:qwen3-8b.gguf@http://gpu-box:8080/v1")
+client = aimu.client("vllm:Qwen/Qwen3-8B@http://gpu-box:8000/v1")
+```
+
+This is the string-form equivalent of the `base_url=` kwarg (see [Pass provider-specific kwargs](#pass-provider-specific-kwargs)); use whichever fits how the model is configured.
+
+### Run a model not in the catalog
+
+AIMU normally requires the id to name a model it ships a spec for, so it never runs with guessed capabilities. For an OpenAI-compatible server you can declare the capabilities inline instead, with `;<flags>` (comma-separated from `tools`, `thinking`, `vision`, `audio`, `structured`). The id then resolves to an **ad-hoc model** with exactly those capabilities:
+
+```python
+# a custom fine-tune served by llama-server on another host
+client = aimu.client("llamaserver:my-finetune.gguf@http://gpu-box:8080/v1;tools,thinking")
+
+# any OpenAI-compatible server, via the generic prefix (an endpoint is required)
+client = aimu.client("openai-compat:my-model@http://gpu-box:9000/v1;tools")
+```
+
+Notes:
+
+- `@<base_url>` is accepted only by the OpenAI-compatible local-server providers (`llamaserver`, `lmstudio`, `vllm`, `hf-openai`, `sglang`, `ollama-openai`) and the generic `openai-compat` prefix. Passing it to a cloud or in-process provider raises `ValueError`.
+- The generic `openai-compat` prefix always requires `@<base_url>` (it has no default) and always takes an ad-hoc id.
+- Flags apply only to ad-hoc ids, and an omitted flag defaults to `False`, so declare `;tools` (etc.) for the capabilities your model actually has. Passing flags with a catalog id raises `ValueError` — the catalog already declares its capabilities.
+- No authentication is added; the endpoint is assumed unauthenticated (`api_key` is unset).
+
 ## Use an enum member
 
 For IDE autocomplete and type checking:
@@ -202,4 +232,14 @@ ValueError: Unknown provider 'foo'. Available providers (with installed deps): [
 
 >>> aimu.client("anthropic:claude-nonsense")
 ValueError: Provider 'anthropic' has no model id 'claude-nonsense'. Available: ['claude-fable-5', 'claude-haiku-4-5', 'claude-opus-4-6', 'claude-opus-4-7', 'claude-opus-4-8', 'claude-sonnet-4-6']
+```
+
+The extended grammar has two more guardrails. An `@<base_url>` on a provider that doesn't take one, and `;<flags>` on a catalog id, both raise `ValueError`:
+
+```python
+>>> aimu.client("anthropic:claude-sonnet-4-6@http://proxy/v1")
+ValueError: Provider 'anthropic' does not accept an @base_url. Supported: ['hf-openai', 'llamaserver', 'lmstudio', 'ollama-openai', 'openai-compat', 'sglang', 'vllm'].
+
+>>> aimu.client("llamaserver:qwen3-8b.gguf@http://gpu-box:8080/v1;tools")
+ValueError: Capability flags are not allowed with the known model id 'qwen3-8b.gguf'; it already declares its capabilities. Use a different id to define an ad-hoc model.
 ```
