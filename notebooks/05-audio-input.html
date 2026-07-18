@@ -384,7 +384,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>API-key-based providers read <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, and <code>GOOGLE_API_KEY</code> from your environment (or a <code>.env</code> file in the project root).</p>
-<div id="b7beb783" class="cell" data-execution_count="1">
+<div id="af0f7f14" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> base64</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> struct</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
@@ -415,7 +415,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="capability-flags" class="level2">
 <h2 class="anchored" data-anchor-id="capability-flags">1. Capability flags</h2>
 <p>Every <code>Model</code> enum member carries a <code>supports_audio</code> boolean. Each provider client also exposes an <code>AUDIO_MODELS</code> classproperty mirroring <code>VISION_MODELS</code>, <code>THINKING_MODELS</code>, and <code>TOOL_MODELS</code>.</p>
-<div id="90ec5e28" class="cell" data-execution_count="2">
+<div id="138c1f32" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OpenAIClient, AnthropicClient, GeminiClient, OllamaClient</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> client_cls <span class="kw">in</span> (OpenAIClient, AnthropicClient, GeminiClient, OllamaClient):</span>
@@ -425,7 +425,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="single-clip-file-path" class="level2">
 <h2 class="anchored" data-anchor-id="single-clip-file-path">2. Single clip: file path</h2>
 <p>The simplest case: pass a file path string. AIMU reads the file, base64-encodes it, and inlines it as an <code>input_audio</code> block. Format is inferred from the file extension.</p>
-<div id="0dc3eec5" class="cell" data-execution_count="3">
+<div id="ffc7b315" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIModel</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -437,7 +437,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="single-clip-raw-bytes" class="level2">
 <h2 class="anchored" data-anchor-id="single-clip-raw-bytes">3. Single clip: raw bytes</h2>
 <p>Useful when audio is already in memory. Bytes default to <code>wav</code> format.</p>
-<div id="7dd6c318" class="cell" data-execution_count="4">
+<div id="54b890cf" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"What can you hear in this clip?"</span>, audio<span class="op">=</span>[audio_bytes])</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -445,7 +445,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="single-clip-data-url" class="level2">
 <h2 class="anchored" data-anchor-id="single-clip-data-url">4. Single clip: data URL</h2>
 <p>If you already have a <code>data:audio/...;base64,...</code> string, pass it through unchanged. The format is extracted from the MIME type.</p>
-<div id="b8da6a62" class="cell" data-execution_count="5">
+<div id="85a2b0e6" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(<span class="st">"Transcribe this audio."</span>, audio<span class="op">=</span>[audio_data_url])</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(response)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -453,7 +453,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="multiple-clips-in-one-turn" class="level2">
 <h2 class="anchored" data-anchor-id="multiple-clips-in-one-turn">5. Multiple clips in one turn</h2>
 <p>Pass a list. The model sees them in order alongside the text prompt.</p>
-<div id="1612732a" class="cell" data-execution_count="6">
+<div id="e3f996f0" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>audio_bytes_2 <span class="op">=</span> _make_wav(sample_rate<span class="op">=</span><span class="dv">8000</span>)  <span class="co"># different sample rate</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> client.chat(</span>
@@ -466,7 +466,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="stateless-one-shot-generateaudio" class="level2">
 <h2 class="anchored" data-anchor-id="stateless-one-shot-generateaudio">6. Stateless one-shot: <code>generate(audio=)</code></h2>
 <p><code>chat(audio=...)</code> keeps the turn in <code>client.messages</code> for follow-ups. For a one-shot “listen once and answer” call (transcription, classification, QA) that should <em>not</em> accumulate history, use <code>generate(audio=...)</code>. Each call stands alone; no <code>reset()</code> needed between calls.</p>
-<div id="7d490afb" class="cell" data-execution_count="7">
+<div id="b8ec01ff" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>audio_client <span class="op">=</span> ModelClient(OpenAIModel.GPT_4O)</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Each call is independent.</span></span>
@@ -482,7 +482,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="multi-turn-conversation" class="level2">
 <h2 class="anchored" data-anchor-id="multi-turn-conversation">7. Multi-turn conversation</h2>
 <p>Audio blocks persist in <code>self.messages</code>, so the model can refer back to the earlier clip when you ask follow-up questions.</p>
-<div id="52141417" class="cell" data-execution_count="8">
+<div id="e4d90690" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>client.reset()</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>client.chat(<span class="st">"What is the main content of this recording?"</span>, audio<span class="op">=</span>[<span class="bu">str</span>(audio_path)])</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>followup <span class="op">=</span> client.chat(<span class="st">"Can you give me a one-line summary of what you just heard?"</span>)</span>
@@ -493,7 +493,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="capability-check" class="level2">
 <h2 class="anchored" data-anchor-id="capability-check">8. Capability check</h2>
 <p>Passing <code>audio=</code> to a non-audio model raises <code>ValueError</code> up front, before any API call.</p>
-<div id="91c37d7a" class="cell" data-execution_count="9">
+<div id="c0775581" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIModel</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># o4-mini has supports_audio=False.</span></span>
@@ -507,7 +507,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="images-and-audio-are-mutually-exclusive" class="level2">
 <h2 class="anchored" data-anchor-id="images-and-audio-are-mutually-exclusive">9. <code>images=</code> and <code>audio=</code> are mutually exclusive</h2>
 <p>Passing both raises <code>ValueError</code> before any message history is touched.</p>
-<div id="99ce5d98" class="cell" data-execution_count="10">
+<div id="32f2464b" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> io</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> PIL <span class="im">import</span> Image</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -525,7 +525,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="google-gemini" class="level2">
 <h2 class="anchored" data-anchor-id="google-gemini">10. Google Gemini</h2>
 <p>Gemini 2.x uses Google’s OpenAI-compatible endpoint, so <code>input_audio</code> blocks pass through directly. Requires <code>GOOGLE_API_KEY</code>.</p>
-<div id="cfd0cb15" class="cell" data-execution_count="11">
+<div id="3ad94bab" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.gemini.text <span class="im">import</span> GeminiModel</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>gemini_client <span class="op">=</span> ModelClient(GeminiModel.GEMINI_2_5_FLASH)</span>
@@ -536,7 +536,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="huggingface-gemma-4" class="level2">
 <h2 class="anchored" data-anchor-id="huggingface-gemma-4">11. HuggingFace (Gemma 4)</h2>
 <p>HuggingFace Gemma 4 E4B/12B accept audio alongside text. AIMU decodes <code>input_audio</code> blocks to float32 numpy arrays via <code>soundfile</code> and passes them to the <code>AutoProcessor</code> alongside the text. Requires the <code>[hf]</code> extra.</p>
-<div id="d59f6bc3" class="cell" data-execution_count="12">
+<div id="f89b8566" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.hf.text <span class="im">import</span> HuggingFaceModel</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>hf_client <span class="op">=</span> ModelClient(HuggingFaceModel.GEMMA_4_E4B)</span>
@@ -547,7 +547,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="async-surface" class="level2">
 <h2 class="anchored" data-anchor-id="async-surface">12. Async surface</h2>
 <p><code>audio=</code> is available on <code>aio.chat()</code> and <code>aio.generate()</code> with the same signature.</p>
-<div id="bedb29ae" class="cell" data-execution_count="13">
+<div id="1550ae2c" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.text <span class="im">import</span> OpenAIModel</span>
@@ -564,7 +564,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="cleanup" class="level2">
 <h2 class="anchored" data-anchor-id="cleanup">Cleanup</h2>
-<div id="8bf1c033" class="cell" data-execution_count="14">
+<div id="918b2a86" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>audio_path.unlink(missing_ok<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 

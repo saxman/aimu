@@ -3589,6 +3589,13 @@
 <td style="text-align: center;">✅</td>
 </tr>
 <tr>
+<td><code>GEMMA_4_12B</code></td>
+<td><code>gemma4:12b</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
 <td><code>GEMMA_4_26B</code></td>
 <td><code>gemma4:26b</code></td>
 <td style="text-align: center;">✅</td>
@@ -3881,7 +3888,120 @@
 </table>
 <p>llama-cpp model ids are hints; the actual model is loaded from <code>model_path=</code> regardless. Capability flags are honoured by the client.</p>
 <h2 id="openai-compatible-local-servers">OpenAI-compatible local servers<a class="headerlink" href="#openai-compatible-local-servers" title="Permanent link">&para;</a></h2>
-<p><code>LMStudioOpenAIModel</code>, <code>OllamaOpenAIModel</code>, <code>HFOpenAIModel</code>, <code>VLLMOpenAIModel</code>, <code>LlamaServerOpenAIModel</code>, and <code>SGLangOpenAIModel</code> all enumerate the same set of common open models (Llama 3.x, Mistral 7B, Phi-4 Mini, Qwen 3.x, DeepSeek R1, Gemma 3, and the full Gemma 4 suite — E4B, 12B, 26B, 31B — with <code>tools</code> + <code>thinking</code> + <code>vision</code>). The model id format differs per server (LM Studio uses loaded model keys, Ollama uses <code>name:tag</code>, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames). See the enum source for each.</p>
+<p><code>OllamaOpenAIModel</code>, <code>LMStudioOpenAIModel</code>, <code>VLLMOpenAIModel</code>, <code>HFOpenAIModel</code>, <code>LlamaServerOpenAIModel</code>, and <code>SGLangOpenAIModel</code> enumerate a shared set of common open models. Capability flags for a given member are the same across servers (except where footnoted); the <strong>model id format differs per server</strong> — LM Studio uses loaded model keys, Ollama uses <code>name:tag</code>, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames — so consult the enum source for each server's exact ids.</p>
+<table>
+<thead>
+<tr>
+<th>Enum member</th>
+<th style="text-align: center;">Tools</th>
+<th style="text-align: center;">Thinking</th>
+<th style="text-align: center;">Vision</th>
+<th>Servers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LLAMA_3_1_8B</code></td>
+<td style="text-align: center;">✅ †</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td>all</td>
+</tr>
+<tr>
+<td><code>LLAMA_3_2_3B</code></td>
+<td style="text-align: center;">✅ †</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td>all except LM Studio</td>
+</tr>
+<tr>
+<td><code>MISTRAL_7B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td>all</td>
+</tr>
+<tr>
+<td><code>PHI_4_MINI</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td>all</td>
+</tr>
+<tr>
+<td><code>QWEN_3_4B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✗</td>
+<td>all</td>
+</tr>
+<tr>
+<td><code>QWEN_3_8B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✗</td>
+<td>all</td>
+</tr>
+<tr>
+<td><code>QWEN_3_5_9B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✗</td>
+<td>Ollama, LM Studio</td>
+</tr>
+<tr>
+<td><code>DEEPSEEK_R1_8B</code></td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✗</td>
+<td>Ollama</td>
+</tr>
+<tr>
+<td><code>DEEPSEEK_R1_7B</code></td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✗</td>
+<td>all except Ollama</td>
+</tr>
+<tr>
+<td><code>GEMMA_3_12B</code></td>
+<td style="text-align: center;">✅ †</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
+<td>all except LM Studio</td>
+</tr>
+<tr>
+<td><code>GEMMA_4_E4B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>all</td>
+</tr>
+<tr>
+<td><code>GEMMA_4_12B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>all</td>
+</tr>
+<tr>
+<td><code>GEMMA_4_26B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>all</td>
+</tr>
+<tr>
+<td><code>GEMMA_4_31B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>all</td>
+</tr>
+</tbody>
+</table>
+<p>† On <code>OllamaOpenAIModel</code>, <code>LLAMA_3_1_8B</code>, <code>LLAMA_3_2_3B</code>, and <code>GEMMA_3_12B</code> are marked <code>tools=✗</code> — Ollama produces unreliable tool calls for these (matches the native <code>OllamaModel</code> policy). The HuggingFace-repo, GGUF, and LM Studio builds mark them <code>tools=✅</code>.</p>
+<p>Gemma 4 E4B/12B are natively audio-capable, but <code>audio</code> is left off for every OpenAI-compat server because audio input isn't reliably exposed by these local servers (see the inline comments in <code>openai_compat.py</code> for the per-server reason). 26B/31B have no native audio.</p>
 <h2 id="image-generation">Image generation<a class="headerlink" href="#image-generation" title="Permanent link">&para;</a></h2>
 <p>Image clients use a different spec class than text (<code>HuggingFaceImageSpec</code> / <code>GeminiImageSpec</code>). The capability flags don't apply, so the matrix shows model-specific defaults instead.</p>
 <h3 id="huggingface-diffusers-huggingfaceimagemodel">HuggingFace diffusers (<code>HuggingFaceImageModel</code>)<a class="headerlink" href="#huggingface-diffusers-huggingfaceimagemodel" title="Permanent link">&para;</a></h3>
