@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
-from .base import BaseModelClient, Model, ModelSpec, StreamChunk
+from .base import AdHocModel, BaseModelClient, Model, ModelSpec, StreamChunk
 from ._internal.model_defaults import available_text_models, resolve_default_text_model_enum
+from ._internal.model_string import parse_model_string
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +59,7 @@ try:
         LMStudioOpenAIModel,
         OllamaOpenAIClient,
         OllamaOpenAIModel,
+        OpenAICompatClient,
         SGLangOpenAIClient,
         SGLangOpenAIModel,
         VLLMOpenAIClient,
@@ -68,6 +71,7 @@ except ImportError:
     _HAS_OPENAI_COMPAT = False
     OpenAIClient = GeminiClient = LMStudioOpenAIClient = OllamaOpenAIClient = None  # type: ignore[assignment,misc]
     HFOpenAIClient = VLLMOpenAIClient = LlamaServerOpenAIClient = SGLangOpenAIClient = None  # type: ignore[assignment,misc]
+    OpenAICompatClient = None  # type: ignore[assignment,misc]
     OpenAIModel = GeminiModel = LMStudioOpenAIModel = OllamaOpenAIModel = None  # type: ignore[assignment,misc]
     HFOpenAIModel = VLLMOpenAIModel = LlamaServerOpenAIModel = SGLangOpenAIModel = None  # type: ignore[assignment,misc]
 
@@ -136,6 +140,92 @@ def resolve_model_string(model_str: str) -> Model:
             return member
     available = sorted(m.value for m in model_enum)
     raise ValueError(f"Provider {provider!r} has no model id {model_id!r}. Available: {available}")
+
+
+_BASE_URL_PROVIDERS = {"llamaserver", "lmstudio", "vllm", "hf-openai", "sglang", "ollama-openai"}
+_GENERIC_COMPAT_PROVIDER = "openai-compat"
+_CAPABILITY_FLAGS = {"tools", "thinking", "vision", "audio", "structured"}
+
+
+@dataclass
+class ResolvedModel:
+    """Outcome of resolving an (extended) model string.
+
+    ``model`` is a ``Model`` enum member for a known id, or an ``AdHocModel`` for an id
+    not in any provider enum. ``base_url`` is an endpoint override (or ``None`` to use the
+    provider default). ``provider`` is the parsed prefix, used to route an ad-hoc model to
+    its client class.
+    """
+
+    model: Any
+    provider: str
+    base_url: Optional[str]
+
+
+def _build_adhoc_spec(model_id: str, flags: tuple[str, ...]) -> ModelSpec:
+    unknown = sorted(f for f in flags if f not in _CAPABILITY_FLAGS)
+    if unknown:
+        raise ValueError(f"Unknown capability flag(s) {unknown}. Valid flags: {sorted(_CAPABILITY_FLAGS)}.")
+    chosen = set(flags)
+    return ModelSpec(
+        id=model_id,
+        tools="tools" in chosen,
+        thinking="thinking" in chosen,
+        vision="vision" in chosen,
+        audio="audio" in chosen,
+        structured_output="structured" in chosen,
+    )
+
+
+def resolve_model(model_str: str) -> ResolvedModel:
+    """Resolve an extended ``provider:model_id[@base_url][;flags]`` string.
+
+    Known ids resolve to their ``Model`` enum member (with an optional ``base_url``
+    override for the OpenAI-compatible local-server providers). Ids not in any enum resolve
+    to an ``AdHocModel`` whose capabilities come from ``flags``; these are allowed only for
+    the base-url providers and the generic ``openai-compat`` prefix (which requires a
+    ``base_url``). See ``docs/superpowers/specs/2026-07-17-model-string-base-url-design.md``.
+    """
+    parsed = parse_model_string(model_str)
+    provider, model_id, base_url, flags = parsed.provider, parsed.model_id, parsed.base_url, parsed.flags
+
+    if provider == _GENERIC_COMPAT_PROVIDER:
+        if not _HAS_OPENAI_COMPAT:
+            raise ImportError("The 'openai-compat' provider requires the openai-compatible extra.")
+        if base_url is None:
+            raise ValueError(f"Provider {provider!r} requires an endpoint: use 'openai-compat:<model_id>@<base_url>'.")
+        return ResolvedModel(AdHocModel(_build_adhoc_spec(model_id, flags)), provider, base_url)
+
+    registry = _provider_registry()
+    if provider not in registry:
+        available = sorted(list(registry) + [_GENERIC_COMPAT_PROVIDER])
+        raise ValueError(f"Unknown provider {provider!r}. Available providers (with installed deps): {available}")
+
+    if base_url is not None and provider not in _BASE_URL_PROVIDERS:
+        supported = sorted(_BASE_URL_PROVIDERS | {_GENERIC_COMPAT_PROVIDER})
+        raise ValueError(f"Provider {provider!r} does not accept an @base_url. Supported: {supported}.")
+
+    enum_cls, _client_cls = registry[provider]
+    match = next((member for member in enum_cls if member.value == model_id), None)
+    if match is not None:
+        if flags:
+            raise ValueError(
+                f"Capability flags are not allowed with the known model id {model_id!r}; it already "
+                "declares its capabilities. Use a different id to define an ad-hoc model."
+            )
+        return ResolvedModel(match, provider, base_url)
+
+    if provider not in _BASE_URL_PROVIDERS:
+        available = sorted(member.value for member in enum_cls)
+        raise ValueError(f"Provider {provider!r} has no model id {model_id!r}. Available: {available}")
+    return ResolvedModel(AdHocModel(_build_adhoc_spec(model_id, flags)), provider, base_url)
+
+
+def _sync_compat_client(provider: str):
+    """The sync OpenAI-compat client class for an ad-hoc model's provider prefix."""
+    if provider == _GENERIC_COMPAT_PROVIDER:
+        return OpenAICompatClient
+    return _provider_registry()[provider][1]
 
 
 def resolve_model_enum(model: Union[Model, str]) -> Model:
@@ -223,7 +313,17 @@ class ModelClient(BaseModelClient):
 
     def __init__(self, model: Union[Model, ModelSpec, str], **kwargs: Any) -> None:
         if isinstance(model, str):
-            model = resolve_model_string(model)
+            resolved = resolve_model(model)
+            if resolved.base_url is not None:
+                kwargs["base_url"] = resolved.base_url
+            if isinstance(resolved.model, AdHocModel):
+                client_cls = _sync_compat_client(resolved.provider)
+                self._client = client_cls(resolved.model, **kwargs)
+                self.model = self._client.model
+                self.model_kwargs = self._client.model_kwargs
+                self.default_generate_kwargs = self._client.default_generate_kwargs
+                return
+            model = resolved.model
         elif isinstance(model, ModelSpec):
             raise TypeError(
                 "Pass a Model enum member (e.g. OllamaModel.QWEN_3_8B) or a "
