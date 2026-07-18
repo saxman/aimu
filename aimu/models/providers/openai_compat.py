@@ -108,6 +108,10 @@ class OpenAICompatClient(BaseModelClient):
             if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
                 continue
             delta = chunk.choices[0].delta
+            reasoning = getattr(delta, "reasoning_content", None)
+            if reasoning:
+                self.last_thinking += reasoning
+                yield StreamChunk(StreamingContentType.THINKING, reasoning)
             if delta.content is None:
                 continue
             logger.debug("LLM raw chunk: %s", chunk)
@@ -148,11 +152,15 @@ class OpenAICompatClient(BaseModelClient):
             **generate_kwargs,
         )
         logger.debug("LLM raw response: %s", response)
+        msg = response.choices[0].message
         self.last_usage = usage_from_openai(response)
-        content = response.choices[0].message.content or ""
+        content = msg.content or ""
 
         self.last_thinking = ""
-        if self.is_thinking_model:
+        reasoning = getattr(msg, "reasoning_content", None)
+        if reasoning:
+            self.last_thinking = reasoning
+        elif self.is_thinking_model:
             self.last_thinking, content = _split_thinking(content)
 
         return content
@@ -205,6 +213,10 @@ class OpenAICompatClient(BaseModelClient):
         msg = response.choices[0].message
         self.last_usage = usage_from_openai(response)
         self.last_thinking = ""
+        # Servers that strip <think> tags server-side (llama-server, vLLM/SGLang reasoning parsers)
+        # return reasoning in a separate reasoning_content field; prefer it when present, else fall
+        # back to parsing inline tags out of content.
+        reasoning = getattr(msg, "reasoning_content", None)
 
         # Single turn: if the model called tools, execute them and return. The model's response
         # to the tool results comes on the next chat() call (the loop lives in Agent).
@@ -213,7 +225,9 @@ class OpenAICompatClient(BaseModelClient):
                 {"name": tc.function.name, "arguments": json.loads(tc.function.arguments)} for tc in msg.tool_calls
             ]
             text = msg.content or ""
-            if self.is_thinking_model:
+            if reasoning:
+                self.last_thinking = reasoning
+            elif self.is_thinking_model:
                 self.last_thinking, text = _split_thinking(text)
             msgs_before = len(self.messages)
             self._record_tool_calls(tool_calls, content=text)
@@ -222,7 +236,9 @@ class OpenAICompatClient(BaseModelClient):
             return text
 
         content = msg.content or ""
-        if self.is_thinking_model:
+        if reasoning:
+            self.last_thinking = reasoning
+        elif self.is_thinking_model:
             self.last_thinking, content = _split_thinking(content)
 
         self.messages.append({"role": "assistant", "content": content})
@@ -258,6 +274,10 @@ class OpenAICompatClient(BaseModelClient):
                 continue
             delta = chunk.choices[0].delta
             logger.debug("LLM raw chunk: %s", chunk)
+            reasoning = getattr(delta, "reasoning_content", None)
+            if reasoning:
+                self.last_thinking += reasoning
+                yield StreamChunk(StreamingContentType.THINKING, reasoning)
             if delta.tool_calls:
                 for tc_delta in delta.tool_calls:
                     acc = tool_calls_acc.setdefault(tc_delta.index, {"name": "", "arguments": ""})

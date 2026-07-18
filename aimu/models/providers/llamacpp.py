@@ -101,6 +101,10 @@ class LlamaCppClient(BaseModelClient):
 
         for chunk in stream:
             delta = chunk["choices"][0]["delta"]
+            reasoning = delta.get("reasoning_content")
+            if reasoning:
+                self.last_thinking += reasoning
+                yield StreamChunk(StreamingContentType.THINKING, reasoning)
             text = delta.get("content") or ""
             if not text:
                 continue
@@ -134,10 +138,14 @@ class LlamaCppClient(BaseModelClient):
             **generate_kwargs,
         )
         logger.debug("LLM raw response: %s", response)
-        content = response["choices"][0]["message"]["content"] or ""
+        msg = response["choices"][0]["message"]
+        content = msg["content"] or ""
 
         self.last_thinking = ""
-        if self.is_thinking_model:
+        reasoning = msg.get("reasoning_content")
+        if reasoning:
+            self.last_thinking = reasoning
+        elif self.is_thinking_model:
             self.last_thinking, content = _split_thinking(content)
 
         return content
@@ -180,6 +188,8 @@ class LlamaCppClient(BaseModelClient):
         msg = response["choices"][0]["message"]
 
         self.last_thinking = ""
+        # Prefer a server-provided reasoning_content field over parsing inline <think> tags.
+        reasoning = msg.get("reasoning_content")
 
         # Single turn: if the model called tools, execute them and return. The model's response
         # to the tool results comes on the next chat() call (the loop lives in Agent).
@@ -189,7 +199,9 @@ class LlamaCppClient(BaseModelClient):
                 for tc in msg["tool_calls"]
             ]
             text = msg.get("content") or ""
-            if self.is_thinking_model:
+            if reasoning:
+                self.last_thinking = reasoning
+            elif self.is_thinking_model:
                 self.last_thinking, text = _split_thinking(text)
             msgs_before = len(self.messages)
             self._record_tool_calls(tool_calls, content=text)
@@ -198,7 +210,9 @@ class LlamaCppClient(BaseModelClient):
             return text
 
         content = msg.get("content") or ""
-        if self.is_thinking_model:
+        if reasoning:
+            self.last_thinking = reasoning
+        elif self.is_thinking_model:
             self.last_thinking, content = _split_thinking(content)
 
         self.messages.append({"role": "assistant", "content": content})
@@ -224,6 +238,10 @@ class LlamaCppClient(BaseModelClient):
         for chunk in stream:
             delta = chunk["choices"][0]["delta"]
             logger.debug("LLM raw chunk: %s", chunk)
+            reasoning = delta.get("reasoning_content")
+            if reasoning:
+                self.last_thinking += reasoning
+                yield StreamChunk(StreamingContentType.THINKING, reasoning)
             if delta.get("tool_calls"):
                 for tc_delta in delta["tool_calls"]:
                     acc = tool_calls_acc.setdefault(tc_delta["index"], {"name": "", "arguments": ""})

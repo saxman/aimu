@@ -478,3 +478,44 @@ async def test_aio_openai_compat_chat_streamed_yields_incrementally():
     last_pull = max(i for i, e in enumerate(events) if e[0] == "pull")
     assert first_yield < last_pull, f"stream was buffered, not incremental: {events}"
     assert fake.messages[-1] == {"role": "assistant", "content": "Hello world"}
+
+
+async def test_aio_openai_compat_chat_streamed_reads_reasoning_content_field():
+    """Async: reasoning delivered via the separate reasoning_content delta field is surfaced
+    as THINKING, not dropped (llama-server / vLLM / SGLang server-side reasoning parsers)."""
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    def _delta(content=None, reasoning=None):
+        d = types.SimpleNamespace(content=content, tool_calls=None, reasoning_content=reasoning)
+        return types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=d)])
+
+    async def _astream(items):
+        for it in items:
+            yield it
+
+    items = [_delta(reasoning="think "), _delta(reasoning="more"), _delta(content="the answer")]
+    streams = iter([_astream(items)])
+
+    async def _create(**kw):
+        return next(streams)
+
+    fake = types.SimpleNamespace(
+        _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_create))),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_thinking="",
+        last_usage=None,
+        messages=[],
+    )
+
+    chunks = []
+    async for c in AsyncOpenAICompatClient._chat_streamed(fake, {}, []):
+        chunks.append(c)
+
+    thinking = "".join(c.content for c in chunks if c.phase == StreamingContentType.THINKING)
+    generating = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
+    assert thinking == "think more"
+    assert generating == "the answer"
+    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "think more"}

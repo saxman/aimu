@@ -1000,6 +1000,33 @@ def test_llamacpp_chat_streamed_yields_incrementally():
     assert fake.messages[-1] == {"role": "assistant", "content": "Hello world"}
 
 
+def test_llamacpp_chat_streamed_reads_reasoning_content_field():
+    """llama.cpp dict deltas may carry reasoning_content separately; surface it as THINKING."""
+    import types
+
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    deltas = [
+        {"choices": [{"delta": {"reasoning_content": "think "}}]},
+        {"choices": [{"delta": {"reasoning_content": "more"}}]},
+        {"choices": [{"delta": {"content": "the answer"}}]},
+    ]
+    fake = types.SimpleNamespace(
+        _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: iter(deltas)),
+        is_thinking_model=True,
+        last_thinking="",
+        messages=[],
+    )
+
+    chunks = list(LlamaCppClient._chat_streamed(fake, {}, []))
+
+    thinking = "".join(c.content for c in chunks if c.phase == StreamingContentType.THINKING)
+    generating = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
+    assert thinking == "think more"
+    assert generating == "the answer"
+    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "think more"}
+
+
 def _openai_compat_fake(content: str):
     import types
 
@@ -1105,6 +1132,66 @@ def test_openai_compat_chat_streamed_yields_incrementally():
     last_pull = max(i for i, e in enumerate(events) if e[0] == "pull")
     assert first_yield < last_pull, f"stream was buffered, not incremental: {events}"
     assert fake.messages[-1] == {"role": "assistant", "content": "Hello world"}
+
+
+def test_openai_compat_chat_reads_reasoning_content_field():
+    """Servers that strip <think> tags server-side (llama-server --reasoning-format deepseek,
+    vLLM/SGLang reasoning parsers) return reasoning in a separate reasoning_content field.
+    The client must surface it as thinking rather than dropping it."""
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    msg = types.SimpleNamespace(content="the answer", tool_calls=None, reasoning_content="my reasoning")
+    response = types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg)])
+    fake = types.SimpleNamespace(
+        _chat_setup=lambda *a, **k: ({}, []),
+        _with_response_format=lambda gk, rf: gk,
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=lambda **kw: response))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_usage=None,
+        messages=[],
+    )
+
+    result = OpenAICompatClient._chat(fake, "hi")
+
+    assert result == "the answer"
+    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "my reasoning"}
+
+
+def test_openai_compat_chat_streamed_reads_reasoning_content_field():
+    """Streaming twin of the reasoning_content test: deltas carry reasoning_content separately
+    from content; the client must emit THINKING chunks and record the reasoning."""
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    def _delta(content=None, reasoning=None):
+        d = types.SimpleNamespace(tool_calls=None, content=content, reasoning_content=reasoning)
+        return types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=d)])
+
+    deltas = [_delta(reasoning="think "), _delta(reasoning="more"), _delta(content="the answer")]
+    fake = types.SimpleNamespace(
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=lambda **kw: iter(deltas)))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_thinking="",
+        last_usage=None,
+        messages=[],
+    )
+
+    chunks = list(OpenAICompatClient._chat_streamed(fake, {}, []))
+
+    thinking = "".join(c.content for c in chunks if c.phase == StreamingContentType.THINKING)
+    generating = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
+    assert thinking == "think more"
+    assert generating == "the answer"
+    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "think more"}
 
 
 # ---------------------------------------------------------------------------
