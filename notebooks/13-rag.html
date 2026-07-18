@@ -384,7 +384,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a-small-document-corpus" class="level2">
 <h2 class="anchored" data-anchor-id="a-small-document-corpus">A small document corpus</h2>
 <p>We’ll use a few short documents about AIMU as the knowledge base.</p>
-<div id="1988f9f8" class="cell" data-execution_count="1">
+<div id="31f1a44e" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>documents <span class="op">=</span> [</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    (</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">"AIMU is a Python library for building AI-powered applications, with language models "</span></span>
@@ -413,7 +413,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="split-text-into-chunks" class="level2">
 <h2 class="anchored" data-anchor-id="split-text-into-chunks">1. Split text into chunks</h2>
 <p><code>split_text</code> breaks a long string into overlapping chunks, preferring the largest separator that keeps each chunk under <code>chunk_size</code> (paragraphs → lines → sentences → words → characters).</p>
-<div id="f9ea7c27" class="cell" data-execution_count="2">
+<div id="13da2ab7" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.rag <span class="im">import</span> split_text</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>long_text <span class="op">=</span> <span class="st">"</span><span class="ch">\n\n</span><span class="st">"</span>.join(documents)</span>
@@ -426,7 +426,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="chunk-size-overlap-and-token-aware-splitting" class="level2">
 <h2 class="anchored" data-anchor-id="chunk-size-overlap-and-token-aware-splitting">2. Chunk size, overlap, and token-aware splitting</h2>
 <p><code>chunk_overlap</code> repeats the tail of one chunk at the head of the next so context isn’t lost at boundaries (it must be smaller than <code>chunk_size</code>). <code>length_function</code> defaults to <code>len</code> (characters); pass a token counter for token-aware chunking.</p>
-<div id="ca6ea597" class="cell" data-execution_count="3">
+<div id="1df3a0ad" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Token-aware via a word counter (stand-in for a real tokenizer like tiktoken):</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   import tiktoken; enc = tiktoken.get_encoding("cl100k_base")</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">#   length_function=lambda s: len(enc.encode(s))</span></span>
@@ -447,7 +447,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="ingest-documents-into-a-store" class="level2">
 <h2 class="anchored" data-anchor-id="ingest-documents-into-a-store">3. Ingest documents into a store</h2>
 <p><code>ingest</code> chunks each document and stores the chunks. Any <code>MemoryStore</code> works; here a <code>SemanticMemoryStore</code> (ChromaDB vector search, default embedder, runs offline). To pick the embedding model, pass <code>embedding_client=aimu.embedding_client(...)</code> (see <a href="./11-embeddings.html">notebook 11</a>).</p>
-<div id="371ad637" class="cell" data-execution_count="4">
+<div id="ea8de9be" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.memory <span class="im">import</span> SemanticMemoryStore</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.rag <span class="im">import</span> ingest</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -459,7 +459,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="retrieve-and-augment" class="level2">
 <h2 class="anchored" data-anchor-id="retrieve-and-augment">4. Retrieve and augment</h2>
 <p><code>retrieve</code> pulls the chunks most relevant to a query; <code>format_context</code> joins them for the prompt. Then it’s an ordinary <code>chat()</code> call: RAG is a workflow you compose, not a new object type.</p>
-<div id="d90e5e48" class="cell" data-execution_count="5">
+<div id="4785fd44" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.rag <span class="im">import</span> retrieve, format_context</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>question <span class="op">=</span> <span class="st">"How do I turn text into vectors in AIMU?"</span></span>
@@ -471,7 +471,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>context <span class="op">=</span> format_context(hits, numbered<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">context passed to the model:</span><span class="ch">\n</span><span class="st">"</span>, context[:<span class="dv">300</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="ad6680ae" class="cell" data-execution_count="6">
+<div id="baee20fb" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Augment the prompt with retrieved context and answer (needs a chat model).</span></span>
@@ -485,7 +485,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="reranking-optional" class="level2">
 <h2 class="anchored" data-anchor-id="reranking-optional">5. Reranking (optional)</h2>
 <p>A vector search is fast but coarse. Fetch a wide candidate set, then rerank it with a cross-encoder to keep the best few. Requires the <code>[hf]</code> extra (<code>sentence-transformers</code>); the model loads once and is cached.</p>
-<div id="f3aef6b2" class="cell" data-execution_count="7">
+<div id="60119d73" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.rag <span class="im">import</span> rerank</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>candidates <span class="op">=</span> retrieve(store, question, n_results<span class="op">=</span><span class="dv">4</span>)</span>
@@ -497,7 +497,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="as-an-agent-tool" class="level2">
 <h2 class="anchored" data-anchor-id="as-an-agent-tool">6. As an agent tool</h2>
 <p><code>make_retrieval_tool(store)</code> exposes retrieval as a <code>retrieve_context(query)</code> tool so an agent can fetch background on demand. Like the memory tools, the store is explicit (no env-var singleton).</p>
-<div id="2094cfa0" class="cell" data-execution_count="8">
+<div id="d27b24a6" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools.builtin <span class="im">import</span> make_retrieval_tool</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -509,7 +509,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="choosing-a-store" class="level2">
 <h2 class="anchored" data-anchor-id="choosing-a-store">7. Choosing a store</h2>
 <p>Any <code>MemoryStore</code> works with <code>ingest</code> / <code>retrieve</code>. <code>DocumentStore</code> does case-insensitive substring search with no embeddings, handy for exact-term lookup or when you can’t run an embedding model.</p>
-<div id="42b1d38f" class="cell" data-execution_count="9">
+<div id="0d45d8b9" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.memory <span class="im">import</span> DocumentStore</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>doc_store <span class="op">=</span> DocumentStore()</span>

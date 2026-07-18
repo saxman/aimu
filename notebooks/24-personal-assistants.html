@@ -371,7 +371,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>We use a throwaway skills directory so the notebook doesn’t write into the repo, and a shared async client against a local Ollama model.</p>
-<div id="eb49e860" class="cell" data-execution_count="1">
+<div id="65624f57" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tempfile</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
@@ -391,7 +391,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="a---scheduler-proactive-triggers">A - Scheduler: proactive triggers</h2>
 <p><code>Scheduler</code> runs interval (<code>every</code>) and one-shot (<code>at</code>) async jobs concurrently under one <code>asyncio.TaskGroup</code>. A job is a zero-argument coroutine factory; bind context (an agent, a channel) with a closure or <code>functools.partial</code>. <code>run()</code> blocks until <code>stop()</code>. Here we start it in a background task and stop it after a short window.</p>
 <p>The key property: <strong>a job that raises is isolated</strong>. It’s logged and (for interval jobs) retried next tick, so one misbehaving reminder can’t tear down the daemon. (In the next cell you’ll see <code>bad</code>’s traceback logged on every tick. That logging <em>is</em> the isolation in action: the scheduler keeps running and <code>good</code> keeps firing.)</p>
-<div id="8b707fb7" class="cell" data-execution_count="2">
+<div id="c2024b8c" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.aio <span class="im">import</span> Scheduler</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>good_fires <span class="op">=</span> []</span>
@@ -417,7 +417,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"'good' fired </span><span class="sc">{</span><span class="bu">len</span>(good_fires)<span class="sc">}</span><span class="ss"> times despite 'bad' raising every tick"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>One-shot jobs fire once after a delay. <code>at()</code> returns a job id you can <code>cancel()</code>.</p>
-<div id="5e8af10c" class="cell" data-execution_count="3">
+<div id="93b86c83" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>log <span class="op">=</span> []</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -441,7 +441,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---skill-authoring-an-agent-that-grows-its-own-skills" class="level2">
 <h2 class="anchored" data-anchor-id="b---skill-authoring-an-agent-that-grows-its-own-skills">B - Skill authoring: an agent that grows its own skills</h2>
 <p><code>write_skill(...)</code> creates a discoverable <code>SKILL.md</code> (validating the name as a slug, refusing to clobber, and round-tripping through the parser). <code>SkillManager.refresh()</code> invalidates the discovery cache so a skill authored at runtime becomes visible immediately.</p>
-<div id="805b3055" class="cell" data-execution_count="4">
+<div id="b9e3b409" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> SkillManager, write_skill</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>manager <span class="op">=</span> SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)])</span>
@@ -459,7 +459,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Skills after refresh:"</span>, <span class="bu">list</span>(manager.skills))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p><code>make_skill_authoring_tool(manager, skills_dir)</code> returns an async <code>author_skill</code> <code>@tool</code>. Hand it to an agent and the assistant can save a procedure it just worked out (the Hermes-style self-improvement loop). Here we call the tool directly to show what the agent would do.</p>
-<div id="2bb5188d" class="cell" data-execution_count="5">
+<div id="b2457a89" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> make_skill_authoring_tool</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>author_skill <span class="op">=</span> make_skill_authoring_tool(manager, skills_dir)</span>
@@ -479,7 +479,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <blockquote class="blockquote">
 <p><strong>Full access.</strong> Skill scripts run with your user privileges, no sandbox (the OpenClaw/Hermes model). Only enable this for a model and inputs you trust. <code>builtin.execute_python</code> is the sandboxed alternative.</p>
 </blockquote>
-<div id="9cf985a6" class="cell" data-execution_count="6">
+<div id="a75786a1" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> build_skills_server, write_skill</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -508,7 +508,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---channel-the-transport-abc" class="level2">
 <h2 class="anchored" data-anchor-id="c---channel-the-transport-abc">C - Channel: the transport ABC</h2>
 <p>A <code>Channel</code> is a tiny transport: <code>receive()</code> is an async generator of inbound <code>ChannelMessage</code>s; <code>send()</code> takes a finished string or an <code>AsyncIterator[StreamChunk]</code> to relay a streamed reply. <code>CLIChannel</code> (terminal) ships with AIMU, but it blocks on stdin, so for the notebook we define an <strong>in-memory</strong> channel that feeds scripted messages and captures replies.</p>
-<div id="2b23d1f9" class="cell" data-execution_count="7">
+<div id="278136f2" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.aio <span class="im">import</span> Channel, ChannelMessage</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -536,7 +536,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"assistant &gt;"</span>, text)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Now wire the channel to a <code>SkillAgent</code> and run the receive -&gt; agent -&gt; send loop. The agent’s <code>author_skill</code> tool is attached, and the system prompt lives on the client (so multi-turn history persists across messages, the same setup the reference daemon uses).</p>
-<div id="444a9236" class="cell" data-execution_count="8">
+<div id="c53412a2" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> SkillManager, make_skill_authoring_tool</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>manager <span class="op">=</span> SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)])</span>
@@ -559,7 +559,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---proactivity-and-persistence" class="level2">
 <h2 class="anchored" data-anchor-id="d---proactivity-and-persistence">D - Proactivity and persistence</h2>
 <p><strong>Proactivity.</strong> In the daemon a <code>Scheduler</code> job calls the agent and pushes the result through the channel unprompted. Here we invoke that callback directly to show the unprompted message (in the daemon it is registered via <code>scheduler.at(...)</code> / <code>scheduler.every(...)</code>).</p>
-<div id="b2707aa5" class="cell" data-execution_count="9">
+<div id="b4b6a64e" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> proactive(agent, channel):</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    reply <span class="op">=</span> <span class="cf">await</span> agent.run(<span class="st">"Proactively suggest one short productivity tip."</span>)</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> channel.send(reply)</span>
@@ -568,7 +568,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> proactive(agent, channel)  <span class="co"># the assistant speaks without a user prompt</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p><strong>Persistence.</strong> <code>ConversationManager</code> (TinyDB) saves the conversation; a later session restores it with <code>agent.restore(...)</code>, which de-duplicates the system message so history resumes cleanly.</p>
-<div id="c5879236" class="cell" data-execution_count="10">
+<div id="f6370ef8" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.history <span class="im">import</span> ConversationManager</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>history_path <span class="op">=</span> <span class="bu">str</span>(tmp_dir <span class="op">/</span> <span class="st">"history.json"</span>)</span>
@@ -599,7 +599,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="clean-up">Clean up</h2>
-<div id="b43806d5" class="cell" data-execution_count="11">
+<div id="a6640c55" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> shutil</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>shutil.rmtree(tmp_dir, ignore_errors<span class="op">=</span><span class="va">True</span>)</span>

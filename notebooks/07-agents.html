@@ -385,7 +385,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="quick-start-aimu.tool-and-agent">Quick start: <code>@aimu.tool</code> and <code>Agent</code></h2>
 <p>The shortest path to a working agent: decorate any Python function with <code>@aimu.tool</code> and pass it to an <code>Agent</code>. The decorator inspects the signature and docstring to build an OpenAI-format tool spec; the agent registers the function on its <code>ModelClient</code> and dispatches calls in-process.</p>
 <p>Use this route for tools that live in the same process as your code. For cross-process tools (a shared tool server, a fleet of agents sharing a catalog), use <code>MCPClient</code> as shown in the next section. The two routes can be combined on the same agent.</p>
-<div id="73336360" class="cell" data-execution_count="1">
+<div id="50c3ebc1" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, OllamaModel</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
@@ -406,7 +406,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>Create an <code>OllamaClient</code> with a tool-capable model and build a few demo tools from an in-process <code>MCPClient</code> via <code>as_tools()</code>. The tools are passed to each <code>Agent</code> via <code>tools=</code>; the same <code>model_client</code> and <code>demo_tools</code> are reused across all sections.</p>
-<div id="f0809a02" class="cell" data-execution_count="2">
+<div id="cbdfe65f" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -452,7 +452,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="a---basic-agent">A - Basic Agent</h2>
 <p>An <code>Agent</code> wraps a <code>ModelClient</code> and runs an agentic loop: on each turn the model may call tools, which the agent executes and feeds back; the agent then continues until the model responds without calling any tools (or <code>max_iterations</code> is reached). The model client handles a single turn; the loop lives in the agent.</p>
 <p>This is the simplest possible usage â€” two lines.</p>
-<div id="47257497" class="cell" data-execution_count="3">
+<div id="05d98122" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
@@ -463,13 +463,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The agent called both tools â€” date/time and calculator â€” and assembled the results into a final answer. Inspect the full message history to see every step.</p>
-<div id="94d2782e" class="cell" data-execution_count="4">
+<div id="4d451052" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <section id="per-run-tool-override" class="level3">
 <h3 class="anchored" data-anchor-id="per-run-tool-override">Per-run tool override</h3>
 <p><code>Agent(tools=...)</code> sets the agent’s <em>configured</em> tools. To use a different set for a single run (a narrower set for a quick task, or none at all) pass <code>tools=</code> to <code>run()</code>. It applies to every turn of that run’s agentic loop and is restored afterward; <code>tools=None</code> (the default) uses the configured tools, and <code>tools=[]</code> disables tools for the run. (Since MCP tools are also just callables in the agent’s <code>tools</code> via <code>as_tools()</code>, the override covers them too.)</p>
-<div id="bd79c199" class="cell" data-execution_count="5">
+<div id="70b01bcc" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -498,7 +498,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="guaranteed-final-answer-at-the-iteration-cap" class="level3">
 <h3 class="anchored" data-anchor-id="guaranteed-final-answer-at-the-iteration-cap">Guaranteed final answer at the iteration cap</h3>
 <p>By default, if an agent reaches <code>max_iterations</code> while still calling tools, <code>run()</code> returns whatever that last (possibly tool-only) turn produced, which can be empty. Set <code>final_answer_prompt</code> to guarantee a usable result: when the cap is hit with a tool call still pending, the agent sends that prompt <strong>once with tools disabled</strong>, forcing the model to synthesize an answer from what it has gathered so far. This wrap-up turn is <em>not</em> counted against <code>max_iterations</code>, and it never fires on a normal finish (a turn with no tool calls). <code>OrchestratorAgent.assemble(..., final_answer_prompt=...)</code> forwards it to the inner orchestrator.</p>
-<div id="153fda3c" class="cell" data-execution_count="6">
+<div id="85b32020" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>capped_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)</span>
@@ -519,7 +519,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---agent-with-system-message" class="level2">
 <h2 class="anchored" data-anchor-id="b---agent-with-system-message">B - Agent with System Message</h2>
 <p>Pass a <code>system_message</code> to give the agent a specific persona or set of instructions.</p>
-<div id="adc050eb" class="cell" data-execution_count="7">
+<div id="29426f9d" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
@@ -533,14 +533,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"Should I visit Paris or London today?"</span>)</span>
 <span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="cd297140" class="cell" data-execution_count="8">
+<div id="3be4bad0" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="c---agent-from-config" class="level2">
 <h2 class="anchored" data-anchor-id="c---agent-from-config">C - Agent from Config</h2>
 <p><code>Agent.from_config()</code> creates an agent from a plain dict. This makes it easy to define agents in configuration files or environment settings without writing boilerplate code.</p>
-<div id="a5816b54" class="cell" data-execution_count="9">
+<div id="6caf79b3" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>agent_config <span class="op">=</span> {</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"name"</span>: <span class="st">"calculator-agent"</span>,</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"system_message"</span>: <span class="st">"You are a maths assistant. Use the calculate tool for all arithmetic. If you've answered the original query and don't need to use any more tools, repeat the final answer."</span>,</span>
@@ -556,11 +556,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Max iterations:   </span><span class="sc">{</span>agent<span class="sc">.</span>max_iterations<span class="sc">}</span><span class="ss">"</span>)</span>
 <span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"System message:   </span><span class="sc">{</span>model_client<span class="sc">.</span>system_message<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="7bc25507" class="cell" data-execution_count="10">
+<div id="cb8c917e" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"What is (17 * 23) + (88 / 4)?"</span>)</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="8d9f85ab" class="cell" data-execution_count="11">
+<div id="71f615d5" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
@@ -568,7 +568,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="d---streaming-agent-output">D - Streaming Agent Output</h2>
 <p><code>run(stream=True)</code> yields <code>StreamChunk</code> objects, each with <code>phase</code>, <code>content</code>, <code>agent</code>, and <code>iteration</code>. The same chunk type flows through <code>client.chat(stream=True)</code> and every workflow; <code>agent</code> and <code>iteration</code> are populated by the agent/workflow runner (and default to <code>None</code> / <code>0</code> for plain client chats).</p>
 <p>The <code>iteration</code> field shows which loop round produced each chunk, making it easy to follow multi-step reasoning. Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> to dispatch without writing out the phase comparison.</p>
-<div id="661aacc4" class="cell" data-execution_count="12">
+<div id="425d02e8" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
@@ -595,7 +595,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
 <span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="4590f0ab" class="cell" data-execution_count="13">
+<div id="81214d7c" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
@@ -604,7 +604,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><code>agent.as_model_client()</code> returns a <code>BaseModelClient</code> view backed by the agent. Use it anywhere a plain model client is accepted (web UIs, conversation managers, etc.) to get the full agentic loop transparently.</p>
 <p><code>chat()</code> on the returned view runs the complete <code>Agent</code> loop and returns once the model stops calling tools. <code>generate()</code> bypasses the loop and calls the inner client directly. State (<code>messages</code>, <code>system_message</code>) delegates to <code>agent.model_client</code>, so the view is a true drop-in replacement.</p>
 <p>To run a workflow (<code>Chain</code>, <code>Router</code>, etc.), call its <code>run()</code> or <code>run(stream=True)</code> directly; see <strong><a href="./09-workflows.html">notebook 09</a></strong> for workflow patterns.</p>
-<div id="98e6b965" class="cell" data-execution_count="14">
+<div id="e36d3eea" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>tools <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp).as_tools()</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -618,7 +618,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="f---execute_python-tool" class="level2">
 <h2 class="anchored" data-anchor-id="f---execute_python-tool">F - execute_python Tool</h2>
 <p>The <code>execute_python</code> built-in runs sandboxed Python code inside an agent – useful for data analysis and computation. It is in <code>builtin.compute</code> but not <code>ALL_TOOLS</code>; opt in explicitly.</p>
-<div id="dca48197" class="cell" data-execution_count="15">
+<div id="39c7c31a" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient, OllamaModel</span>
@@ -638,7 +638,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="g---inspecting-agent-tool-calls" class="level2">
 <h2 class="anchored" data-anchor-id="g---inspecting-agent-tool-calls">G - Inspecting Agent Tool Calls</h2>
 <p><code>extract_tool_calls(messages)</code> converts the raw OpenAI-format message history into a structured list of <code>{iteration, tool, arguments, result}</code> records.</p>
-<div id="f82381c8" class="cell" data-execution_count="16">
+<div id="e034086d" class="cell" data-execution_count="16">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> extract_tool_calls</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>calls <span class="op">=</span> extract_tool_calls(compute_agent.model_client.messages)</span>
@@ -648,7 +648,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="distinguishing-agent-loop-turns-from-user-input" class="level3">
 <h3 class="anchored" data-anchor-id="distinguishing-agent-loop-turns-from-user-input">Distinguishing agent-loop turns from user input</h3>
 <p>To reach its answer the agent injects its own <code>{"role": "user", ...}</code> turns (the continuation prompt between tool rounds, and a final-answer prompt if it hits <code>max_iterations</code>). In a replayed history these look identical to what the user typed. AIMU marks them with an inert <code>provenance</code> key so a UI can tell them apart; genuine user input is left untagged. The key is stripped from every provider request (like the <code>thinking</code> key), so it never reaches the model.</p>
-<div id="ccd30b42" class="cell" data-execution_count="17">
+<div id="e7b6286a" class="cell" data-execution_count="17">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Only the first user turn was typed by the user; the rest are agent-loop prompts.</span></span>
@@ -663,7 +663,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="h---checkpointing-saverestore-after-failure" class="level2">
 <h2 class="anchored" data-anchor-id="h---checkpointing-saverestore-after-failure">H - Checkpointing (save/restore after failure)</h2>
 <p>Save the live partial state on failure and restore before retrying. <code>agent.restore()</code> strips the system message to prevent duplication.</p>
-<div id="6f1e3566" class="cell" data-execution_count="18">
+<div id="9c0b8d71" class="cell" data-execution_count="18">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>save_path <span class="op">=</span> <span class="st">"/tmp/agent_checkpoint.json"</span></span>
@@ -686,7 +686,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="i---clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="i---clean-up">I - Clean Up</h2>
 <p>Delete model clients to release any held resources.</p>
-<div id="f6a6268f" class="cell" data-execution_count="19">
+<div id="60245939" class="cell" data-execution_count="19">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client, agentic_client</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 

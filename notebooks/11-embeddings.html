@@ -382,7 +382,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="one-shot-with-aimu.embed" class="level2">
 <h2 class="anchored" data-anchor-id="one-shot-with-aimu.embed">1. One-shot with <code>aimu.embed()</code></h2>
 <p>The simplest path. A single string returns one vector (<code>list[float]</code>); a list of strings returns a list of vectors (<code>list[list[float]]</code>), preserving order.</p>
-<div id="ee37722e" class="cell" data-execution_count="1">
+<div id="14ce561e" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>vector <span class="op">=</span> aimu.embed(<span class="st">"The quick brown fox"</span>, model<span class="op">=</span><span class="st">"openai:text-embedding-3-small"</span>)</span>
@@ -393,7 +393,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="reusable-client" class="level2">
 <h2 class="anchored" data-anchor-id="reusable-client">2. Reusable client</h2>
 <p>For more than a one-off, construct a client once and reuse it. <code>embed()</code> accepts a single string or a list; <code>dimensions</code> reports the vector width declared by the model spec.</p>
-<div id="681cc151" class="cell" data-execution_count="2">
+<div id="3f0ab5f5" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> aimu.embedding_client(<span class="st">"openai:text-embedding-3-small"</span>)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"declared dimensions:"</span>, client.dimensions)</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -409,7 +409,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="semantic-similarity" class="level2">
 <h2 class="anchored" data-anchor-id="semantic-similarity">3. Semantic similarity</h2>
 <p>Embeddings put related text close together in vector space. Cosine similarity (1.0 = identical direction, 0.0 = unrelated) is the usual measure. Notice the two animal phrases score far higher against each other than against the unrelated finance phrase.</p>
-<div id="8b1057e0" class="cell" data-execution_count="3">
+<div id="f9c64e8b" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -433,13 +433,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong>Ollama</strong> (local server) - pull the model first, e.g.&nbsp;<code>ollama pull nomic-embed-text</code>.</li>
 <li><strong>HuggingFace</strong> (local, <code>sentence-transformers</code>) - weights download on first use and are cached; each model’s own pooling/normalization config is honoured. Free the weights with <code>aimu.clear_hf_cache()</code>.</li>
 </ul>
-<div id="329e9978" class="cell" data-execution_count="4">
+<div id="24443d8d" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Ollama - local server. Requires: `ollama pull nomic-embed-text`</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>ollama_client <span class="op">=</span> aimu.embedding_client(<span class="st">"ollama:nomic-embed-text"</span>)</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"ollama dims:"</span>, ollama_client.dimensions)</span>
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"vector length:"</span>, <span class="bu">len</span>(ollama_client.embed(<span class="st">"hello from ollama"</span>)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="2cfb3662" class="cell" data-execution_count="5">
+<div id="7e875baf" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># HuggingFace - local sentence-transformers (requires the [hf] extra).</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrieval-tuned models (BGE / E5) expect "query: " / "passage: " prefixes for</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># asymmetric retrieval; pass already-prefixed strings when you need that.</span></span>
@@ -451,7 +451,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="pluggable-embeddings-in-semanticmemorystore" class="level2">
 <h2 class="anchored" data-anchor-id="pluggable-embeddings-in-semanticmemorystore">5. Pluggable embeddings in <code>SemanticMemoryStore</code></h2>
 <p><code>SemanticMemoryStore</code> embeds and retrieves facts by meaning. By default it uses ChromaDB’s built-in embedding model; pass <code>embedding_client=</code> to choose your own model instead. (A custom embedding model isn’t persisted in the collection config, so reopen a persistent store with the same <code>embedding_client=</code>.)</p>
-<div id="40fa2753" class="cell" data-execution_count="6">
+<div id="b0a52dc2" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.memory <span class="im">import</span> SemanticMemoryStore</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>emb <span class="op">=</span> aimu.embedding_client(<span class="st">"openai:text-embedding-3-small"</span>)</span>
@@ -468,7 +468,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="async-surface" class="level2">
 <h2 class="anchored" data-anchor-id="async-surface">6. Async surface</h2>
 <p>Embedding clients have no chat lifecycle, so the async surface wraps an existing sync client and routes <code>embed()</code> through <code>asyncio.to_thread</code> (the same Decision 7 pattern used by every other AIMU modality). Construct a sync client first, then wrap it.</p>
-<div id="c0051a65" class="cell" data-execution_count="7">
+<div id="187b1eba" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -487,7 +487,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="model-catalog" class="level2">
 <h2 class="anchored" data-anchor-id="model-catalog">7. Model catalog</h2>
 <p>AIMU ships curated specs per provider. Only providers whose optional dependency is installed appear below.</p>
-<div id="202ede72" class="cell" data-execution_count="8">
+<div id="8a4eb498" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF_EMBEDDING, HAS_OLLAMA_EMBEDDING, HAS_OPENAI_EMBEDDING</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
