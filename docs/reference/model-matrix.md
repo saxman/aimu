@@ -116,7 +116,7 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 
 ## OpenAI-compatible local servers
 
-`LMStudioOpenAIModel`, `OllamaOpenAIModel`, `HFOpenAIModel`, `VLLMOpenAIModel`, `LlamaServerOpenAIModel`, and `SGLangOpenAIModel` all enumerate the same set of common open models (Llama 3.x, Mistral 7B, Phi-4 Mini, Qwen 3.x, DeepSeek R1, Gemma 3). The model id format differs per server (LM Studio uses loaded model keys, Ollama uses `name:tag`, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames). See the enum source for each.
+`LMStudioOpenAIModel`, `OllamaOpenAIModel`, `HFOpenAIModel`, `VLLMOpenAIModel`, `LlamaServerOpenAIModel`, and `SGLangOpenAIModel` all enumerate the same set of common open models (Llama 3.x, Mistral 7B, Phi-4 Mini, Qwen 3.x, DeepSeek R1, Gemma 3, and the full Gemma 4 suite — E4B, 12B, 26B, 31B — with `tools` + `thinking` + `vision`). The model id format differs per server (LM Studio uses loaded model keys, Ollama uses `name:tag`, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames). See the enum source for each.
 
 ## Image generation
 
