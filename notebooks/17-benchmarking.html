@@ -399,7 +399,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="a---setup">A - Setup</h2>
 <p>A benchmark needs three things: a prompt template containing a <code>{content}</code> placeholder, a DataFrame with a <code>content</code> column (and optionally a <code>reference</code> column with ideal answers), and a <code>Scorer</code> to grade outputs.</p>
 <p>For this notebook we use a small summarisation dataset and an <code>LLMJudgeScorer</code> powered by a local Ollama model. Swap in any cloud client for stronger judgments.</p>
-<div id="cfec3d98" class="cell" data-execution_count="1">
+<div id="a76d17b2" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.evals <span class="im">import</span> Benchmark</span>
@@ -443,7 +443,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---single-model-benchmark" class="level2">
 <h2 class="anchored" data-anchor-id="b---single-model-benchmark">B - Single-Model Benchmark</h2>
 <p>The simplest case: one client, one prompt, one dataset. <code>Benchmark.run()</code> accepts a <code>dict[str, BaseModelClient]</code> where the keys become row labels in the result DataFrame and <code>model_id</code>s when persisting to a catalog.</p>
-<div id="8146ceba" class="cell" data-execution_count="2">
+<div id="d48d8e3c" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>writer_client <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_5_9B)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>bench <span class="op">=</span> Benchmark(prompt<span class="op">=</span>prompt, data<span class="op">=</span>df, scorer<span class="op">=</span>scorer, pass_threshold<span class="op">=</span><span class="fl">0.7</span>)</span>
@@ -456,7 +456,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="c---compare-multiple-models">C - Compare Multiple Models</h2>
 <p>To compare models, pass several clients in the same call. Each client is run in insertion order; rows in the result DataFrame match that order. Provider mixing is supported because every client implements <code>BaseModelClient</code>.</p>
 <p>Uncomment any of the cloud clients below if you have the relevant API keys configured.</p>
-<div id="dd83a282" class="cell" data-execution_count="3">
+<div id="c068f9a3" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cloud examples (require API keys):</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># from aimu.models import AnthropicClient</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># from aimu.models import AnthropicModel</span></span>
@@ -478,7 +478,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="d---benchmark-an-agentic-workflow">D - Benchmark an Agentic Workflow</h2>
 <p><code>Agent.as_model_client()</code> returns a <code>BaseModelClient</code> view backed by the agent. Drop one into the <code>clients</code> dict alongside plain model clients to compare agentic and non-agentic performance on the same task.</p>
 <p>The harness calls <code>client.reset()</code> between rows, which clears the conversation for the next chat. <code>system_message</code> is preserved by <code>reset()</code> (it lives outside the messages list), so attached system prompts and skill catalogs survive between rows.</p>
-<div id="3cfed3a0" class="cell" data-execution_count="4">
+<div id="30240759" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>agent_inner <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_5_9B)</span>
@@ -509,7 +509,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><code>to_csv(path)</code> and <code>to_json(path)</code> write the metrics DataFrame to disk for sharing or tracking over time.</li>
 <li><code>to_catalog(catalog, prompt_name)</code> stores one <code>Prompt</code> row per client in a <code>PromptCatalog</code>, keyed by <code>(prompt_name, client_name)</code>. The catalog auto-versions on each store, so re-running the benchmark with the same <code>prompt_name</code> appends new versions rather than overwriting.</li>
 </ul>
-<div id="a5a957db" class="cell" data-execution_count="5">
+<div id="ca9a1dfa" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tempfile</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -521,7 +521,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"---"</span>)</span>
 <span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>((tmp <span class="op">/</span> <span class="st">"summary_bench.json"</span>).read_text())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="346e8352" class="cell" data-execution_count="6">
+<div id="17de992e" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.prompts.catalog <span class="im">import</span> PromptCatalog</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>catalog <span class="op">=</span> PromptCatalog(db_path<span class="op">=</span><span class="bu">str</span>(tmp <span class="op">/</span> <span class="st">"benchmarks.db"</span>))</span>
@@ -540,7 +540,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><code>DeepEvalScorer</code> plugs any DeepEval <code>BaseMetric</code> (e.g.&nbsp;<code>GEval</code>, <code>AnswerRelevancyMetric</code>, <code>FaithfulnessMetric</code>) into the <code>Benchmark</code> harness. Each row is converted to an <code>LLMTestCase</code>; per-metric scores are averaged into a single 0-1 score per row.</p>
 <p>Includes a <code>reference</code> column in the dataset to populate <code>LLMTestCase.expected_output</code> when the metric expects it.</p>
 <p>Requires <code>aimu[deepeval]</code>.</p>
-<div id="78aee5c6" class="cell" data-execution_count="7">
+<div id="f8b223ab" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> deepeval.metrics <span class="im">import</span> GEval</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> deepeval.test_case <span class="im">import</span> LLMTestCaseParams</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>

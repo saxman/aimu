@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -2877,6 +2877,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#agents-and-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2966,7 +2977,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models" class="md-nav__link">
+  <a href="#models_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3071,7 +3082,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_1" class="md-nav__link">
+  <a href="#models_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3110,7 +3121,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_2" class="md-nav__link">
+  <a href="#models_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3265,7 +3276,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_3" class="md-nav__link">
+  <a href="#models_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3293,7 +3304,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_4" class="md-nav__link">
+  <a href="#models_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3453,7 +3464,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_5" class="md-nav__link">
+  <a href="#models_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -3896,6 +3907,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#agents-and-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3985,7 +4007,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models" class="md-nav__link">
+  <a href="#models_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -4090,7 +4112,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_1" class="md-nav__link">
+  <a href="#models_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -4129,7 +4151,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_2" class="md-nav__link">
+  <a href="#models_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -4284,7 +4306,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_3" class="md-nav__link">
+  <a href="#models_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -4312,7 +4334,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#models_4" class="md-nav__link">
+  <a href="#models_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -4472,7 +4494,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models_5" class="md-nav__link">
+  <a href="#models_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         Models
@@ -4869,6 +4891,10 @@ not this stub.
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>New</strong> <strong>Gemma 4 model catalog</strong> for the OpenAI-compatible providers (<code>aimu.models.providers.openai_compat</code>). Added the full suite (<code>GEMMA_4_E4B</code>, <code>GEMMA_4_12B</code>, <code>GEMMA_4_26B</code>, <code>GEMMA_4_31B</code>) to every local-server enum (<code>OllamaOpenAIModel</code>, <code>LMStudioOpenAIModel</code>, <code>VLLMOpenAIModel</code>, <code>HFOpenAIModel</code>, <code>LlamaServerOpenAIModel</code>, <code>SGLangOpenAIModel</code>), replacing the lone <code>GEMMA_4_12B</code> entry each previously carried. Capabilities are set from Google's Gemma 4 model card: <code>tools=True, thinking=True, vision=True</code> on all four (thinking surfaces over OpenAI-compat via <code>&lt;think&gt;</code>-tag parsing). Provider-appropriate ids include the MoE <code>google/gemma-4-26B-A4B-it</code> and the dense <code>google/gemma-4-31B-it</code> for the HuggingFace-repo servers. <code>vision=True</code> was also backfilled onto the existing Gemma 3/4 entries. <strong>Audio is deliberately left off</strong> (only E4B/12B are natively audio-capable, and audio input isn't reliably exposed by these local servers); each enum carries an inline comment recording the transport-specific reason. The async providers inherit these enums, so <code>aimu.aio</code> picks up the new members automatically.</li>
+</ul>
 <h3 id="agents-and-workflows">Agents and workflows<a class="headerlink" href="#agents-and-workflows" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Fix</strong> <strong>Agentic loop no longer ends silently on a degenerate turn</strong> (<code>aimu.agents._tool_loop</code>, <code>aimu.aio._tool_loop</code>; both the plain and streamed paths). The loop treated any turn without tool calls as the final answer, so a model that returned an <strong>empty turn</strong> (no content and no tool calls — common with small local models, e.g. after a tool result mid multi-step plan) ended the run with an empty string and abandoned the plan; and hitting <code>max_iterations</code> with a tool call still pending returned the dangling tool-only turn. The loop now classifies its terminal turn (<code>classify_terminal_turn</code> → pending-tools / empty / healthy) and guards both cases: an <strong>empty turn is nudged</strong> with <code>continuation_prompt</code> (tools still enabled, so the model can resume its plan), bounded by <code>max_iterations</code>; at the cap with tools pending it forces <strong>one tools-disabled wrap-up</strong> turn (<code>use_tools=False</code>). The forced wrap-up is now <strong>unconditional</strong> — previously it required an opt-in <code>final_answer_prompt</code>, which now only <em>customizes</em> the wrap-up prompt (a built-in <code>DEFAULT_WRAP_UP_PROMPT</code> is used when unset). If even the wrap-up yields no answer, the loop raises the new <strong><code>DegenerateTurnError</code></strong> (exported from <code>aimu.agents</code> and <code>aimu.aio</code>) instead of returning empty output. Injected continuation nudges are tagged <code>PROVENANCE_CONTINUATION</code> (revived) so a UI can hide them. <strong>Behavior change:</strong> an agent left at the default <code>final_answer_prompt=None</code> that reaches the cap with pending tools now performs a wrap-up turn rather than returning the dangling turn. <code>continuation_prompt</code> (previously wired but never invoked) is now threaded into the loop and used for empty-turn recovery. Tests: <code>tests/test_agents.py</code>, <code>tests/test_aio_agents.py</code>, <code>tests/test_vision.py</code>.</li>
@@ -4898,7 +4924,7 @@ not this stub.
 </ul>
 <p>This removes the old double-generation (a tool-using turn used to produce the answer twice) and the muddiness of the client both parsing <em>and</em> executing tools. <code>chat()</code> gained an optional <code>user_message</code> (default <code>None</code> = "run a turn on the current messages, appending no new user turn" — the continuation primitive the engine uses). Applies to sync + <code>aimu.aio</code>, non-streaming + streaming, every provider, and <code>FallbackClient</code>. <strong>Behavior change</strong>: a bare <code>client.chat("q", tools=[...])</code> now <em>parses and stores</em> the tool call but does <strong>not</strong> execute it — use <code>Agent(client, tools=...).run("q")</code> (or <code>agent.as_model_client()</code>) for a full tool-using answer. Removed from the model client: <code>_handle_tool_calls</code> / <code>_handle_tool_calls_streamed</code> / <code>_call_plain_tool</code> and the <code>tool_approval</code> / <code>tool_context_deps</code> / <code>concurrent_tool_calls</code> attributes (they live on the <code>Agent</code> + engine now). Anthropic stores the real <code>tool_use</code> block IDs directly (folding in the old <code>_patch_tool_ids</code>). The async→sync tool bridge (<code>aimu.aio.providers._sync_tool_bridge</code>, added in v0.9.0) is <strong>removed</strong>: it existed only so the sync <code>_chat</code>'s in-thread tool <em>dispatcher</em> could call async tools, but the sync <code>_chat</code> no longer dispatches (it just advertises + stores), so wrapped in-process async clients (<code>AsyncHuggingFaceClient</code> / <code>AsyncLlamaCppClient</code>) now pass async tools straight through and the async engine dispatches them. <strong>Deprecated (kept as accepted no-ops):</strong> <code>Agent.continuation_prompt</code> / <code>DEFAULT_CONTINUATION_PROMPT</code>; <code>PROVENANCE_CONTINUATION</code> is no longer produced (kept for legacy transcripts). <code>max_iterations</code> and <code>final_answer_prompt</code> are unchanged.</p>
 <h2 id="v0110-2026-07-05-personal-assistant-primitives-streaming-structured-output-sessions">v0.11.0 (2026-07-05): personal-assistant primitives, streaming structured output, sessions<a class="headerlink" href="#v0110-2026-07-05-personal-assistant-primitives-streaming-structured-output-sessions" title="Permanent link">&para;</a></h2>
-<h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
+<h3 id="models_1">Models<a class="headerlink" href="#models_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <strong>streaming structured output</strong>: <code>schema=</code> now combines with <code>stream=True</code> on <code>chat()</code> / <code>generate()</code> (sync + <code>aimu.aio</code>), lifting the previous <code>ValueError</code>. The call returns a <code>StreamChunk</code> iterator so thinking / generation stream live, then a terminal <code>DONE</code> chunk carries <code>{"result": &lt;validated object&gt;}</code>; the object is also stored on <code>client.last_structured</code> once the stream is consumed (mirrors <code>last_usage</code>; proxied through <code>ModelClient</code> / <code>_AgenticView</code> / <code>FallbackClient</code> and their async twins, cleared by <code>reset()</code>). An <code>include=</code> filter still applies to the thinking/generation phases, but the terminal result chunk is always emitted. Ollama and OpenAI-compatible thinking models stream thinking alongside the schema-constrained answer (Ollama now threads <code>format=</code> into its streamed call); <strong>Anthropic</strong> streams the answer JSON as it is built (GENERATING via <code>input_json_delta</code>) with <strong>no</strong> thinking, because its structured mode is a forced <code>tool_choice</code> the API forbids alongside extended thinking (no regression: Anthropic structured output never produced thinking). Also threaded through <code>Agent.run(schema=..., stream=True)</code> (sync + async <code>Agent</code> / <code>SkillAgent</code>). Docs: <a href="https://saxman.github.io/aimu/how-to/use-structured-output/#streaming-structured-output">Get structured output</a>.</li>
 <li><strong>Fix</strong> Ollama streaming (<code>OllamaClient</code> + <code>AsyncOllamaClient</code>, <code>chat(stream=True)</code>) sometimes dropped a tool call and streamed an empty response instead. The logic decided tool-vs-answer from the single part that ended the thinking stream, so when Ollama emitted an empty transitional part (<code>content=""</code>, no <code>tool_calls</code>) before the part carrying <code>tool_calls</code>, the tool call was missed and one or more empty <code>GENERATING</code> chunks were yielded (a stray/empty response bubble in the web UI). <code>_chat_streamed</code> now consumes each turn fully, collecting <code>tool_calls</code> from <strong>any</strong> part and yielding only <strong>non-empty</strong> <code>GENERATING</code> chunks (which also drops the cosmetic empty trailing <code>done</code> chunk). As defense-in-depth, the personal-assistant <code>WebChannel</code> and <code>aimu.aio.CLIChannel</code> skip empty <code>GENERATING</code> chunks.</li>
@@ -4945,7 +4971,7 @@ not this stub.
 <li><strong>Breaking</strong> the <strong><code>[deepeval]</code></strong> extra is renamed to <strong><code>[evals]</code></strong> (<code>pip install aimu[evals]</code>); the DeepEval adapters, module paths, and <code>HAS_DEEPEVAL</code> flag are unchanged. Extras are now documented in two groups, <strong>provider backends</strong> (<code>ollama</code>, <code>anthropic</code>, <code>openai_compat</code>, <code>google</code>, <code>llamacpp</code>, <code>hf</code>) and <strong>capabilities</strong> (<code>web</code>, <code>tuning</code>, <code>evals</code>, <code>a2a</code>), with <code>dev</code> / <code>notebooks</code> / <code>docs</code> as development tooling.</li>
 </ul>
 <h2 id="v0101-2026-06-24-cleanup-unified-modality-factory-kwargs-keyword-only-restore-async-skillagent-parity-import-guard-hardening">v0.10.1 (2026-06-24): cleanup: unified modality factory kwargs, keyword-only restore(), async SkillAgent parity + import-guard hardening<a class="headerlink" href="#v0101-2026-06-24-cleanup-unified-modality-factory-kwargs-keyword-only-restore-async-skillagent-parity-import-guard-hardening" title="Permanent link">&para;</a></h2>
-<h3 id="models_1">Models<a class="headerlink" href="#models_1" title="Permanent link">&para;</a></h3>
+<h3 id="models_2">Models<a class="headerlink" href="#models_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Change</strong> the modality factory classes (<code>ImageClient</code>, <code>AudioClient</code>, <code>SpeechClient</code>, <code>TranscriptionClient</code>, <code>EmbeddingClient</code>) now take provider construction kwargs <strong>directly</strong> as <code>**kwargs</code>, matching <code>ModelClient(model, base_url=...)</code> and the top-level <code>aimu.image_client(model, variant="fp16")</code> helpers: <code>ImageClient(HuggingFaceImageModel.SDXL_BASE, variant="fp16")</code>. The old <code>model_kwargs={...}</code> argument is <strong>removed</strong> (pass the kwargs directly instead). The concrete provider clients (<code>HuggingFaceImageClient</code>, etc.) are unchanged and still take <code>model_kwargs=</code>.</li>
 <li><strong>Fix</strong> optional-provider import guards (<code>aimu.models</code>, <code>ModelClient</code>, and their <code>aimu.aio</code> mirrors) now catch <code>ImportError</code> instead of bare <code>Exception</code>. A real error inside a provider module (a <code>SyntaxError</code>, an <code>AttributeError</code>, a broken transitive dependency) was previously swallowed and the provider silently reported as "dependency not installed," surfacing later as a confusing "no client for …" message; the real cause now propagates at import time.</li>
@@ -4956,7 +4982,7 @@ not this stub.
 <li><strong>Fix</strong> async <code>SkillAgent.run()</code> (<code>aimu.aio</code>) ignored <code>deps=</code> and <code>schema=</code>, which its sync twin and <code>aio.Agent.run()</code> both accept; async skill users silently lost <code>ToolContext</code> dependency injection and structured output. The async override now mirrors <code>aio.Agent.run()</code> in full: <code>deps=</code>, <code>schema=</code> (mutually exclusive with <code>stream=True</code>), and the <code>final_answer_prompt</code> forced-wrap-up on both the streamed and non-streamed paths.</li>
 </ul>
 <h2 id="v0100-2026-06-23-a2a-interop-resilience-fallback-timeoutretry-anthropic-prompt-caching-streaming-usage-uniform-restore">v0.10.0 (2026-06-23): A2A interop + resilience (fallback, timeout/retry), Anthropic prompt caching, streaming usage, uniform restore<a class="headerlink" href="#v0100-2026-06-23-a2a-interop-resilience-fallback-timeoutretry-anthropic-prompt-caching-streaming-usage-uniform-restore" title="Permanent link">&para;</a></h2>
-<h3 id="models_2">Models<a class="headerlink" href="#models_2" title="Permanent link">&para;</a></h3>
+<h3 id="models_3">Models<a class="headerlink" href="#models_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> streaming token usage: <code>client.last_usage</code> now populates after a fully-consumed <code>chat(stream=True)</code> / <code>generate(stream=True)</code>, where before it was reset to <code>None</code>. OpenAI-compat clients request it via <code>stream_options={"include_usage": True}</code> and read the terminal usage chunk; Ollama reads the final streamed part's eval counts; Anthropic reads <code>stream.get_final_message().usage</code> (which also carries the P1-A cache-token fields). Usage is set once the stream is drained (reading mid-stream still yields <code>None</code>), and matches the non-streaming semantics (final turn's counts). Hardened the OpenAI-compat stream loop against empty-<code>choices</code> chunks. In-process providers (HuggingFace, LlamaCpp) expose no streaming counts and still leave it <code>None</code>.</li>
 <li><strong>New</strong> opt-in Anthropic prompt caching: <code>AnthropicClient</code> / <code>AsyncAnthropicClient</code> accept <code>cache_prompt=True</code> (threads through <code>aimu.client("anthropic:...", cache_prompt=True)</code>), which marks the system prompt and the tool definitions with <code>cache_control: {"type":"ephemeral"}</code> breakpoints at request time (the large, unchanging prefix an agent resends every turn). Markers are injected in the two format adapters, so all request paths (chat, tool-follow-up, streaming, structured) are covered. Below Anthropic's minimum cacheable size the API silently skips caching, so the flag is safe to leave on. <code>usage_from_anthropic</code> now also surfaces <code>cache_creation_input_tokens</code> / <code>cache_read_input_tokens</code> in <code>client.last_usage</code> when the response reports them, so cache creation/hits are observable (the base <code>input/output/total_tokens</code> keys are unchanged). Pure passthrough; no AIMU-side caching layer.</li>
@@ -5015,14 +5041,14 @@ not this stub.
 <li><strong>Change</strong> The example test suites (<code>test_epic_scripts.py</code>, <code>test_hotdog_scripts.py</code>) are now scoped out of the default <code>pytest</code> run via <code>testpaths = ["tests"]</code>. Run them explicitly with <code>pytest examples/</code>. The two refinement directories are on <code>pythonpath</code> so their shared-helper imports resolve.</li>
 <li><strong>New</strong> Examples are surfaced from the README (<code>## Examples</code> section), the docs site (<code>docs/examples.md</code> + nav entry), and cross-linked from notebooks 07, 08, and 09. The two iterative-refinement how-to guides and <code>generate-images.md</code> now reference the <code>examples/</code> paths.</li>
 </ul>
-<h3 id="models_3">Models<a class="headerlink" href="#models_3" title="Permanent link">&para;</a></h3>
+<h3 id="models_4">Models<a class="headerlink" href="#models_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Fix</strong> <code>HuggingFaceModel.QWEN_3_6_27B</code> (and the Qwen 3.5/3.6 family) crashed at generation with <code>RuntimeError: expected mat1 and mat2 to have the same dtype, but got: c10::BFloat16 != c10::Float8_e4m3fn</code>. These are unified multimodal FP8 checkpoints whose <code>quantization_config.modules_to_not_convert</code> skip-list is written against the multimodal module tree (<code>model.language_model.*</code> / <code>model.visual.*</code>). The text-only entries loaded via <code>AutoModelForCausalLM</code>, which builds a text-only tree (<code>model.layers.*</code>) the skip-list can't match, so layers meant to stay bf16 (router <code>mlp.gate</code>, <code>lm_head</code>, <code>linear_attn</code> projections) mis-quantized. Qwen 3.5/3.6 now always load via <code>AutoModelForImageTextToText</code>.</li>
 <li><strong>Change</strong> Merged the Qwen 3.5/3.6 text-only and <code>_VL</code> enum members into single <code>vision=True</code> entries (<code>QWEN_3_6_27B</code>, <code>QWEN_3_5_9B</code>); removed <code>QWEN_3_6_27B_VL</code> and <code>QWEN_3_5_9B_VL</code>. The two variants loaded the identical checkpoint via the identical loader (vision tower included either way), so the split no longer backed any loader or VRAM difference.</li>
 <li><strong>Fix</strong> <code>HuggingFaceClient</code>'s module-level weight cache could collide: two enum members sharing a repo id and <code>model_kwargs</code> but loading via different classes (<code>AutoModelForCausalLM</code> vs <code>AutoModelForImageTextToText</code>) produced the same cache key, so the second silently received the first's model object. <code>_make_cache_key</code> now folds in a load-profile tag (mirroring how the image/audio/speech clients key on <code>pipeline_class</code> / <code>pipeline_type</code>).</li>
 </ul>
 <h2 id="v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input">v0.8.0 (2026-06-12): Embeddings, transcription, structured output, RAG &amp; audio input<a class="headerlink" href="#v080-2026-06-12-embeddings-transcription-structured-output-rag-audio-input" title="Permanent link">&para;</a></h2>
-<h3 id="models_4">Models<a class="headerlink" href="#models_4" title="Permanent link">&para;</a></h3>
+<h3 id="models_5">Models<a class="headerlink" href="#models_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>audio: bool = False</code> field on <code>ModelSpec</code>. Audio-capable text models expose <code>supports_audio</code> on their enum members, <code>is_audio_model</code> on their client instances, and an <code>AUDIO_MODELS</code> classproperty (parallel to <code>TOOL_MODELS</code>, <code>THINKING_MODELS</code>, <code>VISION_MODELS</code>).</li>
 <li><strong>New</strong> Audio-capable models added to the catalog: <code>OpenAIModel</code> GPT-4o, GPT-4o-mini, GPT-4.1, GPT-4.1-mini, GPT-4.1-nano; <code>GeminiModel</code> 2.0 Flash, 2.0 Flash Lite, 2.5 Pro, 2.5 Flash; <code>HuggingFaceModel.GEMMA_4_E4B</code>, <code>GEMMA_4_12B</code>, <code>NEMOTRON_H_8B</code>. Ollama models remain <code>audio=False</code> with inline comments noting where the underlying weights support audio (upgrade path once the Ollama API adds audio input).</li>
@@ -5118,7 +5144,7 @@ not this stub.
 <li><strong>Breaking</strong> Removed the <code>model_client.mcp_client</code> attribute. MCP tools now integrate through the single <code>model_client.tools</code> registry: call <code>MCPClient(...).as_tools()</code> (sync) or <code>await aio.MCPClient.connect(...).as_tools()</code> (async) to turn a server's tools into <code>@tool</code>-style callables, then add them to <code>tools</code> (constructor <code>Agent(tools=...)</code>, <code>client.tools = ...</code>, or the per-call <code>chat(tools=...)</code> / <code>run(tools=...)</code> override). Migration: replace <code>client.mcp_client = mcp</code> with <code>client.tools = mcp.as_tools()</code> (concatenate with <code>@tool</code> functions as needed, e.g. <code>builtin.web + mcp.as_tools()</code>). Two consequences: dispatch is now one by-name lookup over <code>tools</code>, so on a name collision the <strong>last</strong> entry wins (previously Python <code>@tool</code> always beat a same-named MCP tool; to preserve that, append the Python tool <em>after</em> <code>mcp.as_tools()</code>); and <code>MCPClient.get_tools()</code> is no longer called on every <code>chat()</code> (the tool list is snapshotted by <code>as_tools()</code>), so call <code>as_tools()</code> again to pick up server-side tool changes. <code>SkillAgent</code> and the internal dispatch (<code>_handle_tool_calls(tool_calls)</code>, <code>_call_plain_tool(tc, tc_id)</code>, both of which lost their <code>tools</code> parameter) were updated accordingly. The <code>MCPClient</code> class, its <code>get_tools()</code> / <code>call_tool()</code> / <code>ping()</code>, and the <code>aio.MCPClient</code> parallel are unchanged.</li>
 <li><strong>Breaking</strong> <code>system_message</code> is no longer immutable after the first <code>chat()</code>. The setter is now always live: assigning it mid-conversation rewrites the <code>{"role": "system"}</code> entry in <code>messages</code> in place (re-conditioning the model on the new prompt while preserving history), inserts one if absent, or removes it on <code>None</code>. Before the first chat it still just seeds the value. The previous behaviour raised <code>RuntimeError</code>; code that caught that error to gate a <code>reset()</code> can now assign directly. To change the prompt <em>and</em> drop history, use <code>reset(system_message="new")</code>. Two consequences are accepted by design: the transcript becomes counterfactual (prior assistant turns predate the new prompt), and there is no longer a guard against silently re-conditioning a <code>ModelClient</code> shared by another agent's in-flight conversation, so don't share a live-conversation client across agents that each set <code>system_message</code>. The <code>_system_message_locked</code> flag has been removed. See <a href="../explanation/system-message-lifecycle/">System message lifecycle</a>.</li>
 </ul>
-<h3 id="models_5">Models<a class="headerlink" href="#models_5" title="Permanent link">&para;</a></h3>
+<h3 id="models_6">Models<a class="headerlink" href="#models_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <code>aimu.resolve_model_enum(model)</code> and <code>aimu.resolve_image_model_enum(model)</code>: resolve a model to its <code>Model</code> / <code>ImageModel</code> enum member from any of three input forms: an enum member (returned unchanged), a <code>"provider:model_id"</code> string (delegates to <code>resolve_model_string</code> / <code>resolve_image_model_string</code>), or a <strong>bare enum-member name</strong> (e.g. <code>"QWEN_3_8B"</code>, <code>"FLUX_2_KLEIN_4B"</code>, <code>"NANO_BANANA"</code>) looked up across every installed provider enum. Useful for CLIs/scripts that accept "enum, name, or string" uniformly. For text, an ambiguous bare name (the same id ships under many providers) is disambiguated the way the omitted-<code>model</code> default is: prefer a provider where the model is <em>actually available locally</em> (running Ollama → cached HuggingFace → reachable local OpenAI-compat server, tool-capable first), logged at WARNING; if it isn't available under any provider, <code>ValueError</code> lists the <code>"provider:model_id"</code> options. This availability probe runs only on the ambiguous path. <code>resolve_image_model_enum</code> has no local-availability notion (image catalogs don't collide) and raises on the rare ambiguity. Exported from <code>aimu.models</code> and top-level <code>aimu</code>.</li>
 <li><strong>New</strong> <code>aimu.available_text_models(*, include_hf_cache=True)</code> for discovery: return locally <em>available</em> text models as <code>Model</code> enum members (running Ollama → cached HuggingFace → reachable local OpenAI-compat servers), in provider-priority order. Download-free and cloud-free. <code>aimu.resolve_default_text_model_enum(*, include_hf_cache=True)</code> returns the single auto-pick (env var → first available, tool-capable preferred) as an enum member, the enum-returning twin of the internal default resolver that backs <code>client()</code>/<code>chat()</code>/<code>agent()</code> when <code>model=</code> is omitted.</li>
@@ -5382,7 +5408,7 @@ not this stub.
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

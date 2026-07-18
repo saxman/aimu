@@ -363,7 +363,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>To keep the notebook self-contained, we run AIMU’s built-in tool server (<code>python -m aimu.tools.mcp</code>) over HTTP in a background thread, then connect to it by URL, exactly as you would a third-party service.</p>
-<div id="5391b73f" class="cell" data-execution_count="1">
+<div id="9d4f1e5a" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> threading</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -387,7 +387,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---connect-to-a-remote-server-by-url" class="level2">
 <h2 class="anchored" data-anchor-id="a---connect-to-a-remote-server-by-url">A - Connect to a remote server by URL</h2>
 <p><code>await aio.MCPClient.connect(url=...)</code> resolves the transport from the URL (streamable-HTTP here; a <code>.../sse</code> URL infers SSE). <code>list_tools()</code> shows what the service offers.</p>
-<div id="0cb74dfd" class="cell" data-execution_count="2">
+<div id="2aecc979" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> <span class="cf">await</span> aio.MCPClient.<span class="ex">connect</span>(url<span class="op">=</span>URL)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>tools <span class="op">=</span> <span class="cf">await</span> client.list_tools()</span>
@@ -398,7 +398,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---call-a-tool-directly" class="level2">
 <h2 class="anchored" data-anchor-id="b---call-a-tool-directly">B - Call a tool directly</h2>
 <p><code>call_tool(name, params)</code> invokes a tool cross-process and returns its result content.</p>
-<div id="0d04626e" class="cell" data-execution_count="3">
+<div id="5cfcf3bf" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> <span class="cf">await</span> client.call_tool(<span class="st">"calculate"</span>, {<span class="st">"expression"</span>: <span class="st">"17 * 23"</span>})</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>text <span class="op">=</span> <span class="st">""</span>.join(p.text <span class="cf">for</span> p <span class="kw">in</span> result.content <span class="cf">if</span> <span class="bu">getattr</span>(p, <span class="st">"type"</span>, <span class="va">None</span>) <span class="op">==</span> <span class="st">"text"</span>)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"17 * 23 ="</span>, text)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -407,7 +407,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---give-the-remote-tools-to-an-agent" class="level2">
 <h2 class="anchored" data-anchor-id="c---give-the-remote-tools-to-an-agent">C - Give the remote tools to an agent</h2>
 <p><code>as_tools()</code> returns one callable per server tool, each carrying its <code>__tool_spec__</code>. Hand them to an <code>aio.Agent</code> and the model can call the remote service as if the tools were local. (Needs a model; set <code>MODEL</code> to any local or cloud model AIMU supports.)</p>
-<div id="a2e0428f" class="cell" data-execution_count="4">
+<div id="5335f1e5" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> <span class="st">"ollama:qwen3:8b"</span>  <span class="co"># any tool-capable model AIMU supports</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>remote_tools <span class="op">=</span> <span class="cf">await</span> client.as_tools()</span>
@@ -433,7 +433,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="cleanup" class="level2">
 <h2 class="anchored" data-anchor-id="cleanup">Cleanup</h2>
-<div id="bdec1913" class="cell" data-execution_count="5">
+<div id="94bf0bb9" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> client.aclose()</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"closed"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
