@@ -70,6 +70,27 @@ class Model(Enum):
         self.generation_kwargs = dict(spec.generation_kwargs or {})
 
 
+class AdHocModel:
+    """A ``Model``-like object for a model id not present in any provider enum.
+
+    Built from a parsed model string's id plus capability flags, it mirrors the read
+    surface of a :class:`Model` enum member so provider clients treat it exactly like an
+    enum member. It is not an ``Enum`` member: the client factories route it by provider
+    prefix rather than by ``isinstance``.
+    """
+
+    def __init__(self, spec: ModelSpec):
+        self.spec = spec
+        self.value = spec.id
+        self.name = spec.id
+        self.supports_tools = spec.tools
+        self.supports_thinking = spec.thinking
+        self.supports_vision = spec.vision
+        self.supports_audio = spec.audio
+        self.supports_structured_output = spec.structured_output
+        self.generation_kwargs = dict(spec.generation_kwargs or {})
+
+
 class BaseModelClient(_ChatStateMixin, ABC):
     """Abstract base for all provider clients.
 

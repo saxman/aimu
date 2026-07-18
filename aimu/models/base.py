@@ -43,7 +43,7 @@ from ._base.transcription import (
     TranscriptionModel,
     TranscriptionSpec,
 )
-from ._base.text import BaseModelClient, Model, ModelSpec
+from ._base.text import AdHocModel, BaseModelClient, Model, ModelSpec
 
 __all__ = [
     # shared / cross-modality
@@ -53,6 +53,7 @@ __all__ = [
     # text
     "ModelSpec",
     "Model",
+    "AdHocModel",
     "BaseModelClient",
     # image
     "ImageSpec",
