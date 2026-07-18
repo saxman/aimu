@@ -380,7 +380,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>OpenAI models read <code>OPENAI_API_KEY</code> from your environment (or a <code>.env</code> file in the project root). HuggingFace models run locally and require the <code>[hf]</code> extra.</p>
-<div id="1894c6dc" class="cell" data-execution_count="1">
+<div id="bae6a9b9" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> base64</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> struct</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
@@ -409,14 +409,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="openai-cloud-provider" class="level2">
 <h2 class="anchored" data-anchor-id="openai-cloud-provider">1. OpenAI cloud provider</h2>
 <p>The simplest path: one-shot <code>aimu.transcribe()</code>. Pass the audio as a file path string, raw bytes, a <code>data:</code> URL, or an <code>https://</code> URL.</p>
-<div id="5ae1230e" class="cell" data-execution_count="2">
+<div id="a37b7312" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"># One-shot: builds a fresh client, transcribes, returns the text.</span></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>text <span class="op">=</span> aimu.transcribe(<span class="bu">str</span>(audio_path), model<span class="op">=</span><span class="st">"openai:whisper-1"</span>)</span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="bu">repr</span>(text))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="d55a6705" class="cell" data-execution_count="3">
+<div id="67f2fa35" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Reusable client: better when transcribing many files (avoids re-creating the client).</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> aimu.transcription_client(<span class="st">"openai:whisper-1"</span>)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -433,7 +433,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="structured-output-with-timestamps" class="level2">
 <h2 class="anchored" data-anchor-id="structured-output-with-timestamps">2. Structured output with timestamps</h2>
 <p>Pass <code>response_format="verbose_json"</code> to get the full transcript broken into timed segments. All catalog models support this.</p>
-<div id="52252bd4" class="cell" data-execution_count="4">
+<div id="7668d75e" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> client.transcribe(<span class="bu">str</span>(audio_path), response_format<span class="op">=</span><span class="st">"verbose_json"</span>)</span>
@@ -444,7 +444,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="language-hint" class="level2">
 <h2 class="anchored" data-anchor-id="language-hint">3. Language hint</h2>
 <p>Pass a BCP-47 language code to skip auto-detection. Useful when you know the source language and want faster, more accurate results.</p>
-<div id="2830eabe" class="cell" data-execution_count="5">
+<div id="43836713" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>text_fr <span class="op">=</span> client.transcribe(<span class="bu">str</span>(audio_path), language<span class="op">=</span><span class="st">"fr"</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="bu">repr</span>(text_fr))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -453,12 +453,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="huggingface-local-provider">4. HuggingFace local provider</h2>
 <p>HuggingFace Whisper models run entirely on your machine. Model weights are downloaded on first use and cached (the standard HuggingFace cache). Requires the <code>[hf]</code> extra.</p>
 <p>The client wraps <code>transformers.pipeline("automatic-speech-recognition")</code> with lazy load and module-level weight caching – a second client for the same model reuses the already-loaded weights.</p>
-<div id="d2a5f202" class="cell" data-execution_count="6">
+<div id="04701746" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>hf_client <span class="op">=</span> aimu.transcription_client(<span class="st">"hf:openai/whisper-tiny"</span>)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>text <span class="op">=</span> hf_client.transcribe(<span class="bu">str</span>(audio_path))</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="bu">repr</span>(text))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="66d4e1ad" class="cell" data-execution_count="7">
+<div id="021a5ba9" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># verbose_json works on HuggingFace too -- returns segments with start/end times.</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> hf_client.transcribe(<span class="bu">str</span>(audio_path), response_format<span class="op">=</span><span class="st">"verbose_json"</span>)</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(json.dumps(result, indent<span class="op">=</span><span class="dv">2</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -467,7 +467,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="async-surface" class="level2">
 <h2 class="anchored" data-anchor-id="async-surface">5. Async surface</h2>
 <p>The async mirror wraps a sync client via <code>asyncio.to_thread</code> – the same Decision 7 pattern used by every other AIMU modality. Construct a sync client first, then wrap it.</p>
-<div id="fd9ea0d5" class="cell" data-execution_count="8">
+<div id="4a474daa" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -487,7 +487,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="as-an-agent-tool">6. As an agent tool</h2>
 <p><code>transcribe_audio</code> in <code>aimu.tools.builtin</code> is a <code>@tool</code>-decorated function backed by a lazy singleton. Set <code>AIMU_TRANSCRIPTION_MODEL</code> and pass it to any <code>Agent</code>.</p>
 <p>For a custom client, <code>make_transcription_tool(client)</code> returns a bound version.</p>
-<div id="59d21178" class="cell" data-execution_count="9">
+<div id="a3dcb2cb" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools.builtin <span class="im">import</span> transcribe_audio, make_transcription_tool</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
@@ -500,7 +500,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="ss">f"Transcribe the file at </span><span class="sc">{</span>audio_path<span class="sc">}</span><span class="ss"> and tell me what was said."</span>)</span>
 <span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="e8eda3cc" class="cell" data-execution_count="10">
+<div id="346f0ccd" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Bind a specific transcription client with make_transcription_tool.</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>transcription_client <span class="op">=</span> aimu.transcription_client(<span class="st">"openai:gpt-4o-mini-transcribe"</span>)</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>custom_tool <span class="op">=</span> make_transcription_tool(transcription_client)</span>
@@ -510,7 +510,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="model-catalog" class="level2">
 <h2 class="anchored" data-anchor-id="model-catalog">7. Model catalog</h2>
 <p>All catalog members have <code>supports_timestamps=True</code> (required for <code>response_format="verbose_json"</code>) and <code>supports_translation=True</code> (OpenAI Whisper and HuggingFace models support translation to English alongside transcription; gpt-4o-transcribe and gpt-4o-mini-transcribe are transcription-only).</p>
-<div id="a4755377" class="cell" data-execution_count="11">
+<div id="1c26bec8" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.openai.transcription <span class="im">import</span> OpenAITranscriptionModel</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models.providers.hf.transcription <span class="im">import</span> HuggingFaceTranscriptionModel</span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -528,7 +528,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="cleanup" class="level2">
 <h2 class="anchored" data-anchor-id="cleanup">Cleanup</h2>
-<div id="4a9ad571" class="cell" data-execution_count="12">
+<div id="65278626" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>audio_path.unlink(missing_ok<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 

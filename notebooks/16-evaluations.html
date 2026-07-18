@@ -404,7 +404,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---setup" class="level2">
 <h2 class="anchored" data-anchor-id="a---setup">A - Setup</h2>
 <p>Create a <code>ModelClient</code> and wrap it with <code>DeepEvalModel</code>. Any AIMU client can be the judge: swap in a cloud model for more reliable evaluations on complex tasks.</p>
-<div id="944eef94" class="cell" data-execution_count="1">
+<div id="e090a78e" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.evals <span class="im">import</span> HAS_DEEPEVAL, DeepEvalModel</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient, OllamaModel</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -425,7 +425,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="b---geval-custom-criteria">B - GEval (Custom Criteria)</h2>
 <p><code>GEval</code> is DeepEval’s most flexible metric. You describe your evaluation criteria in plain language and the judge model assigns a score (0–1) with a written reason. Use it for any quality dimension: correctness, conciseness, tone, safety, etc.</p>
 <p><code>evaluation_params</code> tells GEval which fields from the test case to pass to the judge. Common choices are <code>INPUT</code> and <code>ACTUAL_OUTPUT</code>; add <code>EXPECTED_OUTPUT</code> when you have a reference answer.</p>
-<div id="58f9d679" class="cell" data-execution_count="2">
+<div id="5882d4fb" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> deepeval.metrics <span class="im">import</span> GEval</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> deepeval.test_case <span class="im">import</span> LLMTestCase, LLMTestCaseParams</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -440,7 +440,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    threshold<span class="op">=</span><span class="fl">0.5</span>,</span>
 <span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="3fbfac51" class="cell" data-execution_count="3">
+<div id="e9d4ebda" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>test_cases <span class="op">=</span> [</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    LLMTestCase(</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">input</span><span class="op">=</span><span class="st">"What is the capital of France?"</span>,</span>
@@ -466,7 +466,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Add <code>expected_output</code> and <code>LLMTestCaseParams.EXPECTED_OUTPUT</code> when you have a reference answer. The judge can then compare against the gold standard directly.</p>
-<div id="5d952243" class="cell" data-execution_count="4">
+<div id="3058e06b" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>correctness_with_ref <span class="op">=</span> GEval(</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"Correctness (with reference)"</span>,</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    criteria<span class="op">=</span><span class="st">"Does the actual output convey the same facts as the expected output?"</span>,</span>
@@ -493,7 +493,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---answer-relevancy" class="level2">
 <h2 class="anchored" data-anchor-id="c---answer-relevancy">C - Answer Relevancy</h2>
 <p><code>AnswerRelevancyMetric</code> checks whether the response actually addresses the question, useful for catching responses that are accurate but off-topic. It works by extracting claims from the output and classifying each one as relevant or irrelevant to the input.</p>
-<div id="e4687e41" class="cell" data-execution_count="5">
+<div id="556aa876" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> deepeval.metrics <span class="im">import</span> AnswerRelevancyMetric</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>relevancy <span class="op">=</span> AnswerRelevancyMetric(threshold<span class="op">=</span><span class="fl">0.5</span>, model<span class="op">=</span>judge)</span>
@@ -527,7 +527,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---faithfulness-rag-grounding" class="level2">
 <h2 class="anchored" data-anchor-id="d---faithfulness-rag-grounding">D - Faithfulness (RAG Grounding)</h2>
 <p><code>FaithfulnessMetric</code> checks whether every claim in the response is supported by the retrieved context: the core hallucination-detection metric for RAG pipelines. Test cases require a <code>retrieval_context</code> field (list of retrieved chunks).</p>
-<div id="c88ba05a" class="cell" data-execution_count="6">
+<div id="c040e1e9" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> deepeval.metrics <span class="im">import</span> FaithfulnessMetric</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>faithfulness <span class="op">=</span> FaithfulnessMetric(threshold<span class="op">=</span><span class="fl">0.7</span>, model<span class="op">=</span>judge)</span>
@@ -565,7 +565,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="e---batch-evaluation" class="level2">
 <h2 class="anchored" data-anchor-id="e---batch-evaluation">E - Batch Evaluation</h2>
 <p>Run multiple metrics across a list of test cases and collect results into a summary. This is the typical pattern for evaluating a model or pipeline against a labelled dataset before shipping.</p>
-<div id="017979b8" class="cell" data-execution_count="7">
+<div id="9aefce8e" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>batch_cases <span class="op">=</span> [</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    LLMTestCase(</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">input</span><span class="op">=</span><span class="st">"What is the boiling point of water at sea level?"</span>,</span>
@@ -611,7 +611,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>metrics <span class="op">=</span> [(<span class="st">"Correctness"</span>, batch_correctness), (<span class="st">"Faithfulness"</span>, batch_faithfulness)]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="c2f547b1" class="cell" data-execution_count="8">
+<div id="2bd38078" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>rows <span class="op">=</span> []</span>
