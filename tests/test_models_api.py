@@ -971,6 +971,35 @@ def test_llamacpp_chat_streamed_stores_thinking_in_messages():
     assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "reasoning"}
 
 
+def test_llamacpp_chat_streamed_yields_incrementally():
+    """Regression: llama.cpp chat(stream=True) must yield chunks as they arrive, not buffer."""
+    import types
+
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    events = []
+
+    def _stream(**kw):
+        for i, tok in enumerate(["Hello", " ", "world"]):
+            events.append(("pull", i))
+            yield {"choices": [{"delta": {"content": tok}}]}
+
+    fake = types.SimpleNamespace(
+        _llm=types.SimpleNamespace(create_chat_completion=_stream),
+        is_thinking_model=False,
+        last_thinking="",
+        messages=[],
+    )
+
+    for chunk in LlamaCppClient._chat_streamed(fake, {}, []):
+        events.append(("yield", chunk.content))
+
+    first_yield = next(i for i, e in enumerate(events) if e[0] == "yield")
+    last_pull = max(i for i, e in enumerate(events) if e[0] == "pull")
+    assert first_yield < last_pull, f"stream was buffered, not incremental: {events}"
+    assert fake.messages[-1] == {"role": "assistant", "content": "Hello world"}
+
+
 def _openai_compat_fake(content: str):
     import types
 
@@ -1035,6 +1064,47 @@ def test_openai_compat_chat_streamed_stores_thinking_in_messages():
 
     assert "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING) == "the answer"
     assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "reasoning"}
+
+
+def test_openai_compat_chat_streamed_yields_incrementally():
+    """Regression: chat(stream=True) must yield chunks as they arrive, not drain the whole
+    upstream stream and replay it at the end (which made llama-server et al. appear non-streaming
+    while native Ollama, which yields per part, worked)."""
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    events = []
+
+    def _delta(content):
+        return types.SimpleNamespace(
+            usage=None,
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(tool_calls=None, content=content))],
+        )
+
+    def _stream(**kw):
+        for i, tok in enumerate(["Hello", " ", "world"]):
+            events.append(("pull", i))
+            yield _delta(tok)
+
+    fake = types.SimpleNamespace(
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_stream))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=False,
+        last_thinking="",
+        last_usage=None,
+        messages=[],
+    )
+
+    for chunk in OpenAICompatClient._chat_streamed(fake, {}, []):
+        events.append(("yield", chunk.content))
+
+    first_yield = next(i for i, e in enumerate(events) if e[0] == "yield")
+    last_pull = max(i for i, e in enumerate(events) if e[0] == "pull")
+    assert first_yield < last_pull, f"stream was buffered, not incremental: {events}"
+    assert fake.messages[-1] == {"role": "assistant", "content": "Hello world"}
 
 
 # ---------------------------------------------------------------------------

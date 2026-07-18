@@ -437,3 +437,44 @@ async def test_aio_openai_compat_streamed_tool_call_turn_thinking_preserved():
 
     tool_call_msg = next(m for m in fake.messages if "tool_calls" in m)
     assert tool_call_msg["thinking"] == "reasoning before tool"
+
+
+async def test_aio_openai_compat_chat_streamed_yields_incrementally():
+    """Regression: async chat(stream=True) must yield chunks as they arrive, not drain the whole
+    upstream stream and replay it at the end."""
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    events = []
+
+    def _delta(content):
+        return types.SimpleNamespace(
+            usage=None,
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content=content, tool_calls=None))],
+        )
+
+    async def _astream():
+        for i, tok in enumerate(["Hello", " ", "world"]):
+            events.append(("pull", i))
+            yield _delta(tok)
+
+    async def _create(**kw):
+        return _astream()
+
+    fake = types.SimpleNamespace(
+        _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_create))),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=False,
+        last_thinking="",
+        last_usage=None,
+        messages=[],
+    )
+
+    async for chunk in AsyncOpenAICompatClient._chat_streamed(fake, {}, []):
+        events.append(("yield", chunk.content))
+
+    first_yield = next(i for i, e in enumerate(events) if e[0] == "yield")
+    last_pull = max(i for i, e in enumerate(events) if e[0] == "pull")
+    assert first_yield < last_pull, f"stream was buffered, not incremental: {events}"
+    assert fake.messages[-1] == {"role": "assistant", "content": "Hello world"}

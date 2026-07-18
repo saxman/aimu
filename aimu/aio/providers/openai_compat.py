@@ -229,8 +229,10 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             **generate_kwargs,
         )
 
+        # Yield content/thinking chunks as they arrive (incremental streaming) while accumulating
+        # any tool-call deltas separately; content and tool_call deltas don't require buffering.
         tool_calls_acc: dict[int, dict] = {}
-        first_pass_chunks: list[StreamChunk] = []
+        full_content = ""
         parser = _ThinkingParser() if self.is_thinking_model else None
         self.last_thinking = ""
         self.last_usage = None
@@ -253,30 +255,23 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
                     for phase, text in parser.feed(delta.content):
                         if phase == StreamingContentType.THINKING:
                             self.last_thinking += text
-                        first_pass_chunks.append(StreamChunk(phase, text))
+                        else:
+                            full_content += text
+                        yield StreamChunk(phase, text)
                 else:
-                    first_pass_chunks.append(StreamChunk(StreamingContentType.GENERATING, delta.content))
+                    full_content += delta.content
+                    yield StreamChunk(StreamingContentType.GENERATING, delta.content)
 
         if not tool_calls_acc:
-            full_content = ""
-            for sc in first_pass_chunks:
-                if sc.phase == StreamingContentType.GENERATING:
-                    full_content += sc.content
-                yield sc
             self.messages.append({"role": "assistant", "content": full_content})
             if self.last_thinking:
                 self.messages[-1]["thinking"] = self.last_thinking
             return
 
-        # Tool call path (single turn): yield any prose/thinking emitted alongside the tool call,
-        # then dispatch and return. The model's response to the tool results comes on the next
-        # chat() call (the loop lives in Agent). No second stream here.
+        # Tool call path (single turn): prose/thinking already streamed above; now dispatch and
+        # return. The model's response to the tool results comes on the next chat() call (the loop
+        # lives in Agent). No second stream here.
         tool_calls = [{"name": tc["name"], "arguments": json.loads(tc["arguments"])} for tc in tool_calls_acc.values()]
-        full_content = ""
-        for sc in first_pass_chunks:
-            if sc.phase == StreamingContentType.GENERATING:
-                full_content += sc.content
-            yield sc
         tool_turn_thinking = self.last_thinking
         msgs_before = len(self.messages)
         self._record_tool_calls(tool_calls, content=full_content)
