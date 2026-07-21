@@ -3337,10 +3337,11 @@ runs it. To <em>execute</em> tools you need an <code>Agent</code> (or <code>agen
 <p><code>chat()</code> and <code>generate()</code> are <strong>concrete</strong> on the base — they apply the <code>include=</code> stream filter and
 the <code>schema=</code> structured-output path, then delegate to abstract <code>_chat()</code> / <code>_generate()</code> which each
 provider implements. A cross-cutting feature (streaming filters, structured output, vision/audio
-input normalization) lands in one place and works everywhere. State mechanics — the
-<code>system_message</code> lifecycle, <code>reset()</code>, tool-spec collection — live in the shared <code>_ChatStateMixin</code>
-(<a href="../../reference/api/models/"><code>_internal/chat_state.py</code></a>), inherited by both the sync and async
-bases.</p>
+input normalization) lands in one place and works everywhere. The I/O-free helpers — the
+<code>system_message</code> lifecycle, <code>reset()</code>, tool-spec collection, tool-call recording
+(<code>_record_tool_calls</code>), and structured-request resolution (<code>_structured_request</code>) — live in the
+shared <code>_ChatStateMixin</code> (<a href="../../reference/api/models/"><code>_internal/chat_state.py</code></a>), inherited by
+both the sync and async bases.</p>
 <p>Providers that need a different wire format (Anthropic blocks, Ollama image fields, HF PIL images)
 adapt at request time and never mutate <code>self.messages</code>. See
 <a href="../system-message-lifecycle/">System message lifecycle</a> and
@@ -3520,9 +3521,12 @@ that mirrors it one-for-one — same class names, same <code>Runner</code> decis
 </span></code></pre></div>
 <p>The two surfaces <strong>share</strong> the state mechanics and pure logic rather than duplicating them:
 <code>_ChatStateMixin</code>, the <code>_base/*</code> spec/enum types, the <code>_internal/*</code> helpers (streaming, JSON,
-structured, usage, image/audio I/O), the <code>_AgentLoopMixin</code>, <code>_FallbackStateMixin</code>, and even the
-loop's stop condition <code>last_turn_called_tools</code>. What is <strong>duplicated by necessity</strong> is only the
-<code>await</code> points: the <code>_chat</code>/<code>_generate</code> bodies, the <code>_ToolLoop</code> vs <code>_AsyncToolLoop</code> driver, the
+structured, usage, image/audio I/O), the <code>_AgentLoopMixin</code>, <code>_FallbackStateMixin</code>, the tool-loop's
+<code>async</code>-free construction and helpers (<code>_BaseToolLoop</code>, subclassed by both <code>_ToolLoop</code> and
+<code>_AsyncToolLoop</code>), the in-process wrapper mechanics (<code>_AsyncInProcessClient</code>, subclassed by
+<code>AsyncHuggingFaceClient</code> / <code>AsyncLlamaCppClient</code>), and even the loop's stop condition
+<code>last_turn_called_tools</code>. What is <strong>duplicated by necessity</strong> is only the <code>await</code> points: the
+<code>_chat</code>/<code>_generate</code> bodies, the <code>_ToolLoop</code> vs <code>_AsyncToolLoop</code> loop drivers and dispatch, the
 concurrency primitive (<code>asyncio.TaskGroup</code> vs <code>ThreadPoolExecutor</code>), and the streaming return type
 (<code>AsyncIterator[StreamChunk]</code> vs <code>Iterator[StreamChunk]</code> — a deliberate asymmetry).</p>
 <p>The async surface also carries a few <strong>async-only</strong> primitives for always-on assistants: the

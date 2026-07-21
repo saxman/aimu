@@ -414,7 +414,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---setup" class="level2">
 <h2 class="anchored" data-anchor-id="a---setup">A - Setup</h2>
 <p>Create a model client and build a small labeled dataset. The dataset must have: - <code>content</code> column: the text to classify - <code>actual_class</code> column: boolean ground truth</p>
-<div id="bc3748fe" class="cell" data-execution_count="1">
+<div id="545b7704" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.prompts <span class="im">import</span> ClassificationPromptTuner</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -448,7 +448,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---initial-prompt" class="level2">
 <h2 class="anchored" data-anchor-id="b---initial-prompt">B - Initial Prompt</h2>
 <p>Write a starting prompt. It must contain a <code>{content}</code> placeholder and instruct the model to respond with <code>[YES]</code> or <code>[NO]</code>.</p>
-<div id="6a1f0767" class="cell" data-execution_count="2">
+<div id="d57acd05" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>initial_prompt <span class="op">=</span> (</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Does the following text discuss artificial intelligence or machine learning?</span><span class="ch">\n</span><span class="st">"</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Answer with [YES] if it does, or [NO] if it does not.</span><span class="ch">\n</span><span class="st">"</span></span>
@@ -469,7 +469,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---run-the-tuning-loop" class="level2">
 <h2 class="anchored" data-anchor-id="c---run-the-tuning-loop">C - Run the Tuning Loop</h2>
 <p><code>tune()</code> runs the hill-climbing loop. Each iteration that improves accuracy is logged to stdout. The loop stops when accuracy reaches 100% or <code>max_iterations</code> is exhausted.</p>
-<div id="d08f30cd" class="cell" data-execution_count="3">
+<div id="79147a71" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>best_prompt <span class="op">=</span> tuner.tune(</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    training_data<span class="op">=</span>df,</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    initial_prompt<span class="op">=</span>initial_prompt,</span>
@@ -484,7 +484,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---evaluate-the-best-prompt" class="level2">
 <h2 class="anchored" data-anchor-id="d---evaluate-the-best-prompt">D - Evaluate the Best Prompt</h2>
 <p>Run the best prompt on the full dataset and compare with the baseline.</p>
-<div id="1bcfd2b4" class="cell" data-execution_count="4">
+<div id="cfa4899c" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>final_df <span class="op">=</span> tuner.classify_data(best_prompt, df)</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>final_metrics <span class="op">=</span> tuner.evaluate_results(final_df)</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -500,7 +500,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="e---catalog-persistence-optional" class="level2">
 <h2 class="anchored" data-anchor-id="e---catalog-persistence-optional">E - Catalog Persistence (Optional)</h2>
 <p><code>PromptCatalog</code> stores each improved prompt version in a SQLite database so you can compare versions, roll back, and track metrics over time. Pass <code>catalog</code> and <code>prompt_name</code> to <code>tune()</code> to enable automatic saving.</p>
-<div id="ef4f55a4" class="cell" data-execution_count="5">
+<div id="8cf5fe41" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tempfile</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.prompts <span class="im">import</span> PromptCatalog</span>
@@ -540,7 +540,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>The prompt must instruct the model to output <code>[ClassName]</code> for one of the registered classes.</li>
 <li>Metrics include per-class precision, recall, F1, and macro F1.</li>
 </ul>
-<div id="b021c3e0" class="cell" data-execution_count="6">
+<div id="cf820309" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient, OllamaModel</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.prompts <span class="im">import</span> MultiClassPromptTuner</span>
@@ -595,7 +595,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a>    f1 <span class="op">=</span> baseline_mc_metrics[<span class="ss">f"per_class_</span><span class="sc">{</span>cls<span class="sc">}</span><span class="ss">_f1"</span>]</span>
 <span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>cls<span class="sc">:10s}</span><span class="ss"> f1=</span><span class="sc">{</span>f1<span class="sc">:.3f}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="e40cbfbb" class="cell" data-execution_count="7">
+<div id="52393f9f" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>best_multiclass_prompt <span class="op">=</span> multiclass_tuner.tune(</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    training_data<span class="op">=</span>sentiment_df,</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    initial_prompt<span class="op">=</span>initial_multiclass_prompt,</span>
@@ -627,7 +627,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>A row is correct only if <strong>all</strong> specified fields match. Per-field accuracy is also tracked.</li>
 <li>The tuner handles raw JSON, fenced <code>```json ```</code> blocks, and any <code>{...}</code> substring automatically.</li>
 </ul>
-<div id="afd030ce" class="cell" data-execution_count="8">
+<div id="22de83e0" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient, OllamaModel</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.prompts <span class="im">import</span> ExtractionPromptTuner</span>
@@ -675,7 +675,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> field <span class="kw">in</span> fields:</span>
 <span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>field<span class="sc">:10s}</span><span class="ss"> accuracy: </span><span class="sc">{</span>baseline_ext_metrics[<span class="ss">f'field_</span><span class="sc">{</span>field<span class="sc">}</span><span class="ss">_accuracy'</span>]<span class="sc">:.3f}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="4da79df6" class="cell" data-execution_count="9">
+<div id="660c89ba" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>best_extraction_prompt <span class="op">=</span> extraction_tuner.tune(</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    training_data<span class="op">=</span>extraction_df,</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    initial_prompt<span class="op">=</span>initial_extraction_prompt,</span>
@@ -710,7 +710,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong><code>DeepEvalScorer</code></strong> (<code>aimu[deepeval]</code>): wraps one or more <a href="https://deepeval.com/">DeepEval</a> <code>BaseMetric</code> instances (e.g.&nbsp;<code>GEval</code>, <code>AnswerRelevancyMetric</code>, <code>FaithfulnessMetric</code>) and averages their scores.</li>
 </ul>
 <p>Key differences from the other tuners: - <strong>Two model clients</strong>: <code>model_client</code> generates responses; the <code>Scorer</code> carries its own judge. - <strong>Primary metric is mean score</strong> (0-1), not binary accuracy. <code>JudgedPromptTuner</code> overrides <code>score()</code> to return <code>metrics["score"]</code> instead of <code>metrics["accuracy"]</code>. - <strong><code>pass_threshold</code></strong>: a row is <code>_correct</code> when <code>judge_score &gt;= pass_threshold</code> (default 0.7). - Data uses a <code>content</code> column. An optional <code>reference</code> column is forwarded to scorers that consume it (used as <code>LLMTestCase.expected_output</code> for DeepEval metrics).</p>
-<div id="f2a07b30" class="cell" data-execution_count="10">
+<div id="3e42dd5f" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient, OllamaModel</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.prompts <span class="im">import</span> JudgedPromptTuner, LLMJudgeScorer</span>
@@ -777,7 +777,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, row <span class="kw">in</span> baseline_judged.iterrows():</span>
 <span id="cb10-65"><a href="#cb10-65" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  [</span><span class="sc">{</span>row<span class="sc">.</span>judge_score<span class="sc">:.1f}</span><span class="ss">] </span><span class="sc">{</span>row<span class="sc">.</span>output[:<span class="dv">100</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="67283e0f" class="cell" data-execution_count="11">
+<div id="9cf61bf4" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>best_judged_prompt <span class="op">=</span> judged_tuner.tune(</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    training_data<span class="op">=</span>summarisation_df,</span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    initial_prompt<span class="op">=</span>initial_judged_prompt,</span>
@@ -809,7 +809,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="i---open-ended-generation-with-deepeval-metrics-deepevalscorer">I - Open-ended Generation with DeepEval Metrics (<code>DeepEvalScorer</code>)</h2>
 <p>Swap <code>LLMJudgeScorer</code> for <code>DeepEvalScorer</code> to drive the same hill-climbing loop with one or more <a href="https://deepeval.com/">DeepEval</a> metrics. Each metric is given an <code>LLMTestCase</code> built from the row (<code>content</code> -&gt; <code>input</code>, generated <code>output</code> -&gt; <code>actual_output</code>, optional <code>reference</code> -&gt; <code>expected_output</code>); per-metric scores are averaged.</p>
 <p>Requires <code>aimu[deepeval]</code>.</p>
-<div id="c7d9597f" class="cell" data-execution_count="12">
+<div id="5843093e" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> deepeval.metrics <span class="im">import</span> GEval</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> deepeval.test_case <span class="im">import</span> LLMTestCaseParams</span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>

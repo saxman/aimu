@@ -2921,6 +2921,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#internal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Internal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#documentation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3951,6 +3962,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#internal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Internal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#documentation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4914,6 +4936,14 @@ not this stub.
 <li><strong>New</strong> <strong>web-interaction tools</strong> in <code>aimu.tools.builtin</code>. <code>get_webpage_html(url)</code> is a stateless <code>@tool</code> (added to <code>builtin.web</code> + <code>ALL_TOOLS</code> + the MCP server) that returns a page's <strong>raw HTML markup</strong> (truncated), complementing the existing text-stripping <code>get_webpage</code>. <code>make_web_tools(*, session=None, timeout=15, max_content_chars=20000, user_agent=...)</code> is a factory returning <code>[find_forms, submit_form]</code> closing over a shared <code>requests.Session</code>, so cookies persist across calls and a GET-then-POST form flow works: <code>find_forms(url)</code> parses every <code>&lt;form&gt;</code> (stdlib <code>html.parser</code>; <strong>no new dependency</strong>) into a listing of resolved-absolute action / method / fields including <code>type=hidden</code> (CSRF tokens surface), and <code>submit_form(url, method="POST", data=None)</code> submits via POST (form body) or GET (query params), returning status + final URL + truncated body — <code>method="GET"</code> doubles as a session-aware raw fetch for pages behind a login. Pass them together: <code>Agent(client, tools=[get_webpage_html, *make_web_tools()])</code>. <strong>Server-rendered HTML only</strong> (no JavaScript execution): JS-rendered SPAs and anti-bot-protected pages are out of scope; a headless-browser backend is a possible future addition. <code>submit_form</code> is the mutating tool — gate it via the <code>tool_approval</code> hook when confirmation is wanted. Both are re-exported from <code>aimu.aio.tools.builtin</code> (dispatched via <code>asyncio.to_thread</code>). How-to: <a href="https://saxman.github.io/aimu/how-to/browse-and-submit-forms/">Fetch HTML and submit web forms</a>. Tests: <code>tests/test_web_tools.py</code>.</li>
 <li><strong>Change</strong> <strong><code>@tool</code> docstring and schema generation</strong> (<code>aimu.tools.decorator</code>). The model-facing description is now the full prose <em>before</em> the first Google-style section header (<code>Args:</code>, <code>Returns:</code>, ...) rather than only the first paragraph, so guidance placed in later paragraphs is no longer silently dropped. An <code>Args:</code>/<code>Arguments:</code>/<code>Parameters:</code> section is parsed into per-parameter <code>description</code>s (<code>name: text</code> or <code>name (type): text</code> entries, with more-indented continuation lines joined), and a <code>Literal[...]</code> parameter now emits a JSON Schema <code>enum</code> (with the element type when the literals are homogeneous) advertising the exact allowed values instead of a bare <code>"string"</code>. Previously an opaque <code>dict</code>/<code>Literal</code> parameter reached the model as a structureless <code>{"type": "object"}</code> / <code>"string"</code> and multi-paragraph guidance was truncated, so models routinely guessed wrong argument shapes. <code>_json_type_for</code> (used by structured-output schema generation) is unchanged; the tool path uses a new <code>Literal</code>-aware <code>_schema_for</code>. Tests: <code>tests/test_tool_decorator.py</code>.</li>
 </ul>
+<h3 id="internal">Internal<a class="headerlink" href="#internal" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Change</strong> <strong>De-duplicated identical sync/async code into shared homes</strong> (no public API or behavior change). Three blocks that were byte-for-byte identical between the sync surface and its <code>aimu.aio</code> twin now live in one place, continuing the established sharing pattern (<code>_ChatStateMixin</code>, <code>_internal/streaming.py</code>, the composed provider format adapters, the shared tool-loop terminal classification) rather than inverting the sync/async dependency:</li>
+<li>The tool-call recording helpers (<code>_prepare_tool_calls</code>, <code>_append_assistant_tool_calls</code>, <code>_record_tool_calls</code>) and structured-request resolution (<code>_structured_request</code>) moved from <code>BaseModelClient</code> (<a href="aimu/models/_base/text.py">aimu/models/_base/text.py</a>) and <code>AsyncBaseModelClient</code> (<a href="aimu/aio/_base.py">aimu/aio/_base.py</a>) into the shared <code>_ChatStateMixin</code> (<a href="aimu/models/_internal/chat_state.py">aimu/models/_internal/chat_state.py</a>) that both already inherit.</li>
+<li>The <code>async</code>-free members of the tool-loop engine (<code>__init__</code>, <code>_current_tools</code>, <code>_pending</code>, <code>_tag_injected</code>, <code>_wrap_up_prompt</code>, <code>_tool_call_kwargs</code>, <code>_not_approved</code>) extracted into a new <code>_BaseToolLoop</code> in <a href="aimu/agents/_tool_loop.py">aimu/agents/_tool_loop.py</a>, subclassed by both <code>_ToolLoop</code> and <code>aimu.aio._tool_loop._AsyncToolLoop</code>; only the loop drivers and dispatch (threads vs <code>asyncio.TaskGroup</code>, <code>await</code>) stay per-surface.</li>
+<li>The near-identical in-process async wrappers <code>AsyncHuggingFaceClient</code> / <code>AsyncLlamaCppClient</code> reduced to ~5-line subclasses of a new <code>_AsyncInProcessClient</code> (<a href="aimu/aio/providers/_inprocess.py">aimu/aio/providers/_inprocess.py</a>) that holds the state-sharing properties, <code>_generate</code>/<code>_chat</code>, and <code>_stream_via_thread</code> (each subclass sets only <code>MODELS</code> + <code>_SYNC_CLASS</code>; the wrap-refusal error is preserved).</li>
+</ul>
+<p>Net −339 lines. Verified by the existing mock suites (models, structured, agents, tools, decorator, approval, provenance, checkpointing — sync + async).</p>
 <h3 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Change</strong> The <code>notebooks/</code> tutorial collection migrated from Jupyter <code>.ipynb</code> to plain-text <a href="https://quarto.org">Quarto</a> <code>.qmd</code> (markdown with executable <code>python</code> cells), so notebooks diff cleanly and are easy to edit or hand to an AI assistant. Files are renamed to kebab-case (<code>01 - Model Client.ipynb</code> → <code>01-model-client.qmd</code>), and a <code>notebooks/_quarto.yml</code> makes the set a browsable Quarto website (<code>quarto preview notebooks/</code>). Notebooks are <strong>not executed at render time</strong> (<code>execute: eval: false</code>): most need a live backend (Ollama, a cloud API key, or a GPU) and gracefully skip; opt a cheap notebook into <code>eval: true</code> + <code>freeze: auto</code> per file. The docs site (MkDocs + Material) is unchanged; how-to/tutorial deep-links now point at the <code>.qmd</code> files. The <code>[notebooks]</code> extra is now <code>jupyter</code> + <code>jupytext</code> (the latter lets JupyterLab open the <code>.qmd</code> files as native notebooks); the Quarto CLI installs separately (a standalone binary). Convention documented in <a href="https://saxman.github.io/aimu/contributing/#work-on-the-notebooks">Contributing</a>.</li>
