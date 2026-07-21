@@ -2345,6 +2345,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.models.ModelConnectionError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ModelConnectionError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#provider-clients" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3703,6 +3714,17 @@
     <span class="md-ellipsis">
       
         FallbackExhaustedError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.models.ModelConnectionError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ModelConnectionError
       
     </span>
   </a>
@@ -5098,6 +5120,40 @@ silently replaying from another client.</p>
 
 
   </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.models.ModelConnectionError" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.models.ModelConnectionError</span>
+
+
+<a href="#aimu.models.ModelConnectionError" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="RuntimeError">RuntimeError</span></code></p>
+
+
+
+        <p>Raised when a model client cannot reach its inference server (e.g. the server is down or the
+<code>base_url</code> is unreachable). Wraps the underlying provider/transport error, which is preserved on
+<code>__cause__</code> so callers can walk the chain for the specific reason (e.g. "Connection refused").
+Mirrors :class:<code>aimu.tools.client.MCPConnectionError</code>.</p>
+
+
+
+
+
+
+
+
 
     </div>
 

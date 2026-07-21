@@ -416,7 +416,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---basic-conversation-manager-setup" class="level2">
 <h2 class="anchored" data-anchor-id="a---basic-conversation-manager-setup">A - Basic Conversation Manager Setup</h2>
 <p>The ConversationManager class provides persistent storage for chat conversations using TinyDB. It automatically handles conversation creation, message storage, and timestamping.</p>
-<div id="1b363cc6" class="cell" data-execution_count="1">
+<div id="b4090c4f" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.history <span class="im">import</span> ConversationManager</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tempfile</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
@@ -435,7 +435,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---adding-messages-to-conversation" class="level2">
 <h2 class="anchored" data-anchor-id="b---adding-messages-to-conversation">B - Adding Messages to Conversation</h2>
 <p>Messages are stored as dictionaries with role and content. The ConversationManager automatically adds timestamps when updating conversations.</p>
-<div id="86a2b311" class="cell" data-execution_count="2">
+<div id="dfea8b2e" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create initial messages for a conversation</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>initial_messages <span class="op">=</span> [</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Hello, can you help me with Python programming?"</span>},</span>
@@ -459,7 +459,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---continuing-a-conversation" class="level2">
 <h2 class="anchored" data-anchor-id="c---continuing-a-conversation">C - Continuing a Conversation</h2>
 <p>You can continue adding messages to an existing conversation. The manager tracks which messages are new and adds timestamps accordingly.</p>
-<div id="8294abfc" class="cell" data-execution_count="3">
+<div id="98cce5ef" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Get current messages and add more</span></span>
@@ -487,7 +487,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---working-with-multiple-conversations" class="level2">
 <h2 class="anchored" data-anchor-id="d---working-with-multiple-conversations">D - Working with Multiple Conversations</h2>
 <p>You can create multiple conversations by creating new ConversationManager instances or by explicitly starting new conversations.</p>
-<div id="4cc463be" class="cell" data-execution_count="4">
+<div id="d7bdf188" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Start a new conversation in the same manager</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>new_doc_id, new_messages <span class="op">=</span> conv_manager.create_new_conversation()</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Created new conversation with ID: </span><span class="sc">{</span>new_doc_id<span class="sc">}</span><span class="ss">"</span>)</span>
@@ -522,7 +522,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="e---resuming-previous-conversations" class="level2">
 <h2 class="anchored" data-anchor-id="e---resuming-previous-conversations">E - Resuming Previous Conversations</h2>
 <p>You can resume the last conversation by setting <code>use_last_conversation=True</code> when initializing the ConversationManager.</p>
-<div id="d17c556d" class="cell" data-execution_count="5">
+<div id="97b118ef" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Close the first manager</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>conv_manager.close()</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -550,7 +550,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="f---message-properties-and-structure" class="level2">
 <h2 class="anchored" data-anchor-id="f---message-properties-and-structure">F - Message Properties and Structure</h2>
 <p>Messages returned by the ConversationManager are copies, so you can safely manipulate them without affecting the stored conversation.</p>
-<div id="6308b446" class="cell" data-execution_count="6">
+<div id="b30897b5" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get messages (returns a copy)</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>messages_copy <span class="op">=</span> resumed_manager.messages</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -576,7 +576,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="g---integration-with-model-clients" class="level2">
 <h2 class="anchored" data-anchor-id="g---integration-with-model-clients">G - Integration with Model Clients</h2>
 <p>The ConversationManager can be integrated with model clients to automatically persist chat history.</p>
-<div id="cb63eb63" class="cell" data-execution_count="7">
+<div id="14950470" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate a model client integration pattern</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SimpleModelClient:</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, conversation_manager):</span>
@@ -629,7 +629,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="h---cleanup-and-resource-management" class="level2">
 <h2 class="anchored" data-anchor-id="h---cleanup-and-resource-management">H - Cleanup and Resource Management</h2>
 <p>The ConversationManager automatically closes the database connection when deleted, but you can also explicitly close it.</p>
-<div id="b4d4fb0b" class="cell" data-execution_count="8">
+<div id="40d94677" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show final state of conversations</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Final conversation states:"</span>)</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Main conversation: </span><span class="sc">{</span><span class="bu">len</span>(resumed_manager.messages)<span class="sc">}</span><span class="ss"> messages"</span>)</span>
