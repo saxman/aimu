@@ -13,6 +13,13 @@ from typing import NamedTuple, Optional, Union
 logger = logging.getLogger(__name__)
 
 
+class ModelConnectionError(RuntimeError):
+    """Raised when a model client cannot reach its inference server (e.g. the server is down or the
+    ``base_url`` is unreachable). Wraps the underlying provider/transport error, which is preserved on
+    ``__cause__`` so callers can walk the chain for the specific reason (e.g. "Connection refused").
+    Mirrors :class:`aimu.tools.client.MCPConnectionError`."""
+
+
 class StreamingContentType(str, Enum):
     THINKING = "thinking"
     TOOL_CALLING = "tool_calling"

@@ -18,7 +18,15 @@ from typing import Any, Iterator, Optional, Union
 
 import openai
 
-from ..base import BaseModelClient, Model, ModelSpec, StreamChunk, StreamingContentType, classproperty
+from ..base import (
+    BaseModelClient,
+    Model,
+    ModelConnectionError,
+    ModelSpec,
+    StreamChunk,
+    StreamingContentType,
+    classproperty,
+)
 from .._internal.audio_input import _build_audio_content_blocks
 from .._internal.image_input import _build_user_content_blocks
 from .._internal.message_meta import strip_inert_keys
@@ -27,6 +35,25 @@ from .._internal.usage import usage_from_openai
 from ._thinking import _ThinkingParser, _split_thinking
 
 logger = logging.getLogger(__name__)
+
+
+def _guarded_create(sdk_client, **kwargs):
+    """Call the chat-completions endpoint, translating a server-unreachable failure into
+    ``ModelConnectionError``. The SDK's ``APIConnectionError`` message is generic ("Connection
+    error."); the specific cause (e.g. "Connection refused") is preserved on ``__cause__``."""
+    try:
+        return sdk_client.chat.completions.create(**kwargs)
+    except openai.APIConnectionError as exc:
+        raise ModelConnectionError(str(exc)) from exc
+
+
+def _guard_stream(stream) -> Iterator:
+    """Yield from a streaming response, translating a mid-stream connection drop into
+    ``ModelConnectionError`` (the connection can fail while consuming, not only on create)."""
+    try:
+        yield from stream
+    except openai.APIConnectionError as exc:
+        raise ModelConnectionError(str(exc)) from exc
 
 
 class OpenAICompatClient(BaseModelClient):
@@ -102,7 +129,7 @@ class OpenAICompatClient(BaseModelClient):
         self.last_usage = None
         parser = _ThinkingParser() if self.is_thinking_model else None
 
-        for chunk in stream:
+        for chunk in _guard_stream(stream):
             if getattr(chunk, "usage", None):
                 self.last_usage = usage_from_openai(chunk)
             if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
@@ -146,7 +173,8 @@ class OpenAICompatClient(BaseModelClient):
             content_in = _build_audio_content_blocks(prompt, audio)
         else:
             content_in = prompt
-        response = self._client.chat.completions.create(
+        response = _guarded_create(
+            self._client,
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
             **generate_kwargs,
@@ -178,7 +206,8 @@ class OpenAICompatClient(BaseModelClient):
             content_in = _build_audio_content_blocks(prompt, audio)
         else:
             content_in = prompt
-        stream = self._client.chat.completions.create(
+        stream = _guarded_create(
+            self._client,
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
             stream=True,
@@ -203,7 +232,8 @@ class OpenAICompatClient(BaseModelClient):
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
 
-        response = self._client.chat.completions.create(
+        response = _guarded_create(
+            self._client,
             model=self.model.value,
             messages=strip_inert_keys(self.messages),
             tools=tools if tools else openai.NOT_GIVEN,
@@ -247,13 +277,16 @@ class OpenAICompatClient(BaseModelClient):
         return content
 
     def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
-        stream = self._client.chat.completions.create(
-            model=self.model.value,
-            messages=strip_inert_keys(self.messages),
-            stream=True,
-            stream_options={"include_usage": True},
-            tools=tools if tools else openai.NOT_GIVEN,
-            **generate_kwargs,
+        stream = _guard_stream(
+            _guarded_create(
+                self._client,
+                model=self.model.value,
+                messages=strip_inert_keys(self.messages),
+                stream=True,
+                stream_options={"include_usage": True},
+                tools=tools if tools else openai.NOT_GIVEN,
+                **generate_kwargs,
+            )
         )
 
         # Yield content/thinking chunks as they arrive (incremental streaming) while accumulating

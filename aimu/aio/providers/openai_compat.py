@@ -21,7 +21,7 @@ from aimu.models._internal.message_meta import strip_inert_keys
 from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.usage import usage_from_openai
 from aimu.models.providers._thinking import _ThinkingParser, _split_thinking
-from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
+from aimu.models.base import Model, ModelConnectionError, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.openai_compat import (
     HFOpenAIModel,
     LlamaServerOpenAIModel,
@@ -35,6 +35,26 @@ from aimu.models.providers.openai_compat import (
 from .._base import AsyncBaseModelClient
 
 logger = logging.getLogger(__name__)
+
+
+async def _guarded_create(sdk_client, **kwargs):
+    """Call the chat-completions endpoint, translating a server-unreachable failure into
+    ``ModelConnectionError``. The SDK's ``APIConnectionError`` message is generic ("Connection
+    error."); the specific cause (e.g. "Connection refused") is preserved on ``__cause__``."""
+    try:
+        return await sdk_client.chat.completions.create(**kwargs)
+    except openai.APIConnectionError as exc:
+        raise ModelConnectionError(str(exc)) from exc
+
+
+async def _guard_stream(stream):
+    """Yield from a streaming response, translating a mid-stream connection drop into
+    ``ModelConnectionError`` (the connection can fail while consuming, not only on create)."""
+    try:
+        async for chunk in stream:
+            yield chunk
+    except openai.APIConnectionError as exc:
+        raise ModelConnectionError(str(exc)) from exc
 
 
 class AsyncOpenAICompatClient(AsyncBaseModelClient):
@@ -91,7 +111,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         self.last_usage = None
         parser = _ThinkingParser() if self.is_thinking_model else None
 
-        async for chunk in stream:
+        async for chunk in _guard_stream(stream):
             if getattr(chunk, "usage", None):
                 self.last_usage = usage_from_openai(chunk)
             if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
@@ -134,7 +154,8 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             content_in = _build_user_content_blocks(prompt, images)
         else:
             content_in = prompt
-        response = await self._client.chat.completions.create(
+        response = await _guarded_create(
+            self._client,
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
             **generate_kwargs,
@@ -165,7 +186,8 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             content_in = _build_user_content_blocks(prompt, images)
         else:
             content_in = prompt
-        stream = await self._client.chat.completions.create(
+        stream = await _guarded_create(
+            self._client,
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
             stream=True,
@@ -193,7 +215,8 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
 
-        response = await self._client.chat.completions.create(
+        response = await _guarded_create(
+            self._client,
             model=self.model.value,
             messages=strip_inert_keys(self.messages),
             tools=tools if tools else openai.NOT_GIVEN,
@@ -236,7 +259,8 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         return content
 
     async def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> AsyncIterator[StreamChunk]:
-        stream = await self._client.chat.completions.create(
+        stream = await _guarded_create(
+            self._client,
             model=self.model.value,
             messages=strip_inert_keys(self.messages),
             stream=True,
@@ -253,7 +277,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         self.last_thinking = ""
         self.last_usage = None
 
-        async for chunk in stream:
+        async for chunk in _guard_stream(stream):
             if getattr(chunk, "usage", None):
                 self.last_usage = usage_from_openai(chunk)
             if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive

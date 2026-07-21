@@ -28,7 +28,7 @@ from ._base.image import (
     ImageModel,
     ImageSpec,
 )
-from ._base.shared import StreamChunk, StreamingContentType, classproperty
+from ._base.shared import ModelConnectionError, StreamChunk, StreamingContentType, classproperty
 from ._base.speech import (
     BaseSpeechClient,
     HuggingFaceSpeechSpec,
@@ -49,6 +49,7 @@ __all__ = [
     # shared / cross-modality
     "StreamChunk",
     "StreamingContentType",
+    "ModelConnectionError",
     "classproperty",
     # text
     "ModelSpec",
