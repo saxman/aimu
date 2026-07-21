@@ -407,7 +407,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---creating-and-managing-prompts" class="level2">
 <h2 class="anchored" data-anchor-id="a---creating-and-managing-prompts">A - Creating and Managing Prompts</h2>
 <p>The Prompt class is a SQLAlchemy model that stores prompt data including versioning, metrics, and mutation/reasoning prompts.</p>
-<div id="348e471e" class="cell" data-execution_count="1">
+<div id="28eaf73f" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.prompts <span class="im">import</span> Prompt, PromptCatalog</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a new prompt instance</span></span>
@@ -425,7 +425,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---setting-up-a-promptcatalog" class="level2">
 <h2 class="anchored" data-anchor-id="b---setting-up-a-promptcatalog">B - Setting up a PromptCatalog</h2>
 <p>The PromptCatalog class provides a SQLite-backed database for storing and retrieving prompts. It handles database connections and provides methods for CRUD operations.</p>
-<div id="d7d49f77" class="cell" data-execution_count="2">
+<div id="fca83831" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tempfile</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -440,7 +440,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---storing-prompts" class="level2">
 <h2 class="anchored" data-anchor-id="c---storing-prompts">C - Storing Prompts</h2>
 <p>You can store prompts in the catalog for later retrieval. Each prompt can be associated with a model ID and version for organization.</p>
-<div id="67c2629f" class="cell" data-execution_count="3">
+<div id="b9d5d49e" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Store the first prompt</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>catalog.store_prompt(prompt)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -474,7 +474,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---retrieving-prompts" class="level2">
 <h2 class="anchored" data-anchor-id="d---retrieving-prompts">D - Retrieving Prompts</h2>
 <p>The catalog provides methods to retrieve the latest prompt for a model, or all prompts for a model ordered by version.</p>
-<div id="d16c35c0" class="cell" data-execution_count="4">
+<div id="0964cea1" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrieve the latest prompt for GPT-4</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>latest_gpt4 <span class="op">=</span> catalog.retrieve_last(<span class="st">"assistant"</span>, <span class="st">"gpt-4"</span>)</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Latest GPT-4 prompt (v</span><span class="sc">{</span>latest_gpt4<span class="sc">.</span>version<span class="sc">}</span><span class="ss">): </span><span class="sc">{</span>latest_gpt4<span class="sc">.</span>prompt<span class="sc">}</span><span class="ss">"</span>)</span>
@@ -496,7 +496,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="e---managing-model-ids" class="level2">
 <h2 class="anchored" data-anchor-id="e---managing-model-ids">E - Managing Model IDs</h2>
 <p>You can retrieve a list of all model IDs that have prompts stored in the catalog.</p>
-<div id="38b3aabc" class="cell" data-execution_count="5">
+<div id="d38a1c06" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get all model IDs in the catalog</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>model_ids <span class="op">=</span> catalog.retrieve_model_ids()</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Models in catalog: </span><span class="sc">{</span>model_ids<span class="sc">}</span><span class="ss">"</span>)</span>
@@ -510,7 +510,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="f---working-with-prompt-hierarchies" class="level2">
 <h2 class="anchored" data-anchor-id="f---working-with-prompt-hierarchies">F - Working with Prompt Hierarchies</h2>
 <p>Prompts can have parent-child relationships through the parent_id field, allowing you to track prompt evolution and mutations.</p>
-<div id="1ed7da40" class="cell" data-execution_count="6">
+<div id="e416da4b" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a child prompt that references the parent</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>parent_prompt <span class="op">=</span> catalog.retrieve_last(<span class="st">"assistant"</span>, <span class="st">"gpt-4"</span>)</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -537,7 +537,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="g---cleaning-up" class="level2">
 <h2 class="anchored" data-anchor-id="g---cleaning-up">G - Cleaning Up</h2>
 <p>You can delete all prompts for a specific model when needed.</p>
-<div id="467d13e3" class="cell" data-execution_count="7">
+<div id="b350a254" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show current state</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Before cleanup:"</span>)</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> model_id <span class="kw">in</span> catalog.retrieve_model_ids():</span>

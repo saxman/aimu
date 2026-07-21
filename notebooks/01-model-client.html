@@ -410,7 +410,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---text-generation" class="level2">
 <h2 class="anchored" data-anchor-id="a---text-generation">A - Text Generation</h2>
 <p><code>ModelClient</code> is a factory that accepts any provider model enum and automatically selects the right backend. The cell below picks the model used throughout this notebook; change <code>model_enum</code> to try a different provider or model.</p>
-<div id="51a9c9a9" class="cell" data-execution_count="1">
+<div id="0b49c991" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, HAS_OLLAMA, HAS_HF</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Pick the model used throughout this notebook. Swap this assignment to try a</span></span>
@@ -435,27 +435,27 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_5_9B)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Here, we’ll use the model enum assigned above.</p>
-<div id="ca92b8e7" class="cell" data-execution_count="2">
+<div id="6829af91" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(model_enum)</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model_client.model.name <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> model_client.model.value)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>For non-interactive (chat-based) generation, the <em>generate</em> method is used. This method allows you to specify a prompt and receive a generated response.</p>
-<div id="21643f76" class="cell" data-execution_count="3">
+<div id="be70e218" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>model_client.generate(<span class="st">"Name the capital of France."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>If the model supports thinking/reasoning, the thinking output for generation can be accessed via <code>model_client.last_thinking</code>.</p>
-<div id="c4330ff2" class="cell" data-execution_count="4">
+<div id="86d39780" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>model_client.last_thinking</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Output can be streamed as well.</p>
-<div id="8a4eef53" class="cell" data-execution_count="5">
+<div id="a5b41f41" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"Name the capital of England."</span>, stream<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The thinking output can be filtered by specifying which streaming content types to include.</p>
-<div id="5ca38fcd" class="cell" data-execution_count="6">
+<div id="d01ffa09" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(</span>
@@ -467,7 +467,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 <p>Parameters can be passed to the generate (and chat) methods to control the output. For thinking/reasoning models, max_tokens should be large enough to capture both the reasoning output, which happens first, and the generation output.</p>
 <p>For generate_kwargs, see https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values</p>
-<div id="4bb78d72" class="cell" data-execution_count="7">
+<div id="98464e3a" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>model_client.generate(</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of Germany."</span>,</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    generate_kwargs<span class="op">=</span>{</span>
@@ -483,24 +483,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---basic-chat" class="level2">
 <h2 class="anchored" data-anchor-id="b---basic-chat">B - Basic Chat</h2>
 <p>Chatting with a model simply involves passing a message and receiving a response. The Model Client handles the conversation history automatically.</p>
-<div id="c950c639" class="cell" data-execution_count="8">
+<div id="98987fd2" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"What is the capital of China?"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Chat responses can be streamed as well.</p>
-<div id="3c3185e8" class="cell" data-execution_count="9">
+<div id="1c2f5baa" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"How long has it been the capital?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The complete message history, including the model thinking/reasoning, can be accessed via the <code>messages</code> property of the Model Client.</p>
-<div id="60745711" class="cell" data-execution_count="10">
+<div id="42f8a41e" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>A custom system message can be set, or re-set, as desired.</p>
-<div id="6220d427" class="cell" data-execution_count="11">
+<div id="d7f3d111" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant that responds using pirate speak."</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>model_client.messages[<span class="dv">0</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="013f0b7c" class="cell" data-execution_count="12">
+<div id="de2639fa" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"Name a famous pirate from there."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
@@ -508,18 +508,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="c---model-thinking">C - Model Thinking</h2>
 <p>Some models support extended reasoning (also called “thinking”), where the model works through a problem step-by-step before producing a final response. AIMU automatically enables thinking for models in <code>THINKING_MODELS</code> (e.g., <code>DEEPSEEK_R1_8B</code>, <code>QWEN_3_5_9B</code>, <code>GPT_OSS_20B</code>).</p>
 <p>A thinking model must be used for the cells in this section.</p>
-<div id="6ae07361" class="cell" data-execution_count="13">
+<div id="7b04336a" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Model: </span><span class="sc">{</span>model_client<span class="sc">.</span>model<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Thinking enabled: </span><span class="sc">{</span>model_client<span class="sc">.</span>is_thinking_model<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>After calling <code>generate()</code> or <code>chat()</code>, the model’s reasoning process is available via <code>last_thinking</code>.</p>
-<div id="b0192aa6" class="cell" data-execution_count="14">
+<div id="a4dcdf67" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"What is the sum of the first 10 prime numbers?"</span>)</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Response:</span><span class="ch">\n</span><span class="st">"</span>, response)</span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Thinking:</span><span class="ch">\n</span><span class="st">"</span>, model_client.last_thinking)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>When streaming with <code>chat(..., stream=True)</code>, each chunk has a <code>phase</code> (<code>StreamingContentType</code>) and <code>content</code>. Use the phase to separate thinking tokens from the final response.</p>
-<div id="514eb84d" class="cell" data-execution_count="15">
+<div id="b05d31d3" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>was_thinking <span class="op">=</span> <span class="va">True</span></span>
@@ -540,7 +540,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong><code>ADAPTIVE</code></strong>: <code>thinking={"type": "adaptive", "display": "summarized"}</code> (sampling params dropped); the model decides per request whether and how much to think, and may emit none on a simple prompt. Required by Opus 4.7+ and Fable 5, since the budget form returns a 400 on those.</li>
 </ul>
 <p>Either way, AIMU surfaces reasoning identically: <code>last_thinking</code> and <code>THINKING</code> stream chunks. The cell below needs the <code>[anthropic]</code> extra and <code>ANTHROPIC_API_KEY</code>; it prints each model’s style, then shows an adaptive model skipping thinking on a trivial prompt but engaging it on a reasoning prompt.</p>
-<div id="5f0330c7" class="cell" data-execution_count="16">
+<div id="3e1250cc" class="cell" data-execution_count="16">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_ANTHROPIC</span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -568,7 +568,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---tool-usage" class="level2">
 <h2 class="anchored" data-anchor-id="d---tool-usage">D - Tool Usage</h2>
 <p>Create an MCP tool to use. See the “02 - MCP Tools” notebook for more examples of how to set up and use MCP tools.</p>
-<div id="f92baef9" class="cell" data-execution_count="17">
+<div id="2a2f3844" class="cell" data-execution_count="17">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -581,7 +581,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">str</span>(datetime.datetime.now())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Create a new AIMU MCPClient for handling MCP tool requests.</p>
-<div id="df9b3451" class="cell" data-execution_count="18">
+<div id="81a4b9a1" class="cell" data-execution_count="18">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -589,15 +589,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>mcp_client.as_tools())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p><code>chat()</code> on a bare client only advertises the tools and records any tool call the model requests – it does not run them. To actually execute tools, wrap the client in an <code>Agent</code> and call <code>run()</code>. The agent drives the model -&gt; tools -&gt; repeat loop and returns the final answer once the model stops calling tools.</p>
-<div id="9e156cb3" class="cell" data-execution_count="19">
+<div id="82438348" class="cell" data-execution_count="19">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What time is it?"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The messages should include the tool call, the tool response, and then final response generated by model.</p>
-<div id="c11ac621" class="cell" data-execution_count="20">
+<div id="edc5cd4e" class="cell" data-execution_count="20">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>When streaming, THINKING, TOOL_CALLING, and GENERATING phases can be handled separately.</p>
-<div id="20218792" class="cell" data-execution_count="21">
+<div id="e06bedf8" class="cell" data-execution_count="21">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
@@ -613,7 +613,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="e---multiple-parallel-tool-calls" class="level2">
 <h2 class="anchored" data-anchor-id="e---multiple-parallel-tool-calls">E - Multiple parallel tool calls</h2>
 <p>Some LLMs can use mutiple tools in parallel by making concurrent calls to different MCP tools and aggregating the results.</p>
-<div id="5a59328a" class="cell" data-execution_count="22">
+<div id="ef8d4377" class="cell" data-execution_count="22">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
 <span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_temperature(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
@@ -651,7 +651,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb23-36"><a href="#cb23-36" aria-hidden="true" tabindex="-1"></a>[fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> agent.tools]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="dce8f671" class="cell" data-execution_count="23">
+<div id="2e2ddfb3" class="cell" data-execution_count="23">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What is the current temperature and weather conditions in New York City?"</span>)</span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -659,7 +659,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="f---huggingface-model-weight-caching" class="level2">
 <h2 class="anchored" data-anchor-id="f---huggingface-model-weight-caching">F - HuggingFace Model Weight Caching</h2>
 <p>All four HuggingFace modality clients share a module-level weight registry. A second instance for the same model reuses loaded weights rather than calling <code>from_pretrained()</code> again.</p>
-<div id="70d5670d" class="cell" data-execution_count="24">
+<div id="0a782a92" class="cell" data-execution_count="24">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF</span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_HF:</span>
@@ -682,7 +682,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="g---clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="g---clean-up">G - Clean Up</h2>
 <p>When done, close the model clients to free up resources.</p>
-<div id="69b80898" class="cell" data-execution_count="25">
+<div id="044da6d8" class="cell" data-execution_count="25">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 
