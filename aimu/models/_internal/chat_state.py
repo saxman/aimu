@@ -1,12 +1,16 @@
-"""Pure state mechanics for chat model clients.
+"""I/O-free helpers shared by both base chat clients.
 
 Shared by sync ``BaseModelClient`` and async ``AsyncBaseModelClient``. Contains no
-I/O, only the bits that mutate ``self.messages`` and ``self._system_message``.
+I/O: state mechanics (the bits that mutate ``self.messages`` / ``self._system_message``),
+tool-call recording (parse + store a requested tool turn; execution is the Agent's job),
+and structured-request resolution (schema -> ``response_format`` / prompt suffix).
 Subclasses provide the underlying attributes via their own ``__init__``.
 """
 
 from __future__ import annotations
 
+import random
+import string
 from contextlib import contextmanager
 from typing import Iterator, Optional
 
@@ -171,3 +175,68 @@ class _ChatStateMixin:
                 )
             specs.append(spec)
         return specs
+
+    # ------------------------------------------------------------------ #
+    # Tool-call recording (parse + store; execution is the Agent's job)   #
+    # ------------------------------------------------------------------ #
+
+    def _prepare_tool_calls(self, tool_calls: list[dict]) -> list[tuple[dict, str]]:
+        """Normalize ``arguments``/``parameters`` and assign tool_call_ids upfront.
+
+        Concurrent execution can use pre-assigned IDs and still append results in
+        original order.
+        """
+        prepared = []
+        for tc in tool_calls:
+            # llama 3.1 uses 'parameters' instead of 'arguments'
+            if "arguments" not in tc and "parameters" in tc:
+                tc["arguments"] = tc.pop("parameters")
+            tc_id = "".join(random.choices(string.ascii_letters + string.digits, k=9))
+            prepared.append((tc, tc_id))
+        return prepared
+
+    def _append_assistant_tool_calls(self, prepared: list[tuple[dict, str]], content: str = "") -> None:
+        """Append the assistant message that records the tool calls being made.
+
+        ``content`` is the natural-language text the model emitted alongside the tool call in
+        the same turn (models can generate both). It is stored on the message when non-empty so
+        the transcript preserves it, matching how HuggingFace / OpenAI / Anthropic represent a
+        single generation that carries both ``content`` and ``tool_calls``.
+        """
+        message: dict = {
+            "role": "assistant",
+            "tool_calls": [
+                {"type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}, "id": tc_id}
+                for tc, tc_id in prepared
+            ],
+        }
+        if content:
+            message["content"] = content
+        self.messages.append(message)
+
+    def _record_tool_calls(self, tool_calls: list[dict], content: str = "") -> None:
+        """Store the assistant turn that requested tools — parse + record, **no execution**.
+
+        The model client's job ends at parsing: it records the requested ``tool_calls`` (with ids
+        and any prose ``content``) on the assistant message. Executing the tools and appending
+        their results is the Agent's job — see the tool-loop engine ``aimu.agents._tool_loop``.
+        """
+        self._append_assistant_tool_calls(self._prepare_tool_calls(tool_calls), content)
+
+    # ------------------------------------------------------------------ #
+    # Structured-request resolution (schema -> response_format / suffix)  #
+    # ------------------------------------------------------------------ #
+
+    def _structured_request(self, schema: type) -> tuple[Optional[dict], str]:
+        """Resolve a schema to ``(response_format, prompt_suffix)`` for the active model.
+
+        Native models get the JSON Schema dict as ``response_format`` and no prompt suffix;
+        parse-path models get ``None`` and a suffix instructing JSON output. The provider
+        only ever receives ``response_format`` when it's non-None (native).
+        """
+        from .structured import json_schema_instruction, schema_to_json_schema
+
+        json_schema = schema_to_json_schema(schema)
+        if self.supports_structured_output:
+            return json_schema, ""
+        return None, "\n\n" + json_schema_instruction(json_schema)

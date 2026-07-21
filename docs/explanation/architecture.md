@@ -107,10 +107,11 @@ class BaseModelClient(ABC):
 `chat()` and `generate()` are **concrete** on the base — they apply the `include=` stream filter and
 the `schema=` structured-output path, then delegate to abstract `_chat()` / `_generate()` which each
 provider implements. A cross-cutting feature (streaming filters, structured output, vision/audio
-input normalization) lands in one place and works everywhere. State mechanics — the
-`system_message` lifecycle, `reset()`, tool-spec collection — live in the shared `_ChatStateMixin`
-([`_internal/chat_state.py`](../reference/api/models.md)), inherited by both the sync and async
-bases.
+input normalization) lands in one place and works everywhere. The I/O-free helpers — the
+`system_message` lifecycle, `reset()`, tool-spec collection, tool-call recording
+(`_record_tool_calls`), and structured-request resolution (`_structured_request`) — live in the
+shared `_ChatStateMixin` ([`_internal/chat_state.py`](../reference/api/models.md)), inherited by
+both the sync and async bases.
 
 Providers that need a different wire format (Anthropic blocks, Ollama image fields, HF PIL images)
 adapt at request time and never mutate `self.messages`. See
@@ -244,9 +245,12 @@ aimu.aio.{chat, client, Agent, Chain, …}    # async (opt-in)
 
 The two surfaces **share** the state mechanics and pure logic rather than duplicating them:
 `_ChatStateMixin`, the `_base/*` spec/enum types, the `_internal/*` helpers (streaming, JSON,
-structured, usage, image/audio I/O), the `_AgentLoopMixin`, `_FallbackStateMixin`, and even the
-loop's stop condition `last_turn_called_tools`. What is **duplicated by necessity** is only the
-`await` points: the `_chat`/`_generate` bodies, the `_ToolLoop` vs `_AsyncToolLoop` driver, the
+structured, usage, image/audio I/O), the `_AgentLoopMixin`, `_FallbackStateMixin`, the tool-loop's
+`async`-free construction and helpers (`_BaseToolLoop`, subclassed by both `_ToolLoop` and
+`_AsyncToolLoop`), the in-process wrapper mechanics (`_AsyncInProcessClient`, subclassed by
+`AsyncHuggingFaceClient` / `AsyncLlamaCppClient`), and even the loop's stop condition
+`last_turn_called_tools`. What is **duplicated by necessity** is only the `await` points: the
+`_chat`/`_generate` bodies, the `_ToolLoop` vs `_AsyncToolLoop` loop drivers and dispatch, the
 concurrency primitive (`asyncio.TaskGroup` vs `ThreadPoolExecutor`), and the streaming return type
 (`AsyncIterator[StreamChunk]` vs `Iterator[StreamChunk]` — a deliberate asymmetry).
 

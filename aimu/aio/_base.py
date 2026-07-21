@@ -9,8 +9,6 @@ message-history append, image-block normalization) are inherited from the shared
 from __future__ import annotations
 
 import logging
-import random
-import string
 from abc import ABC, abstractmethod
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
@@ -193,19 +191,6 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
                 user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
             )
 
-    def _structured_request(self, schema: type) -> tuple[Optional[dict], str]:
-        """Resolve a schema to ``(response_format, prompt_suffix)`` for the active model.
-
-        Native models get the JSON Schema dict; parse-path models get ``None`` and an
-        instruction suffix. Mirrors :meth:`BaseModelClient._structured_request`.
-        """
-        from aimu.models._internal.structured import json_schema_instruction, schema_to_json_schema
-
-        json_schema = schema_to_json_schema(schema)
-        if self.supports_structured_output:
-            return json_schema, ""
-        return None, "\n\n" + json_schema_instruction(json_schema)
-
     async def _chat_structured(self, user_message, generate_kwargs, use_tools, images, audio, tools, schema):
         from aimu.models._internal.json import parse_json_response
 
@@ -340,38 +325,3 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             tools.extend(self._collect_python_tool_specs())
 
         return generate_kwargs, tools
-
-    def _prepare_tool_calls(self, tool_calls: list[dict]) -> list[tuple[dict, str]]:
-        """Normalize ``arguments``/``parameters`` and assign tool_call_ids upfront."""
-        prepared = []
-        for tc in tool_calls:
-            if "arguments" not in tc and "parameters" in tc:
-                tc["arguments"] = tc.pop("parameters")
-            tc_id = "".join(random.choices(string.ascii_letters + string.digits, k=9))
-            prepared.append((tc, tc_id))
-        return prepared
-
-    def _append_assistant_tool_calls(self, prepared: list[tuple[dict, str]], content: str = "") -> None:
-        """Append the assistant message that records the tool calls being made.
-
-        ``content`` is any text the model emitted alongside the tool call in the same turn; it
-        is stored on the message when non-empty (see the sync surface for rationale).
-        """
-        message: dict = {
-            "role": "assistant",
-            "tool_calls": [
-                {"type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}, "id": tc_id}
-                for tc, tc_id in prepared
-            ],
-        }
-        if content:
-            message["content"] = content
-        self.messages.append(message)
-
-    def _record_tool_calls(self, tool_calls: list[dict], content: str = "") -> None:
-        """Store the assistant turn that requested tools — parse + record, **no execution**.
-
-        Execution (dispatch, approval, deps, concurrency) is the Agent's job — see the async
-        tool-loop engine ``aimu.aio._tool_loop``.
-        """
-        self._append_assistant_tool_calls(self._prepare_tool_calls(tool_calls), content)

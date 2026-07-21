@@ -19,7 +19,7 @@ import logging
 from typing import Any, Callable, Iterator, Optional
 
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
-from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
+from aimu.models.base import StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
 
@@ -77,12 +77,19 @@ def last_turn_called_tools(messages: list[dict]) -> bool:
     return classify_terminal_turn(messages) == TERMINAL_PENDING_TOOLS
 
 
-class _ToolLoop:
-    """Runs the model<->tools loop over a pure model client. See module docstring."""
+class _BaseToolLoop:
+    """State and sync-safe helpers shared by the sync and async tool-loop engines.
+
+    Holds only members free of ``async``/``await``: construction, tool-list resolution,
+    pending-call extraction, provenance tagging, wrap-up prompt selection, argument
+    coercion + ``deps`` injection, and the not-approved message. The loop drivers
+    (``run`` / ``run_streamed``) and dispatch (which differ by threads vs
+    ``asyncio.TaskGroup`` and sync vs ``await``) live on the concrete subclasses.
+    """
 
     def __init__(
         self,
-        model_client: BaseModelClient,
+        model_client: Any,
         tools,
         *,
         deps: Optional[Any] = None,
@@ -106,6 +113,59 @@ class _ToolLoop:
 
     def _current_tools(self) -> list[Callable]:
         return list(self._tools() if callable(self._tools) else self._tools)
+
+    def _pending(self) -> list[tuple[dict, str]]:
+        """Extract ``[( {"name","arguments"}, tool_call_id ), ...]`` from the last assistant turn.
+
+        The provider already parsed the response and stored the assistant message with
+        ``tool_calls`` (each ``{"type":"function","function":{"name","arguments"},"id"}``); the
+        engine only executes them.
+        """
+        for msg in reversed(self._client.messages):
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                return [
+                    ({"name": t["function"]["name"], "arguments": t["function"]["arguments"]}, t["id"])
+                    for t in msg["tool_calls"]
+                ]
+            if msg.get("role") == "user":
+                break
+        return []
+
+    def _tag_injected(self, index: int, provenance: str) -> None:
+        messages = self._client.messages
+        if 0 <= index < len(messages) and messages[index].get("role") == "user":
+            messages[index][PROVENANCE_KEY] = provenance
+
+    def _wrap_up_prompt(self) -> str:
+        """The forced tools-disabled wrap-up prompt: the configured one, else the built-in default."""
+        return self._final_answer_prompt or DEFAULT_WRAP_UP_PROMPT
+
+    def _tool_call_kwargs(self, fn: Callable, arguments: dict) -> dict:
+        """Coerce model-supplied args to the tool's hints and inject ``ToolContext(deps)``."""
+        from aimu.tools.decorator import coerce_tool_arguments
+
+        kwargs = coerce_tool_arguments(fn, arguments)
+        injected = getattr(fn, "__tool_injected__", None)
+        if injected:
+            from aimu.tools.context import ToolContext
+
+            ctx = ToolContext(deps=self._deps)
+            for name in injected:
+                kwargs[name] = ctx
+        return kwargs
+
+    @staticmethod
+    def _not_approved(tc: dict, tc_id: str) -> dict:
+        return {
+            "role": "tool",
+            "name": tc["name"],
+            "content": f"Tool '{tc['name']}' was not approved.",
+            "tool_call_id": tc_id,
+        }
+
+
+class _ToolLoop(_BaseToolLoop):
+    """Runs the model<->tools loop over a pure model client. See module docstring."""
 
     # ------------------------------------------------------------------ #
     # The loop                                                            #
@@ -195,10 +255,6 @@ class _ToolLoop:
                     "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
                 )
 
-    def _wrap_up_prompt(self) -> str:
-        """The forced tools-disabled wrap-up prompt: the configured one, else the built-in default."""
-        return self._final_answer_prompt or DEFAULT_WRAP_UP_PROMPT
-
     def _forced_wrap_up(self, response: str, generate_kwargs: Optional[dict[str, Any]]) -> str:
         """At the round cap with a degenerate terminal turn, force one tools-disabled answer.
 
@@ -223,31 +279,9 @@ class _ToolLoop:
         for chunk in chunks:
             yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
 
-    def _tag_injected(self, index: int, provenance: str) -> None:
-        messages = self._client.messages
-        if 0 <= index < len(messages) and messages[index].get("role") == "user":
-            messages[index][PROVENANCE_KEY] = provenance
-
     # ------------------------------------------------------------------ #
     # Dispatch (execute the pending tool calls stored on the last turn)   #
     # ------------------------------------------------------------------ #
-
-    def _pending(self) -> list[tuple[dict, str]]:
-        """Extract ``[( {"name","arguments"}, tool_call_id ), ...]`` from the last assistant turn.
-
-        The provider already parsed the response and stored the assistant message with
-        ``tool_calls`` (each ``{"type":"function","function":{"name","arguments"},"id"}``); the
-        engine only executes them.
-        """
-        for msg in reversed(self._client.messages):
-            if msg.get("role") == "assistant" and msg.get("tool_calls"):
-                return [
-                    ({"name": t["function"]["name"], "arguments": t["function"]["arguments"]}, t["id"])
-                    for t in msg["tool_calls"]
-                ]
-            if msg.get("role") == "user":
-                break
-        return []
 
     def _dispatch(self) -> None:
         prepared = self._pending()
@@ -363,20 +397,6 @@ class _ToolLoop:
             logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
         return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
 
-    def _tool_call_kwargs(self, fn: Callable, arguments: dict) -> dict:
-        """Coerce model-supplied args to the tool's hints and inject ``ToolContext(deps)``."""
-        from aimu.tools.decorator import coerce_tool_arguments
-
-        kwargs = coerce_tool_arguments(fn, arguments)
-        injected = getattr(fn, "__tool_injected__", None)
-        if injected:
-            from aimu.tools.context import ToolContext
-
-            ctx = ToolContext(deps=self._deps)
-            for name in injected:
-                kwargs[name] = ctx
-        return kwargs
-
     def _tool_call_approved(self, name: str, arguments: dict) -> bool:
         """Run the approval policy (default approves everything). Rejects a coroutine policy."""
         import inspect
@@ -392,12 +412,3 @@ class _ToolLoop:
                 "or run on the aimu.aio surface for async approval."
             )
         return bool(result)
-
-    @staticmethod
-    def _not_approved(tc: dict, tc_id: str) -> dict:
-        return {
-            "role": "tool",
-            "name": tc["name"],
-            "content": f"Tool '{tc['name']}' was not approved.",
-            "tool_call_id": tc_id,
-        }

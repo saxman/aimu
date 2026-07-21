@@ -8,51 +8,29 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, AsyncIterator, Callable, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aimu.agents._tool_loop import (
-    DEFAULT_WRAP_UP_PROMPT,
     TERMINAL_EMPTY,
     TERMINAL_HEALTHY,
     TERMINAL_PENDING_TOOLS,
     DegenerateTurnError,
+    _BaseToolLoop,
     classify_terminal_turn,
 )
-from aimu.aio._base import AsyncBaseModelClient
-from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
+from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER
 from aimu.models.base import StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
 
 
-class _AsyncToolLoop:
-    """Runs the async model<->tools loop over a pure async model client."""
+class _AsyncToolLoop(_BaseToolLoop):
+    """Runs the async model<->tools loop over a pure async model client.
 
-    def __init__(
-        self,
-        model_client: AsyncBaseModelClient,
-        tools,
-        *,
-        deps: Optional[Any] = None,
-        tool_approval: Optional[Callable] = None,
-        concurrent_tool_calls: bool = False,
-        max_rounds: int = 10,
-        final_answer_prompt: Optional[str] = None,
-        continuation_prompt: Optional[str] = None,
-    ):
-        # ``tools`` is either the tool-callable list or a zero-arg callable returning it
-        # (re-read each round so mid-run tool additions are picked up; see the sync engine).
-        self._client = model_client
-        self._tools = tools
-        self._deps = deps
-        self._tool_approval = tool_approval
-        self._concurrent = concurrent_tool_calls
-        self._max_rounds = max_rounds
-        self._final_answer_prompt = final_answer_prompt
-        self._continuation_prompt = continuation_prompt or DEFAULT_WRAP_UP_PROMPT
-
-    def _current_tools(self) -> list[Callable]:
-        return list(self._tools() if callable(self._tools) else self._tools)
+    Construction and the sync-safe helpers (``_current_tools``, ``_pending``,
+    ``_tag_injected``, ``_wrap_up_prompt``, ``_tool_call_kwargs``, ``_not_approved``)
+    are inherited from :class:`aimu.agents._tool_loop._BaseToolLoop`.
+    """
 
     # ------------------------------------------------------------------ #
     # The loop                                                            #
@@ -138,15 +116,6 @@ class _AsyncToolLoop:
                     "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
                 )
 
-    def _tag_injected(self, index: int, provenance: str) -> None:
-        messages = self._client.messages
-        if 0 <= index < len(messages) and messages[index].get("role") == "user":
-            messages[index][PROVENANCE_KEY] = provenance
-
-    def _wrap_up_prompt(self) -> str:
-        """The forced tools-disabled wrap-up prompt: the configured one, else the built-in default."""
-        return self._final_answer_prompt or DEFAULT_WRAP_UP_PROMPT
-
     async def _forced_wrap_up(self, response: str, generate_kwargs: Optional[dict[str, Any]]) -> str:
         """At the round cap with a degenerate terminal turn, force one tools-disabled answer.
 
@@ -170,17 +139,6 @@ class _AsyncToolLoop:
     # ------------------------------------------------------------------ #
     # Dispatch                                                            #
     # ------------------------------------------------------------------ #
-
-    def _pending(self) -> list[tuple[dict, str]]:
-        for msg in reversed(self._client.messages):
-            if msg.get("role") == "assistant" and msg.get("tool_calls"):
-                return [
-                    ({"name": t["function"]["name"], "arguments": t["function"]["arguments"]}, t["id"])
-                    for t in msg["tool_calls"]
-                ]
-            if msg.get("role") == "user":
-                break
-        return []
 
     async def _dispatch(self) -> None:
         prepared = self._pending()
@@ -300,19 +258,6 @@ class _AsyncToolLoop:
             logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
         return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
 
-    def _tool_call_kwargs(self, fn: Callable, arguments: dict) -> dict:
-        from aimu.tools.decorator import coerce_tool_arguments
-
-        kwargs = coerce_tool_arguments(fn, arguments)
-        injected = getattr(fn, "__tool_injected__", None)
-        if injected:
-            from aimu.tools.context import ToolContext
-
-            ctx = ToolContext(deps=self._deps)
-            for name in injected:
-                kwargs[name] = ctx
-        return kwargs
-
     async def _tool_call_approved(self, name: str, arguments: dict) -> bool:
         import inspect
 
@@ -323,12 +268,3 @@ class _AsyncToolLoop:
         if inspect.isawaitable(result):
             result = await result
         return bool(result)
-
-    @staticmethod
-    def _not_approved(tc: dict, tc_id: str) -> dict:
-        return {
-            "role": "tool",
-            "name": tc["name"],
-            "content": f"Tool '{tc['name']}' was not approved.",
-            "tool_call_id": tc_id,
-        }

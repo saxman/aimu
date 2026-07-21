@@ -212,8 +212,9 @@ async def main():
   - `anthropic.py`: `AsyncAnthropicClient` using `anthropic.AsyncAnthropic`. Reuses sync class's pure format adapters via composition.
   - `openai_compat.py`: `AsyncOpenAICompatClient` using `openai.AsyncOpenAI`, plus `Async*Client` subclasses for OpenAI, Gemini, LM Studio, Ollama-OpenAI, HF-OpenAI, vLLM, llama-server, SGLang.
   - `ollama.py`: `AsyncOllamaClient` using `ollama.AsyncClient`.
-  - `hf.py`: `AsyncHuggingFaceClient` wraps a sync `HuggingFaceClient`; see "In-process providers".
-  - `llamacpp.py`: `AsyncLlamaCppClient` wraps a sync `LlamaCppClient`; see "In-process providers".
+  - `_inprocess.py`: `_AsyncInProcessClient` base holding the shared wrap mechanics (state-sharing properties, `_generate`/`_chat`, `_stream_via_thread`) for the in-process wrappers below.
+  - `hf/text.py`: `AsyncHuggingFaceClient(_AsyncInProcessClient)` (sets `MODELS` + `_SYNC_CLASS`); see "In-process providers".
+  - `llamacpp.py`: `AsyncLlamaCppClient(_AsyncInProcessClient)` (sets `MODELS` + `_SYNC_CLASS`); see "In-process providers".
 - **[aimu/aio/agent.py](aimu/aio/agent.py)**: `AsyncRunner` ABC + async `Agent`. Same loop semantics as sync; streaming returns `AsyncIterator[StreamChunk]`.
 - **[aimu/aio/skill_agent.py](aimu/aio/skill_agent.py)**: async `SkillAgent`. `_setup_skills_async()` constructs an `aio.MCPClient` for skill discovery and caches `await mcp.as_tools()` on `_skills_tools`; the skill tools reach the model through the overridden `_effective_tools` (base tools + skill tools, deduped), which the tool-loop engine re-reads each round. `run()` prepares state and runs async skill setup once (before building the engine), then delegates to `Agent`'s post-prepare loop helpers `_run_loop(loop, ...)` / `_run_loop_streamed(loop, ...)` (which take a pre-built engine, shared with the base `Agent`) rather than re-implementing the loop. It therefore mirrors `aio.Agent.run()` in full: `deps=` (per-run `ToolContext` injection), `tool_approval=`, `schema=` (structured-output short-circuit; with `stream=True` it streams the structured turn via `_structured_stream_after_setup`, done after skill setup so the skills aren't wiped), and the `final_answer_prompt` forced-wrap-up on both the streamed and non-streamed paths.
 - **[aimu/aio/agentic_client.py](aimu/aio/agentic_client.py)**: internal `_AsyncAgenticView` for `Agent.as_model_client()`.
@@ -229,7 +230,7 @@ async def main():
 
 **Shared infrastructure** (used by both sync and async surfaces, no duplication):
 
-- **[aimu/models/_internal/chat_state.py](aimu/models/_internal/chat_state.py)**: `_ChatStateMixin` provides `system_message` lifecycle (always-live setter that swaps the in-history system entry), `reset()`, `_append_user_turn()`, `_collect_python_tool_specs()`, and the capability properties (`is_thinking_model`, etc.). Both `BaseModelClient` and `AsyncBaseModelClient` inherit it. No state mechanics are duplicated.
+- **[aimu/models/_internal/chat_state.py](aimu/models/_internal/chat_state.py)**: `_ChatStateMixin` provides the I/O-free helpers shared by both bases: `system_message` lifecycle (always-live setter that swaps the in-history system entry), `reset()`, `_append_user_turn()`, `_collect_python_tool_specs()`, the capability properties (`is_thinking_model`, etc.), tool-call recording (`_prepare_tool_calls` / `_append_assistant_tool_calls` / `_record_tool_calls`), and structured-request resolution (`_structured_request`). Both `BaseModelClient` and `AsyncBaseModelClient` inherit it. None of this is duplicated across the two bases.
 - **[aimu/models/_internal/streaming.py](aimu/models/_internal/streaming.py)**: `resolve_include()`, `filter_chunks()` (sync), `afilter_chunks()` (async).
 - **[aimu/models/_internal/json.py](aimu/models/_internal/json.py)**: `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. Utilities for getting structured data out of model responses. Exported from `aimu.models` and top-level `aimu`.
 - **[aimu/tools/mcp_format.py](aimu/tools/mcp_format.py)**: `mcp_tools_to_openai(tool_specs)` (spec conversion) and `mcp_content_to_text(tool_response)` (flatten a `call_tool` result to a string), shared by sync `MCPClient` and async `aio.MCPClient` (`get_tools()` / `as_tools()`).
@@ -398,7 +399,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
 
 - **[aimu/tools/mcp.py](aimu/tools/mcp.py)**: thin FastMCP server that registers `builtin.ALL_TOOLS` for cross-process use. Run standalone: `python -m aimu.tools.mcp`. Single source of truth; the same callables back both routes.
 
-- **The tool-loop engine** ([aimu/agents/_tool_loop.py](aimu/agents/_tool_loop.py) `_ToolLoop` + module-level `last_turn_called_tools`; async twin [aimu/aio/_tool_loop.py](aimu/aio/_tool_loop.py) `_AsyncToolLoop`): the internal middle layer that owns iterative tool calling. It is **not** public API — `Agent` composes one per run (`Agent._make_tool_loop(...)`), and the public ladder stays `chat()` → `Agent` → workflows. Constructor: `_ToolLoop(model_client, tools, *, deps=None, tool_approval=None, concurrent_tool_calls=False, max_rounds=10, final_answer_prompt=None)`; `tools` may be a list **or a zero-arg callable** returning one (re-read each round, so `SkillAgent` can surface a mid-run authored skill tool). Methods: `run(user_message=None, ...)` / `run_streamed(...)` drive the model↔tools loop (`max_rounds` caps total model turns); `_dispatch` / `_dispatch_streamed` execute the pending tool calls stored on the last assistant turn; `_call_plain_tool`, `_tool_call_kwargs` (arg coercion + `ToolContext(deps)` injection), and `_tool_call_approved` do the per-call work.
+- **The tool-loop engine** ([aimu/agents/_tool_loop.py](aimu/agents/_tool_loop.py) `_ToolLoop` + module-level `last_turn_called_tools`; async twin [aimu/aio/_tool_loop.py](aimu/aio/_tool_loop.py) `_AsyncToolLoop`): the internal middle layer that owns iterative tool calling. Both engines subclass `_BaseToolLoop` (in `aimu/agents/_tool_loop.py`), which holds the `async`-free members shared by sync and async — construction, `_current_tools`, `_pending`, `_tag_injected`, `_wrap_up_prompt`, `_tool_call_kwargs` (arg coercion + `deps` injection), and `_not_approved`; only the loop drivers and dispatch (threads vs `asyncio.TaskGroup`, `await`) are per-surface. It is **not** public API — `Agent` composes one per run (`Agent._make_tool_loop(...)`), and the public ladder stays `chat()` → `Agent` → workflows. Constructor: `_ToolLoop(model_client, tools, *, deps=None, tool_approval=None, concurrent_tool_calls=False, max_rounds=10, final_answer_prompt=None)`; `tools` may be a list **or a zero-arg callable** returning one (re-read each round, so `SkillAgent` can surface a mid-run authored skill tool). Methods: `run(user_message=None, ...)` / `run_streamed(...)` drive the model↔tools loop (`max_rounds` caps total model turns); `_dispatch` / `_dispatch_streamed` execute the pending tool calls stored on the last assistant turn; `_call_plain_tool`, `_tool_call_kwargs` (arg coercion + `ToolContext(deps)` injection), and `_tool_call_approved` do the per-call work.
 
 - **Tool Calling Flow**:
   1. The `Agent` builds a `_ToolLoop` for the run with the effective tools + policy and calls `loop.run(task)` (or `run_streamed`).
@@ -1114,7 +1115,7 @@ aimu/
 ├── aio/                 # Async surface: mirrors public sync API one-for-one (opt-in)
 │   ├── __init__.py      # Exports chat, client, AsyncModelClient, Agent, SkillAgent, Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator, OrchestratorAgent, MCPClient
 │   ├── _base.py         # AsyncBaseModelClient (pure provider adapter; chat() = one model turn)
-│   ├── _tool_loop.py    # _AsyncToolLoop: async iterative tool-calling engine (asyncio.TaskGroup)
+│   ├── _tool_loop.py    # _AsyncToolLoop(_BaseToolLoop): async iterative tool-calling engine (asyncio.TaskGroup)
 │   ├── _model_client.py # AsyncModelClient factory + top-level client()/chat()
 │   ├── _mcp_client.py   # async MCPClient (FastMCP Client direct; no anyio portal)
 │   ├── agent.py         # AsyncRunner ABC + async Agent
@@ -1125,12 +1126,13 @@ aimu/
 │   │   ├── client.py        # async RemoteAgent(AsyncRunner): native a2a-sdk client + message/stream
 │   │   └── server.py        # async serve_a2a/build_a2a_app (awaits runner.run directly)
 │   ├── providers/       # Async provider clients (mirrors aimu/models/providers/)
+│   │   ├── _inprocess.py     # _AsyncInProcessClient: shared wrap mechanics for in-process clients (Decision 7)
 │   │   ├── anthropic.py      # AsyncAnthropicClient (anthropic.AsyncAnthropic)
 │   │   ├── openai_compat.py  # AsyncOpenAICompatClient base + local-server subclasses
 │   │   ├── ollama.py         # AsyncOllamaClient (ollama.AsyncClient)
-│   │   ├── llamacpp.py       # AsyncLlamaCppClient (wraps sync LlamaCppClient, Decision 7)
+│   │   ├── llamacpp.py       # AsyncLlamaCppClient(_AsyncInProcessClient) (wraps sync LlamaCppClient)
 │   │   ├── hf/               # HuggingFace async clients (wrap sync, Decision 7)
-│   │   │   ├── text.py           # AsyncHuggingFaceClient
+│   │   │   ├── text.py           # AsyncHuggingFaceClient(_AsyncInProcessClient)
 │   │   │   ├── image.py          # AsyncHuggingFaceImageClient
 │   │   │   ├── audio.py          # AsyncHuggingFaceAudioClient
 │   │   │   ├── speech.py         # AsyncHuggingFaceSpeechClient
@@ -1218,7 +1220,7 @@ aimu/
 ├── agents/              # Agents and workflow patterns (single Runner ABC)
 │   ├── base.py          # Runner ABC (+ Runner.as_tool()) + MessageHistory + decision-tree docstring
 │   ├── _loop.py         # _AgentLoopMixin: _prepare_run/restore shared by sync + aio Agent
-│   ├── _tool_loop.py    # _ToolLoop: iterative tool-calling engine (dispatch/approval/deps/loop) + last_turn_called_tools
+│   ├── _tool_loop.py    # _BaseToolLoop (shared async-free members) + _ToolLoop: iterative tool-calling engine (dispatch/approval/deps/loop) + last_turn_called_tools
 │   ├── _as_tool.py      # build_as_tool(): shared name/description resolution for Runner.as_tool() (sync + aio)
 │   ├── _agentic_view.py # _AgenticViewMixin: state delegation shared by sync + aio _AgenticView
 │   ├── agent.py         # Agent (agentic loop) + as_model_client()
