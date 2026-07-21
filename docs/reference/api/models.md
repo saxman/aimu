@@ -24,6 +24,8 @@ Provider-agnostic model clients.
 
 ::: aimu.models.FallbackExhaustedError
 
+::: aimu.models.ModelConnectionError
+
 ## Provider clients
 
 ::: aimu.models.OllamaClient
