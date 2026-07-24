@@ -367,7 +367,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>Skills are directories containing a <code>SKILL.md</code> file with YAML frontmatter followed by markdown instructions. Two sample skills ship with AIMU under <a href="../examples/skills/"><code>examples/skills/</code></a>, exposed as <code>aimu.paths.skills</code> (== <code>aimu.paths.examples / "skills"</code>).</p>
-<div id="a9c821c3" class="cell" data-execution_count="1">
+<div id="cb8e2bc9" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> paths</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>skills_dir <span class="op">=</span> paths.examples <span class="op">/</span> <span class="st">"skills"</span>  <span class="co"># aimu.paths.skills points here too</span></span>
@@ -381,7 +381,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---discovering-skills-with-skillmanager" class="level2">
 <h2 class="anchored" data-anchor-id="a---discovering-skills-with-skillmanager">A - Discovering Skills with <code>SkillManager</code></h2>
 <p><code>SkillManager</code> scans one or more directories for skill subdirectories, each containing a <code>SKILL.md</code> file with YAML frontmatter. By default it scans <code>.agents/skills/</code> and <code>.claude/skills/</code> at both project and user scope. Here we pass <code>skill_dirs</code> to point it at our sample directory.</p>
-<div id="d1b7bb34" class="cell" data-execution_count="2">
+<div id="11c1f772" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> SkillManager</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>manager <span class="op">=</span> SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)])</span>
@@ -391,18 +391,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>name<span class="sc">!r:25s}</span><span class="ss">  </span><span class="sc">{</span>skill<span class="sc">.</span>description[:<span class="dv">70</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p><code>catalog_prompt()</code> builds the XML block that gets injected into the agent’s system message. This is the <em>catalog tier</em> (tier 1) of progressive disclosure: only names and descriptions, no full instructions.</p>
-<div id="da755830" class="cell" data-execution_count="3">
+<div id="148b951b" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(manager.catalog_prompt())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p><code>get_skill_body()</code> loads the full markdown instructions for a skill; this is what the model receives when it calls <code>activate_skill</code> (tier 2 of progressive disclosure).</p>
-<div id="00c6095f" class="cell" data-execution_count="4">
+<div id="5058bd99" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(manager.get_skill_body(<span class="st">"haiku-poet"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="b---the-skills-mcp-server" class="level2">
 <h2 class="anchored" data-anchor-id="b---the-skills-mcp-server">B - The Skills MCP Server</h2>
 <p><code>build_skills_server()</code> creates an in-process FastMCP server from a <code>SkillManager</code>. It registers an <code>activate_skill</code> tool and one tool per Python script found in any skill’s <code>scripts/</code> directory. Wrap it in <code>MCPClient(server=...)</code> to use it directly.</p>
-<div id="b2abd994" class="cell" data-execution_count="5">
+<div id="f4e54795" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.skills <span class="im">import</span> build_skills_server</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -414,7 +414,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>tool<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>You can call <code>activate_skill</code> directly through the client to inspect what the model receives:</p>
-<div id="772d5016" class="cell" data-execution_count="6">
+<div id="941ccbd9" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> skills_client.call_tool(<span class="st">"activate_skill"</span>, {<span class="st">"name"</span>: <span class="st">"unit-converter"</span>})</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result.content[<span class="dv">0</span>].text)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -423,7 +423,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="c---skillagent">C - SkillAgent</h2>
 <p><code>SkillAgent</code> extends <code>Agent</code> with skill support. Pass a <code>SkillManager</code> at construction (or omit it to auto-discover from default paths). On the first <code>run()</code>, <code>_setup_skills()</code> fires once: it appends the skill catalog to the system message and attaches the skills MCPClient. The model then decides which skills are relevant and calls <code>activate_skill</code> to load them.</p>
 <p>You can inspect what gets injected into the system message before running:</p>
-<div id="d8ce5996" class="cell" data-execution_count="7">
+<div id="3d6754eb" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> SkillAgent</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -442,7 +442,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"--- System message (truncated) ---"</span>)</span>
 <span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model_client.system_message[:<span class="dv">500</span>], <span class="st">"..."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="40a15519" class="cell" data-execution_count="8">
+<div id="6363581d" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fresh client; run() calls _setup_skills() automatically on first invocation</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant. Always activate the most relevant skill before answering."</span></span>
@@ -457,7 +457,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"Write me a haiku about autumn rain."</span>)</span>
 <span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="f99b6747" class="cell" data-execution_count="9">
+<div id="b0673329" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Inspect the full message history to see the activate_skill tool call</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> msg <span class="kw">in</span> model_client.messages:</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    role <span class="op">=</span> msg[<span class="st">"role"</span>]</span>
@@ -478,7 +478,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---streaming-skillagent-output" class="level2">
 <h2 class="anchored" data-anchor-id="d---streaming-skillagent-output">D - Streaming SkillAgent Output</h2>
 <p><code>run(stream=True)</code> yields <code>StreamChunk</code> objects. The <code>TOOL_CALLING</code> phase shows when the model activates a skill, and <code>GENERATING</code> shows the final answer produced using the loaded instructions.</p>
-<div id="700341fd" class="cell" data-execution_count="10">
+<div id="b7ce8fcb" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>model_client2 <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
@@ -515,7 +515,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="e---script-tools">E - Script Tools</h2>
 <p>A skill can include Python scripts in a <code>scripts/</code> subdirectory. Each <code>*.py</code> file is automatically registered as an MCP tool named <code>{skill_name}__{script_stem}</code>. Scripts are run via <code>subprocess</code> and their stdout is returned as the tool result.</p>
 <p>Here we add a <code>scripts/now.py</code> script to the <code>unit-converter</code> skill:</p>
-<div id="9d02c894" class="cell" data-execution_count="11">
+<div id="f1e80489" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add a scripts/ directory to the unit-converter skill</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>scripts_dir_path <span class="op">=</span> conv_dir <span class="op">/</span> <span class="st">"scripts"</span></span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>scripts_dir_path.mkdir(exist_ok<span class="op">=</span><span class="va">True</span>)</span>
@@ -526,7 +526,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Contents:"</span>)</span>
 <span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>((scripts_dir_path <span class="op">/</span> <span class="st">"now.py"</span>).read_text())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="c624316b" class="cell" data-execution_count="12">
+<div id="b7f71604" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Rebuild the skills server; it now picks up the new script tool</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>manager3 <span class="op">=</span> SkillManager(skill_dirs<span class="op">=</span>[<span class="bu">str</span>(skills_dir)])  <span class="co"># re-discover to pick up scripts/</span></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>server3 <span class="op">=</span> build_skills_server(manager3)</span>
@@ -538,7 +538,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> tool.description:</span>
 <span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"      </span><span class="sc">{</span>tool<span class="sc">.</span>description<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="ebbcad2f" class="cell" data-execution_count="13">
+<div id="721bff8a" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Call the script tool directly</span></span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>result3 <span class="op">=</span> client3.call_tool(<span class="st">"unit-converter__now"</span>, {})</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"unit-converter__now returned:"</span>, result3.content[<span class="dv">0</span>].text)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -547,7 +547,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="f---skillagent.from_config" class="level2">
 <h2 class="anchored" data-anchor-id="f---skillagent.from_config">F - <code>SkillAgent.from_config</code></h2>
 <p><code>SkillAgent.from_config</code> accepts a <code>skill_dirs</code> key to create a <code>SkillManager</code> automatically. Omit <code>skill_dirs</code> to auto-discover skills from the standard search paths (<code>.agents/skills/</code> and <code>.claude/skills/</code> at project and user scope).</p>
-<div id="1f9bcb13" class="cell" data-execution_count="14">
+<div id="15fe1997" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>model_client4 <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>agent4 <span class="op">=</span> SkillAgent.from_config(</span>
@@ -564,14 +564,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Skill manager:   "</span>, agent4.skill_manager)</span>
 <span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Skills found:    "</span>, <span class="bu">list</span>(agent4.skill_manager.skills.keys()))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="4a1ed64f" class="cell" data-execution_count="15">
+<div id="797cac73" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>result4 <span class="op">=</span> agent4.run(<span class="st">"Write a haiku about the ocean at dawn."</span>)</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result4)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="g---clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="g---clean-up">G - Clean Up</h2>
-<div id="c6be81f9" class="cell" data-execution_count="16">
+<div id="15d9543a" class="cell" data-execution_count="16">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove the scripts/ directory added in section E</span></span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> shutil</span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
