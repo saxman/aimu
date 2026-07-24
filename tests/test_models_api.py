@@ -26,6 +26,19 @@ from aimu.models import (
 from helpers import MockModelClient
 
 
+def _bind_append(fake):
+    """Give a hand-rolled ``_chat`` fake the real append-with-timestamp seam and return it."""
+    from aimu.models._internal.chat_state import _ChatStateMixin
+
+    fake._append_message = _ChatStateMixin._append_message.__get__(fake)
+    return fake
+
+
+def _without_ts(message):
+    """A message dict minus the inert append-time ``timestamp`` key, for exact-content asserts."""
+    return {key: value for key, value in message.items() if key != "timestamp"}
+
+
 # ---------------------------------------------------------------------------
 # Model strings + ModelSpec
 # ---------------------------------------------------------------------------
@@ -902,12 +915,15 @@ def test_hf_chat_streamed_thinking_only_turn_does_not_crash(monkeypatch):
         _pending_thinking_tokens=["reasoning that never closed"],
         _generate_streaming=lambda *a, **k: iter([]),
     )
+    _bind_append(fake)
 
     chunks = list(hf_text.HuggingFaceClient._chat_streamed(fake, {}, []))
 
     assert [c.phase for c in chunks] == [StreamingContentType.THINKING]
     assert chunks[0].content == "reasoning that never closed"
-    assert fake.messages == [{"role": "assistant", "content": "", "thinking": "reasoning that never closed"}]
+    assert [_without_ts(m) for m in fake.messages] == [
+        {"role": "assistant", "content": "", "thinking": "reasoning that never closed"}
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -920,13 +936,15 @@ def test_hf_chat_streamed_thinking_only_turn_does_not_crash(monkeypatch):
 def _llamacpp_fake(content: str):
     import types
 
-    return types.SimpleNamespace(
-        _chat_setup=lambda *a, **k: ({}, []),
-        _llm=types.SimpleNamespace(
-            create_chat_completion=lambda **kw: {"choices": [{"message": {"content": content}}]}
-        ),
-        is_thinking_model=True,
-        messages=[],
+    return _bind_append(
+        types.SimpleNamespace(
+            _chat_setup=lambda *a, **k: ({}, []),
+            _llm=types.SimpleNamespace(
+                create_chat_completion=lambda **kw: {"choices": [{"message": {"content": content}}]}
+            ),
+            is_thinking_model=True,
+            messages=[],
+        )
     )
 
 
@@ -937,7 +955,7 @@ def test_llamacpp_chat_stores_thinking_in_messages():
     result = LlamaCppClient._chat(fake, "hi")
 
     assert result == "the answer"
-    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "step by step"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "step by step"}
 
 
 def test_llamacpp_chat_omits_thinking_key_when_no_thinking():
@@ -946,7 +964,7 @@ def test_llamacpp_chat_omits_thinking_key_when_no_thinking():
     fake = _llamacpp_fake("just an answer, no think block")
     LlamaCppClient._chat(fake, "hi")
 
-    assert fake.messages[-1] == {"role": "assistant", "content": "just an answer, no think block"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "just an answer, no think block"}
     assert "thinking" not in fake.messages[-1]
 
 
@@ -964,11 +982,12 @@ def test_llamacpp_chat_streamed_stores_thinking_in_messages():
         is_thinking_model=True,
         messages=[],
     )
+    _bind_append(fake)
 
     chunks = list(LlamaCppClient._chat_streamed(fake, {}, []))
 
     assert "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING) == "the answer"
-    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "reasoning"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "reasoning"}
 
 
 def test_llamacpp_chat_streamed_yields_incrementally():
@@ -990,6 +1009,7 @@ def test_llamacpp_chat_streamed_yields_incrementally():
         last_thinking="",
         messages=[],
     )
+    _bind_append(fake)
 
     for chunk in LlamaCppClient._chat_streamed(fake, {}, []):
         events.append(("yield", chunk.content))
@@ -997,7 +1017,7 @@ def test_llamacpp_chat_streamed_yields_incrementally():
     first_yield = next(i for i, e in enumerate(events) if e[0] == "yield")
     last_pull = max(i for i, e in enumerate(events) if e[0] == "pull")
     assert first_yield < last_pull, f"stream was buffered, not incremental: {events}"
-    assert fake.messages[-1] == {"role": "assistant", "content": "Hello world"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "Hello world"}
 
 
 def test_llamacpp_chat_streamed_reads_reasoning_content_field():
@@ -1017,6 +1037,7 @@ def test_llamacpp_chat_streamed_reads_reasoning_content_field():
         last_thinking="",
         messages=[],
     )
+    _bind_append(fake)
 
     chunks = list(LlamaCppClient._chat_streamed(fake, {}, []))
 
@@ -1024,7 +1045,7 @@ def test_llamacpp_chat_streamed_reads_reasoning_content_field():
     generating = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
     assert thinking == "think more"
     assert generating == "the answer"
-    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "think more"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "think more"}
 
 
 def _openai_compat_fake(content: str):
@@ -1033,14 +1054,16 @@ def _openai_compat_fake(content: str):
     msg = types.SimpleNamespace(content=content, tool_calls=None)
     response = types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg)])
     completions = types.SimpleNamespace(create=lambda **kw: response)
-    return types.SimpleNamespace(
-        _chat_setup=lambda *a, **k: ({}, []),
-        _with_response_format=lambda gk, rf: gk,
-        _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions)),
-        model=types.SimpleNamespace(value="fake-model"),
-        is_thinking_model=True,
-        last_usage=None,
-        messages=[],
+    return _bind_append(
+        types.SimpleNamespace(
+            _chat_setup=lambda *a, **k: ({}, []),
+            _with_response_format=lambda gk, rf: gk,
+            _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions)),
+            model=types.SimpleNamespace(value="fake-model"),
+            is_thinking_model=True,
+            last_usage=None,
+            messages=[],
+        )
     )
 
 
@@ -1051,7 +1074,7 @@ def test_openai_compat_chat_stores_thinking_in_messages():
     result = OpenAICompatClient._chat(fake, "hi")
 
     assert result == "final"
-    assert fake.messages[-1] == {"role": "assistant", "content": "final", "thinking": "deliberating"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "final", "thinking": "deliberating"}
 
 
 def test_openai_compat_chat_omits_thinking_key_when_no_thinking():
@@ -1060,7 +1083,7 @@ def test_openai_compat_chat_omits_thinking_key_when_no_thinking():
     fake = _openai_compat_fake("plain answer")
     OpenAICompatClient._chat(fake, "hi")
 
-    assert fake.messages[-1] == {"role": "assistant", "content": "plain answer"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "plain answer"}
     assert "thinking" not in fake.messages[-1]
 
 
@@ -1086,11 +1109,12 @@ def test_openai_compat_chat_streamed_stores_thinking_in_messages():
         last_usage=None,
         messages=[],
     )
+    _bind_append(fake)
 
     chunks = list(OpenAICompatClient._chat_streamed(fake, {}, []))
 
     assert "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING) == "the answer"
-    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "reasoning"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "reasoning"}
 
 
 def test_openai_compat_chat_streamed_yields_incrementally():
@@ -1115,15 +1139,14 @@ def test_openai_compat_chat_streamed_yields_incrementally():
             yield _delta(tok)
 
     fake = types.SimpleNamespace(
-        _client=types.SimpleNamespace(
-            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_stream))
-        ),
+        _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_stream))),
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=False,
         last_thinking="",
         last_usage=None,
         messages=[],
     )
+    _bind_append(fake)
 
     for chunk in OpenAICompatClient._chat_streamed(fake, {}, []):
         events.append(("yield", chunk.content))
@@ -1131,7 +1154,7 @@ def test_openai_compat_chat_streamed_yields_incrementally():
     first_yield = next(i for i, e in enumerate(events) if e[0] == "yield")
     last_pull = max(i for i, e in enumerate(events) if e[0] == "pull")
     assert first_yield < last_pull, f"stream was buffered, not incremental: {events}"
-    assert fake.messages[-1] == {"role": "assistant", "content": "Hello world"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "Hello world"}
 
 
 def test_openai_compat_chat_reads_reasoning_content_field():
@@ -1155,11 +1178,12 @@ def test_openai_compat_chat_reads_reasoning_content_field():
         last_usage=None,
         messages=[],
     )
+    _bind_append(fake)
 
     result = OpenAICompatClient._chat(fake, "hi")
 
     assert result == "the answer"
-    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "my reasoning"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "my reasoning"}
 
 
 def test_openai_compat_chat_streamed_reads_reasoning_content_field():
@@ -1184,6 +1208,7 @@ def test_openai_compat_chat_streamed_reads_reasoning_content_field():
         last_usage=None,
         messages=[],
     )
+    _bind_append(fake)
 
     chunks = list(OpenAICompatClient._chat_streamed(fake, {}, []))
 
@@ -1191,7 +1216,7 @@ def test_openai_compat_chat_streamed_reads_reasoning_content_field():
     generating = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
     assert thinking == "think more"
     assert generating == "the answer"
-    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "think more"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "think more"}
 
 
 # ---------------------------------------------------------------------------

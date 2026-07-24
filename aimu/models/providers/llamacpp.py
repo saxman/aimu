@@ -215,7 +215,7 @@ class LlamaCppClient(BaseModelClient):
         elif self.is_thinking_model:
             self.last_thinking, content = _split_thinking(content)
 
-        self.messages.append({"role": "assistant", "content": content})
+        self._append_message({"role": "assistant", "content": content})
         if self.last_thinking:
             self.messages[-1]["thinking"] = self.last_thinking
         return content
@@ -264,7 +264,7 @@ class LlamaCppClient(BaseModelClient):
                     yield StreamChunk(StreamingContentType.GENERATING, text)
 
         if not tool_calls_acc:
-            self.messages.append({"role": "assistant", "content": full_content})
+            self._append_message({"role": "assistant", "content": full_content})
             if self.last_thinking:
                 self.messages[-1]["thinking"] = self.last_thinking
             return

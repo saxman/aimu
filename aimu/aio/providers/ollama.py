@@ -176,7 +176,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
                 self.messages[-1]["thinking"] = response["message"].thinking
             return content
 
-        self.messages.append({"role": response["message"].role, "content": response["message"].content})
+        self._append_message({"role": response["message"].role, "content": response["message"].content})
         if response["message"].thinking:
             self.messages[-1]["thinking"] = response["message"].thinking
         return response["message"].content
@@ -219,7 +219,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         message = {"role": turn["role"], "content": turn["content"]}
         if turn["thinking"]:
             message["thinking"] = turn["thinking"]
-        self.messages.append(message)
+        self._append_message(message)
 
     @staticmethod
     async def _consume_turn(response, out: dict) -> AsyncIterator[StreamChunk]:

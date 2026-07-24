@@ -144,7 +144,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                 text = json.dumps(block.input)
                 break
         if append_message:
-            self.messages.append({"role": "assistant", "content": text})
+            self._append_message({"role": "assistant", "content": text})
 
     # Pure helpers reused from sync client; no I/O involved.
     _update_generate_kwargs = _SyncAnthropicClient._update_generate_kwargs
@@ -247,7 +247,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                     system, ant_messages, generate_kwargs, response_format, append_message=True
                 )
             text = await self._structured_call(system, ant_messages, generate_kwargs, response_format)
-            self.messages.append({"role": "assistant", "content": text})
+            self._append_message({"role": "assistant", "content": text})
             return text
 
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
@@ -292,7 +292,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         assistant_msg: dict = {"role": "assistant", "content": text_content}
         if self.last_thinking:
             assistant_msg["thinking"] = self.last_thinking
-        self.messages.append(assistant_msg)
+        self._append_message(assistant_msg)
         return text_content
 
     async def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> AsyncIterator[StreamChunk]:
@@ -337,7 +337,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             assistant_msg: dict = {"role": "assistant", "content": full_content}
             if self.last_thinking:
                 assistant_msg["thinking"] = self.last_thinking
-            self.messages.append(assistant_msg)
+            self._append_message(assistant_msg)
             return
 
         # Single turn: parse accumulated JSON, dispatch, yield TOOL_CALLING chunks, and return.

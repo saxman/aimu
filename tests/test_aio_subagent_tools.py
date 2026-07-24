@@ -212,6 +212,11 @@ async def test_concurrent_dispatch_overlaps_spawns():
                 },
             ]
 
+        def _append_message(self, message):
+            from aimu.models._internal.chat_state import _ChatStateMixin
+
+            _ChatStateMixin._append_message(self, message)
+
     client = _Client()
     loop = _AsyncToolLoop(client, [spawn], concurrent_tool_calls=True)
     await loop._dispatch()

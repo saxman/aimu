@@ -12,6 +12,7 @@ from __future__ import annotations
 import random
 import string
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Iterator, Optional
 
 
@@ -110,6 +111,16 @@ class _ChatStateMixin:
                 f"Model {self.model.name} does not support audio input. Use a model with supports_audio=True."
             )
 
+    def _append_message(self, message: dict) -> None:
+        """Append ``message`` to ``self.messages``, stamping it with an append-time ``timestamp``.
+
+        ``setdefault`` so a caller that already set one (e.g. a restore replay) wins. The key is inert
+        (see ``INERT_MESSAGE_KEYS``) and stripped before any provider request, so stamping here never
+        changes the payload sent to a model; it exists for UIs and persistence.
+        """
+        message.setdefault("timestamp", datetime.now().isoformat())
+        self.messages.append(message)
+
     def _append_user_turn(self, user_message: str, images: Optional[list] = None, audio: Optional[list] = None) -> None:
         """Append the system message (if first turn) and the user turn to ``self.messages``.
 
@@ -117,7 +128,7 @@ class _ChatStateMixin:
         ``audio`` are mutually exclusive per turn.
         """
         if len(self.messages) == 0 and self._system_message:
-            self.messages.append({"role": "system", "content": self._system_message})
+            self._append_message({"role": "system", "content": self._system_message})
 
         if images and audio:
             raise ValueError("images= and audio= are mutually exclusive per turn. Pass one or the other, not both.")
@@ -126,14 +137,14 @@ class _ChatStateMixin:
             self._require_vision()
             from .image_input import _build_user_content_blocks
 
-            self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
+            self._append_message({"role": "user", "content": _build_user_content_blocks(user_message, images)})
         elif audio:
             self._require_audio()
             from .audio_input import _build_audio_content_blocks
 
-            self.messages.append({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
+            self._append_message({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
         else:
-            self.messages.append({"role": "user", "content": user_message})
+            self._append_message({"role": "user", "content": user_message})
 
     @contextmanager
     def _tools_override(self, tools: Optional[list]) -> Iterator[None]:
@@ -212,7 +223,7 @@ class _ChatStateMixin:
         }
         if content:
             message["content"] = content
-        self.messages.append(message)
+        self._append_message(message)
 
     def _record_tool_calls(self, tool_calls: list[dict], content: str = "") -> None:
         """Store the assistant turn that requested tools — parse + record, **no execution**.

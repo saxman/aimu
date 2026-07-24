@@ -699,7 +699,7 @@ class HuggingFaceClient(BaseModelClient):
             return content
 
         logger.debug("[generating] chat response: %s", response)
-        self.messages.append({"role": "assistant", "content": response})
+        self._append_message({"role": "assistant", "content": response})
 
         if self.last_thinking is not None:
             self.messages[-1]["thinking"] = self.last_thinking
@@ -778,7 +778,7 @@ class HuggingFaceClient(BaseModelClient):
             yield StreamChunk(StreamingContentType.GENERATING, response_part)
 
         logger.debug("[generating] collected: %s", content)
-        self.messages.append({"role": "assistant", "content": content})
+        self._append_message({"role": "assistant", "content": content})
 
         if self.last_thinking is not None:
             self.messages[-1]["thinking"] = self.last_thinking
@@ -809,7 +809,7 @@ class HuggingFaceClient(BaseModelClient):
             logger.debug("[generating] collected: %s", response)
             yield StreamChunk(StreamingContentType.GENERATING, response)
 
-        self.messages.append({"role": "assistant", "content": response})
+        self._append_message({"role": "assistant", "content": response})
 
         if self.last_thinking is not None:
             self.messages[-1]["thinking"] = self.last_thinking

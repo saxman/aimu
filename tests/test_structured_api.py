@@ -345,8 +345,9 @@ def test_anthropic_structured_streamed_yields_json_no_thinking():
     assert StreamingContentType.THINKING not in phases  # forced tool ⊥ thinking
     assert all(c.phase == StreamingContentType.GENERATING for c in chunks)
     assert "".join(c.content for c in chunks) == '{"name": "Ada", "age": 36}'
-    # Assistant turn stored for the stateful chat path.
-    assert client.messages[-1] == {"role": "assistant", "content": '{"name": "Ada", "age": 36}'}
+    # Assistant turn stored for the stateful chat path (minus the inert append-time timestamp).
+    stored = {key: value for key, value in client.messages[-1].items() if key != "timestamp"}
+    assert stored == {"role": "assistant", "content": '{"name": "Ada", "age": 36}'}
 
 
 def test_anthropic_schema_plus_tools_raises():

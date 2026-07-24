@@ -293,7 +293,8 @@ class _ToolLoop(_BaseToolLoop):
                 results = [f.result() for f in futures]
         else:
             results = [self._call_plain_tool(tc, tc_id) for tc, tc_id in prepared]
-        self._client.messages.extend(results)
+        for result_msg in results:
+            self._client._append_message(result_msg)
 
     def _dispatch_streamed(self, iteration: int) -> Iterator[StreamChunk]:
         from aimu.tools.decorator import ToolArgumentError
@@ -316,7 +317,7 @@ class _ToolLoop(_BaseToolLoop):
                 futures = [executor.submit(self._call_plain_tool, tc, tc_id) for tc, tc_id in prepared]
                 results = [f.result() for f in futures]
             for (tc, _tc_id), result_msg in zip(prepared, results):
-                self._client.messages.append(result_msg)
+                self._client._append_message(result_msg)
                 yield _tool_chunk(tc, result_msg["content"])
             return
 
@@ -329,7 +330,7 @@ class _ToolLoop(_BaseToolLoop):
                     )
                 if not self._tool_call_approved(tc["name"], tc["arguments"]):
                     result_msg = self._not_approved(tc, tc_id)
-                    self._client.messages.append(result_msg)
+                    self._client._append_message(result_msg)
                     yield _tool_chunk(tc, result_msg["content"])
                     continue
                 try:
@@ -360,7 +361,7 @@ class _ToolLoop(_BaseToolLoop):
             else:
                 result_msg = self._call_plain_tool(tc, tc_id)
 
-            self._client.messages.append(result_msg)
+            self._client._append_message(result_msg)
             yield _tool_chunk(tc, result_msg["content"])
 
     def _call_plain_tool(self, tc: dict, tc_id: str) -> dict:

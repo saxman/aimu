@@ -193,7 +193,7 @@ class AnthropicClient(BaseModelClient):
                 text = json.dumps(block.input)
                 break
         if append_message:
-            self.messages.append({"role": "assistant", "content": text})
+            self._append_message({"role": "assistant", "content": text})
 
     # ------------------------------------------------------------------ #
     # generate_kwargs helpers                                              #
@@ -477,7 +477,7 @@ class AnthropicClient(BaseModelClient):
                     system, ant_messages, generate_kwargs, response_format, append_message=True
                 )
             text = self._structured_call(system, ant_messages, generate_kwargs, response_format)
-            self.messages.append({"role": "assistant", "content": text})
+            self._append_message({"role": "assistant", "content": text})
             return text
 
         generate_kwargs = self._thinking_kwargs(generate_kwargs)
@@ -523,7 +523,7 @@ class AnthropicClient(BaseModelClient):
         assistant_msg: dict = {"role": "assistant", "content": text_content}
         if self.last_thinking:
             assistant_msg["thinking"] = self.last_thinking
-        self.messages.append(assistant_msg)
+        self._append_message(assistant_msg)
         return text_content
 
     def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
@@ -570,7 +570,7 @@ class AnthropicClient(BaseModelClient):
             assistant_msg: dict = {"role": "assistant", "content": full_content}
             if self.last_thinking:
                 assistant_msg["thinking"] = self.last_thinking
-            self.messages.append(assistant_msg)
+            self._append_message(assistant_msg)
             return
 
         # Single turn: parse accumulated JSON, dispatch, yield TOOL_CALLING chunks, and return.

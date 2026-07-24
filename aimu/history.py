@@ -40,7 +40,7 @@ class ConversationManager:
         timestamp = datetime.now().isoformat()
 
         for message in messages[len(self.messages) :]:
-            message["timestamp"] = timestamp
+            message.setdefault("timestamp", timestamp)  # a client that stamped at append time wins
             self.__messages.append(message)
 
         self.__conversations_table.update({"messages": self.__messages}, doc_ids=[self.__doc_id])

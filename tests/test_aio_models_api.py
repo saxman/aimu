@@ -9,7 +9,19 @@ import pytest
 
 from aimu.aio import AsyncModelClient
 from aimu.models import StreamChunk, StreamingContentType
+from aimu.models._internal.chat_state import _ChatStateMixin
 from helpers_aio import MockAsyncModelClient
+
+
+def _bind_append(fake):
+    """Give a hand-rolled ``_chat`` fake the real append-with-timestamp seam and return it."""
+    fake._append_message = _ChatStateMixin._append_message.__get__(fake)
+    return fake
+
+
+def _without_ts(message):
+    """A message dict minus the inert append-time ``timestamp`` key, for exact-content asserts."""
+    return {key: value for key, value in message.items() if key != "timestamp"}
 
 
 # ---------------------------------------------------------------------------
@@ -287,11 +299,13 @@ async def test_aio_openai_compat_chat_stores_thinking_in_messages():
         last_usage=None,
         messages=[],
     )
+    _bind_append(fake)
 
     result = await AsyncOpenAICompatClient._chat(fake, "hi")
 
     assert result == "final"
-    assert fake.messages[-1] == {"role": "assistant", "content": "final", "thinking": "deliberating"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "final", "thinking": "deliberating"}
+    assert "timestamp" in fake.messages[-1]  # stamped at append time
 
 
 # ---------------------------------------------------------------------------
@@ -470,6 +484,7 @@ async def test_aio_openai_compat_chat_streamed_yields_incrementally():
         last_usage=None,
         messages=[],
     )
+    _bind_append(fake)
 
     async for chunk in AsyncOpenAICompatClient._chat_streamed(fake, {}, []):
         events.append(("yield", chunk.content))
@@ -477,7 +492,7 @@ async def test_aio_openai_compat_chat_streamed_yields_incrementally():
     first_yield = next(i for i, e in enumerate(events) if e[0] == "yield")
     last_pull = max(i for i, e in enumerate(events) if e[0] == "pull")
     assert first_yield < last_pull, f"stream was buffered, not incremental: {events}"
-    assert fake.messages[-1] == {"role": "assistant", "content": "Hello world"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "Hello world"}
 
 
 async def test_aio_openai_compat_chat_streamed_reads_reasoning_content_field():
@@ -509,6 +524,7 @@ async def test_aio_openai_compat_chat_streamed_reads_reasoning_content_field():
         last_usage=None,
         messages=[],
     )
+    _bind_append(fake)
 
     chunks = []
     async for c in AsyncOpenAICompatClient._chat_streamed(fake, {}, []):
@@ -518,4 +534,4 @@ async def test_aio_openai_compat_chat_streamed_reads_reasoning_content_field():
     generating = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
     assert thinking == "think more"
     assert generating == "the answer"
-    assert fake.messages[-1] == {"role": "assistant", "content": "the answer", "thinking": "think more"}
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "think more"}

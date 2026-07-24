@@ -53,7 +53,8 @@ def test_default_approves_no_behavior_change():
     client = MockModelClient([])
     _stage_tool_calls(client, [{"name": "add", "arguments": {"a": 2, "b": 3}}])
     _ToolLoop(client, [add])._dispatch()
-    assert client.messages[-1] == {
+    tool_msg = {key: value for key, value in client.messages[-1].items() if key != "timestamp"}
+    assert tool_msg == {
         "role": "tool",
         "name": "add",
         "content": "5",
