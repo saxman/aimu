@@ -357,13 +357,18 @@ OLLAMA_BASE_URL = "http://localhost:11434/v1"
 
 class OllamaOpenAIModel(Model):
     # Model values are Ollama model tags (as used by `ollama pull`).
-    LLAMA_3_1_8B = ModelSpec("llama3.1:8b")
-    LLAMA_3_2_3B = ModelSpec("llama3.2:3b")
+    # Llama 3.1/3.2 tool calling verified reliable on current Ollama builds (same backend as
+    # the native OllamaModel catalog).
+    LLAMA_3_1_8B = ModelSpec("llama3.1:8b", tools=True)
+    LLAMA_3_2_3B = ModelSpec("llama3.2:3b", tools=True)
     MISTRAL_7B = ModelSpec("mistral:7b", tools=True)
     PHI_4_MINI = ModelSpec("phi4-mini:3.8b", tools=True)
     QWEN_3_4B = ModelSpec("qwen3:4b", tools=True, thinking=True)
     QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)
-    QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True)
+    # Qwen 3.5 is a unified vision-language model (vision built into the base weights); the
+    # Ollama tag serves image input over the OpenAI-compat endpoint. Qwen3 8B/4B above are the
+    # older text-only generation.
+    QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True, vision=True)
     DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True)
     GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True)
     # Gemma 4 E4B/12B support audio natively, but the Ollama API doesn't expose audio input yet
@@ -386,12 +391,16 @@ LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 
 class LMStudioOpenAIModel(Model):
     # Model values are the model "key" as shown in LM Studio's loaded model list.
-    LLAMA_3_1_8B = ModelSpec("llama-3.1-8b-instruct")
+    # tools=True consistent with the verified Ollama Llama tool calling and the llama.cpp-based
+    # llama-server build (LM Studio runs the same GGUF/llama.cpp engine).
+    LLAMA_3_1_8B = ModelSpec("llama-3.1-8b-instruct", tools=True)
     MISTRAL_7B = ModelSpec("mistral-7b-instruct-v0.3", tools=True)
     PHI_4_MINI = ModelSpec("phi-4-mini-instruct", tools=True)
     QWEN_3_4B = ModelSpec("qwen3-4b", tools=True, thinking=True)
     QWEN_3_8B = ModelSpec("qwen3-8b", tools=True, thinking=True)
-    QWEN_3_5_9B = ModelSpec("qwen3.5-9b", tools=True, thinking=True)
+    # Qwen 3.5 is a unified vision-language model; load its multimodal GGUF in LM Studio for
+    # image input (same convention as the Gemma 4 vision entries below). Qwen3 8B/4B are text-only.
+    QWEN_3_5_9B = ModelSpec("qwen3.5-9b", tools=True, thinking=True, vision=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-distill-qwen-7b", thinking=True)
     # Gemma 4 E4B/12B support audio natively, but LM Studio has no audio-input path (image-only);
     # leave audio=False.

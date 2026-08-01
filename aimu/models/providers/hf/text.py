@@ -189,11 +189,14 @@ class HuggingFaceModel(Model):
         ToolCallFormat.XML,
     )
 
-    # Google: Gemma 4 supports vision and audio input (natively multimodal)
+    # Google: Gemma 4 is natively multimodal (vision + audio input) and a thinking model.
+    # thinking=True matches every server catalog for these ids; the HF chat-template path
+    # emits reasoning the same way as the other thinking models here (no think_opener needed).
     GEMMA_4_E4B = (
         ModelSpec(
             "google/gemma-4-E4B-it",
             tools=True,
+            thinking=True,
             vision=True,
             audio=True,
             generation_kwargs={"temperature": 1.0, "top_p": 0.95, "top_k": 64},
@@ -204,12 +207,18 @@ class HuggingFaceModel(Model):
         ModelSpec(
             "google/gemma-4-12b-it",
             tools=True,
+            thinking=True,
             vision=True,
             audio=True,
             generation_kwargs={"temperature": 1.0, "top_p": 0.95, "top_k": 64},
         ),
         ToolCallFormat.NA,
     )
+    # tools=False here is deliberate, not an oversight: the in-process HF client parses
+    # tool calls via a ToolCallFormat, and Gemma 3 has no format assigned (ToolCallFormat.NA),
+    # so it cannot surface tool calls on this path. OpenAI-compat servers (vLLM/SGLang/etc.)
+    # parse tool calls server-side, so they set tools=True for the same model. See
+    # tests/test_model_catalog_consistency.py.
     GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", vision=True)
 
     # NVIDIA: Nemotron-H is the multimodal Hybrid series (Mamba + Transformer)

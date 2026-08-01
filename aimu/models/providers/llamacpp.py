@@ -23,14 +23,22 @@ def _make_cache_key(model_path: str, n_ctx: int, n_gpu_layers: int, chat_format:
 
 
 class LlamaCppModel(Model):
-    LLAMA_3_1_8B = ModelSpec("llama-3.1-8b")
-    LLAMA_3_2_3B = ModelSpec("llama-3.2-3b")
+    # tools=True consistent with the verified Ollama Llama tool calling and the llama.cpp-based
+    # llama-server build (llama-cpp-python runs the same engine). Requires a chat_format that
+    # supports tool calling (modern GGUFs auto-detect; older ones need chat_format="chatml-function-calling").
+    LLAMA_3_1_8B = ModelSpec("llama-3.1-8b", tools=True)
+    LLAMA_3_2_3B = ModelSpec("llama-3.2-3b", tools=True)
     MISTRAL_7B = ModelSpec("mistral-7b", tools=True)
     QWEN_3_4B = ModelSpec("qwen3-4b", tools=True, thinking=True)
     QWEN_3_8B = ModelSpec("qwen3-8b", tools=True, thinking=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-7b", thinking=True)
     PHI_4_MINI = ModelSpec("phi-4-mini", tools=True)
-    GEMMA_4_12B = ModelSpec("gemma-4-12b", tools=True)
+    # thinking=True matches every other Gemma 4 catalog entry; llama-cpp surfaces reasoning
+    # via the shared <think> parser (same as QWEN_3_8B above). vision is intentionally omitted:
+    # llama-cpp vision needs an mmproj projector supplied via the chat_handler= constructor
+    # kwarg, which the default GGUF path does not load, so advertising vision=True would let a
+    # caller pass images that error out. See tests/test_model_catalog_consistency.py.
+    GEMMA_4_12B = ModelSpec("gemma-4-12b", tools=True, thinking=True)
 
 
 class LlamaCppClient(BaseModelClient):

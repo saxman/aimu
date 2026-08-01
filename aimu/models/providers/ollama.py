@@ -33,14 +33,18 @@ _QWEN_3_5_KWARGS = {**_QWEN_3_6_KWARGS, "presence_penalty": 1.5}
 
 class OllamaModel(Model):
     # Alibaba
+    # Qwen 3.5/3.6 are a unified vision-language family (vision is built into the base
+    # weights, not a separate -VL variant), so the plain tags serve image input. The Ollama
+    # registry lists these tags with "Text, Image" capability. (Qwen3 32B/8B below are the
+    # older text-only generation and stay vision=False.)
     QWEN_3_6_35B = ModelSpec(
-        "qwen3.6:35b", tools=True, thinking=True, generation_kwargs=_QWEN_3_6_KWARGS, structured_output=True
+        "qwen3.6:35b", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_6_KWARGS, structured_output=True
     )
     QWEN_3_6_27B = ModelSpec(
-        "qwen3.6:27b", tools=True, thinking=True, generation_kwargs=_QWEN_3_6_KWARGS, structured_output=True
+        "qwen3.6:27b", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_6_KWARGS, structured_output=True
     )
     QWEN_3_5_9B = ModelSpec(
-        "qwen3.5:9b", tools=True, thinking=True, generation_kwargs=_QWEN_3_5_KWARGS, structured_output=True
+        "qwen3.5:9b", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_5_KWARGS, structured_output=True
     )
     QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True, structured_output=True)
     QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True, structured_output=True)
@@ -75,9 +79,11 @@ class OllamaModel(Model):
     DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True, structured_output=True)
     # HuggingFace: tool call responses don't always look correct
     SMOLLM2_1_7B = ModelSpec("smollm2:1.7b", structured_output=True)
-    # Meta: don't reliably use tools when expected
-    LLAMA_3_2_3B = ModelSpec("llama3.2:3b", structured_output=True)
-    LLAMA_3_1_8B = ModelSpec("llama3.1:8b", structured_output=True)
+    # Meta: tool calling verified reliable on current Ollama builds (both models called the
+    # correct tool with correct arguments across every trial). An earlier flag disabled tools
+    # here after older Ollama versions emitted unreliable calls; that no longer reproduces.
+    LLAMA_3_2_3B = ModelSpec("llama3.2:3b", tools=True, structured_output=True)
+    LLAMA_3_1_8B = ModelSpec("llama3.1:8b", tools=True, structured_output=True)
 
 
 class OllamaClient(BaseModelClient):

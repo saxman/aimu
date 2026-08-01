@@ -5,6 +5,29 @@ To make a new model usable with `ModelClient`, add a member to that provider's `
 !!! note "AIMU ships curated models only"
     Every modality requires the model to be a member of its provider enum (or a hand-built spec, see [Custom models](#custom-models)). Passing an arbitrary `"provider:some/unknown-repo"` string **raises** `ValueError`, rather than silently fabricating a spec with guessed capabilities. Capability flags (tools/thinking/vision, `pipeline_class`, `supports_negative_prompt`, voice/step defaults, and so on) can't be inferred reliably from a repo name, and a wrong guess causes hard-to-debug runtime failures. So the catalog is intentional: to use a new model, add it to the enum here.
 
+## The same model under multiple providers
+
+One model is often reachable through several providers (Qwen3 8B runs on Ollama, vLLM, HuggingFace, llama.cpp, ...). AIMU keeps two things separate:
+
+- **`ModelSpec.id`** is the *wire identifier* sent to that provider's server. It is legitimately different per provider and must match what the server accepts: `qwen3:8b` (Ollama), `Qwen/Qwen3-8B` (vLLM / HF-serve / SGLang), `qwen3-8b.gguf` (llama-server), `qwen3-8b` (LlamaCpp / LM Studio). Do **not** try to normalise these; a mismatched id just fails the request.
+- **The enum-member name** (`QWEN_3_8B`) is the *cross-provider identity*. It is the same across every provider enum, and it is what [`resolve_model_enum`](../reference/api/models.md) searches when a caller passes a bare name (e.g. `"QWEN_3_8B"`). Keep the name identical across providers for the same model so bare-name resolution finds every serving option.
+
+### Keep capability flags consistent across providers
+
+Because a bare name can resolve to any provider that offers it, a shared name must describe the **same model**. The *intrinsic* capability flags (`tools`, `thinking`, `vision`) describe the weights, not the server, so they should agree everywhere the name appears. `tests/test_model_catalog_consistency.py` enforces this: adding `QWEN_3_8B` to a new provider but forgetting `thinking=True` fails the suite.
+
+Two flags are excluded from that check because they genuinely describe the **serving path**, not the model, and so vary by provider:
+
+- **`structured_output`**: Ollama grammar-enforces JSON for any model, so every `OllamaModel` member sets it; a raw vLLM/HF server does not.
+- **`audio`**: some models (e.g. Gemma 4) support audio natively, but only certain serving paths expose audio input (the in-process HuggingFace client does; the OpenAI-compat server catalogs leave it `False` by design).
+
+An *intrinsic* flag may still legitimately differ when a specific serving path cannot expose the capability, even though the model has it. Two live examples:
+
+- `GEMMA_3_12B` has `tools=False` on the in-process HuggingFace and native-Ollama clients (they parse tool calls via a per-model format, and Gemma 3 has none assigned) but `tools=True` on the OpenAI-compat servers (they parse tool calls server-side).
+- `GEMMA_4_12B` has `vision=False` on LlamaCpp (the default GGUF path loads no `mmproj` projector; vision needs one passed via `chat_handler=`) but `vision=True` on every other provider.
+
+When you introduce a divergence like these, set the flag to what the serving path can actually deliver (advertising a capability the client can't fulfil violates "failures are apparent"), add a code comment stating why, and register it in the test's `_INTENTIONAL_DIVERGENCES` map with a rationale. If a divergence looks accidental, it belongs in `_SUSPECTED_OVERSIGHTS` (a frozen to-fix list) instead.
+
 ## Basic case
 
 For most providers (`OllamaModel`, `AnthropicModel`, `OpenAIModel`, etc.) the enum value is a single `ModelSpec`:

@@ -54,9 +54,9 @@ Gemini 2.5 thinking models emit `<think>` tags on Google's OpenAI-compatible end
 
 | Enum member | Model id | Tools | Thinking | Vision |
 |---|---|:---:|:---:|:---:|
-| `QWEN_3_6_35B` | `qwen3.6:35b` | ✅ | ✅ | ✗ |
-| `QWEN_3_6_27B` | `qwen3.6:27b` | ✅ | ✅ | ✗ |
-| `QWEN_3_5_9B` | `qwen3.5:9b` | ✅ | ✅ | ✗ |
+| `QWEN_3_6_35B` | `qwen3.6:35b` | ✅ | ✅ | ✅ |
+| `QWEN_3_6_27B` | `qwen3.6:27b` | ✅ | ✅ | ✅ |
+| `QWEN_3_5_9B` | `qwen3.5:9b` | ✅ | ✅ | ✅ |
 | `QWEN_3_32B` | `qwen3:32b` | ✅ | ✅ | ✗ |
 | `QWEN_3_8B` | `qwen3:8b` | ✅ | ✅ | ✗ |
 | `GEMMA_4_E4B` | `gemma4:e4b` | ✅ | ✅ | ✅ |
@@ -74,8 +74,8 @@ Gemini 2.5 thinking models emit `<think>` tags on Google's OpenAI-compatible end
 | `PHI_4_14B` | `phi4:14b` | ✗ | ✗ | ✗ |
 | `DEEPSEEK_R1_8B` | `deepseek-r1:8b` | ✗ | ✅ | ✗ |
 | `SMOLLM2_1_7B` | `smollm2:1.7b` | ✗ | ✗ | ✗ |
-| `LLAMA_3_2_3B` | `llama3.2:3b` | ✗ | ✗ | ✗ |
-| `LLAMA_3_1_8B` | `llama3.1:8b` | ✗ | ✗ | ✗ |
+| `LLAMA_3_2_3B` | `llama3.2:3b` | ✅ | ✗ | ✗ |
+| `LLAMA_3_1_8B` | `llama3.1:8b` | ✅ | ✗ | ✗ |
 
 Some Ollama models can technically be asked for tools but produce unreliable tool calls; those are marked `tools=False` and documented in the enum source.
 
@@ -121,13 +121,13 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 
 | Enum member | Tools | Thinking | Vision | Servers |
 |---|:---:|:---:|:---:|---|
-| `LLAMA_3_1_8B` | ✅ † | ✗ | ✗ | all |
-| `LLAMA_3_2_3B` | ✅ † | ✗ | ✗ | all except LM Studio |
+| `LLAMA_3_1_8B` | ✅ | ✗ | ✗ | all |
+| `LLAMA_3_2_3B` | ✅ | ✗ | ✗ | all except LM Studio |
 | `MISTRAL_7B` | ✅ | ✗ | ✗ | all |
 | `PHI_4_MINI` | ✅ | ✗ | ✗ | all |
 | `QWEN_3_4B` | ✅ | ✅ | ✗ | all |
 | `QWEN_3_8B` | ✅ | ✅ | ✗ | all |
-| `QWEN_3_5_9B` | ✅ | ✅ | ✗ | Ollama, LM Studio |
+| `QWEN_3_5_9B` | ✅ | ✅ | ✅ | Ollama, LM Studio |
 | `DEEPSEEK_R1_8B` | ✗ | ✅ | ✗ | Ollama |
 | `DEEPSEEK_R1_7B` | ✗ | ✅ | ✗ | all except Ollama |
 | `GEMMA_3_12B` | ✅ † | ✗ | ✅ | all except LM Studio |
@@ -136,7 +136,7 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 | `GEMMA_4_26B` | ✅ | ✅ | ✅ | all |
 | `GEMMA_4_31B` | ✅ | ✅ | ✅ | all |
 
-† On `OllamaOpenAIModel`, `LLAMA_3_1_8B`, `LLAMA_3_2_3B`, and `GEMMA_3_12B` are marked `tools=✗` — Ollama produces unreliable tool calls for these (matches the native `OllamaModel` policy). The HuggingFace-repo, GGUF, and LM Studio builds mark them `tools=✅`.
+† `GEMMA_3_12B` is marked `tools=✗` on the Ollama-backed server (`OllamaOpenAIModel`) — the in-process HuggingFace and native-Ollama clients have no tool-call parse format for Gemma 3 — but `tools=✅` on the vLLM, SGLang, HF Serve, and llama-server builds, which parse Gemma 3 tool calls server-side. (`LLAMA_3_1_8B`/`LLAMA_3_2_3B` were formerly `tools=✗` on the Ollama/LM Studio builds; live testing confirmed reliable tool calling on current runtimes, so they are now `tools=✅` everywhere.)
 
 Gemma 4 E4B/12B are natively audio-capable, but `audio` is left off for every OpenAI-compat server because audio input isn't reliably exposed by these local servers (see the inline comments in `openai_compat.py` for the per-server reason). 26B/31B have no native audio.
 
