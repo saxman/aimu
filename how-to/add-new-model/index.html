@@ -975,6 +975,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#the-same-model-under-multiple-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The same model under multiple providers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The same model under multiple providers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keep-capability-flags-consistent-across-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keep capability flags consistent across providers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#basic-case" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3019,6 +3047,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#the-same-model-under-multiple-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The same model under multiple providers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The same model under multiple providers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keep-capability-flags-consistent-across-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keep capability flags consistent across providers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#basic-case" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3132,6 +3188,25 @@
 <p class="admonition-title">AIMU ships curated models only</p>
 <p>Every modality requires the model to be a member of its provider enum (or a hand-built spec, see <a href="#custom-models">Custom models</a>). Passing an arbitrary <code>"provider:some/unknown-repo"</code> string <strong>raises</strong> <code>ValueError</code>, rather than silently fabricating a spec with guessed capabilities. Capability flags (tools/thinking/vision, <code>pipeline_class</code>, <code>supports_negative_prompt</code>, voice/step defaults, and so on) can't be inferred reliably from a repo name, and a wrong guess causes hard-to-debug runtime failures. So the catalog is intentional: to use a new model, add it to the enum here.</p>
 </div>
+<h2 id="the-same-model-under-multiple-providers">The same model under multiple providers<a class="headerlink" href="#the-same-model-under-multiple-providers" title="Permanent link">&para;</a></h2>
+<p>One model is often reachable through several providers (Qwen3 8B runs on Ollama, vLLM, HuggingFace, llama.cpp, ...). AIMU keeps two things separate:</p>
+<ul>
+<li><strong><code>ModelSpec.id</code></strong> is the <em>wire identifier</em> sent to that provider's server. It is legitimately different per provider and must match what the server accepts: <code>qwen3:8b</code> (Ollama), <code>Qwen/Qwen3-8B</code> (vLLM / HF-serve / SGLang), <code>qwen3-8b.gguf</code> (llama-server), <code>qwen3-8b</code> (LlamaCpp / LM Studio). Do <strong>not</strong> try to normalise these; a mismatched id just fails the request.</li>
+<li><strong>The enum-member name</strong> (<code>QWEN_3_8B</code>) is the <em>cross-provider identity</em>. It is the same across every provider enum, and it is what <a href="../../reference/api/models/"><code>resolve_model_enum</code></a> searches when a caller passes a bare name (e.g. <code>"QWEN_3_8B"</code>). Keep the name identical across providers for the same model so bare-name resolution finds every serving option.</li>
+</ul>
+<h3 id="keep-capability-flags-consistent-across-providers">Keep capability flags consistent across providers<a class="headerlink" href="#keep-capability-flags-consistent-across-providers" title="Permanent link">&para;</a></h3>
+<p>Because a bare name can resolve to any provider that offers it, a shared name must describe the <strong>same model</strong>. The <em>intrinsic</em> capability flags (<code>tools</code>, <code>thinking</code>, <code>vision</code>) describe the weights, not the server, so they should agree everywhere the name appears. <code>tests/test_model_catalog_consistency.py</code> enforces this: adding <code>QWEN_3_8B</code> to a new provider but forgetting <code>thinking=True</code> fails the suite.</p>
+<p>Two flags are excluded from that check because they genuinely describe the <strong>serving path</strong>, not the model, and so vary by provider:</p>
+<ul>
+<li><strong><code>structured_output</code></strong>: Ollama grammar-enforces JSON for any model, so every <code>OllamaModel</code> member sets it; a raw vLLM/HF server does not.</li>
+<li><strong><code>audio</code></strong>: some models (e.g. Gemma 4) support audio natively, but only certain serving paths expose audio input (the in-process HuggingFace client does; the OpenAI-compat server catalogs leave it <code>False</code> by design).</li>
+</ul>
+<p>An <em>intrinsic</em> flag may still legitimately differ when a specific serving path cannot expose the capability, even though the model has it. Two live examples:</p>
+<ul>
+<li><code>GEMMA_3_12B</code> has <code>tools=False</code> on the in-process HuggingFace and native-Ollama clients (they parse tool calls via a per-model format, and Gemma 3 has none assigned) but <code>tools=True</code> on the OpenAI-compat servers (they parse tool calls server-side).</li>
+<li><code>GEMMA_4_12B</code> has <code>vision=False</code> on LlamaCpp (the default GGUF path loads no <code>mmproj</code> projector; vision needs one passed via <code>chat_handler=</code>) but <code>vision=True</code> on every other provider.</li>
+</ul>
+<p>When you introduce a divergence like these, set the flag to what the serving path can actually deliver (advertising a capability the client can't fulfil violates "failures are apparent"), add a code comment stating why, and register it in the test's <code>_INTENTIONAL_DIVERGENCES</code> map with a rationale. If a divergence looks accidental, it belongs in <code>_SUSPECTED_OVERSIGHTS</code> (a frozen to-fix list) instead.</p>
 <h2 id="basic-case">Basic case<a class="headerlink" href="#basic-case" title="Permanent link">&para;</a></h2>
 <p>For most providers (<code>OllamaModel</code>, <code>AnthropicModel</code>, <code>OpenAIModel</code>, etc.) the enum value is a single <code>ModelSpec</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># aimu/models/providers/anthropic.py</span>

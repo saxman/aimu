@@ -3551,21 +3551,21 @@
 <td><code>qwen3.6:35b</code></td>
 <td style="text-align: center;">✅</td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
 </tr>
 <tr>
 <td><code>QWEN_3_6_27B</code></td>
 <td><code>qwen3.6:27b</code></td>
 <td style="text-align: center;">✅</td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
 </tr>
 <tr>
 <td><code>QWEN_3_5_9B</code></td>
 <td><code>qwen3.5:9b</code></td>
 <td style="text-align: center;">✅</td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
 </tr>
 <tr>
 <td><code>QWEN_3_32B</code></td>
@@ -3689,14 +3689,14 @@
 <tr>
 <td><code>LLAMA_3_2_3B</code></td>
 <td><code>llama3.2:3b</code></td>
-<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
 <td style="text-align: center;">✗</td>
 <td style="text-align: center;">✗</td>
 </tr>
 <tr>
 <td><code>LLAMA_3_1_8B</code></td>
 <td><code>llama3.1:8b</code></td>
-<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
 <td style="text-align: center;">✗</td>
 <td style="text-align: center;">✗</td>
 </tr>
@@ -3902,14 +3902,14 @@
 <tbody>
 <tr>
 <td><code>LLAMA_3_1_8B</code></td>
-<td style="text-align: center;">✅ †</td>
+<td style="text-align: center;">✅</td>
 <td style="text-align: center;">✗</td>
 <td style="text-align: center;">✗</td>
 <td>all</td>
 </tr>
 <tr>
 <td><code>LLAMA_3_2_3B</code></td>
-<td style="text-align: center;">✅ †</td>
+<td style="text-align: center;">✅</td>
 <td style="text-align: center;">✗</td>
 <td style="text-align: center;">✗</td>
 <td>all except LM Studio</td>
@@ -3946,7 +3946,7 @@
 <td><code>QWEN_3_5_9B</code></td>
 <td style="text-align: center;">✅</td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
 <td>Ollama, LM Studio</td>
 </tr>
 <tr>
@@ -4000,7 +4000,7 @@
 </tr>
 </tbody>
 </table>
-<p>† On <code>OllamaOpenAIModel</code>, <code>LLAMA_3_1_8B</code>, <code>LLAMA_3_2_3B</code>, and <code>GEMMA_3_12B</code> are marked <code>tools=✗</code> — Ollama produces unreliable tool calls for these (matches the native <code>OllamaModel</code> policy). The HuggingFace-repo, GGUF, and LM Studio builds mark them <code>tools=✅</code>.</p>
+<p>† <code>GEMMA_3_12B</code> is marked <code>tools=✗</code> on the Ollama-backed server (<code>OllamaOpenAIModel</code>) — the in-process HuggingFace and native-Ollama clients have no tool-call parse format for Gemma 3 — but <code>tools=✅</code> on the vLLM, SGLang, HF Serve, and llama-server builds, which parse Gemma 3 tool calls server-side. (<code>LLAMA_3_1_8B</code>/<code>LLAMA_3_2_3B</code> were formerly <code>tools=✗</code> on the Ollama/LM Studio builds; live testing confirmed reliable tool calling on current runtimes, so they are now <code>tools=✅</code> everywhere.)</p>
 <p>Gemma 4 E4B/12B are natively audio-capable, but <code>audio</code> is left off for every OpenAI-compat server because audio input isn't reliably exposed by these local servers (see the inline comments in <code>openai_compat.py</code> for the per-server reason). 26B/31B have no native audio.</p>
 <h2 id="image-generation">Image generation<a class="headerlink" href="#image-generation" title="Permanent link">&para;</a></h2>
 <p>Image clients use a different spec class than text (<code>HuggingFaceImageSpec</code> / <code>GeminiImageSpec</code>). The capability flags don't apply, so the matrix shows model-specific defaults instead.</p>
