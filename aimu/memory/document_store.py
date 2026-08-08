@@ -30,6 +30,11 @@ class DocumentStore(MemoryStore):
     with :class:`SemanticMemoryStore` in any application, and adds the richer
     path-based API that mirrors Anthropic's Managed Agents Memory tools.
 
+    Thread-safe: every public method is serialized on a re-entrant per-instance
+    lock, so the in-memory dict and on-disk files stay consistent when the store
+    is shared across concurrent threads or turns (``edit`` -> ``read`` + ``write``
+    stays atomic).
+
     Args:
         persist_path: Root directory for persistent storage.  If *None* the
             store is ephemeral (in-memory only).

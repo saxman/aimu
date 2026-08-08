@@ -52,6 +52,10 @@ class SemanticMemoryStore(MemoryStore):
     embeds each fact so that topic-based retrieval ("work", "family life")
     finds semantically relevant facts without exact-string matching.
 
+    Thread-safe: every public method is serialized on a re-entrant per-instance
+    lock, so one store can be shared across concurrent threads or turns (e.g. an
+    async agent dispatching sync memory tools via ``asyncio.to_thread``).
+
     Args:
         collection_name: ChromaDB collection name (default: "memories").
         persist_path: Directory path for persistent storage. If None, uses an
