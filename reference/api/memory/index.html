@@ -3608,6 +3608,9 @@ interface, so code typed against <code>MemoryStore</code> should not rely on the
 e.g. "Paul works at Google" or "Sarah is the sister of Emma". ChromaDB
 embeds each fact so that topic-based retrieval ("work", "family life")
 finds semantically relevant facts without exact-string matching.</p>
+<p>Thread-safe: every public method is serialized on a re-entrant per-instance
+lock, so one store can be shared across concurrent threads or turns (e.g. an
+async agent dispatching sync memory tools via <code>asyncio.to_thread</code>).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3982,6 +3985,10 @@ it. Type the variable as <code>SemanticMemoryStore</code> to use it.</p>
 <p>Implements the :class:<code>MemoryStore</code> abstract interface so it can be swapped
 with :class:<code>SemanticMemoryStore</code> in any application, and adds the richer
 path-based API that mirrors Anthropic's Managed Agents Memory tools.</p>
+<p>Thread-safe: every public method is serialized on a re-entrant per-instance
+lock, so the in-memory dict and on-disk files stay consistent when the store
+is shared across concurrent threads or turns (<code>edit</code> -&gt; <code>read</code> + <code>write</code>
+stays atomic).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
