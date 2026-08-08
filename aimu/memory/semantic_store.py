@@ -7,12 +7,13 @@ by semantic topic (e.g. "work", "family life") or by exact subject.
 
 from __future__ import annotations
 
+import threading
 import uuid
 from typing import Any, Optional
 
 import chromadb
 
-from aimu.memory.base import MemoryStore
+from aimu.memory.base import MemoryStore, synchronized
 
 
 class _EmbeddingClientFunction(chromadb.EmbeddingFunction):
@@ -93,11 +94,15 @@ class SemanticMemoryStore(MemoryStore):
             collection_kwargs["embedding_function"] = _EmbeddingClientFunction(embedding_client)
 
         self._collection = self._client.get_or_create_collection(**collection_kwargs)
+        # Serializes the public methods so the store is safe when shared across concurrent turns
+        # (which dispatch sync tools from worker threads). Re-entrant for uniformity with DocumentStore.
+        self._lock = threading.RLock()
 
     # ------------------------------------------------------------------
     # MemoryStore abstract interface
     # ------------------------------------------------------------------
 
+    @synchronized
     def store(self, content: str) -> None:
         """
         Store a fact string in the memory store.
@@ -113,6 +118,7 @@ class SemanticMemoryStore(MemoryStore):
             documents=[content],
         )
 
+    @synchronized
     def search(self, query: str, n_results: int = 10, max_distance: float | None = None) -> list[str]:
         """
         Retrieve facts semantically related to a query.
@@ -151,6 +157,7 @@ class SemanticMemoryStore(MemoryStore):
             documents = [doc for doc, dist in zip(documents, distances) if dist <= max_distance]
         return documents
 
+    @synchronized
     def delete(self, identifier: str) -> None:
         """
         Remove all stored facts that exactly match the given string.
@@ -165,6 +172,7 @@ class SemanticMemoryStore(MemoryStore):
         if matching_ids:
             self._collection.delete(ids=matching_ids)
 
+    @synchronized
     def list_all(self) -> list[str]:
         """Return all stored fact strings."""
         result = self._collection.get()

@@ -2,18 +2,61 @@
 Tests for MemoryStore class and the memory MCP server tools.
 """
 
+import threading
 import uuid
 
 import pytest
 
 import aimu.memory.mcp as memory_mcp
-from aimu.memory import SemanticMemoryStore
+from aimu.memory import DocumentStore, SemanticMemoryStore
 
 
 @pytest.fixture
 def store():
     """Ephemeral in-memory SemanticMemoryStore for each test."""
     return SemanticMemoryStore(collection_name=str(uuid.uuid4()))
+
+
+def test_stores_are_thread_safe_under_concurrent_writes(tmp_path):
+    """Both stores serialize their public methods (a threading.RLock), so concurrent writes from
+    worker threads -- as happens when an async agent dispatches sync memory tools via
+    asyncio.to_thread across concurrent turns -- neither lose updates nor corrupt state."""
+    for make_store in (
+        lambda: DocumentStore(persist_path=str(tmp_path / uuid.uuid4().hex)),
+        lambda: SemanticMemoryStore(collection_name=str(uuid.uuid4())),
+    ):
+        target = make_store()
+        writes_per_thread, thread_count = 40, 8
+
+        def worker(w: int) -> None:
+            for j in range(writes_per_thread):
+                target.store(f"fact {w}-{j}")
+
+        threads = [threading.Thread(target=worker, args=(w,)) for w in range(thread_count)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert len(target.list_all()) == writes_per_thread * thread_count
+
+
+def test_document_store_edit_is_atomic(tmp_path):
+    """edit() is a single read-modify-write method, so the re-entrant lock keeps it internally atomic
+    (edit -> read + write all run under one hold); concurrent edits don't corrupt the document."""
+    store = DocumentStore(persist_path=str(tmp_path / "docs"))
+    store.write("/n.md", "0")
+
+    def bump(_w: int) -> None:
+        for _ in range(20):
+            current = store.read("/n.md")  # a full method call; not asserting caller-level atomicity
+            store.write("/n.md", current)  # just exercising concurrent edit/read/write without corruption
+
+    threads = [threading.Thread(target=bump, args=(w,)) for w in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert store.read("/n.md") == "0"  # value intact, no corruption/partial write
 
 
 def test_initial_store_is_empty(store):

@@ -15,10 +15,11 @@ from __future__ import annotations
 
 import os
 import posixpath
+import threading
 import uuid
 from typing import Optional
 
-from aimu.memory.base import MemoryStore
+from aimu.memory.base import MemoryStore, synchronized
 
 
 class DocumentStore(MemoryStore):
@@ -47,6 +48,10 @@ class DocumentStore(MemoryStore):
         self._persist_path = persist_path
         # Ephemeral backing store; ignored when persist_path is set.
         self._docs: dict[str, str] = {}
+        # Serializes the public methods so the in-memory dict + on-disk files stay consistent when the
+        # store is shared across concurrent turns (which dispatch sync tools from worker threads).
+        # Re-entrant because public methods call each other (edit -> read + write, store -> write).
+        self._lock = threading.RLock()
         if persist_path:
             os.makedirs(persist_path, exist_ok=True)
             self._load_from_disk()
@@ -106,6 +111,7 @@ class DocumentStore(MemoryStore):
     # Rich path-based API (mirrors Anthropic Managed Agents Memory tools)
     # ------------------------------------------------------------------
 
+    @synchronized
     def write(self, path: str, content: str) -> None:
         """
         Create or overwrite a document at *path*.
@@ -119,6 +125,7 @@ class DocumentStore(MemoryStore):
         if self._persist_path:
             self._write_to_disk(path, content)
 
+    @synchronized
     def read(self, path: str) -> str:
         """
         Return the content of the document at *path*.
@@ -131,6 +138,7 @@ class DocumentStore(MemoryStore):
             raise KeyError(path)
         return self._docs[path]
 
+    @synchronized
     def edit(self, path: str, old_str: str, new_str: str) -> None:
         """
         Replace the first occurrence of *old_str* with *new_str* in the
@@ -150,6 +158,7 @@ class DocumentStore(MemoryStore):
             raise ValueError(f"{old_str!r} not found in document at {path!r}")
         self.write(path, content.replace(old_str, new_str, 1))
 
+    @synchronized
     def list_paths(self, prefix: Optional[str] = None) -> list[str]:
         """
         Return all memory paths, optionally filtered by *prefix*.
@@ -166,6 +175,7 @@ class DocumentStore(MemoryStore):
             paths = [p for p in paths if p.startswith(self._normalize(prefix))]
         return paths
 
+    @synchronized
     def search_full_text(self, query: str, n_results: int = 10) -> list[dict]:
         """
         Case-insensitive substring search across all document contents.
@@ -190,6 +200,7 @@ class DocumentStore(MemoryStore):
     # MemoryStore abstract interface
     # ------------------------------------------------------------------
 
+    @synchronized
     def store(self, content: str) -> None:
         """
         Store *content* at an auto-assigned path (``/note-{uuid}.md``).
@@ -202,6 +213,7 @@ class DocumentStore(MemoryStore):
         path = f"/note-{uuid.uuid4()}.md"
         self.write(path, content)
 
+    @synchronized
     def search(self, query: str, n_results: int = 10) -> list[str]:
         """
         Full-text search; returns a list of matching content strings.
@@ -215,6 +227,7 @@ class DocumentStore(MemoryStore):
         """
         return [m["content"] for m in self.search_full_text(query, n_results)]
 
+    @synchronized
     def delete(self, identifier: str) -> None:
         """
         Delete the document at *identifier* (treated as a memory path).
@@ -229,6 +242,7 @@ class DocumentStore(MemoryStore):
         if self._persist_path:
             self._delete_from_disk(identifier)
 
+    @synchronized
     def list_all(self) -> list[str]:
         """Return all memory paths (sorted)."""
         return self.list_paths()
