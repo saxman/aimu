@@ -193,7 +193,7 @@ agent = Agent(
 response = agent.run("Please say 'Welcome to AIMU' in a friendly voice.")
 ```
 
-The tool uses a lazy module-level singleton: the first call constructs a speech client from `AIMU_SPEECH_MODEL` (default: `"hf:microsoft/speecht5_tts"`), subsequent calls reuse it.
+The tool uses a lazy module-level singleton: the first call constructs a speech client from `AIMU_SPEECH_MODEL`, subsequent calls reuse it. There is no default -- the tool raises if the variable is unset, rather than downloading weights you did not ask for.
 
 ### Per-agent override: `make_speech_tool`
 

@@ -183,7 +183,7 @@ agent = Agent(
 response = agent.run("Make me a short lo-fi beat I can study to.")
 ```
 
-The tool uses a lazy module-level singleton: the first call constructs an audio client from `AIMU_AUDIO_MODEL` (default: MusicGen small), subsequent calls reuse it.
+The tool uses a lazy module-level singleton: the first call constructs an audio client from `AIMU_AUDIO_MODEL`, subsequent calls reuse it. There is no default -- the tool raises if the variable is unset, rather than downloading weights you did not ask for.
 
 ### Per-agent override: `make_audio_tool`
 

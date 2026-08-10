@@ -233,7 +233,7 @@ agent = Agent(
 response = agent.run("Please make me a watercolor of a fox in a snowy forest.")
 ```
 
-The tool uses a lazy module-level singleton: the first call constructs an image client based on `AIMU_IMAGE_MODEL` (default: SDXL base), and subsequent calls reuse it.
+The tool uses a lazy module-level singleton: the first call constructs an image client from `AIMU_IMAGE_MODEL`, and subsequent calls reuse it. There is no default -- the tool raises if the variable is unset, rather than downloading weights you did not ask for.
 
 ### Per-agent override: `make_image_tool`
 

@@ -17,26 +17,51 @@ If missing, the text clients construct successfully but the first request raises
 | Variable | Used by | Default |
 |---|---|---|
 | `SEARXNG_BASE_URL` | `aimu.tools.builtin.web_search` | `http://localhost:8080` |
-| `AIMU_IMAGE_MODEL` | `aimu.tools.builtin.generate_image` (lazy singleton) | `hf:stabilityai/stable-diffusion-xl-base-1.0` |
-| `AIMU_AUDIO_MODEL` | `aimu.tools.builtin.generate_audio` (lazy singleton) | `hf:facebook/musicgen-small` |
-| `AIMU_SPEECH_MODEL` | `aimu.tools.builtin.generate_speech` (lazy singleton) | `hf:microsoft/speecht5_tts` |
-
-The built-in `generate_image` tool constructs its image client lazily on first call, picking the provider and model from `AIMU_IMAGE_MODEL`. Accepts any string supported by `aimu.image_client()`: `"hf:<repo>"` or `"gemini:<id_or_alias>"`. Override per-agent by building your own tool with `make_image_tool(client)` instead of using the singleton.
-
-The built-in `generate_audio` tool follows the same pattern. `AIMU_AUDIO_MODEL` accepts any string supported by `aimu.audio_client()`, currently `"hf:<repo>"`. Override per-agent with `make_audio_tool(client)` instead of using the singleton.
-
-The built-in `generate_speech` tool follows the same pattern. `AIMU_SPEECH_MODEL` accepts any string supported by `aimu.speech_client()`: `"openai:<model_id>"` (requires `OPENAI_API_KEY`) or `"hf:<repo_id>"`. Override per-agent with `make_speech_tool(client)` instead of using the singleton.
 
 ## Default model selection
 
-These set the default `model=` for a modality's top-level helpers when the argument is omitted. Unlike the tool defaults above, they have **no built-in fallback**. If unset and no model is passed, the helper raises `ValueError` (AIMU never downloads weights implicitly).
+These set the default `model=` when the argument is omitted, for both the top-level helpers and the built-in tools' lazy singletons. Each takes a `"provider:model_id"` string and is read through `aimu.models._internal.model_defaults`.
 
-| Variable | Used by | Default |
+**Text is the only modality with a fallback.**
+
+| Variable | Used by | When unset |
 |---|---|---|
-| `AIMU_TRANSCRIPTION_MODEL` | `aimu.transcription_client()` / `aimu.transcribe()` | None (raises if unset) |
-| `AIMU_EMBEDDING_MODEL` | `aimu.embedding_client()` / `aimu.embed()` | None (raises if unset) |
+| `AIMU_LANGUAGE_MODEL` | `aimu.chat()` / `aimu.client()` / `aimu.agent()`, their `aimu.aio` equivalents, and the `python -m` entry points that take `--model` | Probes for an already-available local model; raises if none |
+| `AIMU_IMAGE_MODEL` | `aimu.image_client()` / `aimu.generate_image()`, `builtin.generate_image` | Raises `ValueError` |
+| `AIMU_AUDIO_MODEL` | `aimu.audio_client()` / `aimu.generate_audio()`, `builtin.generate_audio` | Raises `ValueError` |
+| `AIMU_SPEECH_MODEL` | `aimu.speech_client()` / `aimu.generate_speech()`, `builtin.generate_speech` | Raises `ValueError` |
+| `AIMU_TRANSCRIPTION_MODEL` | `aimu.transcription_client()` / `aimu.transcribe()` | Raises `ValueError` |
+| `AIMU_EMBEDDING_MODEL` | `aimu.embedding_client()` / `aimu.embed()` | Raises `ValueError` |
 
-`AIMU_EMBEDDING_MODEL` accepts any string supported by `aimu.embedding_client()`: `"openai:<model_id>"` (requires `OPENAI_API_KEY`), `"ollama:<model_id>"`, or `"hf:<repo_id>"` (the `[hf]` extra).
+### Text: `AIMU_LANGUAGE_MODEL`
+
+Resolution order is env var → local discovery → error:
+
+1. `AIMU_LANGUAGE_MODEL`, if set. It is validated immediately with `resolve_model_string()`, so a typo'd id raises at resolution time rather than at the first request.
+2. Otherwise the first *already-available* local model: a running Ollama server → the local HuggingFace cache → a reachable local OpenAI-compatible server, preferring a tool-capable one. The pick is logged at `WARNING`, so an implicit default is never silent.
+3. Otherwise `ValueError`, naming the installed text providers.
+
+A cloud provider is never auto-selected and weights are never downloaded, so the fallback can only pick something already on the machine. Set the variable to make the choice deterministic:
+
+```ini
+AIMU_LANGUAGE_MODEL=ollama:qwen3.5:9b
+```
+
+The async surface skips the HuggingFace-cache probe (an `hf:` default would mean wrapping a sync in-process client), so it resolves from Ollama and local OpenAI-compatible servers only.
+
+### The other modalities
+
+Image, audio, speech, transcription, and embedding have **no fallback**: unset and no `model=` means the helper raises. That is deliberate, not an omission -- a wrong silent pick is expensive here (an image-style swing, or a persisted vector store corrupted by a mismatched embedder), and AIMU never downloads weights implicitly. The error lists any locally available models for that modality, so making the choice explicit is easy.
+
+Accepted values follow each modality's client:
+
+- `AIMU_IMAGE_MODEL`: `"hf:<repo>"` or `"gemini:<id_or_alias>"` (e.g. `gemini:nano-banana`).
+- `AIMU_AUDIO_MODEL`: `"hf:<repo>"`.
+- `AIMU_SPEECH_MODEL`: `"openai:<model_id>"` (needs `OPENAI_API_KEY`) or `"hf:<repo_id>"`.
+- `AIMU_TRANSCRIPTION_MODEL`: `"openai:<model_id>"` or `"hf:<repo_id>"`.
+- `AIMU_EMBEDDING_MODEL`: `"openai:<model_id>"` (needs `OPENAI_API_KEY`), `"ollama:<model_id>"`, or `"hf:<repo_id>"` (the `[hf]` extra).
+
+The built-in tools construct their client lazily on first call from these same variables. To bind a specific client to one agent instead of using the process-wide singleton, build the tool yourself with `make_image_tool(client)` / `make_audio_tool(client)` / `make_speech_tool(client)`.
 
 ## MCP server storage paths
 
@@ -56,19 +81,19 @@ ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=...
 
+# Default text model. Pins what aimu.chat() / aimu.client() / aimu.agent() use when
+# model= is omitted; without it AIMU picks whatever local model is already available.
+AIMU_LANGUAGE_MODEL=ollama:qwen3.5:9b
+
 # Local search (SearXNG)
 SEARXNG_BASE_URL=http://localhost:8080
 
-# Image generation default (used by the built-in generate_image tool)
+# The other modality defaults. No fallback: unset means the helper (and the matching
+# built-in tool) raises rather than guessing.
 AIMU_IMAGE_MODEL=gemini:nano-banana
-
-# Audio generation default (used by the built-in generate_audio tool)
 AIMU_AUDIO_MODEL=hf:facebook/musicgen-small
-
-# Speech generation default (used by the built-in generate_speech tool)
 AIMU_SPEECH_MODEL=hf:microsoft/speecht5_tts
-
-# Embedding default (used by aimu.embedding_client() / aimu.embed())
+AIMU_TRANSCRIPTION_MODEL=openai:whisper-1
 AIMU_EMBEDDING_MODEL=openai:text-embedding-3-small
 
 # MCP server storage
