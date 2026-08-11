@@ -15,7 +15,10 @@ dependencies = [
     "tinydb",
     "requests",
     "python-dotenv",
-    "pydantic>=2"
+    "pydantic>=2",
+    # Windows ships no system tz database, so zoneinfo (used by the built-in time
+    # tools) has no data to read without this.
+    "tzdata; sys_platform == 'win32'"
 ]
 
 [project.urls]

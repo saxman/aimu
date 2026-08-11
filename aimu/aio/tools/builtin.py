@@ -17,6 +17,7 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
     calculate,
     compute,
+    convert_time,
     echo,
     fs,
     get_current_date_and_time,

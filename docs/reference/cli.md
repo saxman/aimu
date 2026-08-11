@@ -8,7 +8,7 @@ AIMU's CLI surface is a handful of `python -m` entry points: the bundled FastMCP
 python -m aimu.tools.mcp
 ```
 
-Runs a FastMCP server that registers every function in `aimu.tools.builtin.ALL_TOOLS` (weather, search, calculate, get_webpage, wikipedia, list_directory, read_file, echo, get_current_date_and_time).
+Runs a FastMCP server that registers every function in `aimu.tools.builtin.ALL_TOOLS` (weather, search, calculate, get_webpage, wikipedia, list_directory, read_file, echo, get_current_date_and_time, convert_time).
 
 Connect from another process:
 
