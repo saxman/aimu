@@ -101,7 +101,11 @@ a2a = [
 # === Development tooling ===
 # For working on AIMU itself; not part of `all`.
 dev = [
-    "ruff",
+    # Pinned to the 0.15 line: 0.16 widened the default rule set (UP/I/RUF/BLE/S/DTZ/...),
+    # which reports ~1500 findings and reformats 52 files on a clean tree. Adopting it is a
+    # deliberate migration (an explicit [tool.ruff.lint] select, then a sweep), not a
+    # side effect of a lock refresh. Raise this pin when that work happens.
+    "ruff>=0.15,<0.16",
     "pytest",
     "pytest-asyncio",
 ]
