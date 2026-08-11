@@ -2939,6 +2939,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#watching-a-sub-agent-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watching a sub-agent work
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-to-use-this-vs-orchestratoragent" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3045,12 +3056,32 @@
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">print</span><span class="p">(</span><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Fan out three independent lookups and combine them.&quot;</span><span class="p">))</span>
 </span></code></pre></div>
 <p>In-process providers (HuggingFace, LlamaCpp) can't be constructed from an enum on the async surface, so each spawn wraps a <strong>fresh</strong> sync client (fresh preserves isolation; the process weight cache prevents reloading weights).</p>
+<h2 id="watching-a-sub-agent-work">Watching a sub-agent work<a class="headerlink" href="#watching-a-sub-agent-work" title="Permanent link">&para;</a></h2>
+<p><code>make_async_subagent_tool</code> accepts an <code>observer</code> that gets a live report of what each spawn is doing, without turning <code>spawn_subagent</code> itself into a streaming tool (so <code>concurrent_tool_calls</code> still lets several spawns overlap). Implement the three methods of <code>SubagentObserver</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_async_subagent_tool</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">PrintingObserver</span><span class="p">:</span>  <span class="c1"># structurally satisfies SubagentObserver; no inheritance required</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">spawned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spawn_id</span><span class="p">,</span> <span class="n">agent_type</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">spawn_id</span><span class="si">}</span><span class="s2">] started (</span><span class="si">{</span><span class="n">agent_type</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">chunk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spawn_id</span><span class="p">,</span> <span class="n">chunk</span><span class="p">):</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">spawn_id</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">chunk</span><span class="o">.</span><span class="n">phase</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">finished</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spawn_id</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">error</span><span class="p">):</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">spawn_id</span><span class="si">}</span><span class="s2">] done: </span><span class="si">{</span><span class="n">error</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_async_subagent_tool</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">,</span> <span class="n">observer</span><span class="o">=</span><span class="n">PrintingObserver</span><span class="p">())</span>
+</span></code></pre></div>
+<p><code>spawn_id</code> is stable across all three callbacks for one spawn and unique per spawn, so a front end can key a display panel per sub-agent even when several run concurrently. <code>finished</code> always fires, including on cancellation, with whatever text had accumulated and the exception (if any) that ended the run. An observer is display-only: if a callback raises, the failure is logged and swallowed rather than aborting the spawn it was reporting on, and that holds for a callback whose signature no longer matches as much as for one that raises in its body. Nested spawns (<code>max_depth &gt; 1</code>) inherit the same observer automatically.</p>
+<p>Attaching an observer is not purely additive, though: an observed spawn runs the child through the provider's <strong>streaming</strong> request path, where an unobserved spawn uses the non-streaming one. The returned answer is the same either way (the accumulator resets on each loop iteration, so it is the final answer rather than every intermediate response concatenated), but any provider behavior that differs between its two request paths applies to observed spawns.</p>
 <h2 id="when-to-use-this-vs-orchestratoragent">When to use this vs <code>OrchestratorAgent</code><a class="headerlink" href="#when-to-use-this-vs-orchestratoragent" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>OrchestratorAgent</code></strong> — you know the specialist roster up front and want named, hand-wired workers (possibly workflows or remote agents). See <a href="../build-orchestrator/">Build an orchestrator</a>.</li>
 <li><strong><code>make_subagent_tool</code></strong> — the model should decide the fan-out at runtime: how many sub-agents, what each one does. Typed mode still lets you constrain <em>which kinds</em> of specialist it may spawn.</li>
 </ul>
-<p>Streaming a spawned sub-agent's tokens through the parent stream is intentionally <strong>not</strong> supported: it would disable the concurrent-dispatch path and interleave concurrent sub-agents' output. <code>spawn_subagent</code> returns the sub-agent's final answer; stream a sub-agent directly if you need live nested progress.</p>
+<p>Streaming a spawned sub-agent's tokens through the parent stream is intentionally <strong>not</strong> supported: it would disable the concurrent-dispatch path and interleave concurrent sub-agents' output. <code>spawn_subagent</code> returns the sub-agent's final answer; use <code>observer=</code> (async only, see above) to watch a spawn's progress without that interleaving.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../build-orchestrator/">Build an orchestrator</a>: the static-roster counterpart</li>

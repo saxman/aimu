@@ -2574,6 +2574,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.SubagentObserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SubagentObserver
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SubagentObserver">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.SubagentObserver.spawned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        spawned
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.SubagentObserver.chunk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        chunk
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.SubagentObserver.finished" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        finished
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#personal-assistant" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4214,6 +4264,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.SubagentObserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SubagentObserver
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SubagentObserver">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.SubagentObserver.spawned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        spawned
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.SubagentObserver.chunk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        chunk
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aimu.aio.tools.builtin.SubagentObserver.finished" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        finished
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#personal-assistant" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5735,7 +5835,7 @@ agent = aio.Agent(client, tools=await mcp.as_tools())
 
 
 <a href="#aimu.aio.tools.builtin.make_async_subagent_tool" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_async_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;spawn_subagent&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_async_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;spawn_subagent&#39;</span><span class="p">,</span> <span class="n">observer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SubagentObserver</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5749,7 +5849,140 @@ typed mode, <code>max_depth</code> recursion guard, unknown-<code>agent_type</co
 <code>tool_approval</code> gate forwarded to every spawned sub-agent).</p>
 <p>In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
 surface can't construct them from an enum); the process weight cache prevents reloading weights.</p>
+<p>Passing <code>observer</code> (a :class:<code>SubagentObserver</code>) switches each spawn to a streamed child run and
+reports it as it happens, without making this a streaming tool (which would disable the parent's
+concurrent dispatch). Nested spawns inherit it.</p>
 
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.aio.tools.builtin.SubagentObserver" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.aio.tools.builtin.SubagentObserver</span>
+
+
+<a href="#aimu.aio.tools.builtin.SubagentObserver" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="typing.Protocol">Protocol</span></code></p>
+
+
+
+        <p>Display hook for one sub-agent spawn, so a front end can show its work as it happens.</p>
+<p>Passing an observer to :func:<code>make_async_subagent_tool</code> switches the spawn to a streamed child
+run: every chunk is forwarded here while the tool's return value stays the child's final answer.
+The spawn tool itself remains a plain (non-streaming) tool, so concurrent spawns still overlap
+under the parent's <code>concurrent_tool_calls</code>. Callbacks are display-only; an exception raised by
+one is logged and swallowed rather than failing the spawn.</p>
+<p>Attaching an observer is therefore not purely additive: an observed spawn issues its model calls
+through the provider's <em>streaming</em> request path, where an unobserved one uses the non-streaming
+path. The answer is the same either way, but any behavior that differs between a provider's two
+request paths applies to observed spawns.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.aio.tools.builtin.SubagentObserver.spawned" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">spawned</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#aimu.aio.tools.builtin.SubagentObserver.spawned" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">spawned</span><span class="p">(</span><span class="n">spawn_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">agent_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>A sub-agent has been built for <code>task</code>. <code>agent_type</code> is None in generic (untyped) mode.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.aio.tools.builtin.SubagentObserver.chunk" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">chunk</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#aimu.aio.tools.builtin.SubagentObserver.chunk" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">chunk</span><span class="p">(</span><span class="n">spawn_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">chunk</span><span class="p">:</span> <span class="n">StreamChunk</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>One chunk from the child's streamed run.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.aio.tools.builtin.SubagentObserver.finished" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">finished</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#aimu.aio.tools.builtin.SubagentObserver.finished" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">finished</span><span class="p">(</span><span class="n">spawn_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The spawn ended. <code>result</code> is the final (or partial, on failure) generated text, and
+<code>error</code> is the exception that ended it, including a <code>CancelledError</code>.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
 
     </div>
 
