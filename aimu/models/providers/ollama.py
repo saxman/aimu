@@ -39,10 +39,20 @@ class OllamaModel(Model):
     # registry lists these tags with "Text, Image" capability. (Qwen3 32B/8B below are the
     # older text-only generation and stay vision=False.)
     QWEN_3_6_35B = ModelSpec(
-        "qwen3.6:35b", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_6_KWARGS, structured_output=True
+        "qwen3.6:35b",
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_3_6_KWARGS,
+        structured_output=True,
     )
     QWEN_3_6_27B = ModelSpec(
-        "qwen3.6:27b", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_6_KWARGS, structured_output=True
+        "qwen3.6:27b",
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_3_6_KWARGS,
+        structured_output=True,
     )
     QWEN_3_5_9B = ModelSpec(
         "qwen3.5:9b", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_5_KWARGS, structured_output=True
