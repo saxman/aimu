@@ -48,6 +48,11 @@ class SubagentObserver(Protocol):
     The spawn tool itself remains a plain (non-streaming) tool, so concurrent spawns still overlap
     under the parent's ``concurrent_tool_calls``. Callbacks are display-only; an exception raised by
     one is logged and swallowed rather than failing the spawn.
+
+    Attaching an observer is therefore not purely additive: an observed spawn issues its model calls
+    through the provider's *streaming* request path, where an unobserved one uses the non-streaming
+    path. The answer is the same either way, but any behavior that differs between a provider's two
+    request paths applies to observed spawns.
     """
 
     async def spawned(self, spawn_id: str, agent_type: Optional[str], task: str) -> None:
@@ -61,10 +66,16 @@ class SubagentObserver(Protocol):
         ``error`` is the exception that ended it, including a ``CancelledError``."""
 
 
-async def _notify_observer(coro) -> None:
-    """Await a display-only observer callback, logging rather than propagating its failure."""
+async def _notify_observer(callback, *args) -> None:
+    """Call a display-only observer callback, logging rather than propagating its failure.
+
+    The callable and its arguments are passed separately, rather than as an already-built coroutine,
+    so that a callback with the wrong signature (the seam-drift case: an observer written against an
+    older parameter list) fails inside this guard instead of while the call is being constructed at
+    the call site, where nothing would catch it and a display hook would break the spawn.
+    """
     try:
-        await coro
+        await callback(*args)
     except Exception:
         logger.warning("A sub-agent observer callback failed; continuing the spawn.", exc_info=True)
 
@@ -77,7 +88,7 @@ async def _run_observed(agent, agent_type: Optional[str], task: str, observer: S
     keeps this path's result identical to the non-streamed one.
     """
     spawn_id = f"{agent_type or 'subagent'}-{uuid4().hex[:8]}"
-    await _notify_observer(observer.spawned(spawn_id, agent_type, task))
+    await _notify_observer(observer.spawned, spawn_id, agent_type, task)
     parts: list[str] = []
     iteration = 0
     error: Optional[BaseException] = None
@@ -88,13 +99,13 @@ async def _run_observed(agent, agent_type: Optional[str], task: str, observer: S
                 parts.clear()
             if chunk.phase == StreamingContentType.GENERATING and isinstance(chunk.content, str):
                 parts.append(chunk.content)
-            await _notify_observer(observer.chunk(spawn_id, chunk))
+            await _notify_observer(observer.chunk, spawn_id, chunk)
         return "".join(parts)
     except BaseException as exc:  # including CancelledError: the observer must hear about it
         error = exc
         raise
     finally:
-        await _notify_observer(observer.finished(spawn_id, "".join(parts), error))
+        await _notify_observer(observer.finished, spawn_id, "".join(parts), error)
 
 
 _async_image_client = None

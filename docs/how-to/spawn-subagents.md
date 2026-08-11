@@ -115,7 +115,9 @@ class PrintingObserver:  # structurally satisfies SubagentObserver; no inheritan
 spawn = make_async_subagent_tool("anthropic:claude-sonnet-4-6", observer=PrintingObserver())
 ```
 
-`spawn_id` is stable across all three callbacks for one spawn and unique per spawn, so a front end can key a display panel per sub-agent even when several run concurrently. `finished` always fires, including on cancellation, with whatever text had accumulated and the exception (if any) that ended the run. An observer is display-only: if a callback raises, the failure is logged and swallowed rather than aborting the spawn it was reporting on. Nested spawns (`max_depth > 1`) inherit the same observer automatically.
+`spawn_id` is stable across all three callbacks for one spawn and unique per spawn, so a front end can key a display panel per sub-agent even when several run concurrently. `finished` always fires, including on cancellation, with whatever text had accumulated and the exception (if any) that ended the run. An observer is display-only: if a callback raises, the failure is logged and swallowed rather than aborting the spawn it was reporting on, and that holds for a callback whose signature no longer matches as much as for one that raises in its body. Nested spawns (`max_depth > 1`) inherit the same observer automatically.
+
+Attaching an observer is not purely additive, though: an observed spawn runs the child through the provider's **streaming** request path, where an unobserved spawn uses the non-streaming one. The returned answer is the same either way (the accumulator resets on each loop iteration, so it is the final answer rather than every intermediate response concatenated), but any provider behavior that differs between its two request paths applies to observed spawns.
 
 ## When to use this vs `OrchestratorAgent`
 

@@ -416,6 +416,23 @@ async def test_a_broken_observer_does_not_break_the_spawn():
     assert await spawn("researcher", "find X") == "answer"
 
 
+async def test_an_observer_with_a_wrong_signature_does_not_break_the_spawn():
+    """Seam drift: an observer written against a different parameter list raises while the call is
+    being *built*, not while it is awaited, so the guard has to cover the call itself."""
+
+    class _StaleObserver(_RecordingObserver):
+        async def spawned(self, spawn_id):  # the real seam passes agent_type and task too
+            raise AssertionError("unreachable: the call itself raises TypeError")  # pragma: no cover
+
+    _RecordingAsyncAgent.chunks = [_text("answer")]
+    observer = _StaleObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+
+    assert await spawn("researcher", "find X") == "answer"
+    # The remaining callbacks still fire: one broken hook must not silence the rest of the report.
+    assert [event[0] for event in observer.events] == ["chunk", "finished"]
+
+
 async def test_no_observer_keeps_the_non_streaming_path():
     _RecordingAsyncAgent.chunks = [_text("streamed")]
     spawn = make_async_subagent_tool(MODEL, agent_types=TYPES)
