@@ -16,8 +16,10 @@ JSON frame protocol (server -> browser, the contract with any page):
 - ``{"type": "token", "text": str}`` -- one chunk of a streamed answer (``GENERATING``).
 - ``{"type": "thinking", "text": str}`` -- one chunk of reasoning (``THINKING``); emitted only when
   ``show_thinking`` is set.
-- ``{"type": "tool", "name": str, "arguments": dict}`` -- a tool call (``TOOL_CALLING``); emitted only when
-  ``show_tools`` is set.
+- ``{"type": "tool", "name": str, "arguments": dict, "response": str | None}`` -- a tool call
+  (``TOOL_CALLING``); emitted only when ``show_tools`` is set. A ``TOOL_CALLING`` chunk is yielded after the
+  call has been dispatched, so ``response`` carries the tool result (including an error or not-approved
+  notice, which are results too). It is ``None`` only for a chunk that omits it.
 - ``{"type": "done"}`` -- terminates a streamed reply.
 
 Subclasses add their own frame types (e.g. conversation lists, approval prompts) by calling the public
@@ -80,7 +82,14 @@ class WebChannel(Channel):
                 await self.send_frame({"type": "thinking", "text": chunk.content})
             elif chunk.phase == StreamingContentType.TOOL_CALLING and self.show_tools:
                 call = chunk.content if isinstance(chunk.content, dict) else {}
-                await self.send_frame({"type": "tool", "name": call.get("name"), "arguments": call.get("arguments")})
+                await self.send_frame(
+                    {
+                        "type": "tool",
+                        "name": call.get("name"),
+                        "arguments": call.get("arguments"),
+                        "response": call.get("response"),
+                    }
+                )
         await self.send_frame({"type": "done"})
 
     async def send_frame(self, frame: dict) -> None:

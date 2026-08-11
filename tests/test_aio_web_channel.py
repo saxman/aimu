@@ -66,10 +66,23 @@ async def test_emits_thinking_and_tool_frames_when_enabled():
     await channel.send(gen())
     assert ws.frames == [
         {"type": "thinking", "text": "hmm"},
-        {"type": "tool", "name": "calc", "arguments": {"x": 2}},
+        {"type": "tool", "name": "calc", "arguments": {"x": 2}, "response": None},
         {"type": "token", "text": "4"},
         {"type": "done"},
     ]
+
+
+async def test_tool_frame_carries_the_call_response():
+    # A TOOL_CALLING chunk is emitted after dispatch and carries the tool result, so a page can show
+    # what the call returned and not just what it was asked to do.
+    ws = _FakeWS()
+    channel = WebChannel(ws, show_tools=True)
+
+    async def gen():
+        yield StreamChunk(StreamingContentType.TOOL_CALLING, {"name": "calc", "arguments": {"x": 2}, "response": "4"})
+
+    await channel.send(gen())
+    assert ws.frames[0] == {"type": "tool", "name": "calc", "arguments": {"x": 2}, "response": "4"}
 
 
 async def test_skips_empty_generating_chunks():

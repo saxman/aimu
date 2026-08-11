@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Channels
+
+- **New** **The web `tool` frame carries the call's result** (`aimu.aio.channels.web.WebChannel.send`). The frame is now `{"type": "tool", "name", "arguments", "response"}`. A `TOOL_CALLING` chunk is yielded *after* the call has been dispatched and already carries the tool result on `content["response"]` (see `aimu.aio._tool_loop._dispatch_streamed`), so the channel was dropping information a page needs: what the call returned, not only what it was asked to do. An error, an argument-binding failure, and a denied approval are results too and arrive on the same key, so a page needs no separate failure path. `response` is `None` only for a chunk that omits it (a provider or a test that builds `TOOL_CALLING` content by hand). Additive and backwards-compatible on the wire: a page that ignores the key renders as before. `CLIChannel` is unchanged and still shows the call alone. Tests: `tests/test_aio_web_channel.py`.
+
 ## v0.13.0 (2026-08-11): extended model strings, timezone-aware time tools, web form tools, agentic-loop and streaming fixes
 
 ### Models
