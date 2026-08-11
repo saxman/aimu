@@ -31,6 +31,7 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     make_web_tools,
     misc,
     read_file,
+    time,
     web_search,
     web,
     wikipedia,

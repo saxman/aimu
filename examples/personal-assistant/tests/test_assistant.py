@@ -90,8 +90,8 @@ def test_arg_parser_overrides():
 async def test_assistant_wires_fixed_builtin_tools(tmp_path):
     assistant = await Assistant.create(_config(tmp_path), FakeChannel(), client=MockAsyncModelClient([]))
     names = {fn.__name__ for fn in assistant._agent.tools}
-    # The fixed set is builtin.web + builtin.misc...
-    assert {"get_weather", "get_current_date_and_time"} <= names
+    # The fixed set is builtin.web + builtin.time + builtin.misc...
+    assert {"get_weather", "get_current_date_and_time", "convert_time"} <= names
     # ...not the other groups (fs / compute) or the generative tools.
     assert "read_file" not in names and "calculate" not in names
     assert "generate_image" not in names

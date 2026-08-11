@@ -13,8 +13,8 @@ There are two routes for exposing tools to an agent:
   there's no second framework to learn.
 
 Built-in tools live in :mod:`aimu.tools.builtin` and are grouped by domain
-(``builtin.web``, ``builtin.fs``, ``builtin.compute``, ``builtin.misc``). Pass a
-group directly: ``Agent(client, tools=builtin.web)``.
+(``builtin.web``, ``builtin.fs``, ``builtin.compute``, ``builtin.time``,
+``builtin.misc``). Pass a group directly: ``Agent(client, tools=builtin.web)``.
 """
 
 from . import builtin

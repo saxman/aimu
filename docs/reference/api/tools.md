@@ -29,7 +29,8 @@ The `aimu.tools.builtin` module ships ready-made `@tool` functions grouped by do
 | `builtin.web` | `get_weather`, `get_webpage`, `get_webpage_html`, `web_search`, `wikipedia` |
 | `builtin.fs` | `list_directory`, `read_file` |
 | `builtin.compute` | `calculate`, `execute_python` |
-| `builtin.misc` | `echo`, `get_current_date_and_time`, `convert_time` |
+| `builtin.time` | `get_current_date_and_time`, `convert_time` |
+| `builtin.misc` | `echo` |
 | `builtin.ALL_TOOLS` | All of the above **except** `execute_python` (sandboxed REPL; opt in via `builtin.compute`) |
 
 ::: aimu.tools.builtin.echo

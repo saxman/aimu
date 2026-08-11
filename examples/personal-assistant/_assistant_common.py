@@ -34,9 +34,10 @@ from aimu.tools import builtin
 logger = logging.getLogger(__name__)
 
 # A small, fixed set of AIMU built-in tools so the assistant is useful out of the box: web search /
-# weather / wikipedia / fetch (builtin.web) plus date-time and echo (builtin.misc). These are sync;
-# the async agent dispatches them via asyncio.to_thread, so no wrapping is needed.
-_FIXED_TOOLS = builtin.web + builtin.misc
+# weather / wikipedia / fetch (builtin.web), the clock and timezone conversion (builtin.time), and echo
+# (builtin.misc). These are sync; the async agent dispatches them via asyncio.to_thread, so no wrapping
+# is needed.
+_FIXED_TOOLS = builtin.web + builtin.time + builtin.misc
 
 DEFAULT_SYSTEM_MESSAGE = (
     "You are a personal assistant running on the user's own machine. Be concise and helpful. "

@@ -197,7 +197,7 @@ asyncio.run(main())
 The reference app in `examples/personal-assistant/` is this, fleshed out: serialize reactive and
 proactive turns with a lock (they share one agent), an argparse entry point, and mock-only tests.
 It also gives the agent a small fixed set of AIMU [built-in tools](add-custom-tool.md)
-(`builtin.web + builtin.misc`). The built-ins are sync functions, and the async agent dispatches
+(`builtin.web + builtin.time + builtin.misc`). The built-ins are sync functions, and the async agent dispatches
 them through `asyncio.to_thread`, so they attach to `agent.tools` with no wrapping. The example is
 kept intentionally minimal; selectable tool groups, [remote MCP servers](use-mcp-tools.md), and
 [persistent memory](use-semantic-memory.md) are capabilities AIMU ships but the example leaves out.

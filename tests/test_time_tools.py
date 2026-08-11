@@ -12,6 +12,8 @@ import datetime
 import re
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from aimu.tools.builtin import convert_time, get_current_date_and_time
 
 # Leading ISO-8601 timestamp with a mandatory UTC offset.
@@ -67,6 +69,59 @@ class TestConvertTime:
         result = convert_time("2026-11-02 15:00", "Europe/Berlin", "America/Denver")
 
         assert "2026-11-02T07:00:00-07:00" in result
+
+    @pytest.mark.parametrize(
+        "given",
+        [
+            "2026-11-02T15:00:00",  # canonical ISO
+            "2026-11-02 15:00",  # space separator, no seconds
+            "2026-11-02T15:00",
+            "2026-11-02 3:00 PM",  # 12-hour clock, unpadded hour
+            "2026-11-02T3:00:00 PM",
+            "2026-11-02 3:00 p.m.",
+            "2026-11-02 3:00 pm",
+            "  2026-11-02 3:00 PM  ",  # surrounding whitespace
+        ],
+    )
+    def test_accepts_the_wall_clock_formats_a_model_emits(self, given):
+        """A 12-hour clock and an unpadded hour are what a model actually produces for a tool that
+        documents ISO 8601; `fromisoformat` rejects both, and a teaching string costs a round trip."""
+        assert "2026-11-02T07:00:00-07:00" in convert_time(given, "Europe/Berlin", "America/Denver")
+
+    def test_an_unpadded_24_hour_time_is_not_read_as_12_hour(self):
+        """05:00 without a meridiem stays 05:00; the leniency pads the hour, it does not reinterpret it."""
+        result = convert_time("2026-11-02T5:00:00", "Europe/Berlin", "America/Denver")
+
+        assert "2026-11-02T05:00:00+01:00" in result
+
+    def test_midnight_and_noon_map_correctly_on_a_12_hour_clock(self):
+        """The two hours a naive +12 gets wrong: 12 AM is 00, 12 PM stays 12."""
+        assert "2026-11-02T00:00:00+01:00" in convert_time("2026-11-02 12:00 AM", "Europe/Berlin", "UTC")
+        assert "2026-11-02T12:00:00+01:00" in convert_time("2026-11-02 12:00 PM", "Europe/Berlin", "UTC")
+
+    @pytest.mark.parametrize(
+        "given",
+        [
+            "2026-11-02 13:00 PM",  # a contradiction, not a time to guess at
+            "2026-11-02 25:00",
+            "10:00 AM",  # no date: inferring today would be a silent guess
+            "November 2, 2026 3:00 PM",  # prose dates stay out of scope
+            "2026-13-45T05:00:00",  # calendar validation still comes from fromisoformat
+            "tomorrow",
+            "",
+        ],
+    )
+    def test_still_rejects_what_it_cannot_read_unambiguously(self, given):
+        result = convert_time(given, "Europe/Berlin", "America/Denver")
+
+        assert "Could not parse" in result
+
+    def test_the_parse_failure_names_both_accepted_shapes_and_the_now_tool(self):
+        """The teaching string is the model's only feedback, so it has to be actionable."""
+        result = convert_time("10:00 AM", "Europe/Berlin", "America/Denver")
+
+        assert "2026-11-02T15:00:00" in result and "3:00 PM" in result
+        assert "get_current_date_and_time" in result
 
     def test_aware_input_keeps_its_offset_and_notes_the_override(self):
         result = convert_time("2026-11-02T15:00:00+00:00", "Europe/Berlin", "America/Denver")
@@ -158,21 +213,40 @@ class TestLocalZoneDerivation:
 
 
 class TestRegistration:
-    def test_both_tools_are_in_the_misc_subgroup(self):
+    def test_both_tools_are_in_the_time_subgroup(self):
         from aimu.tools import builtin
 
-        names = {fn.__name__ for fn in builtin.misc}
-        assert {"get_current_date_and_time", "convert_time"} <= names
+        names = {fn.__name__ for fn in builtin.time}
+        assert names == {"get_current_date_and_time", "convert_time"}
+
+    def test_the_time_tools_are_not_in_the_misc_subgroup(self):
+        """``misc`` is grantable without the clock, and the clock without ``echo``."""
+        from aimu.tools import builtin
+
+        assert {fn.__name__ for fn in builtin.misc} == {"echo"}
 
     def test_convert_time_is_in_all_tools(self):
         from aimu.tools import builtin
 
         assert convert_time in builtin.ALL_TOOLS
 
+    def test_get_current_date_and_time_is_in_all_tools(self):
+        """Splitting the group must not drop either tool from the default set (or the MCP server,
+        which registers every ALL_TOOLS entry)."""
+        from aimu.tools import builtin
+
+        assert get_current_date_and_time in builtin.ALL_TOOLS
+
     def test_convert_time_is_re_exported_from_the_async_surface(self):
         from aimu.aio.tools import builtin as aio_builtin
 
         assert aio_builtin.convert_time is convert_time
+
+    def test_the_time_group_is_re_exported_from_the_async_surface(self):
+        from aimu.aio.tools import builtin as aio_builtin
+        from aimu.tools import builtin
+
+        assert aio_builtin.time is builtin.time
 
 
 class TestSandbox:

@@ -65,6 +65,59 @@ def _local_zone_key() -> Optional[str]:
     return None
 
 
+# A wall-clock time a model is likely to emit for a tool that documents ISO 8601: an unpadded hour
+# ("2026-08-11T5:00:00") and a 12-hour clock ("2026-08-11 5:00 PM") both fail `fromisoformat`, which
+# wants a zero-padded 24-hour time. Both are unambiguous once the date is there, so parse them rather
+# than spending a round trip teaching the model to reformat. A date is still required: this tool exists
+# for times other than now, so inferring today's date would be a silent guess (that is what
+# get_current_date_and_time is for).
+_LOOSE_DATETIME = re.compile(
+    r"""^(?P<date>\d{4}-\d{2}-\d{2})
+        [T ]\s*
+        (?P<hour>\d{1,2}):(?P<minute>\d{2})
+        (?::(?P<second>\d{2}))?
+        (?:\s*(?P<meridiem>[AaPp])\.?[Mm]\.?)?
+        \s*(?P<offset>Z|z|[+-]\d{2}:?\d{2})?$""",
+    re.VERBOSE,
+)
+
+
+def _parse_datetime(text: str) -> Optional[datetime.datetime]:
+    """Parses an ISO-8601 timestamp, tolerating an unpadded hour and a 12-hour clock.
+
+    Returns None when the text is not a timestamp at all, so the caller can return its
+    teaching string. Normalizes to a strict ISO string and defers to ``fromisoformat``
+    for the actual parse, so calendar validation stays in one place.
+    """
+    text = text.strip()
+    try:
+        return datetime.datetime.fromisoformat(text).replace(microsecond=0)
+    except ValueError:
+        pass
+
+    match = _LOOSE_DATETIME.match(text)
+    if match is None:
+        return None
+
+    hour = int(match["hour"])
+    meridiem = (match["meridiem"] or "").lower()
+    if meridiem:
+        if not 1 <= hour <= 12:
+            return None  # "13:00 PM" is a contradiction, not a time to guess at
+        hour = 0 if hour == 12 else hour
+        if meridiem == "p":
+            hour += 12
+    elif hour > 23:
+        return None
+
+    offset = (match["offset"] or "").replace("z", "Z")
+    normalized = f"{match['date']}T{hour:02d}:{match['minute']}:{match['second'] or '00'}{offset}"
+    try:
+        return datetime.datetime.fromisoformat(normalized).replace(microsecond=0)
+    except ValueError:
+        return None
+
+
 def _format_instant(moment: datetime.datetime, zone_key: Optional[str]) -> str:
     """Renders an aware datetime as an ISO-8601 timestamp annotated with zone and UTC."""
     offset = moment.strftime("%z")
@@ -130,20 +183,28 @@ def get_current_date_and_time(timezone: Optional[str] = None) -> str:
 def convert_time(datetime_str: str, from_timezone: str, to_timezone: str) -> str:
     """Converts a date and time from one timezone to another.
 
+    Both timezones must be IANA names ("America/Los_Angeles"), not abbreviations ("PST")
+    or spoken names ("Pacific Time"). Example call:
+    convert_time("2026-08-11T05:00:00", "America/Los_Angeles", "Europe/Zurich").
+
     Handles daylight saving time, and flags times that a DST transition makes
     nonexistent or ambiguous.
 
     Args:
-        datetime_str: Date and time in ISO 8601 format (e.g. "2026-11-02T15:00:00").
-            If it already carries a UTC offset, that offset is used and from_timezone
-            is ignored.
+        datetime_str: Date and time, ISO 8601 preferred (e.g. "2026-11-02T15:00:00").
+            A 12-hour clock and an unpadded hour are also accepted ("2026-11-02 3:00 PM").
+            The date is required. If the time already carries a UTC offset, that offset
+            is used and from_timezone is ignored.
         from_timezone: IANA timezone name the time is given in (e.g. "Europe/Berlin").
         to_timezone: IANA timezone name to convert to (e.g. "America/Denver").
     """
-    try:
-        parsed = datetime.datetime.fromisoformat(datetime_str).replace(microsecond=0)
-    except ValueError:
-        return f"Could not parse '{datetime_str}'. Use ISO 8601 format, e.g. '2026-11-02T15:00:00'."
+    parsed = _parse_datetime(datetime_str)
+    if parsed is None:
+        return (
+            f"Could not parse '{datetime_str}'. Give a date and a time in ISO 8601 format, e.g. "
+            f"'2026-11-02T15:00:00' (a 12-hour clock like '2026-11-02 3:00 PM' also works). "
+            f"For the current time, call get_current_date_and_time instead."
+        )
 
     source_zone = _resolve_zone(from_timezone)
     if source_zone is None:
@@ -1492,7 +1553,13 @@ def make_web_tools(
 web = [get_weather, get_webpage, get_webpage_html, web_search, wikipedia]
 fs = [list_directory, read_file]
 compute = [calculate, execute_python]
-misc = [echo, get_current_date_and_time, convert_time]
+# Grouped apart from ``misc`` because an agent almost always wants a clock regardless of its role: an
+# assistant scoped to filesystem work still has to resolve "by tomorrow morning". Bundled with ``echo``
+# it could only be granted alongside it.
+# Note: this name shadows the stdlib ``time`` module. Nothing here imports it (date work uses
+# ``datetime``), and adding such an import would be silently rebound by this assignment.
+time = [get_current_date_and_time, convert_time]
+misc = [echo]
 image = [generate_image]
 audio = [generate_audio]
 speech = [generate_speech]
@@ -1552,6 +1619,7 @@ transcription = [transcribe_audio]
 # Opt in explicitly via ``tools=builtin.compute`` or ``make_tools(python_sandbox=True)``.
 ALL_TOOLS = [
     *misc,
+    *time,
     get_weather,
     calculate,
     get_webpage,
