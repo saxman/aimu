@@ -377,6 +377,11 @@ class OllamaOpenAIModel(Model):
     GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True, thinking=True, vision=True)
     GEMMA_4_26B = ModelSpec("gemma4:26b", tools=True, thinking=True, vision=True)
     GEMMA_4_31B = ModelSpec("gemma4:31b", tools=True, thinking=True, vision=True)
+    # Muse Glimmer is a vision-language model whose perception encoder ships in the same
+    # weights. It emits channel-scoped reasoning and ATEM-style XML tool calls, which Ollama
+    # parses server-side, so reasoning arrives here as reasoning_content and tool calls in the
+    # standard OpenAI shape.
+    MUSE_GLIMMER_30B = ModelSpec("muse-glimmer:30b", tools=True, thinking=True, vision=True)
 
 
 class OllamaOpenAIClient(OpenAICompatClient):
@@ -436,6 +441,14 @@ class VLLMOpenAIModel(Model):
     GEMMA_4_31B = ModelSpec("google/gemma-4-31B-it", tools=True, thinking=True, vision=True)
     # Gemma 4 E4B/12B support audio natively; vLLM accepts input_audio blocks, but this path is
     # unverified against these weights, so leave audio=False until confirmed. (26B/31B: no native audio.)
+    # Muse Glimmer emits channel-scoped reasoning and ATEM-style XML tool calls instead of
+    # <think> tags and JSON, so serving it needs vLLM's dedicated parsers, which must be
+    # enabled together (they key off the same framing):
+    #   vllm serve meta-models/Muse-Glimmer-30B \
+    #     --enable-auto-tool-choice --tool-call-parser muse_glimmer --reasoning-parser muse_glimmer
+    # With those set, reasoning arrives as reasoning_content and tool calls in the standard
+    # OpenAI shape; without them both channels collapse into content and tools never surface.
+    MUSE_GLIMMER_30B = ModelSpec("meta-models/Muse-Glimmer-30B", tools=True, thinking=True, vision=True)
 
 
 class VLLMOpenAIClient(OpenAICompatClient):
