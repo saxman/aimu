@@ -8,8 +8,11 @@ generation.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+import logging
+from typing import Any, Callable, Optional, Protocol
+from uuid import uuid4
 
+from aimu.models import StreamChunk, StreamingContentType
 from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
     calculate,
@@ -33,6 +36,83 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
 )
 from aimu.tools.builtin import _subagent_docstring, _validate_subagent_config
 from aimu.tools.decorator import tool
+
+logger = logging.getLogger(__name__)
+
+
+class SubagentObserver(Protocol):
+    """Display hook for one sub-agent spawn, so a front end can show its work as it happens.
+
+    Passing an observer to :func:`make_async_subagent_tool` switches the spawn to a streamed child
+    run: every chunk is forwarded here while the tool's return value stays the child's final answer.
+    The spawn tool itself remains a plain (non-streaming) tool, so concurrent spawns still overlap
+    under the parent's ``concurrent_tool_calls``. Callbacks are display-only; an exception raised by
+    one is logged and swallowed rather than failing the spawn.
+
+    Attaching an observer is therefore not purely additive: an observed spawn issues its model calls
+    through the provider's *streaming* request path, where an unobserved one uses the non-streaming
+    path. The answer is the same either way, but any behavior that differs between a provider's two
+    request paths applies to observed spawns.
+    """
+
+    async def spawned(self, spawn_id: str, agent_type: Optional[str], task: str) -> None:
+        """A sub-agent has been built for ``task``. ``agent_type`` is None in generic (untyped) mode."""
+
+    async def chunk(self, spawn_id: str, chunk: StreamChunk) -> None:
+        """One chunk from the child's streamed run."""
+
+    async def finished(self, spawn_id: str, result: str, error: Optional[BaseException]) -> None:
+        """The spawn ended. ``result`` is the final (or partial, on failure) generated text, and
+        ``error`` is the exception that ended it, including a ``CancelledError``."""
+
+
+async def _notify_observer(observer: SubagentObserver, name: str, *args) -> None:
+    """Call one named callback on a display-only observer, logging rather than propagating its failure.
+
+    The observer and the method name are passed separately, rather than an already-resolved callable,
+    so that both failure modes stay inside this guard instead of at the call site, where nothing would
+    catch them and a display hook would break the spawn: a partial observer (the Protocol is satisfied
+    structurally, so implementing only some callbacks is a realistic input) missing ``name`` entirely,
+    and a callback with the wrong signature (the seam-drift case: an observer written against an older
+    parameter list).
+    """
+    callback = getattr(observer, name, None)
+    if callback is None:
+        logger.warning("A sub-agent observer has no %r callback; skipping.", name)
+        return
+    try:
+        await callback(*args)
+    except Exception:
+        logger.warning("A sub-agent observer callback failed; continuing the spawn.", exc_info=True)
+
+
+async def _run_observed(agent, agent_type: Optional[str], task: str, observer: SubagentObserver) -> str:
+    """Run one spawn streamed, reporting it to ``observer``, and return the child's final answer.
+
+    ``parts`` is cleared whenever the child's loop advances an iteration, so the return value is the
+    final answer rather than every intermediate tools-only response concatenated -- which is what
+    keeps this path's result identical to the non-streamed one.
+    """
+    spawn_id = f"{agent_type or 'subagent'}-{uuid4().hex[:8]}"
+    await _notify_observer(observer, "spawned", spawn_id, agent_type, task)
+    parts: list[str] = []
+    iteration = 0
+    error: Optional[BaseException] = None
+    try:
+        async for chunk in await agent.run(task, stream=True):
+            if chunk.iteration > iteration:
+                iteration = chunk.iteration
+                parts.clear()
+            if chunk.phase == StreamingContentType.GENERATING and isinstance(chunk.content, str):
+                parts.append(chunk.content)
+            await _notify_observer(observer, "chunk", spawn_id, chunk)
+        return "".join(parts)
+    except BaseException as exc:  # including CancelledError: the observer must hear about it
+        error = exc
+        raise
+    finally:
+        await _notify_observer(observer, "finished", spawn_id, "".join(parts), error)
+
 
 _async_image_client = None
 
@@ -170,6 +250,7 @@ def make_async_subagent_tool(
     deps: Any = None,
     tool_approval: Optional[Callable] = None,
     tool_name: str = "spawn_subagent",
+    observer: Optional[SubagentObserver] = None,
 ) -> Callable:
     """Async twin of :func:`aimu.tools.builtin.make_subagent_tool`.
 
@@ -182,6 +263,10 @@ def make_async_subagent_tool(
 
     In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
     surface can't construct them from an enum); the process weight cache prevents reloading weights.
+
+    Passing ``observer`` (a :class:`SubagentObserver`) switches each spawn to a streamed child run and
+    reports it as it happens, without making this a streaming tool (which would disable the parent's
+    concurrent dispatch). Nested spawns inherit it.
     """
     from aimu.models.base import BaseModelClient
 
@@ -206,6 +291,7 @@ def make_async_subagent_tool(
                     deps=deps,
                     tool_approval=tool_approval,
                     tool_name=tool_name,
+                    observer=observer,
                 )
             )
         return Agent(
@@ -222,7 +308,10 @@ def make_async_subagent_tool(
     if agent_types is None:
 
         async def spawn_subagent(task: str) -> str:
-            return await _build_agent(system_message, tools, name="subagent").run(task)
+            agent = _build_agent(system_message, tools, name="subagent")
+            if observer is None:
+                return await agent.run(task)
+            return await _run_observed(agent, None, task, observer)
 
     else:
 
@@ -238,7 +327,9 @@ def make_async_subagent_tool(
                 name=f"subagent-{agent_type}",
                 model_override=spec.get("model"),
             )
-            return await agent.run(task)
+            if observer is None:
+                return await agent.run(task)
+            return await _run_observed(agent, agent_type, task, observer)
 
     spawn_subagent.__name__ = tool_name
     spawn_subagent.__qualname__ = tool_name

@@ -13,6 +13,7 @@ import pytest
 
 from aimu.aio.tools import builtin as _aio_builtin
 from aimu.aio.tools.builtin import make_async_subagent_tool
+from aimu.models import StreamChunk, StreamingContentType
 
 # Capture the real fresh-client builder before the autouse fixture patches the module attribute,
 # so the branch tests below can exercise the genuine cloud-vs-in-process logic.
@@ -54,11 +55,21 @@ class _RecordingAsyncAgent:
         self.exit = None
         _RecordingAsyncAgent.instances.append(self)
 
+    # Chunks a streamed run yields, set per test. Empty means "yield nothing".
+    chunks: list = []
+
     async def run(self, task, *args, **kwargs):
         self.enter = time.perf_counter()
+        if kwargs.get("stream"):
+            return self._streamed(task)
         await asyncio.sleep(0.2)
         self.exit = time.perf_counter()
         return f"[{self.name}] answered: {task}"
+
+    async def _streamed(self, task):
+        for chunk in type(self).chunks:
+            yield chunk
+        self.exit = time.perf_counter()
 
 
 def _fake_fresh_client(model):
@@ -69,6 +80,7 @@ def _fake_fresh_client(model):
 def patch_async_agent_and_client(monkeypatch):
     _FakeAsyncClient.instances = []
     _RecordingAsyncAgent.instances = []
+    _RecordingAsyncAgent.chunks = []
     monkeypatch.setattr("aimu.aio.agent.Agent", _RecordingAsyncAgent)
     monkeypatch.setattr("aimu.aio.tools.builtin._fresh_async_subagent_client", _fake_fresh_client)
     yield
@@ -291,3 +303,165 @@ async def test_no_tool_approval_defaults_to_none():
 
     agent = _RecordingAsyncAgent.instances[0]
     assert agent.tool_approval is None
+
+
+# ---------------------------------------------------------------------------
+# Observer
+# ---------------------------------------------------------------------------
+
+
+class _RecordingObserver:
+    """Records the callback sequence so a test can assert order and payloads."""
+
+    def __init__(self, fail_on: str = ""):
+        self.events: list[tuple] = []
+        self._fail_on = fail_on
+
+    async def spawned(self, spawn_id, agent_type, task):
+        self.events.append(("spawned", spawn_id, agent_type, task))
+        if self._fail_on == "spawned":
+            raise RuntimeError("observer is broken")
+
+    async def chunk(self, spawn_id, chunk):
+        self.events.append(("chunk", spawn_id, chunk.phase, chunk.content))
+
+    async def finished(self, spawn_id, result, error):
+        self.events.append(("finished", spawn_id, result, error))
+
+
+def _text(content, iteration=0):
+    return StreamChunk(StreamingContentType.GENERATING, content, iteration=iteration)
+
+
+async def test_observer_sees_spawn_chunks_and_completion():
+    _RecordingAsyncAgent.chunks = [
+        StreamChunk(StreamingContentType.THINKING, "let me think"),
+        _text("the "),
+        _text("answer"),
+    ]
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+    result = await spawn("researcher", "find X")
+    assert result == "the answer"
+    kinds = [event[0] for event in observer.events]
+    assert kinds == ["spawned", "chunk", "chunk", "chunk", "finished"]
+    spawn_id = observer.events[0][1]
+    assert spawn_id.startswith("researcher-")
+    assert observer.events[0][2:] == ("researcher", "find X")
+    assert all(event[1] == spawn_id for event in observer.events)
+    assert observer.events[-1][2:] == ("the answer", None)
+
+
+async def test_generated_text_resets_on_each_loop_iteration():
+    """The tool's return value is the FINAL answer, not every intermediate tools-only response."""
+    _RecordingAsyncAgent.chunks = [_text("first pass", 0), _text("final answer", 1)]
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+    assert await spawn("researcher", "find X") == "final answer"
+    assert observer.events[-1][2] == "final answer"
+
+
+async def test_spawn_ids_are_unique_per_call():
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+    await spawn("researcher", "a")
+    await spawn("researcher", "b")
+    ids = {event[1] for event in observer.events}
+    assert len(ids) == 2
+
+
+async def test_observer_is_told_when_the_child_fails_and_the_error_propagates(monkeypatch):
+    class _FailingAgent(_RecordingAsyncAgent):
+        async def run(self, task, *args, **kwargs):
+            raise ValueError("child exploded")
+
+    monkeypatch.setattr("aimu.aio.agent.Agent", _FailingAgent)
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+    with pytest.raises(ValueError, match="child exploded"):
+        await spawn("researcher", "find X")
+    kind, _spawn_id, result, error = observer.events[-1]
+    assert kind == "finished"
+    assert result == ""
+    assert isinstance(error, ValueError)
+
+
+async def test_observer_is_told_when_the_spawn_is_cancelled(monkeypatch):
+    class _HangingAgent(_RecordingAsyncAgent):
+        async def run(self, task, *args, **kwargs):
+            async def _gen():
+                yield _text("partial")
+                await asyncio.sleep(60)
+
+            return _gen()
+
+    monkeypatch.setattr("aimu.aio.agent.Agent", _HangingAgent)
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+    task = asyncio.create_task(spawn("researcher", "find X"))
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    kind, _spawn_id, result, error = observer.events[-1]
+    assert kind == "finished"
+    assert result == "partial"  # whatever accumulated before the cancellation
+    assert isinstance(error, asyncio.CancelledError)
+
+
+async def test_a_broken_observer_does_not_break_the_spawn():
+    _RecordingAsyncAgent.chunks = [_text("answer")]
+    observer = _RecordingObserver(fail_on="spawned")
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+    assert await spawn("researcher", "find X") == "answer"
+
+
+async def test_an_observer_with_a_wrong_signature_does_not_break_the_spawn():
+    """Seam drift: an observer written against a different parameter list raises while the call is
+    being *built*, not while it is awaited, so the guard has to cover the call itself."""
+
+    class _StaleObserver(_RecordingObserver):
+        async def spawned(self, spawn_id):  # the real seam passes agent_type and task too
+            raise AssertionError("unreachable: the call itself raises TypeError")  # pragma: no cover
+
+    _RecordingAsyncAgent.chunks = [_text("answer")]
+    observer = _StaleObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+
+    assert await spawn("researcher", "find X") == "answer"
+    # The remaining callbacks still fire: one broken hook must not silence the rest of the report.
+    assert [event[0] for event in observer.events] == ["chunk", "finished"]
+
+
+async def test_a_partial_observer_missing_callbacks_does_not_break_the_spawn():
+    """Structural (duck-typed) satisfaction of SubagentObserver means implementing only one callback
+    is realistic input, not misuse -- the missing ones must not raise AttributeError."""
+
+    class _ChunkOnlyObserver:
+        def __init__(self):
+            self.events: list[tuple] = []
+
+        async def chunk(self, spawn_id, chunk):
+            self.events.append(("chunk", spawn_id, chunk.content))
+
+    _RecordingAsyncAgent.chunks = [_text("answer")]
+    observer = _ChunkOnlyObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+
+    assert await spawn("researcher", "find X") == "answer"
+    assert [event[0] for event in observer.events] == ["chunk"]
+
+
+async def test_no_observer_keeps_the_non_streaming_path():
+    _RecordingAsyncAgent.chunks = [_text("streamed")]
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES)
+    assert await spawn("researcher", "find X") == "[subagent-researcher] answered: find X"
+
+
+async def test_nested_spawns_inherit_the_observer():
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer, max_depth=2)
+    await spawn("researcher", "find X")
+    child = _RecordingAsyncAgent.instances[-1]
+    nested = [t for t in child.tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested, "a depth-2 spawn tool must be handed to the child"

@@ -93,12 +93,38 @@ print(await agent.run("Fan out three independent lookups and combine them."))
 
 In-process providers (HuggingFace, LlamaCpp) can't be constructed from an enum on the async surface, so each spawn wraps a **fresh** sync client (fresh preserves isolation; the process weight cache prevents reloading weights).
 
+## Watching a sub-agent work
+
+`make_async_subagent_tool` accepts an `observer` that gets a live report of what each spawn is doing, without turning `spawn_subagent` itself into a streaming tool (so `concurrent_tool_calls` still lets several spawns overlap). Implement the three methods of `SubagentObserver`:
+
+```python
+from aimu.aio.tools.builtin import make_async_subagent_tool
+
+
+class PrintingObserver:  # structurally satisfies SubagentObserver; no inheritance required
+    async def spawned(self, spawn_id, agent_type, task):
+        print(f"[{spawn_id}] started ({agent_type}): {task}")
+
+    async def chunk(self, spawn_id, chunk):
+        print(f"[{spawn_id}] {chunk.phase}: {chunk.content}")
+
+    async def finished(self, spawn_id, result, error):
+        print(f"[{spawn_id}] done: {error or result}")
+
+
+spawn = make_async_subagent_tool("anthropic:claude-sonnet-4-6", observer=PrintingObserver())
+```
+
+`spawn_id` is stable across all three callbacks for one spawn and unique per spawn, so a front end can key a display panel per sub-agent even when several run concurrently. `finished` always fires, including on cancellation, with whatever text had accumulated and the exception (if any) that ended the run. An observer is display-only: if a callback raises, the failure is logged and swallowed rather than aborting the spawn it was reporting on, and that holds for a callback whose signature no longer matches as much as for one that raises in its body. Nested spawns (`max_depth > 1`) inherit the same observer automatically.
+
+Attaching an observer is not purely additive, though: an observed spawn runs the child through the provider's **streaming** request path, where an unobserved spawn uses the non-streaming one. The returned answer is the same either way (the accumulator resets on each loop iteration, so it is the final answer rather than every intermediate response concatenated), but any provider behavior that differs between its two request paths applies to observed spawns.
+
 ## When to use this vs `OrchestratorAgent`
 
 - **`OrchestratorAgent`** — you know the specialist roster up front and want named, hand-wired workers (possibly workflows or remote agents). See [Build an orchestrator](build-orchestrator.md).
 - **`make_subagent_tool`** — the model should decide the fan-out at runtime: how many sub-agents, what each one does. Typed mode still lets you constrain *which kinds* of specialist it may spawn.
 
-Streaming a spawned sub-agent's tokens through the parent stream is intentionally **not** supported: it would disable the concurrent-dispatch path and interleave concurrent sub-agents' output. `spawn_subagent` returns the sub-agent's final answer; stream a sub-agent directly if you need live nested progress.
+Streaming a spawned sub-agent's tokens through the parent stream is intentionally **not** supported: it would disable the concurrent-dispatch path and interleave concurrent sub-agents' output. `spawn_subagent` returns the sub-agent's final answer; use `observer=` (async only, see above) to watch a spawn's progress without that interleaving.
 
 ## See also
 
