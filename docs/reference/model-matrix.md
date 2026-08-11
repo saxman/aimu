@@ -74,6 +74,7 @@ Gemini 2.5 thinking models emit `<think>` tags on Google's OpenAI-compatible end
 | `PHI_4_14B` | `phi4:14b` | ✗ | ✗ | ✗ |
 | `DEEPSEEK_R1_8B` | `deepseek-r1:8b` | ✗ | ✅ | ✗ |
 | `SMOLLM2_1_7B` | `smollm2:1.7b` | ✗ | ✗ | ✗ |
+| `MUSE_GLIMMER_30B` | `muse-glimmer:30b` | ✅ | ✅ | ✅ |
 | `LLAMA_3_2_3B` | `llama3.2:3b` | ✅ | ✗ | ✗ |
 | `LLAMA_3_1_8B` | `llama3.1:8b` | ✅ | ✗ | ✗ |
 
@@ -135,6 +136,9 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 | `GEMMA_4_12B` | ✅ | ✅ | ✅ | all |
 | `GEMMA_4_26B` | ✅ | ✅ | ✅ | all |
 | `GEMMA_4_31B` | ✅ | ✅ | ✅ | all |
+| `MUSE_GLIMMER_30B` | ✅ | ✅ | ✅ | Ollama, vLLM ‡ |
+
+‡ `MUSE_GLIMMER_30B` emits channel-scoped reasoning and ATEM-style XML tool calls instead of `<think>` tags and JSON, so a server needs dedicated parsers to surface either. Ollama parses both, and vLLM does with `--tool-call-parser muse_glimmer --reasoning-parser muse_glimmer` (enable them together). It is absent from the other server enums for now: SGLang support is only on a PR branch, and llama.cpp/LM Studio tool parsing for this format is undocumented.
 
 † `GEMMA_3_12B` is marked `tools=✗` on the Ollama-backed server (`OllamaOpenAIModel`) — the in-process HuggingFace and native-Ollama clients have no tool-call parse format for Gemma 3 — but `tools=✅` on the vLLM, SGLang, HF Serve, and llama-server builds, which parse Gemma 3 tool calls server-side. (`LLAMA_3_1_8B`/`LLAMA_3_2_3B` were formerly `tools=✗` on the Ollama/LM Studio builds; live testing confirmed reliable tool calling on current runtimes, so they are now `tools=✅` everywhere.)
 

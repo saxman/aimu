@@ -19,6 +19,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.parse import quote, urljoin
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 from dotenv import load_dotenv
@@ -35,10 +36,201 @@ def echo(echo_string: str) -> str:
     return echo_string
 
 
+_IANA_HINT = "Use an IANA name such as 'Asia/Tokyo' or 'America/New_York'."
+
+
+def _resolve_zone(name: str) -> Optional[ZoneInfo]:
+    """Returns the zone for an IANA key, or None if the key is unknown or malformed."""
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return None
+
+
+def _local_zone_key() -> Optional[str]:
+    """Best-effort IANA key for the system's zone.
+
+    The stdlib exposes no API for this, so read the TZ environment variable and then
+    fall back to the path the /etc/localtime symlink points into. Returns None when
+    neither yields a key (notably on Windows), in which case callers report the UTC
+    offset and abbreviation alone rather than guessing a zone.
+    """
+    tz = os.environ.get("TZ")
+    if tz:
+        return tz
+
+    parts = Path(os.path.realpath("/etc/localtime")).parts
+    if "zoneinfo" in parts:
+        return "/".join(parts[parts.index("zoneinfo") + 1 :])
+    return None
+
+
+# A wall-clock time a model is likely to emit for a tool that documents ISO 8601: an unpadded hour
+# ("2026-08-11T5:00:00") and a 12-hour clock ("2026-08-11 5:00 PM") both fail `fromisoformat`, which
+# wants a zero-padded 24-hour time. Both are unambiguous once the date is there, so parse them rather
+# than spending a round trip teaching the model to reformat. A date is still required: this tool exists
+# for times other than now, so inferring today's date would be a silent guess (that is what
+# get_current_date_and_time is for).
+_LOOSE_DATETIME = re.compile(
+    r"""^(?P<date>\d{4}-\d{2}-\d{2})
+        [T ]\s*
+        (?P<hour>\d{1,2}):(?P<minute>\d{2})
+        (?::(?P<second>\d{2}))?
+        (?:\s*(?P<meridiem>[AaPp])\.?[Mm]\.?)?
+        \s*(?P<offset>Z|z|[+-]\d{2}:?\d{2})?$""",
+    re.VERBOSE,
+)
+
+
+def _parse_datetime(text: str) -> Optional[datetime.datetime]:
+    """Parses an ISO-8601 timestamp, tolerating an unpadded hour and a 12-hour clock.
+
+    Returns None when the text is not a timestamp at all, so the caller can return its
+    teaching string. Normalizes to a strict ISO string and defers to ``fromisoformat``
+    for the actual parse, so calendar validation stays in one place.
+    """
+    text = text.strip()
+    try:
+        return datetime.datetime.fromisoformat(text).replace(microsecond=0)
+    except ValueError:
+        pass
+
+    match = _LOOSE_DATETIME.match(text)
+    if match is None:
+        return None
+
+    hour = int(match["hour"])
+    meridiem = (match["meridiem"] or "").lower()
+    if meridiem:
+        if not 1 <= hour <= 12:
+            return None  # "13:00 PM" is a contradiction, not a time to guess at
+        hour = 0 if hour == 12 else hour
+        if meridiem == "p":
+            hour += 12
+    elif hour > 23:
+        return None
+
+    offset = (match["offset"] or "").replace("z", "Z")
+    normalized = f"{match['date']}T{hour:02d}:{match['minute']}:{match['second'] or '00'}{offset}"
+    try:
+        return datetime.datetime.fromisoformat(normalized).replace(microsecond=0)
+    except ValueError:
+        return None
+
+
+def _format_instant(moment: datetime.datetime, zone_key: Optional[str]) -> str:
+    """Renders an aware datetime as an ISO-8601 timestamp annotated with zone and UTC."""
+    offset = moment.strftime("%z")
+    labels = []
+    for label in (zone_key, moment.tzname(), f"UTC{offset[:3]}:{offset[3:]}"):
+        if label and label not in labels:
+            labels.append(label)
+
+    utc = moment.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    return f"{moment.isoformat()} ({', '.join(labels)}; {utc})"
+
+
+def _attach_zone(naive: datetime.datetime, zone: ZoneInfo, zone_key: str) -> tuple[datetime.datetime, Optional[str]]:
+    """Attaches a zone to a wall-clock time, reporting any DST transition it lands on.
+
+    ZoneInfo resolves both a nonexistent time (the spring-forward gap) and an ambiguous
+    one (the fall-back overlap) silently, defaulting to fold=0. That silence is the very
+    error a cross-zone calculation needs surfaced, so return a note alongside the result.
+    A nonexistent time resolves to the instant ZoneInfo picks, so that a caller is never
+    shown a wall-clock reading that did not occur.
+    """
+    attached = naive.replace(tzinfo=zone)
+
+    resolved = attached.astimezone(datetime.timezone.utc).astimezone(zone)
+    if resolved.replace(tzinfo=None) != naive:
+        return resolved, (
+            f"note: {naive.isoformat()} does not exist in {zone_key} (spring-forward gap); "
+            f"interpreted as {resolved.isoformat()}"
+        )
+
+    if attached.replace(fold=1).utcoffset() != attached.utcoffset():
+        return attached, (
+            f"note: {naive.isoformat()} is ambiguous in {zone_key} (clocks repeat); "
+            f"interpreted as the first occurrence, {attached.tzname()}"
+        )
+    return attached, None
+
+
 @tool
-def get_current_date_and_time() -> str:
-    """Returns the current date and time."""
-    return str(datetime.datetime.now())
+def get_current_date_and_time(timezone: Optional[str] = None) -> str:
+    """Returns the current date and time, with its UTC offset and timezone.
+
+    Args:
+        timezone: IANA timezone name (e.g. "Asia/Tokyo", "America/New_York") to report
+            the time in. Omit for the local timezone.
+    """
+    if timezone is not None:
+        zone = _resolve_zone(timezone)
+        if zone is None:
+            return f"Unknown timezone: '{timezone}'. {_IANA_HINT}"
+        return _format_instant(datetime.datetime.now(zone).replace(microsecond=0), timezone)
+
+    # Prefer building the time from the derived key so the reported zone and offset
+    # always agree; astimezone() alone knows the offset but not which zone it is.
+    key = _local_zone_key()
+    zone = _resolve_zone(key) if key else None
+    if zone is None:
+        return _format_instant(datetime.datetime.now().astimezone().replace(microsecond=0), None)
+    return _format_instant(datetime.datetime.now(zone).replace(microsecond=0), key)
+
+
+@tool
+def convert_time(datetime_str: str, from_timezone: str, to_timezone: str) -> str:
+    """Converts a date and time from one timezone to another.
+
+    Both timezones must be IANA names ("America/Los_Angeles"), not abbreviations ("PST")
+    or spoken names ("Pacific Time"). Example call:
+    convert_time("2026-08-11T05:00:00", "America/Los_Angeles", "Europe/Zurich").
+
+    Handles daylight saving time, and flags times that a DST transition makes
+    nonexistent or ambiguous.
+
+    Args:
+        datetime_str: Date and time, ISO 8601 preferred (e.g. "2026-11-02T15:00:00").
+            A 12-hour clock and an unpadded hour are also accepted ("2026-11-02 3:00 PM").
+            The date is required. If the time already carries a UTC offset, that offset
+            is used and from_timezone is ignored.
+        from_timezone: IANA timezone name the time is given in (e.g. "Europe/Berlin").
+        to_timezone: IANA timezone name to convert to (e.g. "America/Denver").
+    """
+    parsed = _parse_datetime(datetime_str)
+    if parsed is None:
+        return (
+            f"Could not parse '{datetime_str}'. Give a date and a time in ISO 8601 format, e.g. "
+            f"'2026-11-02T15:00:00' (a 12-hour clock like '2026-11-02 3:00 PM' also works). "
+            f"For the current time, call get_current_date_and_time instead."
+        )
+
+    source_zone = _resolve_zone(from_timezone)
+    if source_zone is None:
+        return f"Unknown timezone: '{from_timezone}'. {_IANA_HINT}"
+
+    target_zone = _resolve_zone(to_timezone)
+    if target_zone is None:
+        return f"Unknown timezone: '{to_timezone}'. {_IANA_HINT}"
+
+    notes = []
+    if parsed.tzinfo is None:
+        source, note = _attach_zone(parsed, source_zone, from_timezone)
+        if note:
+            notes.append(note)
+        source_key = from_timezone
+    else:
+        offset = parsed.strftime("%z")
+        notes.append(f"note: from_timezone ignored; input carried offset {offset[:3]}:{offset[3:]}")
+        source = parsed
+        source_key = None
+
+    lines = [
+        _format_instant(source, source_key),
+        f"-> {_format_instant(source.astimezone(target_zone), to_timezone)}",
+    ]
+    return "\n".join(lines + notes)
 
 
 _WMO_DESCRIPTIONS = {
@@ -134,7 +326,20 @@ def calculate(expression: str) -> str:
 
 # Modules allowed inside the execute_python sandbox.
 _SANDBOX_ALLOWLIST = frozenset(
-    ["math", "statistics", "json", "re", "itertools", "functools", "datetime", "numpy", "pandas", "scipy", "matplotlib"]
+    [
+        "math",
+        "statistics",
+        "json",
+        "re",
+        "itertools",
+        "functools",
+        "datetime",
+        "zoneinfo",
+        "numpy",
+        "pandas",
+        "scipy",
+        "matplotlib",
+    ]
 )
 
 # Restricted builtins: copy all stdlib builtins, then block dangerous ones.
@@ -148,8 +353,8 @@ def execute_python(code: str) -> str:
     """Execute Python code in a sandboxed environment and return the output.
 
     Captures stdout and the value of the last expression. Imports are limited
-    to: math, statistics, json, re, itertools, functools, datetime, and
-    numpy/pandas/scipy/matplotlib when installed. File system and subprocess
+    to: math, statistics, json, re, itertools, functools, datetime, zoneinfo,
+    and numpy/pandas/scipy/matplotlib when installed. File system and subprocess
     access are not available.
 
     Args:
@@ -1348,7 +1553,13 @@ def make_web_tools(
 web = [get_weather, get_webpage, get_webpage_html, web_search, wikipedia]
 fs = [list_directory, read_file]
 compute = [calculate, execute_python]
-misc = [echo, get_current_date_and_time]
+# Grouped apart from ``misc`` because an agent almost always wants a clock regardless of its role: an
+# assistant scoped to filesystem work still has to resolve "by tomorrow morning". Bundled with ``echo``
+# it could only be granted alongside it.
+# Note: this name shadows the stdlib ``time`` module. Nothing here imports it (date work uses
+# ``datetime``), and adding such an import would be silently rebound by this assignment.
+time = [get_current_date_and_time, convert_time]
+misc = [echo]
 image = [generate_image]
 audio = [generate_audio]
 speech = [generate_speech]
@@ -1408,6 +1619,7 @@ transcription = [transcribe_audio]
 # Opt in explicitly via ``tools=builtin.compute`` or ``make_tools(python_sandbox=True)``.
 ALL_TOOLS = [
     *misc,
+    *time,
     get_weather,
     calculate,
     get_webpage,

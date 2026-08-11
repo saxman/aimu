@@ -29,6 +29,7 @@ _QWEN_3_6_KWARGS = {
     "repetition_penalty": 1.0,
 }
 _QWEN_3_5_KWARGS = {**_QWEN_3_6_KWARGS, "presence_penalty": 1.5}
+_MUSE_GLIMMER_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
 
 
 class OllamaModel(Model):
@@ -79,7 +80,21 @@ class OllamaModel(Model):
     DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True, structured_output=True)
     # HuggingFace: tool call responses don't always look correct
     SMOLLM2_1_7B = ModelSpec("smollm2:1.7b", structured_output=True)
-    # Meta: tool calling verified reliable on current Ollama builds (both models called the
+    # Meta: Muse Glimmer is an agentic vision-language model (a ViT-G/14 perception encoder
+    # ships in the same weights, so the plain tag serves image input) that emits channel-scoped
+    # reasoning and ATEM-style XML tool calls rather than <think> tags and JSON. Ollama parses
+    # both server-side and exposes them as its native thinking field and tool_calls, so all
+    # three capabilities are available on this path. The Ollama registry lists the tag as
+    # Text, Image + Tools + Thinking.
+    MUSE_GLIMMER_30B = ModelSpec(
+        "muse-glimmer:30b",
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_MUSE_GLIMMER_KWARGS,
+        structured_output=True,
+    )
+    # Tool calling verified reliable on current Ollama builds (both models called the
     # correct tool with correct arguments across every trial). An earlier flag disabled tools
     # here after older Ollama versions emitted unreliable calls; that no longer reproduces.
     LLAMA_3_2_3B = ModelSpec("llama3.2:3b", tools=True, structured_output=True)

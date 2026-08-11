@@ -64,6 +64,7 @@ dependencies = [
     { name = "requests" },
     { name = "sqlalchemy" },
     { name = "tinydb" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
     { name = "watchdog" },
 ]
 
@@ -204,6 +205,7 @@ requires-dist = [
     { name = "torchvision", marker = "extra == 'hf'" },
     { name = "tqdm", marker = "extra == 'tuning'" },
     { name = "transformers", marker = "extra == 'hf'", specifier = ">=5,<6" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
     { name = "uvicorn", marker = "extra == 'a2a'", specifier = ">=0.30" },
     { name = "uvicorn", marker = "extra == 'web'", specifier = ">=0.30" },
     { name = "watchdog" },

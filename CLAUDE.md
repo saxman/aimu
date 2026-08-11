@@ -376,7 +376,8 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - **`builtin.web`**: `get_weather`, `get_webpage`, `get_webpage_html`, `search`, `wikipedia`
   - **`builtin.fs`**: `list_directory`, `read_file`
   - **`builtin.compute`**: `calculate`, `execute_python` (sandboxed Python REPL; see below)
-  - **`builtin.misc`**: `echo`, `get_current_date_and_time`
+  - **`builtin.time`**: `get_current_date_and_time`, `convert_time` (its own group so a role scoped to other work can still be given a clock without `echo`)
+  - **`builtin.misc`**: `echo`
   - **`builtin.ALL_TOOLS`**: flat list of every built-in (kept for back-compat)
   - **`make_memory_tools(store)`**: factory that returns `[store_memory, search_memories, list_memories]` as `@tool`-decorated functions closing over the provided `MemoryStore` instance. No lazy singleton; the store is always explicit because `persist_path` and backend are meaningful choices. Pass the result directly to `Agent(client, tools=make_memory_tools(store))` or via `make_tools(..., memory_store=store)`. For cross-process or multi-agent memory, use `aimu.memory.mcp` / `aimu.memory.document_mcp` instead.
   - **`make_document_tools(store)`**: factory parallel to `make_memory_tools` that exposes a `DocumentStore`'s richer path API as `[save_document, read_document, list_documents, search_documents]` `@tool`s (wrapping `write`/`read`/`list_paths`/`search_full_text`; `read_document` returns a "not found" message instead of raising on a missing path). The names are deliberately distinct from the `make_memory_tools` triad so one agent can carry **both** a `SemanticMemoryStore` (short facts) and a `DocumentStore` (longer documents) at once. `make_memory_tools`, `make_document_tools`, and `make_retrieval_tool` are re-exported from `aimu.aio.tools.builtin` (the async agent dispatches these sync tools via `asyncio.to_thread`).
@@ -386,10 +387,11 @@ AIMU supports two tool registration routes that can be combined on the same clie
 
   Tool reference:
   - `echo(echo_string)`: Returns input string
-  - `get_current_date_and_time()`: Returns ISO format datetime
+  - `get_current_date_and_time(timezone=None)`: Current date and time as an offset-aware ISO-8601 timestamp annotated with its IANA zone, abbreviation, UTC offset, and UTC equivalent. `timezone` is an IANA name (e.g. `"Asia/Tokyo"`); omit for local. Unknown names return a teaching string rather than raising, so the model self-corrects
+  - `convert_time(datetime_str, from_timezone, to_timezone)`: Converts an ISO-8601 timestamp between IANA zones, DST-correct. Flags times a DST transition makes nonexistent (spring-forward gap) or ambiguous (fall-back overlap); an input that already carries an offset keeps it and the output notes that `from_timezone` was ignored
   - `get_weather(location)`: Current weather via Open-Meteo API (city name or coordinates)
   - `calculate(expression)`: Safe arithmetic expression evaluator
-  - `execute_python(code)`: Sandboxed Python REPL. Executes `code` in a fresh `exec()` namespace per call; captures stdout and returns the last expression value. Allowed imports: `math`, `statistics`, `json`, `re`, `itertools`, `functools`, `datetime`, and `numpy`/`pandas`/`scipy`/`matplotlib` when installed. Filesystem (`open`, `os`, `pathlib`) and subprocess access are blocked. **Not in `ALL_TOOLS` by default**; opt in via `tools=builtin.compute` or `make_tools(..., python_sandbox=True)`.
+  - `execute_python(code)`: Sandboxed Python REPL. Executes `code` in a fresh `exec()` namespace per call; captures stdout and returns the last expression value. Allowed imports: `math`, `statistics`, `json`, `re`, `itertools`, `functools`, `datetime`, `zoneinfo`, and `numpy`/`pandas`/`scipy`/`matplotlib` when installed. Filesystem (`open`, `os`, `pathlib`) and subprocess access are blocked. **Not in `ALL_TOOLS` by default**; opt in via `tools=builtin.compute` or `make_tools(..., python_sandbox=True)`.
   - `get_webpage(url)`: Fetches page and returns visible text with HTML stripped
   - `get_webpage_html(url)`: Fetches page and returns raw HTML markup (truncated); stateless, server-rendered HTML only. For form inspection/submission with cookies, use `make_web_tools()`
   - `search(query, num_results)`: Web search via SearXNG (`SEARXNG_BASE_URL` env var)
@@ -1218,7 +1220,7 @@ aimu/
 │           └── image.py         # GeminiImageClient + GeminiImageModel (Nano Banana; image extra)
 ├── tools/               # Tool integration (in-process @tool + cross-process MCP)
 │   ├── decorator.py     # @tool decorator + ToolSignatureError + ToolArgumentError + coerce_tool_arguments; sets __tool_is_async__ flag
-│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/misc/image/audio/speech/transcription subgroups (incl. lazy generate_image, generate_audio, generate_speech, transcribe_audio) + make_memory_tools() / make_document_tools() / make_subagent_tool() factories
+│   ├── builtin.py       # Built-in @tool functions + web/fs/compute/time/misc/image/audio/speech/transcription subgroups (incl. lazy generate_image, generate_audio, generate_speech, transcribe_audio) + make_memory_tools() / make_document_tools() / make_subagent_tool() factories
 │   ├── client.py        # MCPClient wrapper + MCPConnectionError + .ping() + .as_tools()
 │   ├── mcp_format.py    # mcp_tools_to_openai() + mcp_content_to_text(): shared by sync & async MCPClient (get_tools/as_tools)
 │   └── mcp.py           # FastMCP server registering builtin.ALL_TOOLS

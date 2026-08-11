@@ -42,16 +42,17 @@ from aimu.tools import builtin
 builtin.web       # [get_weather, get_webpage, search, wikipedia]
 builtin.fs        # [list_directory, read_file]
 builtin.compute   # [calculate]
-builtin.misc      # [echo, get_current_date_and_time]
+builtin.time      # [get_current_date_and_time, convert_time]
+builtin.misc      # [echo]
 ```
 
-For this tutorial we want `compute` (for math) and `misc` (for the date):
+For this tutorial we want `compute` (for math) and `time` (for the date):
 
 ```python
 from aimu.agents import Agent
 from aimu.tools import builtin
 
-agent = Agent(client, "You are a helpful assistant.", tools=builtin.compute + builtin.misc)
+agent = Agent(client, "You are a helpful assistant.", tools=builtin.compute + builtin.time)
 print(agent.run("What is 17 * 23?"))
 # 17 * 23 = 391.
 ```
@@ -83,7 +84,7 @@ Add it to the agent's tools:
 agent = Agent(
     client,
     "You are a helpful assistant.",
-    tools=builtin.compute + builtin.misc + [letter_counter],
+    tools=builtin.compute + builtin.time + [letter_counter],
 )
 
 print(agent.run(

@@ -22,8 +22,9 @@ It wires together:
 - **A `SkillAgent`** that answers each message and can **author new skills** at runtime via the
   `author_skill` tool, and attach **runnable Python/shell scripts** to them via `add_skill_script`
   (`aimu.skills`): the self-improvement loop.
-- **A small fixed set of built-in tools** (`aimu.tools.builtin.web + builtin.misc`: web search,
-  weather, Wikipedia, page fetch, date/time) so it is useful out of the box.
+- **A small fixed set of built-in tools** (`aimu.tools.builtin.web + builtin.time + builtin.misc`: web
+  search, weather, Wikipedia, page fetch, date/time and timezone conversion) so it is useful out of the
+  box.
 - **A `Scheduler`** (`aimu.aio.Scheduler`) for proactive messages (reminders / check-ins).
 - **`ConversationManager`** for history that survives restarts.
 

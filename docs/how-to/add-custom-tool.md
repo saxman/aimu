@@ -172,7 +172,8 @@ agent = Agent(client, tools=builtin.web + builtin.fs)
 | `builtin.web` | `get_weather`, `get_webpage`, `web_search`, `wikipedia` |
 | `builtin.fs` | `list_directory`, `read_file` |
 | `builtin.compute` | `calculate` |
-| `builtin.misc` | `echo`, `get_current_date_and_time` |
+| `builtin.time` | `get_current_date_and_time`, `convert_time` |
+| `builtin.misc` | `echo` |
 | `builtin.ALL_TOOLS` | All of the above |
 
 See the [`aimu.tools` API reference](../reference/api/tools.md) for the full list with descriptions.
