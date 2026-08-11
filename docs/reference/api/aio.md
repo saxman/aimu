@@ -47,6 +47,8 @@ Differences from the sync surface:
 
 ::: aimu.aio.tools.builtin.make_async_subagent_tool
 
+::: aimu.aio.tools.builtin.SubagentObserver
+
 ## Personal assistant
 
 Primitives for building an always-on assistant. See [how-to: build a personal assistant](../../how-to/build-personal-assistant.md).
