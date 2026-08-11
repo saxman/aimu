@@ -433,6 +433,25 @@ async def test_an_observer_with_a_wrong_signature_does_not_break_the_spawn():
     assert [event[0] for event in observer.events] == ["chunk", "finished"]
 
 
+async def test_a_partial_observer_missing_callbacks_does_not_break_the_spawn():
+    """Structural (duck-typed) satisfaction of SubagentObserver means implementing only one callback
+    is realistic input, not misuse -- the missing ones must not raise AttributeError."""
+
+    class _ChunkOnlyObserver:
+        def __init__(self):
+            self.events: list[tuple] = []
+
+        async def chunk(self, spawn_id, chunk):
+            self.events.append(("chunk", spawn_id, chunk.content))
+
+    _RecordingAsyncAgent.chunks = [_text("answer")]
+    observer = _ChunkOnlyObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+
+    assert await spawn("researcher", "find X") == "answer"
+    assert [event[0] for event in observer.events] == ["chunk"]
+
+
 async def test_no_observer_keeps_the_non_streaming_path():
     _RecordingAsyncAgent.chunks = [_text("streamed")]
     spawn = make_async_subagent_tool(MODEL, agent_types=TYPES)
