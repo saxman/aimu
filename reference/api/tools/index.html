@@ -2312,6 +2312,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.convert_time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        convert_time
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.get_weather" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3410,6 +3421,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.convert_time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        convert_time
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.get_weather" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3895,8 +3917,12 @@ the connection.</p>
 <td><code>calculate</code>, <code>execute_python</code></td>
 </tr>
 <tr>
+<td><code>builtin.time</code></td>
+<td><code>get_current_date_and_time</code>, <code>convert_time</code></td>
+</tr>
+<tr>
 <td><code>builtin.misc</code></td>
-<td><code>echo</code>, <code>get_current_date_and_time</code></td>
+<td><code>echo</code></td>
 </tr>
 <tr>
 <td><code>builtin.ALL_TOOLS</code></td>
@@ -3934,12 +3960,135 @@ the connection.</p>
 
 
 <a href="#aimu.tools.builtin.get_current_date_and_time" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_current_date_and_time</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_current_date_and_time</span><span class="p">(</span><span class="n">timezone</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Returns the current date and time.</p>
+        <p>Returns the current date and time, with its UTC offset and timezone.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>timezone</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>IANA timezone name (e.g. "Asia/Tokyo", "America/New_York") to report
+the time in. Omit for the local timezone.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.convert_time" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.convert_time</span>
+
+
+<a href="#aimu.tools.builtin.convert_time" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">convert_time</span><span class="p">(</span><span class="n">datetime_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">from_timezone</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_timezone</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Converts a date and time from one timezone to another.</p>
+<p>Both timezones must be IANA names ("America/Los_Angeles"), not abbreviations ("PST")
+or spoken names ("Pacific Time"). Example call:
+convert_time("2026-08-11T05:00:00", "America/Los_Angeles", "Europe/Zurich").</p>
+<p>Handles daylight saving time, and flags times that a DST transition makes
+nonexistent or ambiguous.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>datetime_str</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Date and time, ISO 8601 preferred (e.g. "2026-11-02T15:00:00").
+A 12-hour clock and an unpadded hour are also accepted ("2026-11-02 3:00 PM").
+The date is required. If the time already carries a UTC offset, that offset
+is used and from_timezone is ignored.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>from_timezone</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>IANA timezone name the time is given in (e.g. "Europe/Berlin").</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>to_timezone</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>IANA timezone name to convert to (e.g. "America/Denver").</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -4032,8 +4181,8 @@ the connection.</p>
 
         <p>Execute Python code in a sandboxed environment and return the output.</p>
 <p>Captures stdout and the value of the last expression. Imports are limited
-to: math, statistics, json, re, itertools, functools, datetime, and
-numpy/pandas/scipy/matplotlib when installed. File system and subprocess
+to: math, statistics, json, re, itertools, functools, datetime, zoneinfo,
+and numpy/pandas/scipy/matplotlib when installed. File system and subprocess
 access are not available.</p>
 
 

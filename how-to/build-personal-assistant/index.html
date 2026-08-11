@@ -3284,7 +3284,7 @@ history is persisted after each turn.</p>
 <p>The reference app in <code>examples/personal-assistant/</code> is this, fleshed out: serialize reactive and
 proactive turns with a lock (they share one agent), an argparse entry point, and mock-only tests.
 It also gives the agent a small fixed set of AIMU <a href="../add-custom-tool/">built-in tools</a>
-(<code>builtin.web + builtin.misc</code>). The built-ins are sync functions, and the async agent dispatches
+(<code>builtin.web + builtin.time + builtin.misc</code>). The built-ins are sync functions, and the async agent dispatches
 them through <code>asyncio.to_thread</code>, so they attach to <code>agent.tools</code> with no wrapping. The example is
 kept intentionally minimal; selectable tool groups, <a href="../use-mcp-tools/">remote MCP servers</a>, and
 <a href="../use-semantic-memory/">persistent memory</a> are capabilities AIMU ships but the example leaves out.</p>

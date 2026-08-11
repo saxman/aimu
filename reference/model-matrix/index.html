@@ -3687,6 +3687,13 @@
 <td style="text-align: center;">✗</td>
 </tr>
 <tr>
+<td><code>MUSE_GLIMMER_30B</code></td>
+<td><code>muse-glimmer:30b</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
 <td><code>LLAMA_3_2_3B</code></td>
 <td><code>llama3.2:3b</code></td>
 <td style="text-align: center;">✅</td>
@@ -3998,8 +4005,16 @@
 <td style="text-align: center;">✅</td>
 <td>all</td>
 </tr>
+<tr>
+<td><code>MUSE_GLIMMER_30B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>Ollama, vLLM ‡</td>
+</tr>
 </tbody>
 </table>
+<p>‡ <code>MUSE_GLIMMER_30B</code> emits channel-scoped reasoning and ATEM-style XML tool calls instead of <code>&lt;think&gt;</code> tags and JSON, so a server needs dedicated parsers to surface either. Ollama parses both, and vLLM does with <code>--tool-call-parser muse_glimmer --reasoning-parser muse_glimmer</code> (enable them together). It is absent from the other server enums for now: SGLang support is only on a PR branch, and llama.cpp/LM Studio tool parsing for this format is undocumented.</p>
 <p>† <code>GEMMA_3_12B</code> is marked <code>tools=✗</code> on the Ollama-backed server (<code>OllamaOpenAIModel</code>) — the in-process HuggingFace and native-Ollama clients have no tool-call parse format for Gemma 3 — but <code>tools=✅</code> on the vLLM, SGLang, HF Serve, and llama-server builds, which parse Gemma 3 tool calls server-side. (<code>LLAMA_3_1_8B</code>/<code>LLAMA_3_2_3B</code> were formerly <code>tools=✗</code> on the Ollama/LM Studio builds; live testing confirmed reliable tool calling on current runtimes, so they are now <code>tools=✅</code> everywhere.)</p>
 <p>Gemma 4 E4B/12B are natively audio-capable, but <code>audio</code> is left off for every OpenAI-compat server because audio input isn't reliably exposed by these local servers (see the inline comments in <code>openai_compat.py</code> for the per-server reason). 26B/31B have no native audio.</p>
 <h2 id="image-generation">Image generation<a class="headerlink" href="#image-generation" title="Permanent link">&para;</a></h2>
