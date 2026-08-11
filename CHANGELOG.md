@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.13.0 (2026-08-11): extended model strings, timezone-aware time tools, web form tools, agentic-loop and streaming fixes
 
 ### Models
 
