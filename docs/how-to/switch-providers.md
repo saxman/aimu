@@ -40,7 +40,7 @@ client = aimu.client("openai-compat:my-model@http://gpu-box:9000/v1;tools")
 
 Notes:
 
-- `@<base_url>` is accepted only by the OpenAI-compatible local-server providers (`llamaserver`, `lmstudio`, `vllm`, `hf-openai`, `sglang`, `ollama-openai`) and the generic `openai-compat` prefix. Passing it to a cloud or in-process provider raises `ValueError`.
+- `@<base_url>` is accepted only by the OpenAI-compatible local-server providers (`llamaserver`, `lmstudio`, `vllm`, `hf-openai`, `sglang`, `ollama-openai`, `omlx`) and the generic `openai-compat` prefix. Passing it to a cloud or in-process provider raises `ValueError`.
 - The generic `openai-compat` prefix always requires `@<base_url>` (it has no default) and always takes an ad-hoc id.
 - Flags apply only to ad-hoc ids, and an omitted flag defaults to `False`, so declare `;tools` (etc.) for the capabilities your model actually has. Passing flags with a catalog id raises `ValueError` — the catalog already declares its capabilities.
 - No authentication is added; the endpoint is assumed unauthenticated (`api_key` is unset).
@@ -115,8 +115,44 @@ aimu.resolve_default_text_model_enum()  # the single auto-pick, as an enum membe
 | `vllm` | `aimu[openai_compat]` | None (localhost:8000) |
 | `llamaserver` | `aimu[openai_compat]` | None (localhost:8080) |
 | `sglang` | `aimu[openai_compat]` | None (localhost:30000) |
+| `omlx` | `aimu[openai_compat]` | None (localhost:8000) |
 
 See the [provider matrix](../reference/provider-matrix.md) for full details.
+
+## Run MLX models on Apple Silicon
+
+MLX is Apple's ML framework; on Apple Silicon it typically generates 20-40% faster than the
+llama.cpp Metal backend. Three providers reach MLX-optimized weights:
+
+```python
+import aimu
+
+# 1. oMLX -- a dedicated MLX server. `omlx serve --model-dir ~/models` first.
+aimu.client("omlx:Qwen3.6-35B-A3B-4bit")
+
+# 2. LM Studio's MLX engine (picked automatically for MLX weights).
+aimu.client("lmstudio:qwen3.6-35b-a3b-4bit")
+
+# 3. Ollama 0.19+ uses MLX automatically on Apple Silicon. Nothing to configure, and the
+#    tag is unchanged -- this is the same call you'd make on a Linux box.
+aimu.client("ollama:qwen3.6:35b")
+```
+
+**`hf` and `llamacpp` are not MLX paths.** `HuggingFaceClient` is torch/`transformers` and
+`LlamaCppClient` is GGML/GGUF; neither can load MLX's quantized safetensors layout. `mlx-community`
+models are hosted on the HuggingFace Hub but only mlx-lm/mlx-vlm can execute them, so AIMU reaches
+MLX through servers rather than an in-process client.
+
+oMLX ids are **`--model-dir` subdirectory names**, so the catalog can only ever be a convention.
+For any other layout, declare the model ad hoc — flags default to `False`, so spell them out:
+
+```python
+aimu.client("omlx:my-own-conversion-4bit;tools,thinking,vision")
+aimu.client("omlx:Qwen3.6-35B-A3B-4bit@http://mac-studio:8000/v1")  # headless Mac on the LAN
+```
+
+oMLX's default port (8000) is shared with vLLM and HF Transformers Serve, so pass `@<base_url>`
+when you run more than one of them.
 
 ## Check what the provider supports
 
@@ -238,7 +274,7 @@ The extended grammar has two more guardrails. An `@<base_url>` on a provider tha
 
 ```python
 >>> aimu.client("anthropic:claude-sonnet-4-6@http://proxy/v1")
-ValueError: Provider 'anthropic' does not accept an @base_url. Supported: ['hf-openai', 'llamaserver', 'lmstudio', 'ollama-openai', 'openai-compat', 'sglang', 'vllm'].
+ValueError: Provider 'anthropic' does not accept an @base_url. Supported: ['hf-openai', 'llamaserver', 'lmstudio', 'ollama-openai', 'omlx', 'openai-compat', 'sglang', 'vllm'].
 
 >>> aimu.client("llamaserver:qwen3-8b.gguf@http://gpu-box:8080/v1;tools")
 ValueError: Capability flags are not allowed with the known model id 'qwen3-8b.gguf'; it already declares its capabilities. Use a different id to define an ad-hoc model.

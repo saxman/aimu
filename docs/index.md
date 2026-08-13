@@ -61,7 +61,8 @@ That's the full mental model: a `chat()` function for one-shots, a `client()` fa
 
 ## What's in the box
 
-- **Provider-agnostic clients**: Ollama, HuggingFace, llama-cpp, Anthropic, OpenAI, Gemini, plus every OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve).
+- **Provider-agnostic clients**: Ollama, HuggingFace, llama-cpp, Anthropic, OpenAI, Gemini, plus every OpenAI-compatible local server (LM Studio, vLLM, SGLang, llama-server, HF Transformers Serve, oMLX).
+- **MLX on Apple Silicon**: MLX-optimized weights run through `omlx`, LM Studio's MLX engine, or Ollama 0.19+ (which picks MLX automatically on Apple Silicon). See [how-to: switch providers](how-to/switch-providers.md#run-mlx-models-on-apple-silicon).
 - **Text-to-image and image-to-image**: `aimu.image_client()` and `aimu.generate_image()` parallel the text surface. HuggingFace `diffusers` for local generation (SD 1.5 / SDXL / SD 3.5 / FLUX 1 / FLUX 2 Klein), Google Nano Banana for cloud. Pass `reference_image=` to any `generate()` call for img2img. Drops into any chat agent via the built-in `generate_image` tool. See [how-to: generate images](how-to/generate-images.md).
 - **Text-to-audio**: `aimu.audio_client()` and `aimu.generate_audio()` for music and sound generation (not TTS). HuggingFace MusicGen, AudioLDM2, and Stable Audio Open. See [how-to: generate audio](how-to/generate-audio.md).
 - **Text-to-speech**: `aimu.speech_client()` and `aimu.generate_speech()` for TTS. HuggingFace MMS-TTS/BARK locally; OpenAI tts-1/tts-1-hd in the cloud. Live sentence-by-sentence narration in the Streamlit chatbot. See [how-to: generate speech](how-to/generate-speech.md).

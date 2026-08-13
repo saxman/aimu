@@ -103,6 +103,8 @@ try:
         LMStudioOpenAIModel,
         OllamaOpenAIClient,
         OllamaOpenAIModel,
+        OMLXOpenAIClient,
+        OMLXOpenAIModel,
         OpenAICompatClient,
         SGLangOpenAIClient,
         SGLangOpenAIModel,
@@ -130,6 +132,8 @@ except ImportError:
     LlamaServerOpenAIModel = None
     SGLangOpenAIClient = None
     SGLangOpenAIModel = None
+    OMLXOpenAIClient = None
+    OMLXOpenAIModel = None
 
 try:
     from .providers.llamacpp import LlamaCppClient, LlamaCppModel
@@ -327,6 +331,8 @@ if HAS_OPENAI_COMPAT:
             "LlamaServerOpenAIModel",
             "SGLangOpenAIClient",
             "SGLangOpenAIModel",
+            "OMLXOpenAIClient",
+            "OMLXOpenAIModel",
         ]
     )
 if HAS_LLAMACPP:
@@ -385,6 +391,7 @@ def available_text_clients() -> list[type[BaseModelClient]]:
                 VLLMOpenAIClient,
                 LlamaServerOpenAIClient,
                 SGLangOpenAIClient,
+                OMLXOpenAIClient,
             ]
         )
     if HAS_LLAMACPP:

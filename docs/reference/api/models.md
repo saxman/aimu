@@ -55,6 +55,8 @@ Provider-agnostic model clients.
 
 ::: aimu.models.SGLangOpenAIClient
 
+::: aimu.models.OMLXOpenAIClient
+
 ::: aimu.models.OpenAICompatClient
 
 ## Embedding clients

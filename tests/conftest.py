@@ -13,9 +13,11 @@ def pytest_addoption(parser):
         action="store",
         default=None,
         help=(
-            "Client type to test: 'ollama', 'hf'/'huggingface', "
-            "'openai', 'anthropic', 'gemini', or 'all'. Omitted (default) skips "
-            "live model tests; pass 'all' for the full cross-provider matrix."
+            "Client type to test: 'ollama', 'hf'/'huggingface', 'openai', 'anthropic', "
+            "'gemini', 'llamacpp', a local OpenAI-compat server "
+            "('lmstudio_openai', 'ollama_openai', 'hf_openai', 'vllm_openai', 'omlx_openai'), "
+            "or 'all'. Omitted (default) skips live model tests; pass 'all' for the full "
+            "cross-provider matrix."
         ),
     )
 

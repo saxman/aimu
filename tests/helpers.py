@@ -44,12 +44,14 @@ if HAS_OPENAI_COMPAT:
         OllamaOpenAIClient,
         HFOpenAIClient,
         VLLMOpenAIClient,
+        OMLXOpenAIClient,
     )
 else:
     LMStudioOpenAIClient = None
     OllamaOpenAIClient = None
     HFOpenAIClient = None
     VLLMOpenAIClient = None
+    OMLXOpenAIClient = None
 
 if HAS_HF_IMAGE:
     from aimu.models import HuggingFaceImageClient
@@ -178,6 +180,10 @@ def _resolve_client(client_type: str, config):
         return HFOpenAIClient
     if client_type == "vllm_openai":
         return VLLMOpenAIClient
+    if client_type == "omlx_openai":
+        if not HAS_OPENAI_COMPAT:
+            pytest.skip("openai package not installed")
+        return OMLXOpenAIClient
     if client_type == "llamacpp":
         if not HAS_LLAMACPP:
             pytest.skip("llama-cpp-python not installed")
@@ -231,6 +237,7 @@ def resolve_model_params(config, default_params=None) -> list:
                     OllamaOpenAIClient,
                     HFOpenAIClient,
                     VLLMOpenAIClient,
+                    OMLXOpenAIClient,
                 ]
             )
 
@@ -291,6 +298,8 @@ def create_real_model_client(request) -> Iterator[BaseModelClient]:
         client = HFOpenAIClient(model, system_message="You are a helpful assistant.")
     elif HAS_OPENAI_COMPAT and model in VLLMOpenAIClient.MODELS:
         client = VLLMOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif HAS_OPENAI_COMPAT and model in OMLXOpenAIClient.MODELS:
+        client = OMLXOpenAIClient(model, system_message="You are a helpful assistant.")
     elif HAS_LLAMACPP and model in LlamaCppModel:
         model_path = request.config.getoption("--model-path")
         if not model_path:

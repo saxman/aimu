@@ -3,7 +3,7 @@
 ``OpenAICompatClient`` speaks the OpenAI REST API against any ``base_url``. The
 subclasses below are thin: each sets a default ``base_url`` and a ``Model`` enum of
 server-appropriate ids. They cover *local* servers that merely expose an OpenAI-compatible
-endpoint (Ollama, LM Studio, vLLM, HF-Serve, llama-server, SGLang).
+endpoint (Ollama, LM Studio, vLLM, HF-Serve, llama-server, SGLang, oMLX).
 
 The cloud-brand providers that also use this protocol live in their own provider
 subpackages, since they have multiple modalities and first-class identities:
@@ -369,6 +369,10 @@ class OllamaOpenAIModel(Model):
     # Ollama tag serves image input over the OpenAI-compat endpoint. Qwen3 8B/4B above are the
     # older text-only generation.
     QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True, vision=True)
+    # Qwen 3.6 serves over the OpenAI-compat endpoint exactly like 3.5 above. On Apple Silicon,
+    # Ollama 0.19+ runs it on its MLX backend automatically; that's transparent to this client (the
+    # tag is unchanged), so there is nothing MLX-specific to declare here.
+    QWEN_3_6_35B = ModelSpec("qwen3.6:35b", tools=True, thinking=True, vision=True)
     DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True)
     GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True)
     # Gemma 4 E4B/12B support audio natively, but the Ollama API doesn't expose audio input yet
@@ -406,6 +410,15 @@ class LMStudioOpenAIModel(Model):
     # Qwen 3.5 is a unified vision-language model; load its multimodal GGUF in LM Studio for
     # image input (same convention as the Gemma 4 vision entries below). Qwen3 8B/4B are text-only.
     QWEN_3_5_9B = ModelSpec("qwen3.5-9b", tools=True, thinking=True, vision=True)
+    # LM Studio ships an MLX engine alongside llama.cpp and picks it automatically for MLX weights
+    # on Apple Silicon. The loaded-model key derives from the downloaded repo, so an mlx-community
+    # download keeps its quant suffix -- unlike the GGUF entries above, whose keys are quant-free.
+    # Member names match OMLXOpenAIModel's so the cross-provider consistency guard covers the pair.
+    # Qwen 3.6 35B-A3B is a unified vision-language MoE, hence vision=True (matching
+    # OllamaModel.QWEN_3_6_35B). No bare QWEN_3_6_35B here: a quant-free LM Studio key would be the
+    # GGUF build, which is not an MLX path. No bf16 either -- a 35B unquantized is impractical here.
+    QWEN_3_6_35B_4BIT = ModelSpec("qwen3.6-35b-a3b-4bit", tools=True, thinking=True, vision=True)
+    QWEN_3_6_35B_8BIT = ModelSpec("qwen3.6-35b-a3b-8bit", tools=True, thinking=True, vision=True)
     DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-distill-qwen-7b", thinking=True)
     # Gemma 4 E4B/12B support audio natively, but LM Studio has no audio-input path (image-only);
     # leave audio=False.
@@ -553,4 +566,57 @@ class SGLangOpenAIClient(OpenAICompatClient):
     MODELS = SGLangOpenAIModel
 
     def __init__(self, model: SGLangOpenAIModel, base_url: str = SGLANG_BASE_URL, **kwargs):
+        super().__init__(model, base_url=base_url, **kwargs)
+
+
+OMLX_BASE_URL = "http://localhost:8000/v1"
+
+
+class OMLXOpenAIModel(Model):
+    # oMLX (https://github.com/jundot/omlx) is an MLX inference server for Apple Silicon. Model
+    # values are the *subdirectory name* under `--model-dir`: oMLX discovers models from
+    # subdirectories automatically, so the id is whatever the user named the folder. These entries
+    # follow the convention "directory name == the mlx-community repo's model segment", which is
+    # what a copy-pasted download produces:
+    #     hf download mlx-community/Qwen3.6-35B-A3B-4bit --local-dir $MODEL_DIR/Qwen3.6-35B-A3B-4bit
+    # Like LlamaServerOpenAIModel's GGUF filenames these are conventions, not contracts; a folder
+    # named anything else is reachable ad hoc via `omlx:<dir>;tools,thinking,vision` (omlx is in
+    # model_client._BASE_URL_PROVIDERS). oMLX also accepts a `<model>:<profile>` alias form, e.g.
+    # `omlx:Qwen3.6-35B-A3B:fast`; the extra colon survives because only the first ':' splits the
+    # provider off, the same way an Ollama `name:tag` does.
+    #
+    # Qwen 3.6 35B-A3B is a unified vision-language MoE (Qwen3_5MoeForConditionalGeneration, with an
+    # image_token_id and an image-text-to-text pipeline tag), so vision lives in the base weights,
+    # matching OllamaModel.QWEN_3_6_35B. oMLX emits OpenAI-shaped tool_calls and separates
+    # reasoning-model output, so tools and thinking are both live on this path.
+    #
+    # The bare member is the quant-agnostic layout (one folder holding whichever quant the user
+    # downloaded) and carries the cross-provider name that resolve_model_enum("QWEN_3_6_35B") and
+    # tests/test_model_catalog_consistency.py match on. The suffixed members are for a machine
+    # holding several quants side by side. Every id here is distinct on purpose: two members sharing
+    # a ModelSpec.id silently become an enum ALIAS (Model.__init__ assigns _value_ = spec.id before
+    # enum's duplicate scan runs), which drops the second member from iteration and discards its
+    # flags. tests/test_model_catalog_consistency.py::test_no_silent_enum_aliases guards this.
+    QWEN_3_6_35B = ModelSpec("Qwen3.6-35B-A3B", tools=True, thinking=True, vision=True)
+    QWEN_3_6_35B_4BIT = ModelSpec("Qwen3.6-35B-A3B-4bit", tools=True, thinking=True, vision=True)
+    QWEN_3_6_35B_8BIT = ModelSpec("Qwen3.6-35B-A3B-8bit", tools=True, thinking=True, vision=True)
+    QWEN_3_6_35B_BF16 = ModelSpec("Qwen3.6-35B-A3B-bf16", tools=True, thinking=True, vision=True)
+    # structured_output stays False across every OpenAI-compat local-server catalog (only the native
+    # Ollama path grammar-enforces JSON), so `schema=` falls back to prompt-and-parse. audio stays
+    # False: these weights are image-text-to-text, with no audio encoder.
+
+
+class OMLXOpenAIClient(OpenAICompatClient):
+    """Client for oMLX's OpenAI-compatible REST API (MLX inference on Apple Silicon).
+
+    Start the server with:
+        omlx serve --model-dir ~/models --port 8000
+
+    The default port collides with vLLM and HF Transformers Serve, so pass ``base_url=`` (or
+    ``@<base_url>`` in the model string) when running more than one of them.
+    """
+
+    MODELS = OMLXOpenAIModel
+
+    def __init__(self, model: OMLXOpenAIModel, base_url: str = OMLX_BASE_URL, **kwargs):
         super().__init__(model, base_url=base_url, **kwargs)

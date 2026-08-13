@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AIMU (AI Modeling Utilities) is a Python library for building AI-powered applications, with language models as the primary building block. It provides a unified, provider-agnostic interface across modalities -- text generation, image generation, and audio generation -- spanning local backends (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) and cloud providers (OpenAI, Anthropic, Google Gemini). MCP tool integration and typed streaming output (thinking, tool calling, generation phases) are built into the base model client, not layered on top.
+AIMU (AI Modeling Utilities) is a Python library for building AI-powered applications, with language models as the primary building block. It provides a unified, provider-agnostic interface across modalities -- text generation, image generation, and audio generation -- spanning local backends (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server, and MLX on Apple Silicon via oMLX / LM Studio / Ollama 0.19+) and cloud providers (OpenAI, Anthropic, Google Gemini). MCP tool integration and typed streaming output (thinking, tool calling, generation phases) are built into the base model client, not layered on top.
 
 AIMU implements the taxonomy from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. Concretely, that means **one** `Runner` ABC (no type-level split between agents and workflows) and the following concrete classes, all exported from `aimu.agents` and composable via the shared interface:
 
@@ -98,6 +98,7 @@ pytest tests/test_models.py --client=hf_openai
 pytest tests/test_models.py --client=vllm
 pytest tests/test_models.py --client=llamaserver_openai
 pytest tests/test_models.py --client=sglang_openai
+pytest tests/test_models.py --client=omlx_openai
 pytest tests/test_models.py --client=llamacpp --model-path=/path/to/model.gguf
 ```
 
@@ -183,7 +184,7 @@ The **personal-assistant** example additionally ships a WebSocket front end -- `
   - Re-exports: `BaseModelClient`, `Model`, `ModelClient`, `ModelSpec`, `StreamChunk`, `StreamingContentType`.
   - `aimu.aio`: async submodule. Imported by default (one-line `from . import aio`) so users can `from aimu import aio` without a separate install. See "Async Surface" below.
 
-Model-string format: `"provider:model_id"`. Provider keys (when their optional dep is installed): `ollama`, `hf`, `anthropic`, `openai`, `gemini`, `lmstudio`, `ollama-openai`, `hf-openai`, `vllm`, `llamaserver`, `sglang`, `llamacpp`. The id is matched against the provider's `Model` enum; colons inside the id (e.g. `qwen3.5:9b`) are preserved.
+Model-string format: `"provider:model_id"`. Provider keys (when their optional dep is installed): `ollama`, `hf`, `anthropic`, `openai`, `gemini`, `lmstudio`, `ollama-openai`, `hf-openai`, `vllm`, `llamaserver`, `sglang`, `omlx`, `llamacpp`. The id is matched against the provider's `Model` enum; colons inside the id (e.g. `qwen3.5:9b`) are preserved.
 
 ### Async Surface (`aimu.aio`)
 
@@ -210,7 +211,7 @@ async def main():
 - **[aimu/aio/_mcp_client.py](aimu/aio/_mcp_client.py)**: async `MCPClient` (~30 LOC). Uses FastMCP's native async `Client` directly (no anyio portal). Construct via the `connect()` classmethod factory: `mcp = await MCPClient.connect(server=...)`.
 - **[aimu/aio/providers/](aimu/aio/providers/)**: async provider clients:
   - `anthropic.py`: `AsyncAnthropicClient` using `anthropic.AsyncAnthropic`. Reuses sync class's pure format adapters via composition.
-  - `openai_compat.py`: `AsyncOpenAICompatClient` using `openai.AsyncOpenAI`, plus `Async*Client` subclasses for OpenAI, Gemini, LM Studio, Ollama-OpenAI, HF-OpenAI, vLLM, llama-server, SGLang.
+  - `openai_compat.py`: `AsyncOpenAICompatClient` using `openai.AsyncOpenAI`, plus `Async*Client` subclasses for OpenAI, Gemini, LM Studio, Ollama-OpenAI, HF-OpenAI, vLLM, llama-server, SGLang, oMLX.
   - `ollama.py`: `AsyncOllamaClient` using `ollama.AsyncClient`.
   - `_inprocess.py`: `_AsyncInProcessClient` base holding the shared wrap mechanics (state-sharing properties, `_generate`/`_chat`, `_stream_via_thread`) for the in-process wrappers below.
   - `hf/text.py`: `AsyncHuggingFaceClient(_AsyncInProcessClient)` (sets `MODELS` + `_SYNC_CLASS`); see "In-process providers".
@@ -320,6 +321,7 @@ The codebase uses an abstract base class pattern for model clients:
     - `VLLMOpenAIClient`: vLLM (default: `localhost:8000`)
     - `LlamaServerOpenAIClient`: llama.cpp llama-server (default: `localhost:8080`)
     - `SGLangOpenAIClient`: SGLang (default: `localhost:30000`)
+    - `OMLXOpenAIClient`: [oMLX](https://github.com/jundot/omlx), MLX inference on Apple Silicon (default: `localhost:8000`, shared with vLLM/HF-Serve). Model ids are `--model-dir` subdirectory names
   - [aimu/models/providers/openai/text.py](aimu/models/providers/openai/text.py): `OpenAIClient`: [OpenAI](https://platform.openai.com/) cloud API (GPT-4o, GPT-4.1, o-series); reads `OPENAI_API_KEY`. Subclasses `OpenAICompatClient`.
   - [aimu/models/providers/gemini/text.py](aimu/models/providers/gemini/text.py): `GeminiClient`: [Google Gemini](https://ai.google.dev/) via Google's OpenAI-compat endpoint; reads `GOOGLE_API_KEY`. Subclasses `OpenAICompatClient`.
   - [aimu/models/providers/llamacpp.py](aimu/models/providers/llamacpp.py): `LlamaCppClient` for local GGUF models via llama-cpp-python (requires `llamacpp` extra):
@@ -823,8 +825,36 @@ Models with `supports_vision=True` accept images alongside the user prompt:
 - Service-specific subclasses each define their own `Model` enum with service-appropriate model IDs and a default `base_url`
 - Thinking model support handles both delivery shapes: a server-provided `reasoning_content` field on the delta/message (preferred when present; llama-server default, vLLM/SGLang reasoning parsers) and inline `<think>...</think>` tags in content (via `_split_thinking` and `_ThinkingParser` in [aimu/models/providers/_thinking.py](aimu/models/providers/_thinking.py)); `LlamaCppClient` uses the same shared utilities. See "Thinking Models" for the precedence rule
 - Pass `tools=openai.NOT_GIVEN` (not `tools=[]`) when no tools are available; some local servers reject an empty tools array
-- Model ID format varies by service: LM Studio uses loaded model keys, Ollama uses `name:tag` format, HF Transformers Serve, vLLM, and SGLang use HuggingFace repo paths (e.g. `Qwen/Qwen3-8B`); llama-server uses GGUF filenames (the model field is ignored server-side, so these are capability-lookup only)
-- Test with `pytest tests/test_models.py --client=lmstudio_openai` (or `ollama_openai`, `hf_openai`, `vllm_openai`, `llamaserver_openai`, `sglang_openai`)
+- Model ID format varies by service: LM Studio uses loaded model keys, Ollama uses `name:tag` format, HF Transformers Serve, vLLM, and SGLang use HuggingFace repo paths (e.g. `Qwen/Qwen3-8B`); llama-server uses GGUF filenames (the model field is ignored server-side, so these are capability-lookup only); oMLX uses `--model-dir` subdirectory names
+- Test with `pytest tests/test_models.py --client=lmstudio_openai` (or `ollama_openai`, `hf_openai`, `vllm_openai`, `llamaserver_openai`, `sglang_openai`, `omlx_openai`)
+
+### MLX (Apple Silicon)
+
+MLX-optimized weights are reached **through servers, not an in-process client**. Three providers
+execute them: `omlx` (`OMLXOpenAIClient` -> [oMLX](https://github.com/jundot/omlx), a dedicated MLX
+server), `lmstudio` (LM Studio's MLX engine, auto-selected for MLX weights), and `ollama` (0.19+ runs
+an MLX backend automatically on Apple Silicon for its own library, behind unchanged tags, and wants
+>32 GB unified memory). **`hf` and `llamacpp` are deliberately not MLX paths**: `HuggingFaceClient`
+is torch/`transformers` and `LlamaCppClient` is GGML/GGUF, and neither can load MLX's quantized
+safetensors layout -- `mlx-community` repos are *hosted* on the HF Hub but only mlx-lm/mlx-vlm can
+execute them. Treat "add an in-process MLX client" as a separate, deliberate decision, not a gap.
+
+`omlx` is in `model_client._BASE_URL_PROVIDERS` for a stronger reason than the other local servers:
+its model ids are user-chosen `--model-dir` subdirectory names, so the ad-hoc
+`omlx:<dir>;tools,thinking,vision` form is a primary addressing mechanism rather than an escape
+hatch (and `AdHocModel` flags default to `False`, so they must be spelled out). Its default port
+(8000) is shared with `vllm` and `hf-openai`; that is safe in `_OPENAI_COMPAT_PROBES` because each
+probe keeps only enum members whose `.value` appears in that server's `/v1/models`, and the id
+namespaces are disjoint (HF repo paths contain a `/`, oMLX ids are bare directory names).
+
+**Catalog shape**: Qwen 3.6 35B-A3B carries per-quantization members (`QWEN_3_6_35B_4BIT` /
+`_8BIT` / `_BF16`) alongside the bare `QWEN_3_6_35B`, because each MLX quantization is a separate
+`mlx-community` repo. Every id within an enum **must be distinct**: `Model.__init__` assigns
+`_value_ = spec.id` before enum's duplicate scan runs and `ModelSpec.__eq__`/`__hash__` are id-only,
+so two members sharing an id silently become an **alias** -- the second vanishes from iteration (and
+from `TOOL_MODELS`/`VISION_MODELS`, the discovery probes, and the consistency checks) and its flags
+are discarded, with no warning. Guarded by
+`tests/test_model_catalog_consistency.py::test_no_silent_enum_aliases`.
 
 ### LlamaCppClient Notes
 
@@ -1200,7 +1230,7 @@ aimu/
 │       ├── ollama.py        # OllamaClient + OllamaModel (native API) + OllamaEmbeddingClient + OllamaEmbeddingModel
 │       ├── llamacpp.py      # LlamaCppClient + LlamaCppModel (requires llamacpp extra)
 │       ├── openai_compat.py # OpenAICompatClient base + local-server subclasses
-│       │                    #   (LMStudio/OllamaOpenAI/HFOpenAI/VLLM/LlamaServer/SGLang) (requires openai package)
+│       │                    #   (LMStudio/OllamaOpenAI/HFOpenAI/VLLM/LlamaServer/SGLang/OMLX) (requires openai package)
 │       ├── _thinking.py     # _split_thinking / _ThinkingParser: used by llamacpp + openai_compat
 │       ├── hf/              # HuggingFace in-process clients, by modality
 │       │   ├── _device.py       # GPU-placement helpers (HF-only): device hint, cuda/mps fallback, memory-aware auto_place_pipeline()

@@ -59,6 +59,8 @@ try:
         LMStudioOpenAIModel,
         OllamaOpenAIClient,
         OllamaOpenAIModel,
+        OMLXOpenAIClient,
+        OMLXOpenAIModel,
         OpenAICompatClient,
         SGLangOpenAIClient,
         SGLangOpenAIModel,
@@ -71,9 +73,11 @@ except ImportError:
     _HAS_OPENAI_COMPAT = False
     OpenAIClient = GeminiClient = LMStudioOpenAIClient = OllamaOpenAIClient = None  # type: ignore[assignment,misc]
     HFOpenAIClient = VLLMOpenAIClient = LlamaServerOpenAIClient = SGLangOpenAIClient = None  # type: ignore[assignment,misc]
+    OMLXOpenAIClient = None  # type: ignore[assignment,misc]
     OpenAICompatClient = None  # type: ignore[assignment,misc]
     OpenAIModel = GeminiModel = LMStudioOpenAIModel = OllamaOpenAIModel = None  # type: ignore[assignment,misc]
     HFOpenAIModel = VLLMOpenAIModel = LlamaServerOpenAIModel = SGLangOpenAIModel = None  # type: ignore[assignment,misc]
+    OMLXOpenAIModel = None  # type: ignore[assignment,misc]
 
 try:
     from .providers.llamacpp import LlamaCppClient, LlamaCppModel
@@ -107,6 +111,7 @@ def _provider_registry() -> dict[str, tuple[Any, Any]]:
         registry["vllm"] = (VLLMOpenAIModel, VLLMOpenAIClient)
         registry["llamaserver"] = (LlamaServerOpenAIModel, LlamaServerOpenAIClient)
         registry["sglang"] = (SGLangOpenAIModel, SGLangOpenAIClient)
+        registry["omlx"] = (OMLXOpenAIModel, OMLXOpenAIClient)
     if _HAS_LLAMACPP:
         registry["llamacpp"] = (LlamaCppModel, LlamaCppClient)
     return registry
@@ -142,7 +147,11 @@ def resolve_model_string(model_str: str) -> Model:
     raise ValueError(f"Provider {provider!r} has no model id {model_id!r}. Available: {available}")
 
 
-_BASE_URL_PROVIDERS = {"llamaserver", "lmstudio", "vllm", "hf-openai", "sglang", "ollama-openai"}
+# Providers reached over an OpenAI-compatible HTTP endpoint, so an ``@base_url`` override and
+# ad-hoc (not-in-catalog) model ids both make sense. ``omlx`` belongs here for a stronger reason
+# than the rest: its model ids are user-chosen ``--model-dir`` subdirectory names, so the ad-hoc
+# ``omlx:<dir>;tools,thinking,vision`` form is a primary way in, not just an escape hatch.
+_BASE_URL_PROVIDERS = {"llamaserver", "lmstudio", "vllm", "hf-openai", "sglang", "ollama-openai", "omlx"}
 _GENERIC_COMPAT_PROVIDER = "openai-compat"
 _CAPABILITY_FLAGS = {"tools", "thinking", "vision", "audio", "structured"}
 
@@ -357,6 +366,8 @@ class ModelClient(BaseModelClient):
             self._client = LlamaServerOpenAIClient(model, **kwargs)
         elif _HAS_OPENAI_COMPAT and isinstance(model, SGLangOpenAIModel):
             self._client = SGLangOpenAIClient(model, **kwargs)
+        elif _HAS_OPENAI_COMPAT and isinstance(model, OMLXOpenAIModel):
+            self._client = OMLXOpenAIClient(model, **kwargs)
         elif _HAS_LLAMACPP and isinstance(model, LlamaCppModel):
             self._client = LlamaCppClient(model, **kwargs)
         else:

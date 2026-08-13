@@ -34,6 +34,7 @@ if HAS_OPENAI_COMPAT:
         HFOpenAIClient,
         LMStudioOpenAIClient,
         OllamaOpenAIClient,
+        OMLXOpenAIClient,
         OpenAIClient,
         VLLMOpenAIClient,
     )
@@ -42,6 +43,7 @@ else:
     OllamaOpenAIClient = None
     HFOpenAIClient = None
     VLLMOpenAIClient = None
+    OMLXOpenAIClient = None
 
 
 class MockAsyncModelClient(AsyncBaseModelClient):
@@ -154,6 +156,10 @@ def _resolve_async_client_for_type(client_type: str):
         return HFOpenAIClient
     if client_type == "vllm_openai":
         return VLLMOpenAIClient
+    if client_type == "omlx_openai":
+        if not HAS_OPENAI_COMPAT:
+            pytest.skip("openai package not installed")
+        return OMLXOpenAIClient
     if client_type in ("hf", "huggingface"):
         return HuggingFaceClient
     if client_type == "llamacpp":
@@ -251,6 +257,10 @@ def create_real_async_model_client(request):
         from aimu.aio.providers.openai_compat import AsyncVLLMOpenAIClient
 
         client = AsyncVLLMOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif model in OMLXOpenAIClient.MODELS:
+        from aimu.aio.providers.openai_compat import AsyncOMLXOpenAIClient
+
+        client = AsyncOMLXOpenAIClient(model, system_message="You are a helpful assistant.")
     elif model in HuggingFaceClient.MODELS:
         from aimu.aio.providers.hf.text import AsyncHuggingFaceClient
 

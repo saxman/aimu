@@ -58,6 +58,7 @@ try:
         LlamaServerOpenAIModel,
         LMStudioOpenAIModel,
         OllamaOpenAIModel,
+        OMLXOpenAIModel,
         SGLangOpenAIModel,
         VLLMOpenAIModel,
     )
@@ -69,6 +70,7 @@ try:
         AsyncLlamaServerOpenAIClient,
         AsyncLMStudioOpenAIClient,
         AsyncOllamaOpenAIClient,
+        AsyncOMLXOpenAIClient,
         AsyncOpenAICompatClient,
         AsyncSGLangOpenAIClient,
         AsyncVLLMOpenAIClient,
@@ -79,9 +81,11 @@ except ImportError:
     _HAS_OPENAI_COMPAT = False
     AsyncOpenAIClient = AsyncGeminiClient = AsyncLMStudioOpenAIClient = AsyncOllamaOpenAIClient = None  # type: ignore[assignment,misc]
     AsyncHFOpenAIClient = AsyncVLLMOpenAIClient = AsyncLlamaServerOpenAIClient = AsyncSGLangOpenAIClient = None  # type: ignore[assignment,misc]
+    AsyncOMLXOpenAIClient = None  # type: ignore[assignment,misc]
     AsyncOpenAICompatClient = None  # type: ignore[assignment,misc]
     OpenAIModel = GeminiModel = LMStudioOpenAIModel = OllamaOpenAIModel = None  # type: ignore[assignment,misc]
     HFOpenAIModel = VLLMOpenAIModel = LlamaServerOpenAIModel = SGLangOpenAIModel = None  # type: ignore[assignment,misc]
+    OMLXOpenAIModel = None  # type: ignore[assignment,misc]
 
 try:
     from aimu.models.providers.llamacpp import LlamaCppClient, LlamaCppModel
@@ -106,6 +110,7 @@ if _HAS_OPENAI_COMPAT:
         "hf-openai": AsyncHFOpenAIClient,
         "sglang": AsyncSGLangOpenAIClient,
         "ollama-openai": AsyncOllamaOpenAIClient,
+        "omlx": AsyncOMLXOpenAIClient,
         _GENERIC_COMPAT_PROVIDER: AsyncOpenAICompatClient,
     }
 else:
@@ -189,6 +194,8 @@ class AsyncModelClient(AsyncBaseModelClient):
                 self._client = AsyncLlamaServerOpenAIClient(model, **kwargs)
             elif _HAS_OPENAI_COMPAT and isinstance(model, SGLangOpenAIModel):
                 self._client = AsyncSGLangOpenAIClient(model, **kwargs)
+            elif _HAS_OPENAI_COMPAT and isinstance(model, OMLXOpenAIModel):
+                self._client = AsyncOMLXOpenAIClient(model, **kwargs)
             else:
                 raise ValueError(
                     f"No available async client for model type {type(model).__name__!r}. "

@@ -45,6 +45,12 @@ _OPENAI_COMPAT_PROBES = (
     ("hf-openai", "http://localhost:8000/v1", "HFOpenAIModel"),
     ("llamaserver", "http://localhost:8080/v1", "LlamaServerOpenAIModel"),
     ("sglang", "http://localhost:30000/v1", "SGLangOpenAIModel"),
+    # oMLX shares port 8000 with vLLM and HF Transformers Serve. That is safe because each probe
+    # keeps only enum members whose ``.value`` appears in that server's /v1/models response, and the
+    # id namespaces are disjoint (HF repo paths contain a '/', oMLX ids are bare directory names), so
+    # a server can only ever claim ids from its own catalog. Appended last to leave the existing
+    # discovery priority untouched.
+    ("omlx", "http://localhost:8000/v1", "OMLXOpenAIModel"),
 )
 
 

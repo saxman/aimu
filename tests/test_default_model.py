@@ -6,8 +6,12 @@ and the omitted-``model`` wiring on the top-level ``aimu.*`` entry points.
 
 from __future__ import annotations
 
+import sys
+import types
+
 import pytest
 
+import aimu.models
 from aimu.models._internal import model_defaults as _defaults
 
 
@@ -263,3 +267,42 @@ def test_image_client_omitted_model_invokes_modality_resolver(monkeypatch):
     monkeypatch.setattr("aimu.models._internal.model_defaults.resolve_default_modality_model", sentinel)
     with pytest.raises(RuntimeError, match="modality resolver invoked"):
         aimu.image_client()
+
+
+# --- Port-8000 probe coexistence (vLLM / HF Transformers Serve / oMLX) -----------------
+#
+# Three probes share http://localhost:8000/v1. Discovery stays correct because each probe keeps
+# only enum members whose ``.value`` appears in that server's /v1/models, and the id namespaces
+# are disjoint: HF repo paths contain a '/', oMLX ids are bare --model-dir directory names.
+
+
+def _fake_openai_serving(*ids):
+    """Stand in for the ``openai`` module so every probe sees the same served-id list."""
+
+    class _FakeModels:
+        def list(self):
+            return types.SimpleNamespace(data=[types.SimpleNamespace(id=i) for i in ids])
+
+    class _FakeOpenAI:
+        def __init__(self, **kwargs):
+            self.models = _FakeModels()
+
+    return types.SimpleNamespace(OpenAI=_FakeOpenAI)
+
+
+@pytest.mark.skipif(not aimu.models.HAS_OPENAI_COMPAT, reason="openai-compat providers not installed")
+def test_omlx_id_discovered_and_not_claimed_by_vllm(monkeypatch):
+    monkeypatch.setitem(sys.modules, "openai", _fake_openai_serving("Qwen3.6-35B-A3B-4bit"))
+    found = {(type(m).__name__, m.name) for m in _defaults._openai_compat_members()}
+    assert ("OMLXOpenAIModel", "QWEN_3_6_35B_4BIT") in found
+    # An oMLX directory name is not a HuggingFace repo path, so the vLLM/HF-Serve probes on the
+    # same port match nothing.
+    assert not any(enum_name in ("VLLMOpenAIModel", "HFOpenAIModel") for enum_name, _ in found)
+
+
+@pytest.mark.skipif(not aimu.models.HAS_OPENAI_COMPAT, reason="openai-compat providers not installed")
+def test_vllm_id_not_claimed_by_omlx(monkeypatch):
+    monkeypatch.setitem(sys.modules, "openai", _fake_openai_serving("Qwen/Qwen3-8B"))
+    found = {(type(m).__name__, m.name) for m in _defaults._openai_compat_members()}
+    assert ("VLLMOpenAIModel", "QWEN_3_8B") in found
+    assert not any(enum_name == "OMLXOpenAIModel" for enum_name, _ in found)

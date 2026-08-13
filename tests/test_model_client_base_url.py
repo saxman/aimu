@@ -38,3 +38,31 @@ def test_generic_prefix_builds_compat_client():
 def test_default_localhost_when_no_url():
     c = ModelClient("llamaserver:custom.gguf;tools")
     assert "localhost:8080" in _openai_base_url(c)
+
+
+# oMLX (MLX inference on Apple Silicon). These three double as the sync wiring canary for the
+# provider: together they prove the guarded import, the _provider_registry entry, the isinstance
+# dispatch branch, and _BASE_URL_PROVIDERS membership all landed.
+
+
+def test_omlx_known_id_default_localhost():
+    c = ModelClient("omlx:Qwen3.6-35B-A3B-4bit")
+    assert c.model.value == "Qwen3.6-35B-A3B-4bit"
+    assert c.model.supports_vision is True
+    assert "localhost:8000" in _openai_base_url(c)
+
+
+def test_omlx_base_url_override():
+    # The canonical oMLX deployment is a headless Mac on the LAN driven from a laptop.
+    c = ModelClient("omlx:Qwen3.6-35B-A3B-4bit@http://mac-studio:8000/v1")
+    assert "mac-studio:8000" in _openai_base_url(c)
+
+
+def test_omlx_adhoc_directory_id():
+    # oMLX ids are user-chosen --model-dir subdirectory names, so the ad-hoc form is a primary
+    # way in rather than an escape hatch. It only works because "omlx" is in _BASE_URL_PROVIDERS.
+    c = ModelClient("omlx:my-own-conversion-4bit;tools,thinking,vision")
+    assert c.model.value == "my-own-conversion-4bit"
+    assert c.model.supports_tools is True
+    assert c.model.supports_vision is True
+    assert "localhost:8000" in _openai_base_url(c)

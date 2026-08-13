@@ -27,6 +27,7 @@ from aimu.models.providers.openai_compat import (
     LlamaServerOpenAIModel,
     LMStudioOpenAIModel,
     OllamaOpenAIModel,
+    OMLXOpenAIModel,
     OpenAICompatClient as _SyncOpenAICompatClient,
     SGLangOpenAIModel,
     VLLMOpenAIModel,
@@ -393,6 +394,18 @@ class AsyncSGLangOpenAIClient(AsyncOpenAICompatClient):
         self,
         model: SGLangOpenAIModel,
         base_url: str = "http://localhost:30000/v1",
+        **kwargs,
+    ):
+        super().__init__(model, base_url=base_url, **kwargs)
+
+
+class AsyncOMLXOpenAIClient(AsyncOpenAICompatClient):
+    MODELS = OMLXOpenAIModel
+
+    def __init__(
+        self,
+        model: OMLXOpenAIModel,
+        base_url: str = "http://localhost:8000/v1",
         **kwargs,
     ):
         super().__init__(model, base_url=base_url, **kwargs)

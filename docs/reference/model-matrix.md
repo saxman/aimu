@@ -118,7 +118,7 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 
 ## OpenAI-compatible local servers
 
-`OllamaOpenAIModel`, `LMStudioOpenAIModel`, `VLLMOpenAIModel`, `HFOpenAIModel`, `LlamaServerOpenAIModel`, and `SGLangOpenAIModel` enumerate a shared set of common open models. Capability flags for a given member are the same across servers (except where footnoted); the **model id format differs per server** — LM Studio uses loaded model keys, Ollama uses `name:tag`, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames — so consult the enum source for each server's exact ids.
+`OllamaOpenAIModel`, `LMStudioOpenAIModel`, `VLLMOpenAIModel`, `HFOpenAIModel`, `LlamaServerOpenAIModel`, `SGLangOpenAIModel`, and `OMLXOpenAIModel` enumerate a shared set of common open models. Capability flags for a given member are the same across servers (except where footnoted); the **model id format differs per server** — LM Studio uses loaded model keys, Ollama uses `name:tag`, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames, and oMLX uses `--model-dir` subdirectory names — so consult the enum source for each server's exact ids.
 
 | Enum member | Tools | Thinking | Vision | Servers |
 |---|:---:|:---:|:---:|---|
@@ -129,6 +129,10 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 | `QWEN_3_4B` | ✅ | ✅ | ✗ | all |
 | `QWEN_3_8B` | ✅ | ✅ | ✗ | all |
 | `QWEN_3_5_9B` | ✅ | ✅ | ✅ | Ollama, LM Studio |
+| `QWEN_3_6_35B` | ✅ | ✅ | ✅ | Ollama, oMLX ¶ |
+| `QWEN_3_6_35B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `QWEN_3_6_35B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `QWEN_3_6_35B_BF16` | ✅ | ✅ | ✅ | oMLX ¶ |
 | `DEEPSEEK_R1_8B` | ✗ | ✅ | ✗ | Ollama |
 | `DEEPSEEK_R1_7B` | ✗ | ✅ | ✗ | all except Ollama |
 | `GEMMA_3_12B` | ✅ † | ✗ | ✅ | all except LM Studio |
@@ -137,6 +141,8 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 | `GEMMA_4_26B` | ✅ | ✅ | ✅ | all |
 | `GEMMA_4_31B` | ✅ | ✅ | ✅ | all |
 | `MUSE_GLIMMER_30B` | ✅ | ✅ | ✅ | Ollama, vLLM ‡ |
+
+¶ Qwen 3.6 35B-A3B is where MLX-optimized weights show up in the catalogs, so it carries **per-quantization** members alongside the bare name — each MLX quantization is a separate `mlx-community` repo, so each is a separate directory/key and therefore a separate id. The bare `QWEN_3_6_35B` is the quant-agnostic layout (one folder holding whichever quant was downloaded) and is the name shared with the Ollama catalogs; `_4BIT` / `_8BIT` / `_BF16` are for a machine holding several side by side. Every id within an enum must stay distinct: two members sharing a `ModelSpec.id` silently become an enum **alias**, dropping the second from iteration and discarding its flags (guarded by `tests/test_model_catalog_consistency.py::test_no_silent_enum_aliases`). LM Studio has no bare member (a quant-free key there is the GGUF build, not an MLX one) and no bf16 (impractical at 35B). Ollama needs no per-quant members at all: 0.19+ picks its MLX backend automatically on Apple Silicon behind an unchanged tag.
 
 ‡ `MUSE_GLIMMER_30B` emits channel-scoped reasoning and ATEM-style XML tool calls instead of `<think>` tags and JSON, so a server needs dedicated parsers to surface either. Ollama parses both, and vLLM does with `--tool-call-parser muse_glimmer --reasoning-parser muse_glimmer` (enable them together). It is absent from the other server enums for now: SGLang support is only on a PR branch, and llama.cpp/LM Studio tool parsing for this format is undocumented.
 

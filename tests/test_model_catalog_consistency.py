@@ -124,6 +124,30 @@ def test_text_model_enums_discovered():
     assert len(_text_model_enums()) >= 5
 
 
+@pytest.mark.parametrize("enum_name", sorted(_text_model_enums()))
+def test_no_silent_enum_aliases(enum_name):
+    """No two members of a catalog may share a ``ModelSpec.id``.
+
+    ``Model.__init__`` assigns ``_value_ = spec.id`` *before* enum's duplicate-value scan runs,
+    and ``ModelSpec.__eq__``/``__hash__`` are id-only, so a second member with the same id
+    silently becomes an **alias** of the first: it vanishes from iteration (and therefore from
+    ``TOOL_MODELS``/``VISION_MODELS``, the discovery probes, and every check in this file), and
+    its own ``ModelSpec`` -- including its capability flags -- is discarded. Nothing warns.
+
+    The failure mode this guards is a catalog that carries both a bare and a per-quantization
+    member for one model (e.g. ``OMLXOpenAIModel``'s ``QWEN_3_6_35B`` / ``QWEN_3_6_35B_4BIT``):
+    giving the bare member the quantized member's id would delete the latter outright.
+    """
+    enum = _text_model_enums()[enum_name]
+    canonical = {member.name for member in enum}
+    aliases = sorted(set(enum.__members__) - canonical)
+    assert not aliases, (
+        f"{enum_name} member(s) {aliases} silently alias an earlier member sharing their "
+        f"ModelSpec.id, so they are absent from iteration and their flags are discarded. "
+        f"Give each member a distinct id."
+    )
+
+
 @pytest.mark.parametrize("key", sorted(_shared_flag_values()))
 def test_shared_name_intrinsic_flags_agree(key):
     member_name, flag = key
