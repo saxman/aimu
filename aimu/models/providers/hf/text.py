@@ -170,7 +170,19 @@ class HuggingFaceModel(Model):
     # AutoModelForImageTextToText (see __init__ -- the FP8 checkpoint's quant skip-list
     # only matches that module tree). The vision encoder loads regardless, so each model
     # is a single vision=True entry; there is no separate text-only flavor to maintain.
+    # The bare member is the unquantized checkpoint, so the enum name describes the model rather
+    # than a serving choice, and it stays interchangeable with OllamaModel.QWEN_3_6_27B (which the
+    # cross-provider consistency guard links by name). FP8 is a separate member because it is a
+    # deliberate, hardware-gated choice, not a default: the checkpoint is e4m3 with dynamic
+    # activation scaling, which needs Ada/Hopper-class tensor cores (compute capability >= 8.9), so
+    # on Ampere, MPS, or CPU it has no native path. Naming it makes that visible at the call site
+    # instead of hiding it in the repo id. Both ids must stay distinct: two members sharing a
+    # ModelSpec.id silently alias (see tests/test_model_catalog_consistency.py).
     QWEN_3_6_27B = (
+        ModelSpec("Qwen/Qwen3.6-27B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
+        ToolCallFormat.XML,
+    )
+    QWEN_3_6_27B_FP8 = (
         ModelSpec("Qwen/Qwen3.6-27B-FP8", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
         ToolCallFormat.XML,
     )

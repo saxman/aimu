@@ -84,7 +84,8 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 
 | Enum member | Repo id | Tools | Thinking | Vision |
 |---|---|:---:|:---:|:---:|
-| `QWEN_3_6_27B` | `Qwen/Qwen3.6-27B-FP8` | ✅ | ✅ | ✅ |
+| `QWEN_3_6_27B` | `Qwen/Qwen3.6-27B` | ✅ | ✅ | ✅ |
+| `QWEN_3_6_27B_FP8` § | `Qwen/Qwen3.6-27B-FP8` | ✅ | ✅ | ✅ |
 | `QWEN_3_5_9B` | `Qwen/Qwen3.5-9B` | ✅ | ✅ | ✅ |
 | `QWEN_3_8B` | `Qwen/Qwen3-8B` | ✅ | ✅ | ✗ |
 | `GEMMA_4_E4B` | `google/gemma-4-E4B-it` | ✅ | ✗ | ✅ |
@@ -99,6 +100,8 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 | `SMOLLM3_3B` | `HuggingFaceTB/SmolLM3-3B` | ✅ | ✅ | ✗ |
 | `LLAMA_3_2_3B` | `unsloth/Llama-3.2-3B-Instruct` | ✅ | ✗ | ✗ |
 | `LLAMA_3_1_8B` | `meta-llama/Meta-Llama-3.1-8B-Instruct` | ✅ | ✗ | ✗ |
+
+§ `QWEN_3_6_27B_FP8` is the e4m3 FP8 checkpoint with dynamic activation scaling. FP8 needs Ada/Hopper-class tensor cores (compute capability ≥ 8.9), so on Ampere, MPS, or CPU there is no native path — pick the bare `QWEN_3_6_27B` there. The quantization is in the member **name** precisely because it is a hardware-gated choice rather than a default; elsewhere in the catalogs a quantization is left out of the name when the provider resolves it itself (Ollama's default tags, LM Studio's keys, llama-cpp's `model_path=`).
 
 `_VL` suffix variants load with `AutoModelForImageTextToText` for the vision encoder.
 
