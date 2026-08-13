@@ -3724,6 +3724,13 @@
 <tbody>
 <tr>
 <td><code>QWEN_3_6_27B</code></td>
+<td><code>Qwen/Qwen3.6-27B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td><code>QWEN_3_6_27B_FP8</code> §</td>
 <td><code>Qwen/Qwen3.6-27B-FP8</code></td>
 <td style="text-align: center;">✅</td>
 <td style="text-align: center;">✅</td>
@@ -3829,6 +3836,7 @@
 </tr>
 </tbody>
 </table>
+<p>§ <code>QWEN_3_6_27B_FP8</code> is the e4m3 FP8 checkpoint with dynamic activation scaling. FP8 needs Ada/Hopper-class tensor cores (compute capability ≥ 8.9), so on Ampere, MPS, or CPU there is no native path — pick the bare <code>QWEN_3_6_27B</code> there. The quantization is in the member <strong>name</strong> precisely because it is a hardware-gated choice rather than a default; elsewhere in the catalogs a quantization is left out of the name when the provider resolves it itself (Ollama's default tags, LM Studio's keys, llama-cpp's <code>model_path=</code>).</p>
 <p><code>_VL</code> suffix variants load with <code>AutoModelForImageTextToText</code> for the vision encoder.</p>
 <h2 id="llama-cpp-llamacppmodel">llama-cpp (<code>LlamaCppModel</code>)<a class="headerlink" href="#llama-cpp-llamacppmodel" title="Permanent link">&para;</a></h2>
 <table>
@@ -3895,7 +3903,7 @@
 </table>
 <p>llama-cpp model ids are hints; the actual model is loaded from <code>model_path=</code> regardless. Capability flags are honoured by the client.</p>
 <h2 id="openai-compatible-local-servers">OpenAI-compatible local servers<a class="headerlink" href="#openai-compatible-local-servers" title="Permanent link">&para;</a></h2>
-<p><code>OllamaOpenAIModel</code>, <code>LMStudioOpenAIModel</code>, <code>VLLMOpenAIModel</code>, <code>HFOpenAIModel</code>, <code>LlamaServerOpenAIModel</code>, and <code>SGLangOpenAIModel</code> enumerate a shared set of common open models. Capability flags for a given member are the same across servers (except where footnoted); the <strong>model id format differs per server</strong> — LM Studio uses loaded model keys, Ollama uses <code>name:tag</code>, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames — so consult the enum source for each server's exact ids.</p>
+<p><code>OllamaOpenAIModel</code>, <code>LMStudioOpenAIModel</code>, <code>VLLMOpenAIModel</code>, <code>HFOpenAIModel</code>, <code>LlamaServerOpenAIModel</code>, <code>SGLangOpenAIModel</code>, and <code>OMLXOpenAIModel</code> enumerate a shared set of common open models. Capability flags for a given member are the same across servers (except where footnoted); the <strong>model id format differs per server</strong> — LM Studio uses loaded model keys, Ollama uses <code>name:tag</code>, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames, and oMLX uses <code>--model-dir</code> subdirectory names — so consult the enum source for each server's exact ids.</p>
 <table>
 <thead>
 <tr>
@@ -3957,6 +3965,34 @@
 <td>Ollama, LM Studio</td>
 </tr>
 <tr>
+<td><code>QWEN_3_6_35B</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>Ollama, oMLX ¶</td>
+</tr>
+<tr>
+<td><code>QWEN_3_6_35B_4BIT</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>oMLX, LM Studio ¶</td>
+</tr>
+<tr>
+<td><code>QWEN_3_6_35B_8BIT</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>oMLX, LM Studio ¶</td>
+</tr>
+<tr>
+<td><code>QWEN_3_6_35B_BF16</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>oMLX ¶</td>
+</tr>
+<tr>
 <td><code>DEEPSEEK_R1_8B</code></td>
 <td style="text-align: center;">✗</td>
 <td style="text-align: center;">✅</td>
@@ -4010,11 +4046,33 @@
 <td style="text-align: center;">✅</td>
 <td style="text-align: center;">✅</td>
 <td style="text-align: center;">✅</td>
-<td>Ollama, vLLM ‡</td>
+<td>Ollama, vLLM, oMLX ‡</td>
+</tr>
+<tr>
+<td><code>MUSE_GLIMMER_30B_4BIT</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>oMLX ‡ ¶</td>
+</tr>
+<tr>
+<td><code>MUSE_GLIMMER_30B_8BIT</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>oMLX ‡ ¶</td>
+</tr>
+<tr>
+<td><code>MUSE_GLIMMER_30B_BF16</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>oMLX ‡ ¶</td>
 </tr>
 </tbody>
 </table>
-<p>‡ <code>MUSE_GLIMMER_30B</code> emits channel-scoped reasoning and ATEM-style XML tool calls instead of <code>&lt;think&gt;</code> tags and JSON, so a server needs dedicated parsers to surface either. Ollama parses both, and vLLM does with <code>--tool-call-parser muse_glimmer --reasoning-parser muse_glimmer</code> (enable them together). It is absent from the other server enums for now: SGLang support is only on a PR branch, and llama.cpp/LM Studio tool parsing for this format is undocumented.</p>
+<p>¶ The MLX-served models (Qwen 3.6 35B-A3B and Muse Glimmer 30B) carry <strong>per-quantization</strong> members alongside the bare name — each MLX quantization is a separate <code>mlx-community</code> repo, so each is a separate directory/key and therefore a separate id. A bare member (<code>QWEN_3_6_35B</code>, <code>MUSE_GLIMMER_30B</code>) is the quant-agnostic layout (one folder holding whichever quant was downloaded) and is the name shared with the Ollama catalogs; <code>_4BIT</code> / <code>_8BIT</code> / <code>_BF16</code> are for a machine holding several side by side. Every id within an enum must stay distinct: two members sharing a <code>ModelSpec.id</code> silently become an enum <strong>alias</strong>, dropping the second from iteration and discarding its flags (guarded by <code>tests/test_model_catalog_consistency.py::test_no_silent_enum_aliases</code>). LM Studio has no bare member (a quant-free key there is the GGUF build, not an MLX one) and no bf16 (impractical at 35B). Ollama needs no per-quant members at all: 0.19+ picks its MLX backend automatically on Apple Silicon behind an unchanged tag.</p>
+<p>‡ <code>MUSE_GLIMMER_30B</code> emits channel-scoped reasoning and ATEM-style XML tool calls instead of <code>&lt;think&gt;</code> tags and JSON, so a server needs dedicated parsers to surface either. Ollama parses both; vLLM does with <code>--tool-call-parser muse_glimmer --reasoning-parser muse_glimmer</code> (enable them together); and <strong>oMLX</strong> does as of <strong>0.5.8.dev3</strong>, which added Muse Glimmer with channel-scoped output parsing for ATEM tool calls. On oMLX, use an <code>mlx-community</code> checkpoint: oMLX's own <code>Jundot/Muse-Glimmer-30B-oQ4e</code> was quantized before the embedding-normalization fix and silently breaks tool calling (the model emits <code>&lt;|eot|&gt;</code> right after the reasoning block and never produces an <code>&lt;atem:function_calls&gt;</code> block, <a href="https://github.com/jundot/omlx/issues/2589">jundot/omlx#2589</a>) — a stale-quantization bug, not a parser one. Still absent from the remaining server enums: SGLang support is only on a PR branch, and LM Studio ships the model as GGUF only (no MLX build) with undocumented parsing for this format, so entries there would mean guessing <code>tools</code>/<code>thinking</code>.</p>
 <p>† <code>GEMMA_3_12B</code> is marked <code>tools=✗</code> on the Ollama-backed server (<code>OllamaOpenAIModel</code>) — the in-process HuggingFace and native-Ollama clients have no tool-call parse format for Gemma 3 — but <code>tools=✅</code> on the vLLM, SGLang, HF Serve, and llama-server builds, which parse Gemma 3 tool calls server-side. (<code>LLAMA_3_1_8B</code>/<code>LLAMA_3_2_3B</code> were formerly <code>tools=✗</code> on the Ollama/LM Studio builds; live testing confirmed reliable tool calling on current runtimes, so they are now <code>tools=✅</code> everywhere.)</p>
 <p>Gemma 4 E4B/12B are natively audio-capable, but <code>audio</code> is left off for every OpenAI-compat server because audio input isn't reliably exposed by these local servers (see the inline comments in <code>openai_compat.py</code> for the per-server reason). 26B/31B have no native audio.</p>
 <h2 id="image-generation">Image generation<a class="headerlink" href="#image-generation" title="Permanent link">&para;</a></h2>

@@ -2499,6 +2499,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.models.OMLXOpenAIClient" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OMLXOpenAIClient
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.models.OpenAICompatClient" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3868,6 +3879,17 @@
     <span class="md-ellipsis">
       
         SGLangOpenAIClient
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.models.OMLXOpenAIClient" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OMLXOpenAIClient
       
     </span>
   </a>
@@ -5720,6 +5742,62 @@ Anthropic API format happens at call time.</p>
   <summary>Start the server with</summary>
   <p>python -m sglang.launch_server --model-path <model> --port 30000</p>
 </details>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.models.OMLXOpenAIClient" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.models.OMLXOpenAIClient</span>
+
+
+<a href="#aimu.models.OMLXOpenAIClient" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OMLXOpenAIClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OMLXOpenAIModel</span><span class="p">,</span> <span class="n">base_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">OMLX_BASE_URL</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="aimu.models.OpenAICompatClient (aimu.models.providers.openai_compat.OpenAICompatClient)" href="#aimu.models.OpenAICompatClient">OpenAICompatClient</a></code></p>
+
+
+
+        <p>Client for oMLX's OpenAI-compatible REST API (MLX inference on Apple Silicon).</p>
+
+
+<details class="start-the-server-with" open>
+  <summary>Start the server with</summary>
+  <p>omlx serve --model-dir ~/models --port 8000</p>
+</details>        <p>The default port collides with vLLM and HF Transformers Serve, so pass <code>base_url=</code> (or
+<code>@&lt;base_url&gt;</code> in the model string) when running more than one of them.</p>
+
 
 
 
