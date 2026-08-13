@@ -129,6 +129,7 @@ import aimu
 
 # 1. oMLX -- a dedicated MLX server. `omlx serve --model-dir ~/models` first.
 aimu.client("omlx:Qwen3.6-35B-A3B-4bit")
+aimu.client("omlx:Muse-Glimmer-30B-4bit")  # needs oMLX >= 0.5.8.dev3 for its ATEM parsers
 
 # 2. LM Studio's MLX engine (picked automatically for MLX weights).
 aimu.client("lmstudio:qwen3.6-35b-a3b-4bit")

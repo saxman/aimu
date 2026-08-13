@@ -419,6 +419,10 @@ class LMStudioOpenAIModel(Model):
     # GGUF build, which is not an MLX path. No bf16 either -- a 35B unquantized is impractical here.
     QWEN_3_6_35B_4BIT = ModelSpec("qwen3.6-35b-a3b-4bit", tools=True, thinking=True, vision=True)
     QWEN_3_6_35B_8BIT = ModelSpec("qwen3.6-35b-a3b-8bit", tools=True, thinking=True, vision=True)
+    # No MUSE_GLIMMER_30B here, for two independent reasons: LM Studio distributes it as GGUF only
+    # (no MLX build, so it is not an MLX path at all), and whether its llama.cpp engine parses the
+    # model's channel-scoped reasoning and ATEM-style XML tool calls is still undocumented. Adding
+    # it would mean guessing tools/thinking. See OMLXOpenAIModel for the path that does parse them.
     DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-distill-qwen-7b", thinking=True)
     # Gemma 4 E4B/12B support audio natively, but LM Studio has no audio-input path (image-only);
     # leave audio=False.
@@ -601,6 +605,26 @@ class OMLXOpenAIModel(Model):
     QWEN_3_6_35B_4BIT = ModelSpec("Qwen3.6-35B-A3B-4bit", tools=True, thinking=True, vision=True)
     QWEN_3_6_35B_8BIT = ModelSpec("Qwen3.6-35B-A3B-8bit", tools=True, thinking=True, vision=True)
     QWEN_3_6_35B_BF16 = ModelSpec("Qwen3.6-35B-A3B-bf16", tools=True, thinking=True, vision=True)
+    # Meta's Muse Glimmer emits channel-scoped reasoning and ATEM-style XML tool calls
+    # (`<atem:function_calls>`) rather than `<think>` tags and JSON, so a serving path only exposes
+    # those capabilities if it parses that framing. oMLX does: 0.5.8.dev3 added Muse Glimmer 30B
+    # with "channel-scoped output parsing with ATEM tool calls", so reasoning arrives here as
+    # reasoning_content and tool calls in the standard OpenAI shape -- hence tools/thinking are
+    # True, matching OllamaModel.MUSE_GLIMMER_30B and VLLMOpenAIModel.MUSE_GLIMMER_30B. Requires
+    # oMLX >= 0.5.8.dev3.
+    #
+    # Use an mlx-community checkpoint. oMLX's own `Jundot/Muse-Glimmer-30B-oQ4e` was quantized by
+    # 0.5.8.dev1, before the embedding-normalization fix, and silently breaks tool calling on it:
+    # the model emits `<|eot|>` right after the reasoning block and never produces an
+    # `<atem:function_calls>` block (jundot/omlx#2589). That is a stale-quantization bug, not a
+    # parser one, so it is a checkpoint to avoid rather than a capability to downgrade here.
+    #
+    # nvfp4/mxfp4 conversions also exist upstream but are omitted: those are NVIDIA / microscaling
+    # formats, not the Apple Silicon path this provider serves.
+    MUSE_GLIMMER_30B = ModelSpec("Muse-Glimmer-30B", tools=True, thinking=True, vision=True)
+    MUSE_GLIMMER_30B_4BIT = ModelSpec("Muse-Glimmer-30B-4bit", tools=True, thinking=True, vision=True)
+    MUSE_GLIMMER_30B_8BIT = ModelSpec("Muse-Glimmer-30B-8bit", tools=True, thinking=True, vision=True)
+    MUSE_GLIMMER_30B_BF16 = ModelSpec("Muse-Glimmer-30B-bf16", tools=True, thinking=True, vision=True)
     # structured_output stays False across every OpenAI-compat local-server catalog (only the native
     # Ollama path grammar-enforces JSON), so `schema=` falls back to prompt-and-parse. audio stays
     # False: these weights are image-text-to-text, with no audio encoder.

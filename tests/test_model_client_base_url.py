@@ -58,6 +58,16 @@ def test_omlx_base_url_override():
     assert "mac-studio:8000" in _openai_base_url(c)
 
 
+def test_omlx_muse_glimmer_full_capabilities():
+    # Glimmer's channel-scoped reasoning and ATEM XML tool calls need dedicated server-side
+    # parsers; oMLX has them (>= 0.5.8.dev3), so tools/thinking are advertised rather than
+    # conservatively dropped. Flags must match the Ollama/vLLM entries for the same name.
+    c = ModelClient("omlx:Muse-Glimmer-30B-4bit")
+    assert c.model.value == "Muse-Glimmer-30B-4bit"
+    assert (c.model.supports_tools, c.model.supports_thinking, c.model.supports_vision) == (True, True, True)
+    assert "localhost:8000" in _openai_base_url(c)
+
+
 def test_omlx_adhoc_directory_id():
     # oMLX ids are user-chosen --model-dir subdirectory names, so the ad-hoc form is a primary
     # way in rather than an escape hatch. It only works because "omlx" is in _BASE_URL_PROVIDERS.
