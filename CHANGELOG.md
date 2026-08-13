@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.13.1 (2026-08-13): MLX-optimized models via oMLX, LM Studio, and Ollama
 
 ### Models
 
