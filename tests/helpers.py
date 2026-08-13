@@ -44,6 +44,8 @@ if HAS_OPENAI_COMPAT:
         OllamaOpenAIClient,
         HFOpenAIClient,
         VLLMOpenAIClient,
+        LlamaServerOpenAIClient,
+        SGLangOpenAIClient,
         OMLXOpenAIClient,
     )
 else:
@@ -51,6 +53,8 @@ else:
     OllamaOpenAIClient = None
     HFOpenAIClient = None
     VLLMOpenAIClient = None
+    LlamaServerOpenAIClient = None
+    SGLangOpenAIClient = None
     OMLXOpenAIClient = None
 
 if HAS_HF_IMAGE:
@@ -180,6 +184,14 @@ def _resolve_client(client_type: str, config):
         return HFOpenAIClient
     if client_type == "vllm_openai":
         return VLLMOpenAIClient
+    if client_type == "llamaserver_openai":
+        if not HAS_OPENAI_COMPAT:
+            pytest.skip("openai package not installed")
+        return LlamaServerOpenAIClient
+    if client_type == "sglang_openai":
+        if not HAS_OPENAI_COMPAT:
+            pytest.skip("openai package not installed")
+        return SGLangOpenAIClient
     if client_type == "omlx_openai":
         if not HAS_OPENAI_COMPAT:
             pytest.skip("openai package not installed")
@@ -188,7 +200,18 @@ def _resolve_client(client_type: str, config):
         if not HAS_LLAMACPP:
             pytest.skip("llama-cpp-python not installed")
         return LlamaCppClient
-    return OllamaClient  # default
+    if client_type == "ollama":
+        return OllamaClient
+    # Raise rather than defaulting to Ollama: a silent fallback made a typo'd or unhandled
+    # --client value quietly run the Ollama catalog against Ollama and report a pass, which is
+    # how llamaserver_openai/sglang_openai stayed broken while documented as supported.
+    # Mirrors _resolve_image_client_cls below.
+    raise ValueError(
+        f"Unknown --client value: {client_type!r}. Expected 'ollama', 'hf'/'huggingface', "
+        f"'openai', 'anthropic', 'gemini', 'openai_compat', 'lmstudio_openai', 'ollama_openai', "
+        f"'hf_openai', 'vllm_openai', 'llamaserver_openai', 'sglang_openai', 'omlx_openai', "
+        f"'llamacpp', or 'all'."
+    )
 
 
 def resolve_model_params(config, default_params=None) -> list:
@@ -237,6 +260,8 @@ def resolve_model_params(config, default_params=None) -> list:
                     OllamaOpenAIClient,
                     HFOpenAIClient,
                     VLLMOpenAIClient,
+                    LlamaServerOpenAIClient,
+                    SGLangOpenAIClient,
                     OMLXOpenAIClient,
                 ]
             )
@@ -298,6 +323,10 @@ def create_real_model_client(request) -> Iterator[BaseModelClient]:
         client = HFOpenAIClient(model, system_message="You are a helpful assistant.")
     elif HAS_OPENAI_COMPAT and model in VLLMOpenAIClient.MODELS:
         client = VLLMOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif HAS_OPENAI_COMPAT and model in LlamaServerOpenAIClient.MODELS:
+        client = LlamaServerOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif HAS_OPENAI_COMPAT and model in SGLangOpenAIClient.MODELS:
+        client = SGLangOpenAIClient(model, system_message="You are a helpful assistant.")
     elif HAS_OPENAI_COMPAT and model in OMLXOpenAIClient.MODELS:
         client = OMLXOpenAIClient(model, system_message="You are a helpful assistant.")
     elif HAS_LLAMACPP and model in LlamaCppModel:

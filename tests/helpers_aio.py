@@ -34,8 +34,10 @@ if HAS_OPENAI_COMPAT:
         HFOpenAIClient,
         LMStudioOpenAIClient,
         OllamaOpenAIClient,
+        LlamaServerOpenAIClient,
         OMLXOpenAIClient,
         OpenAIClient,
+        SGLangOpenAIClient,
         VLLMOpenAIClient,
     )
 else:
@@ -43,6 +45,8 @@ else:
     OllamaOpenAIClient = None
     HFOpenAIClient = None
     VLLMOpenAIClient = None
+    LlamaServerOpenAIClient = None
+    SGLangOpenAIClient = None
     OMLXOpenAIClient = None
 
 
@@ -156,6 +160,14 @@ def _resolve_async_client_for_type(client_type: str):
         return HFOpenAIClient
     if client_type == "vllm_openai":
         return VLLMOpenAIClient
+    if client_type == "llamaserver_openai":
+        if not HAS_OPENAI_COMPAT:
+            pytest.skip("openai package not installed")
+        return LlamaServerOpenAIClient
+    if client_type == "sglang_openai":
+        if not HAS_OPENAI_COMPAT:
+            pytest.skip("openai package not installed")
+        return SGLangOpenAIClient
     if client_type == "omlx_openai":
         if not HAS_OPENAI_COMPAT:
             pytest.skip("openai package not installed")
@@ -166,7 +178,14 @@ def _resolve_async_client_for_type(client_type: str):
         if not HAS_LLAMACPP:
             pytest.skip("llama-cpp-python not installed")
         return LlamaCppClient
-    return OllamaClient  # default
+    if client_type == "ollama":
+        return OllamaClient
+    # Raise rather than defaulting to Ollama; see the note in helpers._resolve_client.
+    raise ValueError(
+        f"Unknown --client value: {client_type!r}. Expected 'ollama', 'hf'/'huggingface', "
+        f"'openai', 'anthropic', 'gemini', 'lmstudio_openai', 'ollama_openai', 'hf_openai', "
+        f"'vllm_openai', 'llamaserver_openai', 'sglang_openai', 'omlx_openai', 'llamacpp', or 'all'."
+    )
 
 
 def resolve_async_model_params(config, default_params=None) -> list:
@@ -257,6 +276,14 @@ def create_real_async_model_client(request):
         from aimu.aio.providers.openai_compat import AsyncVLLMOpenAIClient
 
         client = AsyncVLLMOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif model in LlamaServerOpenAIClient.MODELS:
+        from aimu.aio.providers.openai_compat import AsyncLlamaServerOpenAIClient
+
+        client = AsyncLlamaServerOpenAIClient(model, system_message="You are a helpful assistant.")
+    elif model in SGLangOpenAIClient.MODELS:
+        from aimu.aio.providers.openai_compat import AsyncSGLangOpenAIClient
+
+        client = AsyncSGLangOpenAIClient(model, system_message="You are a helpful assistant.")
     elif model in OMLXOpenAIClient.MODELS:
         from aimu.aio.providers.openai_compat import AsyncOMLXOpenAIClient
 
