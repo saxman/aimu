@@ -9,6 +9,7 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from aimu.skills.manager import SkillManager
+from aimu.skills.skill import script_tool_name
 
 # Skill scripts run as real subprocesses with the user's own privileges (no sandbox). This is
 # intentional: a skill bundles executable helpers the agent is trusted to run. Discovery covers
@@ -64,7 +65,8 @@ def build_skills_server(manager: SkillManager) -> FastMCP:
 
     Registered tools:
       - activate_skill(name): returns the full SKILL.md body for the named skill
-      - {skill_name}__{script_stem}(args=""): runs a Python or shell script from a skill's scripts/ dir
+      - {skill}__{stem}(args=""): runs a Python or shell script from a skill's scripts/ dir, named
+        by aimu.skills.skill.script_tool_name (both halves slugified)
 
     The returned FastMCP instance can be passed directly to MCPClient(server=...).
     """
@@ -97,16 +99,18 @@ def _register_script_tools(server: FastMCP, skill_name: str, scripts_dir: Path) 
     scripts = sorted(p for glob in _SCRIPT_GLOBS for p in scripts_dir.glob(glob))
     seen: set[str] = set()
     for script in scripts:
-        # foo.py and foo.sh map to the same {skill}__foo tool name; .py sorts first and wins.
-        if script.stem in seen:
+        # Dedupe on the tool name, not the stem: foo.py / foo.sh collide on it (.py sorts first and
+        # wins), and so do foo-bar.py / foo_bar.py once both halves are slugified (hyphen sorts
+        # first). Registering a duplicate name would shadow the earlier script silently.
+        tool_name = script_tool_name(skill_name, script.stem)
+        if tool_name in seen:
             continue
-        seen.add(script.stem)
-        _register_script_tool(server, skill_name, script)
+        seen.add(tool_name)
+        _register_script_tool(server, skill_name, script, tool_name)
 
 
-def _register_script_tool(server: FastMCP, skill_name: str, script: Path) -> None:
-    """Register a single script (.py or .sh) as a FastMCP tool."""
-    tool_name = f"{skill_name}__{script.stem}"
+def _register_script_tool(server: FastMCP, skill_name: str, script: Path, tool_name: str) -> None:
+    """Register a single script (.py or .sh) as a FastMCP tool under ``tool_name``."""
     script_path = script.resolve()
     filename = script.name
     # On failure, name the exact skill + file so a fix overwrites this script in place rather than

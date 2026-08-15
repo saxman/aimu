@@ -47,21 +47,23 @@ result = agent.run("Use the pdf-processing skill to extract pages from report.pd
 On the first `run()`, the agent injects the skill catalogue into the system message and attaches a skills MCP client. The model can either:
 
 - Call `activate_skill("pdf-processing")` to load the full instructions and then act, or
-- Call a script-derived tool (`pdf-processing__extract_pages(...)`) directly if the skill ships executable scripts.
+- Call a script-derived tool (`pdf_processing__extract_pages(...)`) directly if the skill ships executable scripts.
 
 ## Skill scripts
 
-A skill can include scripts in a `scripts/` subdirectory. Each `*.py` and `*.sh` file is auto-registered as an MCP tool named `{skill_name}__{script_stem}`, with the skill's slug used verbatim (hyphens are kept, so the tool name is `pdf-processing__merge`, not `pdf_processing__merge`):
+A skill can include scripts in a `scripts/` subdirectory. Each `*.py` and `*.sh` file is auto-registered as an MCP tool named `{skill_name}__{script_stem}`, with **both halves slugified**: lowercased, with every run of other characters collapsed to `_`. So the `pdf-processing` skill yields `pdf_processing__*` tools, and the `__` stays the only separator.
 
 ```
 .agents/skills/pdf-processing/
 ├── SKILL.md
 └── scripts/
-    ├── extract_pages.py     # → pdf-processing__extract_pages tool
-    └── merge.sh             # → pdf-processing__merge tool
+    ├── extract_pages.py     # → pdf_processing__extract_pages tool
+    └── merge-all.sh         # → pdf_processing__merge_all tool
 ```
 
-The stem is what names the tool, so `merge.py` and `merge.sh` in one skill collide on `pdf-processing__merge` and only the `.py` is registered.
+Slugifying is what keeps the tool name callable no matter what the `SKILL.md` frontmatter says: `SkillManager` does not constrain `name:` (only [`write_skill`](../reference/api/skills.md) enforces the kebab-case slug), so a hand-written `name: My Skill` would otherwise produce `My Skill__go`, which no provider accepts. Use [`aimu.skills.script_tool_name`](../reference/api/skills.md) rather than formatting the name yourself.
+
+Names collapse, so two scripts in one skill can collide: `merge.py` / `merge.sh` (same stem) and `merge-all.py` / `merge_all.py` (same slug) each register once, the first sorted path winning. Give each script a distinct slug.
 
 Scripts run via `subprocess`; their stdout becomes the tool result. The catalogue lists script tool names inline, so the model can call them directly without first invoking `activate_skill`.
 

@@ -13,6 +13,8 @@ Filesystem-discovered agent skills, plus runtime skill authoring. See
 
 ::: aimu.skills.build_skills_server
 
+::: aimu.skills.script_tool_name
+
 ## Authoring
 
 ::: aimu.skills.write_skill

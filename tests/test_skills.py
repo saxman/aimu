@@ -458,6 +458,80 @@ def test_script_tool_names_includes_sh_and_dedupes(tmp_path):
     assert names == ["mixed__a", "mixed__b", "mixed__c"]  # c listed once
 
 
+# ---------------------------------------------------------------------------
+# Script tool names are slugified
+#
+# The name is {skill}__{stem} with both halves reduced to [a-z0-9_], so the double
+# underscore stays the only separator and the result is a valid tool name whatever a
+# hand-written SKILL.md puts in `name:` (which SkillManager._parse does not validate).
+# ---------------------------------------------------------------------------
+
+
+def test_script_tool_name_slugifies_a_hyphenated_skill_name(tmp_path):
+    md = make_skill_dir(tmp_path, "pdf-processing", "Work with PDFs.")
+    _write_script(md, "extract_pages.py", "print(1)\n")
+
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["pdf-processing"]
+    assert skill.script_tool_names() == ["pdf_processing__extract_pages"]
+
+
+def test_script_tool_name_slugifies_a_hyphenated_script_stem(tmp_path):
+    md = make_skill_dir(tmp_path, "deploy", "Deploy things.")
+    _write_script(md, "merge-all.py", "print(1)\n")
+
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["deploy"]
+    assert skill.script_tool_names() == ["deploy__merge_all"]
+
+
+def test_script_tool_names_dedupe_when_two_stems_slugify_alike(tmp_path):
+    md = make_skill_dir(tmp_path, "ops", "Ops helpers.")
+    _write_script(md, "backup-db.py", "print('hyphen')\n")
+    _write_script(md, "backup_db.py", "print('underscore')\n")  # same slug as backup-db
+
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["ops"]
+    assert skill.script_tool_names() == ["ops__backup_db"]
+
+
+def test_script_tool_name_is_valid_when_the_skill_name_is_not_a_slug(tmp_path):
+    """A hand-written SKILL.md can carry any `name:`; the tool name must stay callable.
+
+    ``_parse`` accepts the frontmatter verbatim, so a name with spaces or capitals reached
+    the tool name unaltered and produced an identifier no provider accepts.
+    """
+    skill_dir = tmp_path / "shouty"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("---\nname: My Skill\ndescription: Shouts.\n---\n\n# Body\n", encoding="utf-8")
+    _write_script(skill_dir / "SKILL.md", "go.py", "print('ok')\n")
+
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["My Skill"]
+    assert skill.script_tool_names() == ["my_skill__go"]
+
+
+def test_every_catalog_script_tool_name_is_callable_on_the_server(tmp_path):
+    """The catalogue and the skills server must agree, since three sites build the name.
+
+    The catalogue is what the model reads, so a name advertised but not registered is a
+    tool call that cannot succeed.
+    """
+    from aimu.skills.mcp import build_skills_server
+    from aimu.tools import MCPClient
+
+    md = make_skill_dir(tmp_path, "pdf-processing", "Work with PDFs.")
+    _write_script(md, "extract-pages.py", "print('extracted')\n")
+    _write_script(md, "merge.sh", "echo merged\n")
+
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    advertised = manager.skills["pdf-processing"].script_tool_names()
+    assert advertised  # guard: an empty catalogue would pass the loop below vacuously
+
+    client = MCPClient(server=build_skills_server(manager))
+    registered = {tool.name for tool in client.list_tools()}
+    assert set(advertised) <= registered
+
+    for name in advertised:
+        assert name in manager.catalog_prompt()
+
+
 def test_write_skill_with_scripts_creates_discoverable_and_chmod(tmp_path):
     import os
 

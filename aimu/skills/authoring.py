@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Callable, Optional, Union
 
 from aimu.skills.manager import SkillManager
+from aimu.skills.skill import script_tool_name
 
 # A skill name doubles as a directory name and a tool-name prefix, so restrict it to a
 # safe slug: lowercase letters, digits, and single hyphens. This also blocks path
@@ -178,8 +179,9 @@ def make_skill_script_tool(agent, manager: SkillManager, skills_dir: Union[str, 
         Args:
             skill_name: Slug of an existing skill (create it first with author_skill).
             filename: Script file name, "<stem>.py" or "<stem>.sh". The stem is lowercase and may
-                use hyphens or underscores (e.g. "backup-db.sh" or "backup_db.sh"). Reuse the exact
-                filename of an existing script to replace (fix) it.
+                use hyphens or underscores, but the two are equivalent in the tool name, so
+                "backup-db.sh" and "backup_db.sh" would collide in one skill: pick a distinct stem.
+                Reuse the exact filename of an existing script to replace (fix) it.
             content: Full source of the script.
         """
         skill = manager.skills.get(skill_name)
@@ -199,9 +201,9 @@ def make_skill_script_tool(agent, manager: SkillManager, skills_dir: Union[str, 
         )
         manager.refresh()
         await agent.reload_skills()
-        stem = Path(filename).stem
         verb = "Updated" if existed else "Added"
-        return f"{verb} {filename} in '{skill_name}'. Tool '{skill_name}__{stem}' is now callable."
+        tool_name = script_tool_name(skill_name, Path(filename).stem)
+        return f"{verb} {filename} in '{skill_name}'. Tool '{tool_name}' is now callable."
 
     return add_skill_script
 

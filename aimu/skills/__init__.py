@@ -1,7 +1,7 @@
 from aimu.skills.authoring import make_skill_authoring_tool, make_skill_script_tool, write_skill
 from aimu.skills.manager import SkillLoadError, SkillManager, SkillNotFoundError
 from aimu.skills.mcp import build_skills_server
-from aimu.skills.skill import AgentSkill
+from aimu.skills.skill import AgentSkill, script_tool_name
 
 __all__ = [
     "AgentSkill",
@@ -11,5 +11,6 @@ __all__ = [
     "build_skills_server",
     "make_skill_authoring_tool",
     "make_skill_script_tool",
+    "script_tool_name",
     "write_skill",
 ]
