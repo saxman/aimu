@@ -195,13 +195,17 @@ class HuggingFaceModel(Model):
     # on Ampere, MPS, or CPU it has no native path. Naming it makes that visible at the call site
     # instead of hiding it in the repo id. Both ids must stay distinct: two members sharing a
     # ModelSpec.id silently alias (see tests/test_model_catalog_consistency.py).
+    # Both carry think_opener_in_prompt=True: 3.6's chat template appends the bare `<think>` opener
+    # exactly as 3.5's and 3.8's do (the tails are byte-identical in that respect).
     QWEN_3_6_27B = (
         ModelSpec("Qwen/Qwen3.6-27B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
         ToolCallFormat.XML,
+        True,
     )
     QWEN_3_6_27B_FP8 = (
         ModelSpec("Qwen/Qwen3.6-27B-FP8", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
         ToolCallFormat.XML,
+        True,
     )
     QWEN_3_5_9B = (
         ModelSpec("Qwen/Qwen3.5-9B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
@@ -298,6 +302,8 @@ class HuggingFaceModel(Model):
     PHI_4_14B = ModelSpec("microsoft/phi-4")
 
     # DeepSeek
+    # R1's template appends "<|Assistant|><think>\n" to the generation prompt unconditionally,
+    # so like the Qwen thinking models the response starts *inside* the thinking block.
     DEEPSEEK_R1_8B = (
         ModelSpec(
             "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
@@ -305,6 +311,7 @@ class HuggingFaceModel(Model):
             generation_kwargs={"temperature": 0.6},
         ),
         ToolCallFormat.XML,
+        True,
     )
 
     # HuggingFace

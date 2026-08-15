@@ -167,6 +167,71 @@ def test_shared_name_intrinsic_flags_agree(key):
     )
 
 
+# Expected ``think_opener_in_prompt`` per HuggingFace thinking model, verified against each
+# repo's published chat template. True means the template appends a *bare* ``<think>`` to the
+# generation prompt, so the model generates inside the thinking block and emits only the closing
+# ``</think>``; the in-process client needs the flag to know not to expect a literal opener.
+#
+# Getting this wrong is silent: the non-streaming parser still splits correctly whenever
+# ``</think>`` is present, so the flag only bites when a thinking block is *truncated* before its
+# close (token budget exhausted), where a False-but-should-be-True entry returns raw reasoning as
+# if it were the answer. That is why this is pinned here rather than left to review.
+#
+# To re-verify a member, check the tail of its chat template for what ``add_generation_prompt``
+# emits. Note the distinctions that make several entries correctly False:
+#   * ``QWEN_3_8B`` / ``SMOLLM3_3B`` emit only the *closed* ``<think>\n\n</think>`` (thinking off).
+#   * ``GEMMA_4_*`` use ``<|channel>thought`` framing, not ``<think>`` tags at all.
+#   * ``GPT_OSS_20B`` emits no opener.
+_EXPECTED_THINK_OPENER: dict[str, bool] = {
+    "QWEN_3_8_27B": True,  # template tail: {{- '<think>\n' }}
+    "QWEN_3_8_27B_FP8": True,
+    "QWEN_3_6_27B": True,  # same template shape as 3.5/3.8; was False until v0.13.2
+    "QWEN_3_6_27B_FP8": True,
+    "QWEN_3_5_9B": True,
+    "QWEN_3_8B": False,  # closed <think>\n\n</think>\n\n only, and only when thinking is off
+    "GEMMA_4_E4B": False,  # <|channel>thought framing
+    "GEMMA_4_12B": False,
+    "GPT_OSS_20B": False,  # no opener
+    "DEEPSEEK_R1_8B": True,  # template tail: {{'<｜Assistant｜><think>\n'}}
+    "SMOLLM3_3B": False,  # closed <think>\n\n</think>\n in non-think mode
+}
+
+
+def _hf_thinking_members() -> dict[str, object]:
+    if not getattr(models, "HAS_HF", False):
+        return {}
+    return {member.name: member for member in models.HuggingFaceModel if member.supports_thinking}
+
+
+@pytest.mark.skipif(not getattr(models, "HAS_HF", False), reason="requires the hf extra")
+def test_hf_thinking_models_are_all_pinned():
+    # A new thinking model must make a deliberate think_opener_in_prompt decision rather than
+    # inheriting the False default unexamined, which is how the 3.6 entries went wrong.
+    unpinned = sorted(set(_hf_thinking_members()) - set(_EXPECTED_THINK_OPENER))
+    assert not unpinned, (
+        f"HuggingFace thinking model(s) {unpinned} have no _EXPECTED_THINK_OPENER entry. "
+        f"Check the repo's chat template for whether add_generation_prompt appends a bare "
+        f"'<think>' and pin the expected value."
+    )
+    stale = sorted(set(_EXPECTED_THINK_OPENER) - set(_hf_thinking_members()))
+    assert not stale, f"remove _EXPECTED_THINK_OPENER entries for models no longer in the catalog: {stale}"
+
+
+@pytest.mark.skipif(not getattr(models, "HAS_HF", False), reason="requires the hf extra")
+@pytest.mark.parametrize("member_name", sorted(_EXPECTED_THINK_OPENER))
+def test_hf_think_opener_matches_template(member_name):
+    members = _hf_thinking_members()
+    if member_name not in members:
+        pytest.skip(f"{member_name} not in catalog")
+    expected = _EXPECTED_THINK_OPENER[member_name]
+    actual = members[member_name].think_opener_in_prompt
+    assert actual == expected, (
+        f"HuggingFaceModel.{member_name}.think_opener_in_prompt is {actual}, expected {expected} "
+        f"per its chat template. A True template with a False flag silently returns truncated "
+        f"reasoning as the answer."
+    )
+
+
 def test_allowlisted_divergences_are_still_divergent():
     # Keep both allowlists honest: if an entry has been reconciled (no longer diverges),
     # it should be removed rather than lingering as noise.
