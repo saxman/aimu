@@ -373,6 +373,10 @@ class OllamaOpenAIModel(Model):
     # Ollama 0.19+ runs it on its MLX backend automatically; that's transparent to this client (the
     # tag is unchanged), so there is nothing MLX-specific to declare here.
     QWEN_3_6_35B = ModelSpec("qwen3.6:35b", tools=True, thinking=True, vision=True)
+    # Qwen 3.8 27B is the same shape again: a unified vision-language dense model whose Ollama tag
+    # carries the vision/tools/thinking capabilities. (QWEN_3_8_27B is Qwen 3.8 at 27B; QWEN_3_8B
+    # above is Qwen 3 at 8B.)
+    QWEN_3_8_27B = ModelSpec("qwen3.8:27b", tools=True, thinking=True, vision=True)
     DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True)
     GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True)
     # Gemma 4 E4B/12B support audio natively, but the Ollama API doesn't expose audio input yet
@@ -419,6 +423,11 @@ class LMStudioOpenAIModel(Model):
     # GGUF build, which is not an MLX path. No bf16 either -- a 35B unquantized is impractical here.
     QWEN_3_6_35B_4BIT = ModelSpec("qwen3.6-35b-a3b-4bit", tools=True, thinking=True, vision=True)
     QWEN_3_6_35B_8BIT = ModelSpec("qwen3.6-35b-a3b-8bit", tools=True, thinking=True, vision=True)
+    # Qwen 3.8 27B is dense rather than MoE, but the MLX story is identical: quant-suffixed keys
+    # from an mlx-community download, no bare member (a quant-free key would be the GGUF build).
+    # At 27B dense, bf16 is impractical here too, so only the two practical quants are listed.
+    QWEN_3_8_27B_4BIT = ModelSpec("qwen3.8-27b-4bit", tools=True, thinking=True, vision=True)
+    QWEN_3_8_27B_8BIT = ModelSpec("qwen3.8-27b-8bit", tools=True, thinking=True, vision=True)
     # No MUSE_GLIMMER_30B here, for two independent reasons: LM Studio distributes it as GGUF only
     # (no MLX build, so it is not an MLX path at all), and whether its llama.cpp engine parses the
     # model's channel-scoped reasoning and ATEM-style XML tool calls is still undocumented. Adding
@@ -605,6 +614,15 @@ class OMLXOpenAIModel(Model):
     QWEN_3_6_35B_4BIT = ModelSpec("Qwen3.6-35B-A3B-4bit", tools=True, thinking=True, vision=True)
     QWEN_3_6_35B_8BIT = ModelSpec("Qwen3.6-35B-A3B-8bit", tools=True, thinking=True, vision=True)
     QWEN_3_6_35B_BF16 = ModelSpec("Qwen3.6-35B-A3B-bf16", tools=True, thinking=True, vision=True)
+    # Qwen 3.8 27B is a dense unified vision-language model (Qwen3_5ForConditionalGeneration, with
+    # an image_token_id and an image-text-to-text pipeline tag), so the same tools/thinking/vision
+    # reasoning as 3.6 above applies. mlx-community publishes 4bit, 8bit, and bf16; at 27B dense the
+    # bf16 checkpoint is large but still tractable on a high-memory Mac, so it is listed here (it is
+    # omitted from the LM Studio catalog, which lists only the two practical quants).
+    QWEN_3_8_27B = ModelSpec("Qwen3.8-27B", tools=True, thinking=True, vision=True)
+    QWEN_3_8_27B_4BIT = ModelSpec("Qwen3.8-27B-4bit", tools=True, thinking=True, vision=True)
+    QWEN_3_8_27B_8BIT = ModelSpec("Qwen3.8-27B-8bit", tools=True, thinking=True, vision=True)
+    QWEN_3_8_27B_BF16 = ModelSpec("Qwen3.8-27B-bf16", tools=True, thinking=True, vision=True)
     # Meta's Muse Glimmer emits channel-scoped reasoning and ATEM-style XML tool calls
     # (`<atem:function_calls>`) rather than `<think>` tags and JSON, so a serving path only exposes
     # those capabilities if it parses that framing. oMLX does: 0.5.8.dev3 added Muse Glimmer 30B

@@ -29,15 +29,28 @@ _QWEN_3_6_KWARGS = {
     "repetition_penalty": 1.0,
 }
 _QWEN_3_5_KWARGS = {**_QWEN_3_6_KWARGS, "presence_penalty": 1.5}
+# Qwen 3.8 recommends no presence penalty in thinking mode (which is on by default).
+_QWEN_3_8_KWARGS = {**_QWEN_3_6_KWARGS, "presence_penalty": 0.0}
 _MUSE_GLIMMER_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
 
 
 class OllamaModel(Model):
     # Alibaba
-    # Qwen 3.5/3.6 are a unified vision-language family (vision is built into the base
+    # Qwen 3.5/3.6/3.8 are a unified vision-language family (vision is built into the base
     # weights, not a separate -VL variant), so the plain tags serve image input. The Ollama
     # registry lists these tags with "Text, Image" capability. (Qwen3 32B/8B below are the
     # older text-only generation and stay vision=False.)
+    #
+    # Note the name spacing: QWEN_3_8_27B is Qwen *3.8* at 27B, while QWEN_3_8B further down is
+    # Qwen *3* at 8B. Both follow the catalog's "version parts, then size" scheme.
+    QWEN_3_8_27B = ModelSpec(
+        "qwen3.8:27b",
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_3_8_KWARGS,
+        structured_output=True,
+    )
     QWEN_3_6_35B = ModelSpec(
         "qwen3.6:35b",
         tools=True,

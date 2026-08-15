@@ -139,6 +139,8 @@ _QWEN_KWARGS = {
     "presence_penalty": 1.5,
     "repetition_penalty": 1.0,
 }
+# Qwen 3.8 recommends no presence penalty in thinking mode (which is on by default).
+_QWEN_3_8_KWARGS = {**_QWEN_KWARGS, "presence_penalty": 0.0}
 
 
 class HuggingFaceModel(Model):
@@ -165,6 +167,21 @@ class HuggingFaceModel(Model):
         self.think_opener_in_prompt = think_opener_in_prompt
 
     # Alibaba
+    # Qwen 3.8 27B is dense (not MoE) but otherwise the same shape as the 3.6 pair below: one
+    # repo holding language model + vision tower, XML tool calls, and a chat template that
+    # appends the `<think>` opener to the prompt -- hence think_opener_in_prompt=True, matching
+    # Qwen 3.5. Its card recommends presence_penalty=0.0 in thinking mode, so it does not share
+    # _QWEN_KWARGS. FP8 is a separate member for the same hardware-gating reason as 3.6-FP8.
+    QWEN_3_8_27B = (
+        ModelSpec("Qwen/Qwen3.8-27B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_8_KWARGS),
+        ToolCallFormat.XML,
+        True,
+    )
+    QWEN_3_8_27B_FP8 = (
+        ModelSpec("Qwen/Qwen3.8-27B-FP8", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_8_KWARGS),
+        ToolCallFormat.XML,
+        True,
+    )
     # Qwen 3.5/3.6 are natively multimodal (unified vision-language foundation): one HF
     # repo holds both the language model and the vision tower, loaded together via
     # AutoModelForImageTextToText (see __init__ -- the FP8 checkpoint's quant skip-list
