@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.13.2 (2026-08-15): Qwen 3.8 27B, and a silent thinking-truncation fix
 
 ### Models
 
