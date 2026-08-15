@@ -2302,6 +2302,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.skills.script_tool_name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        script_tool_name
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#authoring" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3213,6 +3224,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.skills.script_tool_name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        script_tool_name
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#authoring" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3326,9 +3348,10 @@
 
     <div class="doc doc-contents ">
 
-        <p>Return <code>{skill}__{script_stem}</code> tool names for every <code>.py</code> / <code>.sh</code> in <code>scripts/</code>.</p>
-<p><code>foo.py</code> and <code>foo.sh</code> share the <code>{skill}__foo</code> name; <code>.py</code> sorts first and wins, so
-the name is listed once (matching the skills-server registration).</p>
+        <p>Return the :func:<code>script_tool_name</code> for every <code>.py</code> / <code>.sh</code> in <code>scripts/</code>.</p>
+<p>Scripts whose names collapse to the same tool name are listed once, first sorted path
+winning, matching the skills-server registration. That covers <code>foo.py</code> / <code>foo.sh</code>
+(<code>.py</code> sorts first) and <code>foo-bar.py</code> / <code>foo_bar.py</code> (the hyphen sorts first).</p>
 
 
     </div>
@@ -3570,9 +3593,37 @@ the model can call directly (without first calling <code>activate_skill</code>).
   <summary>Registered tools</summary>
   <ul>
 <li>activate_skill(name): returns the full SKILL.md body for the named skill</li>
-<li>{skill_name}__{script_stem}(args=""): runs a Python or shell script from a skill's scripts/ dir</li>
+<li>{skill}__{stem}(args=""): runs a Python or shell script from a skill's scripts/ dir, named
+  by aimu.skills.skill.script_tool_name (both halves slugified)</li>
 </ul>
 </details>        <p>The returned FastMCP instance can be passed directly to MCPClient(server=...).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.skills.script_tool_name" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.skills.script_tool_name</span>
+
+
+<a href="#aimu.skills.script_tool_name" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">script_tool_name</span><span class="p">(</span><span class="n">skill_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">script_stem</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Return the tool name a skill's script is registered under: <code>{skill}__{stem}</code>, slugified.</p>
+<p>The single source of this name. Three surfaces need it and must agree, because the catalogue
+is what the model reads: :meth:<code>AgentSkill.script_tool_names</code> advertises it,
+:func:<code>aimu.skills.mcp.build_skills_server</code> registers it, and <code>add_skill_script</code> reports it
+back after writing a script. A name advertised but not registered is a tool call that cannot
+succeed, so they are built here rather than formatted in three places.</p>
+<p>Because both halves are slugified, two stems that differ only in their separator
+(<code>backup-db</code> and <code>backup_db</code>) map to one tool name; callers dedupe on the result.</p>
 
 
     </div>
