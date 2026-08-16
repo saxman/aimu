@@ -581,6 +581,94 @@ def test_run_script_file_timeout(tmp_path, monkeypatch):
     assert "timed out" in mcp_mod.run_script_file(slow)
 
 
+# ---------------------------------------------------------------------------
+# Self-contained scripts (PEP 723) and non-interactive stdin
+#
+# https://agentskills.io/skill-creation/using-scripts recommends declaring a script's
+# dependencies inline and running it with `uv run`, and states that a non-interactive shell is a
+# hard requirement of the execution environment.
+# ---------------------------------------------------------------------------
+
+
+_PEP_723_SCRIPT = '# /// script\n# dependencies = [\n#   "humanize",\n# ]\n# ///\nimport humanize\nprint(humanize.intcomma(1234567))\n'
+
+
+def test_a_plain_script_runs_on_the_host_interpreter(tmp_path):
+    """Without an inline dependency block a script keeps using this interpreter, so a skill that
+    relies on a package installed in the host environment is unaffected."""
+    import sys
+
+    from aimu.skills.mcp import _interpreter_for
+
+    plain = tmp_path / "plain.py"
+    plain.write_text("print('ok')\n", encoding="utf-8")
+    assert _interpreter_for(plain) == [sys.executable]
+
+
+def test_a_script_declaring_inline_dependencies_runs_through_uv(tmp_path):
+    """PEP 723 dependencies need an installer; `sys.executable` alone raises ModuleNotFoundError."""
+    from aimu.skills.mcp import _interpreter_for
+
+    script = tmp_path / "inline.py"
+    script.write_text(_PEP_723_SCRIPT, encoding="utf-8")
+
+    argv = _interpreter_for(script)
+
+    assert argv[0].endswith("uv")
+    assert argv[1:] == ["run", "--script"]
+
+
+def test_inline_dependencies_are_actually_installed_and_importable(tmp_path):
+    """End to end, because the interpreter choice only matters if the dependency resolves."""
+    from aimu.skills.mcp import run_script_file
+
+    script = tmp_path / "inline.py"
+    script.write_text(_PEP_723_SCRIPT, encoding="utf-8")
+
+    assert "1,234,567" in run_script_file(script)
+
+
+def test_a_missing_uv_names_the_fix_rather_than_failing_on_the_import(tmp_path, monkeypatch):
+    from aimu.skills import mcp as mcp_mod
+
+    script = tmp_path / "inline.py"
+    script.write_text(_PEP_723_SCRIPT, encoding="utf-8")
+    monkeypatch.setattr(mcp_mod.shutil, "which", lambda name: None)
+
+    out = mcp_mod.run_script_file(script)
+
+    assert "uv" in out
+    assert "dependencies" in out
+
+
+def test_a_script_never_inherits_the_parent_stdin(tmp_path, monkeypatch):
+    """A non-interactive shell is a hard requirement of the spec's execution environment, and an
+    inherited stdin made an interactive script burn the whole timeout, blocking the event loop with
+    it. Closing stdin turns that into an immediate EOFError the agent can act on.
+
+    Asserted on the call rather than on the timing, because the behaviour otherwise depends on
+    whatever stdin the parent happens to have: under pytest it is already closed, so a script
+    reading it raises EOFError whether or not this function asks for that.
+    """
+    import subprocess
+
+    from aimu.skills import mcp as mcp_mod
+
+    recorded = {}
+
+    def fake_run(argv, **kwargs):
+        recorded.update(kwargs)
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(mcp_mod.subprocess, "run", fake_run)
+
+    script = tmp_path / "plain.py"
+    script.write_text("print('ok')\n", encoding="utf-8")
+    mcp_mod.run_script_file(script)
+
+    assert recorded["stdin"] is subprocess.DEVNULL
+
+
 def test_failing_script_tool_tells_model_how_to_fix_it(tmp_path):
     """A registered script tool that errors must name its skill + filename so the model can
     overwrite the right file (avoids 'fixing' into a new file and leaving the bug)."""

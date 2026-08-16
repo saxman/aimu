@@ -76,6 +76,28 @@ Names collapse, so two scripts in one skill can collide: `merge.py` / `merge.sh`
 
 Scripts run via `subprocess`; their stdout becomes the tool result. The catalogue lists script tool names inline, so the model can call them directly without first invoking `activate_skill`.
 
+### Self-contained scripts
+
+A `.py` script may declare its own dependencies inline with [PEP 723](https://peps.python.org/pep-0723/), which is the [spec's recommended way](https://agentskills.io/skill-creation/using-scripts) to make a skill self-contained. A script containing a `# /// script` block runs through `uv run --script`, which resolves those dependencies into an isolated environment:
+
+```python
+# /// script
+# dependencies = [
+#   "beautifulsoup4",
+# ]
+# ///
+from bs4 import BeautifulSoup
+...
+```
+
+A script with no inline block runs on the same interpreter as AIMU, so a skill relying on packages already installed in your environment keeps working. Inline dependencies need `uv` on `PATH`; without it the tool result names uv rather than surfacing an import error.
+
+### Two constraints worth designing around
+
+**Scripts run non-interactively.** stdin is closed, so a script that prompts gets `EOFError` immediately rather than hanging. Take input through flags or environment variables, and make `--help` describe the interface: that output is how a model learns to call the script.
+
+**Scripts have a 30-second budget** and run synchronously, so a long job blocks the event loop on the async path. Keep script work short, and put anything model-driven or long-running in a tool rather than a script.
+
 ## Use a SkillManager directly
 
 For inspection or programmatic use:

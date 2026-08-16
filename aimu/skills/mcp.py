@@ -13,18 +13,54 @@ from aimu.skills.skill import script_tool_name
 
 # Skill scripts run as real subprocesses with the user's own privileges (no sandbox). This is
 # intentional: a skill bundles executable helpers the agent is trusted to run. Discovery covers
-# Python and shell scripts; the interpreter is chosen by file extension.
+# Python and shell scripts; the interpreter is chosen by file extension, and by whether a .py script
+# declares PEP 723 inline dependencies (see _interpreter_for).
 _SCRIPT_GLOBS = ("*.py", "*.sh")
 _SCRIPT_TIMEOUT = 30
 
 
-def _interpreter_for(script: Path) -> list[str]:
-    """Return the argv prefix to run ``script``, chosen by extension.
+def _declares_inline_dependencies(script: Path) -> bool:
+    """Whether ``script`` opens a PEP 723 inline script-metadata block.
 
-    Raises :class:`ValueError` for an unsupported extension or a missing shell interpreter.
+    Detected by the opening marker alone, which is all the interpreter choice needs; ``uv`` parses
+    the block itself and reports a malformed one better than a pre-check here could.
+    """
+    try:
+        with script.open(encoding="utf-8") as handle:
+            return any(line.rstrip() == "# /// script" for line in handle)
+    except OSError:
+        return False
+
+
+def _interpreter_for(script: Path) -> list[str]:
+    """Return the argv prefix to run ``script``, chosen by extension and inline metadata.
+
+    A ``.py`` script declaring `PEP 723 <https://peps.python.org/pep-0723/>`_ dependencies runs
+    through ``uv run --script``, which resolves them into an isolated environment; this interpreter
+    would raise ``ModuleNotFoundError`` on the first import instead. The
+    `Agent Skills guidance <https://agentskills.io/skill-creation/using-scripts>`_ recommends inline
+    metadata as the way to make a skill's scripts self-contained, so a skill written to the spec
+    would otherwise not run.
+
+    ``--script`` rather than a bare ``uv run``: it treats the file as standalone, where ``uv run``
+    would resolve whatever project happens to surround the skill directory. A script *without* an
+    inline block keeps using this interpreter, so a skill relying on a package installed in the host
+    environment is unaffected.
+
+    Raises :class:`ValueError` for an unsupported extension, a missing shell interpreter, or inline
+    dependencies with no ``uv`` to resolve them.
     """
     if script.suffix == ".py":
-        return [sys.executable]
+        if not _declares_inline_dependencies(script):
+            return [sys.executable]
+        uv = shutil.which("uv")
+        if uv is None:
+            raise ValueError(
+                f"cannot run {script.name}: it declares PEP 723 inline dependencies, which need 'uv' "
+                "to resolve, and uv was not found on PATH. Install uv (https://docs.astral.sh/uv/), or "
+                "drop the '# /// script' block and rely on packages already installed here."
+            )
+        return [uv, "run", "--script"]
     if script.suffix == ".sh":
         bash = shutil.which("bash")
         if bash is None:
@@ -49,7 +85,10 @@ def run_script_file(script: Path, args: str = "", *, fix_hint: str = "") -> str:
     except ValueError as exc:
         return str(exc)
     try:
-        result = subprocess.run(argv, capture_output=True, text=True, timeout=_SCRIPT_TIMEOUT)
+        # stdin is closed, not inherited: agents run in non-interactive shells, and a script that
+        # prompts would otherwise block until the timeout and hold the event loop with it. Closed
+        # stdin turns that into an immediate EOFError the caller can report and the author can fix.
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=_SCRIPT_TIMEOUT, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
         return f"Script timed out after {_SCRIPT_TIMEOUT} seconds.{fix_hint}"
     if result.returncode != 0:
