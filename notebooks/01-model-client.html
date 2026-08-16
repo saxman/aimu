@@ -338,7 +338,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#adaptive-vs.-budget-thinking-anthropic" id="toc-adaptive-vs.-budget-thinking-anthropic" class="nav-link" data-scroll-target="#adaptive-vs.-budget-thinking-anthropic">Adaptive vs.&nbsp;budget thinking (Anthropic)</a></li>
   </ul></li>
-  <li><a href="#d---tool-usage" id="toc-d---tool-usage" class="nav-link" data-scroll-target="#d---tool-usage">D - Tool Usage</a></li>
+  <li><a href="#d---tool-usage" id="toc-d---tool-usage" class="nav-link" data-scroll-target="#d---tool-usage">D - Tool Usage</a>
+  <ul class="collapse">
+  <li><a href="#mcp-tools" id="toc-mcp-tools" class="nav-link" data-scroll-target="#mcp-tools">MCP tools</a></li>
+  </ul></li>
   <li><a href="#e---multiple-parallel-tool-calls" id="toc-e---multiple-parallel-tool-calls" class="nav-link" data-scroll-target="#e---multiple-parallel-tool-calls">E - Multiple parallel tool calls</a></li>
   <li><a href="#f---huggingface-model-weight-caching" id="toc-f---huggingface-model-weight-caching" class="nav-link" data-scroll-target="#f---huggingface-model-weight-caching">F - HuggingFace Model Weight Caching</a></li>
   <li><a href="#g---clean-up" id="toc-g---clean-up" class="nav-link" data-scroll-target="#g---clean-up">G - Clean Up</a></li>
@@ -397,7 +400,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 <tr class="even">
 <td>D</td>
-<td>Tool calling: wrapping the client in an <code>Agent</code> with an in-memory MCP server</td>
+<td>Tool calling: <code>@aimu.tool</code> functions, wrapping the client in an <code>Agent</code>, and MCP tools</td>
 </tr>
 <tr class="odd">
 <td>E</td>
@@ -405,6 +408,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 <tr class="even">
 <td>F</td>
+<td>HuggingFace model weight caching</td>
+</tr>
+<tr class="odd">
+<td>G</td>
 <td>Releasing resources</td>
 </tr>
 </tbody>
@@ -413,7 +420,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---text-generation" class="level2">
 <h2 class="anchored" data-anchor-id="a---text-generation">A - Text Generation</h2>
 <p><code>ModelClient</code> is a factory that accepts any provider model enum and automatically selects the right backend. The cell below picks the model used throughout this notebook; change <code>model_enum</code> to try a different provider or model.</p>
-<div id="cb66ea77" class="cell" data-execution_count="1">
+<div id="1c81ae1f" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, HAS_OLLAMA, HAS_HF</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Pick the model used throughout this notebook. Swap this assignment to try a</span></span>
@@ -438,27 +445,27 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_5_9B)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Here, we’ll use the model enum assigned above.</p>
-<div id="28ecc37e" class="cell" data-execution_count="2">
+<div id="501927a6" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(model_enum)</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model_client.model.name <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> model_client.model.value)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>For non-interactive (chat-based) generation, the <em>generate</em> method is used. This method allows you to specify a prompt and receive a generated response.</p>
-<div id="21078623" class="cell" data-execution_count="3">
+<div id="997df6da" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>model_client.generate(<span class="st">"Name the capital of France."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>If the model supports thinking/reasoning, the thinking output for generation can be accessed via <code>model_client.last_thinking</code>.</p>
-<div id="38265d17" class="cell" data-execution_count="4">
+<div id="9cd554dd" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>model_client.last_thinking</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Output can be streamed as well.</p>
-<div id="d3959135" class="cell" data-execution_count="5">
+<div id="aa1b2f66" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"Name the capital of England."</span>, stream<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The thinking output can be filtered by specifying which streaming content types to include.</p>
-<div id="e08db6e9" class="cell" data-execution_count="6">
+<div id="8e2f5f60" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(</span>
@@ -470,7 +477,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 <p>Parameters can be passed to the generate (and chat) methods to control the output. For thinking/reasoning models, max_tokens should be large enough to capture both the reasoning output, which happens first, and the generation output.</p>
 <p>For generate_kwargs, see https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values</p>
-<div id="26e16f07" class="cell" data-execution_count="7">
+<div id="daa4ac34" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>model_client.generate(</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of Germany."</span>,</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    generate_kwargs<span class="op">=</span>{</span>
@@ -486,24 +493,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---basic-chat" class="level2">
 <h2 class="anchored" data-anchor-id="b---basic-chat">B - Basic Chat</h2>
 <p>Chatting with a model simply involves passing a message and receiving a response. The Model Client handles the conversation history automatically.</p>
-<div id="613bb870" class="cell" data-execution_count="8">
+<div id="da2f0030" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"What is the capital of China?"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Chat responses can be streamed as well.</p>
-<div id="6f955878" class="cell" data-execution_count="9">
+<div id="6038023b" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"How long has it been the capital?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The complete message history, including the model thinking/reasoning, can be accessed via the <code>messages</code> property of the Model Client.</p>
-<div id="0691568d" class="cell" data-execution_count="10">
+<div id="1079e1bf" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>A custom system message can be set, or re-set, as desired.</p>
-<div id="5e3c747a" class="cell" data-execution_count="11">
+<div id="aea765ba" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant that responds using pirate speak."</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>model_client.messages[<span class="dv">0</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="868c35ee" class="cell" data-execution_count="12">
+<div id="30ad9bd5" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"Name a famous pirate from there."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
@@ -511,18 +518,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="c---model-thinking">C - Model Thinking</h2>
 <p>Some models support extended reasoning (also called “thinking”), where the model works through a problem step-by-step before producing a final response. AIMU automatically enables thinking for models in <code>THINKING_MODELS</code> (e.g., <code>DEEPSEEK_R1_8B</code>, <code>QWEN_3_5_9B</code>, <code>GPT_OSS_20B</code>).</p>
 <p>A thinking model must be used for the cells in this section.</p>
-<div id="730d64a4" class="cell" data-execution_count="13">
+<div id="ed033d03" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Model: </span><span class="sc">{</span>model_client<span class="sc">.</span>model<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Thinking enabled: </span><span class="sc">{</span>model_client<span class="sc">.</span>is_thinking_model<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>After calling <code>generate()</code> or <code>chat()</code>, the model’s reasoning process is available via <code>last_thinking</code>.</p>
-<div id="b646a331" class="cell" data-execution_count="14">
+<div id="23c96fe3" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"What is the sum of the first 10 prime numbers?"</span>)</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Response:</span><span class="ch">\n</span><span class="st">"</span>, response)</span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Thinking:</span><span class="ch">\n</span><span class="st">"</span>, model_client.last_thinking)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>When streaming with <code>chat(..., stream=True)</code>, each chunk has a <code>phase</code> (<code>StreamingContentType</code>) and <code>content</code>. Use the phase to separate thinking tokens from the final response.</p>
-<div id="58cb26d4" class="cell" data-execution_count="15">
+<div id="3d76b69e" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>was_thinking <span class="op">=</span> <span class="va">True</span></span>
@@ -543,7 +550,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong><code>ADAPTIVE</code></strong>: <code>thinking={"type": "adaptive", "display": "summarized"}</code> (sampling params dropped); the model decides per request whether and how much to think, and may emit none on a simple prompt. Required by Opus 4.7+ and Fable 5, since the budget form returns a 400 on those.</li>
 </ul>
 <p>Either way, AIMU surfaces reasoning identically: <code>last_thinking</code> and <code>THINKING</code> stream chunks. The cell below needs the <code>[anthropic]</code> extra and <code>ANTHROPIC_API_KEY</code>; it prints each model’s style, then shows an adaptive model skipping thinking on a trivial prompt but engaging it on a reasoning prompt.</p>
-<div id="58a5958a" class="cell" data-execution_count="16">
+<div id="b9bb51ea" class="cell" data-execution_count="16">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_ANTHROPIC</span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -570,123 +577,145 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="d---tool-usage" class="level2">
 <h2 class="anchored" data-anchor-id="d---tool-usage">D - Tool Usage</h2>
-<p>Create an MCP tool to use. See the “02 - MCP Tools” notebook for more examples of how to set up and use MCP tools.</p>
-<div id="f57b2b11" class="cell" data-execution_count="17">
+<p>The simplest tool is a plain Python function decorated with <code>@aimu.tool</code>. The decorator reads the signature and the Google-style docstring to build the OpenAI-format spec the model sees (available at <code>__tool_spec__</code>), and leaves the function otherwise unchanged. See <a href="./06-tools.html">notebook 06</a> for argument validation, dependency injection, and the built-in tool library (<code>aimu.tools.builtin</code>).</p>
+<div id="699d7d05" class="cell" data-execution_count="17">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>mcp <span class="op">=</span> FastMCP(<span class="st">"AIMU Tools"</span>)</span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
-<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_date_and_time() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
-<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Returns the current data and time as a string."""</span></span>
-<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">str</span>(datetime.datetime.now())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_date_and_time() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Returns the current date and time as a string."""</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">str</span>(datetime.datetime.now())</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>get_current_date_and_time.__tool_spec__</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>Create a new AIMU MCPClient for handling MCP tool requests.</p>
-<div id="ce054d25" class="cell" data-execution_count="18">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>mcp_client.as_tools())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<p><code>chat()</code> on a bare client only advertises the tools and records any tool call the model requests – it does not run them. To actually execute tools, wrap the client in an <code>Agent</code> and call <code>run()</code>. The agent drives the model -&gt; tools -&gt; repeat loop and returns the final answer once the model stops calling tools.</p>
-<div id="4b8c3a4f" class="cell" data-execution_count="19">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What time is it?"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>chat()</code> on a bare client only advertises the tools and records any tool call the model requests – it does not run them. To actually execute tools, wrap the client in an <code>Agent</code> and call <code>run()</code>. The agent drives the model -&gt; tools -&gt; repeat loop and returns the final answer once the model stops calling tools. <a href="./07-agents.html">Notebook 07</a> covers the loop itself: iteration caps, per-run tool overrides, and approval hooks.</p>
+<div id="e90a39fd" class="cell" data-execution_count="18">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>[get_current_date_and_time])</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What time is it?"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The messages should include the tool call, the tool response, and then final response generated by model.</p>
-<div id="860e2f99" class="cell" data-execution_count="20">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="d6814ddc" class="cell" data-execution_count="19">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>When streaming, THINKING, TOOL_CALLING, and GENERATING phases can be handled separately.</p>
-<div id="99a26b76" class="cell" data-execution_count="21">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"What time is it now?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
-<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
-<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>chunk<span class="sc">.</span>phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss">]</span><span class="ch">\n</span><span class="ss">"</span>)</span>
-<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
-<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="57675153" class="cell" data-execution_count="20">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"What time is it now?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>chunk<span class="sc">.</span>phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss">]</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
+<section id="mcp-tools" class="level3">
+<h3 class="anchored" data-anchor-id="mcp-tools">MCP tools</h3>
+<p>Tools that run in a separate process, or that you want to share across several agents, reach the same <code>tools</code> list through an <a href="https://modelcontextprotocol.io">MCP</a> server: wrap the server with <code>MCPClient</code>, then call <code>as_tools()</code> to get one <code>@aimu.tool</code>-style callable per server tool. Concatenate the lists to mix cross-process and in-process tools; the agent dispatches both through one by-name lookup.</p>
+<div id="2e32efc9" class="cell" data-execution_count="21">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>mcp <span class="op">=</span> FastMCP(<span class="st">"AIMU Tools"</span>)</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_timezone_name() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Returns the name of the local timezone."""</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">str</span>(datetime.datetime.now().astimezone().tzname())</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>[get_current_date_and_time] <span class="op">+</span> mcp_client.as_tools())</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>[fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> agent.tools]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="55bafe82" class="cell" data-execution_count="22">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What time is it, and in which timezone?"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><a href="./06-tools.html">Notebook 06</a> covers the other ways to point <code>MCPClient</code> at a server (a Python file, a launch configuration, an in-memory <code>FastMCP</code> instance), and <a href="./26-remote-mcp-servers.html">notebook 26</a> covers remote HTTP servers with authentication.</p>
+</section>
 </section>
 <section id="e---multiple-parallel-tool-calls" class="level2">
 <h2 class="anchored" data-anchor-id="e---multiple-parallel-tool-calls">E - Multiple parallel tool calls</h2>
-<p>Some LLMs can use mutiple tools in parallel by making concurrent calls to different MCP tools and aggregating the results.</p>
-<div id="d04391b4" class="cell" data-execution_count="22">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_temperature(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current temperature for a given location.</span></span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the temperature for.</span></span>
-<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
-<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current temperature in Celsius.</span></span>
-<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
-<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"21.0"</span></span>
-<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
-<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_weather_conditions(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
-<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
-<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current weather conditions for a given location.</span></span>
-<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
-<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the weather conditions for.</span></span>
-<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
-<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current weather conditions.</span></span>
-<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
-<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"sunny"</span></span>
-<span id="cb23-29"><a href="#cb23-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-fetch the tool callables now that the server has more tools registered,</span></span>
-<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a><span class="co"># and rebuild the agent so it advertises the full set.</span></span>
-<span id="cb23-33"><a href="#cb23-33" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
-<span id="cb23-34"><a href="#cb23-34" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>mcp_client.as_tools())</span>
-<span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-36"><a href="#cb23-36" aria-hidden="true" tabindex="-1"></a>[fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> agent.tools]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Some LLMs can use multiple tools in parallel by requesting several tool calls in one turn and aggregating the results.</p>
+<div id="ee959f84" class="cell" data-execution_count="23">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_temperature(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current temperature for a given location.</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the temperature for.</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current temperature in Celsius.</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"21.0"</span></span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_weather_conditions(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current weather conditions for a given location.</span></span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the weather conditions for.</span></span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current weather conditions.</span></span>
+<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"sunny"</span></span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-fetch the tool callables now that the server has more tools registered,</span></span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a><span class="co"># and rebuild the agent so it advertises the full set.</span></span>
+<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>[get_current_date_and_time] <span class="op">+</span> mcp_client.as_tools())</span>
+<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-36"><a href="#cb24-36" aria-hidden="true" tabindex="-1"></a>[fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> agent.tools]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="51f44bd6" class="cell" data-execution_count="23">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What is the current temperature and weather conditions in New York City?"</span>)</span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="8e3d6f5c" class="cell" data-execution_count="24">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What is the current temperature and weather conditions in New York City?"</span>)</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="f---huggingface-model-weight-caching" class="level2">
 <h2 class="anchored" data-anchor-id="f---huggingface-model-weight-caching">F - HuggingFace Model Weight Caching</h2>
 <p>All four HuggingFace modality clients share a module-level weight registry. A second instance for the same model reuses loaded weights rather than calling <code>from_pretrained()</code> again.</p>
-<div id="2c4592db" class="cell" data-execution_count="24">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_HF:</span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models.hf <span class="im">import</span> HuggingFaceClient, HuggingFaceModel</span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> aimu</span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
-<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>    c1 <span class="op">=</span> HuggingFaceClient(m)</span>
-<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>    c2 <span class="op">=</span> HuggingFaceClient(m)  <span class="co"># reuses weights from c1</span></span>
-<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Same model object?"</span>, c1._hf_model <span class="kw">is</span> c2._hf_model)  <span class="co"># True</span></span>
-<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Free all HF weights and VRAM when done</span></span>
-<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>    aimu.clear_hf_cache()</span>
-<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Cache cleared."</span>)</span>
-<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
-<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"HuggingFace not installed, skipping."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="175aede8" class="cell" data-execution_count="25">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_HF:</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models.hf <span class="im">import</span> HuggingFaceClient, HuggingFaceModel</span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> aimu</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a>    c1 <span class="op">=</span> HuggingFaceClient(m)</span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>    c2 <span class="op">=</span> HuggingFaceClient(m)  <span class="co"># reuses weights from c1</span></span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Same model object?"</span>, c1._hf_model <span class="kw">is</span> c2._hf_model)  <span class="co"># True</span></span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Free all HF weights and VRAM when done</span></span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a>    aimu.clear_hf_cache()</span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Cache cleared."</span>)</span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"HuggingFace not installed, skipping."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="g---clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="g---clean-up">G - Clean Up</h2>
 <p>When done, close the model clients to free up resources.</p>
-<div id="a81353d7" class="cell" data-execution_count="25">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="9ba7ac23" class="cell" data-execution_count="26">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 
 
@@ -1158,352 +1187,376 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       </a>
   </div>
 </nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Model Client"</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelClient`</span> is AIMU's unified entry point for talking to any supported backend: local (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) or cloud (OpenAI, Anthropic, Google Gemini). The same call shape (<span class="in">`generate()`</span>, <span class="in">`chat()`</span>, <span class="in">`chat(..., stream=True)`</span>) works against every provider, so you can swap models without rewriting the surrounding code. Streaming yields a single <span class="in">`StreamChunk`</span> type with explicit <span class="in">`THINKING`</span>, <span class="in">`TOOL_CALLING`</span>, and <span class="in">`GENERATING`</span> phases. The client advertises tools and records the model's tool-call requests, but executing tools in a loop is the job of an <span class="in">`Agent`</span> (<span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span>); image input is built into the base client.</span>
-<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>Use a <span class="in">`ModelClient`</span> whenever you want a turn-by-turn conversation with a model: building a chat UI, prototyping prompts, wiring up tools, or experimenting with thinking/reasoning models. For autonomous tool-calling loops on top of the same client, see <span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span> (Agents).</span>
-<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this notebook covers</span></span>
-<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Section <span class="pp">|</span> Topic <span class="pp">|</span></span>
-<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|</span></span>
-<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> A <span class="pp">|</span> Stateless text generation with <span class="in">`generate()`</span>, streaming, and generation kwargs <span class="pp">|</span></span>
-<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> B <span class="pp">|</span> Multi-turn chat, message history, and custom system messages <span class="pp">|</span></span>
-<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> C <span class="pp">|</span> Thinking models: accessing <span class="in">`last_thinking`</span> and filtering streamed phases <span class="pp">|</span></span>
-<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D <span class="pp">|</span> Tool calling: wrapping the client in an <span class="in">`Agent`</span> with an in-memory MCP server <span class="pp">|</span></span>
-<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> E <span class="pp">|</span> Parallel tool calls in one model turn <span class="pp">|</span></span>
-<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> F <span class="pp">|</span> Releasing resources <span class="pp">|</span></span>
-<span id="cb27-21"><a href="#cb27-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-22"><a href="#cb27-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-23"><a href="#cb27-23" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Text Generation</span></span>
-<span id="cb27-24"><a href="#cb27-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-25"><a href="#cb27-25" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelClient`</span> is a factory that accepts any provider model enum and automatically selects the right backend. The cell below picks the model used throughout this notebook; change <span class="in">`model_enum`</span> to try a different provider or model.</span>
-<span id="cb27-26"><a href="#cb27-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-29"><a href="#cb27-29" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-30"><a href="#cb27-30" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, HAS_OLLAMA, HAS_HF</span>
-<span id="cb27-31"><a href="#cb27-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-32"><a href="#cb27-32" aria-hidden="true" tabindex="-1"></a><span class="co"># Pick the model used throughout this notebook. Swap this assignment to try a</span></span>
-<span id="cb27-33"><a href="#cb27-33" aria-hidden="true" tabindex="-1"></a><span class="co"># different backend; every later cell reads `model_enum` unchanged.</span></span>
-<span id="cb27-34"><a href="#cb27-34" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_OLLAMA:</span>
-<span id="cb27-35"><a href="#cb27-35" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> OllamaModel</span>
-<span id="cb27-36"><a href="#cb27-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-37"><a href="#cb27-37" aria-hidden="true" tabindex="-1"></a>    model_enum <span class="op">=</span> OllamaModel.QWEN_3_5_9B</span>
-<span id="cb27-38"><a href="#cb27-38" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> HAS_HF:</span>
-<span id="cb27-39"><a href="#cb27-39" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceModel</span>
-<span id="cb27-40"><a href="#cb27-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-41"><a href="#cb27-41" aria-hidden="true" tabindex="-1"></a>    model_enum <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
-<span id="cb27-42"><a href="#cb27-42" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
-<span id="cb27-43"><a href="#cb27-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">RuntimeError</span>(<span class="st">"Install a provider backend, e.g. `pip install aimu[ollama]`."</span>)</span>
-<span id="cb27-44"><a href="#cb27-44" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-45"><a href="#cb27-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-46"><a href="#cb27-46" aria-hidden="true" tabindex="-1"></a>The <span class="in">`ModelClient`</span> factory dispatches to the right backend based on the model enum type. You can also instantiate a specific client directly when you prefer explicit control:</span>
-<span id="cb27-47"><a href="#cb27-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-48"><a href="#cb27-48" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb27-49"><a href="#cb27-49" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, OllamaModel</span>
-<span id="cb27-50"><a href="#cb27-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-51"><a href="#cb27-51" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)  <span class="co"># factory: picks OllamaClient automatically</span></span>
-<span id="cb27-52"><a href="#cb27-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-53"><a href="#cb27-53" aria-hidden="true" tabindex="-1"></a><span class="co"># Or directly:</span></span>
-<span id="cb27-54"><a href="#cb27-54" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
-<span id="cb27-55"><a href="#cb27-55" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_5_9B)</span>
-<span id="cb27-56"><a href="#cb27-56" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-57"><a href="#cb27-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-58"><a href="#cb27-58" aria-hidden="true" tabindex="-1"></a>Here, we'll use the model enum assigned above.</span>
-<span id="cb27-59"><a href="#cb27-59" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-62"><a href="#cb27-62" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-63"><a href="#cb27-63" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(model_enum)</span>
-<span id="cb27-64"><a href="#cb27-64" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model_client.model.name <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> model_client.model.value)</span>
-<span id="cb27-65"><a href="#cb27-65" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-66"><a href="#cb27-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-67"><a href="#cb27-67" aria-hidden="true" tabindex="-1"></a>For non-interactive (chat-based) generation, the *generate* method is used. This method allows you to specify a prompt and receive a generated response.</span>
-<span id="cb27-68"><a href="#cb27-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-71"><a href="#cb27-71" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-72"><a href="#cb27-72" aria-hidden="true" tabindex="-1"></a>model_client.generate(<span class="st">"Name the capital of France."</span>)</span>
-<span id="cb27-73"><a href="#cb27-73" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-74"><a href="#cb27-74" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-75"><a href="#cb27-75" aria-hidden="true" tabindex="-1"></a>If the model supports thinking/reasoning, the thinking output for generation can be accessed via <span class="in">`model_client.last_thinking`</span>.</span>
-<span id="cb27-76"><a href="#cb27-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-79"><a href="#cb27-79" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-80"><a href="#cb27-80" aria-hidden="true" tabindex="-1"></a>model_client.last_thinking</span>
-<span id="cb27-81"><a href="#cb27-81" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-82"><a href="#cb27-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-83"><a href="#cb27-83" aria-hidden="true" tabindex="-1"></a>Output can be streamed as well.</span>
-<span id="cb27-84"><a href="#cb27-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-87"><a href="#cb27-87" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-88"><a href="#cb27-88" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"Name the capital of England."</span>, stream<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb27-89"><a href="#cb27-89" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-90"><a href="#cb27-90" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
-<span id="cb27-91"><a href="#cb27-91" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb27-92"><a href="#cb27-92" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-93"><a href="#cb27-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-94"><a href="#cb27-94" aria-hidden="true" tabindex="-1"></a>The thinking output can be filtered by specifying which streaming content types to include.</span>
-<span id="cb27-95"><a href="#cb27-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-98"><a href="#cb27-98" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-99"><a href="#cb27-99" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
-<span id="cb27-100"><a href="#cb27-100" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-101"><a href="#cb27-101" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(</span>
-<span id="cb27-102"><a href="#cb27-102" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of the United States."</span>, stream<span class="op">=</span><span class="va">True</span>, include<span class="op">=</span>[StreamingContentType.GENERATING]</span>
-<span id="cb27-103"><a href="#cb27-103" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb27-104"><a href="#cb27-104" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-105"><a href="#cb27-105" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
-<span id="cb27-106"><a href="#cb27-106" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb27-107"><a href="#cb27-107" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-108"><a href="#cb27-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-109"><a href="#cb27-109" aria-hidden="true" tabindex="-1"></a>Parameters can be passed to the generate (and chat) methods to control the output. For thinking/reasoning models, max_tokens should be large enough to capture both the reasoning output, which happens first, and the generation output.</span>
-<span id="cb27-110"><a href="#cb27-110" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-111"><a href="#cb27-111" aria-hidden="true" tabindex="-1"></a>For generate_kwargs, see https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values</span>
-<span id="cb27-112"><a href="#cb27-112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-115"><a href="#cb27-115" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-116"><a href="#cb27-116" aria-hidden="true" tabindex="-1"></a>model_client.generate(</span>
-<span id="cb27-117"><a href="#cb27-117" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of Germany."</span>,</span>
-<span id="cb27-118"><a href="#cb27-118" aria-hidden="true" tabindex="-1"></a>    generate_kwargs<span class="op">=</span>{</span>
-<span id="cb27-119"><a href="#cb27-119" aria-hidden="true" tabindex="-1"></a>        <span class="st">"temperature"</span>: <span class="fl">1.0</span>,</span>
-<span id="cb27-120"><a href="#cb27-120" aria-hidden="true" tabindex="-1"></a>        <span class="st">"top_p"</span>: <span class="fl">0.9</span>,</span>
-<span id="cb27-121"><a href="#cb27-121" aria-hidden="true" tabindex="-1"></a>        <span class="st">"top_k"</span>: <span class="dv">40</span>,</span>
-<span id="cb27-122"><a href="#cb27-122" aria-hidden="true" tabindex="-1"></a>        <span class="st">"max_tokens"</span>: <span class="dv">1024</span>,</span>
-<span id="cb27-123"><a href="#cb27-123" aria-hidden="true" tabindex="-1"></a>        <span class="st">"repeat_penalty"</span>: <span class="fl">1.1</span>,</span>
-<span id="cb27-124"><a href="#cb27-124" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb27-125"><a href="#cb27-125" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb27-126"><a href="#cb27-126" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-127"><a href="#cb27-127" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-128"><a href="#cb27-128" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - Basic Chat</span></span>
-<span id="cb27-129"><a href="#cb27-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-130"><a href="#cb27-130" aria-hidden="true" tabindex="-1"></a>Chatting with a model simply involves passing a message and receiving a response. The Model Client handles the conversation history automatically.</span>
-<span id="cb27-131"><a href="#cb27-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-134"><a href="#cb27-134" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-135"><a href="#cb27-135" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"What is the capital of China?"</span>)</span>
-<span id="cb27-136"><a href="#cb27-136" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-137"><a href="#cb27-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-138"><a href="#cb27-138" aria-hidden="true" tabindex="-1"></a>Chat responses can be streamed as well.</span>
-<span id="cb27-139"><a href="#cb27-139" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-142"><a href="#cb27-142" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-143"><a href="#cb27-143" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"How long has it been the capital?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
-<span id="cb27-144"><a href="#cb27-144" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb27-145"><a href="#cb27-145" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-146"><a href="#cb27-146" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-147"><a href="#cb27-147" aria-hidden="true" tabindex="-1"></a>The complete message history, including the model thinking/reasoning, can be accessed via the <span class="in">`messages`</span> property of the Model Client.</span>
-<span id="cb27-148"><a href="#cb27-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-151"><a href="#cb27-151" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-152"><a href="#cb27-152" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
-<span id="cb27-153"><a href="#cb27-153" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-154"><a href="#cb27-154" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-155"><a href="#cb27-155" aria-hidden="true" tabindex="-1"></a>A custom system message can be set, or re-set, as desired.</span>
-<span id="cb27-156"><a href="#cb27-156" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-159"><a href="#cb27-159" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-160"><a href="#cb27-160" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant that responds using pirate speak."</span></span>
-<span id="cb27-161"><a href="#cb27-161" aria-hidden="true" tabindex="-1"></a>model_client.messages[<span class="dv">0</span>]</span>
-<span id="cb27-162"><a href="#cb27-162" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-163"><a href="#cb27-163" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-166"><a href="#cb27-166" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-167"><a href="#cb27-167" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"Name a famous pirate from there."</span>)</span>
-<span id="cb27-168"><a href="#cb27-168" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-169"><a href="#cb27-169" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-170"><a href="#cb27-170" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - Model Thinking</span></span>
-<span id="cb27-171"><a href="#cb27-171" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-172"><a href="#cb27-172" aria-hidden="true" tabindex="-1"></a>Some models support extended reasoning (also called "thinking"), where the model works through a problem step-by-step before producing a final response. AIMU automatically enables thinking for models in <span class="in">`THINKING_MODELS`</span> (e.g., <span class="in">`DEEPSEEK_R1_8B`</span>, <span class="in">`QWEN_3_5_9B`</span>, <span class="in">`GPT_OSS_20B`</span>).</span>
-<span id="cb27-173"><a href="#cb27-173" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-174"><a href="#cb27-174" aria-hidden="true" tabindex="-1"></a>A thinking model must be used for the cells in this section.</span>
-<span id="cb27-175"><a href="#cb27-175" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-178"><a href="#cb27-178" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-179"><a href="#cb27-179" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Model: </span><span class="sc">{</span>model_client<span class="sc">.</span>model<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb27-180"><a href="#cb27-180" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Thinking enabled: </span><span class="sc">{</span>model_client<span class="sc">.</span>is_thinking_model<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb27-181"><a href="#cb27-181" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-182"><a href="#cb27-182" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-183"><a href="#cb27-183" aria-hidden="true" tabindex="-1"></a>After calling <span class="in">`generate()`</span> or <span class="in">`chat()`</span>, the model's reasoning process is available via <span class="in">`last_thinking`</span>.</span>
-<span id="cb27-184"><a href="#cb27-184" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-187"><a href="#cb27-187" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-188"><a href="#cb27-188" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"What is the sum of the first 10 prime numbers?"</span>)</span>
-<span id="cb27-189"><a href="#cb27-189" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Response:</span><span class="ch">\n</span><span class="st">"</span>, response)</span>
-<span id="cb27-190"><a href="#cb27-190" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Thinking:</span><span class="ch">\n</span><span class="st">"</span>, model_client.last_thinking)</span>
-<span id="cb27-191"><a href="#cb27-191" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-192"><a href="#cb27-192" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-193"><a href="#cb27-193" aria-hidden="true" tabindex="-1"></a>When streaming with <span class="in">`chat(..., stream=True)`</span>, each chunk has a <span class="in">`phase`</span> (<span class="in">`StreamingContentType`</span>) and <span class="in">`content`</span>. Use the phase to separate thinking tokens from the final response.</span>
-<span id="cb27-194"><a href="#cb27-194" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-197"><a href="#cb27-197" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-198"><a href="#cb27-198" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
-<span id="cb27-199"><a href="#cb27-199" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-200"><a href="#cb27-200" aria-hidden="true" tabindex="-1"></a>was_thinking <span class="op">=</span> <span class="va">True</span></span>
-<span id="cb27-201"><a href="#cb27-201" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-202"><a href="#cb27-202" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"[Thinking]</span><span class="ch">\n</span><span class="st">"</span>)</span>
-<span id="cb27-203"><a href="#cb27-203" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"What is 17 multiplied by 23?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
-<span id="cb27-204"><a href="#cb27-204" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> was_thinking <span class="kw">and</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
-<span id="cb27-205"><a href="#cb27-205" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">[Generating]</span><span class="ch">\n</span><span class="st">"</span>)</span>
-<span id="cb27-206"><a href="#cb27-206" aria-hidden="true" tabindex="-1"></a>        was_thinking <span class="op">=</span> <span class="va">False</span></span>
-<span id="cb27-207"><a href="#cb27-207" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-208"><a href="#cb27-208" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb27-209"><a href="#cb27-209" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-210"><a href="#cb27-210" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-211"><a href="#cb27-211" aria-hidden="true" tabindex="-1"></a><span class="fu">### Adaptive vs. budget thinking (Anthropic)</span></span>
-<span id="cb27-212"><a href="#cb27-212" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-213"><a href="#cb27-213" aria-hidden="true" tabindex="-1"></a><span class="in">`supports_thinking`</span> is universal, but *how* a model is asked to reason is provider-specific. Anthropic models carry a <span class="in">`ThinkingStyle`</span> (an enum analogous to HuggingFace's <span class="in">`ToolCallFormat`</span>) that fixes the request shape:</span>
-<span id="cb27-214"><a href="#cb27-214" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-215"><a href="#cb27-215" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`ENABLED`** (budget): <span class="in">`thinking={"type": "enabled", "budget_tokens": N}`</span>; the model always thinks up to the budget. Opus 4.6, Sonnet 4.6, Haiku 4.5.</span>
-<span id="cb27-216"><a href="#cb27-216" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`ADAPTIVE`**: <span class="in">`thinking={"type": "adaptive", "display": "summarized"}`</span> (sampling params dropped); the model decides per request whether and how much to think, and may emit none on a simple prompt. Required by Opus 4.7+ and Fable 5, since the budget form returns a 400 on those.</span>
-<span id="cb27-217"><a href="#cb27-217" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-218"><a href="#cb27-218" aria-hidden="true" tabindex="-1"></a>Either way, AIMU surfaces reasoning identically: <span class="in">`last_thinking`</span> and <span class="in">`THINKING`</span> stream chunks. The cell below needs the <span class="in">`[anthropic]`</span> extra and <span class="in">`ANTHROPIC_API_KEY`</span>; it prints each model's style, then shows an adaptive model skipping thinking on a trivial prompt but engaging it on a reasoning prompt.</span>
-<span id="cb27-219"><a href="#cb27-219" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-222"><a href="#cb27-222" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-223"><a href="#cb27-223" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
-<span id="cb27-224"><a href="#cb27-224" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_ANTHROPIC</span>
-<span id="cb27-225"><a href="#cb27-225" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-226"><a href="#cb27-226" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">not</span> (HAS_ANTHROPIC <span class="kw">and</span> os.environ.get(<span class="st">"ANTHROPIC_API_KEY"</span>)):</span>
-<span id="cb27-227"><a href="#cb27-227" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Skipping: install aimu[anthropic] and set ANTHROPIC_API_KEY to run this section."</span>)</span>
-<span id="cb27-228"><a href="#cb27-228" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
-<span id="cb27-229"><a href="#cb27-229" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> AnthropicModel</span>
-<span id="cb27-230"><a href="#cb27-230" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-231"><a href="#cb27-231" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Each Anthropic model fixes its thinking request shape via ThinkingStyle.</span></span>
-<span id="cb27-232"><a href="#cb27-232" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> m <span class="kw">in</span> (AnthropicModel.CLAUDE_HAIKU_4_5, AnthropicModel.CLAUDE_OPUS_4_7):</span>
-<span id="cb27-233"><a href="#cb27-233" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>m<span class="sc">.</span>name<span class="sc">:18s}</span><span class="ss"> -&gt; ThinkingStyle.</span><span class="sc">{</span>m<span class="sc">.</span>thinking_style<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb27-234"><a href="#cb27-234" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-235"><a href="#cb27-235" aria-hidden="true" tabindex="-1"></a>    <span class="co"># An adaptive model decides per request whether to think -- generate() is stateless,</span></span>
-<span id="cb27-236"><a href="#cb27-236" aria-hidden="true" tabindex="-1"></a>    <span class="co"># so last_thinking just reflects the most recent call.</span></span>
-<span id="cb27-237"><a href="#cb27-237" aria-hidden="true" tabindex="-1"></a>    adaptive <span class="op">=</span> ModelClient(AnthropicModel.CLAUDE_OPUS_4_7)</span>
-<span id="cb27-238"><a href="#cb27-238" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-239"><a href="#cb27-239" aria-hidden="true" tabindex="-1"></a>    adaptive.generate(<span class="st">"What is the capital of France?"</span>)</span>
-<span id="cb27-240"><a href="#cb27-240" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Trivial prompt   -&gt; </span><span class="sc">{</span><span class="bu">len</span>(adaptive.last_thinking)<span class="sc">}</span><span class="ss"> thinking chars (often 0; adaptive skips it)"</span>)</span>
-<span id="cb27-241"><a href="#cb27-241" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-242"><a href="#cb27-242" aria-hidden="true" tabindex="-1"></a>    adaptive.generate(<span class="st">"Compute the sum of all integers from 1 to 200 that are divisible by 7. Show your work."</span>)</span>
-<span id="cb27-243"><a href="#cb27-243" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Reasoning prompt -&gt; </span><span class="sc">{</span><span class="bu">len</span>(adaptive.last_thinking)<span class="sc">}</span><span class="ss"> thinking chars (the model chose to think)"</span>)</span>
-<span id="cb27-244"><a href="#cb27-244" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-245"><a href="#cb27-245" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-246"><a href="#cb27-246" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Tool Usage</span></span>
-<span id="cb27-247"><a href="#cb27-247" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-248"><a href="#cb27-248" aria-hidden="true" tabindex="-1"></a>Create an MCP tool to use. See the "02 - MCP Tools" notebook for more examples of how to set up and use MCP tools.</span>
-<span id="cb27-249"><a href="#cb27-249" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-252"><a href="#cb27-252" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-253"><a href="#cb27-253" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span>
-<span id="cb27-254"><a href="#cb27-254" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
-<span id="cb27-255"><a href="#cb27-255" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-256"><a href="#cb27-256" aria-hidden="true" tabindex="-1"></a>mcp <span class="op">=</span> FastMCP(<span class="st">"AIMU Tools"</span>)</span>
-<span id="cb27-257"><a href="#cb27-257" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-258"><a href="#cb27-258" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-259"><a href="#cb27-259" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
-<span id="cb27-260"><a href="#cb27-260" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_date_and_time() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
-<span id="cb27-261"><a href="#cb27-261" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Returns the current data and time as a string."""</span></span>
-<span id="cb27-262"><a href="#cb27-262" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">str</span>(datetime.datetime.now())</span>
-<span id="cb27-263"><a href="#cb27-263" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-264"><a href="#cb27-264" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-265"><a href="#cb27-265" aria-hidden="true" tabindex="-1"></a>Create a new AIMU MCPClient for handling MCP tool requests.</span>
-<span id="cb27-266"><a href="#cb27-266" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-269"><a href="#cb27-269" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-270"><a href="#cb27-270" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
-<span id="cb27-271"><a href="#cb27-271" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
-<span id="cb27-272"><a href="#cb27-272" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-273"><a href="#cb27-273" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
-<span id="cb27-274"><a href="#cb27-274" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>mcp_client.as_tools())</span>
-<span id="cb27-275"><a href="#cb27-275" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-276"><a href="#cb27-276" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-277"><a href="#cb27-277" aria-hidden="true" tabindex="-1"></a><span class="in">`chat()`</span> on a bare client only advertises the tools and records any tool call the model requests -- it does not run them. To actually execute tools, wrap the client in an <span class="in">`Agent`</span> and call <span class="in">`run()`</span>. The agent drives the model -&gt; tools -&gt; repeat loop and returns the final answer once the model stops calling tools.</span>
-<span id="cb27-278"><a href="#cb27-278" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-281"><a href="#cb27-281" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-282"><a href="#cb27-282" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What time is it?"</span>)</span>
-<span id="cb27-283"><a href="#cb27-283" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-284"><a href="#cb27-284" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-285"><a href="#cb27-285" aria-hidden="true" tabindex="-1"></a>The messages should include the tool call, the tool response, and then final response generated by model.</span>
-<span id="cb27-286"><a href="#cb27-286" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-289"><a href="#cb27-289" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-290"><a href="#cb27-290" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
-<span id="cb27-291"><a href="#cb27-291" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-292"><a href="#cb27-292" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-293"><a href="#cb27-293" aria-hidden="true" tabindex="-1"></a>When streaming, THINKING, TOOL_CALLING, and GENERATING phases can be handled separately.</span>
-<span id="cb27-294"><a href="#cb27-294" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-297"><a href="#cb27-297" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-298"><a href="#cb27-298" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
-<span id="cb27-299"><a href="#cb27-299" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-300"><a href="#cb27-300" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
-<span id="cb27-301"><a href="#cb27-301" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-302"><a href="#cb27-302" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"What time is it now?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
-<span id="cb27-303"><a href="#cb27-303" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
-<span id="cb27-304"><a href="#cb27-304" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>chunk<span class="sc">.</span>phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss">]</span><span class="ch">\n</span><span class="ss">"</span>)</span>
-<span id="cb27-305"><a href="#cb27-305" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
-<span id="cb27-306"><a href="#cb27-306" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-307"><a href="#cb27-307" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb27-308"><a href="#cb27-308" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-309"><a href="#cb27-309" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-310"><a href="#cb27-310" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - Multiple parallel tool calls</span></span>
-<span id="cb27-311"><a href="#cb27-311" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-312"><a href="#cb27-312" aria-hidden="true" tabindex="-1"></a>Some LLMs can use mutiple tools in parallel by making concurrent calls to different MCP tools and aggregating the results.</span>
-<span id="cb27-313"><a href="#cb27-313" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-316"><a href="#cb27-316" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-317"><a href="#cb27-317" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
-<span id="cb27-318"><a href="#cb27-318" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_temperature(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
-<span id="cb27-319"><a href="#cb27-319" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
-<span id="cb27-320"><a href="#cb27-320" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current temperature for a given location.</span></span>
-<span id="cb27-321"><a href="#cb27-321" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-322"><a href="#cb27-322" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
-<span id="cb27-323"><a href="#cb27-323" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the temperature for.</span></span>
-<span id="cb27-324"><a href="#cb27-324" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-325"><a href="#cb27-325" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
-<span id="cb27-326"><a href="#cb27-326" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current temperature in Celsius.</span></span>
-<span id="cb27-327"><a href="#cb27-327" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
-<span id="cb27-328"><a href="#cb27-328" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-329"><a href="#cb27-329" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"21.0"</span></span>
-<span id="cb27-330"><a href="#cb27-330" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-331"><a href="#cb27-331" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-332"><a href="#cb27-332" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
-<span id="cb27-333"><a href="#cb27-333" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_weather_conditions(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
-<span id="cb27-334"><a href="#cb27-334" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
-<span id="cb27-335"><a href="#cb27-335" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current weather conditions for a given location.</span></span>
-<span id="cb27-336"><a href="#cb27-336" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-337"><a href="#cb27-337" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
-<span id="cb27-338"><a href="#cb27-338" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the weather conditions for.</span></span>
-<span id="cb27-339"><a href="#cb27-339" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-340"><a href="#cb27-340" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
-<span id="cb27-341"><a href="#cb27-341" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current weather conditions.</span></span>
-<span id="cb27-342"><a href="#cb27-342" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
-<span id="cb27-343"><a href="#cb27-343" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-344"><a href="#cb27-344" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"sunny"</span></span>
-<span id="cb27-345"><a href="#cb27-345" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-346"><a href="#cb27-346" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-347"><a href="#cb27-347" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-fetch the tool callables now that the server has more tools registered,</span></span>
-<span id="cb27-348"><a href="#cb27-348" aria-hidden="true" tabindex="-1"></a><span class="co"># and rebuild the agent so it advertises the full set.</span></span>
-<span id="cb27-349"><a href="#cb27-349" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
-<span id="cb27-350"><a href="#cb27-350" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>mcp_client.as_tools())</span>
-<span id="cb27-351"><a href="#cb27-351" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-352"><a href="#cb27-352" aria-hidden="true" tabindex="-1"></a>[fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> agent.tools]</span>
-<span id="cb27-353"><a href="#cb27-353" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-354"><a href="#cb27-354" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-357"><a href="#cb27-357" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-358"><a href="#cb27-358" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What is the current temperature and weather conditions in New York City?"</span>)</span>
-<span id="cb27-359"><a href="#cb27-359" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
-<span id="cb27-360"><a href="#cb27-360" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-361"><a href="#cb27-361" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-362"><a href="#cb27-362" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - HuggingFace Model Weight Caching</span></span>
-<span id="cb27-363"><a href="#cb27-363" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-364"><a href="#cb27-364" aria-hidden="true" tabindex="-1"></a>All four HuggingFace modality clients share a module-level weight registry. A second instance for the same model reuses loaded weights rather than calling <span class="in">`from_pretrained()`</span> again.</span>
-<span id="cb27-365"><a href="#cb27-365" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-368"><a href="#cb27-368" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-369"><a href="#cb27-369" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF</span>
-<span id="cb27-370"><a href="#cb27-370" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-371"><a href="#cb27-371" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_HF:</span>
-<span id="cb27-372"><a href="#cb27-372" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models.hf <span class="im">import</span> HuggingFaceClient, HuggingFaceModel</span>
-<span id="cb27-373"><a href="#cb27-373" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> aimu</span>
-<span id="cb27-374"><a href="#cb27-374" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-375"><a href="#cb27-375" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
-<span id="cb27-376"><a href="#cb27-376" aria-hidden="true" tabindex="-1"></a>    c1 <span class="op">=</span> HuggingFaceClient(m)</span>
-<span id="cb27-377"><a href="#cb27-377" aria-hidden="true" tabindex="-1"></a>    c2 <span class="op">=</span> HuggingFaceClient(m)  <span class="co"># reuses weights from c1</span></span>
-<span id="cb27-378"><a href="#cb27-378" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-379"><a href="#cb27-379" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Same model object?"</span>, c1._hf_model <span class="kw">is</span> c2._hf_model)  <span class="co"># True</span></span>
-<span id="cb27-380"><a href="#cb27-380" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-381"><a href="#cb27-381" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Free all HF weights and VRAM when done</span></span>
-<span id="cb27-382"><a href="#cb27-382" aria-hidden="true" tabindex="-1"></a>    aimu.clear_hf_cache()</span>
-<span id="cb27-383"><a href="#cb27-383" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Cache cleared."</span>)</span>
-<span id="cb27-384"><a href="#cb27-384" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
-<span id="cb27-385"><a href="#cb27-385" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"HuggingFace not installed, skipping."</span>)</span>
-<span id="cb27-386"><a href="#cb27-386" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb27-387"><a href="#cb27-387" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-388"><a href="#cb27-388" aria-hidden="true" tabindex="-1"></a><span class="fu">## G - Clean Up</span></span>
-<span id="cb27-389"><a href="#cb27-389" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-390"><a href="#cb27-390" aria-hidden="true" tabindex="-1"></a>When done, close the model clients to free up resources.</span>
-<span id="cb27-391"><a href="#cb27-391" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-394"><a href="#cb27-394" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb27-395"><a href="#cb27-395" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client</span>
-<span id="cb27-396"><a href="#cb27-396" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Model Client"</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelClient`</span> is AIMU's unified entry point for talking to any supported backend: local (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server) or cloud (OpenAI, Anthropic, Google Gemini). The same call shape (<span class="in">`generate()`</span>, <span class="in">`chat()`</span>, <span class="in">`chat(..., stream=True)`</span>) works against every provider, so you can swap models without rewriting the surrounding code. Streaming yields a single <span class="in">`StreamChunk`</span> type with explicit <span class="in">`THINKING`</span>, <span class="in">`TOOL_CALLING`</span>, and <span class="in">`GENERATING`</span> phases. The client advertises tools and records the model's tool-call requests, but executing tools in a loop is the job of an <span class="in">`Agent`</span> (<span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span>); image input is built into the base client.</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>Use a <span class="in">`ModelClient`</span> whenever you want a turn-by-turn conversation with a model: building a chat UI, prototyping prompts, wiring up tools, or experimenting with thinking/reasoning models. For autonomous tool-calling loops on top of the same client, see <span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span> (Agents).</span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this notebook covers</span></span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Section <span class="pp">|</span> Topic <span class="pp">|</span></span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|</span></span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> A <span class="pp">|</span> Stateless text generation with <span class="in">`generate()`</span>, streaming, and generation kwargs <span class="pp">|</span></span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> B <span class="pp">|</span> Multi-turn chat, message history, and custom system messages <span class="pp">|</span></span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> C <span class="pp">|</span> Thinking models: accessing <span class="in">`last_thinking`</span> and filtering streamed phases <span class="pp">|</span></span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D <span class="pp">|</span> Tool calling: <span class="in">`@aimu.tool`</span> functions, wrapping the client in an <span class="in">`Agent`</span>, and MCP tools <span class="pp">|</span></span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> E <span class="pp">|</span> Parallel tool calls in one model turn <span class="pp">|</span></span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> F <span class="pp">|</span> HuggingFace model weight caching <span class="pp">|</span></span>
+<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G <span class="pp">|</span> Releasing resources <span class="pp">|</span></span>
+<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-23"><a href="#cb28-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-24"><a href="#cb28-24" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Text Generation</span></span>
+<span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelClient`</span> is a factory that accepts any provider model enum and automatically selects the right backend. The cell below picks the model used throughout this notebook; change <span class="in">`model_enum`</span> to try a different provider or model.</span>
+<span id="cb28-27"><a href="#cb28-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-30"><a href="#cb28-30" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, HAS_OLLAMA, HAS_HF</span>
+<span id="cb28-32"><a href="#cb28-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-33"><a href="#cb28-33" aria-hidden="true" tabindex="-1"></a><span class="co"># Pick the model used throughout this notebook. Swap this assignment to try a</span></span>
+<span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a><span class="co"># different backend; every later cell reads `model_enum` unchanged.</span></span>
+<span id="cb28-35"><a href="#cb28-35" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_OLLAMA:</span>
+<span id="cb28-36"><a href="#cb28-36" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> OllamaModel</span>
+<span id="cb28-37"><a href="#cb28-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-38"><a href="#cb28-38" aria-hidden="true" tabindex="-1"></a>    model_enum <span class="op">=</span> OllamaModel.QWEN_3_5_9B</span>
+<span id="cb28-39"><a href="#cb28-39" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> HAS_HF:</span>
+<span id="cb28-40"><a href="#cb28-40" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> HuggingFaceModel</span>
+<span id="cb28-41"><a href="#cb28-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-42"><a href="#cb28-42" aria-hidden="true" tabindex="-1"></a>    model_enum <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
+<span id="cb28-43"><a href="#cb28-43" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb28-44"><a href="#cb28-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">RuntimeError</span>(<span class="st">"Install a provider backend, e.g. `pip install aimu[ollama]`."</span>)</span>
+<span id="cb28-45"><a href="#cb28-45" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-46"><a href="#cb28-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-47"><a href="#cb28-47" aria-hidden="true" tabindex="-1"></a>The <span class="in">`ModelClient`</span> factory dispatches to the right backend based on the model enum type. You can also instantiate a specific client directly when you prefer explicit control:</span>
+<span id="cb28-48"><a href="#cb28-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-49"><a href="#cb28-49" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb28-50"><a href="#cb28-50" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, OllamaModel</span>
+<span id="cb28-51"><a href="#cb28-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-52"><a href="#cb28-52" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)  <span class="co"># factory: picks OllamaClient automatically</span></span>
+<span id="cb28-53"><a href="#cb28-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-54"><a href="#cb28-54" aria-hidden="true" tabindex="-1"></a><span class="co"># Or directly:</span></span>
+<span id="cb28-55"><a href="#cb28-55" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
+<span id="cb28-56"><a href="#cb28-56" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_5_9B)</span>
+<span id="cb28-57"><a href="#cb28-57" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-58"><a href="#cb28-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-59"><a href="#cb28-59" aria-hidden="true" tabindex="-1"></a>Here, we'll use the model enum assigned above.</span>
+<span id="cb28-60"><a href="#cb28-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-63"><a href="#cb28-63" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-64"><a href="#cb28-64" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> ModelClient(model_enum)</span>
+<span id="cb28-65"><a href="#cb28-65" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model_client.model.name <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> model_client.model.value)</span>
+<span id="cb28-66"><a href="#cb28-66" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-67"><a href="#cb28-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-68"><a href="#cb28-68" aria-hidden="true" tabindex="-1"></a>For non-interactive (chat-based) generation, the *generate* method is used. This method allows you to specify a prompt and receive a generated response.</span>
+<span id="cb28-69"><a href="#cb28-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-72"><a href="#cb28-72" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-73"><a href="#cb28-73" aria-hidden="true" tabindex="-1"></a>model_client.generate(<span class="st">"Name the capital of France."</span>)</span>
+<span id="cb28-74"><a href="#cb28-74" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-75"><a href="#cb28-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-76"><a href="#cb28-76" aria-hidden="true" tabindex="-1"></a>If the model supports thinking/reasoning, the thinking output for generation can be accessed via <span class="in">`model_client.last_thinking`</span>.</span>
+<span id="cb28-77"><a href="#cb28-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-80"><a href="#cb28-80" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-81"><a href="#cb28-81" aria-hidden="true" tabindex="-1"></a>model_client.last_thinking</span>
+<span id="cb28-82"><a href="#cb28-82" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-83"><a href="#cb28-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-84"><a href="#cb28-84" aria-hidden="true" tabindex="-1"></a>Output can be streamed as well.</span>
+<span id="cb28-85"><a href="#cb28-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-88"><a href="#cb28-88" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-89"><a href="#cb28-89" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"Name the capital of England."</span>, stream<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb28-90"><a href="#cb28-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-91"><a href="#cb28-91" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
+<span id="cb28-92"><a href="#cb28-92" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb28-93"><a href="#cb28-93" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-94"><a href="#cb28-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-95"><a href="#cb28-95" aria-hidden="true" tabindex="-1"></a>The thinking output can be filtered by specifying which streaming content types to include.</span>
+<span id="cb28-96"><a href="#cb28-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-99"><a href="#cb28-99" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-100"><a href="#cb28-100" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb28-101"><a href="#cb28-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-102"><a href="#cb28-102" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(</span>
+<span id="cb28-103"><a href="#cb28-103" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of the United States."</span>, stream<span class="op">=</span><span class="va">True</span>, include<span class="op">=</span>[StreamingContentType.GENERATING]</span>
+<span id="cb28-104"><a href="#cb28-104" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb28-105"><a href="#cb28-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-106"><a href="#cb28-106" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> response:</span>
+<span id="cb28-107"><a href="#cb28-107" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb28-108"><a href="#cb28-108" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-109"><a href="#cb28-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-110"><a href="#cb28-110" aria-hidden="true" tabindex="-1"></a>Parameters can be passed to the generate (and chat) methods to control the output. For thinking/reasoning models, max_tokens should be large enough to capture both the reasoning output, which happens first, and the generation output.</span>
+<span id="cb28-111"><a href="#cb28-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-112"><a href="#cb28-112" aria-hidden="true" tabindex="-1"></a>For generate_kwargs, see https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values</span>
+<span id="cb28-113"><a href="#cb28-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-116"><a href="#cb28-116" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-117"><a href="#cb28-117" aria-hidden="true" tabindex="-1"></a>model_client.generate(</span>
+<span id="cb28-118"><a href="#cb28-118" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Name the capital of Germany."</span>,</span>
+<span id="cb28-119"><a href="#cb28-119" aria-hidden="true" tabindex="-1"></a>    generate_kwargs<span class="op">=</span>{</span>
+<span id="cb28-120"><a href="#cb28-120" aria-hidden="true" tabindex="-1"></a>        <span class="st">"temperature"</span>: <span class="fl">1.0</span>,</span>
+<span id="cb28-121"><a href="#cb28-121" aria-hidden="true" tabindex="-1"></a>        <span class="st">"top_p"</span>: <span class="fl">0.9</span>,</span>
+<span id="cb28-122"><a href="#cb28-122" aria-hidden="true" tabindex="-1"></a>        <span class="st">"top_k"</span>: <span class="dv">40</span>,</span>
+<span id="cb28-123"><a href="#cb28-123" aria-hidden="true" tabindex="-1"></a>        <span class="st">"max_tokens"</span>: <span class="dv">1024</span>,</span>
+<span id="cb28-124"><a href="#cb28-124" aria-hidden="true" tabindex="-1"></a>        <span class="st">"repeat_penalty"</span>: <span class="fl">1.1</span>,</span>
+<span id="cb28-125"><a href="#cb28-125" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb28-126"><a href="#cb28-126" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb28-127"><a href="#cb28-127" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-128"><a href="#cb28-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-129"><a href="#cb28-129" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - Basic Chat</span></span>
+<span id="cb28-130"><a href="#cb28-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-131"><a href="#cb28-131" aria-hidden="true" tabindex="-1"></a>Chatting with a model simply involves passing a message and receiving a response. The Model Client handles the conversation history automatically.</span>
+<span id="cb28-132"><a href="#cb28-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-135"><a href="#cb28-135" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-136"><a href="#cb28-136" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"What is the capital of China?"</span>)</span>
+<span id="cb28-137"><a href="#cb28-137" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-138"><a href="#cb28-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-139"><a href="#cb28-139" aria-hidden="true" tabindex="-1"></a>Chat responses can be streamed as well.</span>
+<span id="cb28-140"><a href="#cb28-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-143"><a href="#cb28-143" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-144"><a href="#cb28-144" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"How long has it been the capital?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb28-145"><a href="#cb28-145" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb28-146"><a href="#cb28-146" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-147"><a href="#cb28-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-148"><a href="#cb28-148" aria-hidden="true" tabindex="-1"></a>The complete message history, including the model thinking/reasoning, can be accessed via the <span class="in">`messages`</span> property of the Model Client.</span>
+<span id="cb28-149"><a href="#cb28-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-152"><a href="#cb28-152" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-153"><a href="#cb28-153" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb28-154"><a href="#cb28-154" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-155"><a href="#cb28-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-156"><a href="#cb28-156" aria-hidden="true" tabindex="-1"></a>A custom system message can be set, or re-set, as desired.</span>
+<span id="cb28-157"><a href="#cb28-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-160"><a href="#cb28-160" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-161"><a href="#cb28-161" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a helpful assistant that responds using pirate speak."</span></span>
+<span id="cb28-162"><a href="#cb28-162" aria-hidden="true" tabindex="-1"></a>model_client.messages[<span class="dv">0</span>]</span>
+<span id="cb28-163"><a href="#cb28-163" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-164"><a href="#cb28-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-167"><a href="#cb28-167" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-168"><a href="#cb28-168" aria-hidden="true" tabindex="-1"></a>model_client.chat(<span class="st">"Name a famous pirate from there."</span>)</span>
+<span id="cb28-169"><a href="#cb28-169" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-170"><a href="#cb28-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-171"><a href="#cb28-171" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - Model Thinking</span></span>
+<span id="cb28-172"><a href="#cb28-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-173"><a href="#cb28-173" aria-hidden="true" tabindex="-1"></a>Some models support extended reasoning (also called "thinking"), where the model works through a problem step-by-step before producing a final response. AIMU automatically enables thinking for models in <span class="in">`THINKING_MODELS`</span> (e.g., <span class="in">`DEEPSEEK_R1_8B`</span>, <span class="in">`QWEN_3_5_9B`</span>, <span class="in">`GPT_OSS_20B`</span>).</span>
+<span id="cb28-174"><a href="#cb28-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-175"><a href="#cb28-175" aria-hidden="true" tabindex="-1"></a>A thinking model must be used for the cells in this section.</span>
+<span id="cb28-176"><a href="#cb28-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-179"><a href="#cb28-179" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-180"><a href="#cb28-180" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Model: </span><span class="sc">{</span>model_client<span class="sc">.</span>model<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb28-181"><a href="#cb28-181" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Thinking enabled: </span><span class="sc">{</span>model_client<span class="sc">.</span>is_thinking_model<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb28-182"><a href="#cb28-182" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-183"><a href="#cb28-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-184"><a href="#cb28-184" aria-hidden="true" tabindex="-1"></a>After calling <span class="in">`generate()`</span> or <span class="in">`chat()`</span>, the model's reasoning process is available via <span class="in">`last_thinking`</span>.</span>
+<span id="cb28-185"><a href="#cb28-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-188"><a href="#cb28-188" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-189"><a href="#cb28-189" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> model_client.generate(<span class="st">"What is the sum of the first 10 prime numbers?"</span>)</span>
+<span id="cb28-190"><a href="#cb28-190" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Response:</span><span class="ch">\n</span><span class="st">"</span>, response)</span>
+<span id="cb28-191"><a href="#cb28-191" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Thinking:</span><span class="ch">\n</span><span class="st">"</span>, model_client.last_thinking)</span>
+<span id="cb28-192"><a href="#cb28-192" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-193"><a href="#cb28-193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-194"><a href="#cb28-194" aria-hidden="true" tabindex="-1"></a>When streaming with <span class="in">`chat(..., stream=True)`</span>, each chunk has a <span class="in">`phase`</span> (<span class="in">`StreamingContentType`</span>) and <span class="in">`content`</span>. Use the phase to separate thinking tokens from the final response.</span>
+<span id="cb28-195"><a href="#cb28-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-198"><a href="#cb28-198" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-199"><a href="#cb28-199" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb28-200"><a href="#cb28-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-201"><a href="#cb28-201" aria-hidden="true" tabindex="-1"></a>was_thinking <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb28-202"><a href="#cb28-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-203"><a href="#cb28-203" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"[Thinking]</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb28-204"><a href="#cb28-204" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> model_client.chat(<span class="st">"What is 17 multiplied by 23?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb28-205"><a href="#cb28-205" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> was_thinking <span class="kw">and</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
+<span id="cb28-206"><a href="#cb28-206" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">[Generating]</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb28-207"><a href="#cb28-207" aria-hidden="true" tabindex="-1"></a>        was_thinking <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb28-208"><a href="#cb28-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-209"><a href="#cb28-209" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb28-210"><a href="#cb28-210" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-211"><a href="#cb28-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-212"><a href="#cb28-212" aria-hidden="true" tabindex="-1"></a><span class="fu">### Adaptive vs. budget thinking (Anthropic)</span></span>
+<span id="cb28-213"><a href="#cb28-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-214"><a href="#cb28-214" aria-hidden="true" tabindex="-1"></a><span class="in">`supports_thinking`</span> is universal, but *how* a model is asked to reason is provider-specific. Anthropic models carry a <span class="in">`ThinkingStyle`</span> (an enum analogous to HuggingFace's <span class="in">`ToolCallFormat`</span>) that fixes the request shape:</span>
+<span id="cb28-215"><a href="#cb28-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-216"><a href="#cb28-216" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`ENABLED`** (budget): <span class="in">`thinking={"type": "enabled", "budget_tokens": N}`</span>; the model always thinks up to the budget. Opus 4.6, Sonnet 4.6, Haiku 4.5.</span>
+<span id="cb28-217"><a href="#cb28-217" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`ADAPTIVE`**: <span class="in">`thinking={"type": "adaptive", "display": "summarized"}`</span> (sampling params dropped); the model decides per request whether and how much to think, and may emit none on a simple prompt. Required by Opus 4.7+ and Fable 5, since the budget form returns a 400 on those.</span>
+<span id="cb28-218"><a href="#cb28-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-219"><a href="#cb28-219" aria-hidden="true" tabindex="-1"></a>Either way, AIMU surfaces reasoning identically: <span class="in">`last_thinking`</span> and <span class="in">`THINKING`</span> stream chunks. The cell below needs the <span class="in">`[anthropic]`</span> extra and <span class="in">`ANTHROPIC_API_KEY`</span>; it prints each model's style, then shows an adaptive model skipping thinking on a trivial prompt but engaging it on a reasoning prompt.</span>
+<span id="cb28-220"><a href="#cb28-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-223"><a href="#cb28-223" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-224"><a href="#cb28-224" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb28-225"><a href="#cb28-225" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_ANTHROPIC</span>
+<span id="cb28-226"><a href="#cb28-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-227"><a href="#cb28-227" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">not</span> (HAS_ANTHROPIC <span class="kw">and</span> os.environ.get(<span class="st">"ANTHROPIC_API_KEY"</span>)):</span>
+<span id="cb28-228"><a href="#cb28-228" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Skipping: install aimu[anthropic] and set ANTHROPIC_API_KEY to run this section."</span>)</span>
+<span id="cb28-229"><a href="#cb28-229" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb28-230"><a href="#cb28-230" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models <span class="im">import</span> AnthropicModel</span>
+<span id="cb28-231"><a href="#cb28-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-232"><a href="#cb28-232" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Each Anthropic model fixes its thinking request shape via ThinkingStyle.</span></span>
+<span id="cb28-233"><a href="#cb28-233" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> m <span class="kw">in</span> (AnthropicModel.CLAUDE_HAIKU_4_5, AnthropicModel.CLAUDE_OPUS_4_7):</span>
+<span id="cb28-234"><a href="#cb28-234" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>m<span class="sc">.</span>name<span class="sc">:18s}</span><span class="ss"> -&gt; ThinkingStyle.</span><span class="sc">{</span>m<span class="sc">.</span>thinking_style<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb28-235"><a href="#cb28-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-236"><a href="#cb28-236" aria-hidden="true" tabindex="-1"></a>    <span class="co"># An adaptive model decides per request whether to think -- generate() is stateless,</span></span>
+<span id="cb28-237"><a href="#cb28-237" aria-hidden="true" tabindex="-1"></a>    <span class="co"># so last_thinking just reflects the most recent call.</span></span>
+<span id="cb28-238"><a href="#cb28-238" aria-hidden="true" tabindex="-1"></a>    adaptive <span class="op">=</span> ModelClient(AnthropicModel.CLAUDE_OPUS_4_7)</span>
+<span id="cb28-239"><a href="#cb28-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-240"><a href="#cb28-240" aria-hidden="true" tabindex="-1"></a>    adaptive.generate(<span class="st">"What is the capital of France?"</span>)</span>
+<span id="cb28-241"><a href="#cb28-241" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Trivial prompt   -&gt; </span><span class="sc">{</span><span class="bu">len</span>(adaptive.last_thinking)<span class="sc">}</span><span class="ss"> thinking chars (often 0; adaptive skips it)"</span>)</span>
+<span id="cb28-242"><a href="#cb28-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-243"><a href="#cb28-243" aria-hidden="true" tabindex="-1"></a>    adaptive.generate(<span class="st">"Compute the sum of all integers from 1 to 200 that are divisible by 7. Show your work."</span>)</span>
+<span id="cb28-244"><a href="#cb28-244" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Reasoning prompt -&gt; </span><span class="sc">{</span><span class="bu">len</span>(adaptive.last_thinking)<span class="sc">}</span><span class="ss"> thinking chars (the model chose to think)"</span>)</span>
+<span id="cb28-245"><a href="#cb28-245" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-246"><a href="#cb28-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-247"><a href="#cb28-247" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Tool Usage</span></span>
+<span id="cb28-248"><a href="#cb28-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-249"><a href="#cb28-249" aria-hidden="true" tabindex="-1"></a>The simplest tool is a plain Python function decorated with <span class="in">`@aimu.tool`</span>. The decorator reads the signature and the Google-style docstring to build the OpenAI-format spec the model sees (available at <span class="in">`__tool_spec__`</span>), and leaves the function otherwise unchanged. See <span class="co">[</span><span class="ot">notebook 06</span><span class="co">](06-tools.qmd)</span> for argument validation, dependency injection, and the built-in tool library (<span class="in">`aimu.tools.builtin`</span>).</span>
+<span id="cb28-250"><a href="#cb28-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-253"><a href="#cb28-253" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-254"><a href="#cb28-254" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span>
+<span id="cb28-255"><a href="#cb28-255" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb28-256"><a href="#cb28-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-257"><a href="#cb28-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-258"><a href="#cb28-258" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
+<span id="cb28-259"><a href="#cb28-259" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_date_and_time() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb28-260"><a href="#cb28-260" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Returns the current date and time as a string."""</span></span>
+<span id="cb28-261"><a href="#cb28-261" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">str</span>(datetime.datetime.now())</span>
+<span id="cb28-262"><a href="#cb28-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-263"><a href="#cb28-263" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-264"><a href="#cb28-264" aria-hidden="true" tabindex="-1"></a>get_current_date_and_time.__tool_spec__</span>
+<span id="cb28-265"><a href="#cb28-265" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-266"><a href="#cb28-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-267"><a href="#cb28-267" aria-hidden="true" tabindex="-1"></a><span class="in">`chat()`</span> on a bare client only advertises the tools and records any tool call the model requests -- it does not run them. To actually execute tools, wrap the client in an <span class="in">`Agent`</span> and call <span class="in">`run()`</span>. The agent drives the model -&gt; tools -&gt; repeat loop and returns the final answer once the model stops calling tools. <span class="co">[</span><span class="ot">Notebook 07</span><span class="co">](07-agents.qmd)</span> covers the loop itself: iteration caps, per-run tool overrides, and approval hooks.</span>
+<span id="cb28-268"><a href="#cb28-268" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-271"><a href="#cb28-271" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-272"><a href="#cb28-272" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb28-273"><a href="#cb28-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-274"><a href="#cb28-274" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>[get_current_date_and_time])</span>
+<span id="cb28-275"><a href="#cb28-275" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What time is it?"</span>)</span>
+<span id="cb28-276"><a href="#cb28-276" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-277"><a href="#cb28-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-278"><a href="#cb28-278" aria-hidden="true" tabindex="-1"></a>The messages should include the tool call, the tool response, and then final response generated by model.</span>
+<span id="cb28-279"><a href="#cb28-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-282"><a href="#cb28-282" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-283"><a href="#cb28-283" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb28-284"><a href="#cb28-284" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-285"><a href="#cb28-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-286"><a href="#cb28-286" aria-hidden="true" tabindex="-1"></a>When streaming, THINKING, TOOL_CALLING, and GENERATING phases can be handled separately.</span>
+<span id="cb28-287"><a href="#cb28-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-290"><a href="#cb28-290" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-291"><a href="#cb28-291" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb28-292"><a href="#cb28-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-293"><a href="#cb28-293" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb28-294"><a href="#cb28-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-295"><a href="#cb28-295" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"What time is it now?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb28-296"><a href="#cb28-296" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
+<span id="cb28-297"><a href="#cb28-297" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>chunk<span class="sc">.</span>phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss">]</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb28-298"><a href="#cb28-298" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
+<span id="cb28-299"><a href="#cb28-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-300"><a href="#cb28-300" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb28-301"><a href="#cb28-301" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-302"><a href="#cb28-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-303"><a href="#cb28-303" aria-hidden="true" tabindex="-1"></a><span class="fu">### MCP tools</span></span>
+<span id="cb28-304"><a href="#cb28-304" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-305"><a href="#cb28-305" aria-hidden="true" tabindex="-1"></a>Tools that run in a separate process, or that you want to share across several agents, reach the same <span class="in">`tools`</span> list through an <span class="co">[</span><span class="ot">MCP</span><span class="co">](https://modelcontextprotocol.io)</span> server: wrap the server with <span class="in">`MCPClient`</span>, then call <span class="in">`as_tools()`</span> to get one <span class="in">`@aimu.tool`</span>-style callable per server tool. Concatenate the lists to mix cross-process and in-process tools; the agent dispatches both through one by-name lookup.</span>
+<span id="cb28-306"><a href="#cb28-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-309"><a href="#cb28-309" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-310"><a href="#cb28-310" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
+<span id="cb28-311"><a href="#cb28-311" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
+<span id="cb28-312"><a href="#cb28-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-313"><a href="#cb28-313" aria-hidden="true" tabindex="-1"></a>mcp <span class="op">=</span> FastMCP(<span class="st">"AIMU Tools"</span>)</span>
+<span id="cb28-314"><a href="#cb28-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-315"><a href="#cb28-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-316"><a href="#cb28-316" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb28-317"><a href="#cb28-317" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_timezone_name() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb28-318"><a href="#cb28-318" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Returns the name of the local timezone."""</span></span>
+<span id="cb28-319"><a href="#cb28-319" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">str</span>(datetime.datetime.now().astimezone().tzname())</span>
+<span id="cb28-320"><a href="#cb28-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-321"><a href="#cb28-321" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-322"><a href="#cb28-322" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb28-323"><a href="#cb28-323" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>[get_current_date_and_time] <span class="op">+</span> mcp_client.as_tools())</span>
+<span id="cb28-324"><a href="#cb28-324" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-325"><a href="#cb28-325" aria-hidden="true" tabindex="-1"></a>[fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> agent.tools]</span>
+<span id="cb28-326"><a href="#cb28-326" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-327"><a href="#cb28-327" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-330"><a href="#cb28-330" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-331"><a href="#cb28-331" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What time is it, and in which timezone?"</span>)</span>
+<span id="cb28-332"><a href="#cb28-332" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-333"><a href="#cb28-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-334"><a href="#cb28-334" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Notebook 06</span><span class="co">](06-tools.qmd)</span> covers the other ways to point <span class="in">`MCPClient`</span> at a server (a Python file, a launch configuration, an in-memory <span class="in">`FastMCP`</span> instance), and <span class="co">[</span><span class="ot">notebook 26</span><span class="co">](26-remote-mcp-servers.qmd)</span> covers remote HTTP servers with authentication.</span>
+<span id="cb28-335"><a href="#cb28-335" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-336"><a href="#cb28-336" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - Multiple parallel tool calls</span></span>
+<span id="cb28-337"><a href="#cb28-337" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-338"><a href="#cb28-338" aria-hidden="true" tabindex="-1"></a>Some LLMs can use multiple tools in parallel by requesting several tool calls in one turn and aggregating the results.</span>
+<span id="cb28-339"><a href="#cb28-339" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-342"><a href="#cb28-342" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-343"><a href="#cb28-343" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb28-344"><a href="#cb28-344" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_temperature(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb28-345"><a href="#cb28-345" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb28-346"><a href="#cb28-346" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current temperature for a given location.</span></span>
+<span id="cb28-347"><a href="#cb28-347" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-348"><a href="#cb28-348" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb28-349"><a href="#cb28-349" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the temperature for.</span></span>
+<span id="cb28-350"><a href="#cb28-350" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-351"><a href="#cb28-351" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb28-352"><a href="#cb28-352" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current temperature in Celsius.</span></span>
+<span id="cb28-353"><a href="#cb28-353" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb28-354"><a href="#cb28-354" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-355"><a href="#cb28-355" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"21.0"</span></span>
+<span id="cb28-356"><a href="#cb28-356" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-357"><a href="#cb28-357" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-358"><a href="#cb28-358" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
+<span id="cb28-359"><a href="#cb28-359" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_current_weather_conditions(location: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb28-360"><a href="#cb28-360" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb28-361"><a href="#cb28-361" aria-hidden="true" tabindex="-1"></a><span class="co">    Get the current weather conditions for a given location.</span></span>
+<span id="cb28-362"><a href="#cb28-362" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-363"><a href="#cb28-363" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb28-364"><a href="#cb28-364" aria-hidden="true" tabindex="-1"></a><span class="co">        location (str): The location to get the weather conditions for.</span></span>
+<span id="cb28-365"><a href="#cb28-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-366"><a href="#cb28-366" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb28-367"><a href="#cb28-367" aria-hidden="true" tabindex="-1"></a><span class="co">        str: The current weather conditions.</span></span>
+<span id="cb28-368"><a href="#cb28-368" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb28-369"><a href="#cb28-369" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-370"><a href="#cb28-370" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"sunny"</span></span>
+<span id="cb28-371"><a href="#cb28-371" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-372"><a href="#cb28-372" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-373"><a href="#cb28-373" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-fetch the tool callables now that the server has more tools registered,</span></span>
+<span id="cb28-374"><a href="#cb28-374" aria-hidden="true" tabindex="-1"></a><span class="co"># and rebuild the agent so it advertises the full set.</span></span>
+<span id="cb28-375"><a href="#cb28-375" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb28-376"><a href="#cb28-376" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, tools<span class="op">=</span>[get_current_date_and_time] <span class="op">+</span> mcp_client.as_tools())</span>
+<span id="cb28-377"><a href="#cb28-377" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-378"><a href="#cb28-378" aria-hidden="true" tabindex="-1"></a>[fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> agent.tools]</span>
+<span id="cb28-379"><a href="#cb28-379" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-380"><a href="#cb28-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-383"><a href="#cb28-383" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-384"><a href="#cb28-384" aria-hidden="true" tabindex="-1"></a>agent.run(<span class="st">"What is the current temperature and weather conditions in New York City?"</span>)</span>
+<span id="cb28-385"><a href="#cb28-385" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb28-386"><a href="#cb28-386" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-387"><a href="#cb28-387" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-388"><a href="#cb28-388" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - HuggingFace Model Weight Caching</span></span>
+<span id="cb28-389"><a href="#cb28-389" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-390"><a href="#cb28-390" aria-hidden="true" tabindex="-1"></a>All four HuggingFace modality clients share a module-level weight registry. A second instance for the same model reuses loaded weights rather than calling <span class="in">`from_pretrained()`</span> again.</span>
+<span id="cb28-391"><a href="#cb28-391" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-394"><a href="#cb28-394" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-395"><a href="#cb28-395" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> HAS_HF</span>
+<span id="cb28-396"><a href="#cb28-396" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-397"><a href="#cb28-397" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> HAS_HF:</span>
+<span id="cb28-398"><a href="#cb28-398" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> aimu.models.hf <span class="im">import</span> HuggingFaceClient, HuggingFaceModel</span>
+<span id="cb28-399"><a href="#cb28-399" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> aimu</span>
+<span id="cb28-400"><a href="#cb28-400" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-401"><a href="#cb28-401" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> HuggingFaceModel.QWEN_3_8B</span>
+<span id="cb28-402"><a href="#cb28-402" aria-hidden="true" tabindex="-1"></a>    c1 <span class="op">=</span> HuggingFaceClient(m)</span>
+<span id="cb28-403"><a href="#cb28-403" aria-hidden="true" tabindex="-1"></a>    c2 <span class="op">=</span> HuggingFaceClient(m)  <span class="co"># reuses weights from c1</span></span>
+<span id="cb28-404"><a href="#cb28-404" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-405"><a href="#cb28-405" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Same model object?"</span>, c1._hf_model <span class="kw">is</span> c2._hf_model)  <span class="co"># True</span></span>
+<span id="cb28-406"><a href="#cb28-406" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-407"><a href="#cb28-407" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Free all HF weights and VRAM when done</span></span>
+<span id="cb28-408"><a href="#cb28-408" aria-hidden="true" tabindex="-1"></a>    aimu.clear_hf_cache()</span>
+<span id="cb28-409"><a href="#cb28-409" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Cache cleared."</span>)</span>
+<span id="cb28-410"><a href="#cb28-410" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb28-411"><a href="#cb28-411" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"HuggingFace not installed, skipping."</span>)</span>
+<span id="cb28-412"><a href="#cb28-412" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb28-413"><a href="#cb28-413" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-414"><a href="#cb28-414" aria-hidden="true" tabindex="-1"></a><span class="fu">## G - Clean Up</span></span>
+<span id="cb28-415"><a href="#cb28-415" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-416"><a href="#cb28-416" aria-hidden="true" tabindex="-1"></a>When done, close the model clients to free up resources.</span>
+<span id="cb28-417"><a href="#cb28-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-420"><a href="#cb28-420" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb28-421"><a href="#cb28-421" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client</span>
+<span id="cb28-422"><a href="#cb28-422" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
