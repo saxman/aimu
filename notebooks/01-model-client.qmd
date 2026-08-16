@@ -15,9 +15,10 @@ Use a `ModelClient` whenever you want a turn-by-turn conversation with a model: 
 | A | Stateless text generation with `generate()`, streaming, and generation kwargs |
 | B | Multi-turn chat, message history, and custom system messages |
 | C | Thinking models: accessing `last_thinking` and filtering streamed phases |
-| D | Tool calling: wrapping the client in an `Agent` with an in-memory MCP server |
+| D | Tool calling: `@aimu.tool` functions, wrapping the client in an `Agent`, and MCP tools |
 | E | Parallel tool calls in one model turn |
-| F | Releasing resources |
+| F | HuggingFace model weight caching |
+| G | Releasing resources |
 
 
 ## A - Text Generation
@@ -213,34 +214,28 @@ else:
 
 ## D - Tool Usage
 
-Create an MCP tool to use. See the "02 - MCP Tools" notebook for more examples of how to set up and use MCP tools.
+The simplest tool is a plain Python function decorated with `@aimu.tool`. The decorator reads the signature and the Google-style docstring to build the OpenAI-format spec the model sees (available at `__tool_spec__`), and leaves the function otherwise unchanged. See [notebook 06](06-tools.qmd) for argument validation, dependency injection, and the built-in tool library (`aimu.tools.builtin`).
 
 ```{python}
 import datetime
-from fastmcp import FastMCP
-
-mcp = FastMCP("AIMU Tools")
+import aimu
 
 
-@mcp.tool()
+@aimu.tool
 def get_current_date_and_time() -> str:
-    """Returns the current data and time as a string."""
+    """Returns the current date and time as a string."""
     return str(datetime.datetime.now())
+
+
+get_current_date_and_time.__tool_spec__
 ```
 
-Create a new AIMU MCPClient for handling MCP tool requests.
+`chat()` on a bare client only advertises the tools and records any tool call the model requests -- it does not run them. To actually execute tools, wrap the client in an `Agent` and call `run()`. The agent drives the model -> tools -> repeat loop and returns the final answer once the model stops calling tools. [Notebook 07](07-agents.qmd) covers the loop itself: iteration caps, per-run tool overrides, and approval hooks.
 
 ```{python}
-from aimu.tools import MCPClient
 from aimu.agents import Agent
 
-mcp_client = MCPClient(server=mcp)
-agent = Agent(model_client, tools=mcp_client.as_tools())
-```
-
-`chat()` on a bare client only advertises the tools and records any tool call the model requests -- it does not run them. To actually execute tools, wrap the client in an `Agent` and call `run()`. The agent drives the model -> tools -> repeat loop and returns the final answer once the model stops calling tools.
-
-```{python}
+agent = Agent(model_client, tools=[get_current_date_and_time])
 agent.run("What time is it?")
 ```
 
@@ -265,9 +260,38 @@ for chunk in agent.run("What time is it now?", stream=True):
     print(chunk.content, end="", flush=True)
 ```
 
+### MCP tools
+
+Tools that run in a separate process, or that you want to share across several agents, reach the same `tools` list through an [MCP](https://modelcontextprotocol.io) server: wrap the server with `MCPClient`, then call `as_tools()` to get one `@aimu.tool`-style callable per server tool. Concatenate the lists to mix cross-process and in-process tools; the agent dispatches both through one by-name lookup.
+
+```{python}
+from fastmcp import FastMCP
+from aimu.tools import MCPClient
+
+mcp = FastMCP("AIMU Tools")
+
+
+@mcp.tool()
+def get_timezone_name() -> str:
+    """Returns the name of the local timezone."""
+    return str(datetime.datetime.now().astimezone().tzname())
+
+
+mcp_client = MCPClient(server=mcp)
+agent = Agent(model_client, tools=[get_current_date_and_time] + mcp_client.as_tools())
+
+[fn.__name__ for fn in agent.tools]
+```
+
+```{python}
+agent.run("What time is it, and in which timezone?")
+```
+
+[Notebook 06](06-tools.qmd) covers the other ways to point `MCPClient` at a server (a Python file, a launch configuration, an in-memory `FastMCP` instance), and [notebook 26](26-remote-mcp-servers.qmd) covers remote HTTP servers with authentication.
+
 ## E - Multiple parallel tool calls
 
-Some LLMs can use mutiple tools in parallel by making concurrent calls to different MCP tools and aggregating the results.
+Some LLMs can use multiple tools in parallel by requesting several tool calls in one turn and aggregating the results.
 
 ```{python}
 @mcp.tool()
@@ -303,7 +327,7 @@ def get_current_weather_conditions(location: str) -> str:
 # Re-fetch the tool callables now that the server has more tools registered,
 # and rebuild the agent so it advertises the full set.
 mcp_client = MCPClient(server=mcp)
-agent = Agent(model_client, tools=mcp_client.as_tools())
+agent = Agent(model_client, tools=[get_current_date_and_time] + mcp_client.as_tools())
 
 [fn.__name__ for fn in agent.tools]
 ```
