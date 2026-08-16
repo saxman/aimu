@@ -3210,10 +3210,21 @@ automatically when a script is authored.</p>
 </span></code></pre></div>
 <h2 id="scripts-in-skills-author-and-run-code">Scripts in skills (author and run code)<a class="headerlink" href="#scripts-in-skills-author-and-run-code" title="Permanent link">&para;</a></h2>
 <p>A skill can bundle executable helper scripts. AIMU registers every <code>scripts/*.py</code> and <code>scripts/*.sh</code>
-in a skill as a <code>{skill}__{stem}</code> tool that runs the script as a subprocess (<code>.py</code> via the current
-Python, <code>.sh</code> via <code>bash</code>), with an optional <code>args</code> string forwarded to the script's arguments and a
-30-second timeout. This lets an assistant <strong>automate a procedure as code</strong> and run it as a tool, the
-self-improving pattern Hermes Agent uses.</p>
+in a skill as a <code>{skill}__{stem}</code> tool that runs the script as a subprocess, with an optional <code>args</code>
+string forwarded to the script's arguments and a 30-second timeout. This lets an assistant <strong>automate a
+procedure as code</strong> and run it as a tool, the self-improving pattern Hermes Agent uses.</p>
+<p>Three details of the execution environment shape how a script should be written:</p>
+<ul>
+<li><strong><code>.sh</code> runs via <code>bash</code>. <code>.py</code> runs on the current Python</strong>, unless it declares
+  <a href="https://peps.python.org/pep-0723/">PEP 723</a> dependencies in a <code># /// script</code> block, in which case it
+  runs through <code>uv run --script</code> so those dependencies resolve into an isolated environment. That is how
+  a skill carries its own requirements instead of adding them to your host's.</li>
+<li><strong>stdin is closed</strong>, so a script that prompts gets <code>EOFError</code> at once rather than blocking until the
+  timeout. Take input through flags, or through <code>build_skills_server(manager, env=...)</code> when the host
+  needs to pass context the script cannot discover for itself (where to write output, which account to
+  use).</li>
+<li><strong>The 30-second budget is synchronous</strong>, so a long job blocks the event loop on the async path.</li>
+</ul>
 <p><code>make_skill_script_tool(agent, manager, skills_dir)</code> returns an async <code>add_skill_script</code> tool. After
 writing the script it calls <code>agent.reload_skills()</code>, which rebuilds the skills server and appends the
 new <code>{skill}__{stem}</code> tool to the agent's tool list, so the assistant can author <strong>and run</strong> a script
