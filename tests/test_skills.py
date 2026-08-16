@@ -877,3 +877,49 @@ def test_reinject_catalog_does_not_duplicate(tmp_path):
 
     assert client.system_message.count("<available_skills>") == 1
     assert client.system_message.startswith("Base prompt.")
+
+
+# ---------------------------------------------------------------------------
+# Host-provided environment
+#
+# Environment variables are one of the three input channels the spec's script guidance names, and
+# the one a host uses to hand a script context it cannot discover for itself (where to write output,
+# which account to use). Merged over os.environ rather than replacing it, so PATH survives and the
+# interpreter lookup keeps working.
+# ---------------------------------------------------------------------------
+
+
+def test_run_script_file_passes_host_environment_to_the_script(tmp_path):
+    from aimu.skills.mcp import run_script_file
+
+    script = tmp_path / "reads_env.py"
+    script.write_text("import os\nprint(os.environ['HOST_PROVIDED'])\n", encoding="utf-8")
+
+    assert "from-the-host" in run_script_file(script, env={"HOST_PROVIDED": "from-the-host"})
+
+
+def test_host_environment_is_merged_over_the_inherited_one(tmp_path):
+    """Replacing the environment would strip PATH, which the interpreter lookup itself needs."""
+    from aimu.skills.mcp import run_script_file
+
+    script = tmp_path / "reads_both.py"
+    script.write_text("import os\nprint(bool(os.environ.get('PATH')), os.environ['EXTRA'])\n", encoding="utf-8")
+
+    assert "True added" in run_script_file(script, env={"EXTRA": "added"})
+
+
+def test_a_script_tool_receives_the_servers_environment(tmp_path):
+    """The host sets it once when building the server, not per call."""
+    from aimu.skills.mcp import build_skills_server
+    from aimu.tools import MCPClient
+
+    md = make_skill_dir(tmp_path, "reporter", "Writes a report.")
+    _write_script(md, "where.py", "import os\nprint(os.environ['REPORT_DIR'])\n")
+
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    client = MCPClient(server=build_skills_server(manager, env={"REPORT_DIR": "/tmp/reports"}))
+    try:
+        tool = next(fn for fn in client.as_tools() if fn.__name__ == "reporter__where")
+        assert "/tmp/reports" in tool()
+    finally:
+        client.close()

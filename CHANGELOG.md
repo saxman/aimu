@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.14.1 (2026-08-16): host-provided script environment, and a shutdown hang
+
+### Skills
+
+- **New** **A host can hand a script environment variables** (`run_script_file(..., env=...)` and `build_skills_server(manager, env=...)`). Environment variables are one of the three input channels the [Agent Skills script guidance](https://agentskills.io/skill-creation/using-scripts) names, and the one a host uses to tell a script something it cannot discover for itself: where to write output, which account to send from. Without it, a skill needing host context has to re-derive the host's own configuration, duplicating logic that will drift. `env` is **merged over** the inherited environment rather than replacing it, because a replacement would strip `PATH`, which the interpreter lookup itself needs. Set once when the server is built, not per call.
 
 ### Tools
 

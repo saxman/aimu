@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import os
 import shlex
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 from fastmcp import FastMCP
 
@@ -69,7 +71,7 @@ def _interpreter_for(script: Path) -> list[str]:
     raise ValueError(f"unsupported script extension {script.suffix!r} (expected .py or .sh)")
 
 
-def run_script_file(script: Path, args: str = "", *, fix_hint: str = "") -> str:
+def run_script_file(script: Path, args: str = "", *, fix_hint: str = "", env: Optional[dict] = None) -> str:
     """Run ``script`` with the interpreter for its extension and return its output.
 
     ``args`` is a shell-style string split with :func:`shlex.split` and appended to the script's
@@ -79,16 +81,31 @@ def run_script_file(script: Path, args: str = "", *, fix_hint: str = "") -> str:
     broken script can be overwritten in place rather than re-created under a new name). Note: this
     blocks for up to ``_SCRIPT_TIMEOUT`` seconds, which blocks the event loop on the async path;
     acceptable for an occasional skill invocation.
+
+    ``env`` is host-provided context for the script, **merged over** the inherited environment rather
+    than replacing it: a replacement would strip ``PATH``, which the interpreter lookup itself needs.
+    Environment variables are one of the three input channels the Agent Skills script guidance names,
+    and the one a host uses to tell a script something it cannot discover for itself -- where to write
+    output, which account to send from -- without the script having to re-derive the host's own
+    configuration.
     """
     try:
         argv = _interpreter_for(script) + [str(script.resolve())] + shlex.split(args)
     except ValueError as exc:
         return str(exc)
+    resolved_env = None if env is None else {**os.environ, **env}
     try:
         # stdin is closed, not inherited: agents run in non-interactive shells, and a script that
         # prompts would otherwise block until the timeout and hold the event loop with it. Closed
         # stdin turns that into an immediate EOFError the caller can report and the author can fix.
-        result = subprocess.run(argv, capture_output=True, text=True, timeout=_SCRIPT_TIMEOUT, stdin=subprocess.DEVNULL)
+        result = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            timeout=_SCRIPT_TIMEOUT,
+            stdin=subprocess.DEVNULL,
+            env=resolved_env,
+        )
     except subprocess.TimeoutExpired:
         return f"Script timed out after {_SCRIPT_TIMEOUT} seconds.{fix_hint}"
     if result.returncode != 0:
@@ -98,7 +115,7 @@ def run_script_file(script: Path, args: str = "", *, fix_hint: str = "") -> str:
     return result.stdout
 
 
-def build_skills_server(manager: SkillManager) -> FastMCP:
+def build_skills_server(manager: SkillManager, env: Optional[dict] = None) -> FastMCP:
     """
     Build an in-process FastMCP server from a SkillManager.
 
@@ -125,12 +142,12 @@ def build_skills_server(manager: SkillManager) -> FastMCP:
             return str(exc)
 
     for skill in manager.skills.values():
-        _register_script_tools(server, skill.name, skill.base_dir / "scripts")
+        _register_script_tools(server, skill.name, skill.base_dir / "scripts", env)
 
     return server
 
 
-def _register_script_tools(server: FastMCP, skill_name: str, scripts_dir: Path) -> None:
+def _register_script_tools(server: FastMCP, skill_name: str, scripts_dir: Path, env: Optional[dict] = None) -> None:
     """Register each ``*.py`` / ``*.sh`` file in scripts_dir as a tool on server."""
     if not scripts_dir.exists() or not scripts_dir.is_dir():
         return
@@ -145,10 +162,12 @@ def _register_script_tools(server: FastMCP, skill_name: str, scripts_dir: Path) 
         if tool_name in seen:
             continue
         seen.add(tool_name)
-        _register_script_tool(server, skill_name, script, tool_name)
+        _register_script_tool(server, skill_name, script, tool_name, env)
 
 
-def _register_script_tool(server: FastMCP, skill_name: str, script: Path, tool_name: str) -> None:
+def _register_script_tool(
+    server: FastMCP, skill_name: str, script: Path, tool_name: str, env: Optional[dict] = None
+) -> None:
     """Register a single script (.py or .sh) as a FastMCP tool under ``tool_name``."""
     script_path = script.resolve()
     filename = script.name
@@ -163,7 +182,7 @@ def _register_script_tool(server: FastMCP, skill_name: str, script: Path, tool_n
     # Build the tool function dynamically so each closure captures its own script path.
     def _make_tool(path: Path):
         def run_script(args: str = "") -> str:
-            return run_script_file(path, args, fix_hint=fix_hint)
+            return run_script_file(path, args, fix_hint=fix_hint, env=env)
 
         run_script.__name__ = tool_name
         run_script.__doc__ = (
