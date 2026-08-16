@@ -19,7 +19,11 @@ Skills are discovered from the filesystem, injected as a catalog into the agent'
 
 ## Setup
 
-Skills are directories containing a `SKILL.md` file with YAML frontmatter followed by markdown instructions. Two sample skills ship with AIMU under [`examples/skills/`](../examples/skills/), exposed as `aimu.paths.skills` (== `aimu.paths.examples / "skills"`).
+Skills are directories containing a `SKILL.md` file with YAML frontmatter followed by markdown
+instructions, following the [Agent Skills specification](https://agentskills.io/specification).
+Frontmatter is validated on discovery: `name` is required, must be lowercase alphanumerics and single
+hyphens, and must match its directory; a violation raises `SkillLoadError` naming the rule rather than
+loading a skill under a name nothing can address. Two sample skills ship with AIMU under [`examples/skills/`](../examples/skills/), exposed as `aimu.paths.skills` (== `aimu.paths.examples / "skills"`).
 
 ```{python}
 from aimu import paths
@@ -191,10 +195,21 @@ for chunk in agent2.run("How many kilometres is 26.2 miles (a marathon)?", strea
 
 ## E - Script Tools
 
-A skill can include Python scripts in a `scripts/` subdirectory. Each `*.py` file is
+A skill can include scripts in a `scripts/` subdirectory. Each `*.py` and `*.sh` file is
 automatically registered as an MCP tool named `{skill_name}__{script_stem}`, with both halves
 slugified to `[a-z0-9_]` (so the `unit-converter` skill yields `unit_converter__*` tools).
 Scripts are run via `subprocess` and their stdout is returned as the tool result.
+
+Three things to know when writing one:
+
+- **Dependencies can be inline.** A `.py` script declaring [PEP 723](https://peps.python.org/pep-0723/)
+  metadata in a `# /// script` block runs through `uv run --script`, which resolves those dependencies
+  into an isolated environment. Without a block it runs on the host interpreter.
+- **stdin is closed.** Agents run in non-interactive shells, so a script that prompts gets `EOFError`
+  immediately rather than blocking. Take input through flags, or through `env=` on
+  `build_skills_server`, which a host uses to pass context a script cannot discover for itself.
+- **There is a 30-second budget**, and the call is synchronous, so a long job blocks the event loop on
+  the async path. Keep script work short.
 
 Here we add a `scripts/now.py` script to the `unit-converter` skill:
 
