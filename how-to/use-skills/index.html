@@ -1184,6 +1184,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Skill scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#self-contained-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-contained scripts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-constraints-worth-designing-around" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two constraints worth designing around
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1194,6 +1222,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Use a SkillManager directly">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#give-one-agent-a-subset-of-the-skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Give one agent a subset of the skills
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3038,6 +3083,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Skill scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#self-contained-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-contained scripts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-constraints-worth-designing-around" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two constraints worth designing around
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3048,6 +3121,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Use a SkillManager directly">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#give-one-agent-a-subset-of-the-skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Give one agent a subset of the skills
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3097,8 +3187,49 @@
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">1.</span> Use <span class="sb">`pdfplumber`</span> to extract text...
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">2.</span> ...
 </span></code></pre></div>
-<p>Required fields: <code>name</code>, <code>description</code>. Optional: <code>compatibility</code>, <code>license</code>, free-form <code>metadata</code>.</p>
-<p>Malformed <code>SKILL.md</code> files raise <code>SkillLoadError</code> (no silent skipping).</p>
+<p>AIMU implements the <a href="https://agentskills.io/specification">Agent Skills specification</a>, and validates frontmatter against it on discovery:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>yes</td>
+<td>1-64 characters, lowercase letters, digits and single hyphens, no leading or trailing hyphen, <strong>and it must match the skill's directory name</strong></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>yes</td>
+<td>1-1024 characters</td>
+</tr>
+<tr>
+<td><code>compatibility</code></td>
+<td>no</td>
+<td>at most 500 characters</td>
+</tr>
+<tr>
+<td><code>license</code></td>
+<td>no</td>
+<td>exposed as <code>AgentSkill.license_info</code></td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>no</td>
+<td>a mapping of string to string, so quote a version (<code>version: "1.0"</code>)</td>
+</tr>
+<tr>
+<td><code>allowed-tools</code></td>
+<td>no</td>
+<td>a space-separated string, exposed as <code>AgentSkill.allowed_tools</code>. Experimental in the spec; AIMU carries it and acts on it nowhere, since which tools an agent may run is your policy rather than the library's</td>
+</tr>
+</tbody>
+</table>
+<p>A malformed or non-compliant <code>SKILL.md</code> raises <code>SkillLoadError</code> naming the rule and the fix, rather than being silently skipped or loaded under a name nothing can address. <code>aimu.skills.validate_frontmatter</code> is that same check as a callable, for validating before you write a file.</p>
 <h2 id="discovery-paths">Discovery paths<a class="headerlink" href="#discovery-paths" title="Permanent link">&para;</a></h2>
 <p><code>SkillManager()</code> with no arguments scans the standard search paths in this order (project-level wins on collision):</p>
 <ol>
@@ -3129,23 +3260,42 @@
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    ├── extract_pages.py     # → pdf_processing__extract_pages tool
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    └── merge-all.sh         # → pdf_processing__merge_all tool
 </span></code></pre></div>
-<p>Slugifying is what keeps the tool name callable no matter what the <code>SKILL.md</code> frontmatter says: <code>SkillManager</code> does not constrain <code>name:</code> (only <a href="../../reference/api/skills/"><code>write_skill</code></a> enforces the kebab-case slug), so a hand-written <code>name: My Skill</code> would otherwise produce <code>My Skill__go</code>, which no provider accepts. Use <a href="../../reference/api/skills/"><code>aimu.skills.script_tool_name</code></a> rather than formatting the name yourself.</p>
+<p>Slugifying is what keeps the tool name a valid identifier: a spec-valid skill name is <code>[a-z0-9-]</code> and a script stem allows either separator, and hyphens are not legal in an identifier, so both halves fold to <code>[a-z0-9_]</code> and the <code>__</code> stays the only separator. (A name like <code>My Skill</code> no longer reaches this stage at all: spec validation rejects it on discovery.) Use <a href="../../reference/api/skills/"><code>aimu.skills.script_tool_name</code></a> rather than formatting the name yourself.</p>
 <p>Names collapse, so two scripts in one skill can collide: <code>merge.py</code> / <code>merge.sh</code> (same stem) and <code>merge-all.py</code> / <code>merge_all.py</code> (same slug) each register once, the first sorted path winning. Give each script a distinct slug.</p>
 <p>Scripts run via <code>subprocess</code>; their stdout becomes the tool result. The catalogue lists script tool names inline, so the model can call them directly without first invoking <code>activate_skill</code>.</p>
+<h3 id="self-contained-scripts">Self-contained scripts<a class="headerlink" href="#self-contained-scripts" title="Permanent link">&para;</a></h3>
+<p>A <code>.py</code> script may declare its own dependencies inline with <a href="https://peps.python.org/pep-0723/">PEP 723</a>, which is the <a href="https://agentskills.io/skill-creation/using-scripts">spec's recommended way</a> to make a skill self-contained. A script containing a <code># /// script</code> block runs through <code>uv run --script</code>, which resolves those dependencies into an isolated environment:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># /// script</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># dependencies = [</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1">#   &quot;beautifulsoup4&quot;,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># ]</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># ///</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bs4</span><span class="w"> </span><span class="kn">import</span> <span class="n">BeautifulSoup</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="o">...</span>
+</span></code></pre></div>
+<p>A script with no inline block runs on the same interpreter as AIMU, so a skill relying on packages already installed in your environment keeps working. Inline dependencies need <code>uv</code> on <code>PATH</code>; without it the tool result names uv rather than surfacing an import error.</p>
+<h3 id="two-constraints-worth-designing-around">Two constraints worth designing around<a class="headerlink" href="#two-constraints-worth-designing-around" title="Permanent link">&para;</a></h3>
+<p><strong>Scripts run non-interactively.</strong> stdin is closed, so a script that prompts gets <code>EOFError</code> immediately rather than hanging. Take input through flags or environment variables, and make <code>--help</code> describe the interface: that output is how a model learns to call the script.</p>
+<p><strong>Scripts have a 30-second budget</strong> and run synchronously, so a long job blocks the event loop on the async path. Keep script work short, and put anything model-driven or long-running in a tool rather than a script.</p>
 <h2 id="use-a-skillmanager-directly">Use a SkillManager directly<a class="headerlink" href="#use-a-skillmanager-directly" title="Permanent link">&para;</a></h2>
 <p>For inspection or programmatic use:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">SkillManager</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">skill_dirs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./my-skills&quot;</span><span class="p">])</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">catalog_prompt</span><span class="p">())</span>                 <span class="c1"># XML block listing all skills + scripts</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">get_skill_body</span><span class="p">(</span><span class="s2">&quot;pdf-processing&quot;</span><span class="p">))</span> <span class="c1"># full markdown body</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Missing skills raise SkillNotFoundError</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">manager</span><span class="o">.</span><span class="n">get_skill_body</span><span class="p">(</span><span class="s2">&quot;nonexistent&quot;</span><span class="p">)</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="k">except</span> <span class="n">SkillNotFoundError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">SkillManager</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">skill_dirs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./my-skills&quot;</span><span class="p">])</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">catalog_prompt</span><span class="p">())</span>                 <span class="c1"># XML block listing all skills + scripts</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">get_skill_body</span><span class="p">(</span><span class="s2">&quot;pdf-processing&quot;</span><span class="p">))</span> <span class="c1"># full markdown body</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Missing skills raise SkillNotFoundError</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">manager</span><span class="o">.</span><span class="n">get_skill_body</span><span class="p">(</span><span class="s2">&quot;nonexistent&quot;</span><span class="p">)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="k">except</span> <span class="n">SkillNotFoundError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="give-one-agent-a-subset-of-the-skills">Give one agent a subset of the skills<a class="headerlink" href="#give-one-agent-a-subset-of-the-skills" title="Permanent link">&para;</a></h3>
+<p><code>include</code> narrows discovery to the skills you name, which is how you hand different agents different skills from one directory:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">researcher</span> <span class="o">=</span> <span class="n">SkillAgent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;citation-check&quot;</span><span class="p">]))</span>
+</span></code></pre></div>
+<p>Because <code>catalog_prompt()</code> and <code>build_skills_server()</code> both read <code>skills</code>, filtering here scopes the catalogue <em>and</em> the callable script tools together, so an agent cannot be advertised a skill it cannot activate. A name that no search path provides raises <code>SkillLoadError</code> listing what was discovered, rather than handing the agent a shorter list than it asked for.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../tutorials/02-first-agent-with-tools/">Tutorial: first agent with tools</a>: start here if <code>SkillAgent</code> is overkill</li>

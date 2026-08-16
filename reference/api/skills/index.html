@@ -3305,7 +3305,7 @@
   </span>
 
 <a href="#aimu.skills.AgentSkill" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">AgentSkill</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">compatibility</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">license_info</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">())</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">AgentSkill</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">compatibility</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">license_info</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(),</span> <span class="n">allowed_tools</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">())</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3313,6 +3313,9 @@
 
 
         <p>A single discovered Agent Skill from the filesystem.</p>
+<p>The fields mirror the Agent Skills specification's frontmatter, with two renames where the
+spec's key is not a usable Python attribute: <code>license</code> becomes <code>license_info</code> and
+<code>allowed-tools</code> becomes <code>allowed_tools</code>.</p>
 
 
 
@@ -3395,7 +3398,7 @@ winning, matching the skills-server registration. That covers <code>foo.py</code
 
 
 <a href="#aimu.skills.SkillManager" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SkillManager</span><span class="p">(</span><span class="n">skill_dirs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SkillManager</span><span class="p">(</span><span class="n">skill_dirs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">include</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3408,11 +3411,17 @@ user scope: <code>.agents/skills/</code>, <code>.claude/skills/</code>, <code>~/
 <code>~/.claude/skills/</code>. Project-level paths win on name collision. Pass explicit
 <code>skill_dirs</code> to override all defaults.</p>
 <p>Discovery logs (at INFO) the number of skills found and the paths searched, so a
-missing skill directory is easy to spot. Malformed <code>SKILL.md</code> files raise
-:class:<code>SkillLoadError</code> rather than being silently skipped.</p>
+missing skill directory is easy to spot. Malformed <code>SKILL.md</code> files, and files that
+violate the Agent Skills specification, raise :class:<code>SkillLoadError</code> rather than
+being silently skipped.</p>
+<p><code>include</code> narrows discovery to the named skills, so a host giving one agent a subset
+does not have to filter in three places: :meth:<code>catalog_prompt</code> and the skills server
+both read :attr:<code>skills</code>. A name in <code>include</code> that no search path provides raises,
+because the alternative is an agent quietly holding fewer skills than it asked for.</p>
 <p>Usage::</p>
 <div class="language-text highlight"><pre><span></span><code>manager = SkillManager()                                # auto-discover
 manager = SkillManager(skill_dirs=[&quot;/path/to/skills&quot;])  # explicit
+manager = SkillManager(include=[&quot;pdf-processing&quot;])      # only these
 print(manager.catalog_prompt())
 body = manager.get_skill_body(&quot;pdf-processing&quot;)
 </code></pre></div>
