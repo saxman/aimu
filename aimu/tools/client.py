@@ -1,3 +1,4 @@
+import sys
 from typing import Optional
 
 from anyio.from_thread import start_blocking_portal
@@ -93,13 +94,37 @@ class MCPClient:
         self._client = Client(self._transport, auth=self._client_auth)
         await self._client.__aenter__()
 
-    def __del__(self):
+    def close(self) -> None:
+        """Close the MCP connection and release the blocking portal. Idempotent.
+
+        Call this when the client is held for the life of the process. Leaving teardown to ``__del__``
+        does not work there: by the time the interpreter is finalizing, the portal's event loop is gone,
+        and the cross-thread call that closes the connection blocks forever, hanging the process on exit.
+        Closing explicitly happens while the portal can still answer.
+        """
+        portal = self._portal
+        if portal is None:
+            return
+        # Cleared first, so a second close (or the one __del__ attempts later) is a no-op even if the
+        # teardown below raises.
+        self._portal = None
         try:
-            self._portal.call(self._client.__aexit__, None, None, None)
+            portal.call(self._client.__aexit__, None, None, None)
         except Exception:
             pass
         try:
             self._portal_cm.__exit__(None, None, None)
+        except Exception:
+            pass
+
+    def __del__(self):
+        # Best effort, and deliberately nothing at all during interpreter shutdown: a cross-thread call
+        # into the portal cannot complete once its loop is gone, and it would block the process from
+        # exiting rather than fail. A caller that needs deterministic teardown calls close().
+        if sys.is_finalizing():
+            return
+        try:
+            self.close()
         except Exception:
             pass
 

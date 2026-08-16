@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -503,3 +504,58 @@ def test_make_tools_python_sandbox_false_by_default():
     client.model.supports_vision = False
     tools = builtin.make_tools(client)
     assert builtin.execute_python not in tools
+
+
+# ---------------------------------------------------------------------------
+# MCPClient teardown
+#
+# The sync client runs its FastMCP client in an anyio blocking portal on a background thread.
+# Tearing that down is a cross-thread call, which must never happen from __del__ during
+# interpreter finalization: the portal's loop is already gone by then and the call blocks forever,
+# hanging the process on exit.
+# ---------------------------------------------------------------------------
+
+
+def _echo_server():
+    mcp = FastMCP("TeardownTools")
+
+    @mcp.tool()
+    def echo(text: str) -> str:
+        """Echo the text."""
+        return text
+
+    return mcp
+
+
+def test_close_is_idempotent():
+    client = MCPClient(server=_echo_server())
+    client.close()
+    client.close()  # a second close must not raise, so a caller need not track whether it closed
+
+
+def test_del_does_not_call_into_the_portal_while_the_interpreter_is_finalizing(monkeypatch):
+    """A cross-thread portal call during finalization never returns, so __del__ must skip it."""
+    import sys
+
+    client = MCPClient(server=_echo_server())
+    calls = []
+    monkeypatch.setattr(client, "_portal", SimpleNamespace(call=lambda *a, **k: calls.append(a)))
+    monkeypatch.setattr(sys, "is_finalizing", lambda: True)
+
+    client.__del__()
+
+    assert calls == []
+
+
+def test_close_lets_a_long_lived_client_be_torn_down_deterministically():
+    """A caller holding a client for the process lifetime closes it rather than leaving it to __del__,
+    which cannot do a cross-thread teardown once the interpreter is finalizing."""
+    client = MCPClient(server=_echo_server())
+    tools = client.as_tools()
+    assert len(tools) == 1
+
+    client.close()
+
+    # The portal is released, and a second teardown attempt (including the one __del__ will make) is
+    # a no-op rather than a call into a portal that is gone.
+    assert client._portal is None

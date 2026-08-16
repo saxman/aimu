@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Tools
+
+- **New** **`MCPClient.close()`, and `__del__` no longer hangs the interpreter at exit** (`aimu.tools.client`). The sync client runs its FastMCP client in an anyio blocking portal on a background thread, and teardown is a cross-thread call. `__del__` made that call unconditionally, so a client still referenced when the interpreter began finalizing blocked forever: the portal's loop is gone by then and the call never returns. Verified with a faulthandler stack pointing at `client.py`'s `__del__`. `__del__` now does nothing while `sys.is_finalizing()`, and `close()` is the explicit, idempotent teardown.
+  **A client held for the life of the process must call `close()`.** Skipping teardown in `__del__` is necessary but not sufficient on its own: if nobody releases the portal, Python's finalization of `start_blocking_portal`'s own context-manager generator tries to stop and join the portal thread, and blocks there instead. A short-lived client collected during normal operation is unaffected, since `__del__` still closes it then.
+
 ## v0.14.0 (2026-08-16): Agent Skills spec compliance, and per-agent skill selection
 
 ### Skills
