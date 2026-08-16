@@ -18,9 +18,18 @@ When asked to work with a PDF:
 2. ...
 ```
 
-Required fields: `name`, `description`. Optional: `compatibility`, `license`, free-form `metadata`.
+AIMU implements the [Agent Skills specification](https://agentskills.io/specification), and validates frontmatter against it on discovery:
 
-Malformed `SKILL.md` files raise `SkillLoadError` (no silent skipping).
+| Field | Required | Rule |
+| --- | --- | --- |
+| `name` | yes | 1-64 characters, lowercase letters, digits and single hyphens, no leading or trailing hyphen, **and it must match the skill's directory name** |
+| `description` | yes | 1-1024 characters |
+| `compatibility` | no | at most 500 characters |
+| `license` | no | exposed as `AgentSkill.license_info` |
+| `metadata` | no | a mapping of string to string, so quote a version (`version: "1.0"`) |
+| `allowed-tools` | no | a space-separated string, exposed as `AgentSkill.allowed_tools`. Experimental in the spec; AIMU carries it and acts on it nowhere, since which tools an agent may run is your policy rather than the library's |
+
+A malformed or non-compliant `SKILL.md` raises `SkillLoadError` naming the rule and the fix, rather than being silently skipped or loaded under a name nothing can address. `aimu.skills.validate_frontmatter` is that same check as a callable, for validating before you write a file.
 
 ## Discovery paths
 
@@ -61,7 +70,7 @@ A skill can include scripts in a `scripts/` subdirectory. Each `*.py` and `*.sh`
     └── merge-all.sh         # → pdf_processing__merge_all tool
 ```
 
-Slugifying is what keeps the tool name callable no matter what the `SKILL.md` frontmatter says: `SkillManager` does not constrain `name:` (only [`write_skill`](../reference/api/skills.md) enforces the kebab-case slug), so a hand-written `name: My Skill` would otherwise produce `My Skill__go`, which no provider accepts. Use [`aimu.skills.script_tool_name`](../reference/api/skills.md) rather than formatting the name yourself.
+Slugifying is what keeps the tool name a valid identifier: a spec-valid skill name is `[a-z0-9-]` and a script stem allows either separator, and hyphens are not legal in an identifier, so both halves fold to `[a-z0-9_]` and the `__` stays the only separator. (A name like `My Skill` no longer reaches this stage at all: spec validation rejects it on discovery.) Use [`aimu.skills.script_tool_name`](../reference/api/skills.md) rather than formatting the name yourself.
 
 Names collapse, so two scripts in one skill can collide: `merge.py` / `merge.sh` (same stem) and `merge-all.py` / `merge_all.py` (same slug) each register once, the first sorted path winning. Give each script a distinct slug.
 
@@ -84,6 +93,16 @@ try:
 except SkillNotFoundError as exc:
     print(exc)
 ```
+
+### Give one agent a subset of the skills
+
+`include` narrows discovery to the skills you name, which is how you hand different agents different skills from one directory:
+
+```python
+researcher = SkillAgent(client, skill_manager=SkillManager(include=["citation-check"]))
+```
+
+Because `catalog_prompt()` and `build_skills_server()` both read `skills`, filtering here scopes the catalogue *and* the callable script tools together, so an agent cannot be advertised a skill it cannot activate. A name that no search path provides raises `SkillLoadError` listing what was discovered, rather than handing the agent a shorter list than it asked for.
 
 ## See also
 

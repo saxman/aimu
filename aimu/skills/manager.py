@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 import yaml
 
 from aimu.skills.skill import AgentSkill
+from aimu.skills.validate import SkillSpecError, validate_frontmatter
 
 logger = logging.getLogger(__name__)
 
@@ -36,19 +37,27 @@ class SkillManager:
     ``skill_dirs`` to override all defaults.
 
     Discovery logs (at INFO) the number of skills found and the paths searched, so a
-    missing skill directory is easy to spot. Malformed ``SKILL.md`` files raise
-    :class:`SkillLoadError` rather than being silently skipped.
+    missing skill directory is easy to spot. Malformed ``SKILL.md`` files, and files that
+    violate the Agent Skills specification, raise :class:`SkillLoadError` rather than
+    being silently skipped.
+
+    ``include`` narrows discovery to the named skills, so a host giving one agent a subset
+    does not have to filter in three places: :meth:`catalog_prompt` and the skills server
+    both read :attr:`skills`. A name in ``include`` that no search path provides raises,
+    because the alternative is an agent quietly holding fewer skills than it asked for.
 
     Usage::
 
         manager = SkillManager()                                # auto-discover
         manager = SkillManager(skill_dirs=["/path/to/skills"])  # explicit
+        manager = SkillManager(include=["pdf-processing"])      # only these
         print(manager.catalog_prompt())
         body = manager.get_skill_body("pdf-processing")
     """
 
-    def __init__(self, skill_dirs: Optional[list[str]] = None):
+    def __init__(self, skill_dirs: Optional[list[str]] = None, include: Optional[Iterable[str]] = None):
         self._custom_dirs = [Path(d).expanduser().resolve() for d in skill_dirs] if skill_dirs else []
+        self._include: Optional[frozenset[str]] = None if include is None else frozenset(include)
         self._skills: Optional[dict[str, AgentSkill]] = None
 
     @property
@@ -88,6 +97,15 @@ class SkillManager:
                     logger.debug("Skill '%s' at %s shadowed by higher-precedence skill", skill.name, skill_md)
                 else:
                     skills[skill.name] = skill
+        if self._include is not None:
+            missing = sorted(self._include - skills.keys())
+            if missing:
+                available = ", ".join(sorted(skills)) or "(none)"
+                raise SkillLoadError(
+                    f"requested skill(s) not found: {', '.join(missing)}. Discovered: {available}. "
+                    f"Searched: {', '.join(str(p) for p in searched)}"
+                )
+            skills = {name: skill for name, skill in skills.items() if name in self._include}
         logger.info(
             "SkillManager discovered %d skill(s) across %d path(s): %s",
             len(skills),
@@ -112,18 +130,19 @@ class SkillManager:
         fm_str = content[3:end]
         fm = self._load_yaml(fm_str, skill_md)
 
-        name = str(fm.get("name", skill_md.parent.name))
-        description = str(fm.get("description", "")).strip()
-        if not description:
-            raise SkillLoadError(f"{skill_md}: missing required 'description' field")
+        try:
+            validate_frontmatter(fm, directory_name=skill_md.parent.name)
+        except SkillSpecError as exc:
+            raise SkillLoadError(f"{skill_md}: {exc}") from exc
 
         return AgentSkill(
-            name=name,
-            description=description,
+            name=fm["name"],
+            description=str(fm["description"]).strip(),
             path=skill_md.resolve(),
             compatibility=str(fm.get("compatibility", "")),
             license_info=str(fm.get("license", "")),
             metadata=dict(fm.get("metadata") or {}),
+            allowed_tools=tuple(str(fm.get("allowed-tools", "")).split()),
         )
 
     @staticmethod

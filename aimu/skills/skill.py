@@ -5,10 +5,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Any run of characters outside [a-z0-9] collapses to a single underscore, so a tool name is a
-# valid identifier whatever the skill name and script stem contain. Both halves need this: a
-# hand-written SKILL.md's `name:` is not validated by SkillManager._parse (only write_skill
-# enforces the kebab-case slug), and a script stem legitimately allows hyphens as well as
-# underscores. Leaving the double underscore as the only separator is the point.
+# valid identifier whatever the skill name and script stem contain. Both halves still need this
+# after spec validation: a valid skill name is [a-z0-9-], whose hyphens are not legal in an
+# identifier, and a script stem legitimately allows hyphens as well as underscores. Leaving the
+# double underscore as the only separator is the point.
 _NON_SLUG_CHARS = re.compile(r"[^a-z0-9]+")
 
 
@@ -33,7 +33,12 @@ def script_tool_name(skill_name: str, script_stem: str) -> str:
 
 @dataclass
 class AgentSkill:
-    """A single discovered Agent Skill from the filesystem."""
+    """A single discovered Agent Skill from the filesystem.
+
+    The fields mirror the Agent Skills specification's frontmatter, with two renames where the
+    spec's key is not a usable Python attribute: ``license`` becomes ``license_info`` and
+    ``allowed-tools`` becomes ``allowed_tools``.
+    """
 
     name: str
     description: str
@@ -41,6 +46,10 @@ class AgentSkill:
     compatibility: str = ""
     license_info: str = ""
     metadata: dict = field(default_factory=dict)
+    # The spec's `allowed-tools`, split on whitespace. Carried for a host to act on, and acted on
+    # by nothing here: the spec marks the field experimental, and which tools an agent may run is
+    # the host's policy rather than a library's.
+    allowed_tools: tuple[str, ...] = ()
 
     @property
     def base_dir(self) -> Path:

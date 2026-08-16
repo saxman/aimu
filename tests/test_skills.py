@@ -174,6 +174,156 @@ def test_skill_manager_raises_on_no_frontmatter(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Agent Skills spec validation
+#
+# The rules come from https://agentskills.io/specification. A skill that violates one is
+# rejected on discovery rather than loaded under a name the spec forbids: a skill that loads
+# but cannot be addressed is the silent failure SkillLoadError exists to prevent.
+# ---------------------------------------------------------------------------
+
+
+def _write_skill_md(parent: Path, dir_name: str, frontmatter: str) -> Path:
+    """Write a SKILL.md with frontmatter given verbatim, so a test can violate the spec."""
+    skill_dir = parent / dir_name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_md = skill_dir / "SKILL.md"
+    skill_md.write_text(f"---\n{frontmatter}\n---\n\n# Body\n", encoding="utf-8")
+    return skill_md
+
+
+def test_skill_manager_raises_on_missing_name(tmp_path):
+    """`name` is required by the spec, so it can no longer default to the directory name."""
+    from aimu.skills import SkillLoadError
+
+    _write_skill_md(tmp_path, "nameless", "description: Has no name.")
+    with pytest.raises(SkillLoadError, match="name"):
+        _ = SkillManager(skill_dirs=[str(tmp_path)]).skills
+
+
+@pytest.mark.parametrize(
+    "name, dir_name",
+    [
+        ("My Skill", "my-skill"),  # uppercase and a space
+        ("under_score", "under_score"),  # underscore is not in [a-z0-9-]
+        ("-leading", "-leading"),
+        ("trailing-", "trailing-"),
+        ("double--hyphen", "double--hyphen"),
+        ("x" * 65, "x" * 65),  # over the 64-character limit
+    ],
+)
+def test_skill_manager_raises_on_a_name_the_spec_forbids(tmp_path, name, dir_name):
+    from aimu.skills import SkillLoadError
+
+    _write_skill_md(tmp_path, dir_name, f"name: {name}\ndescription: Does a thing.")
+    with pytest.raises(SkillLoadError, match="name"):
+        _ = SkillManager(skill_dirs=[str(tmp_path)]).skills
+
+
+def test_skill_manager_raises_when_name_disagrees_with_its_directory(tmp_path):
+    """The spec requires `name` to match the parent directory, so one addresses the other."""
+    from aimu.skills import SkillLoadError
+
+    _write_skill_md(tmp_path, "on-disk", "name: in-frontmatter\ndescription: Mismatched.")
+    with pytest.raises(SkillLoadError, match="directory"):
+        _ = SkillManager(skill_dirs=[str(tmp_path)]).skills
+
+
+def test_skill_manager_raises_on_an_over_long_description(tmp_path):
+    from aimu.skills import SkillLoadError
+
+    _write_skill_md(tmp_path, "wordy", f"name: wordy\ndescription: {'d' * 1025}")
+    with pytest.raises(SkillLoadError, match="description"):
+        _ = SkillManager(skill_dirs=[str(tmp_path)]).skills
+
+
+def test_skill_manager_raises_on_an_over_long_compatibility(tmp_path):
+    from aimu.skills import SkillLoadError
+
+    _write_skill_md(tmp_path, "picky", f"name: picky\ndescription: Fine.\ncompatibility: {'c' * 501}")
+    with pytest.raises(SkillLoadError, match="compatibility"):
+        _ = SkillManager(skill_dirs=[str(tmp_path)]).skills
+
+
+def test_skill_manager_raises_on_non_string_metadata_values(tmp_path):
+    """The spec defines metadata as a map of string to string, so a nested value is invalid."""
+    from aimu.skills import SkillLoadError
+
+    _write_skill_md(tmp_path, "nested", "name: nested\ndescription: Fine.\nmetadata:\n  version:\n    major: 1")
+    with pytest.raises(SkillLoadError, match="metadata"):
+        _ = SkillManager(skill_dirs=[str(tmp_path)]).skills
+
+
+def test_skill_manager_accepts_every_optional_spec_field(tmp_path):
+    """A skill using all of license, compatibility, metadata and allowed-tools still loads."""
+    _write_skill_md(
+        tmp_path,
+        "fully-specified",
+        "name: fully-specified\n"
+        "description: Uses every optional field.\n"
+        "license: Apache-2.0\n"
+        "compatibility: Requires git and network access\n"
+        "metadata:\n  author: example-org\n  version: '1.0'\n"
+        "allowed-tools: Bash(git:*) Read",
+    )
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["fully-specified"]
+    assert skill.license_info == "Apache-2.0"
+    assert skill.compatibility == "Requires git and network access"
+    assert skill.metadata == {"author": "example-org", "version": "1.0"}
+
+
+# ---------------------------------------------------------------------------
+# allowed-tools
+# ---------------------------------------------------------------------------
+
+
+def test_allowed_tools_is_split_on_whitespace(tmp_path):
+    """The spec stores allowed-tools as one space-separated string; callers want the entries."""
+    _write_skill_md(tmp_path, "gated", "name: gated\ndescription: Fine.\nallowed-tools: Bash(git:*) Bash(jq:*) Read")
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["gated"]
+    assert skill.allowed_tools == ("Bash(git:*)", "Bash(jq:*)", "Read")
+
+
+def test_allowed_tools_defaults_to_empty_when_absent(tmp_path):
+    make_skill_dir(tmp_path, "ungated", "No allowed-tools field.")
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["ungated"]
+    assert skill.allowed_tools == ()
+
+
+# ---------------------------------------------------------------------------
+# SkillManager include filtering
+# ---------------------------------------------------------------------------
+
+
+def test_include_scopes_discovery_to_the_named_skills(tmp_path):
+    """A host giving one agent a subset of skills should not have to filter in three places:
+    catalog_prompt and the skills server both read `skills`."""
+    make_skill_dir(tmp_path, "wanted", "Keep me.")
+    make_skill_dir(tmp_path, "unwanted", "Drop me.")
+
+    manager = SkillManager(skill_dirs=[str(tmp_path)], include=["wanted"])
+
+    assert sorted(manager.skills) == ["wanted"]
+    assert "unwanted" not in manager.catalog_prompt()
+
+
+def test_include_none_discovers_everything(tmp_path):
+    make_skill_dir(tmp_path, "one", "First.")
+    make_skill_dir(tmp_path, "two", "Second.")
+    assert sorted(SkillManager(skill_dirs=[str(tmp_path)]).skills) == ["one", "two"]
+
+
+def test_include_raises_on_a_name_that_was_not_discovered(tmp_path):
+    """An unknown include name is a typo that would otherwise hand the agent fewer skills
+    than asked for, with nothing to say so."""
+    from aimu.skills import SkillLoadError
+
+    make_skill_dir(tmp_path, "present", "Here.")
+    manager = SkillManager(skill_dirs=[str(tmp_path)], include=["absent"])
+    with pytest.raises(SkillLoadError, match="absent"):
+        _ = manager.skills
+
+
+# ---------------------------------------------------------------------------
 # SkillManager name collision (project > user)
 # ---------------------------------------------------------------------------
 
@@ -462,8 +612,9 @@ def test_script_tool_names_includes_sh_and_dedupes(tmp_path):
 # Script tool names are slugified
 #
 # The name is {skill}__{stem} with both halves reduced to [a-z0-9_], so the double
-# underscore stays the only separator and the result is a valid tool name whatever a
-# hand-written SKILL.md puts in `name:` (which SkillManager._parse does not validate).
+# underscore stays the only separator and the result is a valid identifier. Spec validation
+# already confines a skill name to [a-z0-9-], so slugifying that half only folds hyphens to
+# underscores; the script stem still legitimately allows either separator.
 # ---------------------------------------------------------------------------
 
 
@@ -492,19 +643,20 @@ def test_script_tool_names_dedupe_when_two_stems_slugify_alike(tmp_path):
     assert skill.script_tool_names() == ["ops__backup_db"]
 
 
-def test_script_tool_name_is_valid_when_the_skill_name_is_not_a_slug(tmp_path):
-    """A hand-written SKILL.md can carry any `name:`; the tool name must stay callable.
-
-    ``_parse`` accepts the frontmatter verbatim, so a name with spaces or capitals reached
-    the tool name unaltered and produced an identifier no provider accepts.
+def test_a_skill_name_that_is_not_a_slug_is_rejected_rather_than_slugified(tmp_path):
+    """A name with spaces or capitals once reached the tool name unaltered and produced an
+    identifier no provider accepts. Spec validation now refuses it on discovery, which is a
+    stronger guarantee than slugifying it into something callable but unaddressable.
     """
+    from aimu.skills import SkillLoadError
+
     skill_dir = tmp_path / "shouty"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text("---\nname: My Skill\ndescription: Shouts.\n---\n\n# Body\n", encoding="utf-8")
     _write_script(skill_dir / "SKILL.md", "go.py", "print('ok')\n")
 
-    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["My Skill"]
-    assert skill.script_tool_names() == ["my_skill__go"]
+    with pytest.raises(SkillLoadError, match="name"):
+        _ = SkillManager(skill_dirs=[str(tmp_path)]).skills
 
 
 def test_every_catalog_script_tool_name_is_callable_on_the_server(tmp_path):
