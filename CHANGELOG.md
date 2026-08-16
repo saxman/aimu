@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.14.0 (2026-08-16): Agent Skills spec compliance, and per-agent skill selection
 
 ### Skills
 
