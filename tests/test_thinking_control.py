@@ -256,3 +256,74 @@ def test_apply_thinking_does_not_mutate_the_callers_dict():
     host._apply_thinking(original, True)
 
     assert THINKING_KWARG not in original
+
+
+def _fake_client(model, recorder):
+    """A concrete BaseModelClient whose _chat/_generate only record their kwargs."""
+    from aimu.models.base import BaseModelClient
+
+    class _Fake(BaseModelClient):
+        MODELS = None
+
+        def __init__(self):
+            self.model = model
+            self.model_kwargs = None
+            self._system_message = None
+            self.default_generate_kwargs = {}
+            self.messages = []
+            self.tools = []
+            self.last_thinking = ""
+            self.last_usage = None
+            self.last_output_truncated = False
+            self.last_structured = None
+
+        def _update_generate_kwargs(self, generate_kwargs=None):
+            return dict(generate_kwargs or {})
+
+        def _chat(self, user_message=None, generate_kwargs=None, **kw):
+            recorder.append(generate_kwargs)
+            return "ok"
+
+        def _generate(self, prompt, generate_kwargs=None, **kw):
+            recorder.append(generate_kwargs)
+            return "ok"
+
+    return _Fake()
+
+
+def test_chat_forwards_a_resolved_request():
+    seen: list = []
+    client = _fake_client(_Model(levels=True), seen)
+
+    client.chat("hi", thinking="low")
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="low")
+
+
+def test_generate_forwards_a_resolved_request():
+    seen: list = []
+    client = _fake_client(_Model(), seen)
+
+    client.generate("hi", thinking=False)
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=False, level=None)
+
+
+def test_omitting_thinking_injects_nothing():
+    seen: list = []
+    client = _fake_client(_Model(levels=True), seen)
+
+    client.chat("hi")
+    client.generate("hi")
+
+    assert all(THINKING_KWARG not in (kwargs or {}) for kwargs in seen)
+
+
+def test_invalid_value_raises_before_any_request():
+    seen: list = []
+    client = _fake_client(_Model(levels=True), seen)
+
+    with pytest.raises(ValueError, match="Unknown thinking level"):
+        client.chat("hi", thinking="xhigh")
+
+    assert seen == []
