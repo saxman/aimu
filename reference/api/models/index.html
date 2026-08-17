@@ -2130,6 +2130,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.models.ModelClient.last_output_truncated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        last_output_truncated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.models.ModelClient.last_structured" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3517,6 +3528,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.models.ModelClient.last_output_truncated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        last_output_truncated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.models.ModelClient.last_structured" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4129,6 +4151,34 @@ ModelClient(LMStudioOpenAIModel.LLAMA_3_2_3B, base_url=&quot;http://myserver:123
         <p>Token usage of the most recent non-streaming response, or <code>None</code>.</p>
 <p>Shape: <code>{"input_tokens", "output_tokens", "total_tokens"}</code>. <code>None</code> after a
 streaming call or when the provider/server did not report usage.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="aimu.models.ModelClient.last_output_truncated" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">last_output_truncated</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+      <small class="doc doc-label doc-label-writable"><code>writable</code></small>
+  </span>
+
+<a href="#aimu.models.ModelClient.last_output_truncated" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">last_output_truncated</span><span class="p">:</span> <span class="nb">bool</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the most recent response was cut off at an output limit rather than finishing.</p>
+<p>True when the provider reports the generation stopped because it ran out of room (an explicit
+<code>max_tokens</code> cap, or a prompt that left too little of the context window to generate in).
+Only the Ollama provider reports this today; elsewhere it stays False.</p>
 
     </div>
 

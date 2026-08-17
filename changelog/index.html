@@ -2865,6 +2865,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v0142-2026-08-16-a-turn-cut-off-by-the-context-window-is-no-longer-mistaken-for-a-degenerate-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.14.2 (2026-08-16): a turn cut off by the context window is no longer mistaken for a degenerate one
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.14.2 (2026-08-16): a turn cut off by the context window is no longer mistaken for a degenerate one">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agents
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0141-2026-08-16-host-provided-script-environment-and-a-shutdown-hang" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3941,7 +3969,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents" class="md-nav__link">
+  <a href="#agents_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents
@@ -4062,6 +4090,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v0142-2026-08-16-a-turn-cut-off-by-the-context-window-is-no-longer-mistaken-for-a-degenerate-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.14.2 (2026-08-16): a turn cut off by the context window is no longer mistaken for a degenerate one
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.14.2 (2026-08-16): a turn cut off by the context window is no longer mistaken for a degenerate one">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agents
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0141-2026-08-16-host-provided-script-environment-and-a-shutdown-hang" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5138,7 +5194,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#agents" class="md-nav__link">
+  <a href="#agents_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Agents
@@ -5224,6 +5280,13 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<h2 id="v0142-2026-08-16-a-turn-cut-off-by-the-context-window-is-no-longer-mistaken-for-a-degenerate-one">v0.14.2 (2026-08-16): a turn cut off by the context window is no longer mistaken for a degenerate one<a class="headerlink" href="#v0142-2026-08-16-a-turn-cut-off-by-the-context-window-is-no-longer-mistaken-for-a-degenerate-one" title="Permanent link">&para;</a></h2>
+<h3 id="agents">Agents<a class="headerlink" href="#agents" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Change</strong> <strong>An empty turn the provider reports as truncated raises <code>TruncatedTurnError</code> instead of being nudged</strong> (<code>aimu.agents</code> / <code>aimu.aio</code>; a subclass of <code>DegenerateTurnError</code>, so an existing handler keeps working). The tool loop treats an assistant turn with no content and no tool calls as degenerate and injects its continuation prompt to recover. That is right when a small model simply fumbled a turn, and exactly wrong when the turn was cut off for want of output room: the nudge <em>adds</em> tokens to a request that had none to spare, so each retry gets a shorter turn than the last and the loop spends its whole round budget before the forced wrap-up.
+  Observed against a 26B model on Ollama with a long conversation and 26 advertised tools: a prompt of 32,693 tokens in a 32,768 window left 75 tokens to generate, and seven rounds of reasoning shrank from ~330 to ~70 tokens with nothing usable at any point. The loop now stops at the first such turn and says what happened, naming the input-token count and the three ways out (shorter conversation, fewer tools, bigger context window). A truncated turn that <em>does</em> carry an answer is untouched, since that is a caller's own <code>max_tokens</code> doing its job.</li>
+<li><strong>New</strong> <strong><code>client.last_output_truncated</code></strong> (<code>bool</code>, alongside <code>last_usage</code> on both the sync and async clients). True when the provider reports the generation stopped for want of room rather than at the model's own stopping point. Set by the Ollama provider from <code>done_reason == "length"</code> on every response path (chat, generate, and both streamed forms); every other provider leaves it False, so nothing else changes behavior.</li>
+</ul>
 <h2 id="v0141-2026-08-16-host-provided-script-environment-and-a-shutdown-hang">v0.14.1 (2026-08-16): host-provided script environment, and a shutdown hang<a class="headerlink" href="#v0141-2026-08-16-host-provided-script-environment-and-a-shutdown-hang" title="Permanent link">&para;</a></h2>
 <h3 id="skills">Skills<a class="headerlink" href="#skills" title="Permanent link">&para;</a></h3>
 <ul>
@@ -5726,7 +5789,7 @@ not this stub.
 <li><strong>New</strong> <code>ImageSpec.max_prompt_tokens</code> records the model's text-encoder prompt budget (77 for CLIP, 256/512 for T5 models like SD3/FLUX, <code>None</code> for uncapped cloud models), exposed on <code>BaseImageClient</code>. Use it to size prompts to the model.</li>
 <li><strong>Changed</strong> <code>HuggingFaceImageClient</code> now defaults <code>torch_dtype</code> per device (bf16 on CUDA, fp16 on MPS, fp32 on CPU) instead of <code>"auto"</code>, which could silently load in fp32 and double VRAM. Pass <code>model_kwargs={"torch_dtype": ...}</code> to override.</li>
 </ul>
-<h3 id="agents">Agents<a class="headerlink" href="#agents" title="Permanent link">&para;</a></h3>
+<h3 id="agents_1">Agents<a class="headerlink" href="#agents_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Breaking</strong> <code>Agent</code> constructor signature changed: <code>Agent(model_client, system_message=None, name=None, tools=None, ...)</code>. <code>system_message</code> is the second positional argument; <code>name</code> is optional (auto-derived).</li>
 <li><strong>Breaking</strong> <code>AgenticModelClient</code> removed from the public API. Use <code>agent.as_model_client()</code> instead.</li>
