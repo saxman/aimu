@@ -43,7 +43,7 @@ from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
 from aimu.models import ModelConnectionError
 from .fallback import AsyncFallbackClient
-from aimu.agents import DegenerateTurnError
+from aimu.agents import DegenerateTurnError, TruncatedTurnError
 from .agent import Agent, AsyncRunner
 from .channels import CLIChannel, Channel, ChannelMessage, WebChannel
 from .run_handle import RunHandle
@@ -118,6 +118,7 @@ __all__ = [
     "Channel",
     "ChannelMessage",
     "DegenerateTurnError",
+    "TruncatedTurnError",
     "WebChannel",
     "EvaluatorOptimizer",
     "MCPClient",

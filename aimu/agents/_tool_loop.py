@@ -46,6 +46,16 @@ class DegenerateTurnError(RuntimeError):
     """
 
 
+class TruncatedTurnError(DegenerateTurnError):
+    """The model's turn was cut off at an output limit before it produced anything usable.
+
+    A subclass because the loop's outcome is the same -- no answer -- but the cause is not the model
+    failing to answer, it is the model never getting the room to. The loop raises this *instead of*
+    injecting its continuation nudge, because the nudge adds tokens to a request that already had
+    none to spare: retrying makes each turn shorter than the last rather than better.
+    """
+
+
 def classify_terminal_turn(messages: list[dict]) -> str:
     """Classify the transcript's most recent turn as pending-tools, empty, or healthy.
 
@@ -131,6 +141,23 @@ class _BaseToolLoop:
                 break
         return []
 
+    def _raise_if_truncated(self) -> None:
+        """Turn a provider's "output ran out of room" report into a typed error, with the numbers.
+
+        Only called where the turn came back with nothing usable. A truncated turn that still carries
+        an answer is a caller's own ``max_tokens`` doing its job, and is left alone.
+        """
+        if not getattr(self._client, "last_output_truncated", False):
+            return
+        usage = getattr(self._client, "last_usage", None) or {}
+        spent = usage.get("input_tokens")
+        detail = f" The prompt used {spent} input tokens." if spent else ""
+        raise TruncatedTurnError(
+            "The model's output was cut off before it produced an answer, so there is nothing to "
+            f"continue from.{detail} Shorten the conversation or advertise fewer tools, or raise the "
+            "model's context window (for Ollama, num_ctx / OLLAMA_CONTEXT_LENGTH)."
+        )
+
     def _tag_injected(self, index: int, provenance: str) -> None:
         messages = self._client.messages
         if 0 <= index < len(messages) and messages[index].get("role") == "user":
@@ -189,7 +216,10 @@ class _ToolLoop(_BaseToolLoop):
                 response = self._client.chat(generate_kwargs=generate_kwargs, tools=self._current_tools())
             elif state == TERMINAL_EMPTY:
                 # A degenerate empty turn: nudge with tools still enabled so the model can resume
-                # a multi-step plan (not just answer from nothing).
+                # a multi-step plan (not just answer from nothing). Unless the turn was empty because
+                # it was cut off, in which case there is nothing to resume and nudging only shrinks
+                # the next one.
+                self._raise_if_truncated()
                 injected_at = len(self._client.messages)
                 response = self._client.chat(
                     self._continuation_prompt, generate_kwargs=generate_kwargs, tools=self._current_tools()
@@ -225,6 +255,7 @@ class _ToolLoop(_BaseToolLoop):
                     iteration,
                 )
             elif state == TERMINAL_EMPTY:
+                self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
                 iteration += 1
                 injected_at = len(self._client.messages)
                 yield from self._retag(
@@ -251,6 +282,7 @@ class _ToolLoop(_BaseToolLoop):
             )
             self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
             if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+                self._raise_if_truncated()  # says which of the two failures this was
                 raise DegenerateTurnError(
                     "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
                 )
@@ -269,6 +301,7 @@ class _ToolLoop(_BaseToolLoop):
         response = self._client.chat(self._wrap_up_prompt(), generate_kwargs=generate_kwargs, use_tools=False, tools=[])
         self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
         if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+            self._raise_if_truncated()  # says which of the two failures this was
             raise DegenerateTurnError(
                 "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
             )

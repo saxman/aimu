@@ -54,7 +54,10 @@ class _AsyncToolLoop(_BaseToolLoop):
                 response = await self._client.chat(generate_kwargs=generate_kwargs, tools=self._current_tools())
             elif state == TERMINAL_EMPTY:
                 # A degenerate empty turn: nudge with tools still enabled so the model can resume
-                # a multi-step plan (not just answer from nothing).
+                # a multi-step plan (not just answer from nothing). Unless the turn was empty because
+                # it was cut off, in which case there is nothing to resume and nudging only shrinks
+                # the next one.
+                self._raise_if_truncated()
                 injected_at = len(self._client.messages)
                 response = await self._client.chat(
                     self._continuation_prompt, generate_kwargs=generate_kwargs, tools=self._current_tools()
@@ -91,6 +94,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                 async for chunk in stream:
                     yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
             elif state == TERMINAL_EMPTY:
+                self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
                 iteration += 1
                 injected_at = len(self._client.messages)
                 stream = await self._client.chat(
@@ -112,6 +116,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                 yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
             self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
             if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+                self._raise_if_truncated()  # says which of the two failures this was
                 raise DegenerateTurnError(
                     "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
                 )
@@ -131,6 +136,7 @@ class _AsyncToolLoop(_BaseToolLoop):
         )
         self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
         if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+            self._raise_if_truncated()  # says which of the two failures this was
             raise DegenerateTurnError(
                 "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
             )

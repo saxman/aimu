@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.14.2 (2026-08-16): a turn cut off by the context window is no longer mistaken for a degenerate one
+
+### Agents
+
+- **Change** **An empty turn the provider reports as truncated raises `TruncatedTurnError` instead of being nudged** (`aimu.agents` / `aimu.aio`; a subclass of `DegenerateTurnError`, so an existing handler keeps working). The tool loop treats an assistant turn with no content and no tool calls as degenerate and injects its continuation prompt to recover. That is right when a small model simply fumbled a turn, and exactly wrong when the turn was cut off for want of output room: the nudge *adds* tokens to a request that had none to spare, so each retry gets a shorter turn than the last and the loop spends its whole round budget before the forced wrap-up.
+  Observed against a 26B model on Ollama with a long conversation and 26 advertised tools: a prompt of 32,693 tokens in a 32,768 window left 75 tokens to generate, and seven rounds of reasoning shrank from ~330 to ~70 tokens with nothing usable at any point. The loop now stops at the first such turn and says what happened, naming the input-token count and the three ways out (shorter conversation, fewer tools, bigger context window). A truncated turn that *does* carry an answer is untouched, since that is a caller's own `max_tokens` doing its job.
+- **New** **`client.last_output_truncated`** (`bool`, alongside `last_usage` on both the sync and async clients). True when the provider reports the generation stopped for want of room rather than at the model's own stopping point. Set by the Ollama provider from `done_reason == "length"` on every response path (chat, generate, and both streamed forms); every other provider leaves it False, so nothing else changes behavior.
+
 ## v0.14.1 (2026-08-16): host-provided script environment, and a shutdown hang
 
 ### Skills

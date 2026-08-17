@@ -11,7 +11,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from aimu.models._internal.usage import usage_from_anthropic, usage_from_ollama, usage_from_openai
+from aimu.models._internal.usage import (
+    truncated_from_ollama,
+    usage_from_anthropic,
+    usage_from_ollama,
+    usage_from_openai,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -34,6 +39,13 @@ def test_usage_from_ollama_reads_attribute_or_mapping():
     assert usage_from_ollama(attr_response) == {"input_tokens": 2, "output_tokens": 4, "total_tokens": 6}
     dict_response = {"prompt_eval_count": 8, "eval_count": 1}
     assert usage_from_ollama(dict_response) == {"input_tokens": 8, "output_tokens": 1, "total_tokens": 9}
+
+
+def test_truncated_from_ollama_reads_attribute_or_mapping():
+    assert truncated_from_ollama(SimpleNamespace(done_reason="length")) is True
+    assert truncated_from_ollama({"done_reason": "length"}) is True
+    assert truncated_from_ollama(SimpleNamespace(done_reason="stop")) is False
+    assert truncated_from_ollama(SimpleNamespace()) is False  # older servers omit the field
 
 
 def test_usage_none_when_provider_omits_it():

@@ -1,4 +1,4 @@
-"""Normalize provider-specific token-usage payloads into one plain dict.
+"""Normalize provider-specific per-response metadata: token usage, and whether output was cut off.
 
 Every provider returns token counts on its response object under different field
 names (OpenAI: ``prompt_tokens``/``completion_tokens``; Anthropic:
@@ -60,17 +60,27 @@ def usage_from_anthropic(response: Any) -> Optional[dict]:
     return result
 
 
-def usage_from_ollama(response: Any) -> Optional[dict]:
-    """Extract usage from an Ollama native ``generate`` / ``chat`` response.
+def _ollama_field(response: Any, key: str) -> Any:
+    """One field of an Ollama response, read defensively.
 
-    Ollama responses behave like mappings *and* attribute objects depending on
-    version; read defensively via ``getattr`` with a dict fallback.
+    Ollama responses behave like mappings *and* attribute objects depending on version.
     """
+    value = getattr(response, key, None)
+    if value is None and isinstance(response, dict):
+        value = response.get(key)
+    return value
 
-    def _get(key: str) -> Optional[int]:
-        value = getattr(response, key, None)
-        if value is None and isinstance(response, dict):
-            value = response.get(key)
-        return value
 
-    return _usage_dict(_get("prompt_eval_count"), _get("eval_count"))
+def usage_from_ollama(response: Any) -> Optional[dict]:
+    """Extract usage from an Ollama native ``generate`` / ``chat`` response."""
+    return _usage_dict(_ollama_field(response, "prompt_eval_count"), _ollama_field(response, "eval_count"))
+
+
+def truncated_from_ollama(response: Any) -> bool:
+    """Whether Ollama stopped this response at a limit rather than at the model's own stopping point.
+
+    ``done_reason == "length"`` covers both ways output runs out: a ``num_predict`` cap, and a prompt
+    that leaves too little of ``num_ctx`` to generate in. The second is the one worth surfacing, because
+    it looks exactly like a model that answered with nothing.
+    """
+    return _ollama_field(response, "done_reason") == "length"

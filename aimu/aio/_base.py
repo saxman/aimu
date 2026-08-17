@@ -36,6 +36,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
     messages: list[dict]
     last_thinking: str | None
     last_usage: dict | None
+    last_output_truncated: bool
     last_structured: Any | None
 
     @abstractmethod
@@ -51,6 +52,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         self.tools: list = []
         self.last_thinking = ""
         self.last_usage = None
+        self.last_output_truncated = False
         self.last_structured = None
 
     @classproperty

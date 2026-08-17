@@ -251,6 +251,15 @@ class AsyncModelClient(AsyncBaseModelClient):
         self._client.last_usage = value
 
     @property
+    def last_output_truncated(self) -> bool:
+        """Whether the most recent response was cut off at an output limit rather than finishing."""
+        return self._client.last_output_truncated
+
+    @last_output_truncated.setter
+    def last_output_truncated(self, value: bool) -> None:
+        self._client.last_output_truncated = value
+
+    @property
     def last_structured(self):
         """Validated object from the most recent ``schema=`` call, or ``None`` (populated
         after a streamed structured call is fully consumed; mirrors :attr:`last_usage`)."""

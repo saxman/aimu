@@ -884,6 +884,35 @@ def test_agent_persistent_empty_turns_raise():
         agent.run("do something")
 
 
+def test_agent_empty_turn_that_was_truncated_raises_instead_of_nudging():
+    """An empty turn the provider reports as cut off is not a model that failed to answer, it is one
+    that ran out of room. The nudge would add tokens to a request that already had none to spare, so
+    the loop stops and says so instead of retrying its way to shorter and shorter turns."""
+    from aimu.agents import TruncatedTurnError
+    from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_KEY
+
+    client = MockModelClient(["", "never reached"])
+    client.last_output_truncated = True
+    client.last_usage = {"input_tokens": 32693, "output_tokens": 75, "total_tokens": 32768}
+    agent = Agent(client, name="squeezed")
+
+    with pytest.raises(TruncatedTurnError, match="32693"):
+        agent.run("summarize the news")
+
+    assert client._call_count == 1  # stopped at the truncated turn, no nudge round
+    assert not [m for m in client.messages if m.get(PROVENANCE_KEY) == PROVENANCE_CONTINUATION]
+
+
+def test_agent_truncated_but_answered_turn_is_left_alone():
+    """A caller's own ``max_tokens`` cutting a turn that still carries an answer is that setting
+    working, not a failure."""
+    client = MockModelClient(["a complete enough answer"])
+    client.last_output_truncated = True
+    agent = Agent(client, name="capped")
+
+    assert agent.run("do something") == "a complete enough answer"
+
+
 def test_agent_streamed_empty_turn_nudged_to_final_answer():
     client = MockModelClient(["", "streamed recovered"])
     agent = Agent(client, name="snudge")

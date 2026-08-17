@@ -70,6 +70,8 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         self.messages = []
         self.tools = []
         self.last_thinking = ""
+        self.last_usage = None
+        self.last_output_truncated = False
         self._responses = list(responses)
         self._call_count = 0
 

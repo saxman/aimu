@@ -1,4 +1,4 @@
-from ._tool_loop import DegenerateTurnError
+from ._tool_loop import DegenerateTurnError, TruncatedTurnError
 from .agent import Agent
 from .base import MessageHistory, Runner
 from .orchestrator_agent import OrchestratorAgent
@@ -16,6 +16,7 @@ __all__ = [
     # Agents (autonomous)
     "Agent",
     "DegenerateTurnError",
+    "TruncatedTurnError",
     "OrchestratorAgent",
     "SkillAgent",
     # Workflows (code-controlled)

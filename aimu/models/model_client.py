@@ -430,6 +430,20 @@ class ModelClient(BaseModelClient):
         self._client.last_usage = value
 
     @property
+    def last_output_truncated(self) -> bool:
+        """Whether the most recent response was cut off at an output limit rather than finishing.
+
+        True when the provider reports the generation stopped because it ran out of room (an explicit
+        ``max_tokens`` cap, or a prompt that left too little of the context window to generate in).
+        Only the Ollama provider reports this today; elsewhere it stays False.
+        """
+        return self._client.last_output_truncated
+
+    @last_output_truncated.setter
+    def last_output_truncated(self, value: bool) -> None:
+        self._client.last_output_truncated = value
+
+    @property
     def last_structured(self):
         """Validated object from the most recent ``schema=`` call, or ``None``.
 
