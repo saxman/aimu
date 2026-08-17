@@ -3,6 +3,9 @@ _ChatStateMixin, so this file covers only the async surface and async provider p
 
 from __future__ import annotations
 
+import types
+
+import ollama
 import pytest
 
 from aimu.models._internal.thinking import THINKING_KWARG, ResolvedThinking
@@ -85,3 +88,28 @@ async def test_async_invalid_value_raises():
         await client.chat("hi", thinking="xhigh")
 
     assert seen == []
+
+
+async def test_aio_ollama_maps_thinking_to_the_think_parameter(monkeypatch):
+    import aimu.aio.providers.ollama as aio_ollama
+    from aimu import aio
+
+    calls: list[dict] = []
+
+    async def record(**kw):
+        calls.append(kw)
+        # `response["message"]` is accessed with dot notation in `_chat` (it is a pydantic
+        # object on the real SDK), so the stand-in needs attribute access too.
+        message = types.SimpleNamespace(role="assistant", content="ok", tool_calls=None, thinking=None)
+        return {"message": message}
+
+    monkeypatch.setattr(aio_ollama, "usage_from_ollama", lambda *a, **k: None)
+    monkeypatch.setattr(aio_ollama, "truncated_from_ollama", lambda *a, **k: False)
+    monkeypatch.setattr(ollama, "AsyncClient", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None))
+    client = aio.client("ollama:qwen3.8:27b")
+    client._client._client = types.SimpleNamespace(chat=record, generate=record)
+
+    await client.chat("hi", thinking="low")
+
+    assert calls[0]["think"] == "low"
+    assert THINKING_KWARG not in calls[0]["options"]

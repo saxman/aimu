@@ -6,8 +6,12 @@ the per-provider wire translation. No server and no model weights required.
 
 from __future__ import annotations
 
+import types
+
+import ollama
 import pytest
 
+import aimu.models.providers.ollama as sync_ollama
 from aimu.models._internal.thinking import (
     THINKING_KWARG,
     THINKING_LEVELS,
@@ -16,6 +20,7 @@ from aimu.models._internal.thinking import (
     select_profile,
 )
 from aimu.models.base import AdHocModel, Model, ModelSpec
+from aimu.models.providers.ollama import OllamaModel
 
 
 def test_defaults_are_backward_compatible():
@@ -327,3 +332,66 @@ def test_invalid_value_raises_before_any_request():
         client.chat("hi", thinking="xhigh")
 
     assert seen == []
+
+
+def _ollama_recorder(monkeypatch, model):
+    """Construct an OllamaClient whose chat/generate only record their kwargs."""
+    from aimu.models.providers.ollama import OllamaClient
+
+    calls: list[dict] = []
+
+    def record(**kw):
+        calls.append(kw)
+        # `response["message"]` is accessed with dot notation in `_chat` (it is a pydantic
+        # object on the real SDK), so the stand-in needs attribute access too.
+        message = types.SimpleNamespace(role="assistant", content="ok", tool_calls=None, thinking=None)
+        return {"message": message}
+
+    monkeypatch.setattr(
+        ollama,
+        "Client",
+        lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=record, generate=record),
+    )
+    monkeypatch.setattr(sync_ollama, "usage_from_ollama", lambda *a, **k: None)
+    monkeypatch.setattr(sync_ollama, "truncated_from_ollama", lambda *a, **k: False)
+    return OllamaClient(model), calls
+
+
+@pytest.mark.parametrize(
+    "thinking,expected_think",
+    [(None, True), (True, True), (False, False), ("low", "low"), ("high", "high")],
+)
+def test_ollama_maps_thinking_to_the_think_parameter(monkeypatch, thinking, expected_think):
+    client, calls = _ollama_recorder(monkeypatch, OllamaModel.QWEN_3_8_27B)
+
+    client.chat("hi", thinking=thinking)
+
+    assert calls[0]["think"] == expected_think
+    assert THINKING_KWARG not in calls[0]["options"]
+
+
+def test_ollama_selects_the_instruct_profile_when_off(monkeypatch):
+    client, calls = _ollama_recorder(monkeypatch, OllamaModel.QWEN_3_8_27B)
+
+    client.chat("hi", thinking=False)
+
+    assert calls[0]["options"]["temperature"] == 0.7
+    assert calls[0]["options"]["presence_penalty"] == 1.5
+
+
+def test_ollama_keeps_the_thinking_profile_when_on(monkeypatch):
+    client, calls = _ollama_recorder(monkeypatch, OllamaModel.QWEN_3_8_27B)
+
+    client.chat("hi", thinking=True)
+
+    assert calls[0]["options"]["temperature"] == 1.0
+    assert calls[0]["options"]["presence_penalty"] == 0.0
+
+
+def test_ollama_caller_kwargs_still_win_over_the_selected_profile(monkeypatch):
+    client, calls = _ollama_recorder(monkeypatch, OllamaModel.QWEN_3_8_27B)
+
+    client.chat("hi", generate_kwargs={"temperature": 0.15}, thinking=False)
+
+    assert calls[0]["options"]["temperature"] == 0.15
+    assert calls[0]["options"]["presence_penalty"] == 1.5

@@ -8,6 +8,7 @@ from typing import AsyncIterator, Optional, Union
 import ollama
 
 from aimu.models._internal.image_input import _adapt_messages_for_ollama
+from aimu.models._internal.thinking import THINKING_KWARG, select_profile
 from aimu.models._internal.usage import truncated_from_ollama, usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.ollama import OllamaClient, OllamaModel
@@ -67,12 +68,26 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         return [m for m in cls.MODELS if m.supports_structured_output]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:
-        kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
+        caller = dict(generate_kwargs or {})
+        # Peek, do not pop: the request builders need it to set ``think``.
+        resolved = caller.get(THINKING_KWARG)
+        kwargs = {**select_profile(self.model, resolved), **caller}
 
         if "max_tokens" in kwargs:
             kwargs["num_predict"] = kwargs.pop("max_tokens")
 
         return kwargs
+
+    def _pop_think(self, generate_kwargs: dict) -> Union[bool, str]:
+        """Remove the resolved thinking request and return Ollama's ``think`` value.
+
+        Ollama's SDK accepts a bool or one of "low"/"medium"/"high", which is exactly the
+        portable vocabulary, so no mapping is needed.
+        """
+        resolved = generate_kwargs.pop(THINKING_KWARG, None)
+        if resolved is None:
+            return self.is_thinking_model
+        return resolved.level if resolved.level is not None else resolved.enabled
 
     async def _generate(
         self,
@@ -89,12 +104,13 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs, images=gen_images, response_format=response_format)
 
+        think = self._pop_think(generate_kwargs)
         response = await self._client.generate(
             model=self.model.value,
             prompt=prompt,
             images=gen_images,
             options=generate_kwargs,
-            think=self.is_thinking_model,
+            think=think,
             keep_alive=self.model_keep_alive_seconds,
             format=response_format,
         )
@@ -114,13 +130,14 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         images: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> AsyncIterator[StreamChunk]:
+        think = self._pop_think(generate_kwargs)
         response = await self._client.generate(
             model=self.model.value,
             prompt=prompt,
             images=images,
             options=generate_kwargs,
             stream=True,
-            think=self.is_thinking_model,
+            think=think,
             keep_alive=self.model_keep_alive_seconds,
             format=response_format,
         )
@@ -157,12 +174,13 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         if stream:
             return self._chat_streamed(generate_kwargs, tools, response_format=response_format)
 
+        think = self._pop_think(generate_kwargs)
         response = await self._client.chat(
             model=self.model.value,
             messages=_adapt_messages_for_ollama(self.messages),
             options=generate_kwargs,
             tools=tools,
-            think=self.is_thinking_model,
+            think=think,
             keep_alive=self.model_keep_alive_seconds,
             format=response_format,
         )
@@ -192,6 +210,8 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         self.last_usage = None
         self.last_output_truncated = False
 
+        think = self._pop_think(generate_kwargs)
+
         async def _open():
             return await self._client.chat(
                 model=self.model.value,
@@ -199,7 +219,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
                 options=generate_kwargs,
                 tools=tools,
                 stream=True,
-                think=self.is_thinking_model,
+                think=think,
                 keep_alive=self.model_keep_alive_seconds,
                 format=response_format,
             )
