@@ -395,3 +395,108 @@ def test_ollama_caller_kwargs_still_win_over_the_selected_profile(monkeypatch):
 
     assert calls[0]["options"]["temperature"] == 0.15
     assert calls[0]["options"]["presence_penalty"] == 1.5
+
+
+def _openai_compat_client(monkeypatch, cls, model, **ctor):
+    """Build an OpenAI-compat client with a recording SDK stub."""
+    import openai
+
+    calls: list[dict] = []
+
+    def create(**kw):
+        calls.append(kw)
+        message = types.SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)], usage=None)
+
+    monkeypatch.setattr(
+        openai,
+        "OpenAI",
+        lambda **kw: types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))
+        ),
+    )
+    return cls(model, **ctor), calls
+
+
+def test_openai_compat_emits_reasoning_effort_with_xhigh_ceiling(monkeypatch):
+    from aimu.models.providers.openai_compat import OllamaOpenAIClient, OllamaOpenAIModel
+
+    client, calls = _openai_compat_client(monkeypatch, OllamaOpenAIClient, OllamaOpenAIModel.QWEN_3_8_27B)
+
+    client.chat("hi", thinking="high")
+
+    assert calls[0]["reasoning_effort"] == "xhigh"
+    assert THINKING_KWARG not in calls[0]
+
+
+@pytest.mark.parametrize("level,expected", [("low", "low"), ("medium", "medium"), ("high", "xhigh")])
+def test_openai_compat_level_mapping(monkeypatch, level, expected):
+    from aimu.models.providers.openai_compat import OllamaOpenAIClient, OllamaOpenAIModel
+
+    client, calls = _openai_compat_client(monkeypatch, OllamaOpenAIClient, OllamaOpenAIModel.QWEN_3_8_27B)
+
+    client.chat("hi", thinking=level)
+
+    assert calls[0]["reasoning_effort"] == expected
+
+
+def test_openai_compat_disables_via_chat_template_kwargs(monkeypatch):
+    from aimu.models.providers.openai_compat import OllamaOpenAIClient, OllamaOpenAIModel
+
+    client, calls = _openai_compat_client(monkeypatch, OllamaOpenAIClient, OllamaOpenAIModel.QWEN_3_8_27B)
+
+    client.chat("hi", thinking=False)
+
+    assert calls[0]["extra_body"]["chat_template_kwargs"]["enable_thinking"] is False
+    assert "reasoning_effort" not in calls[0]
+
+
+def test_openai_compat_merges_a_caller_supplied_extra_body(monkeypatch):
+    from aimu.models.providers.openai_compat import OllamaOpenAIClient, OllamaOpenAIModel
+
+    client, calls = _openai_compat_client(monkeypatch, OllamaOpenAIClient, OllamaOpenAIModel.QWEN_3_8_27B)
+
+    client.chat(
+        "hi",
+        generate_kwargs={"extra_body": {"guided_regex": "[0-9]+"}},
+        thinking=False,
+    )
+
+    extra = calls[0]["extra_body"]
+    assert extra["guided_regex"] == "[0-9]+"  # caller's key survives
+    assert extra["chat_template_kwargs"]["enable_thinking"] is False
+
+
+def test_openai_cloud_never_sends_template_kwargs(monkeypatch):
+    from aimu.models.providers.openai.text import OpenAIClient, OpenAIModel
+
+    client, calls = _openai_compat_client(monkeypatch, OpenAIClient, OpenAIModel.GPT_4O)
+
+    client.chat("hi", thinking=False)  # GPT-4o is not a thinking model: warn and ignore
+
+    assert "extra_body" not in calls[0]
+    assert "reasoning_effort" not in calls[0]
+    assert THINKING_KWARG not in calls[0]
+
+
+def test_gemini_cloud_gate_blocks_chat_template_kwargs_and_warns(monkeypatch, caplog):
+    """GPT_4O above never reaches the gate at all (it isn't a thinking model, so resolution
+    short-circuits to None before ``_SUPPORTS_CHAT_TEMPLATE_KWARGS`` is ever consulted). This
+    test exercises the gate itself: GEMINI_2_5_FLASH is thinking=True and thinking_optional=True,
+    so ``thinking=False`` reaches ``_apply_resolved_thinking`` and must be rejected by the False
+    override rather than silently sent as a Qwen/vLLM template kwarg Google's endpoint doesn't
+    understand. If ``_SUPPORTS_CHAT_TEMPLATE_KWARGS`` were flipped back to True on GeminiClient,
+    this would fail: ``extra_body`` would appear in the request and no warning would be logged.
+    """
+    from aimu.models.providers.gemini.text import GeminiClient, GeminiModel
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    client, calls = _openai_compat_client(monkeypatch, GeminiClient, GeminiModel.GEMINI_2_5_FLASH)
+
+    with caplog.at_level("WARNING"):
+        client.chat("hi", thinking=False)
+
+    assert "extra_body" not in calls[0]
+    assert "reasoning_effort" not in calls[0]
+    assert THINKING_KWARG not in calls[0]
+    assert any("has no way to disable reasoning" in r.message for r in caplog.records)

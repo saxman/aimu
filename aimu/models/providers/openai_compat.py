@@ -31,6 +31,7 @@ from .._internal.audio_input import _build_audio_content_blocks
 from .._internal.image_input import _build_user_content_blocks
 from .._internal.message_meta import strip_inert_keys
 from .._internal.sdk_config import sdk_client_kwargs
+from .._internal.thinking import QWEN_REASONING_EFFORT, THINKING_KWARG
 from .._internal.usage import usage_from_openai
 from ._thinking import _ThinkingParser, _split_thinking
 
@@ -63,6 +64,10 @@ class OpenAICompatClient(BaseModelClient):
         "max_tokens": 1024,
         "temperature": 0.1,
     }
+
+    # ``chat_template_kwargs`` is a Qwen / vLLM template convention rather than part of the
+    # OpenAI API, so cloud subclasses whose servers would reject or ignore it opt out.
+    _SUPPORTS_CHAT_TEMPLATE_KWARGS = True
 
     def __init__(
         self,
@@ -99,9 +104,30 @@ class OpenAICompatClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_structured_output]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        if not generate_kwargs:
-            return self.default_generate_kwargs.copy()
-        return {**self.default_generate_kwargs, **generate_kwargs}
+        kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
+        return self._apply_resolved_thinking(kwargs)
+
+    def _apply_resolved_thinking(self, kwargs: dict) -> dict:
+        """Translate a resolved thinking request into OpenAI-compatible request fields."""
+        resolved = kwargs.pop(THINKING_KWARG, None)
+        if resolved is None:
+            return kwargs
+
+        if resolved.level is not None and self.model.thinking_levels:
+            kwargs["reasoning_effort"] = QWEN_REASONING_EFFORT[resolved.level]
+
+        if self._SUPPORTS_CHAT_TEMPLATE_KWARGS:
+            extra_body = dict(kwargs.get("extra_body") or {})
+            template_kwargs = dict(extra_body.get("chat_template_kwargs") or {})
+            template_kwargs["enable_thinking"] = resolved.enabled
+            extra_body["chat_template_kwargs"] = template_kwargs
+            kwargs["extra_body"] = extra_body
+        elif not resolved.enabled:
+            self._warn_once(
+                f"{self.model.value}: this provider has no way to disable reasoning; thinking=False ignored."
+            )
+
+        return kwargs
 
     @staticmethod
     def _with_response_format(generate_kwargs: dict, response_format: Optional[dict]) -> dict:

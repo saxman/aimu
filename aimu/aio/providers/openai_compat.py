@@ -68,6 +68,12 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         "temperature": 0.1,
     }
 
+    # ``chat_template_kwargs`` is a Qwen / vLLM template convention rather than part of the
+    # OpenAI API, so cloud subclasses whose servers would reject or ignore it opt out.
+    _SUPPORTS_CHAT_TEMPLATE_KWARGS = True
+    # Pure helper reused from the sync client; no I/O involved.
+    _apply_resolved_thinking = _SyncOpenAICompatClient._apply_resolved_thinking
+
     def __init__(
         self,
         model: Model,
@@ -103,9 +109,8 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         return [m for m in cls.MODELS if m.supports_structured_output]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        if not generate_kwargs:
-            return self.default_generate_kwargs.copy()
-        return {**self.default_generate_kwargs, **generate_kwargs}
+        kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
+        return self._apply_resolved_thinking(kwargs)
 
     async def _iter_stream(self, stream) -> AsyncIterator[StreamChunk]:
         self.last_thinking = ""
