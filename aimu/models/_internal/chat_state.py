@@ -9,11 +9,16 @@ Subclasses provide the underlying attributes via their own ``__init__``.
 
 from __future__ import annotations
 
+import logging
 import random
 import string
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Union
+
+from .thinking import THINKING_KWARG, resolve_thinking
+
+logger = logging.getLogger(__name__)
 
 
 class _ChatStateMixin:
@@ -110,6 +115,37 @@ class _ChatStateMixin:
             raise ValueError(
                 f"Model {self.model.name} does not support audio input. Use a model with supports_audio=True."
             )
+
+    def _warn_once(self, message: str) -> None:
+        """Log ``message`` at WARNING the first time only.
+
+        Thinking-control warnings are raised per call, so an agent loop would repeat one
+        message every round without this.
+        """
+        # Initialised lazily so no provider __init__ (nor FallbackClient, which mirrors
+        # BaseModelClient.__init__ by hand) has to be touched.
+        seen = getattr(self, "_warned_messages", None)
+        if seen is None:
+            seen = self._warned_messages = set()
+        if message in seen:
+            return
+        seen.add(message)
+        logger.warning(message)
+
+    def _apply_thinking(
+        self,
+        generate_kwargs: Optional[dict],
+        thinking: Optional[Union[bool, str]],
+    ) -> Optional[dict]:
+        """Resolve ``thinking=`` and carry the result in the generate_kwargs dict.
+
+        Returns ``generate_kwargs`` unchanged when there is nothing for a provider to do, so
+        ``thinking=None`` leaves every request path byte-for-byte as it was.
+        """
+        resolved = resolve_thinking(self.model, thinking, warn=self._warn_once)
+        if resolved is None:
+            return generate_kwargs
+        return {**(generate_kwargs or {}), THINKING_KWARG: resolved}
 
     def _append_message(self, message: dict) -> None:
         """Append ``message`` to ``self.messages``, stamping it with an append-time ``timestamp``.
