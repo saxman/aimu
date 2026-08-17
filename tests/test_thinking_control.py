@@ -52,3 +52,42 @@ def test_levels_without_thinking_is_rejected():
 def test_non_optional_without_thinking_is_rejected():
     with pytest.raises(ValueError, match="thinking_optional"):
         ModelSpec("m", thinking=False, thinking_optional=False)
+
+
+def test_qwen_3_6_thinking_profile_matches_its_card():
+    """Regression guard: the card specifies presence_penalty=0.0 in thinking mode. Ollama
+    carried 0.9 and HuggingFace carried 1.5 (the instruct value) before this fix."""
+    from aimu.models.providers.hf.text import HuggingFaceModel
+    from aimu.models.providers.ollama import OllamaModel
+
+    assert OllamaModel.QWEN_3_6_27B.generation_kwargs["presence_penalty"] == 0.0
+    assert HuggingFaceModel.QWEN_3_6_27B.generation_kwargs["presence_penalty"] == 0.0
+
+
+@pytest.mark.parametrize(
+    "member",
+    ["QWEN_3_5_9B", "QWEN_3_6_27B", "QWEN_3_8_27B"],
+)
+def test_qwen_models_carry_an_instruct_profile(member):
+    from aimu.models.providers.ollama import OllamaModel
+
+    profile = getattr(OllamaModel, member).nonthinking_generation_kwargs
+
+    assert profile["temperature"] == 0.7
+    assert profile["top_p"] == 0.80
+    assert profile["presence_penalty"] == 1.5
+
+
+def test_only_qwen_3_8_declares_effort_levels():
+    from aimu.models.providers.ollama import OllamaModel
+
+    assert OllamaModel.QWEN_3_8_27B.thinking_levels is True
+    assert OllamaModel.QWEN_3_6_27B.thinking_levels is False
+    assert OllamaModel.QWEN_3_5_9B.thinking_levels is False
+
+
+def test_gemini_2_5_pro_cannot_disable_reasoning():
+    from aimu.models.providers.gemini.text import GeminiModel
+
+    assert GeminiModel.GEMINI_2_5_PRO.thinking_optional is False
+    assert GeminiModel.GEMINI_2_5_FLASH.thinking_optional is True

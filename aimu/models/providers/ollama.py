@@ -20,17 +20,29 @@ logger = logging.getLogger(__name__)
 
 
 _GEMMA_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
-_QWEN_3_6_KWARGS = {
+# Qwen 3.6 and 3.8 share a thinking-mode profile; 3.5 differs only in presence_penalty.
+# Values are from each model card's thinking-mode row, verified 2026-08-17.
+_QWEN_THINKING_KWARGS = {
     "temperature": 1.0,
     "top_p": 0.95,
     "top_k": 20,
     "min_p": 0.0,
-    "presence_penalty": 0.9,
+    "presence_penalty": 0.0,
     "repetition_penalty": 1.0,
 }
-_QWEN_3_5_KWARGS = {**_QWEN_3_6_KWARGS, "presence_penalty": 1.5}
-# Qwen 3.8 recommends no presence penalty in thinking mode (which is on by default).
-_QWEN_3_8_KWARGS = {**_QWEN_3_6_KWARGS, "presence_penalty": 0.0}
+_QWEN_3_5_THINKING_KWARGS = {**_QWEN_THINKING_KWARGS, "presence_penalty": 1.5}
+# Qwen 3.6 35B-A3B's card gives a different presence_penalty for its "general tasks"
+# thinking row (1.5) than the 27B's (0.0), verified against both cards 2026-08-17.
+_QWEN_3_6_35B_THINKING_KWARGS = {**_QWEN_THINKING_KWARGS, "presence_penalty": 1.5}
+# Every Qwen 3.5 / 3.6 / 3.8 card specifies the same instruct-mode row.
+_QWEN_INSTRUCT_KWARGS = {
+    "temperature": 0.7,
+    "top_p": 0.80,
+    "top_k": 20,
+    "min_p": 0.0,
+    "presence_penalty": 1.5,
+    "repetition_penalty": 1.0,
+}
 _MUSE_GLIMMER_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
 
 
@@ -48,7 +60,9 @@ class OllamaModel(Model):
         tools=True,
         thinking=True,
         vision=True,
-        generation_kwargs=_QWEN_3_8_KWARGS,
+        generation_kwargs=_QWEN_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+        thinking_levels=True,
         structured_output=True,
     )
     QWEN_3_6_35B = ModelSpec(
@@ -56,7 +70,8 @@ class OllamaModel(Model):
         tools=True,
         thinking=True,
         vision=True,
-        generation_kwargs=_QWEN_3_6_KWARGS,
+        generation_kwargs=_QWEN_3_6_35B_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
         structured_output=True,
     )
     QWEN_3_6_27B = ModelSpec(
@@ -64,11 +79,18 @@ class OllamaModel(Model):
         tools=True,
         thinking=True,
         vision=True,
-        generation_kwargs=_QWEN_3_6_KWARGS,
+        generation_kwargs=_QWEN_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
         structured_output=True,
     )
     QWEN_3_5_9B = ModelSpec(
-        "qwen3.5:9b", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_5_KWARGS, structured_output=True
+        "qwen3.5:9b",
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_3_5_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+        structured_output=True,
     )
     QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True, structured_output=True)
     QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True, structured_output=True)

@@ -131,16 +131,29 @@ class ToolCallFormat(Enum):
         return ""
 
 
-_QWEN_KWARGS = {
+# Qwen 3.6 and 3.8 share a thinking-mode profile; 3.5 differs only in presence_penalty.
+# Values are from each model card's thinking-mode row, verified 2026-08-17.
+# Note: this path's _update_generate_kwargs drops presence_penalty entirely (Transformers'
+# generate() has no such concept), so only temperature/top_p/top_k/min_p actually affect
+# generation here. The corrected presence_penalty values are kept for catalog truthfulness.
+_QWEN_THINKING_KWARGS = {
     "temperature": 1.0,
     "top_p": 0.95,
+    "top_k": 20,
+    "min_p": 0.0,
+    "presence_penalty": 0.0,
+    "repetition_penalty": 1.0,
+}
+_QWEN_3_5_THINKING_KWARGS = {**_QWEN_THINKING_KWARGS, "presence_penalty": 1.5}
+# Every Qwen 3.5 / 3.6 / 3.8 card specifies the same instruct-mode row.
+_QWEN_INSTRUCT_KWARGS = {
+    "temperature": 0.7,
+    "top_p": 0.80,
     "top_k": 20,
     "min_p": 0.0,
     "presence_penalty": 1.5,
     "repetition_penalty": 1.0,
 }
-# Qwen 3.8 recommends no presence penalty in thinking mode (which is on by default).
-_QWEN_3_8_KWARGS = {**_QWEN_KWARGS, "presence_penalty": 0.0}
 
 
 class HuggingFaceModel(Model):
@@ -170,15 +183,32 @@ class HuggingFaceModel(Model):
     # Qwen 3.8 27B is dense (not MoE) but otherwise the same shape as the 3.6 pair below: one
     # repo holding language model + vision tower, XML tool calls, and a chat template that
     # appends the `<think>` opener to the prompt -- hence think_opener_in_prompt=True, matching
-    # Qwen 3.5. Its card recommends presence_penalty=0.0 in thinking mode, so it does not share
-    # _QWEN_KWARGS. FP8 is a separate member for the same hardware-gating reason as 3.6-FP8.
+    # Qwen 3.5. FP8 is a separate member for the same hardware-gating reason as 3.6-FP8.
+    # thinking_levels=True: Qwen/Qwen3.8-27B's chat_template.jinja reads a `reasoning_effort`
+    # kwarg (default "xhigh", validated against {"xhigh", "medium", "low"}), verified 2026-08-17.
     QWEN_3_8_27B = (
-        ModelSpec("Qwen/Qwen3.8-27B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_8_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.8-27B",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+            thinking_levels=True,
+        ),
         ToolCallFormat.XML,
         True,
     )
     QWEN_3_8_27B_FP8 = (
-        ModelSpec("Qwen/Qwen3.8-27B-FP8", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_8_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.8-27B-FP8",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+            thinking_levels=True,
+        ),
         ToolCallFormat.XML,
         True,
     )
@@ -198,17 +228,38 @@ class HuggingFaceModel(Model):
     # Both carry think_opener_in_prompt=True: 3.6's chat template appends the bare `<think>` opener
     # exactly as 3.5's and 3.8's do (the tails are byte-identical in that respect).
     QWEN_3_6_27B = (
-        ModelSpec("Qwen/Qwen3.6-27B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.6-27B",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+        ),
         ToolCallFormat.XML,
         True,
     )
     QWEN_3_6_27B_FP8 = (
-        ModelSpec("Qwen/Qwen3.6-27B-FP8", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.6-27B-FP8",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+        ),
         ToolCallFormat.XML,
         True,
     )
     QWEN_3_5_9B = (
-        ModelSpec("Qwen/Qwen3.5-9B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.5-9B",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_3_5_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+        ),
         ToolCallFormat.XML,
         True,
     )
