@@ -171,13 +171,12 @@ class OllamaClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_structured_output]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
-        if not generate_kwargs:
-            generate_kwargs = self.default_generate_kwargs
+        kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
 
-        if "max_tokens" in generate_kwargs:
-            generate_kwargs["num_predict"] = generate_kwargs.pop("max_tokens")
+        if "max_tokens" in kwargs:
+            kwargs["num_predict"] = kwargs.pop("max_tokens")
 
-        return generate_kwargs
+        return kwargs
 
     def _generate(
         self,

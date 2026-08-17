@@ -455,10 +455,7 @@ class HuggingFaceClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_audio]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-        if not generate_kwargs:
-            kwargs = self.model.generate_kwargs.copy()
-        else:
-            kwargs = generate_kwargs.copy()
+        kwargs = {**self.model.generate_kwargs, **(generate_kwargs or {})}
 
         if "max_tokens" in kwargs:
             kwargs["max_new_tokens"] = kwargs.pop("max_tokens")
