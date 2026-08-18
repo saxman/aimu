@@ -14,7 +14,7 @@ Use a `ModelClient` whenever you want a turn-by-turn conversation with a model: 
 |---|---|
 | A | Stateless text generation with `generate()`, streaming, and generation kwargs |
 | B | Multi-turn chat, message history, and custom system messages |
-| C | Thinking models: accessing `last_thinking` and filtering streamed phases |
+| C | Thinking models: `last_thinking`, filtering streamed phases, and steering effort with `thinking=` |
 | D | Tool calling: `@aimu.tool` functions, wrapping the client in an `Agent`, and MCP tools |
 | E | Parallel tool calls in one model turn |
 | F | HuggingFace model weight caching |
@@ -146,7 +146,7 @@ model_client.chat("Name a famous pirate from there.")
 
 ## C - Model Thinking
 
-Some models support extended reasoning (also called "thinking"), where the model works through a problem step-by-step before producing a final response. AIMU automatically enables thinking for models in `THINKING_MODELS` (e.g., `DEEPSEEK_R1_8B`, `QWEN_3_5_9B`, `GPT_OSS_20B`).
+Some models support extended reasoning (also called "thinking"), where the model works through a problem step-by-step before producing a final response. By default AIMU enables thinking for models in `THINKING_MODELS` (e.g., `DEEPSEEK_R1_8B`, `QWEN_3_5_9B`, `GPT_OSS_20B`); the `thinking=` parameter shown at the end of this section overrides that per call.
 
 A thinking model must be used for the cells in this section.
 
@@ -211,6 +211,47 @@ else:
     adaptive.generate("Compute the sum of all integers from 1 to 200 that are divisible by 7. Show your work.")
     print(f"Reasoning prompt -> {len(adaptive.last_thinking)} thinking chars (the model chose to think)")
 ```
+
+### Steering reasoning with `thinking=`
+
+Reasoning is not free: it costs tokens and latency, and on a trivial question it buys nothing. `thinking=` on `chat()` and `generate()` turns it off or dials its effort, using one vocabulary across providers.
+
+```python
+client.generate("What is 2 + 2?", thinking=False)                  # skip reasoning entirely
+client.generate("Design a cache eviction policy.", thinking="high")  # reason hard
+```
+
+The four forms are `None` (leave the provider's own behavior alone), `False`, `True`, and `"low"` / `"medium"` / `"high"`.
+
+One rule governs what happens when a model cannot do what you asked: **the argument is validated, the model never is.** A typo raises immediately, but a model that cannot honour a valid request logs a warning and answers anyway. That is deliberate, and it is what makes the parameter safe to leave in place while you swap models: `thinking="high"` against a model with no effort control still returns an answer, at that model's default effort.
+
+Turning reasoning off also switches the sampling profile where the model card specifies a different one. Qwen 3.8 wants `temperature=1.0, presence_penalty=0.0` while reasoning and `temperature=0.7, presence_penalty=1.5` in instruct mode, and AIMU applies the right one automatically.
+
+```{python}
+import logging
+
+# The warning path is the interesting half, so make it visible.
+logging.basicConfig(level=logging.WARNING, force=True)
+
+print("--- reasoning off ---")
+print(model_client.generate("What is 2 + 2?", thinking=False))
+print(f"thinking chars: {len(model_client.last_thinking)}")
+
+print("\n--- reasoning on, low effort (a warning here means this model has no level control) ---")
+print(model_client.generate("What is 2 + 2?", thinking="low"))
+print(f"thinking chars: {len(model_client.last_thinking)}")
+```
+
+An invalid value is the one case that raises, because silently ignoring a typo would leave you paying for full-effort reasoning while believing you had asked for less. Note that `"xhigh"` is rejected even though it is Qwen's own native ceiling: AIMU's portable vocabulary stops at `"high"`, which it maps to `xhigh` for you on Qwen models.
+
+```{python}
+try:
+    model_client.generate("hi", thinking="xhigh")
+except ValueError as exc:
+    print(f"ValueError: {exc}")
+```
+
+See [Control thinking effort](https://saxman.github.io/aimu/how-to/control-thinking/) for the per-provider mechanisms and the models that accept effort levels.
 
 ## D - Tool Usage
 

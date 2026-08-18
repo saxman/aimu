@@ -62,6 +62,26 @@ aimu.client("lmstudio:qwen3.5-9b", base_url="http://myserver:1234/v1")
 
 - **`OpenAIClient`** overrides `_update_generate_kwargs` for o-series models (o1/o3/o4): renames `max_tokens → max_completion_tokens` and forces `temperature=1`.
 - **`AnthropicClient`** stores `self.messages` in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not `<think>` tag parsing), built per the model's `ThinkingStyle`: `enabled` (`{"type": "enabled", "budget_tokens": N}`) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or `adaptive` (`{"type": "adaptive", "display": "summarized"}`, sampling params dropped) for Opus 4.7+ / Fable 5. See the [model matrix](model-matrix.md#anthropic-anthropicmodel).
+!!! note "Thinking control per provider"
+    The portable [`thinking=`](../how-to/control-thinking.md) parameter reaches each backend
+    differently, and two of them cannot express it at all today:
+
+    | Client | Turn reasoning off | Set an effort level |
+    |---|---|---|
+    | `OllamaClient` | `think=False` | `think="low"/"medium"/"high"` |
+    | OpenAI-compat local servers | `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` | `reasoning_effort`, with `high` sent as Qwen's `xhigh` |
+    | `AnthropicClient` | omits the `thinking` parameter | `budget_tokens`: 2048 / 8000 / 16000; adaptive-style models warn and ignore a level |
+    | `HuggingFaceClient` | `enable_thinking=False` template kwarg | `reasoning_effort` template kwarg |
+    | `LlamaCppClient`, `OpenAIClient`, `GeminiClient` | nothing emitted | nothing emitted |
+
+    `chat_template_kwargs` is a Qwen and vLLM *template* convention rather than part of the
+    OpenAI API, so the two cloud subclasses opt out of it via
+    `_SUPPORTS_CHAT_TEMPLATE_KWARGS = False` and warn instead of sending a field their endpoint
+    would not honour. Gemini is a deferred case rather than an impossible one: Google's endpoint
+    does accept `reasoning_effort`, but its vocabulary (`minimal/low/medium/high/none`) excludes
+    the `xhigh` that AIMU's shared Qwen mapping sends for `high`, so a correct Gemini mapping
+    needs its own effort vocabulary.
+
 - **`GeminiClient`** uses Google's OpenAI-compatible endpoint. Gemini 2.5 thinking models emit `<think>` tags on this endpoint, so the shared `_ThinkingParser` works as-is.
 - **`OllamaClient`** (native API) supports vision via the message-level `images=` field; only inline base64 / data URLs work, http(s) URLs raise `ValueError`.
 - **`LlamaCppClient`** loads GGUF files in-process. Vision needs an `mmproj` projector via the `chat_handler=` kwarg (e.g. `Llava15ChatHandler(clip_model_path=...)`).

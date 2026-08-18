@@ -14,7 +14,7 @@ One model is often reachable through several providers (Qwen3 8B runs on Ollama,
 
 ### Keep capability flags consistent across providers
 
-Because a bare name can resolve to any provider that offers it, a shared name must describe the **same model**. The *intrinsic* capability flags (`tools`, `thinking`, `vision`) describe the weights, not the server, so they should agree everywhere the name appears. `tests/test_model_catalog_consistency.py` enforces this: adding `QWEN_3_8B` to a new provider but forgetting `thinking=True` fails the suite.
+Because a bare name can resolve to any provider that offers it, a shared name must describe the **same model**. The *intrinsic* capability flags (`tools`, `thinking`, `vision`, `thinking_levels`, `thinking_optional`) describe the weights, not the server, so they should agree everywhere the name appears. `tests/test_model_catalog_consistency.py` enforces this: adding `QWEN_3_8B` to a new provider but forgetting `thinking=True` fails the suite.
 
 Two flags are excluded from that check because they genuinely describe the **serving path**, not the model, and so vary by provider:
 
@@ -59,7 +59,47 @@ QWEN_3_8B = ModelSpec(
 )
 ```
 
-`generation_kwargs` is merged on top of the client's defaults whenever `chat()` or `generate()` is called without an explicit `generate_kwargs` argument.
+`generation_kwargs` is merged on top of the client's defaults on every `chat()` / `generate()` call, per key: a caller's `generate_kwargs` overrides the keys it names and leaves the rest of the profile intact. (Before v0.15 an explicit `generate_kwargs` *replaced* the profile wholesale on the Ollama and HuggingFace paths, silently discarding the model's tuned sampling.)
+
+### Thinking-control fields
+
+Three optional fields describe how a reasoning model can be *steered*, and back the portable
+[`thinking=`](control-thinking.md) parameter. Leaving them at their defaults is always safe.
+
+```python
+QWEN_3_8_27B = ModelSpec(
+    "qwen3.8:27b",
+    tools=True,
+    thinking=True,
+    vision=True,
+    thinking_levels=True,                                   # accepts low / medium / high
+    generation_kwargs=_QWEN_THINKING_KWARGS,                # sampling while reasoning
+    nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,     # sampling with reasoning off
+)
+```
+
+- **`thinking_levels`** (default `False`): the model accepts an effort level. **Under-declare
+  this.** A missing declaration degrades to a warning and a correct answer, because the
+  resolver drops the level and the model answers at its default effort. A wrong declaration
+  risks emitting a value the backend rejects: Qwen 3.8's chat template calls
+  `raise_exception` on an effort outside `{xhigh, medium, low}`, and Google's endpoint accepts
+  `minimal/low/medium/high/none` but not `xhigh`. Set it only once you have checked what the
+  model's template or API actually accepts.
+- **`thinking_optional`** (default `True`): set `False` when the model *always* reasons and
+  cannot be turned off, as `GEMINI_2_5_PRO` cannot. `thinking=False` against such a model
+  warns and proceeds, so the caller is billed for reasoning they asked to skip.
+- **`nonthinking_generation_kwargs`** (default `None`): the sampling profile the model card
+  specifies for instruct mode, selected automatically when thinking resolves off. When it is
+  `None`, `generation_kwargs` applies in both modes. Qwen's cards differ meaningfully between
+  the two: 3.8 wants `temperature=1.0, top_p=0.95, presence_penalty=0.0` while reasoning and
+  `temperature=0.7, top_p=0.80, presence_penalty=1.5` in instruct mode.
+
+`ModelSpec.__post_init__` rejects `thinking_levels=True` or `thinking_optional=False` on a
+member whose `thinking` is `False`, since neither means anything without reasoning.
+
+Declaring the flag is only half the job: the provider client also has to be able to express it
+on the wire. See [Control thinking effort](control-thinking.md) for the per-provider mechanisms
+and [Add or update a provider](add-new-provider.md) for the reserved-key contract.
 
 ## HuggingFace provider-specific extras
 
