@@ -2456,6 +2456,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generation-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generation parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#notes-per-provider" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3074,6 +3085,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generation-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generation parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#notes-per-provider" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3326,6 +3348,54 @@
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># LM Studio: non-default port</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"lmstudio:qwen3.5-9b"</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">"http://myserver:1234/v1"</span><span class="p">)</span>
 </span></code></pre></div>
+<h2 id="generation-parameters">Generation parameters<a class="headerlink" href="#generation-parameters" title="Permanent link">&para;</a></h2>
+<p>Sampling parameters come from four places. They are merged <strong>per parameter</strong> on every call, in
+this order, so a lower tier only supplies what no higher tier set:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Source</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>Client.DEFAULT_GENERATE_KWARGS</code></td>
+<td>AIMU's own fallbacks (<code>max_tokens=1024</code>) for what nobody else sets</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>ModelSpec.generation_kwargs</code></td>
+<td>the sampling the model card recommends (see the <a href="../model-matrix/">model matrix</a>)</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>client.default_generate_kwargs</code></td>
+<td><strong>your</strong> standing choice for every call on this client</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>chat(generate_kwargs={...})</code></td>
+<td><strong>your</strong> choice for one call</td>
+</tr>
+</tbody>
+</table>
+<p>Tier 3 is the one to reach for when a setting should apply to a whole conversation:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.5:9b"</span><span class="p">)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">client</span><span class="o">.</span><span class="n">default_generate_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"temperature"</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span> <span class="s2">"num_ctx"</span><span class="p">:</span> <span class="mi">16384</span><span class="p">}</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"summarise this"</span><span class="p">)</span>                                    <span class="c1"># temperature 0.2</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"now be creative"</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"temperature"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">})</span>  <span class="c1"># 1.0, just this call</span>
+</span></code></pre></div>
+<p>It starts empty on every provider, and it is an <em>input</em>, not a report: reading it back shows what
+you set, not the effective request. Assign a whole dict or mutate it in place; both work, and both
+propagate through the <code>ModelClient</code> wrapper that <code>aimu.client()</code> returns, through
+<code>agent.as_model_client()</code>, and down a <code>FallbackClient</code>'s chain.</p>
+<p>Tier 1 sits <em>below</em> the model card on purpose: AIMU's generic <code>temperature=0.1</code> must not override
+the tuned value a card specifies. Provider-specific rewrites run <em>after</em> the merge and can still
+override you where an API demands it (see the notes below).</p>
 <h2 id="notes-per-provider">Notes per provider<a class="headerlink" href="#notes-per-provider" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>OpenAIClient</code></strong> overrides <code>_update_generate_kwargs</code> for o-series models (o1/o3/o4): renames <code>max_tokens → max_completion_tokens</code> and forces <code>temperature=1</code>.</li>

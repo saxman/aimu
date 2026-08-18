@@ -3292,7 +3292,47 @@
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">generation_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"temperature"</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span> <span class="s2">"top_p"</span><span class="p">:</span> <span class="mf">0.95</span><span class="p">,</span> <span class="s2">"top_k"</span><span class="p">:</span> <span class="mi">20</span><span class="p">},</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
 </span></code></pre></div>
-<p><code>generation_kwargs</code> is merged on top of the client's defaults on every <code>chat()</code> / <code>generate()</code> call, per key: a caller's <code>generate_kwargs</code> overrides the keys it names and leaves the rest of the profile intact. (Before v0.15 an explicit <code>generate_kwargs</code> <em>replaced</em> the profile wholesale on the Ollama and HuggingFace paths, silently discarding the model's tuned sampling.)</p>
+<p><code>generation_kwargs</code> is merged per key on every <code>chat()</code> / <code>generate()</code> call, never used as a
+replacement. Four tiers apply, lowest precedence first, identically on every provider:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Source</th>
+<th>Set by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>Client.DEFAULT_GENERATE_KWARGS</code></td>
+<td>the library, for parameters nobody else sets (<code>max_tokens</code>)</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>ModelSpec.generation_kwargs</code> (or <code>nonthinking_generation_kwargs</code>)</td>
+<td><strong>you, here</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>client.default_generate_kwargs</code></td>
+<td>the user, for every call on that client instance</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>chat(generate_kwargs={...})</code></td>
+<td>the user, for one call</td>
+</tr>
+</tbody>
+</table>
+<p>Tier 1 sits <em>under</em> your profile deliberately, so the library's own <code>temperature=0.1</code> cannot
+quietly beat a card's tuned value. Tiers 3 and 4 sit over it because they are explicit
+instructions from the caller. The chain is applied by <code>_merge_generate_kwargs()</code> (shared via
+<code>_ChatStateMixin</code>, backed by <code>merge_generate_kwargs()</code> in <code>aimu/models/_internal/thinking.py</code>),
+so a profile you add here takes effect wherever the model is served. (Before v0.15 an explicit
+<code>generate_kwargs</code> <em>replaced</em> the profile wholesale on the Ollama and HuggingFace paths, silently
+discarding the model's tuned sampling; until v0.15.1 the Anthropic, OpenAI-compatible, and
+llama.cpp paths ignored the profile entirely.)</p>
 <h3 id="thinking-control-fields">Thinking-control fields<a class="headerlink" href="#thinking-control-fields" title="Permanent link">&para;</a></h3>
 <p>Three optional fields describe how a reasoning model can be <em>steered</em>, and back the portable
 <a href="../control-thinking/"><code>thinking=</code></a> parameter. Leaving them at their defaults is always safe.</p>
