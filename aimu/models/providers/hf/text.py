@@ -5,6 +5,7 @@ from ..._internal.image_input import (
     _extract_pil_images,
     _replace_image_url_with_image_placeholder,
 )
+from ..._internal.thinking import QWEN_REASONING_EFFORT, THINKING_KWARG, ResolvedThinking, select_profile
 
 import torch
 from transformers import AutoTokenizer
@@ -131,16 +132,29 @@ class ToolCallFormat(Enum):
         return ""
 
 
-_QWEN_KWARGS = {
+# Qwen 3.6 and 3.8 share a thinking-mode profile; 3.5 differs only in presence_penalty.
+# Values are from each model card's thinking-mode row, verified 2026-08-17.
+# Note: this path's _update_generate_kwargs drops presence_penalty entirely (Transformers'
+# generate() has no such concept), so only temperature/top_p/top_k/min_p actually affect
+# generation here. The corrected presence_penalty values are kept for catalog truthfulness.
+_QWEN_THINKING_KWARGS = {
     "temperature": 1.0,
     "top_p": 0.95,
+    "top_k": 20,
+    "min_p": 0.0,
+    "presence_penalty": 0.0,
+    "repetition_penalty": 1.0,
+}
+_QWEN_3_5_THINKING_KWARGS = {**_QWEN_THINKING_KWARGS, "presence_penalty": 1.5}
+# Every Qwen 3.5 / 3.6 / 3.8 card specifies the same instruct-mode row.
+_QWEN_INSTRUCT_KWARGS = {
+    "temperature": 0.7,
+    "top_p": 0.80,
     "top_k": 20,
     "min_p": 0.0,
     "presence_penalty": 1.5,
     "repetition_penalty": 1.0,
 }
-# Qwen 3.8 recommends no presence penalty in thinking mode (which is on by default).
-_QWEN_3_8_KWARGS = {**_QWEN_KWARGS, "presence_penalty": 0.0}
 
 
 class HuggingFaceModel(Model):
@@ -170,15 +184,32 @@ class HuggingFaceModel(Model):
     # Qwen 3.8 27B is dense (not MoE) but otherwise the same shape as the 3.6 pair below: one
     # repo holding language model + vision tower, XML tool calls, and a chat template that
     # appends the `<think>` opener to the prompt -- hence think_opener_in_prompt=True, matching
-    # Qwen 3.5. Its card recommends presence_penalty=0.0 in thinking mode, so it does not share
-    # _QWEN_KWARGS. FP8 is a separate member for the same hardware-gating reason as 3.6-FP8.
+    # Qwen 3.5. FP8 is a separate member for the same hardware-gating reason as 3.6-FP8.
+    # thinking_levels=True: Qwen/Qwen3.8-27B's chat_template.jinja reads a `reasoning_effort`
+    # kwarg (default "xhigh", validated against {"xhigh", "medium", "low"}), verified 2026-08-17.
     QWEN_3_8_27B = (
-        ModelSpec("Qwen/Qwen3.8-27B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_8_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.8-27B",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+            thinking_levels=True,
+        ),
         ToolCallFormat.XML,
         True,
     )
     QWEN_3_8_27B_FP8 = (
-        ModelSpec("Qwen/Qwen3.8-27B-FP8", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_3_8_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.8-27B-FP8",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+            thinking_levels=True,
+        ),
         ToolCallFormat.XML,
         True,
     )
@@ -198,17 +229,38 @@ class HuggingFaceModel(Model):
     # Both carry think_opener_in_prompt=True: 3.6's chat template appends the bare `<think>` opener
     # exactly as 3.5's and 3.8's do (the tails are byte-identical in that respect).
     QWEN_3_6_27B = (
-        ModelSpec("Qwen/Qwen3.6-27B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.6-27B",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+        ),
         ToolCallFormat.XML,
         True,
     )
     QWEN_3_6_27B_FP8 = (
-        ModelSpec("Qwen/Qwen3.6-27B-FP8", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.6-27B-FP8",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+        ),
         ToolCallFormat.XML,
         True,
     )
     QWEN_3_5_9B = (
-        ModelSpec("Qwen/Qwen3.5-9B", tools=True, thinking=True, vision=True, generation_kwargs=_QWEN_KWARGS),
+        ModelSpec(
+            "Qwen/Qwen3.5-9B",
+            tools=True,
+            thinking=True,
+            vision=True,
+            generation_kwargs=_QWEN_3_5_THINKING_KWARGS,
+            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+        ),
         ToolCallFormat.XML,
         True,
     )
@@ -455,10 +507,11 @@ class HuggingFaceClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_audio]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-        if not generate_kwargs:
-            kwargs = self.model.generate_kwargs.copy()
-        else:
-            kwargs = generate_kwargs.copy()
+        caller = dict(generate_kwargs or {})
+        # Peek, do not pop: _apply_chat_template needs it.
+        resolved = caller.get(THINKING_KWARG)
+        profile = {**DEFAULT_GENERATE_KWARGS, **select_profile(self.model, resolved)}
+        kwargs = {**profile, **caller}
 
         if "max_tokens" in kwargs:
             kwargs["max_new_tokens"] = kwargs.pop("max_tokens")
@@ -476,7 +529,13 @@ class HuggingFaceClient(BaseModelClient):
         self,
         messages: list[dict],
         tools: Optional[list[dict]] = None,
+        thinking: Optional[ResolvedThinking] = None,
     ) -> Any:
+        enable_thinking = self.model.supports_thinking if thinking is None else thinking.enabled
+        template_extra: dict[str, Any] = {}
+        if thinking is not None and thinking.level is not None and self.model.thinking_levels:
+            template_extra["reasoning_effort"] = QWEN_REASONING_EFFORT[thinking.level]
+
         if self._hf_processor is not None:
             pil_images = _extract_pil_images(messages) if self.model.supports_vision else []
             audio_arrays = _extract_audio_arrays(messages) if self.model.supports_audio else []
@@ -489,7 +548,8 @@ class HuggingFaceClient(BaseModelClient):
                 tools=tools if self.model.supports_tools else None,
                 tokenize=False,
                 add_generation_prompt=True,
-                enable_thinking=self.model.supports_thinking,
+                enable_thinking=enable_thinking,
+                **template_extra,
             )
             processor_kwargs = {"text": text, "return_tensors": "pt"}
             if pil_images:
@@ -513,7 +573,8 @@ class HuggingFaceClient(BaseModelClient):
                 add_generation_prompt=True,
                 return_tensors="pt",
                 tokenize=False,
-                enable_thinking=True,
+                enable_thinking=enable_thinking,
+                **template_extra,
             )
         else:
             text = self._hf_tokenizer.apply_chat_template(
@@ -521,9 +582,10 @@ class HuggingFaceClient(BaseModelClient):
                 add_generation_prompt=True,
                 return_tensors="pt",
                 tokenize=False,
-                enable_thinking=True,
+                enable_thinking=enable_thinking,
                 tools=tools,
                 xml_tools=tools,
+                **template_extra,
             )
         return self._hf_tokenizer([text], return_tensors="pt").to(self._hf_model.device)
 
@@ -537,7 +599,10 @@ class HuggingFaceClient(BaseModelClient):
         self._pending_thinking_tokens = []
         self._parsed_tool_calls = None
 
-        model_inputs = self._apply_chat_template(messages, tools)
+        # Popped here, not peeked: this dict is splatted into generate() below, which
+        # rejects unknown keyword arguments.
+        thinking = generate_kwargs.pop(THINKING_KWARG, None)
+        model_inputs = self._apply_chat_template(messages, tools, thinking=thinking)
         generated_ids = self._hf_model.generate(**model_inputs, **generate_kwargs)
 
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
@@ -607,7 +672,10 @@ class HuggingFaceClient(BaseModelClient):
         self.last_thinking = None
         self._pending_thinking_tokens = []
 
-        model_inputs = self._apply_chat_template(messages, tools)
+        # Popped here, not peeked: this dict is splatted into generate() below, which
+        # rejects unknown keyword arguments.
+        thinking = generate_kwargs.pop(THINKING_KWARG, None)
+        model_inputs = self._apply_chat_template(messages, tools, thinking=thinking)
         self._hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
 
         # first part is always empty

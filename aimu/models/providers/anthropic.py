@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from .._internal.sdk_config import sdk_client_kwargs
 from ..base import BaseModelClient, Model, ModelSpec, StreamingContentType, StreamChunk, classproperty
 from .._internal.image_input import _build_user_content_blocks, _openai_blocks_to_anthropic
+from .._internal.thinking import THINKING_KWARG
 from .._internal.usage import usage_from_anthropic
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,10 @@ _DEFAULT_THINKING_BUDGET = 8000
 _THINKING_MAX_TOKENS_FLOOR = _DEFAULT_THINKING_BUDGET + 1024
 # Adaptive thinking shares max_tokens with the answer, so give it room to avoid truncation.
 _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR = 4096
+
+# Portable levels expressed as Anthropic token budgets. "medium" is the historical default,
+# so thinking="medium" and thinking=None agree.
+_THINKING_BUDGETS = {"low": 2048, "medium": _DEFAULT_THINKING_BUDGET, "high": 16000}
 
 
 class ThinkingStyle(Enum):
@@ -51,21 +56,36 @@ class AnthropicModel(Model):
         super().__init__(spec)
         self.thinking_style = thinking_style
 
+    # thinking_levels=True on every member: a portable level is always translated into an
+    # Anthropic-specific mechanism by _thinking_kwargs (a token budget for ENABLED, a warned
+    # no-op for ADAPTIVE), so the generic resolver must never strip it beforehand.
     CLAUDE_FABLE_5 = (
-        ModelSpec("claude-fable-5", tools=True, thinking=True, vision=True, structured_output=True),
+        ModelSpec(
+            "claude-fable-5", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+        ),
         ThinkingStyle.ADAPTIVE,
     )
     CLAUDE_OPUS_4_8 = (
-        ModelSpec("claude-opus-4-8", tools=True, thinking=True, vision=True, structured_output=True),
+        ModelSpec(
+            "claude-opus-4-8", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+        ),
         ThinkingStyle.ADAPTIVE,
     )
     CLAUDE_OPUS_4_7 = (
-        ModelSpec("claude-opus-4-7", tools=True, thinking=True, vision=True, structured_output=True),
+        ModelSpec(
+            "claude-opus-4-7", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+        ),
         ThinkingStyle.ADAPTIVE,
     )
-    CLAUDE_OPUS_4_6 = ModelSpec("claude-opus-4-6", tools=True, thinking=True, vision=True, structured_output=True)
-    CLAUDE_SONNET_4_6 = ModelSpec("claude-sonnet-4-6", tools=True, thinking=True, vision=True, structured_output=True)
-    CLAUDE_HAIKU_4_5 = ModelSpec("claude-haiku-4-5", tools=True, thinking=True, vision=True, structured_output=True)
+    CLAUDE_OPUS_4_6 = ModelSpec(
+        "claude-opus-4-6", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+    )
+    CLAUDE_SONNET_4_6 = ModelSpec(
+        "claude-sonnet-4-6", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+    )
+    CLAUDE_HAIKU_4_5 = ModelSpec(
+        "claude-haiku-4-5", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+    )
 
 
 class AnthropicClient(BaseModelClient):
@@ -127,6 +147,23 @@ class AnthropicClient(BaseModelClient):
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
 
+    def _strip_thinking_for_structured(self, generate_kwargs: dict) -> dict:
+        """Remove the reserved thinking key before a forced-tool structured-output request.
+
+        A forced ``tool_choice`` cannot coexist with extended thinking, so a ``thinking=``
+        request reaching this path is warned about once (not raised) and dropped, matching
+        this feature's warn-and-continue rule for a request a model cannot honour.
+        """
+        kwargs = generate_kwargs.copy()
+        resolved = kwargs.pop(THINKING_KWARG, None)
+        if resolved is not None and resolved.enabled:
+            thinking_value = resolved.level if resolved.level is not None else True
+            self._warn_once(
+                f"{self.model.value} structured output uses a forced tool, which is incompatible "
+                f"with extended thinking; thinking={thinking_value!r} is ignored."
+            )
+        return kwargs
+
     def _structured_call(self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict) -> str:
         """Anthropic structured output via a forced single tool.
 
@@ -136,6 +173,7 @@ class AnthropicClient(BaseModelClient):
         here must NOT carry the thinking param (callers route around ``_thinking_kwargs``).
         Returns the tool input as a JSON string so the base coerces it like every other provider.
         """
+        generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
         tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
         response = self._client.messages.create(
@@ -172,6 +210,7 @@ class AnthropicClient(BaseModelClient):
         """
         self.last_thinking = ""
         self.last_usage = None
+        generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
         tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
         with self._client.messages.stream(
@@ -210,21 +249,39 @@ class AnthropicClient(BaseModelClient):
         # Strip HuggingFace / other framework-specific keys the Anthropic API rejects
         for key in self._UNSUPPORTED_KWARGS:
             kwargs.pop(key, None)
-        # Anthropic rejects top_p alongside thinking; drop it unconditionally
-        kwargs.pop("top_p", None)
-        # Thinking models require temperature=1
-        if self.is_thinking_model:
+        # Anthropic rejects top_p alongside thinking, and thinking models require temperature=1,
+        # but only while thinking is actually in effect for this call. A resolved thinking=False
+        # means the caller's own sampling parameters belong in the request instead, so peek at
+        # (without popping) the reserved key here; _thinking_kwargs still needs it downstream to
+        # build/omit the thinking parameter.
+        resolved = kwargs.get(THINKING_KWARG)
+        thinking_disabled_this_call = resolved is not None and not resolved.enabled
+        if self.is_thinking_model and not thinking_disabled_this_call:
             kwargs["temperature"] = 1
+            kwargs.pop("top_p", None)
         return kwargs
 
     def _thinking_kwargs(self, generate_kwargs: dict) -> dict:
         """Inject the thinking parameter for thinking-capable models."""
-        if not self.is_thinking_model:
-            return generate_kwargs
         kwargs = generate_kwargs.copy()
+        resolved = kwargs.pop(THINKING_KWARG, None)
+
+        if not self.is_thinking_model:
+            return kwargs
+
+        if resolved is not None and not resolved.enabled:
+            # Omitting the parameter is how thinking is disabled. Sampling parameters are
+            # only stripped to satisfy extended thinking, so they stay put here.
+            return kwargs
+
         style = getattr(self.model, "thinking_style", ThinkingStyle.ENABLED)
 
         if style is ThinkingStyle.ADAPTIVE:
+            if resolved is not None and resolved.level is not None:
+                self._warn_once(
+                    f"{self.model.value} uses adaptive thinking and chooses its own effort; "
+                    f"thinking={resolved.level!r} ignored."
+                )
             # Adaptive models reject budget_tokens and all sampling params; the model
             # decides whether to think. Give thinking room within the shared max_tokens.
             kwargs.pop("thinking_budget_tokens", None)
@@ -235,7 +292,11 @@ class AnthropicClient(BaseModelClient):
             kwargs["thinking"] = {"type": "adaptive", "display": "summarized"}
             return kwargs
 
-        budget = kwargs.pop("thinking_budget_tokens", _DEFAULT_THINKING_BUDGET)
+        budget = kwargs.pop("thinking_budget_tokens", None)
+        if budget is None and resolved is not None and resolved.level is not None:
+            budget = _THINKING_BUDGETS[resolved.level]
+        if budget is None:
+            budget = _DEFAULT_THINKING_BUDGET
         # max_tokens must exceed the thinking budget
         if kwargs.get("max_tokens", 0) <= budget:
             kwargs["max_tokens"] = budget + 1024

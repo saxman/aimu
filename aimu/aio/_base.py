@@ -119,6 +119,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         audio: Optional[list] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Single-turn, stateless async generation. See sync :meth:`BaseModelClient.generate`.
 
@@ -126,7 +127,16 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         for models that don't support the respective modality. The call stays stateless
         (does not touch ``self.messages``). Passing both raises ``ValueError``. ``schema``
         mirrors the sync surface; see :meth:`chat`.
+
+        Args:
+            thinking: Optional thinking control. ``None`` (default) leaves the provider's
+                own behavior untouched. ``False`` disables reasoning and selects the model's
+                instruct-mode sampling profile; ``True`` enables it at the model's default
+                effort; ``"low"``/``"medium"``/``"high"`` sets the effort level. A model that
+                cannot honour the request logs a warning and continues, so models stay
+                swappable; an unrecognised value raises ``ValueError``.
         """
+        generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if images and audio:
             raise ValueError("Pass either images= or audio= per call, not both.")
         if images:
@@ -153,6 +163,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         tools: Optional[list] = None,
         audio: Optional[list] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """One async model turn against the persistent message history.
 
@@ -168,7 +179,16 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         ``async for``. With ``schema`` + ``stream=True`` the stream ends in a terminal
         ``DONE`` chunk carrying ``{"result": <object>}`` and sets ``self.last_structured``
         (Anthropic streams the JSON but emits no thinking; see the sync surface).
+
+        Args:
+            thinking: Optional thinking control. ``None`` (default) leaves the provider's
+                own behavior untouched. ``False`` disables reasoning and selects the model's
+                instruct-mode sampling profile; ``True`` enables it at the model's default
+                effort; ``"low"``/``"medium"``/``"high"`` sets the effort level. A model that
+                cannot honour the request logs a warning and continues, so models stay
+                swappable; an unrecognised value raises ``ValueError``.
         """
+        generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if schema is not None:
             if stream:
                 return self._chat_structured_streamed(

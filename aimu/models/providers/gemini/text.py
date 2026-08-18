@@ -19,8 +19,16 @@ class GeminiModel(Model):
     GEMINI_1_5_PRO = ModelSpec("gemini-1.5-pro", tools=True, vision=True, structured_output=True)
     GEMINI_1_5_FLASH = ModelSpec("gemini-1.5-flash", tools=True, vision=True, structured_output=True)
     # Thinking models expose reasoning via <think>...</think> tags on this endpoint
+    # thinking_optional=False: Google's API rejects a zero thinking budget for 2.5 Pro
+    # (reasoning cannot be disabled for this model), verified 2026-08-17.
     GEMINI_2_5_PRO = ModelSpec(
-        "gemini-2.5-pro", tools=True, thinking=True, vision=True, audio=True, structured_output=True
+        "gemini-2.5-pro",
+        tools=True,
+        thinking=True,
+        vision=True,
+        audio=True,
+        structured_output=True,
+        thinking_optional=False,
     )
     GEMINI_2_5_FLASH = ModelSpec(
         "gemini-2.5-flash", tools=True, thinking=True, vision=True, audio=True, structured_output=True
@@ -34,6 +42,10 @@ class GeminiClient(OpenAICompatClient):
     """
 
     MODELS = GeminiModel
+
+    # Google's endpoint has no chat-template convention; ``enable_thinking`` is a Qwen/vLLM
+    # concept and would be rejected or silently ignored here.
+    _SUPPORTS_CHAT_TEMPLATE_KWARGS = False
 
     def __init__(
         self,

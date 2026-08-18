@@ -9,11 +9,16 @@ Subclasses provide the underlying attributes via their own ``__init__``.
 
 from __future__ import annotations
 
+import logging
 import random
 import string
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Union
+
+from .thinking import THINKING_KWARG, ResolvedThinking, resolve_thinking
+
+logger = logging.getLogger(__name__)
 
 
 class _ChatStateMixin:
@@ -110,6 +115,51 @@ class _ChatStateMixin:
             raise ValueError(
                 f"Model {self.model.name} does not support audio input. Use a model with supports_audio=True."
             )
+
+    def _warn_once(self, message: str) -> None:
+        """Log ``message`` at WARNING the first time only.
+
+        Thinking-control warnings are raised per call, so an agent loop would repeat one
+        message every round without this.
+        """
+        # Initialised lazily so no provider __init__ (nor FallbackClient, which mirrors
+        # BaseModelClient.__init__ by hand) has to be touched.
+        seen = getattr(self, "_warned_messages", None)
+        if seen is None:
+            seen = self._warned_messages = set()
+        if message in seen:
+            return
+        seen.add(message)
+        logger.warning(message)
+
+    def _apply_thinking(
+        self,
+        generate_kwargs: Optional[dict],
+        thinking: Optional[Union[bool, str]],
+    ) -> Optional[dict]:
+        """Resolve ``thinking=`` and carry the result in the generate_kwargs dict.
+
+        Returns ``generate_kwargs`` unchanged when there is nothing for a provider to do, so
+        ``thinking=None`` leaves every request path byte-for-byte as it was.
+        """
+        # A `ResolvedThinking` value already there is this module's own re-threading of an
+        # already-resolved request through a nested chat() call (e.g. Agent -> tool-loop ->
+        # inner client), not caller input, so it passes through untouched below. Anything
+        # else under this key is a caller mistake: reject it here, at the layer where it is
+        # actionable, rather than let it reach a provider that assumes a ResolvedThinking and
+        # raises an opaque AttributeError.
+        if generate_kwargs and THINKING_KWARG in generate_kwargs:
+            existing = generate_kwargs[THINKING_KWARG]
+            if not isinstance(existing, ResolvedThinking):
+                raise ValueError(
+                    f"generate_kwargs contains the reserved key {THINKING_KWARG!r}, which AIMU uses "
+                    "internally to carry a resolved thinking request to the provider. Use the "
+                    "thinking= parameter instead of setting this key directly."
+                )
+        resolved = resolve_thinking(self.model, thinking, warn=self._warn_once)
+        if resolved is None:
+            return generate_kwargs
+        return {**(generate_kwargs or {}), THINKING_KWARG: resolved}
 
     def _append_message(self, message: dict) -> None:
         """Append ``message`` to ``self.messages``, stamping it with an append-time ``timestamp``.

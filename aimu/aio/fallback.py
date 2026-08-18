@@ -37,9 +37,12 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         tools: Optional[list] = None,
         audio: Optional[list] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         if stream:
-            return self._chat_streamed(user_message, generate_kwargs, use_tools, images, include, tools, audio)
+            return self._chat_streamed(
+                user_message, generate_kwargs, use_tools, images, include, tools, audio, thinking
+            )
         errors: list[tuple[Any, BaseException]] = []
         for client in self.clients:
             self._load_state(client)
@@ -54,6 +57,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
                     tools=tools,
                     audio=audio,
                     schema=schema,
+                    thinking=thinking,
                 )
             except self.retry_on as exc:
                 logger.warning("Fallback: client %r failed (%s); trying next.", _label(client), exc)
@@ -72,6 +76,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         include: Optional[Iterable[Union[str, StreamingContentType]]],
         tools: Optional[list],
         audio: Optional[list],
+        thinking: Optional[Union[bool, str]] = None,
     ) -> AsyncIterator[StreamChunk]:
         errors: list[tuple[Any, BaseException]] = []
         for client in self.clients:
@@ -85,6 +90,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
                 include=include,
                 tools=tools,
                 audio=audio,
+                thinking=thinking,
             )
             iterator = stream.__aiter__()
             try:
@@ -112,9 +118,10 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         audio: Optional[list] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, images, include, audio)
+            return self._generate_streamed(prompt, generate_kwargs, images, include, audio, thinking)
         errors: list[tuple[Any, BaseException]] = []
         for client in self.clients:
             client.last_thinking = ""
@@ -122,7 +129,14 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             client.last_structured = None
             try:
                 result = await client.generate(
-                    prompt, generate_kwargs, stream=False, images=images, include=include, audio=audio, schema=schema
+                    prompt,
+                    generate_kwargs,
+                    stream=False,
+                    images=images,
+                    include=include,
+                    audio=audio,
+                    schema=schema,
+                    thinking=thinking,
                 )
             except self.retry_on as exc:
                 logger.warning("Fallback: client %r failed on generate (%s); trying next.", _label(client), exc)
@@ -141,11 +155,18 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         images: Optional[list],
         include: Optional[Iterable[Union[str, StreamingContentType]]],
         audio: Optional[list],
+        thinking: Optional[Union[bool, str]] = None,
     ) -> AsyncIterator[StreamChunk]:
         errors: list[tuple[Any, BaseException]] = []
         for client in self.clients:
             stream = await client.generate(
-                prompt, generate_kwargs, stream=True, images=images, include=include, audio=audio
+                prompt,
+                generate_kwargs,
+                stream=True,
+                images=images,
+                include=include,
+                audio=audio,
+                thinking=thinking,
             )
             iterator = stream.__aiter__()
             try:

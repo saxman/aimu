@@ -38,6 +38,13 @@ class ModelSpec:
     audio: bool = False
     structured_output: bool = False
     generation_kwargs: Optional[dict] = field(default=None)
+    # Thinking control. ``thinking_levels`` means the model accepts low/medium/high effort;
+    # ``thinking_optional`` False means it always reasons and cannot be turned off.
+    # ``nonthinking_generation_kwargs`` is the sampling profile the card specifies for
+    # instruct mode; None means ``generation_kwargs`` applies in both modes.
+    thinking_levels: bool = False
+    thinking_optional: bool = True
+    nonthinking_generation_kwargs: Optional[dict] = field(default=None)
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -46,6 +53,19 @@ class ModelSpec:
         if isinstance(other, ModelSpec):
             return self.id == other.id
         return NotImplemented
+
+    def __post_init__(self) -> None:
+        if not self.thinking:
+            if self.thinking_levels:
+                raise ValueError(
+                    f"{self.id}: thinking_levels=True requires thinking=True "
+                    "(a model with no reasoning has no effort to control)."
+                )
+            if not self.thinking_optional:
+                raise ValueError(
+                    f"{self.id}: thinking_optional=False requires thinking=True "
+                    "(a model with no reasoning has nothing to disable)."
+                )
 
 
 class Model(Enum):
@@ -66,6 +86,9 @@ class Model(Enum):
         self.supports_audio = spec.audio
         self.supports_structured_output = spec.structured_output
         self.generation_kwargs = dict(spec.generation_kwargs or {})
+        self.thinking_levels = spec.thinking_levels
+        self.thinking_optional = spec.thinking_optional
+        self.nonthinking_generation_kwargs = dict(spec.nonthinking_generation_kwargs or {})
 
 
 class AdHocModel:
@@ -87,6 +110,9 @@ class AdHocModel:
         self.supports_audio = spec.audio
         self.supports_structured_output = spec.structured_output
         self.generation_kwargs = dict(spec.generation_kwargs or {})
+        self.thinking_levels = spec.thinking_levels
+        self.thinking_optional = spec.thinking_optional
+        self.nonthinking_generation_kwargs = dict(spec.nonthinking_generation_kwargs or {})
 
 
 class BaseModelClient(_ChatStateMixin, ABC):
@@ -193,6 +219,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         audio: Optional[list] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Single-turn, stateless generation. See :meth:`chat` for the ``include`` filter semantics.
 
@@ -216,7 +243,14 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 prompt-and-parse). With ``stream=True`` returns an iterator of :class:`StreamChunk`
                 ending in a terminal ``DONE`` chunk whose ``content`` is ``{"result": <object>}``; the
                 validated object is also stored on ``self.last_structured`` after the stream is consumed.
+            thinking: Optional thinking control. ``None`` (default) leaves the provider's
+                own behavior untouched. ``False`` disables reasoning and selects the model's
+                instruct-mode sampling profile; ``True`` enables it at the model's default
+                effort; ``"low"``/``"medium"``/``"high"`` sets the effort level. A model that
+                cannot honour the request logs a warning and continues, so models stay
+                swappable; an unrecognised value raises ``ValueError``.
         """
+        generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if images and audio:
             raise ValueError("images= and audio= are mutually exclusive. Pass one or the other, not both.")
         if images:
@@ -243,6 +277,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         tools: Optional[list] = None,
         audio: Optional[list] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         """One model turn against the persistent message history.
 
@@ -289,7 +324,14 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 once the stream is consumed. (Anthropic streams the JSON as it is built but emits no
                 thinking, since its forced-tool structured mode is incompatible with extended thinking.)
                 On Anthropic (native, forced-tool) combining ``schema`` with active ``tools`` raises.
+            thinking: Optional thinking control. ``None`` (default) leaves the provider's
+                own behavior untouched. ``False`` disables reasoning and selects the model's
+                instruct-mode sampling profile; ``True`` enables it at the model's default
+                effort; ``"low"``/``"medium"``/``"high"`` sets the effort level. A model that
+                cannot honour the request logs a warning and continues, so models stay
+                swappable; an unrecognised value raises ``ValueError``.
         """
+        generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if schema is not None:
             if stream:
                 return self._chat_structured_streamed(

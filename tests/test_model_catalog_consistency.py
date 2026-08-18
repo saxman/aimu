@@ -24,11 +24,11 @@ the *serving path* rather than the model and vary systematically:
   HuggingFace path exposes audio input; the OpenAI-compat server catalogs leave
   it False by design (see the comments in ``providers/openai_compat.py``).
 
-The remaining intrinsic flags (tools / thinking / vision) are checked, with two
-escape hatches below: ``_INTENTIONAL_DIVERGENCES`` (a shared name whose flag
-*legitimately* differs by serving path) and ``_SUSPECTED_OVERSIGHTS`` (a
-divergence that looks like a bug, frozen so the suite is green while the fix is
-pending).
+The remaining intrinsic flags (tools / thinking / vision / thinking_levels /
+thinking_optional) are checked, with two escape hatches below:
+``_INTENTIONAL_DIVERGENCES`` (a shared name whose flag *legitimately* differs by
+serving path) and ``_SUSPECTED_OVERSIGHTS`` (a divergence that looks like a bug,
+frozen so the suite is green while the fix is pending).
 """
 
 from __future__ import annotations
@@ -41,7 +41,13 @@ import aimu.models as models
 
 # Intrinsic model capabilities: properties of the weights, not the serving path,
 # so they must agree wherever a model name appears.
-INTRINSIC_FLAGS = ("supports_tools", "supports_thinking", "supports_vision")
+INTRINSIC_FLAGS = (
+    "supports_tools",
+    "supports_thinking",
+    "supports_vision",
+    "thinking_levels",
+    "thinking_optional",
+)
 
 # Divergences that are CORRECT: the same model legitimately differs on an intrinsic
 # flag because a specific serving path cannot expose that capability. These are not

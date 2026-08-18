@@ -10,6 +10,7 @@ import llama_cpp
 
 from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
 from .._internal.image_input import _build_user_content_blocks
+from .._internal.thinking import THINKING_KWARG
 from ._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
@@ -98,9 +99,11 @@ class LlamaCppClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_audio]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        if not generate_kwargs:
-            return self.default_generate_kwargs.copy()
-        return {**self.default_generate_kwargs, **generate_kwargs}
+        kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
+        # No verified thinking control on this path; the request was resolved and warned about
+        # upstream, so drop it rather than let llama_cpp reject an unknown key.
+        kwargs.pop(THINKING_KWARG, None)
+        return kwargs
 
     def _iter_stream(self, stream) -> Iterator[StreamChunk]:
         """Iterate a completion stream, yielding StreamChunks and updating self.last_thinking."""

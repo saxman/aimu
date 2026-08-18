@@ -84,12 +84,16 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
 
+    # Pure helper reused from the sync client; no I/O involved.
+    _strip_thinking_for_structured = _SyncAnthropicClient._strip_thinking_for_structured
+
     async def _structured_call(
         self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict
     ) -> str:
         """Async forced-tool structured output (see sync ``AnthropicClient._structured_call``)."""
         import re
 
+        generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
         tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
         response = await self._client.messages.create(
@@ -123,6 +127,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
         self.last_thinking = ""
         self.last_usage = None
+        generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
         tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
         async with self._client.messages.stream(
