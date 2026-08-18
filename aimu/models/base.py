@@ -28,7 +28,13 @@ from ._base.image import (
     ImageModel,
     ImageSpec,
 )
-from ._base.shared import ModelConnectionError, StreamChunk, StreamingContentType, classproperty
+from ._base.shared import (
+    ContextOverflowError,
+    ModelConnectionError,
+    StreamChunk,
+    StreamingContentType,
+    classproperty,
+)
 from ._base.speech import (
     BaseSpeechClient,
     HuggingFaceSpeechSpec,
@@ -50,6 +56,7 @@ __all__ = [
     "StreamChunk",
     "StreamingContentType",
     "ModelConnectionError",
+    "ContextOverflowError",
     "classproperty",
     # text
     "ModelSpec",

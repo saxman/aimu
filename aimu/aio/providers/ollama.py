@@ -11,7 +11,7 @@ from aimu.models._internal.image_input import _adapt_messages_for_ollama
 from aimu.models._internal.thinking import THINKING_KWARG, pop_thinking, select_profile
 from aimu.models._internal.usage import truncated_from_ollama, usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
-from aimu.models.providers.ollama import OllamaClient, OllamaModel
+from aimu.models.providers.ollama import OllamaClient, OllamaModel, _raise_if_context_overflowed
 
 from .._base import AsyncBaseModelClient
 
@@ -175,15 +175,20 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             return self._chat_streamed(generate_kwargs, tools, response_format=response_format)
 
         think = self._pop_think(generate_kwargs)
-        response = await self._client.chat(
-            model=self.model.value,
-            messages=_adapt_messages_for_ollama(self.messages),
-            options=generate_kwargs,
-            tools=tools,
-            think=think,
-            keep_alive=self.model_keep_alive_seconds,
-            format=response_format,
-        )
+        messages = _adapt_messages_for_ollama(self.messages)
+        try:
+            response = await self._client.chat(
+                model=self.model.value,
+                messages=messages,
+                options=generate_kwargs,
+                tools=tools,
+                think=think,
+                keep_alive=self.model_keep_alive_seconds,
+                format=response_format,
+            )
+        except ollama.ResponseError as exc:
+            _raise_if_context_overflowed(exc, messages)
+            raise
         self.last_usage = usage_from_ollama(response)
         self.last_output_truncated = truncated_from_ollama(response)
 
@@ -211,11 +216,13 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         self.last_output_truncated = False
 
         think = self._pop_think(generate_kwargs)
+        messages = _adapt_messages_for_ollama(self.messages)
+
 
         async def _open():
             return await self._client.chat(
                 model=self.model.value,
-                messages=_adapt_messages_for_ollama(self.messages),
+                messages=messages,
                 options=generate_kwargs,
                 tools=tools,
                 stream=True,
@@ -228,8 +235,12 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         # emit an empty transitional part before the one carrying tool_calls) and streaming only
         # non-empty content (so empty/transitional/done parts never surface as stray output).
         turn: dict = {}
-        async for chunk in self._consume_turn(await _open(), turn):
-            yield chunk
+        try:
+            async for chunk in self._consume_turn(await _open(), turn):
+                yield chunk
+        except ollama.ResponseError as exc:
+            _raise_if_context_overflowed(exc, messages)
+            raise
         if turn["last_part"] is not None:
             self.last_usage = usage_from_ollama(turn["last_part"])
             self.last_output_truncated = truncated_from_ollama(turn["last_part"])

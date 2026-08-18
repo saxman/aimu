@@ -1,4 +1,5 @@
 from ..base import (
+    ContextOverflowError,
     StreamingContentType,
     StreamChunk,
     Model,
@@ -146,6 +147,34 @@ class OllamaModel(Model):
     # here after older Ollama versions emitted unreliable calls; that no longer reproduces.
     LLAMA_3_2_3B = ModelSpec("llama3.2:3b", tools=True, structured_output=True)
     LLAMA_3_1_8B = ModelSpec("llama3.1:8b", tools=True, structured_output=True)
+
+
+_DROPPED_USER_TURN = "no user query found in messages"
+
+
+def _raise_if_context_overflowed(exc: ollama.ResponseError, messages: list[dict]) -> None:
+    """Translate Ollama's post-truncation render failure into ``ContextOverflowError``, or return.
+
+    Ollama trims a chat request's messages to fit the runner's context window *before* rendering the
+    prompt. When the trim reaches the user turn, a model whose renderer requires one (the qwen3.5
+    family) rejects the result with a 500 naming the missing user query rather than the overflow that
+    caused it. Left raw, that reaches a delegating agent as a tool result it reads as a transient
+    failure, so it re-runs the same over-long task.
+
+    Only a request that *did* carry a user message is translated: without one the server's wording is
+    already the accurate diagnosis (the caller sent no user turn), so the caller re-raises it
+    untouched. This is why the check needs the messages and not just the exception.
+    """
+    if _DROPPED_USER_TURN not in str(exc).lower():
+        return
+    if not any(message.get("role") == "user" for message in messages):
+        return
+    raise ContextOverflowError(
+        "The request no longer fits the model's context window: Ollama trimmed the message list to "
+        "fit and dropped the user turn, which this model's prompt renderer requires. Shorten the "
+        "conversation, advertise fewer tools, or raise the context window (num_ctx / "
+        "OLLAMA_CONTEXT_LENGTH)."
+    ) from exc
 
 
 class OllamaClient(BaseModelClient):
@@ -323,15 +352,20 @@ class OllamaClient(BaseModelClient):
             return self._chat_streamed(generate_kwargs, tools, response_format=response_format)
 
         think = self._pop_think(generate_kwargs)
-        response = self._client.chat(
-            model=self.model.value,
-            messages=_adapt_messages_for_ollama(self.messages),
-            options=generate_kwargs,
-            tools=tools,
-            think=think,
-            keep_alive=self.model_keep_alive_seconds,
-            format=response_format,
-        )
+        messages = _adapt_messages_for_ollama(self.messages)
+        try:
+            response = self._client.chat(
+                model=self.model.value,
+                messages=messages,
+                options=generate_kwargs,
+                tools=tools,
+                think=think,
+                keep_alive=self.model_keep_alive_seconds,
+                format=response_format,
+            )
+        except ollama.ResponseError as exc:
+            _raise_if_context_overflowed(exc, messages)
+            raise
 
         logger.debug("LLM raw response: %s", response)
         self.last_usage = usage_from_ollama(response)
@@ -367,19 +401,24 @@ class OllamaClient(BaseModelClient):
         # non-empty content (so empty/transitional/done parts never surface as stray output).
         think = self._pop_think(generate_kwargs)
         turn: dict = {}
-        yield from self._consume_turn(
-            self._client.chat(
-                model=self.model.value,
-                messages=_adapt_messages_for_ollama(self.messages),
-                options=generate_kwargs,
-                tools=tools,
-                stream=True,
-                think=think,
-                keep_alive=self.model_keep_alive_seconds,
-                format=response_format,
-            ),
-            turn,
-        )
+        messages = _adapt_messages_for_ollama(self.messages)
+        try:
+            yield from self._consume_turn(
+                self._client.chat(
+                    model=self.model.value,
+                    messages=messages,
+                    options=generate_kwargs,
+                    tools=tools,
+                    stream=True,
+                    think=think,
+                    keep_alive=self.model_keep_alive_seconds,
+                    format=response_format,
+                ),
+                turn,
+            )
+        except ollama.ResponseError as exc:
+            _raise_if_context_overflowed(exc, messages)
+            raise
         if turn["last_part"] is not None:
             self.last_usage = usage_from_ollama(turn["last_part"])
             self.last_output_truncated = truncated_from_ollama(turn["last_part"])
