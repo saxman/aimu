@@ -1273,6 +1273,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#on-an-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        On an agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3060,6 +3071,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#on-an-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        On an agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3094,8 +3116,8 @@
 <p>Reasoning models let you trade latency and cost against answer quality: skip reasoning for a
 trivial question, or spend more of it on a hard one. AIMU exposes this as one portable
 <code>thinking=</code> argument on <code>chat()</code> and <code>generate()</code> (sync and async, plus the top-level
-<code>aimu.chat()</code> / <code>aio.chat()</code> helpers), so a call site does not have to know which provider's
-knob it is turning, or whether the current model has one at all.</p>
+<code>aimu.chat()</code> / <code>aio.chat()</code> helpers) and on <code>Agent</code>, so a call site does not have to know which
+provider's knob it is turning, or whether the current model has one at all.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.8:27b"</span><span class="p">)</span>
@@ -3206,6 +3228,30 @@ is dropped on these models whether or not you also pass a <code>thinking=</code>
 (<code>thinking="low"</code>, etc.) additionally logs a warning naming the level that was ignored.
 <code>thinking=True</code>/<code>thinking=False</code> still work on these models, since they can be told to think or
 not, just not how hard.</p>
+<h2 id="on-an-agent">On an agent<a class="headerlink" href="#on-an-agent" title="Permanent link">&para;</a></h2>
+<p><code>Agent</code> (sync and async) takes the same argument, as a standing field and as a per-run override:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># A field: every run of this agent reasons at high effort.</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"You are a careful analyst."</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span> <span class="n">thinking</span><span class="o">=</span><span class="s2">"high"</span><span class="p">)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Audit this quarter's numbers."</span><span class="p">)</span>            <span class="c1"># high, from the field</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"What is the file called again?"</span><span class="p">,</span> <span class="n">thinking</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>   <span class="c1"># off, for this run only</span>
+</span></code></pre></div>
+<p><code>None</code> means "use the field", so <code>thinking=False</code> on a run is a real override rather than an
+absent one. The effective value is applied to <strong>every</strong> model turn the run makes, not just the
+first: each tool round, the continuation nudge, and the forced tools-disabled wrap-up all carry
+it, so effort is uniform across a run instead of decaying after the opening turn. It reaches
+the <code>schema=</code> structured-output turn too.</p>
+<p>Because the agent forwards the <em>argument</em> rather than a pre-resolved request, validation and the
+warn-once behavior stay where the model is known: the model client's own <code>chat()</code>. An agent whose
+model has no effort control warns once for the whole run, not once per round.</p>
+<p>The workflow classes (<code>Chain</code>, <code>Router</code>, <code>Parallel</code>, ...) take no <code>thinking=</code> argument, for the
+same reason they take no <code>tools=</code>: they compose sub-runners and have no single model turn to
+apply it to. Configure it on the <code>Agent</code>s they wrap, or on the client itself.</p>
+<p>One precedence note for <code>agent.as_model_client()</code>: a <code>thinking=</code> passed to that view's <code>chat()</code>
+is overridden by the agent's own <code>thinking</code> field, because the field is applied on the inner
+turns the view drives. Set the field to <code>None</code> if the view's callers should decide.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../explanation/thinking-and-context/">Thinking content and the model context</a>: what happens
