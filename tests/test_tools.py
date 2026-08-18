@@ -1,3 +1,4 @@
+import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +17,12 @@ from fastmcp import FastMCP
 # when Python adds the script's directory to sys.path on direct execution.
 ECHO_SERVER_FILE = str(Path(__file__).parent / "echo_server.py")
 
+# A config's `command` is resolved against the subprocess PATH, which need not contain the
+# interpreter running the tests (no bare `python` exists on a stock macOS PATH). `sys.executable`
+# is the same interpreter, so the spawned server can import aimu. FastMCP's file= transport
+# already defaults its interpreter this way.
+SERVER_COMMAND = sys.executable
+
 
 def _response_text(response) -> str:
     return response.content[0].text  # type: ignore[union-attr]
@@ -23,7 +30,7 @@ def _response_text(response) -> str:
 
 def test_mcp_client_with_config():
     config = {
-        "mcpServers": {"aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]}},
+        "mcpServers": {"aimu": {"command": SERVER_COMMAND, "args": ["-m", "aimu.tools.mcp"]}},
     }
 
     client = MCPClient(config=config)
@@ -36,7 +43,7 @@ def test_mcp_client_with_config():
 def test_mcp_client_with_config_module():
     config = {
         "mcpServers": {
-            "aimu": {"command": "python", "args": ["-m", "aimu.tools.mcp"]},
+            "aimu": {"command": SERVER_COMMAND, "args": ["-m", "aimu.tools.mcp"]},
         }
     }
 
