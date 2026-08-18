@@ -500,3 +500,129 @@ def test_gemini_cloud_gate_blocks_chat_template_kwargs_and_warns(monkeypatch, ca
     assert "reasoning_effort" not in calls[0]
     assert THINKING_KWARG not in calls[0]
     assert any("has no way to disable reasoning" in r.message for r in caplog.records)
+
+
+def _anthropic_kwargs(monkeypatch, model, thinking):
+    """Return the generate_kwargs an AnthropicClient would send for a thinking request."""
+    import anthropic
+
+    from aimu.models.providers.anthropic import AnthropicClient
+
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: types.SimpleNamespace())
+    client = AnthropicClient(model)
+
+    kwargs = client._apply_thinking({"max_tokens": 1024}, thinking)
+    return client._thinking_kwargs(client._update_generate_kwargs(kwargs))
+
+
+def test_anthropic_maps_a_level_to_a_token_budget(monkeypatch):
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, "low")
+
+    assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 2048}
+    assert THINKING_KWARG not in kwargs
+
+
+def test_anthropic_thinking_off_sends_no_thinking_block(monkeypatch):
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, False)
+
+    assert "thinking" not in kwargs
+    # temperature is only stripped to satisfy extended thinking, so it must survive here
+    assert "temperature" in kwargs
+
+
+def test_anthropic_adaptive_warns_and_ignores_a_level(monkeypatch, caplog):
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    with caplog.at_level("WARNING"):
+        kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_OPUS_4_7, "low")
+
+    assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert "budget_tokens" not in kwargs["thinking"]
+    assert any("adaptive" in r.message.lower() for r in caplog.records)
+
+
+def test_anthropic_none_keeps_current_behavior(monkeypatch):
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, None)
+
+    assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 8000}
+
+
+def test_anthropic_structured_output_drops_the_reserved_key(monkeypatch, caplog):
+    """Regression: chat(schema=..., thinking=...) must not leak `_thinking` into the
+    Anthropic request. The structured path forces a tool and cannot combine with extended
+    thinking, so `_thinking_kwargs` is never on that path; `_structured_call` must strip the
+    reserved key itself."""
+    import dataclasses
+
+    import anthropic
+
+    from aimu.models.providers.anthropic import AnthropicClient, AnthropicModel
+
+    @dataclasses.dataclass
+    class Person:
+        name: str
+
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: types.SimpleNamespace())
+    client = AnthropicClient(AnthropicModel.CLAUDE_SONNET_4_6)
+
+    captured = {}
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return types.SimpleNamespace(
+            content=[types.SimpleNamespace(type="tool_use", input={"name": "Ada"})],
+            usage=types.SimpleNamespace(input_tokens=1, output_tokens=1),
+        )
+
+    client._client = types.SimpleNamespace(messages=types.SimpleNamespace(create=fake_create))
+
+    with caplog.at_level("WARNING"):
+        result = client.chat("hi", schema=Person, thinking="low")
+
+    assert THINKING_KWARG not in captured
+    assert "thinking" not in captured
+    assert result == Person(name="Ada")
+    assert any("structured output" in r.message.lower() for r in caplog.records)
+
+
+async def test_anthropic_async_structured_output_drops_the_reserved_key(monkeypatch, caplog):
+    """Async mirror of the sync structured-path leak regression above."""
+    import dataclasses
+
+    import anthropic
+
+    from aimu.aio.providers.anthropic import AsyncAnthropicClient
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    @dataclasses.dataclass
+    class Person:
+        name: str
+
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: types.SimpleNamespace())
+    monkeypatch.setattr(anthropic, "AsyncAnthropic", lambda **kw: types.SimpleNamespace())
+    client = AsyncAnthropicClient(AnthropicModel.CLAUDE_SONNET_4_6)
+
+    captured = {}
+
+    async def fake_create(**kwargs):
+        captured.update(kwargs)
+        return types.SimpleNamespace(
+            content=[types.SimpleNamespace(type="tool_use", input={"name": "Ada"})],
+            usage=types.SimpleNamespace(input_tokens=1, output_tokens=1),
+        )
+
+    client._client = types.SimpleNamespace(messages=types.SimpleNamespace(create=fake_create))
+
+    with caplog.at_level("WARNING"):
+        result = await client.chat("hi", schema=Person, thinking="low")
+
+    assert THINKING_KWARG not in captured
+    assert "thinking" not in captured
+    assert result == Person(name="Ada")
+    assert any("structured output" in r.message.lower() for r in caplog.records)
