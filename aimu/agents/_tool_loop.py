@@ -16,7 +16,7 @@ It is internal: the public ladder is ``chat()`` (one turn) -> ``Agent`` (autonom
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
 from aimu.models.base import StreamChunk, StreamingContentType
@@ -108,6 +108,7 @@ class _BaseToolLoop:
         max_rounds: int = 10,
         final_answer_prompt: Optional[str] = None,
         continuation_prompt: Optional[str] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ):
         # ``tools`` is either the tool-callable list, or a zero-arg callable returning it
         # (re-read each round so tools added mid-run — e.g. SkillAgent.reload_skills authoring a
@@ -120,6 +121,9 @@ class _BaseToolLoop:
         self._max_rounds = max_rounds
         self._final_answer_prompt = final_answer_prompt
         self._continuation_prompt = continuation_prompt or DEFAULT_WRAP_UP_PROMPT
+        # The public thinking= argument, not a resolved request: the client's own chat() validates
+        # it against its model and warns once, so re-passing it every round is safe and silent.
+        self._thinking = thinking
 
     def _current_tools(self) -> list[Callable]:
         return list(self._tools() if callable(self._tools) else self._tools)
@@ -206,14 +210,20 @@ class _ToolLoop(_BaseToolLoop):
         images: Optional[list] = None,
     ) -> str:
         response = self._client.chat(
-            user_message, generate_kwargs=generate_kwargs, images=images, tools=self._current_tools()
+            user_message,
+            generate_kwargs=generate_kwargs,
+            images=images,
+            tools=self._current_tools(),
+            thinking=self._thinking,
         )
         chats = 1  # ``max_rounds`` caps the total number of model turns in the loop.
         while chats < self._max_rounds:
             state = classify_terminal_turn(self._client.messages)
             if state == TERMINAL_PENDING_TOOLS:
                 self._dispatch()
-                response = self._client.chat(generate_kwargs=generate_kwargs, tools=self._current_tools())
+                response = self._client.chat(
+                    generate_kwargs=generate_kwargs, tools=self._current_tools(), thinking=self._thinking
+                )
             elif state == TERMINAL_EMPTY:
                 # A degenerate empty turn: nudge with tools still enabled so the model can resume
                 # a multi-step plan (not just answer from nothing). Unless the turn was empty because
@@ -222,7 +232,10 @@ class _ToolLoop(_BaseToolLoop):
                 self._raise_if_truncated()
                 injected_at = len(self._client.messages)
                 response = self._client.chat(
-                    self._continuation_prompt, generate_kwargs=generate_kwargs, tools=self._current_tools()
+                    self._continuation_prompt,
+                    generate_kwargs=generate_kwargs,
+                    tools=self._current_tools(),
+                    thinking=self._thinking,
                 )
                 self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
             else:  # TERMINAL_HEALTHY
@@ -241,7 +254,12 @@ class _ToolLoop(_BaseToolLoop):
         iteration = 0
         yield from self._retag(
             self._client.chat(
-                user_message, generate_kwargs=generate_kwargs, stream=True, images=images, tools=self._current_tools()
+                user_message,
+                generate_kwargs=generate_kwargs,
+                stream=True,
+                images=images,
+                tools=self._current_tools(),
+                thinking=self._thinking,
             ),
             iteration,
         )
@@ -251,7 +269,12 @@ class _ToolLoop(_BaseToolLoop):
                 yield from self._dispatch_streamed(iteration)
                 iteration += 1
                 yield from self._retag(
-                    self._client.chat(generate_kwargs=generate_kwargs, stream=True, tools=self._current_tools()),
+                    self._client.chat(
+                        generate_kwargs=generate_kwargs,
+                        stream=True,
+                        tools=self._current_tools(),
+                        thinking=self._thinking,
+                    ),
                     iteration,
                 )
             elif state == TERMINAL_EMPTY:
@@ -264,6 +287,7 @@ class _ToolLoop(_BaseToolLoop):
                         generate_kwargs=generate_kwargs,
                         stream=True,
                         tools=self._current_tools(),
+                        thinking=self._thinking,
                     ),
                     iteration,
                 )
@@ -276,7 +300,12 @@ class _ToolLoop(_BaseToolLoop):
             iteration += 1
             yield from self._retag(
                 self._client.chat(
-                    self._wrap_up_prompt(), generate_kwargs=generate_kwargs, stream=True, use_tools=False, tools=[]
+                    self._wrap_up_prompt(),
+                    generate_kwargs=generate_kwargs,
+                    stream=True,
+                    use_tools=False,
+                    tools=[],
+                    thinking=self._thinking,
                 ),
                 iteration,
             )
@@ -298,7 +327,13 @@ class _ToolLoop(_BaseToolLoop):
         if classify_terminal_turn(self._client.messages) == TERMINAL_HEALTHY:
             return response
         injected_at = len(self._client.messages)
-        response = self._client.chat(self._wrap_up_prompt(), generate_kwargs=generate_kwargs, use_tools=False, tools=[])
+        response = self._client.chat(
+            self._wrap_up_prompt(),
+            generate_kwargs=generate_kwargs,
+            use_tools=False,
+            tools=[],
+            thinking=self._thinking,
+        )
         self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
         if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
             self._raise_if_truncated()  # says which of the two failures this was

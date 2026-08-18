@@ -78,6 +78,7 @@ class Agent(_AgentLoopMixin, Runner):
     final_answer_prompt: Optional[str] = None
     deps: Optional[Any] = None
     tool_approval: Optional[Callable] = None
+    thinking: Optional[Union[bool, str]] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
@@ -97,6 +98,7 @@ class Agent(_AgentLoopMixin, Runner):
         deps: Optional[Any] = None,
         tool_approval: Optional[Callable] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Run the agentic loop. ``images`` attach only to the initial turn.
 
@@ -118,20 +120,38 @@ class Agent(_AgentLoopMixin, Runner):
         exclusive with the tool-calling loop. With ``stream=True`` the run yields
         :class:`StreamChunk`s (thinking/generation) ending in a terminal ``DONE`` chunk carrying
         ``{"result": <object>}``; the object is also on ``model_client.last_structured``.
+
+        ``thinking`` is a per-run override of the agent's ``self.thinking`` field, the portable
+        reasoning control (``True``/``False``/``"low"``/``"medium"``/``"high"``). ``None``
+        (default) uses the field. The effective value is applied to *every* model turn the run
+        makes, including the continuation nudge and the forced wrap-up, so effort is uniform
+        across the run. It is the public argument, so the model client validates it and warns
+        once if its model cannot honour it; the agent itself makes no capability decisions.
         """
+        thinking = thinking if thinking is not None else self.thinking
         if schema is not None:
             if stream:
-                return self._run_structured_streamed(task, generate_kwargs, images, deps, tool_approval, schema)
+                return self._run_structured_streamed(
+                    task, generate_kwargs, images, deps, tool_approval, schema, thinking
+                )
             self._prepare_run(deps, tool_approval)
-            result = self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
+            result = self.model_client.chat(
+                task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
+            )
             self._last_messages = list(self.model_client.messages)
             return result
         if stream:
             return self._run_streamed(
-                task, generate_kwargs, images=images, tools=tools, deps=deps, tool_approval=tool_approval
+                task,
+                generate_kwargs,
+                images=images,
+                tools=tools,
+                deps=deps,
+                tool_approval=tool_approval,
+                thinking=thinking,
             )
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking)
         try:
             return loop.run(task, generate_kwargs=generate_kwargs, images=images)
         finally:
@@ -143,7 +163,11 @@ class Agent(_AgentLoopMixin, Runner):
         return list(tools) if tools is not None else list(self.tools)
 
     def _make_tool_loop(
-        self, tools: Optional[list[Callable]], deps: Optional[Any], tool_approval: Optional[Callable]
+        self,
+        tools: Optional[list[Callable]],
+        deps: Optional[Any],
+        tool_approval: Optional[Callable],
+        thinking: Optional[Union[bool, str]] = None,
     ) -> _ToolLoop:
         """Build the iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -157,6 +181,7 @@ class Agent(_AgentLoopMixin, Runner):
             max_rounds=self.max_iterations,
             final_answer_prompt=self.final_answer_prompt,
             continuation_prompt=self.continuation_prompt,
+            thinking=thinking,
         )
 
     def _run_streamed(
@@ -167,9 +192,10 @@ class Agent(_AgentLoopMixin, Runner):
         tools: Optional[list[Callable]] = None,
         deps: Optional[Any] = None,
         tool_approval: Optional[Callable] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Iterator[StreamChunk]:
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking)
         try:
             for chunk in loop.run_streamed(task, generate_kwargs=generate_kwargs, images=images):
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=chunk.iteration)
@@ -184,6 +210,7 @@ class Agent(_AgentLoopMixin, Runner):
         deps: Optional[Any],
         tool_approval: Optional[Callable],
         schema: type,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Iterator[StreamChunk]:
         """Single structured-output turn, streamed: forward the client's chunks (thinking /
         generation / terminal DONE) tagged with this agent's name. Snapshots ``_last_messages``
@@ -191,7 +218,7 @@ class Agent(_AgentLoopMixin, Runner):
         self._prepare_run(deps, tool_approval)
         try:
             for chunk in self.model_client.chat(
-                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema
+                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema, thinking=thinking
             ):
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)
         finally:
@@ -217,7 +244,7 @@ class Agent(_AgentLoopMixin, Runner):
         """Create an Agent from a plain dict config.
 
         Recognised keys: ``name``, ``system_message``, ``max_iterations``,
-        ``continuation_prompt``, ``final_answer_prompt``.
+        ``continuation_prompt``, ``final_answer_prompt``, ``thinking``.
         """
         sm = config.get("system_message")
         return cls(
@@ -227,4 +254,5 @@ class Agent(_AgentLoopMixin, Runner):
             max_iterations=config.get("max_iterations", 10),
             continuation_prompt=config.get("continuation_prompt", DEFAULT_CONTINUATION_PROMPT),
             final_answer_prompt=config.get("final_answer_prompt"),
+            thinking=config.get("thinking"),
         )

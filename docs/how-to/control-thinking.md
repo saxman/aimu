@@ -3,8 +3,8 @@
 Reasoning models let you trade latency and cost against answer quality: skip reasoning for a
 trivial question, or spend more of it on a hard one. AIMU exposes this as one portable
 `thinking=` argument on `chat()` and `generate()` (sync and async, plus the top-level
-`aimu.chat()` / `aio.chat()` helpers), so a call site does not have to know which provider's
-knob it is turning, or whether the current model has one at all.
+`aimu.chat()` / `aio.chat()` helpers) and on `Agent`, so a call site does not have to know which
+provider's knob it is turning, or whether the current model has one at all.
 
 ```python
 import aimu
@@ -104,6 +104,38 @@ is dropped on these models whether or not you also pass a `thinking=` level. Pas
 (`thinking="low"`, etc.) additionally logs a warning naming the level that was ignored.
 `thinking=True`/`thinking=False` still work on these models, since they can be told to think or
 not, just not how hard.
+
+## On an agent
+
+`Agent` (sync and async) takes the same argument, as a standing field and as a per-run override:
+
+```python
+from aimu.agents import Agent
+
+# A field: every run of this agent reasons at high effort.
+agent = Agent(client, "You are a careful analyst.", tools=[...], thinking="high")
+
+agent.run("Audit this quarter's numbers.")            # high, from the field
+agent.run("What is the file called again?", thinking=False)   # off, for this run only
+```
+
+`None` means "use the field", so `thinking=False` on a run is a real override rather than an
+absent one. The effective value is applied to **every** model turn the run makes, not just the
+first: each tool round, the continuation nudge, and the forced tools-disabled wrap-up all carry
+it, so effort is uniform across a run instead of decaying after the opening turn. It reaches
+the `schema=` structured-output turn too.
+
+Because the agent forwards the *argument* rather than a pre-resolved request, validation and the
+warn-once behavior stay where the model is known: the model client's own `chat()`. An agent whose
+model has no effort control warns once for the whole run, not once per round.
+
+The workflow classes (`Chain`, `Router`, `Parallel`, ...) take no `thinking=` argument, for the
+same reason they take no `tools=`: they compose sub-runners and have no single model turn to
+apply it to. Configure it on the `Agent`s they wrap, or on the client itself.
+
+One precedence note for `agent.as_model_client()`: a `thinking=` passed to that view's `chat()`
+is overridden by the agent's own `thinking` field, because the field is applied on the inner
+turns the view drives. Set the field to `None` if the view's callers should decide.
 
 ## See also
 

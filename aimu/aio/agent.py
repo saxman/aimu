@@ -95,6 +95,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     final_answer_prompt: Optional[str] = None
     deps: Optional[Any] = None
     tool_approval: Optional[Callable] = None
+    thinking: Optional[Union[bool, str]] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
@@ -112,6 +113,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         deps: Optional[Any] = None,
         tool_approval: Optional[Callable] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Run the async agentic loop. ``images`` attach only to the initial turn.
 
@@ -120,19 +122,25 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         declare a :class:`~aimu.tools.ToolContext` parameter); ``tool_approval`` is a per-run
         override of ``self.tool_approval`` (the gate run before each tool call, ``(name, arguments)
         -> bool``, which may be a coroutine; deny appends a refusal tool message); ``schema`` makes
-        the run a single structured-output turn returning a validated instance. See the sync
-        :meth:`aimu.agents.Agent.run` for full semantics.
+        the run a single structured-output turn returning a validated instance; ``thinking`` is a
+        per-run override of ``self.thinking`` (the portable reasoning control), applied to every
+        model turn the run makes. See the sync :meth:`aimu.agents.Agent.run` for full semantics.
         """
+        thinking = thinking if thinking is not None else self.thinking
         if schema is not None:
             if stream:
-                return self._run_structured_streamed(task, generate_kwargs, images, deps, tool_approval, schema)
+                return self._run_structured_streamed(
+                    task, generate_kwargs, images, deps, tool_approval, schema, thinking
+                )
             self._prepare_run(deps, tool_approval)
             try:
-                return await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
+                return await self.model_client.chat(
+                    task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
+                )
             finally:
                 self._last_messages = list(self.model_client.messages)
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking)
         if stream:
             return self._run_loop_streamed(loop, task, generate_kwargs, images)
         return await self._run_loop(loop, task, generate_kwargs, images)
@@ -143,7 +151,11 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         return list(tools) if tools is not None else list(self.tools)
 
     def _make_tool_loop(
-        self, tools: Optional[list[Callable]], deps: Optional[Any], tool_approval: Optional[Callable]
+        self,
+        tools: Optional[list[Callable]],
+        deps: Optional[Any],
+        tool_approval: Optional[Callable],
+        thinking: Optional[Union[bool, str]] = None,
     ) -> _AsyncToolLoop:
         """Build the async iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -157,6 +169,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             max_rounds=self.max_iterations,
             final_answer_prompt=self.final_answer_prompt,
             continuation_prompt=self.continuation_prompt,
+            thinking=thinking,
         )
 
     async def _run_loop(
@@ -182,13 +195,14 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         deps: Optional[Any],
         tool_approval: Optional[Callable],
         schema: type,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> AsyncIterator[StreamChunk]:
         """Single structured-output turn, streamed (async). Forwards the client's chunks tagged
         with this agent's name; snapshots ``_last_messages`` in a ``finally`` for cancel-safe resume."""
         self._prepare_run(deps, tool_approval)
         try:
             stream = await self.model_client.chat(
-                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema
+                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema, thinking=thinking
             )
             async for chunk in stream:
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)
@@ -234,4 +248,5 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             max_iterations=config.get("max_iterations", 10),
             continuation_prompt=config.get("continuation_prompt", DEFAULT_CONTINUATION_PROMPT),
             final_answer_prompt=config.get("final_answer_prompt"),
+            thinking=config.get("thinking"),
         )

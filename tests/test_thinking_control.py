@@ -1,18 +1,20 @@
 """Mock-only tests for the portable `thinking=` control surface.
 
-Covers the capability declaration on ModelSpec, argument resolution, warning behavior, and
-the per-provider wire translation. No server and no model weights required.
+Covers the capability declaration on ModelSpec, argument resolution, warning behavior, the
+per-provider wire translation, and the Agent-level threading of the argument through every turn
+of a run. No server and no model weights required.
 """
 
 from __future__ import annotations
 
 import types
+from dataclasses import dataclass
 
 import anthropic as anthropic_sdk
 import ollama
 import pytest
 
-from helpers import client_stand_in
+from helpers import MockModelClient, client_stand_in
 
 import aimu.models.providers.ollama as sync_ollama
 from aimu.models._internal.thinking import (
@@ -21,8 +23,10 @@ from aimu.models._internal.thinking import (
     ResolvedThinking,
     resolve_thinking,
 )
+from aimu.agents import Agent
 from aimu.models.base import AdHocModel, Model, ModelSpec
 from aimu.models.providers.ollama import OllamaModel
+from aimu.tools import tool
 
 
 def test_defaults_are_backward_compatible():
@@ -1097,3 +1101,156 @@ def test_hf_never_passes_the_reserved_key_to_transformers_generate():
 
     assert THINKING_KWARG not in seen[0]
     assert seen[0]["max_new_tokens"] == 16
+
+
+# ---------------------------------------------------------------------------
+# Agent-level threading: thinking= reaches every chat() the agent loop makes
+# ---------------------------------------------------------------------------
+
+
+class _RecordingClient(MockModelClient):
+    """A thinking-capable mock client that records the generate_kwargs of every turn.
+
+    The agent threads the public ``thinking=`` argument, so each turn's ``_thinking`` entry is
+    what the client's own ``chat()`` resolved. Recording the dict per turn is therefore the way
+    to prove the request reached *every* round, not just the first.
+    """
+
+    def __init__(self, responses: list):
+        super().__init__(responses)
+        self.model.value = "mock-thinker"
+        self.model.supports_thinking = True
+        self.model.thinking_levels = True
+        self.model.thinking_optional = True
+        self.model.supports_structured_output = False
+        self.model.supports_vision = False
+        self.model.supports_audio = False
+        self.seen: list[dict] = []
+
+    def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        # Record only the leaf (non-streaming) call: the streamed path re-enters _chat through
+        # _chat_streamed, so recording both would double-count every streamed turn.
+        if not stream:
+            self.seen.append(dict(generate_kwargs or {}))
+        return super()._chat(user_message, generate_kwargs, use_tools, stream, images, audio)
+
+    def thinking_per_turn(self) -> list:
+        return [kwargs.get(THINKING_KWARG) for kwargs in self.seen]
+
+
+@tool
+def ping() -> str:
+    """Answer a ping."""
+    return "pong"
+
+
+@dataclass
+class _Verdict:
+    passed: bool
+
+
+def test_agent_run_thinking_reaches_every_turn_of_the_tool_loop():
+    client = _RecordingClient(["tool", "final answer"])
+    agent = Agent(client, tools=[ping])
+
+    agent.run("q", thinking="high")
+
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=True, level="high")] * 2
+
+
+def test_agent_run_thinking_reaches_the_forced_wrap_up_turn():
+    client = _RecordingClient(["tool", "tool", "wrapped up"])
+    agent = Agent(client, tools=[ping], max_iterations=2)
+
+    agent.run("q", thinking="high")
+
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=True, level="high")] * 3
+
+
+def test_agent_thinking_field_is_the_default_for_every_run():
+    client = _RecordingClient(["answer"])
+    agent = Agent(client, thinking="low")
+
+    agent.run("q")
+
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=True, level="low")]
+
+
+def test_agent_run_thinking_overrides_the_field():
+    client = _RecordingClient(["answer"])
+    agent = Agent(client, thinking="low")
+
+    agent.run("q", thinking="high")
+
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=True, level="high")]
+
+
+def test_agent_run_thinking_false_overrides_a_field_level():
+    """``False`` is a real request, so the override cannot be an ``or``-style truthiness test."""
+    client = _RecordingClient(["answer"])
+    agent = Agent(client, thinking="high")
+
+    agent.run("q", thinking=False)
+
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=False, level=None)]
+
+
+def test_agent_run_without_thinking_leaves_the_request_untouched():
+    client = _RecordingClient(["answer"])
+    agent = Agent(client)
+
+    agent.run("q")
+
+    assert client.thinking_per_turn() == [None]
+
+
+def test_agent_run_thinking_reaches_the_structured_turn():
+    client = _RecordingClient(['{"passed": true}'])
+    agent = Agent(client)
+
+    verdict = agent.run("q", thinking="low", schema=_Verdict)
+
+    assert verdict.passed is True
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=True, level="low")]
+
+
+def test_agent_run_thinking_reaches_every_turn_of_the_streamed_loop():
+    client = _RecordingClient(["tool", "final answer"])
+    agent = Agent(client, tools=[ping])
+
+    list(agent.run("q", stream=True, thinking="high"))
+
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=True, level="high")] * 2
+
+
+def test_agent_run_thinking_reaches_the_streamed_structured_turn():
+    client = _RecordingClient(['{"passed": true}'])
+    agent = Agent(client)
+
+    list(agent.run("q", stream=True, thinking="medium", schema=_Verdict))
+
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=True, level="medium")]
+
+
+def test_agentic_view_thinking_loses_to_the_agents_field():
+    """Pins the precedence the how-to documents for ``agent.as_model_client()``.
+
+    The view's ``chat()`` resolves its own ``thinking=`` into the request, but the agent then
+    applies its field to the inner turns it drives, so the field wins. Not a regression guard on
+    a choice, a guard on a documented consequence of the field being applied per turn.
+    """
+    client = _RecordingClient(["answer"])
+    agent = Agent(client, thinking="high")
+
+    agent.as_model_client().chat("q", thinking="low")
+
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=True, level="high")]
+
+
+def test_agentic_view_thinking_applies_when_the_agent_has_no_field():
+    client = _RecordingClient(["answer"])
+    agent = Agent(client)
+
+    agent.as_model_client().chat("q", thinking="low")
+
+    assert client.thinking_per_turn() == [ResolvedThinking(enabled=True, level="low")]

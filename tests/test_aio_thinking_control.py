@@ -129,3 +129,124 @@ async def test_top_level_chat_forwards_thinking(monkeypatch):
     await aio.chat("hi", model="ollama:qwen3.8:27b", thinking="low")
 
     assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="low")
+
+
+# ---------------------------------------------------------------------------
+# Agent-level threading (async): thinking= reaches every chat() the loop makes
+# ---------------------------------------------------------------------------
+
+
+def _recording_agent_client(responses: list, recorder: list):
+    """An async mock client over a fixed response queue that records each turn's kwargs.
+
+    Recording per turn is what proves the request reached *every* round of the loop, not only
+    the first. ``responses`` follows the :class:`helpers_aio.MockAsyncModelClient` convention.
+    """
+    from helpers_aio import MockAsyncModelClient
+
+    class _Recording(MockAsyncModelClient):
+        def __init__(self):
+            super().__init__(responses)
+            self.model.value = "mock-thinker"
+            self.model.supports_thinking = True
+            self.model.thinking_levels = True
+            self.model.thinking_optional = True
+            self.model.supports_structured_output = False
+
+        async def _chat(
+            self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+        ):
+            # Record only the leaf (non-streaming) call: the streamed path re-enters _chat through
+            # _chat_streamed, so recording both would double-count every streamed turn.
+            if not stream:
+                recorder.append(dict(generate_kwargs or {}))
+            return await super()._chat(user_message, generate_kwargs, use_tools, stream, images, audio)
+
+    return _Recording()
+
+
+async def test_aio_agent_run_thinking_reaches_every_turn_of_the_tool_loop():
+    from aimu.aio import Agent
+    from aimu.tools import tool
+
+    @tool
+    def ping() -> str:
+        """Answer a ping."""
+        return "pong"
+
+    seen: list = []
+    agent = Agent(_recording_agent_client(["tool", "final answer"], seen), tools=[ping])
+
+    await agent.run("q", thinking="high")
+
+    assert [kw.get(THINKING_KWARG) for kw in seen] == [ResolvedThinking(enabled=True, level="high")] * 2
+
+
+async def test_aio_agent_thinking_field_is_the_default_for_every_run():
+    from aimu.aio import Agent
+
+    seen: list = []
+    agent = Agent(_recording_agent_client(["answer"], seen), thinking="low")
+
+    await agent.run("q")
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="low")
+
+
+async def test_aio_agent_run_thinking_overrides_the_field():
+    from aimu.aio import Agent
+
+    seen: list = []
+    agent = Agent(_recording_agent_client(["answer"], seen), thinking="low")
+
+    await agent.run("q", thinking="high")
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="high")
+
+
+async def test_aio_agent_run_thinking_false_overrides_a_field_level():
+    """``False`` is a real request, so the override cannot be an ``or``-style truthiness test."""
+    from aimu.aio import Agent
+
+    seen: list = []
+    agent = Agent(_recording_agent_client(["answer"], seen), thinking="high")
+
+    await agent.run("q", thinking=False)
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=False, level=None)
+
+
+async def test_aio_agent_run_thinking_reaches_the_structured_turn():
+    from dataclasses import dataclass
+
+    from aimu.aio import Agent
+
+    @dataclass
+    class Verdict:
+        passed: bool
+
+    seen: list = []
+    agent = Agent(_recording_agent_client(['{"passed": true}'], seen))
+
+    verdict = await agent.run("q", thinking="low", schema=Verdict)
+
+    assert verdict.passed is True
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="low")
+
+
+async def test_aio_agent_run_thinking_reaches_every_turn_of_the_streamed_loop():
+    from aimu.aio import Agent
+    from aimu.tools import tool
+
+    @tool
+    def ping() -> str:
+        """Answer a ping."""
+        return "pong"
+
+    seen: list = []
+    agent = Agent(_recording_agent_client(["tool", "final answer"], seen), tools=[ping])
+
+    async for _ in await agent.run("q", stream=True, thinking="high"):
+        pass
+
+    assert [kw.get(THINKING_KWARG) for kw in seen] == [ResolvedThinking(enabled=True, level="high")] * 2

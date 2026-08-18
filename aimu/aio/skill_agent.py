@@ -116,38 +116,43 @@ class SkillAgent(Agent):
         deps=None,
         tool_approval=None,
         schema=None,
+        thinking=None,
     ):
         # Prepare + async skill setup must complete before the loop, and _prepare_run
         # (which resets model_client.tools) must run exactly once, before skills are added.
         # That ordering is why this can't just call super().run() (which re-prepares); instead
         # it prepares, sets up skills, then delegates to Agent's post-prepare loop helpers.
-        # ``deps``, ``tool_approval``, and ``schema`` mirror aio.Agent.run(); see that method.
+        # ``deps``, ``tool_approval``, ``schema``, and ``thinking`` mirror aio.Agent.run(); see
+        # that method.
+        thinking = thinking if thinking is not None else self.thinking
         self._prepare_run(deps, tool_approval)
         await self._setup_skills_async()
 
         if schema is not None:
             if stream:
                 # Skill setup is already done above; forward the client's structured stream.
-                return self._structured_stream_after_setup(task, generate_kwargs, images, schema)
+                return self._structured_stream_after_setup(task, generate_kwargs, images, schema, thinking)
             try:
-                return await self.model_client.chat(task, generate_kwargs=generate_kwargs, images=images, schema=schema)
+                return await self.model_client.chat(
+                    task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
+                )
             finally:
                 self._last_messages = list(self.model_client.messages)
 
-        loop = self._make_tool_loop(tools, deps, tool_approval)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking)
         if stream:
             return self._run_loop_streamed(loop, task, generate_kwargs, images)
 
         return await self._run_loop(loop, task, generate_kwargs, images)
 
-    async def _structured_stream_after_setup(self, task, generate_kwargs, images, schema):
+    async def _structured_stream_after_setup(self, task, generate_kwargs, images, schema, thinking=None):
         """Streamed structured-output turn, assuming ``_prepare_run`` + skill setup already ran.
 
         Mirrors :meth:`aimu.aio.Agent._run_structured_streamed` but does not re-prepare (which
         would reset ``model_client.tools`` and wipe the injected skills)."""
         try:
             stream = await self.model_client.chat(
-                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema
+                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema, thinking=thinking
             )
             async for chunk in stream:
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)

@@ -44,14 +44,20 @@ class _AsyncToolLoop(_BaseToolLoop):
         images: Optional[list] = None,
     ) -> str:
         response = await self._client.chat(
-            user_message, generate_kwargs=generate_kwargs, images=images, tools=self._current_tools()
+            user_message,
+            generate_kwargs=generate_kwargs,
+            images=images,
+            tools=self._current_tools(),
+            thinking=self._thinking,
         )
         rounds = 0
         while rounds < self._max_rounds:
             state = classify_terminal_turn(self._client.messages)
             if state == TERMINAL_PENDING_TOOLS:
                 await self._dispatch()
-                response = await self._client.chat(generate_kwargs=generate_kwargs, tools=self._current_tools())
+                response = await self._client.chat(
+                    generate_kwargs=generate_kwargs, tools=self._current_tools(), thinking=self._thinking
+                )
             elif state == TERMINAL_EMPTY:
                 # A degenerate empty turn: nudge with tools still enabled so the model can resume
                 # a multi-step plan (not just answer from nothing). Unless the turn was empty because
@@ -60,7 +66,10 @@ class _AsyncToolLoop(_BaseToolLoop):
                 self._raise_if_truncated()
                 injected_at = len(self._client.messages)
                 response = await self._client.chat(
-                    self._continuation_prompt, generate_kwargs=generate_kwargs, tools=self._current_tools()
+                    self._continuation_prompt,
+                    generate_kwargs=generate_kwargs,
+                    tools=self._current_tools(),
+                    thinking=self._thinking,
                 )
                 self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
             else:  # TERMINAL_HEALTHY
@@ -78,7 +87,12 @@ class _AsyncToolLoop(_BaseToolLoop):
     ) -> AsyncIterator[StreamChunk]:
         iteration = 0
         stream = await self._client.chat(
-            user_message, generate_kwargs=generate_kwargs, stream=True, images=images, tools=self._current_tools()
+            user_message,
+            generate_kwargs=generate_kwargs,
+            stream=True,
+            images=images,
+            tools=self._current_tools(),
+            thinking=self._thinking,
         )
         async for chunk in stream:
             yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
@@ -89,7 +103,10 @@ class _AsyncToolLoop(_BaseToolLoop):
                     yield chunk
                 iteration += 1
                 stream = await self._client.chat(
-                    generate_kwargs=generate_kwargs, stream=True, tools=self._current_tools()
+                    generate_kwargs=generate_kwargs,
+                    stream=True,
+                    tools=self._current_tools(),
+                    thinking=self._thinking,
                 )
                 async for chunk in stream:
                     yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
@@ -98,7 +115,11 @@ class _AsyncToolLoop(_BaseToolLoop):
                 iteration += 1
                 injected_at = len(self._client.messages)
                 stream = await self._client.chat(
-                    self._continuation_prompt, generate_kwargs=generate_kwargs, stream=True, tools=self._current_tools()
+                    self._continuation_prompt,
+                    generate_kwargs=generate_kwargs,
+                    stream=True,
+                    tools=self._current_tools(),
+                    thinking=self._thinking,
                 )
                 async for chunk in stream:
                     yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
@@ -110,7 +131,12 @@ class _AsyncToolLoop(_BaseToolLoop):
             injected_at = len(self._client.messages)
             iteration += 1
             stream = await self._client.chat(
-                self._wrap_up_prompt(), generate_kwargs=generate_kwargs, stream=True, use_tools=False, tools=[]
+                self._wrap_up_prompt(),
+                generate_kwargs=generate_kwargs,
+                stream=True,
+                use_tools=False,
+                tools=[],
+                thinking=self._thinking,
             )
             async for chunk in stream:
                 yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
@@ -132,7 +158,11 @@ class _AsyncToolLoop(_BaseToolLoop):
             return response
         injected_at = len(self._client.messages)
         response = await self._client.chat(
-            self._wrap_up_prompt(), generate_kwargs=generate_kwargs, use_tools=False, tools=[]
+            self._wrap_up_prompt(),
+            generate_kwargs=generate_kwargs,
+            use_tools=False,
+            tools=[],
+            thinking=self._thinking,
         )
         self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
         if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:

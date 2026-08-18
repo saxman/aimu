@@ -48,9 +48,13 @@ class _VisionMockClient(MockModelClient):
         super().__init__(responses)
         self.model.supports_vision = True
 
-    def chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, tools=None):
+    def chat(
+        self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, tools=None, **kwargs
+    ):
         # Run the real _chat_setup so we exercise the image-block normalization,
-        # then fall back to MockModelClient's canned-response behavior.
+        # then fall back to MockModelClient's canned-response behavior. ``**kwargs`` absorbs the
+        # rest of the base chat() signature (thinking=, schema=, ...) so overriding the *public*
+        # method here does not go stale every time an additive parameter is threaded through.
         if images:
             # _chat_setup appends a content-block user message; replicate the rest of mock chat.
             self._chat_setup(user_message, generate_kwargs, use_tools, images=images)
@@ -58,7 +62,7 @@ class _VisionMockClient(MockModelClient):
             self._call_count += 1
             self.messages.append({"role": "assistant", "content": response})
             return response
-        return super().chat(user_message, generate_kwargs, use_tools, stream)
+        return super().chat(user_message, generate_kwargs, use_tools, stream, **kwargs)
 
 
 # --------------------------------------------------------------------------- #
@@ -325,9 +329,11 @@ def test_simple_agent_only_attaches_images_to_first_turn():
     captured: list[dict] = []
     real_chat = inner.chat
 
-    def tracking_chat(user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, tools=None):
+    def tracking_chat(
+        user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, tools=None, **kwargs
+    ):
         captured.append({"user_message": user_message, "images": images})
-        return real_chat(user_message, generate_kwargs, use_tools, stream, images, tools=tools)
+        return real_chat(user_message, generate_kwargs, use_tools, stream, images, tools=tools, **kwargs)
 
     inner.chat = tracking_chat  # type: ignore[method-assign]
 
