@@ -107,7 +107,8 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 | `QWEN_3_6_27B_FP8` § | `Qwen/Qwen3.6-27B-FP8` | ✅ | ✅ | ✅ |
 | `QWEN_3_5_9B` | `Qwen/Qwen3.5-9B` | ✅ | ✅ | ✅ |
 | `QWEN_3_8B` | `Qwen/Qwen3-8B` | ✅ | ✅ | ✗ |
-| `GEMMA_4_E4B` | `google/gemma-4-E4B-it` | ✅ | ✗ | ✅ |
+| `GEMMA_4_E4B` | `google/gemma-4-E4B-it` | ✅ | ✅ | ✅ |
+| `GEMMA_4_12B` | `google/gemma-4-12b-it` | ✅ | ✅ | ✅ |
 | `GEMMA_3_12B` | `google/gemma-3-12b-it` | ✗ | ✗ | ✅ |
 | `GPT_OSS_20B` | `openai/gpt-oss-20b` | ✅ | ✅ | ✗ |
 | `MAGISTRAL_SMALL` | `mistralai/Magistral-Small-2509` | ✅ | ✗ | ✗ |
@@ -119,6 +120,7 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 | `SMOLLM3_3B` | `HuggingFaceTB/SmolLM3-3B` | ✅ | ✅ | ✗ |
 | `LLAMA_3_2_3B` | `unsloth/Llama-3.2-3B-Instruct` | ✅ | ✗ | ✗ |
 | `LLAMA_3_1_8B` | `meta-llama/Meta-Llama-3.1-8B-Instruct` | ✅ | ✗ | ✗ |
+| `NEMOTRON_H_8B` | `nvidia/Nemotron-H-8B-Instruct-HF` | ✅ | ✗ | ✗ |
 
 § `QWEN_3_6_27B_FP8` is the e4m3 FP8 checkpoint with dynamic activation scaling. FP8 needs Ada/Hopper-class tensor cores (compute capability ≥ 8.9), so on Ampere, MPS, or CPU there is no native path — pick the bare `QWEN_3_6_27B` there. The quantization is in the member **name** precisely because it is a hardware-gated choice rather than a default; elsewhere in the catalogs a quantization is left out of the name when the provider resolves it itself (Ollama's default tags, LM Studio's keys, llama-cpp's `model_path=`).
 
@@ -128,19 +130,22 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 
 | Enum member | Hint id | Tools | Thinking | Vision |
 |---|---|:---:|:---:|:---:|
-| `LLAMA_3_1_8B` | `llama-3.1-8b` | ✗ | ✗ | ✗ |
-| `LLAMA_3_2_3B` | `llama-3.2-3b` | ✗ | ✗ | ✗ |
+| `LLAMA_3_1_8B` | `llama-3.1-8b` | ✅ | ✗ | ✗ |
+| `LLAMA_3_2_3B` | `llama-3.2-3b` | ✅ | ✗ | ✗ |
 | `MISTRAL_7B` | `mistral-7b` | ✅ | ✗ | ✗ |
 | `QWEN_3_4B` | `qwen3-4b` | ✅ | ✅ | ✗ |
 | `QWEN_3_8B` | `qwen3-8b` | ✅ | ✅ | ✗ |
 | `DEEPSEEK_R1_7B` | `deepseek-r1-7b` | ✗ | ✅ | ✗ |
 | `PHI_4_MINI` | `phi-4-mini` | ✅ | ✗ | ✗ |
+| `GEMMA_4_12B` | `gemma-4-12b` | ✅ | ✅ | ✗ |
 
 llama-cpp model ids are hints; the actual model is loaded from `model_path=` regardless. Capability flags are honoured by the client.
 
 ## OpenAI-compatible local servers
 
 `OllamaOpenAIModel`, `LMStudioOpenAIModel`, `VLLMOpenAIModel`, `HFOpenAIModel`, `LlamaServerOpenAIModel`, `SGLangOpenAIModel`, and `OMLXOpenAIModel` enumerate a shared set of common open models. Capability flags for a given member are the same across servers (except where footnoted); the **model id format differs per server** — LM Studio uses loaded model keys, Ollama uses `name:tag`, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames, and oMLX uses `--model-dir` subdirectory names — so consult the enum source for each server's exact ids.
+
+**"all" in the Servers column means the six non-MLX servers** (Ollama, LM Studio, vLLM, HF Serve, llama-server, SGLang). `OMLXOpenAIModel` ships only MLX conversions, so it carries just the Qwen 3.6 35B-A3B, Qwen 3.8 27B, and Muse Glimmer 30B families and is named explicitly on the rows it does carry. `tests/test_docs_model_matrix.py` checks this column against the enums.
 
 | Enum member | Tools | Thinking | Vision | Servers |
 |---|:---:|:---:|:---:|---|
