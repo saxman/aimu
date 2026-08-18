@@ -630,3 +630,60 @@ async def test_anthropic_async_structured_output_drops_the_reserved_key(monkeypa
     assert "thinking" not in captured
     assert result == Person(name="Ada")
     assert any("structured output" in r.message.lower() for r in caplog.records)
+
+
+def _hf_template_recorder(model):
+    """A stand-in HuggingFaceClient exposing only what _apply_chat_template touches."""
+    from aimu.models.providers.hf.text import HuggingFaceClient
+
+    calls: list[dict] = []
+
+    class _Processor:
+        def apply_chat_template(self, messages, **kw):
+            calls.append(kw)
+            return "rendered"
+
+        def __call__(self, **kw):
+            return types.SimpleNamespace(to=lambda device: {})
+
+    client = types.SimpleNamespace(
+        model=model,
+        _hf_processor=_Processor(),
+        _hf_model=types.SimpleNamespace(device="cpu"),
+    )
+    return HuggingFaceClient, client, calls
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_hf_threads_enable_thinking_per_call(enabled):
+    from aimu.models._internal.thinking import ResolvedThinking
+    from aimu.models.providers.hf.text import HuggingFaceModel
+
+    cls, client, calls = _hf_template_recorder(HuggingFaceModel.QWEN_3_8_27B)
+
+    cls._apply_chat_template(client, [], thinking=ResolvedThinking(enabled=enabled))
+
+    assert calls[0]["enable_thinking"] is enabled
+
+
+def test_hf_defaults_to_the_capability_flag_when_unset():
+    from aimu.models.providers.hf.text import HuggingFaceModel
+
+    cls, client, calls = _hf_template_recorder(HuggingFaceModel.QWEN_3_8_27B)
+
+    cls._apply_chat_template(client, [], thinking=None)
+
+    assert calls[0]["enable_thinking"] is True  # QWEN_3_8_27B supports thinking
+
+
+def test_hf_selects_the_instruct_profile_when_off():
+    from aimu.models._internal.thinking import THINKING_KWARG, ResolvedThinking
+    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
+
+    client = types.SimpleNamespace(model=HuggingFaceModel.QWEN_3_8_27B)
+
+    merged = HuggingFaceClient._update_generate_kwargs(client, {THINKING_KWARG: ResolvedThinking(enabled=False)})
+
+    assert merged["temperature"] == 0.7
+    assert merged["top_p"] == 0.80
+    assert THINKING_KWARG in merged  # peeked, not popped: the template path needs it
