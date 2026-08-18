@@ -113,3 +113,19 @@ async def test_aio_ollama_maps_thinking_to_the_think_parameter(monkeypatch):
 
     assert calls[0]["think"] == "low"
     assert THINKING_KWARG not in calls[0]["options"]
+
+
+async def test_top_level_chat_forwards_thinking(monkeypatch):
+    import aimu.aio._model_client as aio_model_client
+    from aimu import aio
+
+    seen: list = []
+
+    def fake_client(model=None, **kw):
+        return _fake_async_client(_Model(), seen)
+
+    monkeypatch.setattr(aio_model_client, "client", fake_client)
+
+    await aio.chat("hi", model="ollama:qwen3.8:27b", thinking="low")
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="low")

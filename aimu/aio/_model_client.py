@@ -340,6 +340,7 @@ async def chat(
     stream: bool = False,
     images: Optional[list] = None,
     include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
+    thinking: Optional[Union[bool, str]] = None,
 ) -> Union[str, AsyncIterator[StreamChunk]]:
     """One-shot async chat: builds a fresh client, sends one message, returns the response.
 
@@ -350,6 +351,14 @@ async def chat(
         async for chunk in await aio.chat("Tell me a story", model="ollama:qwen3.5:9b", stream=True):
             if chunk.is_text():
                 print(chunk.content, end="")
+
+    Args:
+        thinking: Optional thinking control. ``None`` (default) leaves the provider's
+            own behavior untouched. ``False`` disables reasoning and selects the model's
+            instruct-mode sampling profile; ``True`` enables it at the model's default
+            effort; ``"low"``/``"medium"``/``"high"`` sets the effort level. A model that
+            cannot honour the request logs a warning and continues, so models stay
+            swappable; an unrecognised value raises ``ValueError``.
     """
     c = client(model, system=system)
     return await c.chat(
@@ -358,4 +367,5 @@ async def chat(
         stream=stream,
         images=images,
         include=include,
+        thinking=thinking,
     )

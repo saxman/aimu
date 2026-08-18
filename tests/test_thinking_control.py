@@ -798,3 +798,18 @@ def test_agentic_view_accepts_thinking():
     Agent(client).as_model_client().chat("hi", thinking="low")
 
     assert any(THINKING_KWARG in (kwargs or {}) for kwargs in seen)
+
+
+def test_top_level_chat_forwards_thinking(monkeypatch):
+    import aimu
+
+    seen: list = []
+
+    def fake_client(model=None, **kw):
+        return _fake_client(_Model(levels=True), seen)
+
+    monkeypatch.setattr(aimu, "client", fake_client)
+
+    aimu.chat("hi", model="ollama:qwen3.8:27b", thinking="low")
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="low")
