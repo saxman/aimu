@@ -66,9 +66,12 @@ though the caller asked to skip them.
 | Anthropic | omits the `thinking` request parameter | `budget_tokens`: low 2048, medium 8000, high 16000 |
 | llama.cpp, OpenAI cloud, Gemini | nothing emitted | nothing emitted |
 
-**Only Qwen 3.8** (across every provider that serves it) declares effort-level support today;
-every other thinking model accepts on/off (`True`/`False`) but treats a level as advisory (see
-above). The last table row is a scope boundary rather than an absolute limitation for two of its
+**Among the providers that share Qwen's effort vocabulary** (Ollama, the OpenAI-compatible family,
+HuggingFace), only Qwen 3.8 declares effort-level support today; every other model on those
+providers accepts on/off (`True`/`False`) but treats a level as advisory (see above). Anthropic is
+a separate case: all six `AnthropicModel` members declare effort-level support too, mapped to
+`budget_tokens` rather than this shared vocabulary (see "Anthropic: exact token budgets" below).
+The last table row is a scope boundary rather than an absolute limitation for two of its
 three providers: OpenAI's o-series models never declare `thinking=True` in AIMU's catalog, so
 there is nothing to control on that path, and Google's OpenAI-compatible endpoint for Gemini does
 in fact document a `reasoning_effort` field (its vocabulary is `minimal`/`low`/`medium`/`high`,
