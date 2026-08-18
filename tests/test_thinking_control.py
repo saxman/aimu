@@ -633,7 +633,8 @@ async def test_anthropic_async_structured_output_drops_the_reserved_key(monkeypa
 
 
 def _hf_template_recorder(model):
-    """A stand-in HuggingFaceClient exposing only what _apply_chat_template touches."""
+    """A stand-in HuggingFaceClient exposing only what _apply_chat_template touches on the
+    processor branch (the one Gemma 4 and Qwen 3.5/3.6 actually take)."""
     from aimu.models.providers.hf.text import HuggingFaceClient
 
     calls: list[dict] = []
@@ -649,6 +650,36 @@ def _hf_template_recorder(model):
     client = types.SimpleNamespace(
         model=model,
         _hf_processor=_Processor(),
+        _hf_model=types.SimpleNamespace(device="cpu"),
+    )
+    return HuggingFaceClient, client, calls
+
+
+def _hf_tokenizer_recorder(model):
+    """A stand-in HuggingFaceClient exposing only what _apply_chat_template touches on the
+    plain-tokenizer branch. This is the branch QWEN_3_8_27B (the only HF models with
+    thinking_levels=True) actually takes in production: its id, "Qwen/Qwen3.8-27B", does not
+    match any of the processor-branch prefixes ("Qwen/Qwen3.5", "Qwen/Qwen3.6", "google/gemma-3",
+    "google/gemma-4"), so _hf_processor is None for it and _apply_chat_template falls through to
+    the tokenizer branches below.
+    """
+    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
+
+    calls: list[dict] = []
+
+    class _Tokenizer:
+        def apply_chat_template(self, messages, **kw):
+            calls.append(kw)
+            return "rendered"
+
+        def __call__(self, *args, **kw):
+            return types.SimpleNamespace(to=lambda device: types.SimpleNamespace(input_ids=[[]]))
+
+    client = types.SimpleNamespace(
+        model=model,
+        MODELS=HuggingFaceModel,
+        _hf_processor=None,
+        _hf_tokenizer=_Tokenizer(),
         _hf_model=types.SimpleNamespace(device="cpu"),
     )
     return HuggingFaceClient, client, calls
@@ -687,3 +718,50 @@ def test_hf_selects_the_instruct_profile_when_off():
     assert merged["temperature"] == 0.7
     assert merged["top_p"] == 0.80
     assert THINKING_KWARG in merged  # peeked, not popped: the template path needs it
+
+
+@pytest.mark.parametrize("level,expected", [("low", "low"), ("medium", "medium"), ("high", "xhigh")])
+def test_hf_maps_a_level_to_the_templates_effort_vocabulary_on_the_processor_branch(level, expected):
+    """Qwen's own effort vocabulary tops out at "xhigh"; the shared QWEN_REASONING_EFFORT
+    table must be applied before the value reaches apply_chat_template. Exercised here on the
+    processor branch (mirrors the shape used for the OpenAI-compat wire-field mapping test)."""
+    from aimu.models._internal.thinking import ResolvedThinking
+    from aimu.models.providers.hf.text import HuggingFaceModel
+
+    cls, client, calls = _hf_template_recorder(HuggingFaceModel.QWEN_3_8_27B)
+
+    cls._apply_chat_template(client, [], thinking=ResolvedThinking(enabled=True, level=level))
+
+    assert calls[0]["reasoning_effort"] == expected
+
+
+@pytest.mark.parametrize("level,expected", [("low", "low"), ("medium", "medium"), ("high", "xhigh")])
+def test_hf_maps_a_level_on_the_tokenizer_branch_the_model_actually_takes(level, expected):
+    """QWEN_3_8_27B's id does not match any processor-branch prefix, so in production it
+    templates through the plain tokenizer, not the processor. This is the branch that must
+    carry reasoning_effort without raising: Qwen 3.8's chat_template.jinja validates the value
+    against {"xhigh", "medium", "low"} and calls raise_exception on anything else."""
+    from aimu.models._internal.thinking import ResolvedThinking
+    from aimu.models.providers.hf.text import HuggingFaceModel
+
+    cls, client, calls = _hf_tokenizer_recorder(HuggingFaceModel.QWEN_3_8_27B)
+
+    cls._apply_chat_template(client, [], thinking=ResolvedThinking(enabled=True, level=level))
+
+    assert calls[0]["enable_thinking"] is True
+    assert calls[0]["reasoning_effort"] == expected
+
+
+def test_hf_sends_no_effort_kwarg_when_the_model_has_no_levels():
+    """A model with thinking_levels=False must never receive reasoning_effort: some chat
+    templates raise on an unrecognised kwarg, and this one has no vocabulary for it at all."""
+    from aimu.models._internal.thinking import ResolvedThinking
+    from aimu.models.providers.hf.text import HuggingFaceModel
+
+    assert HuggingFaceModel.QWEN_3_6_27B.thinking_levels is False
+
+    cls, client, calls = _hf_template_recorder(HuggingFaceModel.QWEN_3_6_27B)
+
+    cls._apply_chat_template(client, [], thinking=ResolvedThinking(enabled=True, level="high"))
+
+    assert "reasoning_effort" not in calls[0]
