@@ -136,9 +136,12 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         tools: Optional[list] = None,
         audio: Optional[list] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         if stream:
-            return self._chat_streamed(user_message, generate_kwargs, use_tools, images, include, tools, audio)
+            return self._chat_streamed(
+                user_message, generate_kwargs, use_tools, images, include, tools, audio, thinking
+            )
         errors: list[tuple[BaseModelClient, BaseException]] = []
         for client in self.clients:
             self._load_state(client)
@@ -153,6 +156,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
                     tools=tools,
                     audio=audio,
                     schema=schema,
+                    thinking=thinking,
                 )
             except self.retry_on as exc:
                 logger.warning("Fallback: client %r failed (%s); trying next.", _label(client), exc)
@@ -171,6 +175,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         include: Optional[Iterable[Union[str, StreamingContentType]]],
         tools: Optional[list],
         audio: Optional[list],
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Iterator[StreamChunk]:
         errors: list[tuple[BaseModelClient, BaseException]] = []
         for client in self.clients:
@@ -184,6 +189,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
                 include=include,
                 tools=tools,
                 audio=audio,
+                thinking=thinking,
             )
             iterator = iter(stream)
             try:
@@ -211,9 +217,10 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
         audio: Optional[list] = None,
         schema: Optional[type] = None,
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         if stream:
-            return self._generate_streamed(prompt, generate_kwargs, images, include, audio)
+            return self._generate_streamed(prompt, generate_kwargs, images, include, audio, thinking)
         errors: list[tuple[BaseModelClient, BaseException]] = []
         for client in self.clients:
             client.last_thinking = ""
@@ -221,7 +228,14 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             client.last_structured = None
             try:
                 result = client.generate(
-                    prompt, generate_kwargs, stream=False, images=images, include=include, audio=audio, schema=schema
+                    prompt,
+                    generate_kwargs,
+                    stream=False,
+                    images=images,
+                    include=include,
+                    audio=audio,
+                    schema=schema,
+                    thinking=thinking,
                 )
             except self.retry_on as exc:
                 logger.warning("Fallback: client %r failed on generate (%s); trying next.", _label(client), exc)
@@ -240,10 +254,13 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         images: Optional[list],
         include: Optional[Iterable[Union[str, StreamingContentType]]],
         audio: Optional[list],
+        thinking: Optional[Union[bool, str]] = None,
     ) -> Iterator[StreamChunk]:
         errors: list[tuple[BaseModelClient, BaseException]] = []
         for client in self.clients:
-            stream = client.generate(prompt, generate_kwargs, stream=True, images=images, include=include, audio=audio)
+            stream = client.generate(
+                prompt, generate_kwargs, stream=True, images=images, include=include, audio=audio, thinking=thinking
+            )
             iterator = iter(stream)
             try:
                 first = next(iterator)

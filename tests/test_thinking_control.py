@@ -765,3 +765,36 @@ def test_hf_sends_no_effort_kwarg_when_the_model_has_no_levels():
     cls._apply_chat_template(client, [], thinking=ResolvedThinking(enabled=True, level="high"))
 
     assert "reasoning_effort" not in calls[0]
+
+
+def test_llamacpp_drops_the_reserved_key(monkeypatch):
+    from aimu.models._internal.thinking import ResolvedThinking
+    from aimu.models.providers.llamacpp import LlamaCppClient, LlamaCppModel
+
+    client = types.SimpleNamespace(model=LlamaCppModel.QWEN_3_8B, default_generate_kwargs={"max_tokens": 128})
+
+    merged = LlamaCppClient._update_generate_kwargs(client, {THINKING_KWARG: ResolvedThinking(enabled=False)})
+
+    assert THINKING_KWARG not in merged
+
+
+def test_fallback_forwards_thinking_to_the_first_client():
+    from aimu.models.fallback import FallbackClient
+
+    seen: list = []
+    primary = _fake_client(_Model(levels=True), seen)
+
+    FallbackClient([primary]).chat("hi", thinking="low")
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="low")
+
+
+def test_agentic_view_accepts_thinking():
+    from aimu.agents import Agent
+
+    seen: list = []
+    client = _fake_client(_Model(levels=True), seen)
+
+    Agent(client).as_model_client().chat("hi", thinking="low")
+
+    assert any(THINKING_KWARG in (kwargs or {}) for kwargs in seen)
