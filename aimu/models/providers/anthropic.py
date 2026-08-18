@@ -250,8 +250,13 @@ class AnthropicClient(BaseModelClient):
             kwargs.pop(key, None)
         # Anthropic rejects top_p alongside thinking; drop it unconditionally
         kwargs.pop("top_p", None)
-        # Thinking models require temperature=1
-        if self.is_thinking_model:
+        # Thinking models require temperature=1, but only while thinking is actually in effect
+        # for this call. A resolved thinking=False means the caller's own temperature belongs
+        # in the request instead, so peek at (without popping) the reserved key here;
+        # _thinking_kwargs still needs it downstream to build/omit the thinking parameter.
+        resolved = kwargs.get(THINKING_KWARG)
+        thinking_disabled_this_call = resolved is not None and not resolved.enabled
+        if self.is_thinking_model and not thinking_disabled_this_call:
             kwargs["temperature"] = 1
         return kwargs
 

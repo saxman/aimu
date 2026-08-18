@@ -502,7 +502,7 @@ def test_gemini_cloud_gate_blocks_chat_template_kwargs_and_warns(monkeypatch, ca
     assert any("has no way to disable reasoning" in r.message for r in caplog.records)
 
 
-def _anthropic_kwargs(monkeypatch, model, thinking):
+def _anthropic_kwargs(monkeypatch, model, thinking, generate_kwargs=None):
     """Return the generate_kwargs an AnthropicClient would send for a thinking request."""
     import anthropic
 
@@ -511,7 +511,8 @@ def _anthropic_kwargs(monkeypatch, model, thinking):
     monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: types.SimpleNamespace())
     client = AnthropicClient(model)
 
-    kwargs = client._apply_thinking({"max_tokens": 1024}, thinking)
+    base = {"max_tokens": 1024, **(generate_kwargs or {})}
+    kwargs = client._apply_thinking(base, thinking)
     return client._thinking_kwargs(client._update_generate_kwargs(kwargs))
 
 
@@ -527,11 +528,14 @@ def test_anthropic_maps_a_level_to_a_token_budget(monkeypatch):
 def test_anthropic_thinking_off_sends_no_thinking_block(monkeypatch):
     from aimu.models.providers.anthropic import AnthropicModel
 
-    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, False)
+    kwargs = _anthropic_kwargs(
+        monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, False, generate_kwargs={"temperature": 0.3}
+    )
 
     assert "thinking" not in kwargs
-    # temperature is only stripped to satisfy extended thinking, so it must survive here
-    assert "temperature" in kwargs
+    # temperature is only stripped/forced to satisfy extended thinking; with thinking off for
+    # this call, the caller's own value must survive untouched (not merely be present).
+    assert kwargs["temperature"] == 0.3
 
 
 def test_anthropic_adaptive_warns_and_ignores_a_level(monkeypatch, caplog):
