@@ -91,7 +91,7 @@ override you where an API demands it (see the notes below).
 
 ## Notes per provider
 
-- **`OpenAIClient`** overrides `_update_generate_kwargs` for o-series models (o1/o3/o4): renames `max_tokens → max_completion_tokens` and forces `temperature=1`.
+- **`OpenAIClient`** overrides `_rewrite_generate_kwargs` for o-series models (o1/o3/o4): renames `max_tokens → max_completion_tokens` and forces `temperature=1`.
 - **`AnthropicClient`** stores `self.messages` in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not `<think>` tag parsing), built per the model's `ThinkingStyle`: `enabled` (`{"type": "enabled", "budget_tokens": N}`) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or `adaptive` (`{"type": "adaptive", "display": "summarized"}`, sampling params dropped) for Opus 4.7+ / Fable 5. See the [model matrix](model-matrix.md#anthropic-anthropicmodel).
 !!! note "Thinking control per provider"
     The portable [`thinking=`](../how-to/control-thinking.md) parameter reaches each backend

@@ -134,7 +134,7 @@ class ToolCallFormat(Enum):
 
 # Qwen 3.6 and 3.8 share a thinking-mode profile; 3.5 differs only in presence_penalty.
 # Values are from each model card's thinking-mode row, verified 2026-08-17.
-# Note: this path's _update_generate_kwargs drops presence_penalty entirely (Transformers'
+# Note: this path's _rewrite_generate_kwargs drops presence_penalty entirely (Transformers'
 # generate() has no such concept), so only temperature/top_p/top_k/min_p actually affect
 # generation here. The corrected presence_penalty values are kept for catalog truthfulness.
 _QWEN_THINKING_KWARGS = {
@@ -387,7 +387,7 @@ class HuggingFaceModel(Model):
 class HuggingFaceClient(BaseModelClient):
     MODELS = HuggingFaceModel
 
-    # The module constant is the class's kwarg-fallback tier (see _merge_generate_kwargs). It
+    # The module constant is the class's kwarg-fallback tier (see _resolve_generate_kwargs). It
     # stays a module global too, since the catalog profiles above are built by merging into it.
     DEFAULT_GENERATE_KWARGS = DEFAULT_GENERATE_KWARGS
 
@@ -506,9 +506,7 @@ class HuggingFaceClient(BaseModelClient):
     def AUDIO_MODELS(cls) -> list[Model]:
         return [m for m in cls.MODELS if m.supports_audio]
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-        kwargs = self._merge_generate_kwargs(generate_kwargs)
-
+    def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
         if "max_tokens" in kwargs:
             kwargs["max_new_tokens"] = kwargs.pop("max_tokens")
 
@@ -738,7 +736,7 @@ class HuggingFaceClient(BaseModelClient):
         images: Optional[list] = None,
         audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
 
         # Vision and audio flow through the content-block message; the processor branch in
         # _apply_chat_template extracts PIL images and audio arrays before templating.

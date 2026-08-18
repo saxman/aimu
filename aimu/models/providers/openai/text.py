@@ -58,8 +58,8 @@ class OpenAIClient(OpenAICompatClient):
             max_retries=max_retries,
         )
 
-    def _update_generate_kwargs(self, generate_kwargs=None) -> dict:
-        kwargs = super()._update_generate_kwargs(generate_kwargs)
+    def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
+        kwargs = super()._rewrite_generate_kwargs(kwargs)
         if any(self.model.value.startswith(p) for p in _O_SERIES_PREFIXES):
             # o-series requires max_completion_tokens instead of max_tokens,
             # and temperature must be 1 (no sampling control)

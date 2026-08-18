@@ -497,5 +497,5 @@ class ModelClient(BaseModelClient):
             user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio, **extra
         )
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        return self._client._update_generate_kwargs(generate_kwargs)
+    def _resolve_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
+        return self._client._resolve_generate_kwargs(generate_kwargs)

@@ -286,9 +286,6 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
     def _generate(self, *args, **kwargs):  # pragma: no cover - not reachable
         raise NotImplementedError("FallbackClient delegates via generate(); _generate is unused.")
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:  # pragma: no cover
-        return generate_kwargs or {}
-
 
 def _label(client: object) -> str:
     """A short, safe label for logging which client failed."""

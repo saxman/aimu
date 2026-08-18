@@ -107,8 +107,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        kwargs = self._merge_generate_kwargs(generate_kwargs)
+    def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
         return self._apply_resolved_thinking(kwargs)
 
     async def _iter_stream(self, stream) -> AsyncIterator[StreamChunk]:
@@ -147,7 +146,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
         generate_kwargs = _SyncOpenAICompatClient._with_response_format(generate_kwargs, response_format)
 
         if stream:

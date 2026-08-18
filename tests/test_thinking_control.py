@@ -20,7 +20,6 @@ from aimu.models._internal.thinking import (
     THINKING_LEVELS,
     ResolvedThinking,
     resolve_thinking,
-    select_profile,
 )
 from aimu.models.base import AdHocModel, Model, ModelSpec
 from aimu.models.providers.ollama import OllamaModel
@@ -201,23 +200,6 @@ def test_reserved_key_is_underscore_prefixed():
     assert THINKING_KWARG.startswith("_")
 
 
-def test_profile_selection_prefers_the_instruct_profile_when_off():
-    model = _Model(nonthinking={"temperature": 0.7, "presence_penalty": 1.5})
-
-    off = select_profile(model, ResolvedThinking(enabled=False))
-    on = select_profile(model, ResolvedThinking(enabled=True))
-
-    assert off == {"temperature": 0.7, "presence_penalty": 1.5}
-    assert on == {"temperature": 1.0, "presence_penalty": 0.0}
-
-
-def test_profile_selection_falls_back_when_no_instruct_profile_exists():
-    model = _Model()
-
-    assert select_profile(model, ResolvedThinking(enabled=False)) == model.generation_kwargs
-    assert select_profile(model, None) == model.generation_kwargs
-
-
 def _mixin_host(model):
     """A bare object carrying the mixin, so these tests need no provider client."""
     from aimu.models._internal.chat_state import _ChatStateMixin
@@ -295,7 +277,7 @@ def _fake_client(model, recorder):
             self.last_output_truncated = False
             self.last_structured = None
 
-        def _update_generate_kwargs(self, generate_kwargs=None):
+        def _resolve_generate_kwargs(self, generate_kwargs=None):
             return dict(generate_kwargs or {})
 
         def _chat(self, user_message=None, generate_kwargs=None, **kw):
@@ -526,7 +508,7 @@ def _anthropic_kwargs(monkeypatch, model, thinking, generate_kwargs=None):
 
     base = {"max_tokens": 1024, **(generate_kwargs or {})}
     kwargs = client._apply_thinking(base, thinking)
-    return client._thinking_kwargs(client._update_generate_kwargs(kwargs))
+    return client._thinking_kwargs(client._resolve_generate_kwargs(kwargs))
 
 
 def test_anthropic_maps_a_level_to_a_token_budget(monkeypatch):
@@ -791,7 +773,7 @@ def test_hf_selects_the_instruct_profile_when_off():
 
     client = client_stand_in(HuggingFaceClient, HuggingFaceModel.QWEN_3_8_27B)
 
-    merged = client._update_generate_kwargs({THINKING_KWARG: ResolvedThinking(enabled=False)})
+    merged = client._resolve_generate_kwargs({THINKING_KWARG: ResolvedThinking(enabled=False)})
 
     assert merged["temperature"] == 0.7
     assert merged["top_p"] == 0.80
@@ -851,7 +833,7 @@ def test_llamacpp_drops_the_reserved_key(monkeypatch):
 
     client = client_stand_in(LlamaCppClient, LlamaCppModel.QWEN_3_8B, {"max_tokens": 128})
 
-    merged = client._update_generate_kwargs({THINKING_KWARG: ResolvedThinking(enabled=False)})
+    merged = client._resolve_generate_kwargs({THINKING_KWARG: ResolvedThinking(enabled=False)})
 
     assert THINKING_KWARG not in merged
 
@@ -1023,7 +1005,7 @@ def test_anthropic_explicit_budget_wins_over_a_level(monkeypatch):
     client = AnthropicClient(AnthropicModel.CLAUDE_SONNET_4_6)
 
     kwargs = client._apply_thinking({"max_tokens": 20000, "thinking_budget_tokens": 12000}, "low")
-    kwargs = client._thinking_kwargs(client._update_generate_kwargs(kwargs))
+    kwargs = client._thinking_kwargs(client._resolve_generate_kwargs(kwargs))
 
     assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 12000}
 

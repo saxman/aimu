@@ -7,7 +7,7 @@ Mirrors ``aimu.models.providers.openai.text.OpenAIClient`` using ``openai.AsyncO
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Optional
 
 from aimu.models.providers.openai.text import OpenAIModel
 
@@ -46,8 +46,8 @@ class AsyncOpenAIClient(AsyncOpenAICompatClient):
             max_retries=max_retries,
         )
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        kwargs = super()._update_generate_kwargs(generate_kwargs)
+    def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
+        kwargs = super()._rewrite_generate_kwargs(kwargs)
         # o-series models: rename max_tokens, force temperature=1.
         model_id = self.model.value
         if any(model_id.startswith(prefix) for prefix in ("o1", "o3", "o4")):

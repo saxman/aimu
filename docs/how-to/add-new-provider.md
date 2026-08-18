@@ -64,18 +64,25 @@ class MyProviderClient(BaseModelClient):
         super().__init__(model, model_kwargs, system_message)
         # ... construct the backend SDK client ...
 
-    def _update_generate_kwargs(self, generate_kwargs=None): ...
+    def _rewrite_generate_kwargs(self, kwargs): ...        # only if your API renames things
     def _generate(self, prompt, generate_kwargs=None, stream=False, images=None): ...
     def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None): ...
 ```
 
 `chat()` / `generate()` (and the `include=` stream filter) are concrete on the base; you only implement `_chat` / `_generate`. Use `self._chat_setup(...)` to build the request; when the model returns tool calls, call `self._record_tool_calls(tool_calls, content)` to parse and store them on the assistant message. `_chat` only *records* tool calls — it never executes them. Tool execution and the call-model → run-tools → repeat loop belong to the agent's tool-loop engine (`aimu.agents._tool_loop`), not the provider. See [`providers/anthropic.py`](https://github.com/saxman/aimu/blob/main/aimu/models/providers/anthropic.py) for a full native example (including the OpenAI↔Anthropic format adapters).
 
-!!! warning "`_update_generate_kwargs` must consume the reserved thinking key"
-    The portable [`thinking=`](control-thinking.md) parameter is resolved once on the base
-    and travels down to you inside `generate_kwargs`, under a reserved `_thinking` key. Your
-    provider must remove it before the dict reaches your SDK, by calling
-    `pop_thinking(generate_kwargs)` from `aimu.models._internal.thinking`:
+!!! warning "`_rewrite_generate_kwargs` must consume the reserved thinking key"
+    The generation kwargs are resolved on the base: `_resolve_generate_kwargs()` layers the four
+    tiers (`DEFAULT_GENERATE_KWARGS` < the model card's profile < `client.default_generate_kwargs`
+    < the per-call dict) and hands you the merged dict through the `_rewrite_generate_kwargs()`
+    hook. There is nothing to merge by hand, and no way to forget to: spreading the tiers per
+    provider is how three of them came to ignore `ModelSpec.generation_kwargs` outright.
+
+    Override the hook only to reshape what the merge produced, for an API that renames a standard
+    key, rejects one, or mandates a value. The portable
+    [`thinking=`](control-thinking.md) parameter is also resolved once on the base and rides down
+    inside those kwargs under a reserved `_thinking` key; your provider must remove it before the
+    dict reaches your SDK, by calling `pop_thinking()` from `aimu.models._internal.thinking`:
 
     ```python
     from .._internal.thinking import pop_thinking
@@ -84,18 +91,12 @@ class MyProviderClient(BaseModelClient):
         # The weakest kwarg tier: parameters neither the model card nor the caller sets.
         DEFAULT_GENERATE_KWARGS = {"max_tokens": 1024, "temperature": 0.1}
 
-        def _update_generate_kwargs(self, generate_kwargs=None):
-            kwargs = self._merge_generate_kwargs(generate_kwargs)   # never merge by hand
+        def _rewrite_generate_kwargs(self, kwargs):   # already merged; mutate and return
             resolved = pop_thinking(kwargs)   # required, even if you ignore the value
             if resolved is not None:
                 ...  # translate to your wire format, or drop it
             return kwargs
     ```
-
-    Always start from `self._merge_generate_kwargs()`. It layers the four kwarg tiers
-    (`DEFAULT_GENERATE_KWARGS` < the model card's profile < `client.default_generate_kwargs` <
-    the per-call dict) and returns a fresh dict for you to reshape. Spreading the tiers yourself
-    is how three providers came to ignore `ModelSpec.generation_kwargs` outright.
 
     Translating it is optional: a provider with no thinking mechanism drops it, and the base
     has already warned the caller where that matters. Removing it is not optional. Forgetting

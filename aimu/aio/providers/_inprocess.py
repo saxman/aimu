@@ -109,8 +109,8 @@ class _AsyncInProcessClient(AsyncBaseModelClient):
     def reset(self, system_message: Optional[str] = "__keep__") -> None:
         self._sync.reset(system_message)
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        return self._sync._update_generate_kwargs(generate_kwargs)
+    def _resolve_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
+        return self._sync._resolve_generate_kwargs(generate_kwargs)
 
     # --- Async surface: route sync work through to_thread so the event loop doesn't block ---
 

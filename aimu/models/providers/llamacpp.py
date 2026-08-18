@@ -97,8 +97,7 @@ class LlamaCppClient(BaseModelClient):
     def AUDIO_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_audio]
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        kwargs = self._merge_generate_kwargs(generate_kwargs)
+    def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
         # No verified thinking control on this path; the request was resolved and warned about
         # upstream, so drop it rather than let llama_cpp reject an unknown key.
         pop_thinking(kwargs)
@@ -137,7 +136,7 @@ class LlamaCppClient(BaseModelClient):
         images: Optional[list] = None,
         audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
 
         if stream:
             return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)

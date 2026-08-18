@@ -56,7 +56,7 @@ class _MockBaseModelClient(BaseModelClient):
     def _generate_streamed(self):
         yield StreamChunk(StreamingContentType.GENERATING, "Generated response.")
 
-    def _update_generate_kwargs(self, generate_kwargs=None):
+    def _resolve_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
 

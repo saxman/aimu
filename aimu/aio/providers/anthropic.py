@@ -151,7 +151,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             self._append_message({"role": "assistant", "content": text})
 
     # Pure helpers reused from sync client; no I/O involved.
-    _update_generate_kwargs = _SyncAnthropicClient._update_generate_kwargs
+    _rewrite_generate_kwargs = _SyncAnthropicClient._rewrite_generate_kwargs
     _thinking_kwargs = _SyncAnthropicClient._thinking_kwargs
     _openai_messages_to_anthropic = _SyncAnthropicClient._openai_messages_to_anthropic
     _openai_tools_to_anthropic = _SyncAnthropicClient._openai_tools_to_anthropic
@@ -165,7 +165,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
 
         if response_format is not None:
             content = _SyncAnthropicClient._generate_content(prompt, images, audio=audio)

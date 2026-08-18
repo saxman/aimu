@@ -2,7 +2,8 @@
 
 ``BaseModelClient`` is the abstract base for every text/chat provider. Tool calling,
 message history, vision input, and streaming filters live here once for all providers;
-concrete clients implement ``_chat`` / ``_generate`` / ``_update_generate_kwargs``.
+concrete clients implement ``_chat`` / ``_generate`` (and override
+``_rewrite_generate_kwargs`` when their API spells the generation kwargs differently).
 """
 
 import logging
@@ -12,6 +13,7 @@ from enum import Enum
 from typing import Any, Iterable, Iterator, Optional, Union
 
 from .._internal.chat_state import _ChatStateMixin
+from .._internal.generate_kwargs import _GenerateKwargsMixin
 from .._internal.streaming import filter_chunks as _filter_chunks_fn
 from .._internal.streaming import resolve_include as _resolve_include_fn
 from .shared import StreamChunk, StreamingContentType, classproperty
@@ -115,10 +117,11 @@ class AdHocModel:
         self.nonthinking_generation_kwargs = dict(spec.nonthinking_generation_kwargs or {})
 
 
-class BaseModelClient(_ChatStateMixin, ABC):
+class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     """Abstract base for all provider clients.
 
-    Subclasses implement :meth:`generate`, :meth:`chat`, and :meth:`_update_generate_kwargs`.
+    Subclasses implement :meth:`_generate` and :meth:`_chat`, and override
+    :meth:`_rewrite_generate_kwargs` when their API spells the generation kwargs differently.
     Tool calling, message history, vision input, and streaming filters are handled here
     once for every provider.
     """
@@ -493,10 +496,6 @@ class BaseModelClient(_ChatStateMixin, ABC):
                 result = self._filter_chunks(result, self._resolve_include(include))
             yield from result
 
-    @abstractmethod
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        pass
-
     @staticmethod
     def _resolve_include(
         include: Iterable[Union[str, StreamingContentType]],
@@ -520,7 +519,7 @@ class BaseModelClient(_ChatStateMixin, ABC):
         images: Optional[list] = None,
         audio: Optional[list] = None,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
 
         # user_message=None is the continuation primitive: run a turn on the current messages
         # without appending a new user turn (the agent loop uses it after a tool turn).

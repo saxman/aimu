@@ -29,7 +29,7 @@ def _fake_async_client(model, recorder):
             self.last_output_truncated = False
             self.last_structured = None
 
-        def _update_generate_kwargs(self, generate_kwargs=None):
+        def _resolve_generate_kwargs(self, generate_kwargs=None):
             return dict(generate_kwargs or {})
 
         async def _chat(self, user_message=None, generate_kwargs=None, **kw):

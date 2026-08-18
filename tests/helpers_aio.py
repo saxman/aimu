@@ -75,7 +75,7 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         self._responses = list(responses)
         self._call_count = 0
 
-    def _update_generate_kwargs(self, generate_kwargs=None):
+    def _resolve_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
     async def _chat(

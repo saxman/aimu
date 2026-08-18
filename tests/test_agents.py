@@ -55,7 +55,7 @@ class _LoopingToolClient(BaseModelClient):
         self.final_text = final_text
         self.tools_seen: list[list] = []
 
-    def _update_generate_kwargs(self, generate_kwargs=None):
+    def _resolve_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
     def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):

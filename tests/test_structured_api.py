@@ -71,7 +71,7 @@ class FakeClient(BaseModelClient):
         self.seen_response_format = "UNSET"
         self.seen_prompt = None
 
-    def _update_generate_kwargs(self, generate_kwargs=None):
+    def _resolve_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
     @staticmethod

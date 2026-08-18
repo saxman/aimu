@@ -188,6 +188,3 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
 
     async def _generate(self, *args, **kwargs):  # pragma: no cover - not reachable
         raise NotImplementedError("AsyncFallbackClient delegates via generate(); _generate is unused.")
-
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:  # pragma: no cover
-        return generate_kwargs or {}

@@ -84,7 +84,7 @@ class _LoopClient(BaseModelClient):
         self._tool_turns = tool_turns
         self._turn = 0
 
-    def _update_generate_kwargs(self, generate_kwargs=None):
+    def _resolve_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
     def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):

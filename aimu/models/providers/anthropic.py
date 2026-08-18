@@ -240,8 +240,7 @@ class AnthropicClient(BaseModelClient):
     # Parameters not accepted by the Anthropic Messages API (e.g. HuggingFace-specific)
     _UNSUPPORTED_KWARGS = frozenset({"max_new_tokens", "do_sample", "num_return_sequences"})
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        kwargs = self._merge_generate_kwargs(generate_kwargs)
+    def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
         # Strip HuggingFace / other framework-specific keys the Anthropic API rejects
         for key in self._UNSUPPORTED_KWARGS:
             kwargs.pop(key, None)
@@ -433,7 +432,7 @@ class AnthropicClient(BaseModelClient):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
 
         if response_format is not None:
             content = self._generate_content(prompt, images, audio)

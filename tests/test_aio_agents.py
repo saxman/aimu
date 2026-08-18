@@ -535,7 +535,7 @@ class _AsyncLoopClient(AsyncBaseModelClient):
         self._tool_turns = tool_turns
         self._turn = 0
 
-    def _update_generate_kwargs(self, generate_kwargs=None):
+    def _resolve_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
 
     async def _chat(

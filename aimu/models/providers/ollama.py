@@ -221,11 +221,9 @@ class OllamaClient(BaseModelClient):
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
 
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
-        # DEFAULT_GENERATE_KWARGS is left empty here: whatever neither the card nor the caller
-        # sets falls through to Ollama's own server-side defaults.
-        kwargs = self._merge_generate_kwargs(generate_kwargs)
-
+    def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
+        # DEFAULT_GENERATE_KWARGS is left empty on this client: whatever neither the card nor the
+        # caller sets falls through to Ollama's own server-side defaults.
         if "max_tokens" in kwargs:
             kwargs["num_predict"] = kwargs.pop("max_tokens")
 
@@ -251,7 +249,7 @@ class OllamaClient(BaseModelClient):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
         gen_images = self._extract_ollama_images(images)
 
         if stream:

@@ -3,7 +3,7 @@
 Mirrors ``aimu.models.base.BaseModelClient`` but with async ``_chat`` / ``_generate``
 abstract methods. State-management mechanics (system_message lifecycle, reset,
 message-history append, image-block normalization) are inherited from the shared
-``_ChatStateMixin``.
+``_ChatStateMixin`` and ``_GenerateKwargsMixin``.
 """
 
 from __future__ import annotations
@@ -13,18 +13,20 @@ from abc import ABC, abstractmethod
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
 from aimu.models._internal.chat_state import _ChatStateMixin
+from aimu.models._internal.generate_kwargs import _GenerateKwargsMixin
 from aimu.models._internal.streaming import afilter_chunks, resolve_include
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncBaseModelClient(_ChatStateMixin, ABC):
+class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     """Abstract async base for all provider clients.
 
-    Subclasses implement :meth:`_chat`, :meth:`_generate`, and
-    :meth:`_update_generate_kwargs`. Tool calling, message history, vision input,
-    and streaming filters are handled here once for every provider.
+    Subclasses implement :meth:`_chat` and :meth:`_generate`, and override
+    :meth:`_rewrite_generate_kwargs` when their API spells the generation kwargs
+    differently. Tool calling, message history, vision input, and streaming filters
+    are handled here once for every provider.
     """
 
     MODELS = Model
@@ -323,10 +325,6 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
             async for chunk in result:
                 yield chunk
 
-    @abstractmethod
-    def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        pass
-
     async def _chat_setup(
         self,
         user_message: Optional[str] = None,
@@ -336,7 +334,7 @@ class AsyncBaseModelClient(_ChatStateMixin, ABC):
         audio: Optional[list] = None,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """Async equivalent of the sync ``_chat_setup``."""
-        generate_kwargs = self._update_generate_kwargs(generate_kwargs)
+        generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
 
         # user_message=None → continuation: run a turn on current messages, append nothing.
         if user_message is not None:
