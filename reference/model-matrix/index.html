@@ -3820,7 +3820,14 @@ per-provider mechanisms.</p>
 <td><code>GEMMA_4_E4B</code></td>
 <td><code>google/gemma-4-E4B-it</code></td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td><code>GEMMA_4_12B</code></td>
+<td><code>google/gemma-4-12b-it</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
 <td style="text-align: center;">✅</td>
 </tr>
 <tr>
@@ -3900,6 +3907,13 @@ per-provider mechanisms.</p>
 <td style="text-align: center;">✗</td>
 <td style="text-align: center;">✗</td>
 </tr>
+<tr>
+<td><code>NEMOTRON_H_8B</code></td>
+<td><code>nvidia/Nemotron-H-8B-Instruct-HF</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+</tr>
 </tbody>
 </table>
 <p>§ <code>QWEN_3_6_27B_FP8</code> is the e4m3 FP8 checkpoint with dynamic activation scaling. FP8 needs Ada/Hopper-class tensor cores (compute capability ≥ 8.9), so on Ampere, MPS, or CPU there is no native path — pick the bare <code>QWEN_3_6_27B</code> there. The quantization is in the member <strong>name</strong> precisely because it is a hardware-gated choice rather than a default; elsewhere in the catalogs a quantization is left out of the name when the provider resolves it itself (Ollama's default tags, LM Studio's keys, llama-cpp's <code>model_path=</code>).</p>
@@ -3919,14 +3933,14 @@ per-provider mechanisms.</p>
 <tr>
 <td><code>LLAMA_3_1_8B</code></td>
 <td><code>llama-3.1-8b</code></td>
-<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
 <td style="text-align: center;">✗</td>
 <td style="text-align: center;">✗</td>
 </tr>
 <tr>
 <td><code>LLAMA_3_2_3B</code></td>
 <td><code>llama-3.2-3b</code></td>
-<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✅</td>
 <td style="text-align: center;">✗</td>
 <td style="text-align: center;">✗</td>
 </tr>
@@ -3965,11 +3979,19 @@ per-provider mechanisms.</p>
 <td style="text-align: center;">✗</td>
 <td style="text-align: center;">✗</td>
 </tr>
+<tr>
+<td><code>GEMMA_4_12B</code></td>
+<td><code>gemma-4-12b</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✗</td>
+</tr>
 </tbody>
 </table>
 <p>llama-cpp model ids are hints; the actual model is loaded from <code>model_path=</code> regardless. Capability flags are honoured by the client.</p>
 <h2 id="openai-compatible-local-servers">OpenAI-compatible local servers<a class="headerlink" href="#openai-compatible-local-servers" title="Permanent link">&para;</a></h2>
 <p><code>OllamaOpenAIModel</code>, <code>LMStudioOpenAIModel</code>, <code>VLLMOpenAIModel</code>, <code>HFOpenAIModel</code>, <code>LlamaServerOpenAIModel</code>, <code>SGLangOpenAIModel</code>, and <code>OMLXOpenAIModel</code> enumerate a shared set of common open models. Capability flags for a given member are the same across servers (except where footnoted); the <strong>model id format differs per server</strong> — LM Studio uses loaded model keys, Ollama uses <code>name:tag</code>, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames, and oMLX uses <code>--model-dir</code> subdirectory names — so consult the enum source for each server's exact ids.</p>
+<p><strong>"all" in the Servers column means the six non-MLX servers</strong> (Ollama, LM Studio, vLLM, HF Serve, llama-server, SGLang). <code>OMLXOpenAIModel</code> ships only MLX conversions, so it carries just the Qwen 3.6 35B-A3B, Qwen 3.8 27B, and Muse Glimmer 30B families and is named explicitly on the rows it does carry. <code>tests/test_docs_model_matrix.py</code> checks this column against the enums.</p>
 <table>
 <thead>
 <tr>
