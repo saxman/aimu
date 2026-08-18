@@ -58,6 +58,37 @@ aimu.client("llamacpp:qwen3-8b", model_path="/path/to/qwen3-8b.gguf")
 aimu.client("lmstudio:qwen3.5-9b", base_url="http://myserver:1234/v1")
 ```
 
+## Generation parameters
+
+Sampling parameters come from four places. They are merged **per parameter** on every call, in
+this order, so a lower tier only supplies what no higher tier set:
+
+| Tier | Source | Typical use |
+|------|--------|-------------|
+| 1 | `Client.DEFAULT_GENERATE_KWARGS` | AIMU's own fallbacks (`max_tokens=1024`) for what nobody else sets |
+| 2 | `ModelSpec.generation_kwargs` | the sampling the model card recommends (see the [model matrix](model-matrix.md)) |
+| 3 | `client.default_generate_kwargs` | **your** standing choice for every call on this client |
+| 4 | `chat(generate_kwargs={...})` | **your** choice for one call |
+
+Tier 3 is the one to reach for when a setting should apply to a whole conversation:
+
+```python
+client = aimu.client("ollama:qwen3.5:9b")
+client.default_generate_kwargs = {"temperature": 0.2, "num_ctx": 16384}
+
+client.chat("summarise this")                                    # temperature 0.2
+client.chat("now be creative", generate_kwargs={"temperature": 1.0})  # 1.0, just this call
+```
+
+It starts empty on every provider, and it is an *input*, not a report: reading it back shows what
+you set, not the effective request. Assign a whole dict or mutate it in place; both work, and both
+propagate through the `ModelClient` wrapper that `aimu.client()` returns, through
+`agent.as_model_client()`, and down a `FallbackClient`'s chain.
+
+Tier 1 sits *below* the model card on purpose: AIMU's generic `temperature=0.1` must not override
+the tuned value a card specifies. Provider-specific rewrites run *after* the merge and can still
+override you where an API demands it (see the notes below).
+
 ## Notes per provider
 
 - **`OpenAIClient`** overrides `_update_generate_kwargs` for o-series models (o1/o3/o4): renames `max_tokens → max_completion_tokens` and forces `temperature=1`.

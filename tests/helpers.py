@@ -474,3 +474,27 @@ def create_real_audio_client(request) -> Iterator[BaseAudioClient]:
 
     yield client
     del client
+
+
+def client_stand_in(client_cls, model, default_generate_kwargs=None):
+    """A stand-in for a client whose real constructor is too expensive for a unit test.
+
+    ``HuggingFaceClient`` loads model weights in ``__init__``, so tests of its pure request-shaping
+    methods (notably ``_update_generate_kwargs``) exercise them against a namespace instead. Those
+    methods reach into ``self`` for the model, the class's kwarg fallbacks, and the client-level
+    ``default_generate_kwargs`` layer, and they call the shared ``_ChatStateMixin`` merge, so the
+    stand-in has to carry all four. Building it here keeps that knowledge in one place: a bare
+    ``SimpleNamespace(model=...)`` silently loses a tier the moment the merge grows one.
+    """
+    from types import SimpleNamespace
+
+    from aimu.models._internal.chat_state import _ChatStateMixin
+
+    fake = SimpleNamespace(
+        model=model,
+        default_generate_kwargs=dict(default_generate_kwargs or {}),
+        DEFAULT_GENERATE_KWARGS=client_cls.DEFAULT_GENERATE_KWARGS,
+    )
+    fake._merge_generate_kwargs = _ChatStateMixin._merge_generate_kwargs.__get__(fake)
+    fake._update_generate_kwargs = client_cls._update_generate_kwargs.__get__(fake)
+    return fake

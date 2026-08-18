@@ -55,7 +55,6 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         cache_prompt: bool = False,
     ):
         super().__init__(model, model_kwargs, system_message)
-        self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
         # Opt-in prompt caching; the cache-marking format adapters are inherited from the
         # sync client via composition, so only the flag needs setting here.
         self.cache_prompt = cache_prompt

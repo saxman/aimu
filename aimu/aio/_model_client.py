@@ -159,7 +159,6 @@ class AsyncModelClient(AsyncBaseModelClient):
                     self._client = _ASYNC_COMPAT_CLIENTS[resolved.provider](resolved.model, **kwargs)
                     self.model = self._client.model
                     self.model_kwargs = self._client.model_kwargs
-                    self.default_generate_kwargs = self._client.default_generate_kwargs
                     return
                 model = resolved.model
             elif isinstance(model, ModelSpec):
@@ -205,9 +204,16 @@ class AsyncModelClient(AsyncBaseModelClient):
         # Mirror attributes (super().__init__ would clobber inner client state).
         self.model = self._client.model
         self.model_kwargs = self._client.model_kwargs
-        self.default_generate_kwargs = self._client.default_generate_kwargs
 
     # --- Delegate mutable state to inner client ---
+
+    @property
+    def default_generate_kwargs(self) -> dict:
+        return self._client.default_generate_kwargs
+
+    @default_generate_kwargs.setter
+    def default_generate_kwargs(self, value: dict) -> None:
+        self._client.default_generate_kwargs = value
 
     @property
     def messages(self) -> list[dict]:

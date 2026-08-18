@@ -26,9 +26,16 @@ class _AgenticViewMixin:
         self._inner_client = agent.model_client
         self.model = self._inner_client.model
         self.model_kwargs = self._inner_client.model_kwargs
-        self.default_generate_kwargs = self._inner_client.default_generate_kwargs
 
     # --- Delegate mutable state to inner_client so both stay in sync ---
+
+    @property
+    def default_generate_kwargs(self) -> dict:
+        return self._inner_client.default_generate_kwargs
+
+    @default_generate_kwargs.setter
+    def default_generate_kwargs(self, value: dict) -> None:
+        self._inner_client.default_generate_kwargs = value
 
     @property
     def messages(self) -> list[dict]:

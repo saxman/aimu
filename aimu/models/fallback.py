@@ -78,6 +78,7 @@ class _FallbackStateMixin:
         """Load the shared conversation state into ``client`` before delegating to it."""
         client.reset(self.system_message)  # clears history, syncs system_message (delegates on ModelClient)
         client.messages = copy.deepcopy(self.messages)
+        client.default_generate_kwargs = dict(self.default_generate_kwargs)
         client.last_thinking = ""
         client.last_usage = None
         client.last_structured = None

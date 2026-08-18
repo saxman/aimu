@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Iterator, Optional, Union
 
-from .thinking import THINKING_KWARG, ResolvedThinking, resolve_thinking
+from .thinking import THINKING_KWARG, ResolvedThinking, merge_generate_kwargs, resolve_thinking
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,25 @@ class _ChatStateMixin:
       - ``last_usage``: ``dict | None``
       - ``last_structured``: ``Any | None`` (validated object from the most recent ``schema=`` call)
       - ``tools``: list of ``@tool``-decorated callables
+      - ``default_generate_kwargs``: ``dict``, the caller's standing kwargs for this client
     """
+
+    # The client's own library fallbacks, for parameters neither the model card nor the caller
+    # sets. Overridden per provider (e.g. ``max_tokens``); the weakest tier of the four that
+    # ``_merge_generate_kwargs`` layers, so it never beats a model card.
+    DEFAULT_GENERATE_KWARGS: dict = {}
+
+    def _merge_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:
+        """Layer this client's four kwarg tiers for one request.
+
+        Every provider's ``_update_generate_kwargs`` starts here, then applies its own
+        request-shape rewrites (name translations, API-mandated overrides) to the result.
+        Gathering the tiers from ``self`` rather than passing them per call is deliberate:
+        hand-rolling the merge is how three providers came to ignore the model card entirely.
+        """
+        return merge_generate_kwargs(
+            self.model, self.DEFAULT_GENERATE_KWARGS, self.default_generate_kwargs, generate_kwargs
+        )
 
     @property
     def system_message(self) -> Optional[str]:

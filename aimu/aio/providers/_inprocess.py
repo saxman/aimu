@@ -39,7 +39,6 @@ class _AsyncInProcessClient(AsyncBaseModelClient):
         # super().__init__ would clobber the sync client's state; mirror attributes instead.
         self.model = sync_client.model
         self.model_kwargs = sync_client.model_kwargs
-        self.default_generate_kwargs = sync_client.default_generate_kwargs
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -58,6 +57,14 @@ class _AsyncInProcessClient(AsyncBaseModelClient):
         return [m for m in cls.MODELS if m.supports_audio]
 
     # --- Share state with the wrapped sync client ---
+
+    @property
+    def default_generate_kwargs(self) -> dict:
+        return self._sync.default_generate_kwargs
+
+    @default_generate_kwargs.setter
+    def default_generate_kwargs(self, value: dict) -> None:
+        self._sync.default_generate_kwargs = value
 
     @property
     def messages(self) -> list[dict]:

@@ -85,7 +85,6 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         max_retries: Optional[int] = None,
     ):
         super().__init__(model, model_kwargs, system_message)
-        self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
         self._client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key, **sdk_client_kwargs(timeout, max_retries))
 
     @classproperty
@@ -109,7 +108,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         return [m for m in cls.MODELS if m.supports_structured_output]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
+        kwargs = self._merge_generate_kwargs(generate_kwargs)
         return self._apply_resolved_thinking(kwargs)
 
     async def _iter_stream(self, stream) -> AsyncIterator[StreamChunk]:

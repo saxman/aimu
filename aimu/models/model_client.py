@@ -332,7 +332,6 @@ class ModelClient(BaseModelClient):
                 self._client = client_cls(resolved.model, **kwargs)
                 self.model = self._client.model
                 self.model_kwargs = self._client.model_kwargs
-                self.default_generate_kwargs = self._client.default_generate_kwargs
                 return
             model = resolved.model
         elif isinstance(model, ModelSpec):
@@ -380,9 +379,16 @@ class ModelClient(BaseModelClient):
         # super().__init__() is intentionally not called; it would reset inner client state.
         self.model = self._client.model
         self.model_kwargs = self._client.model_kwargs
-        self.default_generate_kwargs = self._client.default_generate_kwargs
 
     # --- Delegate mutable state to inner client so both stay in sync ---
+
+    @property
+    def default_generate_kwargs(self) -> dict:
+        return self._client.default_generate_kwargs
+
+    @default_generate_kwargs.setter
+    def default_generate_kwargs(self, value: dict) -> None:
+        self._client.default_generate_kwargs = value
 
     @property
     def messages(self) -> list[dict]:

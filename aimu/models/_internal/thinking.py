@@ -107,3 +107,30 @@ def select_profile(model: Any, resolved: Optional[ResolvedThinking]) -> dict:
     if resolved is not None and not resolved.enabled and model.nonthinking_generation_kwargs:
         return dict(model.nonthinking_generation_kwargs)
     return dict(model.generation_kwargs)
+
+
+def merge_generate_kwargs(model: Any, fallbacks: dict, client_defaults: dict, generate_kwargs: Optional[dict]) -> dict:
+    """Layer sampling parameters into one request dict, lowest precedence first.
+
+    1. ``fallbacks``: the client's own library defaults, for parameters nobody else sets
+       (``max_tokens``, HuggingFace's ``max_new_tokens``). Deliberately the *weakest* tier: a
+       library-chosen ``temperature=0.1`` must not quietly beat every model card's tuned value.
+    2. the model card's profile (``ModelSpec.generation_kwargs``, or the instruct-mode variant
+       when thinking resolved off), as recommended sampling the caller may override.
+    3. ``client_defaults``: ``client.default_generate_kwargs``, the caller's standing choice for
+       every call on this client instance.
+    4. ``generate_kwargs``: the caller's per-call dict, which wins over all of the above.
+
+    Returns a fresh dict, so the caller's dict and the process-global profile on the enum
+    member are both left untouched.
+
+    The reserved thinking key is read but not popped: the profile depends on which mode was
+    resolved, and every provider still needs the value afterwards to build its own request.
+    """
+    caller = dict(generate_kwargs or {})
+    return {
+        **fallbacks,
+        **select_profile(model, caller.get(THINKING_KWARG)),
+        **client_defaults,
+        **caller,
+    }

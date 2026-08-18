@@ -63,7 +63,6 @@ class LlamaCppClient(BaseModelClient):
         model_kwargs: Optional[dict] = None,
     ):
         super().__init__(model, model_kwargs, system_message)
-        self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
 
         self._cache_key = _make_cache_key(model_path, n_ctx, n_gpu_layers, chat_format)
         with _registry_lock:
@@ -99,7 +98,7 @@ class LlamaCppClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_audio]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
+        kwargs = self._merge_generate_kwargs(generate_kwargs)
         # No verified thinking control on this path; the request was resolved and warned about
         # upstream, so drop it rather than let llama_cpp reject an unknown key.
         pop_thinking(kwargs)

@@ -80,13 +80,22 @@ class MyProviderClient(BaseModelClient):
     ```python
     from .._internal.thinking import pop_thinking
 
-    def _update_generate_kwargs(self, generate_kwargs=None):
-        kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
-        resolved = pop_thinking(kwargs)   # required, even if you ignore the value
-        if resolved is not None:
-            ...  # translate to your wire format, or drop it
-        return kwargs
+    class MyClient(BaseModelClient):
+        # The weakest kwarg tier: parameters neither the model card nor the caller sets.
+        DEFAULT_GENERATE_KWARGS = {"max_tokens": 1024, "temperature": 0.1}
+
+        def _update_generate_kwargs(self, generate_kwargs=None):
+            kwargs = self._merge_generate_kwargs(generate_kwargs)   # never merge by hand
+            resolved = pop_thinking(kwargs)   # required, even if you ignore the value
+            if resolved is not None:
+                ...  # translate to your wire format, or drop it
+            return kwargs
     ```
+
+    Always start from `self._merge_generate_kwargs()`. It layers the four kwarg tiers
+    (`DEFAULT_GENERATE_KWARGS` < the model card's profile < `client.default_generate_kwargs` <
+    the per-call dict) and returns a fresh dict for you to reshape. Spreading the tiers yourself
+    is how three providers came to ignore `ModelSpec.generation_kwargs` outright.
 
     Translating it is optional: a provider with no thinking mechanism drops it, and the base
     has already warned the caller where that matters. Removing it is not optional. Forgetting

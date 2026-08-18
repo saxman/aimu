@@ -12,6 +12,8 @@ import anthropic as anthropic_sdk
 import ollama
 import pytest
 
+from helpers import client_stand_in
+
 import aimu.models.providers.ollama as sync_ollama
 from aimu.models._internal.thinking import (
     THINKING_KWARG,
@@ -787,9 +789,9 @@ def test_hf_selects_the_instruct_profile_when_off():
     from aimu.models._internal.thinking import THINKING_KWARG, ResolvedThinking
     from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
 
-    client = types.SimpleNamespace(model=HuggingFaceModel.QWEN_3_8_27B)
+    client = client_stand_in(HuggingFaceClient, HuggingFaceModel.QWEN_3_8_27B)
 
-    merged = HuggingFaceClient._update_generate_kwargs(client, {THINKING_KWARG: ResolvedThinking(enabled=False)})
+    merged = client._update_generate_kwargs({THINKING_KWARG: ResolvedThinking(enabled=False)})
 
     assert merged["temperature"] == 0.7
     assert merged["top_p"] == 0.80
@@ -847,9 +849,9 @@ def test_llamacpp_drops_the_reserved_key(monkeypatch):
     from aimu.models._internal.thinking import ResolvedThinking
     from aimu.models.providers.llamacpp import LlamaCppClient, LlamaCppModel
 
-    client = types.SimpleNamespace(model=LlamaCppModel.QWEN_3_8B, default_generate_kwargs={"max_tokens": 128})
+    client = client_stand_in(LlamaCppClient, LlamaCppModel.QWEN_3_8B, {"max_tokens": 128})
 
-    merged = LlamaCppClient._update_generate_kwargs(client, {THINKING_KWARG: ResolvedThinking(enabled=False)})
+    merged = client._update_generate_kwargs({THINKING_KWARG: ResolvedThinking(enabled=False)})
 
     assert THINKING_KWARG not in merged
 

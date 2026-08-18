@@ -59,7 +59,24 @@ QWEN_3_8B = ModelSpec(
 )
 ```
 
-`generation_kwargs` is merged on top of the client's defaults on every `chat()` / `generate()` call, per key: a caller's `generate_kwargs` overrides the keys it names and leaves the rest of the profile intact. (Before v0.15 an explicit `generate_kwargs` *replaced* the profile wholesale on the Ollama and HuggingFace paths, silently discarding the model's tuned sampling.)
+`generation_kwargs` is merged per key on every `chat()` / `generate()` call, never used as a
+replacement. Four tiers apply, lowest precedence first, identically on every provider:
+
+| Tier | Source | Set by |
+|------|--------|--------|
+| 1 | `Client.DEFAULT_GENERATE_KWARGS` | the library, for parameters nobody else sets (`max_tokens`) |
+| 2 | `ModelSpec.generation_kwargs` (or `nonthinking_generation_kwargs`) | **you, here** |
+| 3 | `client.default_generate_kwargs` | the user, for every call on that client instance |
+| 4 | `chat(generate_kwargs={...})` | the user, for one call |
+
+Tier 1 sits *under* your profile deliberately, so the library's own `temperature=0.1` cannot
+quietly beat a card's tuned value. Tiers 3 and 4 sit over it because they are explicit
+instructions from the caller. The chain is applied by `_merge_generate_kwargs()` (shared via
+`_ChatStateMixin`, backed by `merge_generate_kwargs()` in `aimu/models/_internal/thinking.py`),
+so a profile you add here takes effect wherever the model is served. (Before v0.15 an explicit
+`generate_kwargs` *replaced* the profile wholesale on the Ollama and HuggingFace paths, silently
+discarding the model's tuned sampling; until v0.15.1 the Anthropic, OpenAI-compatible, and
+llama.cpp paths ignored the profile entirely.)
 
 ### Thinking-control fields
 

@@ -113,7 +113,6 @@ class AnthropicClient(BaseModelClient):
         cache_prompt: bool = False,
     ):
         super().__init__(model, model_kwargs, system_message)
-        self.default_generate_kwargs = self.DEFAULT_GENERATE_KWARGS.copy()
         # Opt-in Anthropic prompt caching: marks the system prompt and tools with ephemeral
         # cache_control breakpoints at request time (see the format adapters). Below the
         # provider's minimum cacheable size the API silently skips caching, so it's safe on.
@@ -242,10 +241,7 @@ class AnthropicClient(BaseModelClient):
     _UNSUPPORTED_KWARGS = frozenset({"max_new_tokens", "do_sample", "num_return_sequences"})
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict:
-        if not generate_kwargs:
-            kwargs = self.default_generate_kwargs.copy()
-        else:
-            kwargs = {**self.default_generate_kwargs, **generate_kwargs}
+        kwargs = self._merge_generate_kwargs(generate_kwargs)
         # Strip HuggingFace / other framework-specific keys the Anthropic API rejects
         for key in self._UNSUPPORTED_KWARGS:
             kwargs.pop(key, None)

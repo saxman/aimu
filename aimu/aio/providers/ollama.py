@@ -8,7 +8,7 @@ from typing import AsyncIterator, Optional, Union
 import ollama
 
 from aimu.models._internal.image_input import _adapt_messages_for_ollama
-from aimu.models._internal.thinking import THINKING_KWARG, pop_thinking, select_profile
+from aimu.models._internal.thinking import pop_thinking
 from aimu.models._internal.usage import truncated_from_ollama, usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.ollama import OllamaClient, OllamaModel
@@ -40,7 +40,6 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             )
 
         self.model_keep_alive_seconds = model_keep_alive_seconds
-        self.default_generate_kwargs = dict(model.generation_kwargs)
 
         # Model pull happens lazily on first request; `ollama.AsyncClient` doesn't
         # expose a separate pull. Users who want eager pull can call
@@ -68,10 +67,9 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         return [m for m in cls.MODELS if m.supports_structured_output]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:
-        caller = dict(generate_kwargs or {})
-        # Peek, do not pop: the request builders need it to set ``think``.
-        resolved = caller.get(THINKING_KWARG)
-        kwargs = {**select_profile(self.model, resolved), **caller}
+        # DEFAULT_GENERATE_KWARGS is left empty here: whatever neither the card nor the caller
+        # sets falls through to Ollama's own server-side defaults.
+        kwargs = self._merge_generate_kwargs(generate_kwargs)
 
         if "max_tokens" in kwargs:
             kwargs["num_predict"] = kwargs.pop("max_tokens")

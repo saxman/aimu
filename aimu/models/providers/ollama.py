@@ -10,7 +10,7 @@ from ..base import (
     classproperty,
 )
 from .._internal.image_input import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
-from .._internal.thinking import THINKING_KWARG, pop_thinking, select_profile
+from .._internal.thinking import pop_thinking
 from .._internal.usage import truncated_from_ollama, usage_from_ollama
 
 import ollama
@@ -169,11 +169,6 @@ class OllamaClient(BaseModelClient):
 
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds
-        # Kept for parity with the other clients, which all read it in
-        # _update_generate_kwargs. This one selects its profile per call via
-        # select_profile instead, so editing this dict does not change a request.
-        self.default_generate_kwargs = dict(model.generation_kwargs)
-
         self._client = ollama.Client(**({"timeout": timeout} if timeout is not None else {}))
         self._client.pull(model.value)
 
@@ -198,10 +193,9 @@ class OllamaClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_structured_output]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict[str, str]:
-        caller = dict(generate_kwargs or {})
-        # Peek, do not pop: the request builders need it to set ``think``.
-        resolved = caller.get(THINKING_KWARG)
-        kwargs = {**select_profile(self.model, resolved), **caller}
+        # DEFAULT_GENERATE_KWARGS is left empty here: whatever neither the card nor the caller
+        # sets falls through to Ollama's own server-side defaults.
+        kwargs = self._merge_generate_kwargs(generate_kwargs)
 
         if "max_tokens" in kwargs:
             kwargs["num_predict"] = kwargs.pop("max_tokens")

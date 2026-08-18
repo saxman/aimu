@@ -1,132 +1,335 @@
-"""Mock-only regression tests: a caller's partial generate_kwargs must not discard the
-model's sampling profile.
+"""Mock-only tests for generation-kwarg precedence: one chain, identical on every provider.
 
-Before this fix, `_update_generate_kwargs` returned the caller's dict verbatim whenever it
-was non-empty, so passing one key silently dropped temperature/top_p/top_k/min_p.
+Four tiers reach a request, lowest precedence first:
+
+1. ``Client.DEFAULT_GENERATE_KWARGS`` -- AIMU's own fallbacks, for what nobody else sets.
+2. the model card (``ModelSpec.generation_kwargs``, or ``nonthinking_generation_kwargs`` when
+   ``thinking=False`` resolved off).
+3. ``client.default_generate_kwargs`` -- the caller's standing kwargs for this client instance.
+4. the per-call ``generate_kwargs``.
+
+Every invariant is parametrized across **all** providers, sync and async, because each one owns
+its own ``_update_generate_kwargs`` and the tiers were historically lost one provider at a time:
+v0.15.0 fixed tier 2 being *replaced* by tier 4 on Ollama and HuggingFace, and the release after
+it fixed tier 2 being ignored outright on Anthropic, the OpenAI-compatible family, and llama.cpp.
+A per-provider test would only ever pin the provider someone thought to check.
 """
 
 from __future__ import annotations
 
 import types
 
+import anthropic
+import llama_cpp
 import ollama
+import openai
 import pytest
+from helpers import client_stand_in
 
+from aimu.models._internal.thinking import THINKING_KWARG, ResolvedThinking
+from aimu.models.base import Model, ModelSpec
+from aimu.models.model_client import ModelClient
 from aimu.models.providers.ollama import OllamaClient, OllamaModel
 
 
-@pytest.fixture
-def ollama_client(monkeypatch):
+class _CardModel(Model):
+    """Catalog members carrying a sampling profile, as the Ollama and HuggingFace members do.
+
+    Synthetic rather than a real member, so the tiers can be asserted with values no client
+    fallback shares and a catalog edit cannot quietly weaken these tests. One real-catalog test
+    below pins the wiring to a shipped member.
+    """
+
+    PLAIN = ModelSpec(
+        "test-card-plain",
+        tools=True,
+        generation_kwargs={"temperature": 0.9, "top_p": 0.3, "min_p": 0.05},
+    )
+    THINKER = ModelSpec(
+        "test-card-thinker",
+        tools=True,
+        thinking=True,
+        generation_kwargs={"temperature": 0.9, "top_p": 0.3},
+        nonthinking_generation_kwargs={"temperature": 0.7, "top_p": 0.8},
+    )
+
+
+# --- one client per provider, built against a mocked SDK ---------------------------------------
+#
+# ``_update_generate_kwargs`` is a pure dict transform even on the async clients, so the async
+# providers -- which carry their own copies of it -- are covered by the same tests.
+
+
+def _build_ollama(monkeypatch, model):
     monkeypatch.setattr(ollama, "Client", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None))
-    return OllamaClient(OllamaModel.QWEN_3_5_9B)
+    return OllamaClient(model)
 
 
-def test_partial_kwargs_keep_the_model_profile(ollama_client):
-    merged = ollama_client._update_generate_kwargs({"max_tokens": 2000})
+def _build_aio_ollama(monkeypatch, model):
+    from aimu.aio.providers.ollama import AsyncOllamaClient
 
-    # the caller's key wins, translated to Ollama's name
+    monkeypatch.setattr(ollama, "AsyncClient", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None))
+    return AsyncOllamaClient(model)
+
+
+def _build_openai_compat(monkeypatch, model):
+    from aimu.models.providers.openai_compat import LMStudioOpenAIClient
+
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: types.SimpleNamespace())
+    return LMStudioOpenAIClient(model)
+
+
+def _build_aio_openai_compat(monkeypatch, model):
+    from aimu.aio.providers.openai_compat import AsyncLMStudioOpenAIClient
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kw: types.SimpleNamespace())
+    return AsyncLMStudioOpenAIClient(model)
+
+
+def _build_anthropic(monkeypatch, model):
+    from aimu.models.providers.anthropic import AnthropicClient
+
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: types.SimpleNamespace())
+    return AnthropicClient(model)
+
+
+def _build_aio_anthropic(monkeypatch, model):
+    from aimu.aio.providers.anthropic import AsyncAnthropicClient
+
+    monkeypatch.setattr(anthropic, "AsyncAnthropic", lambda **kw: types.SimpleNamespace())
+    return AsyncAnthropicClient(model)
+
+
+def _build_llamacpp(monkeypatch, model):
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    monkeypatch.setattr(llama_cpp, "Llama", lambda **kw: types.SimpleNamespace())
+    return LlamaCppClient(model, model_path=f"/nonexistent/{model.value}.gguf")
+
+
+def _build_hf(monkeypatch, model):
+    from aimu.models.providers.hf.text import HuggingFaceClient
+
+    return client_stand_in(HuggingFaceClient, model)
+
+
+_BUILDERS = {
+    "aio_anthropic": _build_aio_anthropic,
+    "aio_ollama": _build_aio_ollama,
+    "aio_openai_compat": _build_aio_openai_compat,
+    "anthropic": _build_anthropic,
+    "hf": _build_hf,
+    "llamacpp": _build_llamacpp,
+    "ollama": _build_ollama,
+    "openai_compat": _build_openai_compat,
+}
+
+# The three providers whose DEFAULT_GENERATE_KWARGS carries max_tokens under the API's own name.
+# Ollama and HuggingFace rename it, and Ollama has no fallbacks at all (unset parameters fall
+# through to the server's own defaults).
+_MAX_TOKENS_FALLBACK = ["aio_anthropic", "aio_openai_compat", "anthropic", "llamacpp", "openai_compat"]
+
+
+@pytest.fixture(params=sorted(_BUILDERS))
+def card_client(request, monkeypatch):
+    return _BUILDERS[request.param](monkeypatch, _CardModel.PLAIN)
+
+
+@pytest.fixture(params=sorted(_BUILDERS))
+def thinking_card_client(request, monkeypatch):
+    return _BUILDERS[request.param](monkeypatch, _CardModel.THINKER)
+
+
+# --- tier 2: the model card is a default the caller can override -------------------------------
+
+
+def test_the_card_supplies_what_nobody_else_sets(card_client):
+    merged = card_client._update_generate_kwargs()
+
+    assert merged["temperature"] == 0.9  # the card's value, not any client's own fallback of 0.1
+    assert merged["top_p"] == 0.3
+    assert merged["min_p"] == 0.05
+
+
+def test_a_per_call_kwarg_overrides_the_card_without_discarding_it(card_client):
+    """The v0.15.0 regression, now pinned for every provider: one key must not replace a profile."""
+    merged = card_client._update_generate_kwargs({"temperature": 0.2})
+
+    assert merged["temperature"] == 0.2
+    assert merged["top_p"] == 0.3
+
+
+def test_the_instruct_profile_replaces_the_card_when_thinking_resolves_off(thinking_card_client):
+    merged = thinking_card_client._update_generate_kwargs({THINKING_KWARG: ResolvedThinking(enabled=False)})
+
+    assert merged["temperature"] == 0.7
+    assert merged["top_p"] == 0.8
+
+
+# --- tier 3: client.default_generate_kwargs, the caller's standing choice -----------------------
+
+
+def test_client_defaults_start_empty(card_client):
+    """An input, not a report of the card: "unset" has to stay distinguishable from "set"."""
+    assert card_client.default_generate_kwargs == {}
+
+
+def test_client_defaults_override_the_card(card_client):
+    card_client.default_generate_kwargs["temperature"] = 0.5
+
+    merged = card_client._update_generate_kwargs()
+
+    assert merged["temperature"] == 0.5
+    assert merged["top_p"] == 0.3  # the card still fills what the caller left alone
+
+
+def test_client_defaults_apply_to_every_call(card_client):
+    card_client.default_generate_kwargs["temperature"] = 0.5
+
+    assert card_client._update_generate_kwargs()["temperature"] == 0.5
+    assert card_client._update_generate_kwargs({"top_p": 0.9})["temperature"] == 0.5
+
+
+def test_reassigning_client_defaults_wholesale_takes_effect(card_client):
+    """Assignment, not only mutation: the wrappers used to copy this dict on construction."""
+    card_client.default_generate_kwargs = {"temperature": 0.5}
+
+    assert card_client._update_generate_kwargs()["temperature"] == 0.5
+
+
+# --- tier 4: the per-call dict wins over everything --------------------------------------------
+
+
+def test_per_call_kwargs_override_the_client_defaults(card_client):
+    card_client.default_generate_kwargs.update({"temperature": 0.5, "top_p": 0.7})
+
+    merged = card_client._update_generate_kwargs({"temperature": 0.2})
+
+    assert merged["temperature"] == 0.2
+    assert merged["top_p"] == 0.7  # a client default the call did not name still applies
+
+
+# --- the merge must not corrupt the process-global profile on the enum member -------------------
+
+
+def test_the_merge_never_mutates_the_catalog_profile(card_client):
+    """``model.generation_kwargs`` is shared by every client of that model.
+
+    ``max_tokens`` is in the call dict deliberately: the providers that rename it (Ollama's
+    ``num_predict``, HuggingFace's ``max_new_tokens``) do so with a ``pop``, which would corrupt
+    the card if the merge ever returned the card's own dict instead of a fresh one.
+    """
+    card_client.default_generate_kwargs["temperature"] = 0.5
+    card_client._update_generate_kwargs({"max_tokens": 2000, "top_p": 0.9})
+    card_client._update_generate_kwargs({"temperature": 0.3})
+
+    assert _CardModel.PLAIN.generation_kwargs == {"temperature": 0.9, "top_p": 0.3, "min_p": 0.05}
+
+
+# --- tier 1, and the per-provider request reshaping that runs after the merge -------------------
+
+
+@pytest.mark.parametrize("provider", _MAX_TOKENS_FALLBACK)
+def test_library_fallbacks_fill_what_neither_card_nor_caller_sets(provider, monkeypatch):
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    assert client._update_generate_kwargs()["max_tokens"] == 1024
+
+
+@pytest.mark.parametrize(
+    "provider,renamed", [("ollama", "num_predict"), ("aio_ollama", "num_predict"), ("hf", "max_new_tokens")]
+)
+def test_max_tokens_is_translated_to_the_backends_own_name(provider, renamed, monkeypatch):
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    merged = client._update_generate_kwargs({"max_tokens": 2000})
+
+    assert merged[renamed] == 2000
+    assert "max_tokens" not in merged
+
+
+def test_a_real_catalog_profile_survives_a_partial_call_dict(monkeypatch):
+    """The tests above use a synthetic card; this one pins the wiring to a shipped member."""
+    client = _build_ollama(monkeypatch, OllamaModel.QWEN_3_5_9B)
+
+    merged = client._update_generate_kwargs({"max_tokens": 2000})
+
     assert merged["num_predict"] == 2000
-    # and the profile survives
     assert merged["temperature"] == 1.0
     assert merged["top_p"] == 0.95
     assert merged["top_k"] == 20
 
 
-def test_caller_overrides_a_profile_key(ollama_client):
-    merged = ollama_client._update_generate_kwargs({"temperature": 0.2})
-
-    assert merged["temperature"] == 0.2
-    assert merged["top_p"] == 0.95
+# --- the wrappers: a layer set on a wrapper has to reach the client that actually runs ----------
 
 
-def test_no_kwargs_yields_the_profile_unchanged(ollama_client):
-    merged = ollama_client._update_generate_kwargs()
+def test_client_defaults_reach_the_wire(monkeypatch):
+    """The end-to-end guard: what the provider actually sends, not what the merge returns."""
+    sent = {}
 
-    assert merged["temperature"] == 1.0
-    assert merged["top_p"] == 0.95
+    def _fake_chat(**kwargs):
+        sent.update(kwargs)
+        message = types.SimpleNamespace(tool_calls=None, content="hi", role="assistant", thinking=None)
+        return {"message": message}
 
+    monkeypatch.setattr(
+        ollama, "Client", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=_fake_chat)
+    )
+    client = ModelClient(OllamaModel.QWEN_3_5_9B)
+    client.default_generate_kwargs = {"temperature": 0.42, "top_k": 7}
 
-def test_merge_does_not_mutate_the_shared_catalog_profile(ollama_client):
-    """The profile lives on an ENUM MEMBER, so corrupting it would leak across clients.
+    client.chat("hello")
 
-    `model.generation_kwargs` is process-global: every client of that model reads the same dict.
-    Ollama's merge reads it through `select_profile`, which copies, and the old code returned
-    `self.default_generate_kwargs` itself and then `pop`ped `max_tokens` out of it, corrupting
-    the client's profile after one call. Asserting on `default_generate_kwargs` no longer
-    guards anything, since this path stopped reading it once per-mode profile selection landed.
-
-    This pins the property, not one line: it holds while EITHER defense stands (select_profile
-    copying, or the merge building a fresh dict), and fails when both are removed.
-    """
-    profile = OllamaModel.QWEN_3_5_9B.generation_kwargs
-
-    ollama_client._update_generate_kwargs({"temperature": 0.2, "max_tokens": 2000})
-    ollama_client._update_generate_kwargs({"temperature": 0.3})
-
-    assert profile["temperature"] == 1.0
-    assert "max_tokens" not in profile
-    assert "num_predict" not in profile
+    assert sent["options"]["temperature"] == 0.42
+    assert sent["options"]["top_k"] == 7
+    assert sent["options"]["top_p"] == 0.95  # the card still fills the rest
 
 
-def test_merge_does_not_mutate_the_shared_profile_on_the_async_client(monkeypatch):
-    from aimu import aio
+def test_client_defaults_delegate_through_the_sync_factory(monkeypatch):
+    """``aimu.client()`` returns a ModelClient wrapper, so the property must delegate both ways."""
+    monkeypatch.setattr(ollama, "Client", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None))
+    client = ModelClient(OllamaModel.QWEN_3_5_9B)
 
-    monkeypatch.setattr(ollama, "AsyncClient", lambda **kw: types.SimpleNamespace())
-    client = aio.client("ollama:qwen3.5:9b")
-    profile = OllamaModel.QWEN_3_5_9B.generation_kwargs
+    client.default_generate_kwargs["temperature"] = 0.5
+    assert client._client.default_generate_kwargs["temperature"] == 0.5
 
-    client._client._update_generate_kwargs({"max_tokens": 2000})
-
-    assert profile["temperature"] == 1.0
-    assert "num_predict" not in profile
-
-
-def test_merge_does_not_mutate_the_shared_profile_on_the_hf_client():
-    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
-
-    client = types.SimpleNamespace(model=HuggingFaceModel.QWEN_3_5_9B)
-    profile = HuggingFaceModel.QWEN_3_5_9B.generation_kwargs
-
-    HuggingFaceClient._update_generate_kwargs(client, {"max_tokens": 2000})
-
-    assert profile["temperature"] == 1.0
-    assert "max_new_tokens" not in profile
+    client.default_generate_kwargs = {"temperature": 0.4}
+    assert client._client._update_generate_kwargs()["temperature"] == 0.4
 
 
-async def test_aio_ollama_merges(monkeypatch):
+def test_client_defaults_delegate_through_the_async_factory(monkeypatch):
     from aimu import aio
 
     monkeypatch.setattr(ollama, "AsyncClient", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None))
     client = aio.client("ollama:qwen3.5:9b")
 
-    merged = client._client._update_generate_kwargs({"max_tokens": 2000})
+    client.default_generate_kwargs = {"temperature": 0.4}
 
-    assert merged["num_predict"] == 2000
-    assert merged["top_p"] == 0.95
-
-
-def test_hf_merges_without_loading_weights(monkeypatch):
-    """Exercise the merge directly on the unbound method, so no weights load."""
-    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
-
-    client = types.SimpleNamespace(model=HuggingFaceModel.QWEN_3_5_9B)
-
-    merged = HuggingFaceClient._update_generate_kwargs(client, {"temperature": 0.2})
-
-    assert merged["temperature"] == 0.2
-    assert merged["top_k"] == 20  # from the Qwen profile
-    assert merged["max_new_tokens"] == 4096  # from HF DEFAULT_GENERATE_KWARGS
+    assert client._client._update_generate_kwargs({"top_p": 0.9})["temperature"] == 0.4
 
 
-def test_ollama_reports_the_model_profile_as_its_defaults(ollama_client):
-    """`default_generate_kwargs` is mirrored onto ModelClient, _AgenticView and the in-process
-    wrappers, so it is a real read surface. For Ollama the defaults come from the model rather
-    than a class constant, so reporting an empty dict here would claim there are none."""
-    assert ollama_client.default_generate_kwargs["temperature"] == 1.0
-    assert ollama_client.default_generate_kwargs["top_p"] == 0.95
+def test_client_defaults_delegate_through_as_model_client(monkeypatch):
+    """``agent.as_model_client()`` is a view over the agent's client, so the layer must reach it."""
+    from aimu.agents import Agent
+
+    monkeypatch.setattr(ollama, "Client", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None))
+    inner = ModelClient(OllamaModel.QWEN_3_5_9B)
+    view = Agent(inner).as_model_client()
+
+    view.default_generate_kwargs = {"temperature": 0.42}
+
+    assert inner.default_generate_kwargs == {"temperature": 0.42}
 
 
-def test_ollama_defaults_are_a_copy_callers_cannot_corrupt(ollama_client):
-    ollama_client.default_generate_kwargs["temperature"] = 99
+def test_client_defaults_reach_the_fallback_chain(monkeypatch):
+    """FallbackClient owns the canonical state, so it must push this layer down like the rest."""
+    from aimu.models.fallback import FallbackClient
 
-    assert OllamaModel.QWEN_3_5_9B.generation_kwargs["temperature"] == 1.0
+    monkeypatch.setattr(ollama, "Client", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None))
+    primary = ModelClient(OllamaModel.QWEN_3_5_9B)
+    fallback = FallbackClient([primary])
+    fallback.default_generate_kwargs = {"temperature": 0.42}
+
+    fallback._load_state(primary)
+
+    assert primary.default_generate_kwargs == {"temperature": 0.42}

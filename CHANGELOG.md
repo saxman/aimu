@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Models
+
+- **New** **`client.default_generate_kwargs` sets generation parameters for every call on a client**, on every provider (`aimu.models`, `aimu.aio`). Previously there was no way to say "use these sampling parameters for this whole conversation" short of repeating `generate_kwargs=` on every `chat()`. The attribute existed but meant something different on each provider: an honoured input on Anthropic / the OpenAI-compatible family / llama.cpp, a read-only *report* of the model card on Ollama, and an empty dict that nothing read on HuggingFace. It is now one thing everywhere, an input, starting empty:
+  ```python
+  client = aimu.client("ollama:qwen3.5:9b")
+  client.default_generate_kwargs = {"temperature": 0.2, "num_ctx": 16384}
+  client.chat("summarise this")                                         # temperature 0.2
+  client.chat("now be creative", generate_kwargs={"temperature": 1.0})  # 1.0, this call only
+  ```
+  Assigning a whole dict and mutating in place both work, and both now propagate through the `ModelClient` / `AsyncModelClient` wrapper that `aimu.client()` returns, through `agent.as_model_client()`, and down a `FallbackClient`'s chain, all of which previously copied the dict on construction (so mutation happened to work while reassignment silently detached).
+  **Behavior change on Ollama**: reading `default_generate_kwargs` used to return the model card's profile and now returns `{}` until you write to it. Use `Model.generation_kwargs` to read a card's profile.
+- **Fix** **The model card's sampling profile now reaches Anthropic, the OpenAI-compatible family, and llama.cpp** (sync and async). v0.15.0 fixed `generate_kwargs` clobbering the card's profile on Ollama and HuggingFace, the two providers whose catalogs carry one. The other three never read `ModelSpec.generation_kwargs` at all: their `_update_generate_kwargs` merged only their class-level `DEFAULT_GENERATE_KWARGS` with the caller's dict, so a `generation_kwargs=` profile on one of their members was discarded silently, as was the `nonthinking_generation_kwargs` instruct-mode switch that `thinking=False` selects. No member of those catalogs carries a profile yet, so **no request changes today**; it was a trap set for whoever adds the first one.
+- **Change** **One precedence chain for generation parameters, shared by every provider** (`aimu.models._internal.thinking.merge_generate_kwargs`, reached through `_ChatStateMixin._merge_generate_kwargs`). Five providers each spread the tiers by hand, which is how three of them came to drop a tier. There is now one merge, lowest precedence first: the client's `DEFAULT_GENERATE_KWARGS` fallbacks, then the model card's profile, then `client.default_generate_kwargs`, then the per-call `generate_kwargs`. The library's own fallbacks sit at the **bottom**, below the card, so a generic `temperature=0.1` cannot quietly beat a card's tuned value; the two caller-supplied tiers sit on top. Verified byte-for-byte identical against every current catalog member, since the two tiers that moved are empty by default. Provider-specific rewrites still run *after* the merge and may override the caller where an API requires it (Anthropic's forced `temperature=1` under extended thinking, the o-series `max_completion_tokens` rename, HuggingFace dropping `presence_penalty`). Docs: [Generation parameters](https://saxman.github.io/aimu/reference/provider-matrix/#generation-parameters).
+
 ## v0.15.0 (2026-08-17): portable thinking control, and a sampling profile that survives your kwargs
 
 ### Models

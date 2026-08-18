@@ -5,7 +5,7 @@ from ..._internal.image_input import (
     _extract_pil_images,
     _replace_image_url_with_image_placeholder,
 )
-from ..._internal.thinking import QWEN_REASONING_EFFORT, ResolvedThinking, THINKING_KWARG, pop_thinking, select_profile
+from ..._internal.thinking import QWEN_REASONING_EFFORT, ResolvedThinking, pop_thinking
 
 import torch
 from transformers import AutoTokenizer
@@ -387,6 +387,10 @@ class HuggingFaceModel(Model):
 class HuggingFaceClient(BaseModelClient):
     MODELS = HuggingFaceModel
 
+    # The module constant is the class's kwarg-fallback tier (see _merge_generate_kwargs). It
+    # stays a module global too, since the catalog profiles above are built by merging into it.
+    DEFAULT_GENERATE_KWARGS = DEFAULT_GENERATE_KWARGS
+
     DEFAULT_MODEL_KWARGS = {
         "device_map": "auto",
         "torch_dtype": "auto",
@@ -503,11 +507,7 @@ class HuggingFaceClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_audio]
 
     def _update_generate_kwargs(self, generate_kwargs: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-        caller = dict(generate_kwargs or {})
-        # Peek, do not pop: _apply_chat_template needs it.
-        resolved = caller.get(THINKING_KWARG)
-        profile = {**DEFAULT_GENERATE_KWARGS, **select_profile(self.model, resolved)}
-        kwargs = {**profile, **caller}
+        kwargs = self._merge_generate_kwargs(generate_kwargs)
 
         if "max_tokens" in kwargs:
             kwargs["max_new_tokens"] = kwargs.pop("max_tokens")
