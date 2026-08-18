@@ -1416,3 +1416,31 @@ def test_toolcall_format_strip_calls_recovers_prose():
 
     # JSON-only formats are the whole tool call -> no prose.
     assert ToolCallFormat.JSON_OBJECT.strip_calls('{"name": "w"}') == ""
+
+
+def test_hf_load_profile_routes_every_vision_model_to_a_processor_branch():
+    """A vision=True HuggingFace member must load a processor, or image input cannot work.
+
+    Qwen 3.8 regressed this: it was added to the catalog with vision=True, but the routing
+    prefixes still listed only Qwen 3.5 and 3.6, so it silently fell to the causal-lm
+    branch, which loads no AutoProcessor and builds a text-only module tree.
+    """
+    from aimu.models.providers.hf.text import HuggingFaceModel, _load_profile
+
+    # Profiles whose __init__ branch loads an AutoProcessor.
+    processor_profiles = {"gemma4", "gemma3", "qwen-multimodal", "mistral3"}
+
+    text_only_routed = [
+        model.name
+        for model in HuggingFaceModel
+        if model.supports_vision and _load_profile(model) not in processor_profiles
+    ]
+
+    assert text_only_routed == []
+
+
+def test_hf_load_profile_recognises_qwen_3_8():
+    from aimu.models.providers.hf.text import HuggingFaceModel, _load_profile
+
+    assert _load_profile(HuggingFaceModel.QWEN_3_8_27B) == "qwen-multimodal"
+    assert _load_profile(HuggingFaceModel.QWEN_3_8_27B_FP8) == "qwen-multimodal"

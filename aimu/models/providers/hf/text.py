@@ -53,7 +53,7 @@ def _load_profile(model: "HuggingFaceModel") -> str:
         return "gemma4"
     if mid.startswith("google/gemma-3"):
         return "gemma3"
-    if mid.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6")):
+    if mid.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6", "Qwen/Qwen3.8")):
         return "qwen-multimodal"
     return "causal-lm"
 
@@ -213,7 +213,7 @@ class HuggingFaceModel(Model):
         ToolCallFormat.XML,
         True,
     )
-    # Qwen 3.5/3.6 are natively multimodal (unified vision-language foundation): one HF
+    # Qwen 3.5/3.6/3.8 are natively multimodal (unified vision-language foundation): one HF
     # repo holds both the language model and the vision tower, loaded together via
     # AutoModelForImageTextToText (see __init__ -- the FP8 checkpoint's quant skip-list
     # only matches that module tree). The vision encoder loads regardless, so each model
@@ -411,7 +411,7 @@ class HuggingFaceClient(BaseModelClient):
         self._parsed_content = ""  # prose emitted alongside a tool call (processor path)
         # Gemma 4 emits structured-token output (channels, tool calls) that requires
         # processor.parse_response() to extract. Other processor-loaded models (Gemma 3,
-        # Qwen 3.5/3.6 VL) emit standard <think>...</think> + tool-call text and use the
+        # Qwen 3.5/3.6/3.8) emit standard <think>...</think> + tool-call text and use the
         # same parsing path as non-processor models.
         self._uses_processor_parse_response = False
 
@@ -440,8 +440,8 @@ class HuggingFaceClient(BaseModelClient):
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
-        elif model.value.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6")):
-            # Qwen 3.5/3.6 are unified multimodal checkpoints and must ALWAYS load via
+        elif model.value.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6", "Qwen/Qwen3.8")):
+            # Qwen 3.5/3.6/3.8 are unified multimodal checkpoints and must ALWAYS load via
             # AutoModelForImageTextToText -- even for the text-only enum members (which
             # simply leave the vision tower unused; chat(images=...) is gated separately
             # by supports_vision). AutoModelForCausalLM is wrong here even when we don't
