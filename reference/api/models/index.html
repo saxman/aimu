@@ -4266,12 +4266,13 @@ fully consumed (mirrors :attr:<code>last_usage</code>).</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="aimu.models._internal.chat_state._ChatStateMixin">_ChatStateMixin</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
+              Bases: <code><span title="aimu.models._internal.generate_kwargs._GenerateKwargsMixin">_GenerateKwargsMixin</span></code>, <code><span title="aimu.models._internal.chat_state._ChatStateMixin">_ChatStateMixin</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
 
 
 
         <p>Abstract base for all provider clients.</p>
-<p>Subclasses implement :meth:<code>generate</code>, :meth:<code>chat</code>, and :meth:<code>_update_generate_kwargs</code>.
+<p>Subclasses implement :meth:<code>_generate</code> and :meth:<code>_chat</code>, and override
+:meth:<code>_rewrite_generate_kwargs</code> when their API spells the generation kwargs differently.
 Tool calling, message history, vision input, and streaming filters are handled here
 once for every provider.</p>
 

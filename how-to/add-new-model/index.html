@@ -3327,8 +3327,8 @@ replacement. Four tiers apply, lowest precedence first, identically on every pro
 </table>
 <p>Tier 1 sits <em>under</em> your profile deliberately, so the library's own <code>temperature=0.1</code> cannot
 quietly beat a card's tuned value. Tiers 3 and 4 sit over it because they are explicit
-instructions from the caller. The chain is applied by <code>_merge_generate_kwargs()</code> (shared via
-<code>_ChatStateMixin</code>, backed by <code>merge_generate_kwargs()</code> in <code>aimu/models/_internal/thinking.py</code>),
+instructions from the caller. The chain is applied by <code>_resolve_generate_kwargs()</code> (shared via <code>_GenerateKwargsMixin</code>, backed
+by <code>merge_generate_kwargs()</code> in <code>aimu/models/_internal/generate_kwargs.py</code>),
 so a profile you add here takes effect wherever the model is served. (Before v0.15 an explicit
 <code>generate_kwargs</code> <em>replaced</em> the profile wholesale on the Ollama and HuggingFace paths, silently
 discarding the model's tuned sampling; until v0.15.1 the Anthropic, OpenAI-compatible, and
