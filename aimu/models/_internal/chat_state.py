@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Iterator, Optional, Union
 
-from .thinking import THINKING_KWARG, resolve_thinking
+from .thinking import THINKING_KWARG, ResolvedThinking, resolve_thinking
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +142,20 @@ class _ChatStateMixin:
         Returns ``generate_kwargs`` unchanged when there is nothing for a provider to do, so
         ``thinking=None`` leaves every request path byte-for-byte as it was.
         """
+        # A `ResolvedThinking` value already there is this module's own re-threading of an
+        # already-resolved request through a nested chat() call (e.g. Agent -> tool-loop ->
+        # inner client), not caller input, so it passes through untouched below. Anything
+        # else under this key is a caller mistake: reject it here, at the layer where it is
+        # actionable, rather than let it reach a provider that assumes a ResolvedThinking and
+        # raises an opaque AttributeError.
+        if generate_kwargs and THINKING_KWARG in generate_kwargs:
+            existing = generate_kwargs[THINKING_KWARG]
+            if not isinstance(existing, ResolvedThinking):
+                raise ValueError(
+                    f"generate_kwargs contains the reserved key {THINKING_KWARG!r}, which AIMU uses "
+                    "internally to carry a resolved thinking request to the provider. Use the "
+                    "thinking= parameter instead of setting this key directly."
+                )
         resolved = resolve_thinking(self.model, thinking, warn=self._warn_once)
         if resolved is None:
             return generate_kwargs

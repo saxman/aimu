@@ -156,10 +156,11 @@ class AnthropicClient(BaseModelClient):
         """
         kwargs = generate_kwargs.copy()
         resolved = kwargs.pop(THINKING_KWARG, None)
-        if resolved is not None:
+        if resolved is not None and resolved.enabled:
+            thinking_value = resolved.level if resolved.level is not None else True
             self._warn_once(
                 f"{self.model.value} structured output uses a forced tool, which is incompatible "
-                "with extended thinking; thinking=... is ignored."
+                f"with extended thinking; thinking={thinking_value!r} is ignored."
             )
         return kwargs
 
@@ -248,16 +249,16 @@ class AnthropicClient(BaseModelClient):
         # Strip HuggingFace / other framework-specific keys the Anthropic API rejects
         for key in self._UNSUPPORTED_KWARGS:
             kwargs.pop(key, None)
-        # Anthropic rejects top_p alongside thinking; drop it unconditionally
-        kwargs.pop("top_p", None)
-        # Thinking models require temperature=1, but only while thinking is actually in effect
-        # for this call. A resolved thinking=False means the caller's own temperature belongs
-        # in the request instead, so peek at (without popping) the reserved key here;
-        # _thinking_kwargs still needs it downstream to build/omit the thinking parameter.
+        # Anthropic rejects top_p alongside thinking, and thinking models require temperature=1,
+        # but only while thinking is actually in effect for this call. A resolved thinking=False
+        # means the caller's own sampling parameters belong in the request instead, so peek at
+        # (without popping) the reserved key here; _thinking_kwargs still needs it downstream to
+        # build/omit the thinking parameter.
         resolved = kwargs.get(THINKING_KWARG)
         thinking_disabled_this_call = resolved is not None and not resolved.enabled
         if self.is_thinking_model and not thinking_disabled_this_call:
             kwargs["temperature"] = 1
+            kwargs.pop("top_p", None)
         return kwargs
 
     def _thinking_kwargs(self, generate_kwargs: dict) -> dict:

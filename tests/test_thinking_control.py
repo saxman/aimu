@@ -263,6 +263,16 @@ def test_apply_thinking_does_not_mutate_the_callers_dict():
     assert THINKING_KWARG not in original
 
 
+def test_apply_thinking_rejects_a_caller_supplied_reserved_key():
+    """A caller-supplied `_thinking` key must raise here, at the layer where the mistake is
+    actionable, rather than reach a provider that does `resolved.enabled` on whatever the
+    caller put there and blows up with an opaque AttributeError."""
+    host = _mixin_host(_Model())
+
+    with pytest.raises(ValueError, match=THINKING_KWARG):
+        host._apply_thinking({"max_tokens": 10, THINKING_KWARG: "anything"}, None)
+
+
 def _fake_client(model, recorder):
     """A concrete BaseModelClient whose _chat/_generate only record their kwargs."""
     from aimu.models.base import BaseModelClient
@@ -538,6 +548,28 @@ def test_anthropic_thinking_off_sends_no_thinking_block(monkeypatch):
     assert kwargs["temperature"] == 0.3
 
 
+def test_anthropic_thinking_off_keeps_top_p(monkeypatch):
+    """top_p is dropped for the same reason temperature is forced: it conflicts with extended
+    thinking. With thinking resolved off for this call, there is no conflict, so the caller's
+    own value must survive untouched, mirroring the temperature test above."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, False, generate_kwargs={"top_p": 0.9})
+
+    assert "thinking" not in kwargs
+    assert kwargs["top_p"] == 0.9
+
+
+def test_anthropic_none_still_drops_top_p(monkeypatch):
+    """thinking=None leaves the default (thinking-on) behavior untouched, so top_p still
+    conflicts with extended thinking and must still be dropped."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, None, generate_kwargs={"top_p": 0.9})
+
+    assert "top_p" not in kwargs
+
+
 def test_anthropic_adaptive_warns_and_ignores_a_level(monkeypatch, caplog):
     from aimu.models.providers.anthropic import AnthropicModel
 
@@ -592,6 +624,49 @@ def test_anthropic_structured_output_drops_the_reserved_key(monkeypatch, caplog)
     assert THINKING_KWARG not in captured
     assert "thinking" not in captured
     assert result == Person(name="Ada")
+    assert any("structured output" in r.message.lower() for r in caplog.records)
+
+
+def test_anthropic_structured_output_thinking_off_does_not_warn(monkeypatch, caplog):
+    """chat(schema=..., thinking=False) is entirely consistent: the forced-tool structured
+    path already carries no reasoning, so asking for no reasoning got exactly what was asked
+    for and must not warn. thinking="low" on the same call asks for something the path
+    genuinely cannot honour and must still warn (regression guard for the fix above)."""
+    import dataclasses
+
+    import anthropic
+
+    from aimu.models.providers.anthropic import AnthropicClient, AnthropicModel
+
+    @dataclasses.dataclass
+    class Person:
+        name: str
+
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: types.SimpleNamespace())
+
+    def make_client():
+        client = AnthropicClient(AnthropicModel.CLAUDE_SONNET_4_6)
+
+        def fake_create(**kwargs):
+            return types.SimpleNamespace(
+                content=[types.SimpleNamespace(type="tool_use", input={"name": "Ada"})],
+                usage=types.SimpleNamespace(input_tokens=1, output_tokens=1),
+            )
+
+        client._client = types.SimpleNamespace(messages=types.SimpleNamespace(create=fake_create))
+        return client
+
+    with caplog.at_level("WARNING"):
+        result = make_client().chat("hi", schema=Person, thinking=False)
+
+    assert result == Person(name="Ada")
+    assert not any("structured output" in r.message.lower() for r in caplog.records)
+
+    caplog.clear()
+
+    with caplog.at_level("WARNING"):
+        make_client().chat("hi", schema=Person, thinking="low")
+
     assert any("structured output" in r.message.lower() for r in caplog.records)
 
 
