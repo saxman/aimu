@@ -20,6 +20,13 @@ class ModelConnectionError(RuntimeError):
     Mirrors :class:`aimu.tools.client.MCPConnectionError`."""
 
 
+class ContextOverflowError(RuntimeError):
+    """Raised when a request's messages no longer fit the model's context window, so the server could
+    not render a prompt from them. The input-side counterpart of :class:`aimu.agents.TruncatedTurnError`,
+    which reports an *output* that ran out of room. The provider's own error is preserved on
+    ``__cause__``."""
+
+
 class StreamingContentType(str, Enum):
     THINKING = "thinking"
     TOOL_CALLING = "tool_calling"
