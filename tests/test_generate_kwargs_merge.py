@@ -46,10 +46,51 @@ def test_no_kwargs_yields_the_profile_unchanged(ollama_client):
     assert merged["top_p"] == 0.95
 
 
-def test_merge_does_not_mutate_the_client_profile(ollama_client):
-    ollama_client._update_generate_kwargs({"temperature": 0.2})
+def test_merge_does_not_mutate_the_shared_catalog_profile(ollama_client):
+    """The profile lives on an ENUM MEMBER, so corrupting it would leak across clients.
 
-    assert ollama_client.default_generate_kwargs["temperature"] == 1.0
+    `model.generation_kwargs` is process-global: every client of that model reads the same dict.
+    Ollama's merge reads it through `select_profile`, which copies, and the old code returned
+    `self.default_generate_kwargs` itself and then `pop`ped `max_tokens` out of it, corrupting
+    the client's profile after one call. Asserting on `default_generate_kwargs` no longer
+    guards anything, since this path stopped reading it once per-mode profile selection landed.
+
+    This pins the property, not one line: it holds while EITHER defense stands (select_profile
+    copying, or the merge building a fresh dict), and fails when both are removed.
+    """
+    profile = OllamaModel.QWEN_3_5_9B.generation_kwargs
+
+    ollama_client._update_generate_kwargs({"temperature": 0.2, "max_tokens": 2000})
+    ollama_client._update_generate_kwargs({"temperature": 0.3})
+
+    assert profile["temperature"] == 1.0
+    assert "max_tokens" not in profile
+    assert "num_predict" not in profile
+
+
+def test_merge_does_not_mutate_the_shared_profile_on_the_async_client(monkeypatch):
+    from aimu import aio
+
+    monkeypatch.setattr(ollama, "AsyncClient", lambda **kw: types.SimpleNamespace())
+    client = aio.client("ollama:qwen3.5:9b")
+    profile = OllamaModel.QWEN_3_5_9B.generation_kwargs
+
+    client._client._update_generate_kwargs({"max_tokens": 2000})
+
+    assert profile["temperature"] == 1.0
+    assert "num_predict" not in profile
+
+
+def test_merge_does_not_mutate_the_shared_profile_on_the_hf_client():
+    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
+
+    client = types.SimpleNamespace(model=HuggingFaceModel.QWEN_3_5_9B)
+    profile = HuggingFaceModel.QWEN_3_5_9B.generation_kwargs
+
+    HuggingFaceClient._update_generate_kwargs(client, {"max_tokens": 2000})
+
+    assert profile["temperature"] == 1.0
+    assert "max_new_tokens" not in profile
 
 
 async def test_aio_ollama_merges(monkeypatch):

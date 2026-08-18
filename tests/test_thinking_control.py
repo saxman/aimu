@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import types
 
+import anthropic as anthropic_sdk
 import ollama
 import pytest
 
@@ -931,3 +932,184 @@ def test_every_provider_consumes_the_reserved_key_through_the_helper():
     hand_rolled = [path for path in provider_files if "pop(THINKING_KWARG" in pathlib.Path(path).read_text()]
 
     assert hand_rolled == []
+
+
+def test_non_thinking_warning_does_not_claim_a_reasoning_model_cannot_reason():
+    """o3 reasons; AIMU just cannot expose or steer that reasoning.
+
+    `supports_thinking` means "reasoning is visible through AIMU", so the warning must not
+    assert something false about a well-known reasoning family. A user who reads
+    "o3 is not a thinking model" has been told a falsehood and will distrust the rest.
+    """
+    from aimu.models.providers.openai.text import OpenAIModel
+
+    warn, seen = _collect()
+
+    resolve_thinking(_Model(value=OpenAIModel.O3.value, thinking=False), True, warn=warn)
+
+    assert len(seen) == 1
+    assert "is not a thinking model" not in seen[0]
+    assert OpenAIModel.O3.value in seen[0]
+
+
+@pytest.mark.parametrize("bad", ["xhigh", 3])
+def test_both_invalid_value_paths_name_the_valid_levels_the_same_way(bad):
+    warn, _ = _collect()
+
+    with pytest.raises(ValueError) as exc:
+        resolve_thinking(_Model(levels=True), bad, warn=warn)
+
+    assert "low, medium, high" in str(exc.value)
+
+
+@pytest.mark.parametrize("method,stream", [("chat", False), ("chat", True), ("generate", False), ("generate", True)])
+def test_ollama_threads_thinking_through_every_entry_point(monkeypatch, method, stream):
+    """All four request builders must translate and strip the reserved key, not just chat().
+
+    They share a one-line `_pop_think` call, but nothing stopped a future edit from touching one
+    and not the others, and a leaked key on this provider is serialized silently rather than
+    rejected (Ollama types `options` as an open mapping).
+    """
+    from aimu.models.providers.ollama import OllamaClient
+
+    calls: list[dict] = []
+
+    class _Part(dict):
+        """Ollama parts are read both by key and by attribute, depending on the path."""
+
+        def __init__(self, **fields):
+            super().__init__(**fields)
+            self.__dict__.update(fields)
+
+    def record(**kw):
+        calls.append(kw)
+        message = types.SimpleNamespace(role="assistant", content="ok", tool_calls=None, thinking=None)
+        part = _Part(message=message, response="ok", thinking=None)
+        return iter([part]) if kw.get("stream") else part
+
+    monkeypatch.setattr(
+        ollama,
+        "Client",
+        lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=record, generate=record),
+    )
+    monkeypatch.setattr(sync_ollama, "usage_from_ollama", lambda *a, **k: None)
+    monkeypatch.setattr(sync_ollama, "truncated_from_ollama", lambda *a, **k: False)
+    client = OllamaClient(OllamaModel.QWEN_3_8_27B)
+
+    result = getattr(client, method)("hi", thinking="low", stream=stream)
+    if stream:
+        list(result)
+
+    assert calls[0]["think"] == "low"
+    assert THINKING_KWARG not in calls[0]["options"]
+
+
+def test_ollama_thinking_none_on_a_non_thinking_model_still_sends_think_false(monkeypatch):
+    """The no-op guarantee has two sides; this is the one that was resting on inference."""
+    client, calls = _ollama_recorder(monkeypatch, OllamaModel.LLAMA_3_2_3B)
+
+    client.chat("hi", thinking=None)
+
+    assert calls[0]["think"] is False
+
+
+def test_anthropic_explicit_budget_wins_over_a_level(monkeypatch):
+    """`thinking_budget_tokens` is the documented escape hatch, so a level must not override it."""
+    from aimu.models.providers.anthropic import AnthropicClient, AnthropicModel
+
+    monkeypatch.setattr(anthropic_sdk, "Anthropic", lambda **kw: types.SimpleNamespace())
+    client = AnthropicClient(AnthropicModel.CLAUDE_SONNET_4_6)
+
+    kwargs = client._apply_thinking({"max_tokens": 20000, "thinking_budget_tokens": 12000}, "low")
+    kwargs = client._thinking_kwargs(client._update_generate_kwargs(kwargs))
+
+    assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 12000}
+
+
+@pytest.mark.parametrize("method,stream", [("chat", False), ("chat", True), ("generate", False), ("generate", True)])
+def test_fallback_forwards_thinking_on_every_path(method, stream):
+    from aimu.models.fallback import FallbackClient
+
+    seen: list = []
+    primary = _fake_client(_Model(levels=True), seen)
+
+    result = getattr(FallbackClient([primary]), method)("hi", thinking="low", stream=stream)
+    if stream:
+        list(result)
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="low")
+
+
+def test_fallback_forwards_thinking_after_a_failover():
+    from aimu.models.fallback import FallbackClient
+
+    seen: list = []
+
+    class _Boom:
+        model = _Model(levels=True)
+        messages: list = []
+        tools: list = []
+        system_message = None
+
+        def reset(self, system_message="__keep__"):
+            pass
+
+        def chat(self, *a, **kw):
+            raise RuntimeError("primary down")
+
+    backup = _fake_client(_Model(levels=True), seen)
+
+    FallbackClient([_Boom(), backup]).chat("hi", thinking="high")
+
+    assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="high")
+
+
+def test_hf_never_passes_the_reserved_key_to_transformers_generate():
+    """The pop and the generate() splat are adjacent lines; nothing else pins their order.
+
+    Transformers raises on an unused model_kwarg, so a leak here is loud rather than silent,
+    but the other three providers all have a wire-leak test and this path had none.
+    """
+    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
+
+    seen: list[dict] = []
+
+    class _Inputs(dict):
+        input_ids = [[0, 1, 2]]
+
+        def to(self, device):
+            return self
+
+    class _Tokenizer:
+        def apply_chat_template(self, messages, **kw):
+            return "rendered"
+
+        def __call__(self, *a, **kw):
+            return _Inputs()
+
+        def decode(self, *a, **kw):
+            return "answer"
+
+    def generate(**kw):
+        seen.append(kw)
+        return [[0, 1, 2, 3]]
+
+    client = types.SimpleNamespace(
+        model=HuggingFaceModel.QWEN_3_8_27B,
+        _hf_processor=None,
+        _hf_tokenizer=_Tokenizer(),
+        _hf_model=types.SimpleNamespace(device="cpu", generate=generate),
+        _uses_processor_parse_response=False,
+        last_thinking=None,
+        _pending_thinking_tokens=[],
+        _parsed_tool_calls=None,
+        MODELS=HuggingFaceModel,
+    )
+    # bind the real template method so the pop-then-splat ordering is the code under test
+    client._apply_chat_template = HuggingFaceClient._apply_chat_template.__get__(client, type(client))
+    kwargs = {"max_new_tokens": 16, THINKING_KWARG: ResolvedThinking(enabled=True, level="high")}
+
+    HuggingFaceClient._generate_sync(client, [{"role": "user", "content": "hi"}], kwargs, None)
+
+    assert THINKING_KWARG not in seen[0]
+    assert seen[0]["max_new_tokens"] == 16

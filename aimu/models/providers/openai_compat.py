@@ -453,6 +453,9 @@ class LMStudioOpenAIModel(Model):
     # Qwen 3.8 27B is dense rather than MoE, but the MLX story is identical: quant-suffixed keys
     # from an mlx-community download, no bare member (a quant-free key would be the GGUF build).
     # At 27B dense, bf16 is impractical here too, so only the two practical quants are listed.
+    # thinking_levels=True on the Qwen 3.8 members: verified against the model's own
+    # chat_template.jinja, which validates reasoning_effort against {xhigh, medium, low}.
+    # See providers/hf/text.py for the full note.
     QWEN_3_8_27B_4BIT = ModelSpec("qwen3.8-27b-4bit", tools=True, thinking=True, vision=True, thinking_levels=True)
     QWEN_3_8_27B_8BIT = ModelSpec("qwen3.8-27b-8bit", tools=True, thinking=True, vision=True, thinking_levels=True)
     # No MUSE_GLIMMER_30B here, for two independent reasons: LM Studio distributes it as GGUF only
@@ -647,6 +650,9 @@ class OMLXOpenAIModel(Model):
     # bf16 checkpoint is large but still tractable on a high-memory Mac, so it is listed here (it is
     # omitted from the LM Studio catalog, which lists only the two practical quants).
     QWEN_3_8_27B = ModelSpec("Qwen3.8-27B", tools=True, thinking=True, vision=True, thinking_levels=True)
+    # thinking_levels=True on the Qwen 3.8 members: verified against the model's own
+    # chat_template.jinja, which validates reasoning_effort against {xhigh, medium, low}.
+    # See providers/hf/text.py for the full note.
     QWEN_3_8_27B_4BIT = ModelSpec("Qwen3.8-27B-4bit", tools=True, thinking=True, vision=True, thinking_levels=True)
     QWEN_3_8_27B_8BIT = ModelSpec("Qwen3.8-27B-8bit", tools=True, thinking=True, vision=True, thinking_levels=True)
     QWEN_3_8_27B_BF16 = ModelSpec("Qwen3.8-27B-bf16", tools=True, thinking=True, vision=True, thinking_levels=True)

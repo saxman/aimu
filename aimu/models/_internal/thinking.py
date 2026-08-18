@@ -60,11 +60,13 @@ def resolve_thinking(
     elif isinstance(thinking, bool):
         level, enabled = None, thinking
     else:
-        raise ValueError(f"thinking must be True, False, or one of {THINKING_LEVELS}, got {thinking!r}.")
+        raise ValueError(f"thinking must be True, False, or one of {', '.join(THINKING_LEVELS)}, got {thinking!r}.")
 
     if not model.supports_thinking:
         if enabled:
-            warn(f"{model.value} is not a thinking model; thinking={thinking!r} ignored.")
+            warn(f"AIMU does not expose reasoning control for {model.value}; thinking={thinking!r} ignored.")
+        # Worded as a limit on AIMU rather than on the model: supports_thinking means
+        # "reasoning is visible here", and o3 reasons even though this flag is False.
         # Disabling reasoning on a model that has none is a true statement, so it is silent:
         # it lets one call site serve a mixed fleet.
         return None

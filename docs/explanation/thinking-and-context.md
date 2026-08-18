@@ -103,6 +103,6 @@ That requirement does **not** apply to the local models AIMU ships:
 | Is reasoning stored in `messages`? | Yes — under a `"thinking"` key, uniformly across providers; omitted when there is none. |
 | Is that key sent to the model? | No — chat templates and request adapters ignore it. |
 | Is prior-turn reasoning re-fed on the next turn? | No. |
-| Is that correct? | Yes — it matches Qwen3 / Gemma / DeepSeek-R1 guidance and the chat templates' own behavior. For Qwen 3.8, whose card defaults the other way (`preserve_thinking=True`), it is a deliberate deviation instead; see the note above. |
+| Is that correct? | Yes, it matches Qwen3 / Gemma / DeepSeek-R1 guidance and the chat templates' own behavior. For Qwen 3.8, whose card defaults the other way (`preserve_thinking=True`), it is a deliberate deviation instead; see the note above. |
 | Where do I read the latest reasoning? | `client.last_thinking`. |
 | How do I turn reasoning on or off, or set an effort level? | `thinking=` on `chat()` / `generate()`; see "Controlling thinking" above and the [how-to](../how-to/control-thinking.md). |

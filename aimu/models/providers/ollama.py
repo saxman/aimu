@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 _GEMMA_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
-# Qwen 3.6 and 3.8 share a thinking-mode profile; 3.5 differs only in presence_penalty.
+# Qwen 3.6 27B and 3.8 share a thinking-mode profile; 3.5 and 3.6 35B-A3B each differ only in
+# presence_penalty (1.5 rather than 0.0), per their own cards.
 # Values are from each model card's thinking-mode row, verified 2026-08-17.
 _QWEN_THINKING_KWARGS = {
     "temperature": 1.0,
@@ -168,6 +169,9 @@ class OllamaClient(BaseModelClient):
 
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds
+        # Kept for parity with the other clients, which all read it in
+        # _update_generate_kwargs. This one selects its profile per call via
+        # select_profile instead, so editing this dict does not change a request.
         self.default_generate_kwargs = dict(model.generation_kwargs)
 
         self._client = ollama.Client(**({"timeout": timeout} if timeout is not None else {}))
