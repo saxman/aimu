@@ -10,7 +10,7 @@ from ..base import (
     classproperty,
 )
 from .._internal.image_input import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
-from .._internal.thinking import THINKING_KWARG, select_profile
+from .._internal.thinking import THINKING_KWARG, pop_thinking, select_profile
 from .._internal.usage import truncated_from_ollama, usage_from_ollama
 
 import ollama
@@ -210,7 +210,7 @@ class OllamaClient(BaseModelClient):
         Ollama's SDK accepts a bool or one of "low"/"medium"/"high", which is exactly the
         portable vocabulary, so no mapping is needed.
         """
-        resolved = generate_kwargs.pop(THINKING_KWARG, None)
+        resolved = pop_thinking(generate_kwargs)
         if resolved is None:
             return self.is_thinking_model
         return resolved.level if resolved.level is not None else resolved.enabled

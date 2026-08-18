@@ -80,6 +80,22 @@ def resolve_thinking(
     return ResolvedThinking(enabled=enabled, level=level)
 
 
+def pop_thinking(generate_kwargs: dict) -> Optional[ResolvedThinking]:
+    """Remove the resolved thinking request from ``generate_kwargs`` and return it.
+
+    Every provider consumes the reserved key through this helper, exactly once per request,
+    at the point where the dict stops being AIMU's and becomes the provider's payload. Going
+    through one function keeps the contract greppable for whoever adds the next provider, and
+    it matters because a missed pop does not fail uniformly: the OpenAI, Anthropic and
+    Transformers call paths reject an unknown keyword, but Ollama types its ``options`` field
+    as an open mapping and would serialize the key into the request body silently.
+
+    Providers that need the value *before* the payload is final (to pick a sampling profile,
+    say) read it with ``generate_kwargs.get(THINKING_KWARG)`` first and still pop here.
+    """
+    return generate_kwargs.pop(THINKING_KWARG, None)
+
+
 def select_profile(model: Any, resolved: Optional[ResolvedThinking]) -> dict:
     """Return the sampling profile for the resolved mode.
 

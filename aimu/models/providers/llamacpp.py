@@ -10,7 +10,7 @@ import llama_cpp
 
 from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
 from .._internal.image_input import _build_user_content_blocks
-from .._internal.thinking import THINKING_KWARG
+from .._internal.thinking import pop_thinking
 from ._thinking import _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ class LlamaCppClient(BaseModelClient):
         kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
         # No verified thinking control on this path; the request was resolved and warned about
         # upstream, so drop it rather than let llama_cpp reject an unknown key.
-        kwargs.pop(THINKING_KWARG, None)
+        pop_thinking(kwargs)
         return kwargs
 
     def _iter_stream(self, stream) -> Iterator[StreamChunk]:

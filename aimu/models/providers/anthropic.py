@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from .._internal.sdk_config import sdk_client_kwargs
 from ..base import BaseModelClient, Model, ModelSpec, StreamingContentType, StreamChunk, classproperty
 from .._internal.image_input import _build_user_content_blocks, _openai_blocks_to_anthropic
-from .._internal.thinking import THINKING_KWARG
+from .._internal.thinking import THINKING_KWARG, pop_thinking
 from .._internal.usage import usage_from_anthropic
 
 logger = logging.getLogger(__name__)
@@ -155,7 +155,7 @@ class AnthropicClient(BaseModelClient):
         this feature's warn-and-continue rule for a request a model cannot honour.
         """
         kwargs = generate_kwargs.copy()
-        resolved = kwargs.pop(THINKING_KWARG, None)
+        resolved = pop_thinking(kwargs)
         if resolved is not None and resolved.enabled:
             thinking_value = resolved.level if resolved.level is not None else True
             self._warn_once(
@@ -264,7 +264,7 @@ class AnthropicClient(BaseModelClient):
     def _thinking_kwargs(self, generate_kwargs: dict) -> dict:
         """Inject the thinking parameter for thinking-capable models."""
         kwargs = generate_kwargs.copy()
-        resolved = kwargs.pop(THINKING_KWARG, None)
+        resolved = pop_thinking(kwargs)
 
         if not self.is_thinking_model:
             return kwargs

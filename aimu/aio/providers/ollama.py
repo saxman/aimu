@@ -8,7 +8,7 @@ from typing import AsyncIterator, Optional, Union
 import ollama
 
 from aimu.models._internal.image_input import _adapt_messages_for_ollama
-from aimu.models._internal.thinking import THINKING_KWARG, select_profile
+from aimu.models._internal.thinking import THINKING_KWARG, pop_thinking, select_profile
 from aimu.models._internal.usage import truncated_from_ollama, usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.ollama import OllamaClient, OllamaModel
@@ -84,7 +84,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         Ollama's SDK accepts a bool or one of "low"/"medium"/"high", which is exactly the
         portable vocabulary, so no mapping is needed.
         """
-        resolved = generate_kwargs.pop(THINKING_KWARG, None)
+        resolved = pop_thinking(generate_kwargs)
         if resolved is None:
             return self.is_thinking_model
         return resolved.level if resolved.level is not None else resolved.enabled

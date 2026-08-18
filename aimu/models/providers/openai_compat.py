@@ -31,7 +31,7 @@ from .._internal.audio_input import _build_audio_content_blocks
 from .._internal.image_input import _build_user_content_blocks
 from .._internal.message_meta import strip_inert_keys
 from .._internal.sdk_config import sdk_client_kwargs
-from .._internal.thinking import QWEN_REASONING_EFFORT, THINKING_KWARG
+from .._internal.thinking import QWEN_REASONING_EFFORT, pop_thinking
 from .._internal.usage import usage_from_openai
 from ._thinking import _ThinkingParser, _split_thinking
 
@@ -109,7 +109,7 @@ class OpenAICompatClient(BaseModelClient):
 
     def _apply_resolved_thinking(self, kwargs: dict) -> dict:
         """Translate a resolved thinking request into OpenAI-compatible request fields."""
-        resolved = kwargs.pop(THINKING_KWARG, None)
+        resolved = pop_thinking(kwargs)
         if resolved is None:
             return kwargs
 

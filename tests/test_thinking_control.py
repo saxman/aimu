@@ -888,3 +888,46 @@ def test_top_level_chat_forwards_thinking(monkeypatch):
     aimu.chat("hi", model="ollama:qwen3.8:27b", thinking="low")
 
     assert seen[0][THINKING_KWARG] == ResolvedThinking(enabled=True, level="low")
+
+
+def test_pop_thinking_removes_and_returns_the_reserved_key():
+    from aimu.models._internal.thinking import pop_thinking
+
+    resolved = ResolvedThinking(enabled=True, level="low")
+    kwargs = {"temperature": 0.5, THINKING_KWARG: resolved}
+
+    assert pop_thinking(kwargs) is resolved
+    assert THINKING_KWARG not in kwargs
+    assert kwargs == {"temperature": 0.5}
+
+
+def test_pop_thinking_returns_none_when_absent():
+    from aimu.models._internal.thinking import pop_thinking
+
+    kwargs = {"temperature": 0.5}
+
+    assert pop_thinking(kwargs) is None
+    assert kwargs == {"temperature": 0.5}
+
+
+def test_every_provider_consumes_the_reserved_key_through_the_helper():
+    """The reserved key must be removed via pop_thinking, not a hand-rolled pop.
+
+    One greppable helper is what a fifth provider author can find. Hand-rolled pops were
+    reimplemented three different ways across four providers, and on the Ollama path a
+    missed one is silently serialized into the request body rather than rejected.
+    """
+    import pathlib
+
+    provider_files = [
+        "aimu/models/providers/ollama.py",
+        "aimu/aio/providers/ollama.py",
+        "aimu/models/providers/openai_compat.py",
+        "aimu/models/providers/anthropic.py",
+        "aimu/models/providers/hf/text.py",
+        "aimu/models/providers/llamacpp.py",
+    ]
+
+    hand_rolled = [path for path in provider_files if "pop(THINKING_KWARG" in pathlib.Path(path).read_text()]
+
+    assert hand_rolled == []

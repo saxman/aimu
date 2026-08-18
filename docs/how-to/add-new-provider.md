@@ -71,6 +71,31 @@ class MyProviderClient(BaseModelClient):
 
 `chat()` / `generate()` (and the `include=` stream filter) are concrete on the base; you only implement `_chat` / `_generate`. Use `self._chat_setup(...)` to build the request; when the model returns tool calls, call `self._record_tool_calls(tool_calls, content)` to parse and store them on the assistant message. `_chat` only *records* tool calls — it never executes them. Tool execution and the call-model → run-tools → repeat loop belong to the agent's tool-loop engine (`aimu.agents._tool_loop`), not the provider. See [`providers/anthropic.py`](https://github.com/saxman/aimu/blob/main/aimu/models/providers/anthropic.py) for a full native example (including the OpenAI↔Anthropic format adapters).
 
+!!! warning "`_update_generate_kwargs` must consume the reserved thinking key"
+    The portable [`thinking=`](control-thinking.md) parameter is resolved once on the base
+    and travels down to you inside `generate_kwargs`, under a reserved `_thinking` key. Your
+    provider must remove it before the dict reaches your SDK, by calling
+    `pop_thinking(generate_kwargs)` from `aimu.models._internal.thinking`:
+
+    ```python
+    from .._internal.thinking import pop_thinking
+
+    def _update_generate_kwargs(self, generate_kwargs=None):
+        kwargs = {**self.default_generate_kwargs, **(generate_kwargs or {})}
+        resolved = pop_thinking(kwargs)   # required, even if you ignore the value
+        if resolved is not None:
+            ...  # translate to your wire format, or drop it
+        return kwargs
+    ```
+
+    Translating it is optional: a provider with no thinking mechanism drops it, and the base
+    has already warned the caller where that matters. Removing it is not optional. Forgetting
+    the pop does not fail the same way everywhere: the OpenAI, Anthropic and Transformers call
+    paths reject an unknown keyword loudly, but Ollama types its `options` field as an open
+    mapping and would serialize the key straight into the request body. If your provider needs
+    the value before the payload is final, read it with `generate_kwargs.get(THINKING_KWARG)`
+    and still pop it at the request-building site.
+
 !!! note "Provider-local helpers"
     A helper used by *one* provider family lives with it (e.g. `providers/hf/_device.py`, `providers/_thinking.py`), not in `_internal/`. Put anything only your provider needs next to your provider.
 

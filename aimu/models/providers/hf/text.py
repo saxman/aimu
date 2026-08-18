@@ -5,7 +5,7 @@ from ..._internal.image_input import (
     _extract_pil_images,
     _replace_image_url_with_image_placeholder,
 )
-from ..._internal.thinking import QWEN_REASONING_EFFORT, THINKING_KWARG, ResolvedThinking, select_profile
+from ..._internal.thinking import QWEN_REASONING_EFFORT, ResolvedThinking, THINKING_KWARG, pop_thinking, select_profile
 
 import torch
 from transformers import AutoTokenizer
@@ -601,7 +601,7 @@ class HuggingFaceClient(BaseModelClient):
 
         # Popped here, not peeked: this dict is splatted into generate() below, which
         # rejects unknown keyword arguments.
-        thinking = generate_kwargs.pop(THINKING_KWARG, None)
+        thinking = pop_thinking(generate_kwargs)
         model_inputs = self._apply_chat_template(messages, tools, thinking=thinking)
         generated_ids = self._hf_model.generate(**model_inputs, **generate_kwargs)
 
@@ -674,7 +674,7 @@ class HuggingFaceClient(BaseModelClient):
 
         # Popped here, not peeked: this dict is splatted into generate() below, which
         # rejects unknown keyword arguments.
-        thinking = generate_kwargs.pop(THINKING_KWARG, None)
+        thinking = pop_thinking(generate_kwargs)
         model_inputs = self._apply_chat_template(messages, tools, thinking=thinking)
         self._hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
 
