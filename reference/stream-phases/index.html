@@ -793,6 +793,8 @@
       
         
       
+        
+      
     
     
     
@@ -1142,6 +1144,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3160,9 +3190,9 @@
 <p><code>aimu.aio</code> yields the same <code>StreamChunk</code> type; <code>phase</code>, <code>content</code>, <code>agent</code>, <code>iteration</code> are unchanged. The consumption protocol differs: <code>Iterator[StreamChunk]</code> on the sync surface vs <code>AsyncIterator[StreamChunk]</code> on the async surface. Phase semantics and filtering are identical on both. See <a href="../../how-to/use-async/">how-to: use async</a>.</p>
 <h2 id="filtering">Filtering<a class="headerlink" href="#filtering" title="Permanent link">&para;</a></h2>
 <p>Pass <code>include=[...]</code> to <code>chat()</code> or <code>generate()</code> to drop phases:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;generating&quot;</span><span class="p">])</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;thinking&quot;</span><span class="p">,</span> <span class="s2">&quot;generating&quot;</span><span class="p">])</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;hi&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="n">StreamingContentType</span><span class="o">.</span><span class="n">GENERATING</span><span class="p">])</span>  <span class="c1"># enum form</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">"generating"</span><span class="p">])</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">"thinking"</span><span class="p">,</span> <span class="s2">"generating"</span><span class="p">])</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="n">StreamingContentType</span><span class="o">.</span><span class="n">GENERATING</span><span class="p">])</span>  <span class="c1"># enum form</span>
 </span></code></pre></div>
 <p>Accepts strings or enum members. Omitting <code>include=</code> yields all phases.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

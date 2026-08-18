@@ -793,6 +793,8 @@
       
         
       
+        
+      
     
     
     
@@ -1142,6 +1144,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -2893,6 +2923,51 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Why prior-turn thinking is not re-fed to the model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#qwen-38-and-preserve_thinking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qwen 3.8 and preserve_thinking
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#controlling-thinking-the-thinking-parameter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controlling thinking: the thinking= parameter
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Controlling thinking: the thinking= parameter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-provider-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-provider mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3072,6 +3147,51 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Why prior-turn thinking is not re-fed to the model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#qwen-38-and-preserve_thinking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qwen 3.8 and preserve_thinking
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#controlling-thinking-the-thinking-parameter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controlling thinking: the thinking= parameter
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Controlling thinking: the thinking= parameter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-provider-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-provider mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3125,7 +3245,7 @@
 <li>Native-thinking providers (Anthropic, Ollama) read the reasoning from a dedicated response field.</li>
 </ul>
 <p>The most recent turn's reasoning is always available on <code>client.last_thinking</code> (the canonical, uniform surface). In addition, every provider attaches the reasoning to the assistant message it just appended, under a non-standard <code>"thinking"</code> key:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;assistant&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;the answer&quot;</span><span class="p">,</span> <span class="s2">&quot;thinking&quot;</span><span class="p">:</span> <span class="s2">&quot;the reasoning&quot;</span><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"the answer"</span><span class="p">,</span> <span class="s2">"thinking"</span><span class="p">:</span> <span class="s2">"the reasoning"</span><span class="p">}</span>
 </span></code></pre></div>
 <p>The key is <strong>omitted</strong> when the turn produced no reasoning. This is what the Streamlit chatbot renders per message (<a href="https://github.com/saxman/aimu/blob/main/examples/web/streamlit_chatbot.py">examples/web/streamlit_chatbot.py</a>) and what <code>ConversationManager</code> persists, so a saved conversation keeps its per-turn reasoning for later inspection.</p>
 <p>This applies to <strong>tool-calling turns</strong> too: when a thinking model reasons and then calls a tool, that reasoning is attached to the assistant <em>tool-call</em> message (the one carrying <code>tool_calls</code>), not just to the final answer. So in an agentic loop every assistant message that had reasoning carries its own reasoning. As with everything else here, the key is metadata: the reasoning that preceded a tool call is recorded for inspection/persistence but is not re-sent to the model on the follow-up request.</p>
@@ -3150,6 +3270,57 @@
 <li>The original <strong>DeepSeek-R1</strong> convention is identical.</li>
 </ul>
 <p>Re-feeding prior reasoning would <em>deviate</em> from this guidance, inflate the prompt, and can degrade quality. AIMU therefore does the recommended thing: the model re-derives reasoning fresh each turn from the clean history.</p>
+<h3 id="qwen-38-and-preserve_thinking">Qwen 3.8 and <code>preserve_thinking</code><a class="headerlink" href="#qwen-38-and-preserve_thinking" title="Permanent link">&para;</a></h3>
+<p>Qwen 3.8's chat template adds a <code>preserve_thinking</code> toggle, defaulting to <code>True</code>, that keeps the current turn's <code>&lt;think&gt;</code> block in the rendered prompt on the <em>next</em> turn instead of stripping it: the opposite of the guidance above for the 3.5 / 3.6 line described just above. AIMU does not expose this toggle, and its own behavior does not change for Qwen 3.8: prior-turn reasoning is never sent to any provider, for any model, because the <code>"thinking"</code> key is inert (see above) and is stripped from every request path before the model ever sees it. In practice, then, AIMU behaves as <code>preserve_thinking=False</code> for Qwen 3.8, permanently.</p>
+<p>This is a <strong>deliberate deviation</strong> from the card's own default, not an oversight. Re-feeding reasoning would grow the prompt by one thinking block's worth of tokens on every turn for the life of a conversation. And the benefit <code>preserve_thinking=True</code> is meant to provide, a later turn (or a human, or a persistence layer) being able to see what the model reasoned about, is already met a different way: every provider attaches that turn's reasoning to the assistant message under the inert <code>"thinking"</code> key (see above), so it is fully recorded for inspection and persistence without ever being replayed into a request.</p>
+<h2 id="controlling-thinking-the-thinking-parameter">Controlling thinking: the <code>thinking=</code> parameter<a class="headerlink" href="#controlling-thinking-the-thinking-parameter" title="Permanent link">&para;</a></h2>
+<p><code>chat()</code> and <code>generate()</code> (sync and async, plus the top-level <code>aimu.chat()</code> / <code>aio.chat()</code> helpers) accept a <code>thinking=</code> argument that turns reasoning on or off, and requests an effort level, portably across providers:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">thinking</span><span class="o">=</span><span class="kc">None</span>       <span class="c1"># default: today's behavior, byte for byte</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">thinking</span><span class="o">=</span><span class="kc">False</span>      <span class="c1"># off, and select the model's instruct-mode sampling profile</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">thinking</span><span class="o">=</span><span class="kc">True</span>       <span class="c1"># on, at the model's own default effort</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">thinking</span><span class="o">=</span><span class="s2">"low"</span>      <span class="c1"># on at low effort; also "medium" and "high"</span>
+</span></code></pre></div>
+<p>One rule governs resolution: <strong>validate the argument, never the model.</strong> A value outside <code>None</code> / <code>True</code> / <code>False</code> / <code>"low"</code> / <code>"medium"</code> / <code>"high"</code> raises <code>ValueError</code> before any request is built. A value that is valid but that the <em>model</em> cannot honour (no effort-level control, or a model that always reasons and cannot be turned off) logs a warning, deduplicated per client instance and per situation, and the call proceeds: swapping the model behind a call site never turns working code into an exception. Levels are advisory in the same spirit: <code>thinking="high"</code> against a model with no effort-level control still turns reasoning <strong>on</strong> (with a warning that the level itself was ignored) rather than raising or silently doing nothing. <code>thinking=False</code> against a model that has nothing to disable is the one case that stays silent, since the statement is already true and it lets one call site serve a mixed fleet of thinking and non-thinking models.</p>
+<h3 id="per-provider-mechanism">Per-provider mechanism<a class="headerlink" href="#per-provider-mechanism" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>off (<code>thinking=False</code>)</th>
+<th>level (<code>"low"</code>/<code>"medium"</code>/<code>"high"</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ollama native</td>
+<td><code>think=False</code></td>
+<td><code>think="low"/"medium"/"high"</code> (its SDK already accepts this exact vocabulary)</td>
+</tr>
+<tr>
+<td>OpenAI-compat local servers (vLLM, SGLang, LM Studio, Ollama-OpenAI, oMLX, HF-Serve, llama-server)</td>
+<td><code>extra_body={"chat_template_kwargs": {"enable_thinking": False}}</code></td>
+<td><code>reasoning_effort</code>, with <code>"high"</code> sent as Qwen's own <code>"xhigh"</code></td>
+</tr>
+<tr>
+<td>HuggingFace (in-process)</td>
+<td><code>enable_thinking=False</code> template kwarg</td>
+<td><code>reasoning_effort</code> template kwarg</td>
+</tr>
+<tr>
+<td>Anthropic</td>
+<td>omits the <code>thinking</code> request parameter</td>
+<td><code>budget_tokens</code>: low 2048, medium 8000, high 16000 (<code>ThinkingStyle.ADAPTIVE</code> models warn and ignore a level, since that request shape carries no budget parameter)</td>
+</tr>
+<tr>
+<td>llama.cpp, OpenAI cloud, Gemini</td>
+<td>nothing emitted</td>
+<td>nothing emitted</td>
+</tr>
+</tbody>
+</table>
+<p>Among the providers that share Qwen's effort vocabulary (Ollama, the OpenAI-compatible family, HuggingFace), only Qwen 3.8 declares <code>thinking_levels=True</code> today; Anthropic's six models declare it too, mapping a level to <code>budget_tokens</code> instead (see the table above). <code>GEMINI_2_5_PRO</code> is the only model with <code>thinking_optional=False</code>, recording that Google's own API will not let this specific model disable reasoning at all; <code>thinking=False</code> against it warns and the call proceeds at full reasoning effort anyway, billed as such, and <code>client.last_usage</code> is how to observe that after the fact.</p>
+<p>The last table row is a scope boundary, not an absence of any mechanism, for two of its three providers. OpenAI's o-series models never declare <code>thinking=True</code> in AIMU's catalog, so there is nothing for this parameter to reach on that path. Gemini is different: Google's OpenAI-compatible endpoint for Gemini does document a <code>reasoning_effort</code> field (<code>minimal</code>/<code>low</code>/<code>medium</code>/<code>high</code>, plus <code>none</code> to disable reasoning on <code>gemini-2.5-flash</code>), so a real mechanism exists there. AIMU emits nothing to it only because that vocabulary excludes the <code>"xhigh"</code> value the shared Qwen mapping sends for <code>"high"</code>; supporting Gemini correctly needs a second, provider-specific effort vocabulary, which is deferred rather than built here. Until then, <code>thinking=False</code> warns and is a no-op against <strong>every</strong> Gemini thinking model, not only <code>GEMINI_2_5_PRO</code>: the wire mechanism for the off-request is missing for the whole provider, and <code>GEMINI_2_5_PRO</code>'s <code>thinking_optional=False</code> is a stronger, independent fact on top of that gap (it could not disable reasoning even once the off-request mechanism exists). <code>llama.cpp</code> has no mechanism on either axis: neither the request API nor GGUF metadata carries an effort-level field.</p>
+<p>See <a href="../../how-to/control-thinking/">Control thinking effort</a> for a runnable walkthrough, including the Anthropic <code>thinking_budget_tokens</code> escape hatch for exact token control.</p>
 <h2 id="how-this-compares-to-other-frameworks">How this compares to other frameworks<a class="headerlink" href="#how-this-compares-to-other-frameworks" title="Permanent link">&para;</a></h2>
 <p>For <strong>plain multi-turn chat</strong>, this matches what litellm and similar frameworks do for the same models: prior-turn reasoning is not resent.</p>
 <p>There is one nuance, and it is specifically about <strong>tool calling</strong>, not plain chat. Some <em>API</em> reasoning models — Anthropic with extended thinking, newer DeepSeek, Moonshot Kimi K2 — <em>require</em> the reasoning block to be preserved on the assistant message <strong>between a tool call and the tool result</strong>, or the API returns a 400. litellm carries <code>reasoning_content</code> / <code>thinking_blocks</code> through for those providers for exactly this reason.</p>
@@ -3182,11 +3353,15 @@
 </tr>
 <tr>
 <td>Is that correct?</td>
-<td>Yes — it matches Qwen3 / Gemma / DeepSeek-R1 guidance and the chat templates' own behavior.</td>
+<td>Yes — it matches Qwen3 / Gemma / DeepSeek-R1 guidance and the chat templates' own behavior. For Qwen 3.8, whose card defaults the other way (<code>preserve_thinking=True</code>), it is a deliberate deviation instead; see the note above.</td>
 </tr>
 <tr>
 <td>Where do I read the latest reasoning?</td>
 <td><code>client.last_thinking</code>.</td>
+</tr>
+<tr>
+<td>How do I turn reasoning on or off, or set an effort level?</td>
+<td><code>thinking=</code> on <code>chat()</code> / <code>generate()</code>; see "Controlling thinking" above and the <a href="../../how-to/control-thinking/">how-to</a>.</td>
 </tr>
 </tbody>
 </table>

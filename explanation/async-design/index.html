@@ -793,6 +793,8 @@
       
         
       
+        
+      
     
     
     
@@ -1142,6 +1144,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3152,14 +3182,14 @@
 <p>AIMU has two surfaces: the sync ladder (<code>aimu.chat()</code> → <code>aimu.client()</code> → <code>Agent</code> → workflows) and a one-import-away async mirror under <code>aimu.aio</code>. The sync surface is the default. Async is strictly opt-in.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Sync (default)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">reply</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Hi&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">reply</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Hi"</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"anthropic:claude-sonnet-4-6"</span><span class="p">)</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Async (same names, different namespace)</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"anthropic:claude-sonnet-4-6"</span><span class="p">)</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">my_async_tool</span><span class="p">])</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Hello&quot;</span><span class="p">)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Hello"</span><span class="p">)</span>
 </span></code></pre></div>
 <p>This page records <em>why</em> the async surface looks like it does. Each decision was weighed against the <a href="../design-principles/">six design principles</a>; each names the alternatives that were considered and rejected.</p>
 <h2 id="decision-1-aimuaio-submodule-twin-classes">Decision 1: <code>aimu.aio</code> submodule (twin classes)<a class="headerlink" href="#decision-1-aimuaio-submodule-twin-classes" title="Permanent link">&para;</a></h2>

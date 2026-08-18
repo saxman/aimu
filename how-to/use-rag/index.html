@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1147,6 +1149,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3137,16 +3167,16 @@ interface</strong>. There is no retriever/splitter/loader class hierarchy to lea
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.rag</span><span class="w"> </span><span class="kn">import</span> <span class="n">ingest</span><span class="p">,</span> <span class="n">retrieve</span><span class="p">,</span> <span class="n">format_context</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># 1. Chunk documents into a store (any MemoryStore works)</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">store</span> <span class="o">=</span> <span class="n">SemanticMemoryStore</span><span class="p">(</span><span class="n">embedding_client</span><span class="o">=</span><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">&quot;openai:text-embedding-3-small&quot;</span><span class="p">))</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">store</span> <span class="o">=</span> <span class="n">SemanticMemoryStore</span><span class="p">(</span><span class="n">embedding_client</span><span class="o">=</span><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"openai:text-embedding-3-small"</span><span class="p">))</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">ingest</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">my_documents</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span> <span class="n">chunk_overlap</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># 2. Retrieve the chunks relevant to a question</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">question</span> <span class="o">=</span> <span class="s2">&quot;What is AIMU&#39;s design philosophy?&quot;</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">question</span> <span class="o">=</span> <span class="s2">"What is AIMU's design philosophy?"</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">chunks</span> <span class="o">=</span> <span class="n">retrieve</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">question</span><span class="p">,</span> <span class="n">n_results</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># 3. Augment the prompt and answer</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">context</span> <span class="o">=</span> <span class="n">format_context</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Context:</span><span class="se">\n</span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">Question: </span><span class="si">{</span><span class="n">question</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Context:</span><span class="se">\n</span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">Question: </span><span class="si">{</span><span class="n">question</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>ingest</code> → <code>retrieve</code> → <code>format_context</code> → <code>chat</code> is just a workflow you compose; RAG is
 not a separate object type.</p>
@@ -3167,7 +3197,7 @@ words → characters).</p>
   <strong>token-aware</strong> chunking:</li>
 </ul>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">tiktoken</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">enc</span> <span class="o">=</span> <span class="n">tiktoken</span><span class="o">.</span><span class="n">get_encoding</span><span class="p">(</span><span class="s2">&quot;cl100k_base&quot;</span><span class="p">)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">enc</span> <span class="o">=</span> <span class="n">tiktoken</span><span class="o">.</span><span class="n">get_encoding</span><span class="p">(</span><span class="s2">"cl100k_base"</span><span class="p">)</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">chunks</span> <span class="o">=</span> <span class="n">split_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">chunk_overlap</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                    <span class="n">length_function</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">s</span><span class="p">)))</span>
 </span></code></pre></div>
@@ -3199,8 +3229,8 @@ cross-encoder to keep the best few. Requires the <code>[hf]</code> extra (<code>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">ingest</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">my_documents</span><span class="p">)</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">make_retrieval_tool</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">n_results</span><span class="o">=</span><span class="mi">5</span><span class="p">)])</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Using the knowledge base, explain X.&quot;</span><span class="p">)</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># the agent can call retrieve_context(query=&quot;...&quot;) whenever it needs background</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Using the knowledge base, explain X."</span><span class="p">)</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># the agent can call retrieve_context(query="...") whenever it needs background</span>
 </span></code></pre></div>
 <p>The tool returns numbered context (<code>[1] ...</code>, <code>[2] ...</code>) so the model can cite which
 chunk it used, or <code>"No relevant context found."</code> when the store has nothing relevant.</p>

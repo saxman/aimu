@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1147,6 +1149,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3072,22 +3102,22 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">OrchestratorAgent</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.5:9b"</span><span class="p">)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">researcher</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;Research the topic. Return key facts.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;researcher&quot;</span><span class="p">)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">critic</span>     <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;Critique the research for accuracy and gaps.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;critic&quot;</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">writer</span>     <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;Write a final summary from the research and critique.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;writer&quot;</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">researcher</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"Research the topic. Return key facts."</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"researcher"</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">critic</span>     <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"Critique the research for accuracy and gaps."</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"critic"</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">writer</span>     <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"Write a final summary from the research and critique."</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"writer"</span><span class="p">)</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">orchestrator</span> <span class="o">=</span> <span class="n">OrchestratorAgent</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">client</span><span class="p">,</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">system_message</span><span class="o">=</span><span class="p">(</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="s2">&quot;Use researcher to gather facts, critic to check them, &quot;</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="s2">&quot;writer to produce the final summary.&quot;</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="s2">"Use researcher to gather facts, critic to check them, "</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="s2">"writer to produce the final summary."</span>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="p">),</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">workers</span><span class="o">=</span><span class="p">[</span><span class="n">researcher</span><span class="p">,</span> <span class="n">critic</span><span class="p">,</span> <span class="n">writer</span><span class="p">],</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">)</span>
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">orchestrator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;How does retrieval-augmented generation work?&quot;</span><span class="p">))</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">orchestrator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"How does retrieval-augmented generation work?"</span><span class="p">))</span>
 </span></code></pre></div>
 <p>Each worker becomes a callable <code>@tool</code> (via <code>Runner.as_tool()</code>) named after the worker's <code>name</code> (sanitised); the tool description is the first line of its <code>system_message</code>. Workers can be <strong>any <code>Runner</code></strong>, not just an <code>Agent</code> (a <code>Chain</code> / <code>Router</code> / <code>Parallel</code> workflow, or a remote agent from <a href="../connect-agents-a2a/"><code>RemoteAgent.connect(...)</code></a>), so the orchestrator can delegate to a whole pipeline or a cross-process agent the same way it delegates to a single agent.</p>
 <h2 id="path-2-subclass">Path 2: subclass<a class="headerlink" href="#path-2-subclass" title="Permanent link">&para;</a></h2>
@@ -3099,24 +3129,24 @@
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">CodeReviewAgent</span><span class="p">(</span><span class="n">OrchestratorAgent</span><span class="p">):</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_client</span><span class="p">):</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="n">security</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">ModelClient</span><span class="p">(</span><span class="n">model_client</span><span class="o">.</span><span class="n">model</span><span class="p">),</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>                         <span class="s2">&quot;Find security issues. Be specific.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;security&quot;</span><span class="p">)</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>                         <span class="s2">"Find security issues. Be specific."</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"security"</span><span class="p">)</span>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="n">perf</span>     <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">ModelClient</span><span class="p">(</span><span class="n">model_client</span><span class="o">.</span><span class="n">model</span><span class="p">),</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>                         <span class="s2">&quot;Find performance issues. Be specific.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;perf&quot;</span><span class="p">)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>                         <span class="s2">"Find performance issues. Be specific."</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"perf"</span><span class="p">)</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="nd">@aimu</span><span class="o">.</span><span class="n">tool</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="k">def</span><span class="w"> </span><span class="nf">review_security</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">            </span><span class="sd">&quot;&quot;&quot;Review the given code for security vulnerabilities.&quot;&quot;&quot;</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">            </span><span class="sd">"""Review the given code for security vulnerabilities."""</span>
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>            <span class="k">return</span> <span class="n">security</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
 </span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="nd">@aimu</span><span class="o">.</span><span class="n">tool</span>
 </span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>        <span class="k">def</span><span class="w"> </span><span class="nf">review_performance</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">            </span><span class="sd">&quot;&quot;&quot;Review the given code for performance issues.&quot;&quot;&quot;</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">            </span><span class="sd">"""Review the given code for performance issues."""</span>
 </span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>            <span class="k">return</span> <span class="n">perf</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
 </span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
 </span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_init_orchestrator</span><span class="p">(</span>
 </span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>            <span class="n">model_client</span><span class="p">,</span>
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;code-review-agent&quot;</span><span class="p">,</span>
-</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>            <span class="n">system_message</span><span class="o">=</span><span class="s2">&quot;Use both review tools, then synthesise the findings.&quot;</span><span class="p">,</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>            <span class="n">name</span><span class="o">=</span><span class="s2">"code-review-agent"</span><span class="p">,</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>            <span class="n">system_message</span><span class="o">=</span><span class="s2">"Use both review tools, then synthesise the findings."</span><span class="p">,</span>
 </span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>            <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">review_security</span><span class="p">,</span> <span class="n">review_performance</span><span class="p">],</span>
 </span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>            <span class="n">concurrent_tool_calls</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>        <span class="p">)</span>
@@ -3136,7 +3166,7 @@
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ResearchReportAgent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">worker_tools</span><span class="o">=</span><span class="n">builtin</span><span class="o">.</span><span class="n">web</span><span class="p">)</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;What is retrieval-augmented generation?&quot;</span><span class="p">))</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"What is retrieval-augmented generation?"</span><span class="p">))</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>

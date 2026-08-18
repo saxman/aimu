@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1147,6 +1149,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3368,10 +3398,10 @@
 <h3 id="two-clients-a-generator-and-a-vision-critic">Two clients: a generator and a vision critic<a class="headerlink" href="#two-clients-a-generator-and-a-vision-critic" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">image_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">image_client</span><span class="p">(</span><span class="s2">&quot;hf:stabilityai/stable-diffusion-3.5-medium&quot;</span><span class="p">)</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">eval_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:gemma4:e4b&quot;</span><span class="p">)</span>          <span class="c1"># any vision-capable chat model</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">image_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">image_client</span><span class="p">(</span><span class="s2">"hf:stabilityai/stable-diffusion-3.5-medium"</span><span class="p">)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">eval_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:gemma4:e4b"</span><span class="p">)</span>          <span class="c1"># any vision-capable chat model</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">eval_client</span><span class="o">.</span><span class="n">is_vision_model</span><span class="p">:</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;the eval model must support image input&quot;</span><span class="p">)</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"the eval model must support image input"</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The critic is a normal chat client used with <code>images=</code> (see <a href="../handle-vision/">Handle vision input</a>); the generator is an image client (see <a href="../generate-images/">Generate images</a>).</p>
 <h3 id="the-evaluator-contract">The evaluator contract<a class="headerlink" href="#the-evaluator-contract" title="Permanent link">&para;</a></h3>
@@ -3383,14 +3413,14 @@
 </span></code></pre></div>
 <p>A small regex parser turns that into <code>{"action": "DONE"|"CONTINUE"|"unknown", "score", "next_prompt"}</code>, so the loop has a clean stop condition.</p>
 <h3 id="code-directed-loop">Code-directed loop<a class="headerlink" href="#code-directed-loop" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">prompt</span> <span class="o">=</span> <span class="s2">&quot;a hot hotdog&quot;</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">prompt</span> <span class="o">=</span> <span class="s2">"a hot hotdog"</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">image_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">build_image_prompt</span><span class="p">(</span><span class="n">prompt</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;path&quot;</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">image_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">build_image_prompt</span><span class="p">(</span><span class="n">prompt</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"path"</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">verdict</span> <span class="o">=</span> <span class="n">eval_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">EVALUATOR_PROMPT</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="n">path</span><span class="p">])</span>  <span class="c1"># stateless one-shot, no reset()</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">parsed</span> <span class="o">=</span> <span class="n">parse_evaluator_response</span><span class="p">(</span><span class="n">verdict</span><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="k">if</span> <span class="n">parsed</span><span class="p">[</span><span class="s2">&quot;action&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;DONE&quot;</span><span class="p">:</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="k">if</span> <span class="n">parsed</span><span class="p">[</span><span class="s2">"action"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"DONE"</span><span class="p">:</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="k">break</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">prompt</span> <span class="o">=</span> <span class="n">summarize_for_image</span><span class="p">(</span><span class="n">eval_client</span><span class="p">,</span> <span class="n">parsed</span><span class="p">[</span><span class="s2">&quot;next_prompt&quot;</span><span class="p">],</span> <span class="n">image_client</span><span class="o">.</span><span class="n">max_prompt_tokens</span><span class="p">)</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">prompt</span> <span class="o">=</span> <span class="n">summarize_for_image</span><span class="p">(</span><span class="n">eval_client</span><span class="p">,</span> <span class="n">parsed</span><span class="p">[</span><span class="s2">"next_prompt"</span><span class="p">],</span> <span class="n">image_client</span><span class="o">.</span><span class="n">max_prompt_tokens</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="agent-directed-loop">Agent-directed loop<a class="headerlink" href="#agent-directed-loop" title="Permanent link">&para;</a></h3>
 <p>Wrap the same three operations as <code>@tool</code>s and let the agent sequence them:</p>
@@ -3398,12 +3428,12 @@
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">agent_client</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;hotdog-agent&quot;</span><span class="p">,</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">system_message</span><span class="o">=</span><span class="n">AGENT_SYSTEM_PROMPT</span><span class="p">,</span>   <span class="c1"># &quot;generate → evaluate → (summarize) → repeat until DONE&quot;</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"hotdog-agent"</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">system_message</span><span class="o">=</span><span class="n">AGENT_SYSTEM_PROMPT</span><span class="p">,</span>   <span class="c1"># "generate → evaluate → (summarize) → repeat until DONE"</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">generate_hotdog_image</span><span class="p">,</span> <span class="n">evaluate_hotness</span><span class="p">,</span> <span class="n">summarize_description</span><span class="p">],</span>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">max_iterations</span><span class="o">=</span><span class="n">max_iterations</span> <span class="o">*</span> <span class="mi">4</span><span class="p">,</span>    <span class="c1"># ~3 tool calls per round + headroom</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">)</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Begin the hotdog heating experiment. Start with &#39;a hot hotdog&#39;.&quot;</span><span class="p">)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Begin the hotdog heating experiment. Start with 'a hot hotdog'."</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The agent stops on its own once the critic returns <code>DONE</code> (it simply stops calling tools). <code>--max-iterations 0</code> removes the hard cap so the <em>critic</em> decides when to stop.</p>
 <h3 id="workflow-class-loop-evaluatoroptimizer">Workflow-class loop (<a href="../../reference/api/agents/"><code>EvaluatorOptimizer</code></a>)<a class="headerlink" href="#workflow-class-loop-evaluatoroptimizer" title="Permanent link">&para;</a></h3>
@@ -3411,20 +3441,20 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">EvaluatorOptimizer</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">eo</span> <span class="o">=</span> <span class="n">EvaluatorOptimizer</span><span class="p">(</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">generator</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">gen_client</span><span class="p">,</span> <span class="s2">&quot;Write a prompt, generate, reply with the path.&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">generate_hotdog_image</span><span class="p">]),</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">evaluator</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">critic_client</span><span class="p">,</span> <span class="s2">&quot;Evaluate the image; relay DONE or CONTINUE verbatim.&quot;</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">evaluate_hotness</span><span class="p">]),</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">generator</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">gen_client</span><span class="p">,</span> <span class="s2">"Write a prompt, generate, reply with the path."</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">generate_hotdog_image</span><span class="p">]),</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">evaluator</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">critic_client</span><span class="p">,</span> <span class="s2">"Evaluate the image; relay DONE or CONTINUE verbatim."</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">evaluate_hotness</span><span class="p">]),</span>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">max_rounds</span><span class="o">=</span><span class="n">max_iterations</span><span class="p">,</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">pass_keyword</span><span class="o">=</span><span class="s2">&quot;DONE&quot;</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">pass_keyword</span><span class="o">=</span><span class="s2">"DONE"</span><span class="p">,</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">)</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">eo</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Make a single hotdog look as hot as possible. Start from: a hot hotdog.&quot;</span><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">eo</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Make a single hotdog look as hot as possible. Start from: a hot hotdog."</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The catch worth seeing: <code>EvaluatorOptimizer</code> orchestrates <em>text</em> <code>Runner</code>s, passing each step's output to the next as a <strong>string</strong> (see <code>aimu/agents/workflows/evaluator.py</code>). Image generation and vision evaluation therefore live <em>inside the tools</em>, and the image path travels between the two agents as text: two extra LLM hops for what <code>hotdog_loop.py</code> hands off as a plain variable. That's more indirect and more fragile (the script falls back to the latest image if the relayed path doesn't resolve). It also needs <strong>three</strong> client instances (a generator brain, a critic brain, and a separate vision client for the tool, which calls <code>reset()</code>), and the <em>final</em> generation is returned unevaluated, an artifact of the loop's shape. Reach for the workflow class when the pattern fit is clean; reach for the hand-written loop when you want every hand-off explicit.</p>
 <h3 id="prompt-chaining-describe-richly-then-summarize-to-the-models-budget">Prompt chaining: describe richly, then summarize to the model's budget<a class="headerlink" href="#prompt-chaining-describe-richly-then-summarize-to-the-models-budget" title="Permanent link">&para;</a></h3>
 <p>The critic writes a detailed, free-form description (the "hot" it imagines). But image models cap prompt length: SDXL's CLIP encoder at 77 tokens, SD 3.5's T5 at 256. So a second step condenses the description to fit, sized from the model's own <a href="../generate-images/#prompt-length"><code>max_prompt_tokens</code></a>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">summarize_for_image</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">max_prompt_tokens</span><span class="p">):</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">client</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">instruction</span> <span class="o">=</span> <span class="n">build_summarizer_prompt</span><span class="p">(</span><span class="n">max_prompt_tokens</span><span class="p">)</span>   <span class="c1"># &quot;...under N words...&quot;</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">instruction</span><span class="si">}</span><span class="se">\n</span><span class="s2">Description:</span><span class="se">\n</span><span class="si">{</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">instruction</span> <span class="o">=</span> <span class="n">build_summarizer_prompt</span><span class="p">(</span><span class="n">max_prompt_tokens</span><span class="p">)</span>   <span class="c1"># "...under N words..."</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">instruction</span><span class="si">}</span><span class="se">\n</span><span class="s2">Description:</span><span class="se">\n</span><span class="si">{</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
 </span></code></pre></div>
 <p>This is <a href="../../explanation/agents-vs-workflows/">prompt chaining</a>: step N's output (a rich description) becomes step N+1's input (a tight prompt). When <code>max_prompt_tokens</code> is <code>None</code> (uncapped cloud models), the description is fed straight through and the summarize step is skipped.</p>
 <h3 id="keeping-it-to-one-subject">Keeping it to one subject<a class="headerlink" href="#keeping-it-to-one-subject" title="Permanent link">&para;</a></h3>

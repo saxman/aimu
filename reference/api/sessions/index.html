@@ -793,6 +793,8 @@
       
         
       
+        
+      
     
     
     
@@ -1142,6 +1144,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3549,7 +3579,7 @@ session's memories (e.g. a collection name / prefix). The store ABC is unchanged
 
 
 <a href="#aimu.sessions.TinyDBSessionStore" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">TinyDBSessionStore</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;sessions.json&#39;</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">TinyDBSessionStore</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'sessions.json'</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3610,7 +3640,7 @@ session's memories (e.g. a collection name / prefix). The store ABC is unchanged
 sessions run concurrently::</p>
 <div class="language-text highlight"><pre><span></span><code>locks = SessionLocks()
 async with locks(key):
-    ...  # this session&#39;s turn
+    ...  # this session's turn
 </code></pre></div>
 <p>Created locks are retained, so the same key always returns the same lock. Bound to the running
 event loop via <code>asyncio.Lock</code>; use one <code>SessionLocks</code> per assistant process.</p>

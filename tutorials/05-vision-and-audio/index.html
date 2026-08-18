@@ -911,6 +911,8 @@
       
         
       
+        
+      
     
     
     
@@ -1260,6 +1262,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3094,21 +3124,21 @@ generating images, speech, or music — see the how-to guides.)</p>
 <p>Or use any cloud model that supports vision (GPT-4o, Claude 4.x, Gemini 2.x).</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:gemma4:e4b&quot;</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:gemma4:e4b"</span><span class="p">)</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">client</span><span class="o">.</span><span class="n">is_vision_model</span>   <span class="c1"># True</span>
 </span></code></pre></div>
 <h2 id="1-send-an-image">1. Send an image<a class="headerlink" href="#1-send-an-image" title="Permanent link">&para;</a></h2>
 <p>Pass <code>images=[...]</code> to <code>chat()</code>. Each item can be a file path, raw bytes, an http(s) URL, or a
 <code>data:image/...</code> URL:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;What&#39;s in this image?&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./cat.jpg&quot;</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"What's in this image?"</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"./cat.jpg"</span><span class="p">])</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Multiple images? Just add to the list:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Compare these.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a.png&quot;</span><span class="p">,</span> <span class="s2">&quot;b.png&quot;</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Compare these."</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"a.png"</span><span class="p">,</span> <span class="s2">"b.png"</span><span class="p">])</span>
 </span></code></pre></div>
 <p>For a one-shot "look once and answer" call that <em>doesn't</em> keep history, use <code>generate(images=...)</code> —
 the stateless sibling of <code>chat()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">caption</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Caption this image.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./cat.jpg&quot;</span><span class="p">])</span>  <span class="c1"># client.messages stays empty</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">caption</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"Caption this image."</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"./cat.jpg"</span><span class="p">])</span>  <span class="c1"># client.messages stays empty</span>
 </span></code></pre></div>
 <p><code>client.messages</code> keeps everything in OpenAI content-block format internally; each provider adapts at
 request time. See <a href="../../how-to/handle-vision/">how-to: handle vision</a> for the per-provider details.</p>
@@ -3117,8 +3147,8 @@ request time. See <a href="../../how-to/handle-vision/">how-to: handle vision</a
 GPT-4o / GPT-4.1, Google Gemini 2.x, or HuggingFace Gemma 4 — note the Ollama build of Gemma 4 is
 vision-only), with the same input forms (file path, bytes, <code>https://</code> URL, or a <code>data:audio/...</code>
 URL):</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4o&quot;</span><span class="p">)</span>   <span class="c1"># an audio-capable model</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Transcribe and summarise this clip.&quot;</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./note.mp3&quot;</span><span class="p">]))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>   <span class="c1"># an audio-capable model</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Transcribe and summarise this clip."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./note.mp3"</span><span class="p">]))</span>
 </span></code></pre></div>
 <p><code>images=</code> and <code>audio=</code> are mutually exclusive per turn (passing both raises <code>ValueError</code>). Both are
 available on <code>chat()</code> (stateful) and <code>generate()</code> (stateless). See
@@ -3133,8 +3163,8 @@ here is for an audio-capable <em>chat</em> model reasoning over a clip.</p>
 continuation turns are text-only:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;You are a helpful image analyst.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;vision-bot&quot;</span><span class="p">)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Describe the scene, then list any text you can read.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./photo.jpg&quot;</span><span class="p">]))</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"You are a helpful image analyst."</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"vision-bot"</span><span class="p">)</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Describe the scene, then list any text you can read."</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"./photo.jpg"</span><span class="p">]))</span>
 </span></code></pre></div>
 <p>(Streaming works here too — the same <code>stream=True</code> iterator from the
 <a href="../04-streaming/">Streaming tutorial</a>.)</p>
@@ -3169,10 +3199,10 @@ continuation turns are text-only:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Chain</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">Chain</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">&quot;Describe what you see in detail.&quot;</span><span class="p">,</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="s2">&quot;Summarise the description in one sentence.&quot;</span><span class="p">,</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">"Describe what you see in detail."</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="s2">"Summarise the description in one sentence."</span><span class="p">,</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">])</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Tell me about this photo.&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./photo.jpg&quot;</span><span class="p">]))</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Tell me about this photo."</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"./photo.jpg"</span><span class="p">]))</span>
 </span></code></pre></div>
 <p>Step 0 sees the image; step 1 sees only step 0's text output.</p>
 <h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>

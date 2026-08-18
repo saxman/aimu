@@ -793,6 +793,8 @@
       
         
       
+        
+      
     
     
     
@@ -1142,6 +1144,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -4645,19 +4675,55 @@
   </span>
 
 <a href="#aimu.aio.chat" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">chat</span><span class="p">(</span><span class="n">user_message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">system</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">include</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StreamingContentType</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="n">StreamChunk</span><span class="p">]]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">chat</span><span class="p">(</span><span class="n">user_message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">system</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">include</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StreamingContentType</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">thinking</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="n">StreamChunk</span><span class="p">]]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
         <p>One-shot async chat: builds a fresh client, sends one message, returns the response.</p>
 <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>text = await aio.chat(&quot;Summarize this&quot;, model=&quot;anthropic:claude-sonnet-4-6&quot;)
+<div class="language-text highlight"><pre><span></span><code>text = await aio.chat("Summarize this", model="anthropic:claude-sonnet-4-6")
 
-async for chunk in await aio.chat(&quot;Tell me a story&quot;, model=&quot;ollama:qwen3.5:9b&quot;, stream=True):
+async for chunk in await aio.chat("Tell me a story", model="ollama:qwen3.5:9b", stream=True):
     if chunk.is_text():
-        print(chunk.content, end=&quot;&quot;)
+        print(chunk.content, end="")
 </code></pre></div>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>thinking</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Union">Union</span>[<span title="bool">bool</span>, <span title="str">str</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional thinking control. <code>None</code> (default) leaves the provider's
+own behavior untouched. <code>False</code> disables reasoning and selects the model's
+instruct-mode sampling profile; <code>True</code> enables it at the model's default
+effort; <code>"low"</code>/<code>"medium"</code>/<code>"high"</code> sets the effort level. A model that
+cannot honour the request logs a warning and continues, so models stay
+swappable; an unrecognised value raises <code>ValueError</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -4715,7 +4781,7 @@ OpenAI-compatible servers (an <code>hf:</code> default would need an explicit sy
 for in-process providers, an existing sync client to wrap.</p>
 <p>Examples::</p>
 <div class="language-text highlight"><pre><span></span><code># Cloud providers (separate sync/async clients are cheap)
-client = AsyncModelClient(&quot;anthropic:claude-sonnet-4-6&quot;)
+client = AsyncModelClient("anthropic:claude-sonnet-4-6")
 client = AsyncModelClient(OllamaModel.QWEN_3_8B)
 
 # In-process providers: wrap an existing sync client to share weights
@@ -4982,14 +5048,14 @@ from aimu import aio
 
 @tool
 async def fetch(url: str) -&gt; str:
-    &quot;&quot;&quot;Fetch the contents of a URL.&quot;&quot;&quot;
+    """Fetch the contents of a URL."""
     import httpx
     async with httpx.AsyncClient() as c:
         return (await c.get(url)).text[:500]
 
-client = aio.client(&quot;anthropic:claude-sonnet-4-6&quot;)
-agent = aio.Agent(client, &quot;You are a helpful assistant.&quot;, tools=[fetch])
-print(await agent.run(&quot;Fetch example.com&quot;))
+client = aio.client("anthropic:claude-sonnet-4-6")
+agent = aio.Agent(client, "You are a helpful assistant.", tools=[fetch])
+print(await agent.run("Fetch example.com"))
 </code></pre></div>
 
 
@@ -5221,7 +5287,7 @@ Worker dispatch functions should be <code>async def</code> so the orchestrator's
   </span>
 
 <a href="#aimu.aio.OrchestratorAgent.assemble" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">assemble</span><span class="p">(</span><span class="n">model_client</span><span class="p">:</span> <span class="n">AsyncBaseModelClient</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">workers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AsyncRunner</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;orchestrator&#39;</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">final_answer_prompt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;OrchestratorAgent&#39;</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">assemble</span><span class="p">(</span><span class="n">model_client</span><span class="p">:</span> <span class="n">AsyncBaseModelClient</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">workers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AsyncRunner</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'orchestrator'</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">final_answer_prompt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'OrchestratorAgent'</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5281,7 +5347,7 @@ history; restore a worker directly if it needs resuming. See
   </span>
 
 <a href="#aimu.aio.Chain" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Chain</span><span class="p">(</span><span class="n">agents</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;chain&#39;</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Chain</span><span class="p">(</span><span class="n">agents</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'chain'</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5327,7 +5393,7 @@ history; restore a worker directly if it needs resuming. See
   </span>
 
 <a href="#aimu.aio.Chain.from_client" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">AsyncBaseModelClient</span><span class="p">,</span> <span class="n">prompts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;chain&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Chain</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">AsyncBaseModelClient</span><span class="p">,</span> <span class="n">prompts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'chain'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Chain</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5383,7 +5449,7 @@ range. See :meth:<code>aimu.aio.Agent.restore</code> for the pattern.</p>
   </span>
 
 <a href="#aimu.aio.Router" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Router</span><span class="p">(</span><span class="n">routing_agent</span><span class="p">:</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">handlers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AsyncRunner</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;router&#39;</span><span class="p">,</span> <span class="n">fallback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AsyncRunner</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Router</span><span class="p">(</span><span class="n">routing_agent</span><span class="p">:</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">handlers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AsyncRunner</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'router'</span><span class="p">,</span> <span class="n">fallback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AsyncRunner</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5459,7 +5525,7 @@ sub-runners start fresh on the next <code>run()</code>. See :meth:<code>aimu.aio
   </span>
 
 <a href="#aimu.aio.Parallel" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Parallel</span><span class="p">(</span><span class="n">workers</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;parallel&#39;</span><span class="p">,</span> <span class="n">aggregator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AsyncRunner</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">---</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Parallel</span><span class="p">(</span><span class="n">workers</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'parallel'</span><span class="p">,</span> <span class="n">aggregator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AsyncRunner</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'</span><span class="se">\n\n</span><span class="s1">---</span><span class="se">\n\n</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5539,7 +5605,7 @@ is out of range. See :meth:<code>aimu.aio.Agent.restore</code>.</p>
   </span>
 
 <a href="#aimu.aio.EvaluatorOptimizer" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EvaluatorOptimizer</span><span class="p">(</span><span class="n">generator</span><span class="p">:</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;evaluator_optimizer&#39;</span><span class="p">,</span> <span class="n">max_rounds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">pass_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;PASS&#39;</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EvaluatorOptimizer</span><span class="p">(</span><span class="n">generator</span><span class="p">:</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'evaluator_optimizer'</span><span class="p">,</span> <span class="n">max_rounds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">pass_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'PASS'</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5613,7 +5679,7 @@ is out of range. See :meth:<code>aimu.aio.Agent.restore</code>.</p>
   </span>
 
 <a href="#aimu.aio.PlanExecuteEvaluator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PlanExecuteEvaluator</span><span class="p">(</span><span class="n">planner</span><span class="p">:</span> <span class="n">SkillAgent</span><span class="p">,</span> <span class="n">executor</span><span class="p">:</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">scorer</span><span class="p">:</span> <span class="n">Scorer</span><span class="p">,</span> <span class="n">criteria</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;plan_execute_evaluator&#39;</span><span class="p">,</span> <span class="n">max_rounds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">pass_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span><span class="p">,</span> <span class="n">pass_keyword</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PlanExecuteEvaluator</span><span class="p">(</span><span class="n">planner</span><span class="p">:</span> <span class="n">SkillAgent</span><span class="p">,</span> <span class="n">executor</span><span class="p">:</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">scorer</span><span class="p">:</span> <span class="n">Scorer</span><span class="p">,</span> <span class="n">criteria</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'plan_execute_evaluator'</span><span class="p">,</span> <span class="n">max_rounds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">pass_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span><span class="p">,</span> <span class="n">pass_keyword</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5663,7 +5729,7 @@ event loop unless wrapped; use <code>asyncio.to_thread</code> from your scorer's
   </span>
 
 <a href="#aimu.aio.PlanExecuteEvaluator.from_client" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">AsyncBaseModelClient</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">judge_client</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">criteria</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">executor_tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">skill_manager</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SkillManager</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">planner_system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">executor_system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_rounds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">pass_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span><span class="p">,</span> <span class="n">pass_keyword</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;plan_execute_evaluator&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PlanExecuteEvaluator</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">AsyncBaseModelClient</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">judge_client</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">criteria</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">executor_tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">skill_manager</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SkillManager</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">planner_system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">executor_system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_rounds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">pass_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span><span class="p">,</span> <span class="n">pass_keyword</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'plan_execute_evaluator'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PlanExecuteEvaluator</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5707,7 +5773,7 @@ sync; if it's an :class:<code>LLMJudgeScorer</code> it expects a sync client).</
 <div class="language-text highlight"><pre><span></span><code>mcp = await MCPClient.connect(server=my_fastmcp_server)
 try:
     tools = await mcp.get_tools()
-    result = await mcp.call_tool(&quot;foo&quot;, {&quot;x&quot;: 1})
+    result = await mcp.call_tool("foo", {"x": 1})
 finally:
     await mcp.aclose()
 </code></pre></div>
@@ -5882,7 +5948,7 @@ agent = aio.Agent(client, tools=await mcp.as_tools())
 
 
 <a href="#aimu.aio.tools.builtin.make_async_subagent_tool" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_async_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;spawn_subagent&#39;</span><span class="p">,</span> <span class="n">observer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SubagentObserver</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_async_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'spawn_subagent'</span><span class="p">,</span> <span class="n">observer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SubagentObserver</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6294,7 +6360,7 @@ to answer); single-user adapters like the CLI ignore it.</p>
 
 
 <a href="#aimu.aio.CLIChannel" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CLIChannel</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&gt; &#39;</span><span class="p">,</span> <span class="n">show_thinking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">show_tools</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CLIChannel</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'&gt; '</span><span class="p">,</span> <span class="n">show_thinking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">show_tools</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6460,8 +6526,8 @@ racing a disconnect), a late frame is dropped instead of crashing the sending ta
         <p>Run interval and one-shot async jobs concurrently until stopped.</p>
 <p>Usage::</p>
 <div class="language-text highlight"><pre><span></span><code>scheduler = Scheduler()
-scheduler.every(60, check_inbox, name=&quot;inbox&quot;)
-scheduler.at(5, lambda: channel.send(&quot;Welcome!&quot;))
+scheduler.every(60, check_inbox, name="inbox")
+scheduler.at(5, lambda: channel.send("Welcome!"))
 await scheduler.run()   # blocks until scheduler.stop()
 </code></pre></div>
 <p>A job that raises is logged and, for interval jobs, the loop continues on the next tick
@@ -6629,9 +6695,9 @@ before the run loop is scheduled. Use a fresh :class:<code>Scheduler</code> to r
 
         <p>A remote A2A agent presented as a local asynchronous <code>AsyncRunner</code>.</p>
 <p>Construct via the async :meth:<code>connect</code>::</p>
-<div class="language-text highlight"><pre><span></span><code>remote = await RemoteAgent.connect(&quot;http://localhost:9000&quot;)
-print(await remote.run(&quot;Summarise the news&quot;))
-async for chunk in await remote.run(&quot;Summarise&quot;, stream=True):
+<div class="language-text highlight"><pre><span></span><code>remote = await RemoteAgent.connect("http://localhost:9000")
+print(await remote.run("Summarise the news"))
+async for chunk in await remote.run("Summarise", stream=True):
     ...
 </code></pre></div>
 
@@ -6669,7 +6735,7 @@ async for chunk in await remote.run(&quot;Summarise&quot;, stream=True):
   </span>
 
 <a href="#aimu.aio.RemoteAgent.connect" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">connect</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_card_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_AGENT_CARD_PATH</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;RemoteAgent&#39;</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">connect</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_card_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_AGENT_CARD_PATH</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'RemoteAgent'</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -6721,7 +6787,7 @@ async for chunk in await remote.run(&quot;Summarise&quot;, stream=True):
 
 
 <a href="#aimu.aio.serve_a2a" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">serve_a2a</span><span class="p">(</span><span class="n">runner</span><span class="p">:</span> <span class="n">AsyncRunner</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9000</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">skills</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">AgentSkill</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">uvicorn_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">serve_a2a</span><span class="p">(</span><span class="n">runner</span><span class="p">:</span> <span class="n">AsyncRunner</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'127.0.0.1'</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9000</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">skills</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">AgentSkill</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">uvicorn_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">

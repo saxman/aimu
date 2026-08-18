@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1266,6 +1268,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3116,8 +3146,8 @@ structure). Long pages are truncated to stay within the model's context window.<
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3:8b&quot;</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="n">builtin</span><span class="o">.</span><span class="n">web</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Fetch the HTML of https://example.com and list every &lt;a&gt; href you find.&quot;</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="n">builtin</span><span class="o">.</span><span class="n">web</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Fetch the HTML of https://example.com and list every &lt;a&gt; href you find."</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="discover-and-submit-forms">Discover and submit forms<a class="headerlink" href="#discover-and-submit-forms" title="Permanent link">&para;</a></h2>
 <p><code>make_web_tools()</code> returns two tools bound to a shared session. Pass them alongside
@@ -3126,10 +3156,10 @@ structure). Long pages are truncated to stay within the model's context window.<
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_webpage_html</span><span class="p">,</span> <span class="n">make_web_tools</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">),</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"anthropic:claude-sonnet-4-6"</span><span class="p">),</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">get_webpage_html</span><span class="p">,</span> <span class="o">*</span><span class="n">make_web_tools</span><span class="p">()],</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">)</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;On https://httpbin.org/forms/post, submit the form with custname=&#39;Ada&#39; and comments=&#39;hi&#39;.&quot;</span><span class="p">)</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"On https://httpbin.org/forms/post, submit the form with custname='Ada' and comments='hi'."</span><span class="p">)</span>
 </span></code></pre></div>
 <ul>
 <li><strong><code>find_forms(url)</code></strong> fetches the page and lists each form's index, submission URL (resolved to an
@@ -3148,7 +3178,7 @@ next. A login flow works end to end: <code>find_forms</code> scrapes the login f
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s2">&quot;Authorization&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Bearer …&quot;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s2">"Authorization"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"Bearer …"</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">tools</span> <span class="o">=</span> <span class="n">make_web_tools</span><span class="p">(</span><span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_content_chars</span><span class="o">=</span><span class="mi">40000</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="confirm-before-submitting">Confirm before submitting<a class="headerlink" href="#confirm-before-submitting" title="Permanent link">&para;</a></h2>
@@ -3156,9 +3186,9 @@ next. A login flow works end to end: <code>find_forms</code> scrapes the login f
 <a href="../gate-tool-calls/">tool-approval hook</a> — the policy sees the tool name, so you can approve reads
 and prompt on submits:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">confirm_submits</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;submit_form&quot;</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">"submit_form"</span><span class="p">:</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="k">return</span> <span class="kc">True</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">return</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Submit to </span><span class="si">{</span><span class="n">arguments</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;url&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">? [y/N] &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">return</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Submit to </span><span class="si">{</span><span class="n">arguments</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'url'</span><span class="p">)</span><span class="si">}</span><span class="s2">? [y/N] "</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"y"</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">get_webpage_html</span><span class="p">,</span> <span class="o">*</span><span class="n">make_web_tools</span><span class="p">()],</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>                          <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_submits</span><span class="p">)</span>
@@ -3169,8 +3199,8 @@ and prompt on submits:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_webpage_html</span><span class="p">,</span> <span class="n">make_web_tools</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3:8b&quot;</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">get_webpage_html</span><span class="p">,</span> <span class="o">*</span><span class="n">make_web_tools</span><span class="p">()])</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;…&quot;</span><span class="p">)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">get_webpage_html</span><span class="p">,</span> <span class="o">*</span><span class="n">make_web_tools</span><span class="p">()])</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"…"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>

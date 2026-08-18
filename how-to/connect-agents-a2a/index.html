@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1147,6 +1149,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3085,17 +3115,17 @@
 <h1 id="connect-agents-a2a">Connect agents (A2A)<a class="headerlink" href="#connect-agents-a2a" title="Permanent link">&para;</a></h1>
 <p>To call an agent that lives in another process, or to publish one of your agents for others to call, use AIMU's <a href="https://a2a-protocol.org/">Agent2Agent</a> interop. It is the agent-level analog of <a href="../use-mcp-tools/">MCP tools</a>: MCP shares <em>tools</em> across a process boundary, A2A shares whole <em>agents</em>.</p>
 <p>Requires the optional extra:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;aimu[a2a]&#39;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">'aimu[a2a]'</span>
 </span></code></pre></div>
 <p><code>aimu.agents.HAS_A2A</code> reports whether it is installed. See <a href="../../explanation/a2a-vs-mcp/">A2A vs MCP</a> for when to reach for which.</p>
 <h2 id="consume-a-remote-agent">Consume a remote agent<a class="headerlink" href="#consume-a-remote-agent" title="Permanent link">&para;</a></h2>
 <p><code>RemoteAgent.connect(url)</code> resolves the remote agent card and returns a local <code>Runner</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteAgent</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">remote</span> <span class="o">=</span> <span class="n">RemoteAgent</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;http://localhost:9000&quot;</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">remote</span> <span class="o">=</span> <span class="n">RemoteAgent</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">"http://localhost:9000"</span><span class="p">)</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">remote</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>                       <span class="c1"># from the remote agent card</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">remote</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Summarise the news&quot;</span><span class="p">))</span>  <span class="c1"># round-trips to the remote agent</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">remote</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>                            <span class="c1"># tear down the connection (or let it be GC&#39;d)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">remote</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Summarise the news"</span><span class="p">))</span>  <span class="c1"># round-trips to the remote agent</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">remote</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>                            <span class="c1"># tear down the connection (or let it be GC'd)</span>
 </span></code></pre></div>
 <p>Because <code>RemoteAgent</code> <em>is a</em> <code>Runner</code>, the remote agent composes exactly like a local one, with no A2A-specific wiring:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Chain</span><span class="p">,</span> <span class="n">OrchestratorAgent</span>
@@ -3108,34 +3138,34 @@
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">pipeline</span> <span class="o">=</span> <span class="n">Chain</span><span class="p">(</span><span class="n">agents</span><span class="o">=</span><span class="p">[</span><span class="n">local_planner</span><span class="p">,</span> <span class="n">remote</span><span class="p">])</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># As an orchestrator worker:</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">orch</span> <span class="o">=</span> <span class="n">OrchestratorAgent</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(),</span> <span class="s2">&quot;Delegate to the worker.&quot;</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="p">[</span><span class="n">remote</span><span class="p">])</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">orch</span> <span class="o">=</span> <span class="n">OrchestratorAgent</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(),</span> <span class="s2">"Delegate to the worker."</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="p">[</span><span class="n">remote</span><span class="p">])</span>
 </span></code></pre></div>
 <h2 id="expose-an-agent">Expose an agent<a class="headerlink" href="#expose-an-agent" title="Permanent link">&para;</a></h2>
 <p>Wrap any <code>Runner</code> (an <code>Agent</code>, a workflow, a custom <code>Runner</code>) as an A2A server. <code>serve_a2a</code> blocks:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">serve_a2a</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(),</span> <span class="n">system_message</span><span class="o">=</span><span class="s2">&quot;You are a research assistant.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;researcher&quot;</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">serve_a2a</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">9000</span><span class="p">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(),</span> <span class="n">system_message</span><span class="o">=</span><span class="s2">"You are a research assistant."</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"researcher"</span><span class="p">)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">serve_a2a</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s2">"127.0.0.1"</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">9000</span><span class="p">)</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># Agent card served at http://127.0.0.1:9000/.well-known/agent-card.json</span>
 </span></code></pre></div>
 <p>To get the ASGI app without running it (to embed in an existing server, or for tests), use <code>build_a2a_app</code>, which returns a Starlette app:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_a2a_app</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">build_a2a_app</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="s2">&quot;https://my-host/&quot;</span><span class="p">)</span>  <span class="c1"># url is the externally reachable base URL</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">build_a2a_app</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="s2">"https://my-host/"</span><span class="p">)</span>  <span class="c1"># url is the externally reachable base URL</span>
 </span></code></pre></div>
 <p>From the command line, serve a single <code>Agent</code> with no code:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>-m<span class="w"> </span>aimu.agents.a2a<span class="w"> </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-6<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>--system<span class="w"> </span><span class="s2">&quot;You are a research assistant.&quot;</span><span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>--system<span class="w"> </span><span class="s2">"You are a research assistant."</span><span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span>
 </span></code></pre></div>
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
 <p><code>aimu.aio.a2a</code> mirrors the sync surface. The async <code>RemoteAgent</code> uses the <code>a2a-sdk</code> client natively (no thread portal) and supports incremental streaming via <code>message/stream</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio.a2a</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteAgent</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">remote</span> <span class="o">=</span> <span class="k">await</span> <span class="n">RemoteAgent</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;http://localhost:9000&quot;</span><span class="p">)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nb">print</span><span class="p">(</span><span class="k">await</span> <span class="n">remote</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Summarise the news&quot;</span><span class="p">))</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">remote</span> <span class="o">=</span> <span class="k">await</span> <span class="n">RemoteAgent</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">"http://localhost:9000"</span><span class="p">)</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nb">print</span><span class="p">(</span><span class="k">await</span> <span class="n">remote</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Summarise the news"</span><span class="p">))</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="k">await</span> <span class="n">remote</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Summarise the news&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="k">await</span> <span class="n">remote</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Summarise the news"</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">phase</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="k">await</span> <span class="n">remote</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
@@ -3145,10 +3175,10 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">A2AConnectionError</span><span class="p">,</span> <span class="n">RemoteAgent</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">remote</span> <span class="o">=</span> <span class="n">RemoteAgent</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;http://localhost:1/&quot;</span><span class="p">)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">remote</span> <span class="o">=</span> <span class="n">RemoteAgent</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">"http://localhost:1/"</span><span class="p">)</span>
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">except</span> <span class="n">A2AConnectionError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># A2AConnectionError: failed to connect to A2A agent at &#39;http://localhost:1/&#39;: ...</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># A2AConnectionError: failed to connect to A2A agent at 'http://localhost:1/': ...</span>
 </span></code></pre></div>
 <h2 id="notes-and-limitations">Notes and limitations<a class="headerlink" href="#notes-and-limitations" title="Permanent link">&para;</a></h2>
 <ul>

@@ -933,6 +933,8 @@
       
         
       
+        
+      
     
     
     
@@ -1282,6 +1284,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3164,19 +3194,19 @@
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.5:9b"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="1-chain-sequential-pipeline">1. Chain: sequential pipeline<a class="headerlink" href="#1-chain-sequential-pipeline" title="Permanent link">&para;</a></h2>
 <p>A <code>Chain</code> runs agents in order; each step's text output becomes the next step's input.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Chain</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">Chain</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">&quot;Break the user&#39;s task into 3 concrete steps. Output a numbered list.&quot;</span><span class="p">,</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="s2">&quot;Execute each step. Output a result for each.&quot;</span><span class="p">,</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="s2">&quot;Polish the result into a single paragraph for a non-technical audience.&quot;</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">"Break the user's task into 3 concrete steps. Output a numbered list."</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="s2">"Execute each step. Output a result for each."</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="s2">"Polish the result into a single paragraph for a non-technical audience."</span><span class="p">,</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">])</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Research the top 3 Python web frameworks.&quot;</span><span class="p">)</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Research the top 3 Python web frameworks."</span><span class="p">)</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>Chain.from_client(client, [prompt1, prompt2, ...])</code> builds three <code>Agent</code> instances sharing the same client, each with <code>reset_messages_on_run=True</code> so steps don't see each other's history.</p>
@@ -3186,16 +3216,16 @@
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">router</span> <span class="o">=</span> <span class="n">Router</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">client</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">classifier_prompt</span><span class="o">=</span><span class="s2">&quot;Classify as code, writing, or math. Reply with only the category name.&quot;</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">classifier_prompt</span><span class="o">=</span><span class="s2">"Classify as code, writing, or math. Reply with only the category name."</span><span class="p">,</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">handlers</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="s2">&quot;code&quot;</span><span class="p">:</span>    <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;You are a coder.&quot;</span><span class="p">,</span>         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;coder&quot;</span><span class="p">),</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="s2">&quot;writing&quot;</span><span class="p">:</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;You are a writer.&quot;</span><span class="p">,</span>        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;writer&quot;</span><span class="p">),</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="s2">&quot;math&quot;</span><span class="p">:</span>    <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;You are a mathematician.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;math&quot;</span><span class="p">),</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="s2">"code"</span><span class="p">:</span>    <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"You are a coder."</span><span class="p">,</span>         <span class="n">name</span><span class="o">=</span><span class="s2">"coder"</span><span class="p">),</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="s2">"writing"</span><span class="p">:</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"You are a writer."</span><span class="p">,</span>        <span class="n">name</span><span class="o">=</span><span class="s2">"writer"</span><span class="p">),</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="s2">"math"</span><span class="p">:</span>    <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"You are a mathematician."</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"math"</span><span class="p">),</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="p">},</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">)</span>
 </span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="nb">print</span><span class="p">(</span><span class="n">router</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Write a haiku about recursion.&quot;</span><span class="p">))</span>   <span class="c1"># → routed to writer</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="nb">print</span><span class="p">(</span><span class="n">router</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Factorise 42.&quot;</span><span class="p">))</span>                    <span class="c1"># → routed to math</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="nb">print</span><span class="p">(</span><span class="n">router</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Write a haiku about recursion."</span><span class="p">))</span>   <span class="c1"># → routed to writer</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="nb">print</span><span class="p">(</span><span class="n">router</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Factorise 42."</span><span class="p">))</span>                    <span class="c1"># → routed to math</span>
 </span></code></pre></div>
 <p>Route matching is case-insensitive, whitespace-stripped. Pass <code>fallback=Agent(...)</code> to handle unmatched routes.</p>
 <p>Handlers can be any <code>Runner</code>, agents <em>or</em> nested workflows. A router can dispatch to another router, a chain, or a parallel.</p>
@@ -3206,13 +3236,13 @@
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">parallel</span> <span class="o">=</span> <span class="n">Parallel</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">client</span><span class="p">,</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">worker_prompts</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="s2">&quot;Analyse this code for security issues.&quot;</span><span class="p">,</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="s2">&quot;Analyse this code for performance issues.&quot;</span><span class="p">,</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="s2">&quot;Analyse this code for readability issues.&quot;</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="s2">"Analyse this code for security issues."</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="s2">"Analyse this code for performance issues."</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="s2">"Analyse this code for readability issues."</span><span class="p">,</span>
 </span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="p">],</span>
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">aggregator_prompt</span><span class="o">=</span><span class="p">(</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="s2">&quot;Synthesise the three perspectives into one prioritised review. &quot;</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="s2">&quot;Order by severity.&quot;</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="s2">"Synthesise the three perspectives into one prioritised review. "</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="s2">"Order by severity."</span>
 </span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="p">),</span>
 </span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">)</span>
 </span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
@@ -3226,21 +3256,21 @@
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">eo</span> <span class="o">=</span> <span class="n">EvaluatorOptimizer</span><span class="p">(</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">generator</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="n">client</span><span class="p">,</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="s2">&quot;Write a clear, accurate explanation.&quot;</span><span class="p">,</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;writer&quot;</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="s2">"Write a clear, accurate explanation."</span><span class="p">,</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">"writer"</span><span class="p">,</span>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="p">),</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">evaluator</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span>
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="n">client</span><span class="p">,</span>
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="p">(</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>            <span class="s2">&quot;Review the response. If it&#39;s clear and accurate, reply with exactly: PASS</span><span class="se">\n</span><span class="s2">&quot;</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>            <span class="s2">&quot;Otherwise reply with: REVISE: &lt;specific feedback&gt;&quot;</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>            <span class="s2">"Review the response. If it's clear and accurate, reply with exactly: PASS</span><span class="se">\n</span><span class="s2">"</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>            <span class="s2">"Otherwise reply with: REVISE: &lt;specific feedback&gt;"</span>
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>        <span class="p">),</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;critic&quot;</span><span class="p">,</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">"critic"</span><span class="p">,</span>
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="p">),</span>
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>    <span class="n">max_rounds</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
 </span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="p">)</span>
 </span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>
-</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="nb">print</span><span class="p">(</span><span class="n">eo</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Explain gradient descent.&quot;</span><span class="p">))</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="nb">print</span><span class="p">(</span><span class="n">eo</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Explain gradient descent."</span><span class="p">))</span>
 </span></code></pre></div>
 <p>The loop stops when the evaluator's response contains the <code>pass_keyword</code> (default <code>"PASS"</code>) or <code>max_rounds</code> is reached.</p>
 <h2 id="composing-patterns">Composing patterns<a class="headerlink" href="#composing-patterns" title="Permanent link">&para;</a></h2>
@@ -3248,10 +3278,10 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Route between a parallel (for opinions) and a chain (for factual research)</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">composed</span> <span class="o">=</span> <span class="n">Router</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">client</span><span class="p">,</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">classifier_prompt</span><span class="o">=</span><span class="s2">&quot;Classify as opinion or factual. Reply only the category.&quot;</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">classifier_prompt</span><span class="o">=</span><span class="s2">"Classify as opinion or factual. Reply only the category."</span><span class="p">,</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">handlers</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="s2">&quot;opinion&quot;</span><span class="p">:</span>  <span class="n">Parallel</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">worker_prompts</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span> <span class="n">aggregator_prompt</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">),</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="s2">&quot;factual&quot;</span><span class="p">:</span>  <span class="n">Chain</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span><span class="o">...</span><span class="p">]),</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="s2">"opinion"</span><span class="p">:</span>  <span class="n">Parallel</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">worker_prompts</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span> <span class="n">aggregator_prompt</span><span class="o">=</span><span class="s2">"..."</span><span class="p">),</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="s2">"factual"</span><span class="p">:</span>  <span class="n">Chain</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span><span class="o">...</span><span class="p">]),</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="p">},</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
 </span></code></pre></div>

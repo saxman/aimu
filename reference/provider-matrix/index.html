@@ -793,6 +793,8 @@
       
         
       
+        
+      
     
     
     
@@ -1142,6 +1144,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3288,18 +3318,68 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Ollama: keep model warm</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">,</span> <span class="n">model_keep_alive_seconds</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.5:9b"</span><span class="p">,</span> <span class="n">model_keep_alive_seconds</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># llama-cpp: required model_path</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;llamacpp:qwen3-8b&quot;</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="s2">&quot;/path/to/qwen3-8b.gguf&quot;</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"llamacpp:qwen3-8b"</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="s2">"/path/to/qwen3-8b.gguf"</span><span class="p">)</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># LM Studio: non-default port</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;lmstudio:qwen3.5-9b&quot;</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;http://myserver:1234/v1&quot;</span><span class="p">)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"lmstudio:qwen3.5-9b"</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">"http://myserver:1234/v1"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="notes-per-provider">Notes per provider<a class="headerlink" href="#notes-per-provider" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>OpenAIClient</code></strong> overrides <code>_update_generate_kwargs</code> for o-series models (o1/o3/o4): renames <code>max_tokens → max_completion_tokens</code> and forces <code>temperature=1</code>.</li>
 <li><strong><code>AnthropicClient</code></strong> stores <code>self.messages</code> in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not <code>&lt;think&gt;</code> tag parsing), built per the model's <code>ThinkingStyle</code>: <code>enabled</code> (<code>{"type": "enabled", "budget_tokens": N}</code>) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or <code>adaptive</code> (<code>{"type": "adaptive", "display": "summarized"}</code>, sampling params dropped) for Opus 4.7+ / Fable 5. See the <a href="../model-matrix/#anthropic-anthropicmodel">model matrix</a>.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Thinking control per provider</p>
+<p>The portable <a href="../../how-to/control-thinking/"><code>thinking=</code></a> parameter reaches each backend
+differently, and two of them cannot express it at all today:</p>
+<table>
+<thead>
+<tr>
+<th>Client</th>
+<th>Turn reasoning off</th>
+<th>Set an effort level</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OllamaClient</code></td>
+<td><code>think=False</code></td>
+<td><code>think="low"/"medium"/"high"</code></td>
+</tr>
+<tr>
+<td>OpenAI-compat local servers</td>
+<td><code>extra_body={"chat_template_kwargs": {"enable_thinking": False}}</code></td>
+<td><code>reasoning_effort</code>, with <code>high</code> sent as Qwen's <code>xhigh</code></td>
+</tr>
+<tr>
+<td><code>AnthropicClient</code></td>
+<td>omits the <code>thinking</code> parameter</td>
+<td><code>budget_tokens</code>: 2048 / 8000 / 16000; adaptive-style models warn and ignore a level</td>
+</tr>
+<tr>
+<td><code>HuggingFaceClient</code></td>
+<td><code>enable_thinking=False</code> template kwarg</td>
+<td><code>reasoning_effort</code> template kwarg</td>
+</tr>
+<tr>
+<td><code>LlamaCppClient</code>, <code>OpenAIClient</code>, <code>GeminiClient</code></td>
+<td>nothing emitted</td>
+<td>nothing emitted</td>
+</tr>
+</tbody>
+</table>
+<p><code>chat_template_kwargs</code> is a Qwen and vLLM <em>template</em> convention rather than part of the
+OpenAI API, so the two cloud subclasses opt out of it via
+<code>_SUPPORTS_CHAT_TEMPLATE_KWARGS = False</code> and warn instead of sending a field their endpoint
+would not honour. Gemini is a deferred case rather than an impossible one: Google's endpoint
+does accept <code>reasoning_effort</code>, but its vocabulary (<code>minimal/low/medium/high/none</code>) excludes
+the <code>xhigh</code> that AIMU's shared Qwen mapping sends for <code>high</code>, so a correct Gemini mapping
+needs its own effort vocabulary.</p>
+</div>
+<ul>
 <li><strong><code>GeminiClient</code></strong> uses Google's OpenAI-compatible endpoint. Gemini 2.5 thinking models emit <code>&lt;think&gt;</code> tags on this endpoint, so the shared <code>_ThinkingParser</code> works as-is.</li>
 <li><strong><code>OllamaClient</code></strong> (native API) supports vision via the message-level <code>images=</code> field; only inline base64 / data URLs work, http(s) URLs raise <code>ValueError</code>.</li>
 <li><strong><code>LlamaCppClient</code></strong> loads GGUF files in-process. Vision needs an <code>mmproj</code> projector via the <code>chat_handler=</code> kwarg (e.g. <code>Llava15ChatHandler(clip_model_path=...)</code>).</li>

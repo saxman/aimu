@@ -793,6 +793,8 @@
       
         
       
+        
+      
     
     
     
@@ -1142,6 +1144,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3675,7 +3705,7 @@ canonical tool result. The decorator sets discriminator attributes:</p>
 
 @aimu.tool
 def letter_counter(word: str, letter: str) -&gt; int:
-    &quot;&quot;&quot;Count occurrences of a letter in a word.&quot;&quot;&quot;
+    """Count occurrences of a letter in a word."""
     return word.lower().count(letter.lower())
 
 agent = Agent(client, tools=[letter_counter])
@@ -4387,7 +4417,7 @@ truncated to keep the output within a model's context window.</p>
 
 
 <a href="#aimu.tools.builtin.web_search" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">web_search</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">num_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">time_range</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">categories</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">web_search</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">num_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">time_range</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span> <span class="n">categories</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -4678,7 +4708,7 @@ process-wide singleton.</p>
 because the choice of store (ephemeral vs. persistent, which persist_path) is
 meaningful and should be explicit. Construct the store, pass it here, and add
 the returned list to the agent::</p>
-<div class="language-text highlight"><pre><span></span><code>store = SemanticMemoryStore(persist_path=&quot;./.memory&quot;)
+<div class="language-text highlight"><pre><span></span><code>store = SemanticMemoryStore(persist_path="./.memory")
 agent = Agent(client, tools=make_memory_tools(store) + builtin.web)
 </code></pre></div>
 <p>For cross-process or multi-agent memory, use the FastMCP servers in
@@ -4728,7 +4758,7 @@ ingested into it) is a meaningful, explicit choice.</p>
 
 
 <a href="#aimu.tools.builtin.make_subagent_tool" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;spawn_subagent&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'spawn_subagent'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -4939,10 +4969,10 @@ Matches :class:<code>~aimu.agents.Agent</code>/:meth:<code>~aimu.agents.Agent.ru
         <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code>from aimu.tools.builtin import make_subagent_tool, web
 
-spawn = make_subagent_tool(&quot;anthropic:claude-sonnet-4-6&quot;, tools=web)
-agent = Agent(client, &quot;Break the request into subtasks and spawn a sub-agent for each.&quot;,
+spawn = make_subagent_tool("anthropic:claude-sonnet-4-6", tools=web)
+agent = Agent(client, "Break the request into subtasks and spawn a sub-agent for each.",
               tools=[spawn], concurrent_tool_calls=True)
-print(agent.run(&quot;Compare the GDP growth of France, Japan, and Brazil since 2019.&quot;))
+print(agent.run("Compare the GDP growth of France, Japan, and Brazil since 2019."))
 </code></pre></div>
 
 

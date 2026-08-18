@@ -793,6 +793,8 @@
       
         
       
+        
+      
     
     
     
@@ -1142,6 +1144,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3332,7 +3362,7 @@ runs it. To <em>execute</em> tools you need an <code>Agent</code> (or <code>agen
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">chat</span><span class="p">(</span><span class="n">user_message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>             <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">StreamChunk</span><span class="p">]</span> <span class="o">|</span> <span class="o">&lt;</span><span class="n">schema</span> <span class="n">instance</span><span class="o">&gt;</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">generate</span><span class="p">(</span><span class="n">prompt</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="o">...</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="n">system_message</span><span class="o">=</span><span class="s2">&quot;__keep__&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="n">system_message</span><span class="o">=</span><span class="s2">"__keep__"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 <p><code>chat()</code> and <code>generate()</code> are <strong>concrete</strong> on the base — they apply the <code>include=</code> stream filter and
 the <code>schema=</code> structured-output path, then delegate to abstract <code>_chat()</code> / <code>_generate()</code> which each
@@ -3348,7 +3378,7 @@ adapt at request time and never mutate <code>self.messages</code>. See
 <a href="../thinking-and-context/">Thinking and context</a> for how history and reasoning are managed.</p>
 <h2 id="the-factory-modelclient-modelspec-model">The factory: <code>ModelClient</code>, <code>ModelSpec</code>, <code>Model</code><a class="headerlink" href="#the-factory-modelclient-modelspec-model" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ModelClient</span><span class="p">(</span><span class="n">OllamaModel</span><span class="o">.</span><span class="n">QWEN_3_8B</span><span class="p">)</span>      <span class="c1"># provider from the enum type</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">ModelClient</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>  <span class="c1"># or from a &quot;provider:model_id&quot; string</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">ModelClient</span><span class="p">(</span><span class="s2">"anthropic:claude-sonnet-4-6"</span><span class="p">)</span>  <span class="c1"># or from a "provider:model_id" string</span>
 </span></code></pre></div>
 <p><code>ModelClient</code> is the single public entry point. It resolves the <code>Model</code> enum (or string) against a
 provider registry, instantiates the matching concrete client, and delegates every method to it,

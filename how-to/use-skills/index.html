@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1305,6 +1307,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3243,9 +3273,9 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">SkillAgent</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ollama:qwen3.5:9b&quot;</span><span class="p">)</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">SkillAgent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;You are a helpful assistant.&quot;</span><span class="p">)</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Use the pdf-processing skill to extract pages from report.pdf.&quot;</span><span class="p">)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.5:9b"</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">SkillAgent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"You are a helpful assistant."</span><span class="p">)</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Use the pdf-processing skill to extract pages from report.pdf."</span><span class="p">)</span>
 </span></code></pre></div>
 <p>On the first <code>run()</code>, the agent injects the skill catalogue into the system message and attaches a skills MCP client. The model can either:</p>
 <ul>
@@ -3267,7 +3297,7 @@
 <p>A <code>.py</code> script may declare its own dependencies inline with <a href="https://peps.python.org/pep-0723/">PEP 723</a>, which is the <a href="https://agentskills.io/skill-creation/using-scripts">spec's recommended way</a> to make a skill self-contained. A script containing a <code># /// script</code> block runs through <code>uv run --script</code>, which resolves those dependencies into an isolated environment:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># /// script</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># dependencies = [</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1">#   &quot;beautifulsoup4&quot;,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1">#   "beautifulsoup4",</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># ]</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># ///</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bs4</span><span class="w"> </span><span class="kn">import</span> <span class="n">BeautifulSoup</span>
@@ -3281,19 +3311,19 @@
 <p>For inspection or programmatic use:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">SkillManager</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">skill_dirs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./my-skills&quot;</span><span class="p">])</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">skill_dirs</span><span class="o">=</span><span class="p">[</span><span class="s2">"./my-skills"</span><span class="p">])</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">catalog_prompt</span><span class="p">())</span>                 <span class="c1"># XML block listing all skills + scripts</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">get_skill_body</span><span class="p">(</span><span class="s2">&quot;pdf-processing&quot;</span><span class="p">))</span> <span class="c1"># full markdown body</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">get_skill_body</span><span class="p">(</span><span class="s2">"pdf-processing"</span><span class="p">))</span> <span class="c1"># full markdown body</span>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Missing skills raise SkillNotFoundError</span>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">manager</span><span class="o">.</span><span class="n">get_skill_body</span><span class="p">(</span><span class="s2">&quot;nonexistent&quot;</span><span class="p">)</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">manager</span><span class="o">.</span><span class="n">get_skill_body</span><span class="p">(</span><span class="s2">"nonexistent"</span><span class="p">)</span>
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="k">except</span> <span class="n">SkillNotFoundError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="give-one-agent-a-subset-of-the-skills">Give one agent a subset of the skills<a class="headerlink" href="#give-one-agent-a-subset-of-the-skills" title="Permanent link">&para;</a></h3>
 <p><code>include</code> narrows discovery to the skills you name, which is how you hand different agents different skills from one directory:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">researcher</span> <span class="o">=</span> <span class="n">SkillAgent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;citation-check&quot;</span><span class="p">]))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">researcher</span> <span class="o">=</span> <span class="n">SkillAgent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">"citation-check"</span><span class="p">]))</span>
 </span></code></pre></div>
 <p>Because <code>catalog_prompt()</code> and <code>build_skills_server()</code> both read <code>skills</code>, filtering here scopes the catalogue <em>and</em> the callable script tools together, so an agent cannot be advertised a skill it cannot activate. A name that no search path provides raises <code>SkillLoadError</code> listing what was discovered, rather than handing the agent a shorter list than it asked for.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1147,6 +1149,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3293,27 +3323,27 @@
 <p>Speech is distinct from audio: the audio surface (<code>aimu.audio_client()</code>) generates music and sounds from a descriptive prompt; the speech surface converts literal text to spoken audio.</p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <p><strong>OpenAI TTS</strong> (recommended for low latency):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[openai_compat]&#39;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[openai_compat]'</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span>sk-...
 </span></code></pre></div>
 <p><strong>HuggingFace TTS</strong> (local, no API key):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[hf]&#39;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[hf]'</span>
 </span></code></pre></div>
 <p>The <code>[hf]</code> extra already ships <code>torch</code>, <code>transformers</code>, and <code>soundfile</code> for the HuggingFace text and audio clients. TTS adds no new dependencies.</p>
 <h2 id="one-shot">One-shot<a class="headerlink" href="#one-shot" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Save a WAV file and return its path (default format)</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">path</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span><span class="s2">&quot;Hello, world!&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">path</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span><span class="s2">"Hello, world!"</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:tts-1"</span><span class="p">)</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Return raw WAV bytes</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">wav_bytes</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span><span class="s2">&quot;Good morning.&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">wav_bytes</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span><span class="s2">"Good morning."</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:tts-1"</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"bytes"</span><span class="p">)</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># Local HuggingFace TTS</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">sr</span><span class="p">,</span> <span class="n">audio</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="s2">&quot;Hello from HuggingFace!&quot;</span><span class="p">,</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;hf:facebook/mms-tts-eng&quot;</span><span class="p">,</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;numpy&quot;</span><span class="p">,</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="s2">"Hello from HuggingFace!"</span><span class="p">,</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"hf:facebook/mms-tts-eng"</span><span class="p">,</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="nb">format</span><span class="o">=</span><span class="s2">"numpy"</span><span class="p">,</span>
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">)</span>
 </span></code></pre></div>
 <p><code>format=</code> selects how the audio is returned:
@@ -3377,7 +3407,7 @@
 </tbody>
 </table>
 <p><strong>SpeechT5</strong> uses x-vector speaker embeddings for voice control. The default embedding (CMU Arctic index 7306) is loaded automatically from <code>datasets</code> on first call. To use a different speaker, pass <code>voice="N"</code> where N is an integer index into the <code>Matthijs/cmu-arctic-xvectors</code> dataset (0–1132):</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">sr</span><span class="p">,</span> <span class="n">audio</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">&quot;42&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">sr</span><span class="p">,</span> <span class="n">audio</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"Hello!"</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">"42"</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"numpy"</span><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>BARK</strong> voice codes: <code>v2/en_speaker_6</code>, <code>v2/en_speaker_9</code>, etc. Pass as <code>voice=</code> to <code>generate</code>.</p>
 <p>Ad-hoc models via <code>"hf:&lt;repo_id&gt;"</code>: pipeline type inferred from known repo prefixes, defaults to <code>tts_pipeline</code>.</p>
@@ -3385,9 +3415,9 @@
 <p>Build a client once, reuse it for multiple synthesis calls (weights load on first call):</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">speech_client</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;Good morning.&quot;</span><span class="p">,</span> <span class="s2">&quot;How can I help you today?&quot;</span><span class="p">,</span> <span class="s2">&quot;Have a great day!&quot;</span><span class="p">]:</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">&quot;nova&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;path&quot;</span><span class="p">)</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">"openai:tts-1"</span><span class="p">)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"Good morning."</span><span class="p">,</span> <span class="s2">"How can I help you today?"</span><span class="p">,</span> <span class="s2">"Have a great day!"</span><span class="p">]:</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">"nova"</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"path"</span><span class="p">)</span>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 </span></code></pre></div>
 <p>You can also pass an enum member for IDE autocomplete:</p>
@@ -3429,29 +3459,29 @@
 </tbody>
 </table>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Two clips, same call</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">clips</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">,</span> <span class="n">num_audio</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">clips</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"Hello!"</span><span class="p">,</span> <span class="n">num_audio</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"bytes"</span><span class="p">)</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">for</span> <span class="n">wav</span> <span class="ow">in</span> <span class="n">clips</span><span class="p">:</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">wav</span><span class="p">),</span> <span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">wav</span><span class="p">),</span> <span class="s2">"bytes"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="streaming-progress">Streaming progress<a class="headerlink" href="#streaming-progress" title="Permanent link">&para;</a></h2>
 <p>Pass <code>stream=True</code> to get an iterator of <code>SPEECH_GENERATING</code> chunks. For OpenAI, chunks arrive as HTTP bytes stream with <code>total_chunks=None</code>. For HuggingFace (single-pass), one final chunk is emitted:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">speech_client</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">"openai:tts-1"</span><span class="p">)</span>
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;The quick brown fox jumps over the lazy dog.&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"The quick brown fox jumps over the lazy dog."</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">c</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;final&quot;</span><span class="p">]:</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Done, saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">"final"</span><span class="p">]:</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Done, saved to </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">'result'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Chunk </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;chunk_index&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Chunk </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">'chunk_index'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">"</span><span class="se">\r</span><span class="s2">"</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>chunk.content</code> shape for <code>SPEECH_GENERATING</code>:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>{
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    &quot;chunk_index&quot;: int,          # 1-based index of this chunk
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    &quot;total_chunks&quot;: int | None,  # None for OpenAI (unknown upfront); 1 for HF single-pass
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    &quot;final&quot;: bool,               # True on the last chunk
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    &quot;result&quot;: str | bytes | ..., # encoded output on final chunk, None otherwise
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    "chunk_index": int,          # 1-based index of this chunk
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    "total_chunks": int | None,  # None for OpenAI (unknown upfront); 1 for HF single-pass
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    "final": bool,               # True on the last chunk
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    "result": str | bytes | ..., # encoded output on final chunk, None otherwise
 </span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>}
 </span></code></pre></div>
 <p>Use <code>chunk.is_speech_progress()</code> to dispatch cleanly.</p>
@@ -3462,34 +3492,34 @@
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">builtin</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">])</span>
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Say hello in a warm, welcoming tone.&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Say hello in a warm, welcoming tone."</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_speech_progress</span><span class="p">():</span>
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="n">c</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;final&quot;</span><span class="p">]:</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Saved: </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s2">"final"</span><span class="p">]:</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Saved: </span><span class="si">{</span><span class="n">c</span><span class="p">[</span><span class="s1">'result'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="k">elif</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">():</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">""</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="as-an-agent-tool">As an agent tool<a class="headerlink" href="#as-an-agent-tool" title="Permanent link">&para;</a></h2>
 <p>The built-in <code>generate_speech</code> tool lets any chat LLM call TTS when the user asks. The LLM decides when to call it; the tool saves a WAV and returns the path.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;AIMU_SPEECH_MODEL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;hf:microsoft/speecht5_tts&quot;</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"AIMU_SPEECH_MODEL"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"hf:microsoft/speecht5_tts"</span>
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">client</span>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
 </span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
 </span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">text_client</span> <span class="o">=</span> <span class="n">client</span><span class="p">(</span><span class="s2">&quot;anthropic:claude-sonnet-4-6&quot;</span><span class="p">)</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">text_client</span> <span class="o">=</span> <span class="n">client</span><span class="p">(</span><span class="s2">"anthropic:claude-sonnet-4-6"</span><span class="p">)</span>
 </span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
 </span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">text_client</span><span class="p">,</span>
 </span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">system_message</span><span class="o">=</span><span class="p">(</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        <span class="s2">&quot;You can speak responses using the generate_speech tool. &quot;</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        <span class="s2">&quot;When the user asks you to say something aloud, call the tool.&quot;</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        <span class="s2">"You can speak responses using the generate_speech tool. "</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        <span class="s2">"When the user asks you to say something aloud, call the tool."</span>
 </span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="p">),</span>
 </span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">builtin</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">],</span>
 </span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="p">)</span>
 </span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>
-</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="n">response</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Please say &#39;Welcome to AIMU&#39; in a friendly voice.&quot;</span><span class="p">)</span>
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="n">response</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Please say 'Welcome to AIMU' in a friendly voice."</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The tool uses a lazy module-level singleton: the first call constructs a speech client from <code>AIMU_SPEECH_MODEL</code>, subsequent calls reuse it. There is no default -- the tool raises if the variable is unset, rather than downloading weights you did not ask for.</p>
 <h3 id="per-agent-override-make_speech_tool">Per-agent override: <code>make_speech_tool</code><a class="headerlink" href="#per-agent-override-make_speech_tool" title="Permanent link">&para;</a></h3>
@@ -3497,8 +3527,8 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">speech_client</span>
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_speech_tool</span>
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">client_nova</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">nova_tool</span> <span class="o">=</span> <span class="n">make_speech_tool</span><span class="p">(</span><span class="n">client_nova</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">&quot;nova&quot;</span><span class="p">,</span> <span class="n">speed</span><span class="o">=</span><span class="mf">1.1</span><span class="p">)</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">client_nova</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">"openai:tts-1"</span><span class="p">)</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">nova_tool</span> <span class="o">=</span> <span class="n">make_speech_tool</span><span class="p">(</span><span class="n">client_nova</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="s2">"nova"</span><span class="p">,</span> <span class="n">speed</span><span class="o">=</span><span class="mf">1.1</span><span class="p">)</span>
 </span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
 </span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">nova_tool</span><span class="p">])</span>
 </span></code></pre></div>
@@ -3508,12 +3538,12 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">speech_client</span>
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">"openai:tts-1"</span><span class="p">)</span>
 </span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">speech_client</span><span class="p">(</span><span class="n">sync</span><span class="p">)</span>
 </span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
 </span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">narrate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
 </span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="p">[</span>
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"bytes"</span><span class="p">)</span>
 </span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span>
 </span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="p">])</span>
 </span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="k">return</span> <span class="n">results</span>
@@ -3522,8 +3552,8 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Async one-shot: pass a sync client as model</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">speech_client</span>
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">&quot;openai:tts-1&quot;</span><span class="p">)</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">wav</span> <span class="o">=</span> <span class="k">await</span> <span class="n">aio</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">sync</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">speech_client</span><span class="p">(</span><span class="s2">"openai:tts-1"</span><span class="p">)</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">wav</span> <span class="o">=</span> <span class="k">await</span> <span class="n">aio</span><span class="o">.</span><span class="n">generate_speech</span><span class="p">(</span><span class="s2">"Hello!"</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">sync</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"bytes"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>

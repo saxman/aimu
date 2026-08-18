@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1147,6 +1149,34 @@
     
   
     Get structured output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-thinking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control thinking effort
   
 
     
@@ -3153,19 +3183,19 @@
 <h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4o&quot;</span><span class="p">)</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Transcribe this recording.&quot;</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./interview.wav&quot;</span><span class="p">])</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Transcribe this recording."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./interview.wav"</span><span class="p">])</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Multiple clips</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Compare the speakers in these two clips.&quot;</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./a.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;./b.wav&quot;</span><span class="p">])</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Compare the speakers in these two clips."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./a.wav"</span><span class="p">,</span> <span class="s2">"./b.wav"</span><span class="p">])</span>
 </span></code></pre></div>
 <h2 id="stateless-single-turn-generate">Stateless single-turn (<code>generate</code>)<a class="headerlink" href="#stateless-single-turn-generate" title="Permanent link">&para;</a></h2>
 <p>Use <code>generate(audio=...)</code> for a one-shot audio call that <strong>does not touch conversation history</strong>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4o&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Each call is independent: no history kept, no reset() needed between calls.</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">lang</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;What language is spoken here?&quot;</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./clip.mp3&quot;</span><span class="p">])</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">tone</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Describe the speaker&#39;s tone.&quot;</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./clip.mp3&quot;</span><span class="p">])</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">lang</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"What language is spoken here?"</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./clip.mp3"</span><span class="p">])</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">tone</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"Describe the speaker's tone."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./clip.mp3"</span><span class="p">])</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">assert</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span> <span class="o">==</span> <span class="p">[]</span>   <span class="c1"># generate() never mutates message state</span>
 </span></code></pre></div>
@@ -3181,12 +3211,12 @@
 <p>Supported format strings (inferred from extension or MIME type): <code>wav</code>, <code>mp3</code>, <code>ogg</code>, <code>flac</code>, <code>m4a</code>, <code>webm</code>.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Analyse these clips&quot;</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="s2">&quot;./local.wav&quot;</span><span class="p">,</span>                                     <span class="c1"># path string</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./other.mp3&quot;</span><span class="p">),</span>                               <span class="c1"># Path</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="sa">b</span><span class="s2">&quot;RIFF...&quot;</span><span class="p">,</span>                                        <span class="c1"># raw bytes (wav assumed)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="s2">&quot;https://example.com/clip.wav&quot;</span><span class="p">,</span>                    <span class="c1"># URL (fetched)</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="s2">&quot;data:audio/flac;base64,AAAA...&quot;</span><span class="p">,</span>                  <span class="c1"># data URL</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Analyse these clips"</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="s2">"./local.wav"</span><span class="p">,</span>                                     <span class="c1"># path string</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">Path</span><span class="p">(</span><span class="s2">"./other.mp3"</span><span class="p">),</span>                               <span class="c1"># Path</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="sa">b</span><span class="s2">"RIFF..."</span><span class="p">,</span>                                        <span class="c1"># raw bytes (wav assumed)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="s2">"https://example.com/clip.wav"</span><span class="p">,</span>                    <span class="c1"># URL (fetched)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="s2">"data:audio/flac;base64,AAAA..."</span><span class="p">,</span>                  <span class="c1"># data URL</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">])</span>
 </span></code></pre></div>
 <h2 id="audio-capable-models">Audio-capable models<a class="headerlink" href="#audio-capable-models" title="Permanent link">&para;</a></h2>
@@ -3224,14 +3254,14 @@
 </table>
 <h2 id="mutual-exclusivity-with-images">Mutual exclusivity with <code>images=</code><a class="headerlink" href="#mutual-exclusivity-with-images" title="Permanent link">&para;</a></h2>
 <p><code>audio=</code> and <code>images=</code> are mutually exclusive per turn. Passing both raises <code>ValueError</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Raises ValueError: &quot;Pass either images= or audio= per call, not both.&quot;</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;photo.jpg&quot;</span><span class="p">],</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;clip.wav&quot;</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Raises ValueError: "Pass either images= or audio= per call, not both."</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"describe"</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"photo.jpg"</span><span class="p">],</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"clip.wav"</span><span class="p">])</span>
 </span></code></pre></div>
 <h2 id="multi-turn-conversations">Multi-turn conversations<a class="headerlink" href="#multi-turn-conversations" title="Permanent link">&para;</a></h2>
 <p>Audio blocks persist in <code>self.messages</code> as <code>input_audio</code> content, so the model can refer back to earlier turns:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4o&quot;</span><span class="p">)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;What is the main topic of this recording?&quot;</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./meeting.wav&quot;</span><span class="p">])</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">&quot;Summarise the action items mentioned.&quot;</span><span class="p">)</span>  <span class="c1"># follow-up, no audio needed</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"What is the main topic of this recording?"</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./meeting.wav"</span><span class="p">])</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Summarise the action items mentioned."</span><span class="p">)</span>  <span class="c1"># follow-up, no audio needed</span>
 </span></code></pre></div>
 <h2 id="async-surface">Async surface<a class="headerlink" href="#async-surface" title="Permanent link">&para;</a></h2>
 <p><code>audio=</code> is available on <code>aio.chat()</code> and <code>aio.generate()</code> with the same signature:</p>
@@ -3239,8 +3269,8 @@
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;openai:gpt-4o&quot;</span><span class="p">)</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Transcribe this.&quot;</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;./clip.wav&quot;</span><span class="p">])</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"Transcribe this."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./clip.wav"</span><span class="p">])</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
