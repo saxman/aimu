@@ -116,3 +116,17 @@ def test_hf_merges_without_loading_weights(monkeypatch):
     assert merged["temperature"] == 0.2
     assert merged["top_k"] == 20  # from the Qwen profile
     assert merged["max_new_tokens"] == 4096  # from HF DEFAULT_GENERATE_KWARGS
+
+
+def test_ollama_reports_the_model_profile_as_its_defaults(ollama_client):
+    """`default_generate_kwargs` is mirrored onto ModelClient, _AgenticView and the in-process
+    wrappers, so it is a real read surface. For Ollama the defaults come from the model rather
+    than a class constant, so reporting an empty dict here would claim there are none."""
+    assert ollama_client.default_generate_kwargs["temperature"] == 1.0
+    assert ollama_client.default_generate_kwargs["top_p"] == 0.95
+
+
+def test_ollama_defaults_are_a_copy_callers_cannot_corrupt(ollama_client):
+    ollama_client.default_generate_kwargs["temperature"] = 99
+
+    assert OllamaModel.QWEN_3_5_9B.generation_kwargs["temperature"] == 1.0

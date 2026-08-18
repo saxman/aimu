@@ -174,13 +174,6 @@ class HuggingFaceModel(Model):
     ):
         super().__init__(spec)
         self.tool_call_format = tool_call_format
-        # The thinking-mode merge, kept as a read surface for callers that inspect a member.
-        # NOT the request path: _update_generate_kwargs rebuilds this per call, because the
-        # profile depends on whether thinking resolved on or off and a value baked here
-        # cannot express that. Editing this dict does not change what a request sends.
-        self.generate_kwargs = DEFAULT_GENERATE_KWARGS.copy()
-        if self.generation_kwargs:
-            self.generate_kwargs.update(self.generation_kwargs)
         self.think_opener_in_prompt = think_opener_in_prompt
 
     # Alibaba
