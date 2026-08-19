@@ -59,13 +59,23 @@ def _guard_stream(stream) -> Iterator:
 
 
 # The local inference servers that read extra sampling fields off an OpenAI request (vLLM, SGLang,
-# llama-server, LM Studio, oMLX) take the three non-OpenAI knobs that way, so they are declared
-# supported here and routed into ``extra_body`` by the hook below. Two members do not inherit that
-# unchanged: llama-server spells the repetition knob ``repeat_penalty`` (see
-# LLAMASERVER_OPENAI_GENERATE_KWARGS), and Ollama's OpenAI shim reads none of the three at all (see
-# OLLAMA_OPENAI_GENERATE_KWARGS). The cloud endpoints reject them and declare so themselves: see
-# CLOUD_OPENAI_GENERATE_KWARGS. The OpenAI API has no context-length parameter at all, because a local
-# server's window is sized when the server starts.
+# llama-server, LM Studio, oMLX, HF Transformers Serve) take the three non-OpenAI knobs that way, so
+# they are declared supported here and routed into ``extra_body`` by the hook below, following the
+# sampling extensions vLLM and SGLang document. Two members do not inherit that unchanged: llama-server
+# spells the repetition knob ``repeat_penalty`` (see LLAMASERVER_OPENAI_GENERATE_KWARGS), and Ollama's
+# OpenAI shim reads none of the three at all (see OLLAMA_OPENAI_GENERATE_KWARGS).
+#
+# How far to trust this table, per member: the two exceptions above were each checked against their own
+# backend's reference, which is what earned them a table. LM Studio, oMLX, and HF Transformers Serve
+# inherit the family verdict *unconfirmed* -- no reference for them was consulted. The cell most in
+# doubt is ``repetition_penalty`` for an llama.cpp-engine server: LM Studio runs llama.cpp, and
+# llama-server wants ``repeat_penalty``, so LM Studio plausibly does too. It is left as the family's
+# spelling because acting on that inference without the reference is what put the two exceptions here
+# in the first place; confirm it before changing it.
+#
+# The cloud endpoints reject the three and declare so themselves: see CLOUD_OPENAI_GENERATE_KWARGS. The
+# OpenAI API has no context-length parameter at all, because a local server's window is sized when the
+# server starts.
 OPENAI_COMPAT_GENERATE_KWARGS = {
     "temperature": "temperature",
     "top_p": "top_p",
@@ -87,9 +97,13 @@ OPENAI_COMPAT_GENERATE_KWARGS = {
 _EXTRA_BODY_PORTABLE_KWARGS = ("top_k", "min_p", "repetition_penalty")
 
 # The cloud endpoints (OpenAI, and Google's OpenAI-compatible surface) accept only the OpenAI set, and
-# their context window is the vendor's to decide. Google's compatibility reference documents neither
-# top_k at the top level nor a place for it under extra_body, so it is declared unsupported here: a
-# parameter the endpoint rejects fails the whole request, where a dropped one only stops applying.
+# their context window is the vendor's to decide. Google's compatibility reference documents no
+# top-level top_k and no place for it under extra_body, so it is declared unsupported here: a parameter
+# the endpoint rejects fails the whole request, where a dropped one only stops applying. That verdict is
+# the safe reading of an open question, not a verified impossibility: the same reference does document
+# extra_body={"generation_config": ...}, and the native Gemini API carries topK inside generationConfig,
+# so that route may well work. It could be neither confirmed nor disproved without a live key, so
+# revisit Gemini's top_k with one in hand rather than treating the question as settled.
 CLOUD_OPENAI_GENERATE_KWARGS = {
     **OPENAI_COMPAT_GENERATE_KWARGS,
     "top_k": Unsupported("This endpoint accepts only the OpenAI parameter set, which has no top_k."),

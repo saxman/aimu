@@ -128,6 +128,14 @@ override you where an API demands it (see the notes below).
     to set it instead. `extra_body` means the key survives but moves: the OpenAI schema has no
     top-level place for it, and a local server reads it from the extra request field instead.
 
+    **The local OpenAI-compatible row is not uniformly confirmed.** It follows the sampling
+    extensions vLLM and SGLang document, and the two servers that leave the row (`OllamaOpenAIClient`
+    and `LlamaServerOpenAIClient`, below) were each checked against their own backend's reference.
+    LM Studio, oMLX, and HF Transformers Serve inherit the row unconfirmed. The cell most in doubt is
+    `repetition_penalty` on an llama.cpp-engine server: LM Studio runs llama.cpp, and llama-server
+    wants `repeat_penalty`, so LM Studio plausibly does too. Treat that one as untested rather than
+    settled, and confirm it against the server's reference before relying on it.
+
     Six entries are worth the detail:
 
     - **Ollama's `min_p`.** The `ollama` SDK types `options` as a pydantic `Options` model with no
@@ -145,10 +153,14 @@ override you where an API demands it (see the notes below).
       `/completion` sampling parameters on its OpenAI endpoint, where the knob is spelled
       `repeat_penalty`; vLLM and SGLang use `repetition_penalty`. One-key rename, and the `extra_body`
       routing follows it, because the OpenAI SDK's `create()` takes no arbitrary keywords.
-    - **The cloud endpoints' `top_k`.** Neither accepts it. Google's OpenAI-compatibility reference
-      documents no top-level `top_k` and no place for it under `extra_body` either, so it is
-      declared unsupported there too: a parameter the endpoint rejects fails the whole request,
-      where a dropped one only stops applying.
+    - **The cloud endpoints' `top_k`.** The OpenAI parameter set has none, and Google's
+      OpenAI-compatibility reference documents no top-level `top_k` and no place for it under
+      `extra_body` either, so it is declared unsupported on both: a parameter the endpoint rejects
+      fails the whole request, where a dropped one only stops applying. **On Gemini that is an open
+      question, not a settled impossibility.** The same reference does document
+      `extra_body={"generation_config": ...}`, and the native Gemini API carries `topK` inside
+      `generationConfig`, so that route may well work; it could be neither confirmed nor disproved
+      without a live key. Revisit the Gemini cell with one in hand.
     - **o-series `max_tokens`.** `OpenAIClient` sends `max_completion_tokens` instead for o1/o3/o4.
       That rename depends on the model rather than the client, so it stays in the rewrite hook rather
       than the table; see [Notes per provider](#notes-per-provider) for what else the hook does there.

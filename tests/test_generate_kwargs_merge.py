@@ -668,11 +668,18 @@ def test_every_client_declares_a_verdict_for_every_portable_key():
     An undeclared key passes through, which on a backend that rejects it fails the request and on
     Ollama is discarded during request validation with nothing said. The declaration is inherited, so
     a family (the OpenAI-compatible servers) declares it once.
+
+    Presence alone is not enough, which is why the second half checks the shape of each verdict. The
+    resolver reads any non-``Unsupported``, non-string value the same way it reads a missing key --
+    ``support.get(key) is None`` means "undeclared, pass through" -- so a table written
+    ``{"min_p": None}`` would satisfy a presence-only audit while still forwarding ``min_p`` to a
+    backend that cannot take it, silently. A verdict is therefore the backend's own spelling as a
+    ``str`` or an :class:`Unsupported` carrying the remedy, and nothing else.
     """
     import aimu  # noqa: F401  -- imports every installed provider client
 
     from aimu.aio._base import AsyncBaseModelClient
-    from aimu.models._internal.generate_kwargs import PORTABLE_GENERATE_KWARGS
+    from aimu.models._internal.generate_kwargs import PORTABLE_GENERATE_KWARGS, Unsupported
     from aimu.models.base import BaseModelClient
 
     def descendants(cls):
@@ -680,16 +687,29 @@ def test_every_client_declares_a_verdict_for_every_portable_key():
             yield subclass
             yield from descendants(subclass)
 
-    incomplete = sorted(
-        f"{cls.__module__}.{cls.__qualname__}: missing {', '.join(sorted(missing))}"
+    clients = [
+        cls
         for base in (BaseModelClient, AsyncBaseModelClient)
         for cls in descendants(base)
-        if cls.__module__.startswith("aimu.")
-        and cls.__name__ not in _DELEGATES_A_WHOLE_REQUEST
-        and (missing := set(PORTABLE_GENERATE_KWARGS) - set(cls.GENERATE_KWARG_SUPPORT))
+        if cls.__module__.startswith("aimu.") and cls.__name__ not in _DELEGATES_A_WHOLE_REQUEST
+    ]
+
+    incomplete = sorted(
+        f"{cls.__module__}.{cls.__qualname__}: missing {', '.join(sorted(missing))}"
+        for cls in clients
+        if (missing := set(PORTABLE_GENERATE_KWARGS) - set(cls.GENERATE_KWARG_SUPPORT))
     )
 
     assert incomplete == []
+
+    malformed = sorted(
+        f"{cls.__module__}.{cls.__qualname__}: {key} = {verdict!r}"
+        for cls in clients
+        for key in PORTABLE_GENERATE_KWARGS
+        if not isinstance(verdict := cls.GENERATE_KWARG_SUPPORT.get(key), (str, Unsupported))
+    )
+
+    assert malformed == []
 
 
 # --- two OpenAI-compatible servers that do not inherit the family verdict unchanged ---------------
