@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1172,6 +1174,34 @@
     
   
     Control thinking effort
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/set-context-length/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set the context length
   
 
     
@@ -4781,8 +4811,15 @@ the GIL/CUDA, and a shared <code>deps</code> object handed to concurrent spawns 
   sub-agent using <code>system_message</code> + <code>tools</code>.</li>
 <li>Typed (<code>agent_types</code> given): the tool is <code>spawn_subagent(agent_type, task)</code> over a registry
   of named specialists (each value a dict with <code>"system_message"</code> and optional <code>"tools"</code> /
-  <code>"model"</code>); the available names are listed in the tool description. An unknown <code>agent_type</code>
-  is returned to the model as a tool result (self-correction), not raised.</li>
+  <code>"model"</code> / <code>"thinking"</code>, and nothing else -- an unrecognized spec key raises at factory-call
+  time rather than being ignored, since an ignored key reads exactly like an applied one); the
+  available names are listed in the tool description. An unknown <code>agent_type</code>, by contrast, is
+  returned to the model as a tool result (self-correction), not raised: that one is the model's
+  mistake to recover from, where a bad spec key is the programmer's.
+  <code>"thinking"</code> takes the same values as :class:<code>~aimu.agents.Agent</code>'s field and is read with
+  <code>.get()</code>, so a spec omitting it leaves the spawned agent at <code>None</code> rather than inheriting
+  anything from the caller: unlike <code>"model"</code>, which falls back to the model this factory was
+  built with, there is no factory-level thinking tier to fall back to.</li>
 </ul>
 <p><code>max_depth</code> (default 1) is the recursion guard: it counts the caller's agent as level 1, so the
 default gives spawned sub-agents <em>no</em> spawn tool of their own. <code>max_depth=2</code> lets one more level

@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/handle-audio-input/">
+        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/set-context-length/">
       
       
-        <link rel="prev" href="../handle-vision/">
+        <link rel="prev" href="../control-thinking/">
       
       
-        <link rel="next" href="../generate-images/">
+        <link rel="next" href="../use-async/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Handle audio input - AIMU</title>
+        <title>Set the context length - AIMU</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#handle-audio-input" class="md-skip">
+        <a href="#set-the-context-length" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Handle audio input
+              Set the context length
             
           </span>
         </div>
@@ -1196,10 +1196,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../set-context-length/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set the context length
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1215,6 +1242,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-is-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it is not
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cancelling-a-client-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cancelling a client default
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-each-provider-takes-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where each provider takes it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#raising-it-to-fix-a-failing-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raising it to fix a failing request
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-it-to-a-new-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding it to a new provider
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1280,37 +1382,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Handle audio input
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../handle-audio-input/" class="md-nav__link">
         
   
   
@@ -1326,125 +1401,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Basic usage
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stateless-single-turn-generate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stateless single-turn (generate)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#accepted-audio-forms" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Accepted audio forms
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#audio-capable-models" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Audio-capable models
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#mutual-exclusivity-with-images" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Mutual exclusivity with images=
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#multi-turn-conversations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Multi-turn conversations
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#async-surface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Async surface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#per-provider-adaptation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Per-provider adaptation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See also
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3090,10 +3046,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
+  <a href="#what-it-is-not" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Basic usage
+        What it is not
       
     </span>
   </a>
@@ -3101,10 +3057,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#stateless-single-turn-generate" class="md-nav__link">
+  <a href="#cancelling-a-client-default" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Stateless single-turn (generate)
+        Cancelling a client default
       
     </span>
   </a>
@@ -3112,10 +3068,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#accepted-audio-forms" class="md-nav__link">
+  <a href="#where-each-provider-takes-it" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Accepted audio forms
+        Where each provider takes it
       
     </span>
   </a>
@@ -3123,10 +3079,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#audio-capable-models" class="md-nav__link">
+  <a href="#raising-it-to-fix-a-failing-request" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Audio-capable models
+        Raising it to fix a failing request
       
     </span>
   </a>
@@ -3134,54 +3090,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#mutual-exclusivity-with-images" class="md-nav__link">
+  <a href="#adding-it-to-a-new-provider" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Mutual exclusivity with images=
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#multi-turn-conversations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Multi-turn conversations
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#async-surface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Async surface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#per-provider-adaptation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Per-provider adaptation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See also
+        Adding it to a new provider
       
     </span>
   </a>
@@ -3208,137 +3120,110 @@
   
 
 
-<h1 id="handle-audio-input">Handle audio input<a class="headerlink" href="#handle-audio-input" title="Permanent link">&para;</a></h1>
-<p>Pass <code>audio=[...]</code> to <code>chat()</code> (stateful) or <code>generate()</code> (stateless one-shot) on an audio-capable model. AIMU normalises every input to OpenAI <code>input_audio</code> content blocks internally and adapts them per-provider.</p>
-<h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
+<h1 id="set-the-context-length">Set the context length<a class="headerlink" href="#set-the-context-length" title="Permanent link">&para;</a></h1>
+<p>The context window is how much of a conversation a model can see at once. On a local backend it is
+a runtime choice you pay for in memory, not a fixed property of the weights, and the default is
+often smaller than the model supports. AIMU exposes it as one portable <code>context_length</code> key in
+<code>generate_kwargs</code>, so a call site does not have to know which provider spells it <code>num_ctx</code>.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Transcribe this recording."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./interview.wav"</span><span class="p">])</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Multiple clips</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Compare the speakers in these two clips."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./a.wav"</span><span class="p">,</span> <span class="s2">"./b.wav"</span><span class="p">])</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.8:27b"</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Every call on this client</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">client</span><span class="o">.</span><span class="n">default_generate_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"context_length"</span><span class="p">:</span> <span class="mi">32768</span><span class="p">}</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Summarise the attached transcript."</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Just this call</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"And now the long one."</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"context_length"</span><span class="p">:</span> <span class="mi">131072</span><span class="p">})</span>
 </span></code></pre></div>
-<h2 id="stateless-single-turn-generate">Stateless single-turn (<code>generate</code>)<a class="headerlink" href="#stateless-single-turn-generate" title="Permanent link">&para;</a></h2>
-<p>Use <code>generate(audio=...)</code> for a one-shot audio call that <strong>does not touch conversation history</strong>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Each call is independent: no history kept, no reset() needed between calls.</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">lang</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"What language is spoken here?"</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./clip.mp3"</span><span class="p">])</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">tone</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"Describe the speaker's tone."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./clip.mp3"</span><span class="p">])</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">assert</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span> <span class="o">==</span> <span class="p">[]</span>   <span class="c1"># generate() never mutates message state</span>
+<p>It layers like any other generation parameter, so tier 4 (the per-call dict) beats tier 3 (the
+client default). See <a href="../../reference/provider-matrix/#generation-parameters">the four tiers</a>.</p>
+<h2 id="what-it-is-not">What it is not<a class="headerlink" href="#what-it-is-not" title="Permanent link">&para;</a></h2>
+<p><code>context_length</code> sizes the window the model reads. <code>max_tokens</code> caps what it writes. They are
+independent: a 32k window with <code>max_tokens=512</code> reads a long conversation and answers briefly.</p>
+<h2 id="cancelling-a-client-default">Cancelling a client default<a class="headerlink" href="#cancelling-a-client-default" title="Permanent link">&para;</a></h2>
+<p><code>None</code> means unset, which is the only way back to the backend's own sizing once a client default
+is in place:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span><span class="o">.</span><span class="n">default_generate_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"context_length"</span><span class="p">:</span> <span class="mi">32768</span><span class="p">}</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"this one can be small"</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"context_length"</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span>
 </span></code></pre></div>
-<p><code>chat(audio=...)</code> is the stateful path: the turn persists so you can ask follow-ups. <code>generate(audio=...)</code> is the stateless path: each call stands alone.</p>
-<h2 id="accepted-audio-forms">Accepted audio forms<a class="headerlink" href="#accepted-audio-forms" title="Permanent link">&para;</a></h2>
-<p>Each item in <code>audio=[...]</code> may be any of:</p>
-<ul>
-<li><strong>File path</strong> as <code>str</code> or <code>pathlib.Path</code>: read from disk and base64-encoded</li>
-<li><strong>Raw <code>bytes</code></strong>: encoded directly (defaults to <code>wav</code> format)</li>
-<li><strong><code>https://</code> URL</strong>: fetched eagerly (the <code>input_audio</code> block has no remote-URL field)</li>
-<li><strong><code>data:audio/...;base64,...</code> URL</strong>: passed through; format extracted from MIME type</li>
-</ul>
-<p>Supported format strings (inferred from extension or MIME type): <code>wav</code>, <code>mp3</code>, <code>ogg</code>, <code>flac</code>, <code>m4a</code>, <code>webm</code>.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<h2 id="where-each-provider-takes-it">Where each provider takes it<a class="headerlink" href="#where-each-provider-takes-it" title="Permanent link">&para;</a></h2>
+<p>Only Ollama's native API accepts a context length per request. Everywhere else the window is sized
+out of band, so AIMU drops the key and logs a warning naming where to set it instead — rather than
+raising, so moving a working client default to another provider never breaks the call.</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Per request?</th>
+<th>Where it comes from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ollama</code></td>
+<td><strong>yes</strong> — <code>num_ctx</code></td>
+<td>the request, or <code>OLLAMA_CONTEXT_LENGTH</code> on the server</td>
+</tr>
+<tr>
+<td><code>llamacpp</code></td>
+<td>no</td>
+<td><code>LlamaCppClient(..., n_ctx=N)</code>, at load time</td>
+</tr>
+<tr>
+<td><code>ollama-openai</code></td>
+<td>no</td>
+<td><code>OLLAMA_CONTEXT_LENGTH</code> on the server</td>
+</tr>
+<tr>
+<td><code>llamaserver</code>, <code>vllm</code>, <code>sglang</code></td>
+<td>no</td>
+<td>server launch (<code>--ctx-size</code>, <code>--max-model-len</code>)</td>
+</tr>
+<tr>
+<td><code>lmstudio</code>, <code>hf-openai</code>, <code>omlx</code></td>
+<td>no</td>
+<td>server launch (LM Studio's context-length setting)</td>
+</tr>
+<tr>
+<td><code>hf</code></td>
+<td>no</td>
+<td>the weights' own <code>max_position_embeddings</code></td>
+</tr>
+<tr>
+<td><code>anthropic</code>, <code>openai</code>, <code>gemini</code></td>
+<td>no</td>
+<td>fixed by the vendor</td>
+</tr>
+</tbody>
+</table>
+<p>The warning fires once per client, not once per call, so an agent loop does not repeat it every
+round.</p>
+<h2 id="raising-it-to-fix-a-failing-request">Raising it to fix a failing request<a class="headerlink" href="#raising-it-to-fix-a-failing-request" title="Permanent link">&para;</a></h2>
+<p>A request that no longer fits raises
+<a href="../../reference/provider-matrix/"><code>ContextOverflowError</code></a> on Ollama, and a turn cut off before it
+produced anything raises <code>TruncatedTurnError</code>. Both are worth reading as "the window is too small
+for this conversation": raise <code>context_length</code>, shorten the history, or advertise fewer tools.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextOverflowError</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Analyse these clips"</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="s2">"./local.wav"</span><span class="p">,</span>                                     <span class="c1"># path string</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">Path</span><span class="p">(</span><span class="s2">"./other.mp3"</span><span class="p">),</span>                               <span class="c1"># Path</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="sa">b</span><span class="s2">"RIFF..."</span><span class="p">,</span>                                        <span class="c1"># raw bytes (wav assumed)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="s2">"https://example.com/clip.wav"</span><span class="p">,</span>                    <span class="c1"># URL (fetched)</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="s2">"data:audio/flac;base64,AAAA..."</span><span class="p">,</span>                  <span class="c1"># data URL</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">])</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">except</span> <span class="n">ContextOverflowError</span><span class="p">:</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">client</span><span class="o">.</span><span class="n">default_generate_kwargs</span><span class="p">[</span><span class="s2">"context_length"</span><span class="p">]</span> <span class="o">=</span> <span class="mi">65536</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="audio-capable-models">Audio-capable models<a class="headerlink" href="#audio-capable-models" title="Permanent link">&para;</a></h2>
-<p>Each <code>Model</code> enum exposes an <code>AUDIO_MODELS</code> classproperty listing members where <code>supports_audio=True</code>. Passing <code>audio=</code> to a non-audio model raises <code>ValueError</code> up front.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models.providers.openai.text</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenAIClient</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">OpenAIClient</span><span class="o">.</span><span class="n">AUDIO_MODELS</span><span class="p">)</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># [&lt;OpenAIModel.GPT_4O_MINI: ...&gt;, &lt;OpenAIModel.GPT_4O: ...&gt;, ...]</span>
+<p>A larger window costs memory for the KV cache, and on a local backend an over-large value fails at
+load rather than degrading, so raise it deliberately rather than setting the maximum by default.</p>
+<h2 id="adding-it-to-a-new-provider">Adding it to a new provider<a class="headerlink" href="#adding-it-to-a-new-provider" title="Permanent link">&para;</a></h2>
+<p>A client declares what it does with the key, as two class attributes read by the shared merge (see
+<a href="../add-new-provider/">Add a new provider</a>):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyClient</span><span class="p">(</span><span class="n">BaseModelClient</span><span class="p">):</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">PROVIDER_CONTEXT_LENGTH_KWARG</span> <span class="o">=</span> <span class="s2">"num_ctx"</span>        <span class="c1"># the backend's own name for it</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="c1"># ...or, when it cannot be set per request:</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">CONTEXT_LENGTH_REMEDY</span> <span class="o">=</span> <span class="s2">"Set it when starting the server (--ctx-size)."</span>
 </span></code></pre></div>
-<p>Supported audio-capable text models:</p>
-<table>
-<thead>
-<tr>
-<th>Provider</th>
-<th>Models</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>OpenAI</td>
-<td>GPT-4o, GPT-4o-mini, GPT-4.1, GPT-4.1-mini, GPT-4.1-nano</td>
-</tr>
-<tr>
-<td>Google Gemini</td>
-<td>2.0 Flash, 2.0 Flash Lite, 2.5 Pro, 2.5 Flash</td>
-</tr>
-<tr>
-<td>HuggingFace</td>
-<td>Gemma 4 E4B, Gemma 4 12B, Nemotron-H-8B</td>
-</tr>
-<tr>
-<td>Ollama</td>
-<td>None yet (Gemma 4 weights support audio; add <code>audio=True</code> once Ollama API exposes audio input)</td>
-</tr>
-</tbody>
-</table>
-<h2 id="mutual-exclusivity-with-images">Mutual exclusivity with <code>images=</code><a class="headerlink" href="#mutual-exclusivity-with-images" title="Permanent link">&para;</a></h2>
-<p><code>audio=</code> and <code>images=</code> are mutually exclusive per turn. Passing both raises <code>ValueError</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Raises ValueError: "Pass either images= or audio= per call, not both."</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"describe"</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"photo.jpg"</span><span class="p">],</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"clip.wav"</span><span class="p">])</span>
-</span></code></pre></div>
-<h2 id="multi-turn-conversations">Multi-turn conversations<a class="headerlink" href="#multi-turn-conversations" title="Permanent link">&para;</a></h2>
-<p>Audio blocks persist in <code>self.messages</code> as <code>input_audio</code> content, so the model can refer back to earlier turns:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"What is the main topic of this recording?"</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./meeting.wav"</span><span class="p">])</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Summarise the action items mentioned."</span><span class="p">)</span>  <span class="c1"># follow-up, no audio needed</span>
-</span></code></pre></div>
-<h2 id="async-surface">Async surface<a class="headerlink" href="#async-surface" title="Permanent link">&para;</a></h2>
-<p><code>audio=</code> is available on <code>aio.chat()</code> and <code>aio.generate()</code> with the same signature:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"Transcribe this."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./clip.wav"</span><span class="p">])</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
-</span></code></pre></div>
-<h2 id="per-provider-adaptation">Per-provider adaptation<a class="headerlink" href="#per-provider-adaptation" title="Permanent link">&para;</a></h2>
-<p>AIMU keeps <code>self.messages</code> in OpenAI format always (<code>input_audio</code> content blocks) and adapts at request time:</p>
-<table>
-<thead>
-<tr>
-<th>Provider</th>
-<th>Adaptation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>OpenAI / Gemini / OpenAI-compatible</td>
-<td>Pass-through (<code>input_audio</code> is already OpenAI format)</td>
-</tr>
-<tr>
-<td>Anthropic</td>
-<td>Rewrites to Anthropic <code>{"type": "audio", "source": {"type": "base64", ...}}</code> blocks</td>
-</tr>
-<tr>
-<td>HuggingFace</td>
-<td>Decodes to float32 numpy arrays via <code>soundfile</code>; passes as <code>audio=</code>/<code>sampling_rate=16000</code> to the processor</td>
-</tr>
-<tr>
-<td>Ollama</td>
-<td>Raises <code>ValueError</code> (API does not yet support audio input)</td>
-</tr>
-</tbody>
-</table>
-<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/05-audio-input.qmd">05 - Audio Input</a></li>
-<li><a href="../handle-vision/">Handle vision input</a>: parallel surface for image input</li>
-<li><a href="../../reference/model-matrix/">Model matrix</a>: <code>supports_audio</code> column</li>
-</ul>
+<p>One of the two is required; a test fails if a client declares neither, because the warning would
+then name no way forward.</p>
 
 
 

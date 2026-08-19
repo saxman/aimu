@@ -16,7 +16,7 @@
         <link rel="prev" href="../use-structured-output/">
       
       
-        <link rel="next" href="../use-async/">
+        <link rel="next" href="../set-context-length/">
       
       
         
@@ -797,6 +797,8 @@
       
         
       
+        
+      
     
     
     
@@ -1284,6 +1286,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#on-a-spawned-sub-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        On a spawned sub-agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1298,6 +1311,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../set-context-length/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set the context length
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3082,6 +3123,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#on-a-spawned-sub-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        On a spawned sub-agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3249,6 +3301,34 @@ model has no effort control warns once for the whole run, not once per round.</p
 <p>The workflow classes (<code>Chain</code>, <code>Router</code>, <code>Parallel</code>, ...) take no <code>thinking=</code> argument, for the
 same reason they take no <code>tools=</code>: they compose sub-runners and have no single model turn to
 apply it to. Configure it on the <code>Agent</code>s they wrap, or on the client itself.</p>
+<h2 id="on-a-spawned-sub-agent">On a spawned sub-agent<a class="headerlink" href="#on-a-spawned-sub-agent" title="Permanent link">&para;</a></h2>
+<p><code>make_subagent_tool()</code> / <code>make_async_subagent_tool()</code> in typed mode read a <code>"thinking"</code> key from
+each <code>agent_types</code> spec, alongside <code>"system_message"</code>, <code>"tools"</code>, and <code>"model"</code>, and set it as the
+spawned agent's field. This is the only route to a sub-agent's effort, since the spawn happens
+inside the tool rather than at a call site you control:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_subagent_tool</span><span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">"ollama:qwen3.8:27b"</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">agent_types</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="s2">"researcher"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"Research thoroughly."</span><span class="p">,</span> <span class="s2">"thinking"</span><span class="p">:</span> <span class="s2">"high"</span><span class="p">},</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="s2">"formatter"</span><span class="p">:</span>  <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"Reformat text."</span><span class="p">,</span> <span class="s2">"thinking"</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="s2">"generalist"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"Handle the task."</span><span class="p">},</span>   <span class="c1"># field stays None</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="p">},</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>The key is read with <code>.get()</code>, so <code>False</code> is carried rather than swallowed. Note the asymmetry
+with <code>"model"</code>: an omitted <code>"model"</code> falls back to the model the factory was built with, while an
+omitted <code>"thinking"</code> leaves the spawned agent at <code>None</code> — the factory has no thinking tier to fall
+back to. A caller wanting one default across every spec should write the resolved value into each
+spec rather than expecting inheritance.</p>
+<p>A spec's keys are a closed set (<code>system_message</code>, <code>tools</code>, <code>model</code>, <code>thinking</code> —
+<code>aimu.tools.builtin.SUBAGENT_SPEC_KEYS</code>), and an unrecognized one raises when the factory is called:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">agent_types</span><span class="o">=</span><span class="p">{</span><span class="s2">"r"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"R."</span><span class="p">,</span> <span class="s2">"thinkng"</span><span class="p">:</span> <span class="s2">"high"</span><span class="p">}})</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># ValueError: agent_types['r'] has unknown key(s): thinkng.</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1">#             A spec may carry: model, system_message, thinking, tools.</span>
+</span></code></pre></div>
+<p>This matters most for exactly the value this page is about. A misspelled effort key would otherwise
+leave the spawned agent reasoning at its default, silently, while the caller believed it had asked
+for something else — the same failure mode <code>thinking="xhigh"</code> raises for rather than accepting.</p>
 <p>One precedence note for <code>agent.as_model_client()</code>: a <code>thinking=</code> passed to that view's <code>chat()</code>
 is overridden by the agent's own <code>thinking</code> field, because the field is applied on the inner
 turns the view drives. Set the field to <code>None</code> if the view's callers should decide.</p>

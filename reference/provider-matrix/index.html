@@ -795,6 +795,8 @@
       
         
       
+        
+      
     
     
     
@@ -1172,6 +1174,34 @@
     
   
     Control thinking effort
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/set-context-length/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set the context length
   
 
     
@@ -3384,7 +3414,7 @@ this order, so a lower tier only supplies what no higher tier set:</p>
 </table>
 <p>Tier 3 is the one to reach for when a setting should apply to a whole conversation:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.5:9b"</span><span class="p">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">client</span><span class="o">.</span><span class="n">default_generate_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"temperature"</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span> <span class="s2">"num_ctx"</span><span class="p">:</span> <span class="mi">16384</span><span class="p">}</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">client</span><span class="o">.</span><span class="n">default_generate_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"temperature"</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span> <span class="s2">"context_length"</span><span class="p">:</span> <span class="mi">16384</span><span class="p">}</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"summarise this"</span><span class="p">)</span>                                    <span class="c1"># temperature 0.2</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"now be creative"</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"temperature"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">})</span>  <span class="c1"># 1.0, just this call</span>
@@ -3396,6 +3426,55 @@ propagate through the <code>ModelClient</code> wrapper that <code>aimu.client()<
 <p>Tier 1 sits <em>below</em> the model card on purpose: AIMU's generic <code>temperature=0.1</code> must not override
 the tuned value a card specifies. Provider-specific rewrites run <em>after</em> the merge and can still
 override you where an API demands it (see the notes below).</p>
+<div class="admonition note">
+<p class="admonition-title">Context length per provider</p>
+<p>The portable <a href="../../how-to/set-context-length/"><code>context_length</code></a> key is renamed on the one
+backend that sizes the window per request and dropped with a warning on the rest, so a client
+default survives a provider swap instead of putting an unknown parameter on the wire.</p>
+<table>
+<thead>
+<tr>
+<th>Client</th>
+<th>Per request?</th>
+<th>Where it comes from instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OllamaClient</code></td>
+<td><strong>yes</strong>, as <code>num_ctx</code></td>
+<td>--</td>
+</tr>
+<tr>
+<td><code>OllamaOpenAIClient</code></td>
+<td>no</td>
+<td><code>OLLAMA_CONTEXT_LENGTH</code> on the server</td>
+</tr>
+<tr>
+<td>other OpenAI-compat local servers</td>
+<td>no</td>
+<td>server launch (<code>--ctx-size</code>, <code>--max-model-len</code>, LM Studio's setting)</td>
+</tr>
+<tr>
+<td><code>LlamaCppClient</code></td>
+<td>no</td>
+<td><code>LlamaCppClient(..., n_ctx=N)</code>, at load time</td>
+</tr>
+<tr>
+<td><code>HuggingFaceClient</code></td>
+<td>no</td>
+<td>the weights' own <code>max_position_embeddings</code></td>
+</tr>
+<tr>
+<td><code>AnthropicClient</code>, <code>OpenAIClient</code>, <code>GeminiClient</code></td>
+<td>no</td>
+<td>fixed by the vendor</td>
+</tr>
+</tbody>
+</table>
+<p>A client declares which case it is in with <code>PROVIDER_CONTEXT_LENGTH_KWARG</code> or
+<code>CONTEXT_LENGTH_REMEDY</code>; the warning fires once per client rather than once per call.</p>
+</div>
 <h2 id="notes-per-provider">Notes per provider<a class="headerlink" href="#notes-per-provider" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>OpenAIClient</code></strong> overrides <code>_rewrite_generate_kwargs</code> for o-series models (o1/o3/o4): renames <code>max_tokens → max_completion_tokens</code> and forces <code>temperature=1</code>.</li>
