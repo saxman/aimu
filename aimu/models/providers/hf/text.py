@@ -387,6 +387,10 @@ class HuggingFaceModel(Model):
 class HuggingFaceClient(BaseModelClient):
     MODELS = HuggingFaceModel
 
+    # The window is a property of the loaded weights; Transformers' generate() has no
+    # equivalent parameter.
+    CONTEXT_LENGTH_REMEDY = "The window is fixed by the model's own max_position_embeddings."
+
     # The module constant is the class's kwarg-fallback tier (see _resolve_generate_kwargs). It
     # stays a module global too, since the catalog profiles above are built by merging into it.
     DEFAULT_GENERATE_KWARGS = DEFAULT_GENERATE_KWARGS

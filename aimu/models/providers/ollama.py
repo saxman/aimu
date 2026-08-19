@@ -172,13 +172,17 @@ def _raise_if_context_overflowed(exc: ollama.ResponseError, messages: list[dict]
     raise ContextOverflowError(
         "The request no longer fits the model's context window: Ollama trimmed the message list to "
         "fit and dropped the user turn, which this model's prompt renderer requires. Shorten the "
-        "conversation, advertise fewer tools, or raise the context window (num_ctx / "
-        "OLLAMA_CONTEXT_LENGTH)."
+        "conversation, advertise fewer tools, or raise the context window "
+        "(generate_kwargs={'context_length': N}, or OLLAMA_CONTEXT_LENGTH on the server)."
     ) from exc
 
 
 class OllamaClient(BaseModelClient):
     MODELS = OllamaModel
+
+    # Ollama sizes the context window per request, so the portable key is simply renamed
+    # into its options dict alongside temperature and num_predict.
+    PROVIDER_CONTEXT_LENGTH_KWARG = "num_ctx"
 
     def __init__(
         self,
@@ -227,6 +231,10 @@ class OllamaClient(BaseModelClient):
         if "max_tokens" in kwargs:
             kwargs["num_predict"] = kwargs.pop("max_tokens")
 
+        # The context_length -> num_ctx rename is *not* here: it is declared as data above
+        # (PROVIDER_CONTEXT_LENGTH_KWARG) and applied by the base before this hook runs, because
+        # the providers that cannot size a window per request have to *drop* the key and this
+        # opt-in hook cannot carry a rule that must hold on every provider.
         return kwargs
 
     def _pop_think(self, generate_kwargs: dict) -> Union[bool, str]:

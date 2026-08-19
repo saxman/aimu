@@ -63,6 +63,13 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
 
     MODELS = Model
 
+    # The OpenAI API has no context-length parameter: a local server's window is sized when
+    # the server starts. Subclasses whose backend is a hosted model override the remedy.
+    CONTEXT_LENGTH_REMEDY = (
+        "Set it when starting the server (llama-server --ctx-size, vLLM --max-model-len, "
+        "LM Studio's context-length setting)."
+    )
+
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,
         "temperature": 0.1,
@@ -344,6 +351,11 @@ class AsyncLMStudioOpenAIClient(AsyncOpenAICompatClient):
 
 class AsyncOllamaOpenAIClient(AsyncOpenAICompatClient):
     MODELS = OllamaOpenAIModel
+
+    CONTEXT_LENGTH_REMEDY = (
+        "Set OLLAMA_CONTEXT_LENGTH on the server, or use the 'ollama' provider, whose native API "
+        "accepts context_length per request."
+    )
 
     def __init__(
         self,

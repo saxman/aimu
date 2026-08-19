@@ -106,6 +106,24 @@ class MyProviderClient(BaseModelClient):
     the value before the payload is final, read it with `generate_kwargs.get(THINKING_KWARG)`
     and still pop it at the request-building site.
 
+!!! warning "Declare what your provider does with `context_length`"
+    The portable [`context_length`](set-context-length.md) key is translated on the base too, not
+    in your hook, so a provider cannot forget the drop and put an unknown parameter on the wire.
+    Declare one of two class attributes:
+
+    ```python
+    class MyClient(BaseModelClient):
+        # Your backend sizes the window per request: name its own key, and the base renames into it.
+        PROVIDER_CONTEXT_LENGTH_KWARG = "num_ctx"
+
+        # ...or it does not: name where the caller should set it instead. The base drops the key
+        # and logs this once per client, rather than raising, so a client default stays portable.
+        CONTEXT_LENGTH_REMEDY = "Set it when starting the server (--ctx-size)."
+    ```
+
+    `tests/test_generate_kwargs_merge.py::test_every_client_declares_what_it_does_with_a_context_length`
+    fails if you declare neither, because the warning would then name no way forward.
+
 !!! note "Provider-local helpers"
     A helper used by *one* provider family lives with it (e.g. `providers/hf/_device.py`, `providers/_thinking.py`), not in `_internal/`. Put anything only your provider needs next to your provider.
 

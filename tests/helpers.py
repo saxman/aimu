@@ -490,11 +490,16 @@ def client_stand_in(client_cls, model, default_generate_kwargs=None):
 
     from aimu.models._internal.generate_kwargs import _GenerateKwargsMixin
 
+    from aimu.models._internal.chat_state import _ChatStateMixin
+
     fake = SimpleNamespace(
         model=model,
         default_generate_kwargs=dict(default_generate_kwargs or {}),
         DEFAULT_GENERATE_KWARGS=client_cls.DEFAULT_GENERATE_KWARGS,
+        PROVIDER_CONTEXT_LENGTH_KWARG=client_cls.PROVIDER_CONTEXT_LENGTH_KWARG,
+        CONTEXT_LENGTH_REMEDY=client_cls.CONTEXT_LENGTH_REMEDY,
     )
     fake._rewrite_generate_kwargs = client_cls._rewrite_generate_kwargs.__get__(fake)
     fake._resolve_generate_kwargs = _GenerateKwargsMixin._resolve_generate_kwargs.__get__(fake)
+    fake._warn_once = _ChatStateMixin._warn_once.__get__(fake)
     return fake

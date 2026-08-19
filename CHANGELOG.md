@@ -1,6 +1,21 @@
 # Changelog
 
-## v0.17.0 (2026-08-18): thinking effort on a spawned sub-agent, and a closed spec
+## v0.17.0 (2026-08-18): a portable context length, thinking effort on a spawned sub-agent, and a closed spec
+
+### Models
+
+- **New** **`context_length` sets the model's context window from `generate_kwargs`, as a client default or per request** (`aimu.models`, `aimu.aio`; new `CONTEXT_LENGTH_KWARG` and `apply_context_length()` in `aimu.models._internal.generate_kwargs`). Sizing the context window was the one generation parameter with no portable name: on Ollama it worked only by accident, because `generate_kwargs` becomes that provider's `options` dict verbatim, so `{"num_ctx": 32768}` reached the wire while the same dict against Anthropic or OpenAI would have been rejected as an unknown parameter. There was no key that meant "the context window" whatever the backend, which made the one setting a local-model user tunes most often the one setting a client default could not portably carry.
+  It is now a key like any other, layered by the same four tiers, so both scopes come for free and no signature changed:
+  ```python
+  client = aimu.client("ollama:qwen3.8:27b")
+
+  client.default_generate_kwargs = {"context_length": 32768}   # every call on this client
+  client.chat("and now the long one", generate_kwargs={"context_length": 131072})   # just this call
+  client.chat("this one can be small", generate_kwargs={"context_length": None})    # cancel the default
+  ```
+  Translation runs on the base, in `_GenerateKwargsMixin._resolve_generate_kwargs` between the merge and the provider's `_rewrite_generate_kwargs` hook, for the same reason the merge itself moved there in v0.16.0: a provider that forgot the step would put an unknown parameter on the wire. Each client declares one of two class attributes -- `PROVIDER_CONTEXT_LENGTH_KWARG` (the backend's own name, which the base renames into) or `CONTEXT_LENGTH_REMEDY` (where to set it instead) -- and a test fails if a shipped client declares neither.
+  **Ollama's native API is the only backend that sizes the window per request** (`num_ctx`). Everywhere else the window is fixed at load time, at server launch, or by the vendor, so the key is dropped and a warning names the remedy: llama.cpp's `n_ctx=` constructor argument, `OLLAMA_CONTEXT_LENGTH` for `ollama-openai`, `--ctx-size` / `--max-model-len` for the other OpenAI-compatible servers, the weights' own `max_position_embeddings` for HuggingFace, and "fixed by the provider" for Anthropic / OpenAI / Gemini. Dropping rather than raising is the same rule `thinking=` follows -- validate the argument, never the model -- so moving a working client default to another provider never turns into an exception, and the warning fires once per client rather than once per round of an agent loop. Passing a backend's own key (`num_ctx`) still works unchanged. Docs: [Set the context length](https://saxman.github.io/aimu/how-to/set-context-length/). Tests: `tests/test_generate_kwargs_merge.py`.
+- **Change** **`ContextOverflowError` and `TruncatedTurnError` name `context_length` rather than `num_ctx`** (`aimu.models.providers.ollama`, `aimu.agents._tool_loop`). Both messages are read back by a delegating agent as a tool result, so they should name the knob a caller can actually turn from Python; `OLLAMA_CONTEXT_LENGTH` is still named where it applies. No behavior change beyond the wording.
 
 ### Tools
 

@@ -74,7 +74,7 @@ Tier 3 is the one to reach for when a setting should apply to a whole conversati
 
 ```python
 client = aimu.client("ollama:qwen3.5:9b")
-client.default_generate_kwargs = {"temperature": 0.2, "num_ctx": 16384}
+client.default_generate_kwargs = {"temperature": 0.2, "context_length": 16384}
 
 client.chat("summarise this")                                    # temperature 0.2
 client.chat("now be creative", generate_kwargs={"temperature": 1.0})  # 1.0, just this call
@@ -88,6 +88,23 @@ propagate through the `ModelClient` wrapper that `aimu.client()` returns, throug
 Tier 1 sits *below* the model card on purpose: AIMU's generic `temperature=0.1` must not override
 the tuned value a card specifies. Provider-specific rewrites run *after* the merge and can still
 override you where an API demands it (see the notes below).
+
+!!! note "Context length per provider"
+    The portable [`context_length`](../how-to/set-context-length.md) key is renamed on the one
+    backend that sizes the window per request and dropped with a warning on the rest, so a client
+    default survives a provider swap instead of putting an unknown parameter on the wire.
+
+    | Client | Per request? | Where it comes from instead |
+    |---|---|---|
+    | `OllamaClient` | **yes**, as `num_ctx` | -- |
+    | `OllamaOpenAIClient` | no | `OLLAMA_CONTEXT_LENGTH` on the server |
+    | other OpenAI-compat local servers | no | server launch (`--ctx-size`, `--max-model-len`, LM Studio's setting) |
+    | `LlamaCppClient` | no | `LlamaCppClient(..., n_ctx=N)`, at load time |
+    | `HuggingFaceClient` | no | the weights' own `max_position_embeddings` |
+    | `AnthropicClient`, `OpenAIClient`, `GeminiClient` | no | fixed by the vendor |
+
+    A client declares which case it is in with `PROVIDER_CONTEXT_LENGTH_KWARG` or
+    `CONTEXT_LENGTH_REMEDY`; the warning fires once per client rather than once per call.
 
 ## Notes per provider
 

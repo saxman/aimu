@@ -43,6 +43,8 @@ class GeminiClient(OpenAICompatClient):
 
     MODELS = GeminiModel
 
+    CONTEXT_LENGTH_REMEDY = "This model's context window is fixed by the provider."
+
     # Google's endpoint has no chat-template convention; ``enable_thinking`` is a Qwen/vLLM
     # concept and would be rejected or silently ignored here.
     _SUPPORTS_CHAT_TEMPLATE_KWARGS = False

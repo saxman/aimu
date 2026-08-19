@@ -114,6 +114,7 @@ nav:
       - Stream output: how-to/stream-output.md
       - Get structured output: how-to/use-structured-output.md
       - Control thinking effort: how-to/control-thinking.md
+      - Set the context length: how-to/set-context-length.md
       - Use async (aio): how-to/use-async.md
       - Handle vision input: how-to/handle-vision.md
       - Handle audio input: how-to/handle-audio-input.md

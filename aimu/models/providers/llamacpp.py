@@ -45,6 +45,10 @@ class LlamaCppModel(Model):
 class LlamaCppClient(BaseModelClient):
     MODELS = LlamaCppModel
 
+    # llama.cpp allocates the KV cache when the GGUF is loaded, so the window is fixed for
+    # the life of the client and there is nothing per request to set.
+    CONTEXT_LENGTH_REMEDY = "Set it at construction instead: LlamaCppClient(..., n_ctx=N)."
+
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,
         "temperature": 0.1,

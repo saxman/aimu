@@ -23,6 +23,9 @@ class AsyncOllamaClient(AsyncBaseModelClient):
 
     MODELS = OllamaModel
 
+    # Ollama sizes the context window per request; the portable key is renamed into its options.
+    PROVIDER_CONTEXT_LENGTH_KWARG = "num_ctx"
+
     def __init__(
         self,
         model: OllamaModel,
@@ -72,6 +75,10 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         if "max_tokens" in kwargs:
             kwargs["num_predict"] = kwargs.pop("max_tokens")
 
+        # The context_length -> num_ctx rename is *not* here: it is declared as data above
+        # (PROVIDER_CONTEXT_LENGTH_KWARG) and applied by the base before this hook runs, because
+        # the providers that cannot size a window per request have to *drop* the key and this
+        # opt-in hook cannot carry a rule that must hold on every provider.
         return kwargs
 
     def _pop_think(self, generate_kwargs: dict) -> Union[bool, str]:

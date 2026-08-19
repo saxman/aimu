@@ -390,3 +390,173 @@ def test_profile_selection_falls_back_when_the_card_has_no_instruct_variant():
     """Most cards carry one profile, which then applies in both modes."""
     assert select_profile(_CardModel.PLAIN, ResolvedThinking(enabled=False)) == _CardModel.PLAIN.generation_kwargs
     assert select_profile(_CardModel.PLAIN, None) == _CardModel.PLAIN.generation_kwargs
+
+
+# --- the portable context_length key ------------------------------------------------------------
+#
+# The context window is sized per request on exactly one provider (Ollama's ``num_ctx``) and set
+# out of band everywhere else -- at load time (llama.cpp's ``n_ctx``), at server launch
+# (``--ctx-size`` / ``--max-model-len``), or not at all (a cloud model's window is fixed). So the
+# portable key is renamed on the one provider that can honour it and dropped on the rest, which
+# keeps a client default portable across a provider swap instead of putting an unknown parameter
+# on the wire.
+
+# Wrappers that hand a whole request to an inner client, so the inner client's declaration is
+# the one that fires: the factories and agentic views (which delegate the resolution itself), the
+# in-process async wrappers (whose _resolve_generate_kwargs calls the wrapped sync client's), and
+# the fallback clients (which delegate the public chat/generate call).
+_DELEGATES_A_WHOLE_REQUEST = _DELEGATING_WRAPPERS | {
+    "AsyncHuggingFaceClient",
+    "AsyncLlamaCppClient",
+    "FallbackClient",
+    "AsyncFallbackClient",
+}
+
+_CONTEXT_LENGTH_SUPPORTED = ["ollama", "aio_ollama"]
+_CONTEXT_LENGTH_UNSUPPORTED = sorted(set(_BUILDERS) - set(_CONTEXT_LENGTH_SUPPORTED))
+
+
+@pytest.mark.parametrize("provider", _CONTEXT_LENGTH_SUPPORTED)
+def test_context_length_is_translated_to_the_backends_own_name(provider, monkeypatch):
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    merged = client._resolve_generate_kwargs({"context_length": 8192})
+
+    assert merged["num_ctx"] == 8192
+    assert "context_length" not in merged
+
+
+@pytest.mark.parametrize("provider", _CONTEXT_LENGTH_SUPPORTED)
+def test_context_length_can_be_a_client_default(provider, monkeypatch):
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+    client.default_generate_kwargs = {"context_length": 32768}
+
+    assert client._resolve_generate_kwargs()["num_ctx"] == 32768
+    assert client._resolve_generate_kwargs({"temperature": 0.2})["num_ctx"] == 32768
+
+
+@pytest.mark.parametrize("provider", _CONTEXT_LENGTH_SUPPORTED)
+def test_a_per_call_context_length_overrides_the_client_default(provider, monkeypatch):
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+    client.default_generate_kwargs = {"context_length": 32768}
+
+    assert client._resolve_generate_kwargs({"context_length": 4096})["num_ctx"] == 4096
+
+
+@pytest.mark.parametrize("provider", _CONTEXT_LENGTH_SUPPORTED)
+def test_a_per_call_none_cancels_a_default_context_length(provider, monkeypatch):
+    """The only way back to the backend's own sizing once a client default is set."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+    client.default_generate_kwargs = {"context_length": 32768}
+
+    merged = client._resolve_generate_kwargs({"context_length": None})
+
+    assert "num_ctx" not in merged
+    assert "context_length" not in merged
+
+
+@pytest.mark.parametrize("provider", _CONTEXT_LENGTH_SUPPORTED)
+def test_the_backends_own_key_still_passes_through(provider, monkeypatch):
+    """``num_ctx`` was reaching Ollama's options verbatim before the portable key existed."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    assert client._resolve_generate_kwargs({"num_ctx": 2048})["num_ctx"] == 2048
+
+
+@pytest.mark.parametrize("provider", _CONTEXT_LENGTH_UNSUPPORTED)
+def test_context_length_never_reaches_a_backend_that_cannot_honour_it(provider, monkeypatch):
+    """Left in, it would go on the wire as an unknown parameter and fail the request."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    merged = client._resolve_generate_kwargs({"context_length": 8192})
+
+    assert "context_length" not in merged
+    assert "num_ctx" not in merged
+
+
+@pytest.mark.parametrize("provider", _CONTEXT_LENGTH_UNSUPPORTED)
+def test_dropping_context_length_warns_with_the_backends_own_remedy(provider, monkeypatch, caplog):
+    """Silent would be a bug: the caller asked for a window size and did not get one."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        client._resolve_generate_kwargs({"context_length": 8192})
+
+    assert len(caplog.records) == 1
+    message = caplog.records[0].message
+    assert "context_length" in message
+    assert client.CONTEXT_LENGTH_REMEDY in message
+
+
+@pytest.mark.parametrize("provider", _CONTEXT_LENGTH_UNSUPPORTED)
+def test_the_unsupported_context_length_warning_fires_once_per_client(provider, monkeypatch, caplog):
+    """Every round of an agent loop resolves kwargs again."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        for _ in range(3):
+            client._resolve_generate_kwargs({"context_length": 8192})
+
+    assert len(caplog.records) == 1
+
+
+@pytest.mark.parametrize("provider", _CONTEXT_LENGTH_UNSUPPORTED)
+def test_cancelling_a_context_length_does_not_warn(provider, monkeypatch, caplog):
+    """None means unset, so there is nothing the backend failed to honour."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        client._resolve_generate_kwargs({"context_length": None})
+
+    assert caplog.records == []
+
+
+def test_context_length_reaches_the_wire_as_num_ctx(monkeypatch):
+    """The end-to-end guard: what Ollama is actually sent, not what the merge returns."""
+    sent = {}
+
+    def _fake_chat(**kwargs):
+        sent.update(kwargs)
+        message = types.SimpleNamespace(tool_calls=None, content="hi", role="assistant", thinking=None)
+        return {"message": message}
+
+    monkeypatch.setattr(
+        ollama, "Client", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=_fake_chat)
+    )
+    client = ModelClient(OllamaModel.QWEN_3_5_9B)
+    client.default_generate_kwargs = {"context_length": 32768}
+
+    client.chat("hello")
+
+    assert sent["options"]["num_ctx"] == 32768
+    assert "context_length" not in sent["options"]
+
+
+def test_every_client_declares_what_it_does_with_a_context_length():
+    """A new provider must say whether it can size the window, or name the remedy if it cannot.
+
+    Neither attribute set means the key is dropped with a warning that names no way forward,
+    which is the one outcome that leaves a caller stuck. The declaration is inherited, so a
+    family (the OpenAI-compatible servers) declares it once.
+    """
+    import aimu  # noqa: F401  -- imports every installed provider client
+
+    from aimu.aio._base import AsyncBaseModelClient
+    from aimu.models.base import BaseModelClient
+
+    def descendants(cls):
+        for subclass in cls.__subclasses__():
+            yield subclass
+            yield from descendants(subclass)
+
+    undeclared = sorted(
+        f"{cls.__module__}.{cls.__qualname__}"
+        for base in (BaseModelClient, AsyncBaseModelClient)
+        for cls in descendants(base)
+        if cls.__module__.startswith("aimu.")
+        and cls.__name__ not in _DELEGATES_A_WHOLE_REQUEST
+        and not cls.PROVIDER_CONTEXT_LENGTH_KWARG
+        and not cls.CONTEXT_LENGTH_REMEDY
+    )
+
+    assert undeclared == []

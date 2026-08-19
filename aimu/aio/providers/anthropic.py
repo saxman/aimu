@@ -38,6 +38,8 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
     MODELS = AnthropicModel
 
+    CONTEXT_LENGTH_REMEDY = "This model's context window is fixed by the provider."
+
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,
         "temperature": 0.1,

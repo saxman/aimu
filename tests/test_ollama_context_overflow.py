@@ -51,7 +51,7 @@ def _assert_translated(exc: ContextOverflowError) -> None:
     # The message has to name the actual problem and the knob that fixes it, because this is what
     # a delegating agent reads back as its tool result.
     assert "context window" in str(exc)
-    assert "num_ctx" in str(exc)
+    assert "context_length" in str(exc)
 
 
 def test_chat_translates_dropped_user_turn(monkeypatch):

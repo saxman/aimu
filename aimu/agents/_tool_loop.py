@@ -159,7 +159,8 @@ class _BaseToolLoop:
         raise TruncatedTurnError(
             "The model's output was cut off before it produced an answer, so there is nothing to "
             f"continue from.{detail} Shorten the conversation or advertise fewer tools, or raise the "
-            "model's context window (for Ollama, num_ctx / OLLAMA_CONTEXT_LENGTH)."
+            "model's context window (generate_kwargs={'context_length': N} where the backend "
+            "accepts it; see docs/how-to/set-context-length.md)."
         )
 
     def _tag_injected(self, index: int, provenance: str) -> None:
