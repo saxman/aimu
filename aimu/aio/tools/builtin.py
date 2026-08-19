@@ -260,9 +260,9 @@ def make_async_subagent_tool(
     isolated :class:`aimu.aio.Agent` per call and awaits its ``run``. Parallelism is free: give the
     parent :class:`aimu.aio.Agent` ``concurrent_tool_calls=True`` and multiple spawn calls in one turn
     overlap under an ``asyncio.TaskGroup``. See the sync docstring for the full contract (generic vs
-    typed mode, the per-spec ``"model"`` / ``"thinking"`` keys, ``max_depth`` recursion guard,
-    unknown-``agent_type`` handling, and the ``tool_approval`` gate forwarded to every spawned
-    sub-agent).
+    typed mode, the per-spec ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` keys, ``max_depth``
+    recursion guard, unknown-``agent_type`` handling, and the ``tool_approval`` gate forwarded to every
+    spawned sub-agent).
 
     In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
     surface can't construct them from an enum); the process weight cache prevents reloading weights.
@@ -282,6 +282,7 @@ def make_async_subagent_tool(
         name: str,
         model_override=None,
         thinking=None,
+        generate_kwargs=None,
     ):
         from aimu.aio.agent import Agent
 
@@ -303,8 +304,12 @@ def make_async_subagent_tool(
                     observer=observer,
                 )
             )
+        client = _fresh_async_subagent_client(m)
+        if generate_kwargs:
+            # Copied, not aliased: see the sync twin.
+            client.default_generate_kwargs = dict(generate_kwargs)
         return Agent(
-            _fresh_async_subagent_client(m),
+            client,
             system_message=sys_msg,
             name=name,
             tools=child_tools,
@@ -337,6 +342,7 @@ def make_async_subagent_tool(
                 name=f"subagent-{agent_type}",
                 model_override=spec.get("model"),
                 thinking=spec.get("thinking"),
+                generate_kwargs=spec.get("generate_kwargs"),
             )
             if observer is None:
                 return await agent.run(task)

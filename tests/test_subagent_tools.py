@@ -21,6 +21,9 @@ class _RecordingModelClient:
     def __init__(self, model):
         self.model = model
         self.messages: list = []
+        # Mirrors a real client, whose default_generate_kwargs starts empty, so a test can assert that
+        # a spec omitting the key leaves it untouched rather than that the attribute is missing.
+        self.default_generate_kwargs: dict = {}
         _RecordingModelClient.instances.append(self)
 
 
@@ -222,8 +225,8 @@ def test_agent_type_with_an_unknown_key_raises():
 
 
 def test_the_unknown_key_error_names_the_keys_that_are_accepted():
-    with pytest.raises(ValueError, match="system_message, thinking, tools"):
-        make_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "temperature": 0.2}})
+    with pytest.raises(ValueError, match="generate_kwargs, model, system_message, thinking, tools"):
+        make_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "temperture": 0.2}})
 
 
 def test_the_unknown_key_error_names_the_agent_type_it_came_from():
@@ -235,8 +238,39 @@ def test_the_unknown_key_error_names_the_agent_type_it_came_from():
 
 
 def test_every_documented_spec_key_is_accepted():
-    spec = {"system_message": "S.", "tools": [], "model": MODEL, "thinking": "high"}
+    spec = {
+        "system_message": "S.",
+        "tools": [],
+        "model": MODEL,
+        "thinking": "high",
+        "generate_kwargs": {"temperature": 0.2},
+    }
     make_subagent_tool(MODEL, agent_types={"full": spec})  # must not raise
+
+
+def test_typed_dispatch_applies_per_type_generate_kwargs():
+    types = {"cold": {"system_message": "Be literal.", "generate_kwargs": {"temperature": 0.1}}}
+    spawn = make_subagent_tool(MODEL, agent_types=types)
+    spawn("cold", "extract the dates")
+    assert _RecordingModelClient.instances[-1].default_generate_kwargs == {"temperature": 0.1}
+
+
+def test_typed_dispatch_leaves_generate_kwargs_empty_when_the_spec_omits_them():
+    """Absent must stay absent: this tier sits above the model card, so a filled-in default shadows it."""
+    spawn = make_subagent_tool(MODEL, agent_types={"plain": {"system_message": "Plain."}})
+    spawn("plain", "task")
+    assert _RecordingModelClient.instances[-1].default_generate_kwargs == {}
+
+
+def test_a_specs_generate_kwargs_dict_is_not_shared_with_the_spawned_client():
+    """Two spawns of one agent_type must not accumulate each other's mutations."""
+    spec_kwargs = {"temperature": 0.1}
+    spawn = make_subagent_tool(MODEL, agent_types={"cold": {"system_message": "S.", "generate_kwargs": spec_kwargs}})
+    spawn("cold", "one")
+    _RecordingModelClient.instances[-1].default_generate_kwargs["top_p"] = 0.5
+    spawn("cold", "two")
+    assert spec_kwargs == {"temperature": 0.1}
+    assert _RecordingModelClient.instances[-1].default_generate_kwargs == {"temperature": 0.1}
 
 
 # ---------------------------------------------------------------------------
