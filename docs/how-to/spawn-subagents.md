@@ -28,7 +28,7 @@ The tool the model sees is `spawn_subagent(task: str) -> str`. Give each sub-age
 
 ## Typed sub-agents (a registry of specialists)
 
-Pass `agent_types` to switch the tool to `spawn_subagent(agent_type, task)`, mirroring Claude Code's `subagent_type` + `prompt`. Each entry is a dict with `system_message` and optional `tools` / `model` / `thinking` (see [Control thinking effort](control-thinking.md)) — those four keys and no others. The available type names are listed in the tool description, so the model knows the menu.
+Pass `agent_types` to switch the tool to `spawn_subagent(agent_type, task)`, mirroring Claude Code's `subagent_type` + `prompt`. Each entry is a dict with `system_message` and optional `tools` / `model` / `thinking` (see [Control thinking effort](control-thinking.md)) / `generate_kwargs` — those five keys and no others. `generate_kwargs` is a dict assigned to the spawned client's `default_generate_kwargs`, so one specialist can run at a cold temperature while another runs at a long context window; like `thinking` and unlike `model`, an omitted `generate_kwargs` inherits nothing, since there is no factory-level generation tier to fall back to. The available type names are listed in the tool description, so the model knows the menu.
 
 ```python
 spawn = make_subagent_tool(
@@ -41,7 +41,7 @@ spawn = make_subagent_tool(
 agent = Agent(client, "Delegate to researcher then writer.", tools=[spawn], concurrent_tool_calls=True)
 ```
 
-An unknown `agent_type` is returned to the model as a tool result (so it self-corrects), not raised. Programmer errors — `max_depth < 1`, an empty `agent_types`, a type missing `system_message`, or a spec carrying a key outside the four above — raise `ValueError` at `make_subagent_tool(...)` call time.
+An unknown `agent_type` is returned to the model as a tool result (so it self-corrects), not raised. Programmer errors — `max_depth < 1`, an empty `agent_types`, a type missing `system_message`, or a spec carrying a key outside the five above — raise `ValueError` at `make_subagent_tool(...)` call time.
 
 The spec key set is closed on purpose, because an ignored key reads exactly like an applied one: a misspelled `thinkng` or a hopeful `temperature` would leave the spawned agent at its default with nothing raised anywhere. Note the split in who is expected to recover: a bad *spec key* is the programmer's mistake and raises, while a bad *`agent_type`* is the model's and comes back as a tool result it can retry from.
 
