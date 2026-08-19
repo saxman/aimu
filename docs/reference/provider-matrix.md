@@ -116,7 +116,9 @@ override you where an API demands it (see the notes below).
     | Client | `top_k` | `min_p` | `presence_penalty` | `repetition_penalty` | `max_tokens` |
     |---|---|---|---|---|---|
     | `OllamaClient` | `top_k` | dropped | `presence_penalty` | `repeat_penalty` | `num_predict` |
-    | OpenAI-compat local servers | `extra_body` | `extra_body` | `presence_penalty` | `extra_body` | `max_tokens` |
+    | OpenAI-compat local servers (vLLM, SGLang, LM Studio, oMLX, HF Serve) | `extra_body` | `extra_body` | `presence_penalty` | `extra_body` | `max_tokens` |
+    | `LlamaServerOpenAIClient` | `extra_body` | `extra_body` | `presence_penalty` | `extra_body`, as `repeat_penalty` | `max_tokens` |
+    | `OllamaOpenAIClient` | dropped | dropped | `presence_penalty` | dropped | `max_tokens` |
     | `LlamaCppClient` | `top_k` | `min_p` | `presence_penalty` | `repeat_penalty` | `max_tokens` |
     | `HuggingFaceClient` | `top_k` | `min_p` | dropped | `repetition_penalty` | `max_new_tokens` |
     | `AnthropicClient` | `top_k` | dropped | dropped | dropped | `max_tokens` |
@@ -126,25 +128,40 @@ override you where an API demands it (see the notes below).
     to set it instead. `extra_body` means the key survives but moves: the OpenAI schema has no
     top-level place for it, and a local server reads it from the extra request field instead.
 
-    Four entries are worth the detail:
+    Six entries are worth the detail:
 
     - **Ollama's `min_p`.** The `ollama` SDK types `options` as a pydantic `Options` model with no
       `min_p` field, so the value is discarded during request validation whatever the server
       supports. Set it in the model's Modelfile (`PARAMETER min_p`) instead.
     - **HuggingFace's `presence_penalty`.** Transformers' `generate()` has no such concept and
       raises on one; `repetition_penalty` is the nearest equivalent.
+    - **`OllamaOpenAIClient`'s three knobs.** "OpenAI-compatible" describes the endpoint, not the
+      sampling surface behind it: Ollama's shim maps a fixed OpenAI field set onto its native call and
+      reads none of `top_k` / `min_p` / `repetition_penalty`, so putting them in `extra_body` would
+      hand the server three fields it discards. They are declared unsupported instead, and the remedy
+      names the native `ollama` provider (or, for `min_p`, which the native SDK cannot carry either,
+      the model's Modelfile).
+    - **`LlamaServerOpenAIClient`'s repetition knob.** llama-server accepts llama.cpp's own
+      `/completion` sampling parameters on its OpenAI endpoint, where the knob is spelled
+      `repeat_penalty`; vLLM and SGLang use `repetition_penalty`. One-key rename, and the `extra_body`
+      routing follows it, because the OpenAI SDK's `create()` takes no arbitrary keywords.
     - **The cloud endpoints' `top_k`.** Neither accepts it. Google's OpenAI-compatibility reference
       documents no top-level `top_k` and no place for it under `extra_body` either, so it is
       declared unsupported there too: a parameter the endpoint rejects fails the whole request,
       where a dropped one only stops applying.
-    - **o-series `max_tokens`.** `OpenAIClient`'s rewrite hook sends `max_completion_tokens`
-      instead for o1/o3/o4, a rename that depends on the model rather than the client, so it stays
-      in the hook rather than the table.
+    - **o-series `max_tokens`.** `OpenAIClient` sends `max_completion_tokens` instead for o1/o3/o4.
+      That rename depends on the model rather than the client, so it stays in the rewrite hook rather
+      than the table; see [Notes per provider](#notes-per-provider) for what else the hook does there.
 
     Only a value *you* set is reported: one that came from the model card's sampling profile is
     dropped silently, since most cards carry `min_p` and `repetition_penalty` and a warning would
     otherwise fire once per client for a value you never chose. A `None` value means unset on every
     key, so a per-call `None` cancels a client default without reporting anything.
+
+## Notes per provider
+
+- **`OpenAIClient`** overrides `_rewrite_generate_kwargs` for o-series models (o1/o3/o4): renames `max_tokens → max_completion_tokens`, forces `temperature=1`, and drops `top_p` (the o-series exposes no sampling control).
+- **`AnthropicClient`** stores `self.messages` in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not `<think>` tag parsing), built per the model's `ThinkingStyle`: `enabled` (`{"type": "enabled", "budget_tokens": N}`) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or `adaptive` (`{"type": "adaptive", "display": "summarized"}`, sampling params dropped) for Opus 4.7+ / Fable 5. See the [model matrix](model-matrix.md#anthropic-anthropicmodel).
 
 !!! note "Thinking control per provider"
     The portable [`thinking=`](../how-to/control-thinking.md) parameter reaches each backend
