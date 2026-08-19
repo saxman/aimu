@@ -3333,20 +3333,40 @@ the value before the payload is final, read it with <code>generate_kwargs.get(TH
 and still pop it at the request-building site.</p>
 </div>
 <div class="admonition warning">
-<p class="admonition-title">Declare what your provider does with <code>context_length</code></p>
-<p>The portable <a href="../set-context-length/"><code>context_length</code></a> key is translated on the base too, not
-in your hook, so a provider cannot forget the drop and put an unknown parameter on the wire.
-Declare one of two class attributes:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyClient</span><span class="p">(</span><span class="n">BaseModelClient</span><span class="p">):</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="c1"># Your backend sizes the window per request: name its own key, and the base renames into it.</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">PROVIDER_CONTEXT_LENGTH_KWARG</span> <span class="o">=</span> <span class="s2">"num_ctx"</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="c1"># ...or it does not: name where the caller should set it instead. The base drops the key</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="c1"># and logs this once per client, rather than raising, so a client default stays portable.</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">CONTEXT_LENGTH_REMEDY</span> <span class="o">=</span> <span class="s2">"Set it when starting the server (--ctx-size)."</span>
+<p class="admonition-title">Declare a verdict for all eight portable generation kwargs</p>
+<p>AIMU accepts eight generation parameters under one portable name each --
+<code>temperature</code>, <code>top_p</code>, <code>top_k</code>, <code>min_p</code>, <code>presence_penalty</code>, <code>repetition_penalty</code>,
+<code>max_tokens</code>, and <a href="../set-context-length/"><code>context_length</code></a> -- and your backend either accepts
+one under its own spelling or cannot honour it at all. Say which, per key, in
+<code>GENERATE_KWARG_SUPPORT</code>. The base applies the table between the tier merge and your rewrite
+hook, so a provider cannot forget the drop and put an unknown parameter on the wire.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models._internal.generate_kwargs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Unsupported</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyClient</span><span class="p">(</span><span class="n">BaseModelClient</span><span class="p">):</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">GENERATE_KWARG_SUPPORT</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="c1"># A string is your backend's own spelling; equal to the key when it passes through.</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="s2">"temperature"</span><span class="p">:</span> <span class="s2">"temperature"</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="s2">"top_p"</span><span class="p">:</span> <span class="s2">"top_p"</span><span class="p">,</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="s2">"top_k"</span><span class="p">:</span> <span class="s2">"top_k"</span><span class="p">,</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="s2">"max_tokens"</span><span class="p">:</span> <span class="s2">"max_output_tokens"</span><span class="p">,</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="c1"># Your backend sizes the window per request: name its own key, and the base renames into it.</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="s2">"context_length"</span><span class="p">:</span> <span class="s2">"num_ctx"</span><span class="p">,</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="c1"># An Unsupported drops the key and names where to set it instead. The base logs that</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="c1"># once per client, rather than raising, so a client default stays portable.</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>        <span class="s2">"min_p"</span><span class="p">:</span> <span class="n">Unsupported</span><span class="p">(</span><span class="s2">"This API has no min_p; use top_p or top_k."</span><span class="p">),</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="s2">"presence_penalty"</span><span class="p">:</span> <span class="n">Unsupported</span><span class="p">(</span><span class="s2">"This API has no penalty parameters."</span><span class="p">),</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="s2">"repetition_penalty"</span><span class="p">:</span> <span class="n">Unsupported</span><span class="p">(</span><span class="s2">"This API has no penalty parameters."</span><span class="p">),</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="p">}</span>
 </span></code></pre></div>
-<p><code>tests/test_generate_kwargs_merge.py::test_every_client_declares_what_it_does_with_a_context_length</code>
-fails if you declare neither, because the warning would then name no way forward.</p>
+<p>Only a caller's own keys warn: a value that came from the model card's sampling profile is
+dropped silently, because most cards carry <code>min_p</code> and <code>repetition_penalty</code> and reporting on
+them would fire once per client for a value the user never chose. A <code>None</code> value means unset
+on every key: dropped, no warning, so a per-call <code>None</code> cancels a client default.</p>
+<p>A family declares the table once and its members inherit it, overriding single keys where they
+differ (the OpenAI-compatible servers do exactly this).
+<code>tests/test_generate_kwargs_merge.py::test_every_client_declares_a_verdict_for_every_portable_key</code>
+fails if you leave any of the eight undeclared, because an undeclared key is forwarded unchanged.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Provider-local helpers</p>

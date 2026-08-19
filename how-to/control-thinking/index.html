@@ -3320,11 +3320,17 @@ with <code>"model"</code>: an omitted <code>"model"</code> falls back to the mod
 omitted <code>"thinking"</code> leaves the spawned agent at <code>None</code> — the factory has no thinking tier to fall
 back to. A caller wanting one default across every spec should write the resolved value into each
 spec rather than expecting inheritance.</p>
-<p>A spec's keys are a closed set (<code>system_message</code>, <code>tools</code>, <code>model</code>, <code>thinking</code> —
+<p>A spec may also carry <code>"generate_kwargs"</code>, a dict assigned to the spawned client's
+<code>default_generate_kwargs</code>, so a roster can pair one specialist with a cold temperature and another
+with a long context window. The same asymmetry with <code>"model"</code> applies here too: an omitted
+<code>"generate_kwargs"</code> leaves the spawned client's defaults empty rather than inheriting anything,
+since this tier sits <em>above</em> the model card in the precedence chain and a filled-in default would
+shadow a card's own tuned profile.</p>
+<p>A spec's keys are a closed set (<code>system_message</code>, <code>tools</code>, <code>model</code>, <code>thinking</code>, <code>generate_kwargs</code> —
 <code>aimu.tools.builtin.SUBAGENT_SPEC_KEYS</code>), and an unrecognized one raises when the factory is called:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">agent_types</span><span class="o">=</span><span class="p">{</span><span class="s2">"r"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"R."</span><span class="p">,</span> <span class="s2">"thinkng"</span><span class="p">:</span> <span class="s2">"high"</span><span class="p">}})</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># ValueError: agent_types['r'] has unknown key(s): thinkng.</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1">#             A spec may carry: model, system_message, thinking, tools.</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1">#             A spec may carry: generate_kwargs, model, system_message, thinking, tools.</span>
 </span></code></pre></div>
 <p>This matters most for exactly the value this page is about. A misspelled effort key would otherwise
 leave the spawned agent reasoning at its default, silently, while the caller believed it had asked

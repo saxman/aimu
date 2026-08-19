@@ -3472,12 +3472,141 @@ default survives a provider swap instead of putting an unknown parameter on the 
 </tr>
 </tbody>
 </table>
-<p>A client declares which case it is in with <code>PROVIDER_CONTEXT_LENGTH_KWARG</code> or
-<code>CONTEXT_LENGTH_REMEDY</code>; the warning fires once per client rather than once per call.</p>
+<p>A client declares which case it is in as its <code>GENERATE_KWARG_SUPPORT["context_length"]</code> entry,
+alongside its verdict for the other seven portable keys (below); the warning fires once per
+client rather than once per call.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Generation parameters per provider</p>
+<p>Eight generation parameters have one portable name each, and each client declares what it does
+with every one of them in <code>GENERATE_KWARG_SUPPORT</code>: the backend's own spelling for the ones it
+accepts, a drop-with-a-warning for the ones it cannot honour. <code>temperature</code> and <code>top_p</code> are
+accepted everywhere under those names; the rest vary.</p>
+<table>
+<thead>
+<tr>
+<th>Client</th>
+<th><code>top_k</code></th>
+<th><code>min_p</code></th>
+<th><code>presence_penalty</code></th>
+<th><code>repetition_penalty</code></th>
+<th><code>max_tokens</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OllamaClient</code></td>
+<td><code>top_k</code></td>
+<td>dropped</td>
+<td><code>presence_penalty</code></td>
+<td><code>repeat_penalty</code></td>
+<td><code>num_predict</code></td>
+</tr>
+<tr>
+<td>OpenAI-compat local servers (vLLM, SGLang, LM Studio, oMLX, HF Serve)</td>
+<td><code>extra_body</code></td>
+<td><code>extra_body</code></td>
+<td><code>presence_penalty</code></td>
+<td><code>extra_body</code></td>
+<td><code>max_tokens</code></td>
+</tr>
+<tr>
+<td><code>LlamaServerOpenAIClient</code></td>
+<td><code>extra_body</code></td>
+<td><code>extra_body</code></td>
+<td><code>presence_penalty</code></td>
+<td><code>extra_body</code>, as <code>repeat_penalty</code></td>
+<td><code>max_tokens</code></td>
+</tr>
+<tr>
+<td><code>OllamaOpenAIClient</code></td>
+<td>dropped</td>
+<td>dropped</td>
+<td><code>presence_penalty</code></td>
+<td>dropped</td>
+<td><code>max_tokens</code></td>
+</tr>
+<tr>
+<td><code>LlamaCppClient</code></td>
+<td><code>top_k</code></td>
+<td><code>min_p</code></td>
+<td><code>presence_penalty</code></td>
+<td><code>repeat_penalty</code></td>
+<td><code>max_tokens</code></td>
+</tr>
+<tr>
+<td><code>HuggingFaceClient</code></td>
+<td><code>top_k</code></td>
+<td><code>min_p</code></td>
+<td>dropped</td>
+<td><code>repetition_penalty</code></td>
+<td><code>max_new_tokens</code></td>
+</tr>
+<tr>
+<td><code>AnthropicClient</code></td>
+<td><code>top_k</code></td>
+<td>dropped</td>
+<td>dropped</td>
+<td>dropped</td>
+<td><code>max_tokens</code></td>
+</tr>
+<tr>
+<td><code>OpenAIClient</code>, <code>GeminiClient</code></td>
+<td>dropped</td>
+<td>dropped</td>
+<td><code>presence_penalty</code></td>
+<td>dropped</td>
+<td><code>max_tokens</code></td>
+</tr>
+</tbody>
+</table>
+<p>"dropped" means the key is removed before the request and logged once per client, naming where
+to set it instead. <code>extra_body</code> means the key survives but moves: the OpenAI schema has no
+top-level place for it, and a local server reads it from the extra request field instead.</p>
+<p><strong>The local OpenAI-compatible row is not uniformly confirmed.</strong> It follows the sampling
+extensions vLLM and SGLang document, and the two servers that leave the row (<code>OllamaOpenAIClient</code>
+and <code>LlamaServerOpenAIClient</code>, below) were each checked against their own backend's reference.
+LM Studio, oMLX, and HF Transformers Serve inherit the row unconfirmed. The cell most in doubt is
+<code>repetition_penalty</code> on an llama.cpp-engine server: LM Studio runs llama.cpp, and llama-server
+wants <code>repeat_penalty</code>, so LM Studio plausibly does too. Treat that one as untested rather than
+settled, and confirm it against the server's reference before relying on it.</p>
+<p>Six entries are worth the detail:</p>
+<ul>
+<li><strong>Ollama's <code>min_p</code>.</strong> The <code>ollama</code> SDK types <code>options</code> as a pydantic <code>Options</code> model with no
+  <code>min_p</code> field, so the value is discarded during request validation whatever the server
+  supports. Set it in the model's Modelfile (<code>PARAMETER min_p</code>) instead.</li>
+<li><strong>HuggingFace's <code>presence_penalty</code>.</strong> Transformers' <code>generate()</code> has no such concept and
+  raises on one; <code>repetition_penalty</code> is the nearest equivalent.</li>
+<li><strong><code>OllamaOpenAIClient</code>'s three knobs.</strong> "OpenAI-compatible" describes the endpoint, not the
+  sampling surface behind it: Ollama's shim maps a fixed OpenAI field set onto its native call and
+  reads none of <code>top_k</code> / <code>min_p</code> / <code>repetition_penalty</code>, so putting them in <code>extra_body</code> would
+  hand the server three fields it discards. They are declared unsupported instead, and the remedy
+  names the native <code>ollama</code> provider (or, for <code>min_p</code>, which the native SDK cannot carry either,
+  the model's Modelfile).</li>
+<li><strong><code>LlamaServerOpenAIClient</code>'s repetition knob.</strong> llama-server accepts llama.cpp's own
+  <code>/completion</code> sampling parameters on its OpenAI endpoint, where the knob is spelled
+  <code>repeat_penalty</code>; vLLM and SGLang use <code>repetition_penalty</code>. One-key rename, and the <code>extra_body</code>
+  routing follows it, because the OpenAI SDK's <code>create()</code> takes no arbitrary keywords.</li>
+<li><strong>The cloud endpoints' <code>top_k</code>.</strong> The OpenAI parameter set has none, and Google's
+  OpenAI-compatibility reference documents no top-level <code>top_k</code> and no place for it under
+  <code>extra_body</code> either, so it is declared unsupported on both: a parameter the endpoint rejects
+  fails the whole request, where a dropped one only stops applying. <strong>On Gemini that is an open
+  question, not a settled impossibility.</strong> The same reference does document
+  <code>extra_body={"generation_config": ...}</code>, and the native Gemini API carries <code>topK</code> inside
+  <code>generationConfig</code>, so that route may well work; it could be neither confirmed nor disproved
+  without a live key. Revisit the Gemini cell with one in hand.</li>
+<li><strong>o-series <code>max_tokens</code>.</strong> <code>OpenAIClient</code> sends <code>max_completion_tokens</code> instead for o1/o3/o4.
+  That rename depends on the model rather than the client, so it stays in the rewrite hook rather
+  than the table; see <a href="#notes-per-provider">Notes per provider</a> for what else the hook does there.</li>
+</ul>
+<p>Only a value <em>you</em> set is reported: one that came from the model card's sampling profile is
+dropped silently, since most cards carry <code>min_p</code> and <code>repetition_penalty</code> and a warning would
+otherwise fire once per client for a value you never chose. A <code>None</code> value means unset on every
+key, so a per-call <code>None</code> cancels a client default without reporting anything.</p>
 </div>
 <h2 id="notes-per-provider">Notes per provider<a class="headerlink" href="#notes-per-provider" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><code>OpenAIClient</code></strong> overrides <code>_rewrite_generate_kwargs</code> for o-series models (o1/o3/o4): renames <code>max_tokens → max_completion_tokens</code> and forces <code>temperature=1</code>.</li>
+<li><strong><code>OpenAIClient</code></strong> overrides <code>_rewrite_generate_kwargs</code> for o-series models (o1/o3/o4): renames <code>max_tokens → max_completion_tokens</code>, forces <code>temperature=1</code>, and drops <code>top_p</code> (the o-series exposes no sampling control).</li>
 <li><strong><code>AnthropicClient</code></strong> stores <code>self.messages</code> in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not <code>&lt;think&gt;</code> tag parsing), built per the model's <code>ThinkingStyle</code>: <code>enabled</code> (<code>{"type": "enabled", "budget_tokens": N}</code>) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or <code>adaptive</code> (<code>{"type": "adaptive", "display": "summarized"}</code>, sampling params dropped) for Opus 4.7+ / Fable 5. See the <a href="../model-matrix/#anthropic-anthropicmodel">model matrix</a>.</li>
 </ul>
 <div class="admonition note">

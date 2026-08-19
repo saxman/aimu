@@ -3215,15 +3215,20 @@ for this conversation": raise <code>context_length</code>, shorten the history, 
 <p>A larger window costs memory for the KV cache, and on a local backend an over-large value fails at
 load rather than degrading, so raise it deliberately rather than setting the maximum by default.</p>
 <h2 id="adding-it-to-a-new-provider">Adding it to a new provider<a class="headerlink" href="#adding-it-to-a-new-provider" title="Permanent link">&para;</a></h2>
-<p>A client declares what it does with the key, as two class attributes read by the shared merge (see
+<p>A client declares what it does with the key as one entry in <code>GENERATE_KWARG_SUPPORT</code>, the table the
+shared merge reads for every portable generation parameter (see
 <a href="../add-new-provider/">Add a new provider</a>):</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyClient</span><span class="p">(</span><span class="n">BaseModelClient</span><span class="p">):</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">PROVIDER_CONTEXT_LENGTH_KWARG</span> <span class="o">=</span> <span class="s2">"num_ctx"</span>        <span class="c1"># the backend's own name for it</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="c1"># ...or, when it cannot be set per request:</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">CONTEXT_LENGTH_REMEDY</span> <span class="o">=</span> <span class="s2">"Set it when starting the server (--ctx-size)."</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">GENERATE_KWARG_SUPPORT</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="c1"># ...the other seven portable keys...</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="s2">"context_length"</span><span class="p">:</span> <span class="s2">"num_ctx"</span><span class="p">,</span>  <span class="c1"># the backend's own name for it</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="c1"># ...or, when it cannot be set per request, the remedy to name in the warning:</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="c1"># "context_length": Unsupported("Set it when starting the server (--ctx-size)."),</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="p">}</span>
 </span></code></pre></div>
-<p>One of the two is required; a test fails if a client declares neither, because the warning would
-then name no way forward.</p>
+<p>The entry is required; a test fails if a client leaves any portable key undeclared, because an
+undeclared key is forwarded unchanged, and a backend that cannot take it either rejects the whole
+request or discards the value with nothing said.</p>
 
 
 
