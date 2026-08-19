@@ -77,15 +77,20 @@ load rather than degrading, so raise it deliberately rather than setting the max
 
 ## Adding it to a new provider
 
-A client declares what it does with the key, as two class attributes read by the shared merge (see
+A client declares what it does with the key as one entry in `GENERATE_KWARG_SUPPORT`, the table the
+shared merge reads for every portable generation parameter (see
 [Add a new provider](add-new-provider.md)):
 
 ```python
 class MyClient(BaseModelClient):
-    PROVIDER_CONTEXT_LENGTH_KWARG = "num_ctx"        # the backend's own name for it
-    # ...or, when it cannot be set per request:
-    CONTEXT_LENGTH_REMEDY = "Set it when starting the server (--ctx-size)."
+    GENERATE_KWARG_SUPPORT = {
+        # ...the other seven portable keys...
+        "context_length": "num_ctx",  # the backend's own name for it
+        # ...or, when it cannot be set per request, the remedy to name in the warning:
+        # "context_length": Unsupported("Set it when starting the server (--ctx-size)."),
+    }
 ```
 
-One of the two is required; a test fails if a client declares neither, because the warning would
-then name no way forward.
+The entry is required; a test fails if a client leaves any portable key undeclared, because an
+undeclared key is forwarded unchanged, and a backend that cannot take it either rejects the whole
+request or discards the value with nothing said.

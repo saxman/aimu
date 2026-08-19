@@ -9,6 +9,7 @@ from typing import Any, Iterator, Optional, Union
 import anthropic
 from dotenv import load_dotenv
 
+from .._internal.generate_kwargs import Unsupported
 from .._internal.sdk_config import sdk_client_kwargs
 from ..base import BaseModelClient, Model, ModelSpec, StreamingContentType, StreamChunk, classproperty
 from .._internal.image_input import _build_user_content_blocks, _openai_blocks_to_anthropic
@@ -88,6 +89,20 @@ class AnthropicModel(Model):
     )
 
 
+# The Messages API takes temperature, top_p, and top_k. It has no min_p and no penalty parameters, and
+# rejects an unknown one outright rather than ignoring it.
+ANTHROPIC_GENERATE_KWARGS = {
+    "temperature": "temperature",
+    "top_p": "top_p",
+    "top_k": "top_k",
+    "min_p": Unsupported("The Anthropic Messages API has no min_p; use top_p or top_k."),
+    "presence_penalty": Unsupported("The Anthropic Messages API has no penalty parameters."),
+    "repetition_penalty": Unsupported("The Anthropic Messages API has no penalty parameters."),
+    "max_tokens": "max_tokens",
+    "context_length": Unsupported("This model's context window is fixed by the provider."),
+}
+
+
 class AnthropicClient(BaseModelClient):
     """Client for Anthropic Claude models using the native anthropic SDK.
 
@@ -98,7 +113,7 @@ class AnthropicClient(BaseModelClient):
 
     MODELS = AnthropicModel
 
-    CONTEXT_LENGTH_REMEDY = "This model's context window is fixed by the provider."
+    GENERATE_KWARG_SUPPORT = ANTHROPIC_GENERATE_KWARGS
 
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,

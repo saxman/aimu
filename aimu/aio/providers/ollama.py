@@ -11,7 +11,12 @@ from aimu.models._internal.image_input import _adapt_messages_for_ollama
 from aimu.models._internal.thinking import pop_thinking
 from aimu.models._internal.usage import truncated_from_ollama, usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
-from aimu.models.providers.ollama import OllamaClient, OllamaModel, _raise_if_context_overflowed
+from aimu.models.providers.ollama import (
+    OLLAMA_GENERATE_KWARGS,
+    OllamaClient,
+    OllamaModel,
+    _raise_if_context_overflowed,
+)
 
 from .._base import AsyncBaseModelClient
 
@@ -23,8 +28,10 @@ class AsyncOllamaClient(AsyncBaseModelClient):
 
     MODELS = OllamaModel
 
-    # Ollama sizes the context window per request; the portable key is renamed into its options.
-    PROVIDER_CONTEXT_LENGTH_KWARG = "num_ctx"
+    GENERATE_KWARG_SUPPORT = OLLAMA_GENERATE_KWARGS
+
+    # DEFAULT_GENERATE_KWARGS is deliberately left at the base's empty dict: whatever neither the
+    # card nor the caller sets falls through to Ollama's own server-side defaults.
 
     def __init__(
         self,
@@ -68,18 +75,6 @@ class AsyncOllamaClient(AsyncBaseModelClient):
     @classproperty
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
-
-    def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
-        # DEFAULT_GENERATE_KWARGS is left empty on this client: whatever neither the card nor the
-        # caller sets falls through to Ollama's own server-side defaults.
-        if "max_tokens" in kwargs:
-            kwargs["num_predict"] = kwargs.pop("max_tokens")
-
-        # The context_length -> num_ctx rename is *not* here: it is declared as data above
-        # (PROVIDER_CONTEXT_LENGTH_KWARG) and applied by the base before this hook runs, because
-        # the providers that cannot size a window per request have to *drop* the key and this
-        # opt-in hook cannot carry a rule that must hold on every provider.
-        return kwargs
 
     def _pop_think(self, generate_kwargs: dict) -> Union[bool, str]:
         """Remove the resolved thinking request and return Ollama's ``think`` value.

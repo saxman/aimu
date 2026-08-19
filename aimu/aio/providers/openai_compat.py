@@ -16,6 +16,7 @@ from typing import Any, AsyncIterator, Optional, Union
 import openai
 
 from aimu.models._internal.audio_input import _build_audio_content_blocks
+from aimu.models._internal.generate_kwargs import Unsupported
 from aimu.models._internal.image_input import _build_user_content_blocks
 from aimu.models._internal.message_meta import strip_inert_keys
 from aimu.models._internal.sdk_config import sdk_client_kwargs
@@ -23,6 +24,7 @@ from aimu.models._internal.usage import usage_from_openai
 from aimu.models.providers._thinking import _ThinkingParser, _split_thinking
 from aimu.models.base import Model, ModelConnectionError, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.openai_compat import (
+    OPENAI_COMPAT_GENERATE_KWARGS,
     HFOpenAIModel,
     LlamaServerOpenAIModel,
     LMStudioOpenAIModel,
@@ -63,12 +65,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
 
     MODELS = Model
 
-    # The OpenAI API has no context-length parameter: a local server's window is sized when
-    # the server starts. Subclasses whose backend is a hosted model override the remedy.
-    CONTEXT_LENGTH_REMEDY = (
-        "Set it when starting the server (llama-server --ctx-size, vLLM --max-model-len, "
-        "LM Studio's context-length setting)."
-    )
+    GENERATE_KWARG_SUPPORT = OPENAI_COMPAT_GENERATE_KWARGS
 
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,
@@ -78,8 +75,9 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
     # ``chat_template_kwargs`` is a Qwen / vLLM template convention rather than part of the
     # OpenAI API, so cloud subclasses whose servers would reject or ignore it opt out.
     _SUPPORTS_CHAT_TEMPLATE_KWARGS = True
-    # Pure helper reused from the sync client; no I/O involved.
+    # Pure helpers reused from the sync client; no I/O involved, so the twins cannot drift.
     _apply_resolved_thinking = _SyncOpenAICompatClient._apply_resolved_thinking
+    _route_extra_body_kwargs = _SyncOpenAICompatClient._route_extra_body_kwargs
 
     def __init__(
         self,
@@ -115,7 +113,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         return [m for m in cls.MODELS if m.supports_structured_output]
 
     def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
-        return self._apply_resolved_thinking(kwargs)
+        return self._apply_resolved_thinking(self._route_extra_body_kwargs(kwargs))
 
     async def _iter_stream(self, stream) -> AsyncIterator[StreamChunk]:
         self.last_thinking = ""
@@ -352,10 +350,13 @@ class AsyncLMStudioOpenAIClient(AsyncOpenAICompatClient):
 class AsyncOllamaOpenAIClient(AsyncOpenAICompatClient):
     MODELS = OllamaOpenAIModel
 
-    CONTEXT_LENGTH_REMEDY = (
-        "Set OLLAMA_CONTEXT_LENGTH on the server, or use the 'ollama' provider, whose native API "
-        "accepts context_length per request."
-    )
+    GENERATE_KWARG_SUPPORT = {
+        **OPENAI_COMPAT_GENERATE_KWARGS,
+        "context_length": Unsupported(
+            "Set OLLAMA_CONTEXT_LENGTH on the server, or use the 'ollama' provider, whose native API "
+            "accepts context_length per request."
+        ),
+    }
 
     def __init__(
         self,

@@ -8,6 +8,7 @@ either: spreading the tiers per provider is how three of them came to ignore the
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from .thinking import THINKING_KWARG, ResolvedThinking
@@ -58,33 +59,78 @@ def merge_generate_kwargs(model: Any, fallbacks: dict, client_defaults: dict, ge
     }
 
 
-def apply_context_length(
+# Every generation parameter AIMU accepts under one portable name whatever the backend. Each client
+# declares a verdict for every one of them (see ``_GenerateKwargsMixin.GENERATE_KWARG_SUPPORT``):
+# backends spell them differently (Ollama's ``repeat_penalty``, ``num_predict``, ``num_ctx``) or cannot
+# take them at all (Anthropic has no ``min_p``; only Ollama's native API sizes the context window per
+# request), and an undeclared key either goes on the wire and fails the request or, on Ollama, is
+# discarded during request validation with nothing said.
+PORTABLE_GENERATE_KWARGS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "min_p",
+    "presence_penalty",
+    "repetition_penalty",
+    "max_tokens",
+    CONTEXT_LENGTH_KWARG,
+)
+
+
+@dataclass(frozen=True)
+class Unsupported:
+    """A key this backend has no equivalent for: drop it, and name ``remedy`` in the warning.
+
+    A verdict rather than a silent omission, because a caller who set a parameter and did not get one
+    has no other way to find out. ``remedy`` says where to set it instead, or why there is nowhere.
+    """
+
+    remedy: str
+
+
+def apply_kwarg_support(
     kwargs: dict,
     *,
-    provider_kwarg: Optional[str],
-    remedy: Optional[str],
+    support: dict,
+    caller_keys: set,
     model_id: str,
     warn: Callable[[str], None],
 ) -> dict:
-    """Translate the portable context-length key into ``provider_kwarg``, or drop it.
+    """Rename each portable key into the backend's own spelling, or drop it with a warning.
 
-    Mirrors the thinking control's rule: a backend that cannot honour the request warns and
-    continues, so moving a working client default to another provider never raises. ``None``
-    means unset, which is how a per-call dict cancels a client-level default.
+    Follows the thinking control's rule: validate the argument, never the model. A backend that cannot
+    honour a key warns and continues, so moving a working client default to another provider never
+    raises mid-run.
+
+    Runs on the base, between the tier merge and the provider's :meth:`_rewrite_generate_kwargs` hook,
+    because dropping a key is a rule that must hold on every provider and an opt-in hook cannot carry
+    one. A hook still owns the reshapes that are not a rename: where a surviving key *goes* (the
+    OpenAI-compatible ``extra_body``), and a rename that depends on the model rather than the client
+    (the o-series ``max_completion_tokens``).
+
+    ``caller_keys`` is what the caller's own two tiers set (``client.default_generate_kwargs`` and the
+    per-call dict). Only those warn: a model card's profile carries ``min_p`` and ``repetition_penalty``
+    on every Qwen member, so reporting on the merged dict would fire once per client for a value the
+    user never chose.
+
+    ``None`` means unset, so a per-call ``None`` cancels a client default without reporting an
+    unsupported key.
     """
-    if CONTEXT_LENGTH_KWARG not in kwargs:
-        return kwargs
-
-    context_length = kwargs.pop(CONTEXT_LENGTH_KWARG)
-
-    if context_length is None:
-        return kwargs
-
-    if provider_kwarg is None:
-        warn(f"{model_id}: {CONTEXT_LENGTH_KWARG} is not settable per request here. {remedy}")
-        return kwargs
-
-    kwargs[provider_kwarg] = context_length
+    for key in PORTABLE_GENERATE_KWARGS:
+        if key not in kwargs:
+            continue
+        if kwargs[key] is None:
+            del kwargs[key]
+            continue
+        verdict = support.get(key)
+        if verdict is None:  # undeclared: pass through, which the audit test forbids in-tree
+            continue
+        if isinstance(verdict, Unsupported):
+            del kwargs[key]
+            if key in caller_keys:
+                warn(f"{model_id}: {key} is not supported here. {verdict.remedy}")
+        elif verdict != key:
+            kwargs[verdict] = kwargs.pop(key)
     return kwargs
 
 
@@ -102,14 +148,10 @@ class _GenerateKwargsMixin:
     # so it never beats a model card.
     DEFAULT_GENERATE_KWARGS: dict = {}
 
-    # The provider's own name for the context-window size, or None when it cannot be set per
-    # request (the window is sized at load time, at server launch, or fixed by the vendor).
-    PROVIDER_CONTEXT_LENGTH_KWARG: Optional[str] = None
-
-    # Where to set it instead, named in the warning that accompanies dropping the key. Required
-    # of every client that leaves PROVIDER_CONTEXT_LENGTH_KWARG unset, so the warning always
-    # leaves the caller somewhere to go.
-    CONTEXT_LENGTH_REMEDY: Optional[str] = None
+    # This backend's verdict for each portable key: its own spelling for the ones it accepts, an
+    # ``Unsupported`` (carrying the remedy) for the ones it cannot honour. Empty here, which passes
+    # every key through untouched; every shipped client declares all eight, and a test enforces it.
+    GENERATE_KWARG_SUPPORT: dict = {}
 
     def _resolve_generate_kwargs(self, generate_kwargs: Optional[dict] = None) -> dict:
         """Resolve the generation kwargs for one request, in the provider's own vocabulary.
@@ -122,12 +164,14 @@ class _GenerateKwargsMixin:
         merged = merge_generate_kwargs(
             self.model, self.DEFAULT_GENERATE_KWARGS, self.default_generate_kwargs, generate_kwargs
         )
-        # Handled here rather than in each provider's hook for the same reason the merge is: a
-        # provider that forgot the drop would put an unknown parameter on the wire.
-        merged = apply_context_length(
+        # Handled here rather than in each provider's hook because a provider that forgot the drop
+        # would put an unknown parameter on the wire.
+        merged = apply_kwarg_support(
             merged,
-            provider_kwarg=self.PROVIDER_CONTEXT_LENGTH_KWARG,
-            remedy=self.CONTEXT_LENGTH_REMEDY,
+            support=self.GENERATE_KWARG_SUPPORT,
+            # The caller's own two tiers, so a card-supplied key is dropped as quietly as it is
+            # ignored today rather than warned about on every client.
+            caller_keys=set(self.default_generate_kwargs) | set(generate_kwargs or {}),
             model_id=self.model.value,
             warn=self._warn_once,
         )

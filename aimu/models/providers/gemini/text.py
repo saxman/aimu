@@ -4,7 +4,7 @@ from typing import Optional
 from dotenv import load_dotenv
 
 from ...base import Model, ModelSpec
-from ..openai_compat import OpenAICompatClient
+from ..openai_compat import CLOUD_OPENAI_GENERATE_KWARGS, OpenAICompatClient
 
 # Google's OpenAI-compatible endpoint; same openai SDK, different base_url + key
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -43,7 +43,7 @@ class GeminiClient(OpenAICompatClient):
 
     MODELS = GeminiModel
 
-    CONTEXT_LENGTH_REMEDY = "This model's context window is fixed by the provider."
+    GENERATE_KWARG_SUPPORT = CLOUD_OPENAI_GENERATE_KWARGS
 
     # Google's endpoint has no chat-template convention; ``enable_thinking`` is a Qwen/vLLM
     # concept and would be rejected or silently ignored here.

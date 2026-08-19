@@ -28,6 +28,7 @@ from ..base import (
     classproperty,
 )
 from .._internal.audio_input import _build_audio_content_blocks
+from .._internal.generate_kwargs import Unsupported
 from .._internal.image_input import _build_user_content_blocks
 from .._internal.message_meta import strip_inert_keys
 from .._internal.sdk_config import sdk_client_kwargs
@@ -57,15 +58,47 @@ def _guard_stream(stream) -> Iterator:
         raise ModelConnectionError(str(exc)) from exc
 
 
+# The local inference servers (vLLM, llama-server, LM Studio, SGLang, Ollama's OpenAI endpoint, oMLX)
+# accept the three non-OpenAI knobs as extra request fields, so they are declared supported here and
+# routed into ``extra_body`` by the hook below. The cloud endpoints reject them and declare so
+# themselves: see CLOUD_OPENAI_GENERATE_KWARGS. The OpenAI API has no context-length parameter at all,
+# because a local server's window is sized when the server starts.
+OPENAI_COMPAT_GENERATE_KWARGS = {
+    "temperature": "temperature",
+    "top_p": "top_p",
+    "top_k": "top_k",
+    "min_p": "min_p",
+    "presence_penalty": "presence_penalty",
+    "repetition_penalty": "repetition_penalty",
+    "max_tokens": "max_tokens",
+    "context_length": Unsupported(
+        "Set it when starting the server (llama-server --ctx-size, vLLM --max-model-len, "
+        "LM Studio's context-length setting)."
+    ),
+}
+
+# Keys the OpenAI API itself has no place for, which a local server takes as an extra request field.
+_EXTRA_BODY_KWARGS = ("top_k", "min_p", "repetition_penalty")
+
+# The cloud endpoints (OpenAI, and Google's OpenAI-compatible surface) accept only the OpenAI set, and
+# their context window is the vendor's to decide. Google's compatibility reference documents neither
+# top_k at the top level nor a place for it under extra_body, so it is declared unsupported here: a
+# parameter the endpoint rejects fails the whole request, where a dropped one only stops applying.
+CLOUD_OPENAI_GENERATE_KWARGS = {
+    **OPENAI_COMPAT_GENERATE_KWARGS,
+    "top_k": Unsupported("This endpoint accepts only the OpenAI parameter set, which has no top_k."),
+    "min_p": Unsupported("This endpoint accepts only the OpenAI parameter set, which has no min_p."),
+    "repetition_penalty": Unsupported(
+        "This endpoint accepts only the OpenAI parameter set. Use presence_penalty or frequency_penalty instead."
+    ),
+    "context_length": Unsupported("This model's context window is fixed by the provider."),
+}
+
+
 class OpenAICompatClient(BaseModelClient):
     MODELS = Model
 
-    # The OpenAI API has no context-length parameter: a local server's window is sized when
-    # the server starts. Subclasses whose backend is a hosted model override the remedy.
-    CONTEXT_LENGTH_REMEDY = (
-        "Set it when starting the server (llama-server --ctx-size, vLLM --max-model-len, "
-        "LM Studio's context-length setting)."
-    )
+    GENERATE_KWARG_SUPPORT = OPENAI_COMPAT_GENERATE_KWARGS
 
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,
@@ -110,7 +143,22 @@ class OpenAICompatClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_structured_output]
 
     def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
-        return self._apply_resolved_thinking(kwargs)
+        return self._apply_resolved_thinking(self._route_extra_body_kwargs(kwargs))
+
+    def _route_extra_body_kwargs(self, kwargs: dict) -> dict:
+        """Move the non-OpenAI sampling knobs into ``extra_body``, where a local server reads them.
+
+        Reshaping a request for one API is exactly what this hook is for, which is why it is not in the
+        declared table: the table says whether a key survives, and this says where it goes. A cloud
+        subclass declares these unsupported, so they are already gone by the time this runs.
+        """
+        present = {key: kwargs.pop(key) for key in _EXTRA_BODY_KWARGS if key in kwargs}
+        if not present:
+            return kwargs
+        extra_body = dict(kwargs.get("extra_body") or {})
+        extra_body.update(present)
+        kwargs["extra_body"] = extra_body
+        return kwargs
 
     def _apply_resolved_thinking(self, kwargs: dict) -> dict:
         """Translate a resolved thinking request into OpenAI-compatible request fields."""
@@ -427,10 +475,13 @@ class OllamaOpenAIModel(Model):
 class OllamaOpenAIClient(OpenAICompatClient):
     MODELS = OllamaOpenAIModel
 
-    CONTEXT_LENGTH_REMEDY = (
-        "Set OLLAMA_CONTEXT_LENGTH on the server, or use the 'ollama' provider, whose native API "
-        "accepts context_length per request."
-    )
+    GENERATE_KWARG_SUPPORT = {
+        **OPENAI_COMPAT_GENERATE_KWARGS,
+        "context_length": Unsupported(
+            "Set OLLAMA_CONTEXT_LENGTH on the server, or use the 'ollama' provider, whose native API "
+            "accepts context_length per request."
+        ),
+    }
 
     def __init__(self, model: OllamaOpenAIModel, base_url: str = OLLAMA_BASE_URL, **kwargs):
         super().__init__(model, base_url=base_url, **kwargs)

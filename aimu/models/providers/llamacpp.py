@@ -9,6 +9,7 @@ from typing import Iterator, Optional, Any, Union
 import llama_cpp
 
 from ..base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
+from .._internal.generate_kwargs import Unsupported
 from .._internal.image_input import _build_user_content_blocks
 from .._internal.thinking import pop_thinking
 from ._thinking import _split_thinking, _ThinkingParser
@@ -42,12 +43,25 @@ class LlamaCppModel(Model):
     GEMMA_4_12B = ModelSpec("gemma-4-12b", tools=True, thinking=True)
 
 
+# llama-cpp-python's create_chat_completion takes every sampling knob, spelling the repetition one
+# repeat_penalty. The window is sized when the weights load, so context_length cannot be a request
+# parameter here.
+LLAMACPP_GENERATE_KWARGS = {
+    "temperature": "temperature",
+    "top_p": "top_p",
+    "top_k": "top_k",
+    "min_p": "min_p",
+    "presence_penalty": "presence_penalty",
+    "repetition_penalty": "repeat_penalty",
+    "max_tokens": "max_tokens",
+    "context_length": Unsupported("Set it at construction instead: LlamaCppClient(..., n_ctx=N)."),
+}
+
+
 class LlamaCppClient(BaseModelClient):
     MODELS = LlamaCppModel
 
-    # llama.cpp allocates the KV cache when the GGUF is loaded, so the window is fixed for
-    # the life of the client and there is nothing per request to set.
-    CONTEXT_LENGTH_REMEDY = "Set it at construction instead: LlamaCppClient(..., n_ctx=N)."
+    GENERATE_KWARG_SUPPORT = LLAMACPP_GENERATE_KWARGS
 
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,

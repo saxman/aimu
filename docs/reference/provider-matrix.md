@@ -103,13 +103,49 @@ override you where an API demands it (see the notes below).
     | `HuggingFaceClient` | no | the weights' own `max_position_embeddings` |
     | `AnthropicClient`, `OpenAIClient`, `GeminiClient` | no | fixed by the vendor |
 
-    A client declares which case it is in with `PROVIDER_CONTEXT_LENGTH_KWARG` or
-    `CONTEXT_LENGTH_REMEDY`; the warning fires once per client rather than once per call.
+    A client declares which case it is in as its `GENERATE_KWARG_SUPPORT["context_length"]` entry,
+    alongside its verdict for the other seven portable keys (below); the warning fires once per
+    client rather than once per call.
 
-## Notes per provider
+!!! note "Generation parameters per provider"
+    Eight generation parameters have one portable name each, and each client declares what it does
+    with every one of them in `GENERATE_KWARG_SUPPORT`: the backend's own spelling for the ones it
+    accepts, a drop-with-a-warning for the ones it cannot honour. `temperature` and `top_p` are
+    accepted everywhere under those names; the rest vary.
 
-- **`OpenAIClient`** overrides `_rewrite_generate_kwargs` for o-series models (o1/o3/o4): renames `max_tokens → max_completion_tokens` and forces `temperature=1`.
-- **`AnthropicClient`** stores `self.messages` in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not `<think>` tag parsing), built per the model's `ThinkingStyle`: `enabled` (`{"type": "enabled", "budget_tokens": N}`) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or `adaptive` (`{"type": "adaptive", "display": "summarized"}`, sampling params dropped) for Opus 4.7+ / Fable 5. See the [model matrix](model-matrix.md#anthropic-anthropicmodel).
+    | Client | `top_k` | `min_p` | `presence_penalty` | `repetition_penalty` | `max_tokens` |
+    |---|---|---|---|---|---|
+    | `OllamaClient` | `top_k` | dropped | `presence_penalty` | `repeat_penalty` | `num_predict` |
+    | OpenAI-compat local servers | `extra_body` | `extra_body` | `presence_penalty` | `extra_body` | `max_tokens` |
+    | `LlamaCppClient` | `top_k` | `min_p` | `presence_penalty` | `repeat_penalty` | `max_tokens` |
+    | `HuggingFaceClient` | `top_k` | `min_p` | dropped | `repetition_penalty` | `max_new_tokens` |
+    | `AnthropicClient` | `top_k` | dropped | dropped | dropped | `max_tokens` |
+    | `OpenAIClient`, `GeminiClient` | dropped | dropped | `presence_penalty` | dropped | `max_tokens` |
+
+    "dropped" means the key is removed before the request and logged once per client, naming where
+    to set it instead. `extra_body` means the key survives but moves: the OpenAI schema has no
+    top-level place for it, and a local server reads it from the extra request field instead.
+
+    Four entries are worth the detail:
+
+    - **Ollama's `min_p`.** The `ollama` SDK types `options` as a pydantic `Options` model with no
+      `min_p` field, so the value is discarded during request validation whatever the server
+      supports. Set it in the model's Modelfile (`PARAMETER min_p`) instead.
+    - **HuggingFace's `presence_penalty`.** Transformers' `generate()` has no such concept and
+      raises on one; `repetition_penalty` is the nearest equivalent.
+    - **The cloud endpoints' `top_k`.** Neither accepts it. Google's OpenAI-compatibility reference
+      documents no top-level `top_k` and no place for it under `extra_body` either, so it is
+      declared unsupported there too: a parameter the endpoint rejects fails the whole request,
+      where a dropped one only stops applying.
+    - **o-series `max_tokens`.** `OpenAIClient`'s rewrite hook sends `max_completion_tokens`
+      instead for o1/o3/o4, a rename that depends on the model rather than the client, so it stays
+      in the hook rather than the table.
+
+    Only a value *you* set is reported: one that came from the model card's sampling profile is
+    dropped silently, since most cards carry `min_p` and `repetition_penalty` and a warning would
+    otherwise fire once per client for a value you never chose. A `None` value means unset on every
+    key, so a per-call `None` cancels a client default without reporting anything.
+
 !!! note "Thinking control per provider"
     The portable [`thinking=`](../how-to/control-thinking.md) parameter reaches each backend
     differently, and two of them cannot express it at all today:
