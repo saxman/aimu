@@ -16,7 +16,6 @@ from typing import Any, AsyncIterator, Optional, Union
 import openai
 
 from aimu.models._internal.audio_input import _build_audio_content_blocks
-from aimu.models._internal.generate_kwargs import Unsupported
 from aimu.models._internal.image_input import _build_user_content_blocks
 from aimu.models._internal.message_meta import strip_inert_keys
 from aimu.models._internal.sdk_config import sdk_client_kwargs
@@ -24,6 +23,8 @@ from aimu.models._internal.usage import usage_from_openai
 from aimu.models.providers._thinking import _ThinkingParser, _split_thinking
 from aimu.models.base import Model, ModelConnectionError, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.openai_compat import (
+    LLAMASERVER_OPENAI_GENERATE_KWARGS,
+    OLLAMA_OPENAI_GENERATE_KWARGS,
     OPENAI_COMPAT_GENERATE_KWARGS,
     HFOpenAIModel,
     LlamaServerOpenAIModel,
@@ -350,13 +351,7 @@ class AsyncLMStudioOpenAIClient(AsyncOpenAICompatClient):
 class AsyncOllamaOpenAIClient(AsyncOpenAICompatClient):
     MODELS = OllamaOpenAIModel
 
-    GENERATE_KWARG_SUPPORT = {
-        **OPENAI_COMPAT_GENERATE_KWARGS,
-        "context_length": Unsupported(
-            "Set OLLAMA_CONTEXT_LENGTH on the server, or use the 'ollama' provider, whose native API "
-            "accepts context_length per request."
-        ),
-    }
+    GENERATE_KWARG_SUPPORT = OLLAMA_OPENAI_GENERATE_KWARGS
 
     def __init__(
         self,
@@ -393,6 +388,8 @@ class AsyncVLLMOpenAIClient(AsyncOpenAICompatClient):
 
 class AsyncLlamaServerOpenAIClient(AsyncOpenAICompatClient):
     MODELS = LlamaServerOpenAIModel
+
+    GENERATE_KWARG_SUPPORT = LLAMASERVER_OPENAI_GENERATE_KWARGS
 
     def __init__(
         self,

@@ -690,3 +690,96 @@ def test_every_client_declares_a_verdict_for_every_portable_key():
     )
 
     assert incomplete == []
+
+
+# --- two OpenAI-compatible servers that do not inherit the family verdict unchanged ---------------
+#
+# "OpenAI-compatible" describes the endpoint, not the sampling surface behind it. Ollama's shim maps a
+# fixed OpenAI field set onto its native call and reads none of the three extra knobs, so declaring
+# them supported would route them into extra_body to be discarded without a word. llama-server reads
+# all three but spells the repetition one repeat_penalty, as llama.cpp's own /completion does.
+
+
+def _build_ollama_openai(monkeypatch, model):
+    from aimu.models.providers.openai_compat import OllamaOpenAIClient
+
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: types.SimpleNamespace())
+    return OllamaOpenAIClient(model)
+
+
+def _build_aio_ollama_openai(monkeypatch, model):
+    from aimu.aio.providers.openai_compat import AsyncOllamaOpenAIClient
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kw: types.SimpleNamespace())
+    return AsyncOllamaOpenAIClient(model)
+
+
+def _build_llama_server(monkeypatch, model):
+    from aimu.models.providers.openai_compat import LlamaServerOpenAIClient
+
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: types.SimpleNamespace())
+    return LlamaServerOpenAIClient(model)
+
+
+def _build_aio_llama_server(monkeypatch, model):
+    from aimu.aio.providers.openai_compat import AsyncLlamaServerOpenAIClient
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kw: types.SimpleNamespace())
+    return AsyncLlamaServerOpenAIClient(model)
+
+
+_OLLAMA_SHIM_BUILDERS = [_build_ollama_openai, _build_aio_ollama_openai]
+_LLAMA_SERVER_BUILDERS = [_build_llama_server, _build_aio_llama_server]
+
+
+@pytest.mark.parametrize("build", _OLLAMA_SHIM_BUILDERS)
+@pytest.mark.parametrize("key", ["top_k", "min_p", "repetition_penalty"])
+def test_ollamas_openai_shim_drops_the_knobs_it_cannot_read(build, key, monkeypatch, caplog):
+    """Routed into extra_body they would be dropped by the server instead, with nothing said."""
+    client = build(monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        merged = client._resolve_generate_kwargs({key: 0.5})
+
+    assert key not in merged
+    assert key not in merged.get("extra_body", {})
+    assert len(caplog.records) == 1
+    assert key in caplog.records[0].message
+    assert client.GENERATE_KWARG_SUPPORT[key].remedy in caplog.records[0].message
+
+
+@pytest.mark.parametrize("build", _OLLAMA_SHIM_BUILDERS)
+def test_ollamas_openai_shim_keeps_the_five_the_family_declares(build, monkeypatch, caplog):
+    """Only the three extra knobs differ from the family; the OpenAI set itself is untouched."""
+    client = build(monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        merged = client._resolve_generate_kwargs(
+            {"temperature": 0.2, "top_p": 0.9, "presence_penalty": 0.5, "max_tokens": 2000}
+        )
+
+    assert merged["temperature"] == 0.2
+    assert merged["top_p"] == 0.9
+    assert merged["presence_penalty"] == 0.5
+    assert merged["max_tokens"] == 2000
+    assert caplog.records == []
+    # context_length is the family's fifth key, dropped here with this client's own remedy.
+    assert "OLLAMA_CONTEXT_LENGTH" in client.GENERATE_KWARG_SUPPORT["context_length"].remedy
+
+
+@pytest.mark.parametrize("build", _LLAMA_SERVER_BUILDERS)
+def test_llama_server_routes_the_repetition_knob_under_llama_cpps_own_name(build, monkeypatch, caplog):
+    """vLLM and SGLang read repetition_penalty; llama.cpp spells the same knob repeat_penalty.
+
+    The rename and the routing have to agree: the OpenAI SDK's ``create()`` takes no arbitrary
+    keywords, so a renamed key left at the top level would raise ``TypeError`` instead of reaching the
+    server.
+    """
+    client = build(monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        merged = client._resolve_generate_kwargs({"top_k": 40, "repetition_penalty": 1.05})
+
+    assert merged["extra_body"] == {"top_k": 40, "min_p": 0.05, "repeat_penalty": 1.05}
+    assert not {"top_k", "min_p", "repetition_penalty", "repeat_penalty"} & set(merged)
+    assert caplog.records == []

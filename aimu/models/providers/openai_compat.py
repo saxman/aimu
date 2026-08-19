@@ -58,11 +58,14 @@ def _guard_stream(stream) -> Iterator:
         raise ModelConnectionError(str(exc)) from exc
 
 
-# The local inference servers (vLLM, llama-server, LM Studio, SGLang, Ollama's OpenAI endpoint, oMLX)
-# accept the three non-OpenAI knobs as extra request fields, so they are declared supported here and
-# routed into ``extra_body`` by the hook below. The cloud endpoints reject them and declare so
-# themselves: see CLOUD_OPENAI_GENERATE_KWARGS. The OpenAI API has no context-length parameter at all,
-# because a local server's window is sized when the server starts.
+# The local inference servers that read extra sampling fields off an OpenAI request (vLLM, SGLang,
+# llama-server, LM Studio, oMLX) take the three non-OpenAI knobs that way, so they are declared
+# supported here and routed into ``extra_body`` by the hook below. Two members do not inherit that
+# unchanged: llama-server spells the repetition knob ``repeat_penalty`` (see
+# LLAMASERVER_OPENAI_GENERATE_KWARGS), and Ollama's OpenAI shim reads none of the three at all (see
+# OLLAMA_OPENAI_GENERATE_KWARGS). The cloud endpoints reject them and declare so themselves: see
+# CLOUD_OPENAI_GENERATE_KWARGS. The OpenAI API has no context-length parameter at all, because a local
+# server's window is sized when the server starts.
 OPENAI_COMPAT_GENERATE_KWARGS = {
     "temperature": "temperature",
     "top_p": "top_p",
@@ -77,8 +80,11 @@ OPENAI_COMPAT_GENERATE_KWARGS = {
     ),
 }
 
-# Keys the OpenAI API itself has no place for, which a local server takes as an extra request field.
-_EXTRA_BODY_KWARGS = ("top_k", "min_p", "repetition_penalty")
+# The portable keys the OpenAI schema has no top-level place for, which a local server takes as an
+# extra request field instead. Named portably rather than as wire names: the hook routes whatever
+# spelling each client's own GENERATE_KWARG_SUPPORT renamed a key into, and routes nothing for a key
+# the client declared unsupported.
+_EXTRA_BODY_PORTABLE_KWARGS = ("top_k", "min_p", "repetition_penalty")
 
 # The cloud endpoints (OpenAI, and Google's OpenAI-compatible surface) accept only the OpenAI set, and
 # their context window is the vendor's to decide. Google's compatibility reference documents neither
@@ -149,10 +155,16 @@ class OpenAICompatClient(BaseModelClient):
         """Move the non-OpenAI sampling knobs into ``extra_body``, where a local server reads them.
 
         Reshaping a request for one API is exactly what this hook is for, which is why it is not in the
-        declared table: the table says whether a key survives, and this says where it goes. A cloud
-        subclass declares these unsupported, so they are already gone by the time this runs.
+        declared table: the table says whether a key survives and under what name, and this says where
+        it goes. Taking the names back off the table is what keeps the two halves agreeing -- a
+        subclass that renames one (llama-server's ``repeat_penalty``) or declares it unsupported
+        (Ollama's OpenAI shim, and the cloud endpoints) needs no second edit here. It matters that they
+        agree: the OpenAI SDK's ``create()`` takes no arbitrary keywords, so a renamed key left at the
+        top level would raise ``TypeError`` rather than reach the server.
         """
-        present = {key: kwargs.pop(key) for key in _EXTRA_BODY_KWARGS if key in kwargs}
+        support = self.GENERATE_KWARG_SUPPORT
+        routed = [support[key] for key in _EXTRA_BODY_PORTABLE_KWARGS if isinstance(support.get(key), str)]
+        present = {key: kwargs.pop(key) for key in routed if key in kwargs}
         if not present:
             return kwargs
         extra_body = dict(kwargs.get("extra_body") or {})
@@ -472,16 +484,32 @@ class OllamaOpenAIModel(Model):
     MUSE_GLIMMER_30B = ModelSpec("muse-glimmer:30b", tools=True, thinking=True, vision=True)
 
 
+# Ollama's OpenAI shim maps a fixed OpenAI field set onto its native call and reads none of the three
+# extra sampling knobs, so declaring them supported would route them into extra_body to be discarded
+# without a word -- the failure the declared table exists to prevent. Its native API does accept two of
+# the three, so the remedy is to use the 'ollama' provider.
+_OLLAMA_SHIM_IGNORES = "Ollama's OpenAI-compatible endpoint reads only the OpenAI parameter set. "
+
+OLLAMA_OPENAI_GENERATE_KWARGS = {
+    **OPENAI_COMPAT_GENERATE_KWARGS,
+    "top_k": Unsupported(_OLLAMA_SHIM_IGNORES + "Use the 'ollama' provider, whose native API accepts top_k."),
+    # The native provider cannot carry min_p either (its SDK's Options model has no such field), so
+    # the Modelfile is the only place this one can be set.
+    "min_p": Unsupported(_OLLAMA_SHIM_IGNORES + "Set min_p in the model's Modelfile instead (PARAMETER min_p)."),
+    "repetition_penalty": Unsupported(
+        _OLLAMA_SHIM_IGNORES + "Use the 'ollama' provider, whose native API accepts it as repeat_penalty."
+    ),
+    "context_length": Unsupported(
+        "Set OLLAMA_CONTEXT_LENGTH on the server, or use the 'ollama' provider, whose native API "
+        "accepts context_length per request."
+    ),
+}
+
+
 class OllamaOpenAIClient(OpenAICompatClient):
     MODELS = OllamaOpenAIModel
 
-    GENERATE_KWARG_SUPPORT = {
-        **OPENAI_COMPAT_GENERATE_KWARGS,
-        "context_length": Unsupported(
-            "Set OLLAMA_CONTEXT_LENGTH on the server, or use the 'ollama' provider, whose native API "
-            "accepts context_length per request."
-        ),
-    }
+    GENERATE_KWARG_SUPPORT = OLLAMA_OPENAI_GENERATE_KWARGS
 
     def __init__(self, model: OllamaOpenAIModel, base_url: str = OLLAMA_BASE_URL, **kwargs):
         super().__init__(model, base_url=base_url, **kwargs)
@@ -626,6 +654,15 @@ class LlamaServerOpenAIModel(Model):
     GEMMA_4_31B = ModelSpec("gemma-4-31b-it.gguf", tools=True, thinking=True, vision=True)
 
 
+# llama-server accepts llama.cpp's own /completion sampling parameters on its OpenAI endpoint, where
+# the repetition knob is spelled repeat_penalty. vLLM and SGLang use the portable repetition_penalty,
+# so this is a one-key override rather than a change to the family.
+LLAMASERVER_OPENAI_GENERATE_KWARGS = {
+    **OPENAI_COMPAT_GENERATE_KWARGS,
+    "repetition_penalty": "repeat_penalty",
+}
+
+
 class LlamaServerOpenAIClient(OpenAICompatClient):
     """Client for llama.cpp's llama-server OpenAI-compatible REST API.
 
@@ -634,6 +671,8 @@ class LlamaServerOpenAIClient(OpenAICompatClient):
     """
 
     MODELS = LlamaServerOpenAIModel
+
+    GENERATE_KWARG_SUPPORT = LLAMASERVER_OPENAI_GENERATE_KWARGS
 
     def __init__(self, model: LlamaServerOpenAIModel, base_url: str = LLAMASERVER_BASE_URL, **kwargs):
         super().__init__(model, base_url=base_url, **kwargs)
