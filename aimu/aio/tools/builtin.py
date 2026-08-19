@@ -260,8 +260,9 @@ def make_async_subagent_tool(
     isolated :class:`aimu.aio.Agent` per call and awaits its ``run``. Parallelism is free: give the
     parent :class:`aimu.aio.Agent` ``concurrent_tool_calls=True`` and multiple spawn calls in one turn
     overlap under an ``asyncio.TaskGroup``. See the sync docstring for the full contract (generic vs
-    typed mode, ``max_depth`` recursion guard, unknown-``agent_type`` handling, and the
-    ``tool_approval`` gate forwarded to every spawned sub-agent).
+    typed mode, the per-spec ``"model"`` / ``"thinking"`` keys, ``max_depth`` recursion guard,
+    unknown-``agent_type`` handling, and the ``tool_approval`` gate forwarded to every spawned
+    sub-agent).
 
     In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
     surface can't construct them from an enum); the process weight cache prevents reloading weights.
@@ -275,7 +276,13 @@ def make_async_subagent_tool(
     _validate_subagent_config(max_depth, agent_types)
     default_model = model.model if isinstance(model, BaseModelClient) else model
 
-    def _build_agent(sys_msg: str, agent_tools: Optional[list[Callable]], name: str, model_override=None):
+    def _build_agent(
+        sys_msg: str,
+        agent_tools: Optional[list[Callable]],
+        name: str,
+        model_override=None,
+        thinking=None,
+    ):
         from aimu.aio.agent import Agent
 
         m = model_override if model_override is not None else default_model
@@ -305,6 +312,7 @@ def make_async_subagent_tool(
             concurrent_tool_calls=concurrent_tool_calls,
             deps=deps,
             tool_approval=tool_approval,
+            thinking=thinking,
         )
 
     if agent_types is None:
@@ -328,6 +336,7 @@ def make_async_subagent_tool(
                 spec.get("tools", tools),
                 name=f"subagent-{agent_type}",
                 model_override=spec.get("model"),
+                thinking=spec.get("thinking"),
             )
             if observer is None:
                 return await agent.run(task)

@@ -1329,6 +1329,12 @@ def _subagent_docstring(agent_types: Optional[dict[str, dict]]) -> str:
     )
 
 
+# Every key a typed ``agent_types`` spec may carry. Closed rather than open because an ignored key reads
+# exactly like an applied one: a misspelled ``"thinkng"`` or a hopeful ``"temperature"`` would leave the
+# spawned agent at its default with nothing raised anywhere, and the caller believing otherwise.
+SUBAGENT_SPEC_KEYS = frozenset({"system_message", "tools", "model", "thinking"})
+
+
 def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, dict]]) -> None:
     """Raise ``ValueError`` for programmer errors at factory-call time (failures apparent)."""
     if max_depth < 1:
@@ -1339,6 +1345,12 @@ def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, di
         for type_name, spec in agent_types.items():
             if "system_message" not in spec:
                 raise ValueError(f"agent_types[{type_name!r}] is missing the required 'system_message' key.")
+            unknown = set(spec) - SUBAGENT_SPEC_KEYS
+            if unknown:
+                raise ValueError(
+                    f"agent_types[{type_name!r}] has unknown key(s): {', '.join(sorted(unknown))}. "
+                    f"A spec may carry: {', '.join(sorted(SUBAGENT_SPEC_KEYS))}."
+                )
 
 
 def make_subagent_tool(
@@ -1375,8 +1387,15 @@ def make_subagent_tool(
       sub-agent using ``system_message`` + ``tools``.
     * Typed (``agent_types`` given): the tool is ``spawn_subagent(agent_type, task)`` over a registry
       of named specialists (each value a dict with ``"system_message"`` and optional ``"tools"`` /
-      ``"model"``); the available names are listed in the tool description. An unknown ``agent_type``
-      is returned to the model as a tool result (self-correction), not raised.
+      ``"model"`` / ``"thinking"``, and nothing else -- an unrecognized spec key raises at factory-call
+      time rather than being ignored, since an ignored key reads exactly like an applied one); the
+      available names are listed in the tool description. An unknown ``agent_type``, by contrast, is
+      returned to the model as a tool result (self-correction), not raised: that one is the model's
+      mistake to recover from, where a bad spec key is the programmer's.
+      ``"thinking"`` takes the same values as :class:`~aimu.agents.Agent`'s field and is read with
+      ``.get()``, so a spec omitting it leaves the spawned agent at ``None`` rather than inheriting
+      anything from the caller: unlike ``"model"``, which falls back to the model this factory was
+      built with, there is no factory-level thinking tier to fall back to.
 
     ``max_depth`` (default 1) is the recursion guard: it counts the caller's agent as level 1, so the
     default gives spawned sub-agents *no* spawn tool of their own. ``max_depth=2`` lets one more level
@@ -1415,7 +1434,13 @@ def make_subagent_tool(
     # Normalize to an enum/string the sub-agent client is rebuilt from each call (never share a live client).
     default_model = model.model if isinstance(model, BaseModelClient) else model
 
-    def _build_agent(sys_msg: str, agent_tools: Optional[list[Callable]], name: str, model_override=None):
+    def _build_agent(
+        sys_msg: str,
+        agent_tools: Optional[list[Callable]],
+        name: str,
+        model_override=None,
+        thinking=None,
+    ):
         from aimu.agents.agent import Agent
         from aimu.models.model_client import ModelClient
 
@@ -1445,6 +1470,7 @@ def make_subagent_tool(
             concurrent_tool_calls=concurrent_tool_calls,
             deps=deps,
             tool_approval=tool_approval,
+            thinking=thinking,
         )
 
     if agent_types is None:
@@ -1465,6 +1491,7 @@ def make_subagent_tool(
                 spec.get("tools", tools),
                 name=f"subagent-{agent_type}",
                 model_override=spec.get("model"),
+                thinking=spec.get("thinking"),
             )
             return agent.run(task)
 

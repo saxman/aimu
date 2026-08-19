@@ -133,6 +133,43 @@ The workflow classes (`Chain`, `Router`, `Parallel`, ...) take no `thinking=` ar
 same reason they take no `tools=`: they compose sub-runners and have no single model turn to
 apply it to. Configure it on the `Agent`s they wrap, or on the client itself.
 
+## On a spawned sub-agent
+
+`make_subagent_tool()` / `make_async_subagent_tool()` in typed mode read a `"thinking"` key from
+each `agent_types` spec, alongside `"system_message"`, `"tools"`, and `"model"`, and set it as the
+spawned agent's field. This is the only route to a sub-agent's effort, since the spawn happens
+inside the tool rather than at a call site you control:
+
+```python
+spawn = make_subagent_tool(
+    "ollama:qwen3.8:27b",
+    agent_types={
+        "researcher": {"system_message": "Research thoroughly.", "thinking": "high"},
+        "formatter":  {"system_message": "Reformat text.", "thinking": False},
+        "generalist": {"system_message": "Handle the task."},   # field stays None
+    },
+)
+```
+
+The key is read with `.get()`, so `False` is carried rather than swallowed. Note the asymmetry
+with `"model"`: an omitted `"model"` falls back to the model the factory was built with, while an
+omitted `"thinking"` leaves the spawned agent at `None` — the factory has no thinking tier to fall
+back to. A caller wanting one default across every spec should write the resolved value into each
+spec rather than expecting inheritance.
+
+A spec's keys are a closed set (`system_message`, `tools`, `model`, `thinking` —
+`aimu.tools.builtin.SUBAGENT_SPEC_KEYS`), and an unrecognized one raises when the factory is called:
+
+```python
+make_subagent_tool(model, agent_types={"r": {"system_message": "R.", "thinkng": "high"}})
+# ValueError: agent_types['r'] has unknown key(s): thinkng.
+#             A spec may carry: model, system_message, thinking, tools.
+```
+
+This matters most for exactly the value this page is about. A misspelled effort key would otherwise
+leave the spawned agent reasoning at its default, silently, while the caller believed it had asked
+for something else — the same failure mode `thinking="xhigh"` raises for rather than accepting.
+
 One precedence note for `agent.as_model_client()`: a `thinking=` passed to that view's `chat()`
 is overridden by the agent's own `thinking` field, because the field is applied on the inner
 turns the view drives. Set the field to `None` if the view's callers should decide.

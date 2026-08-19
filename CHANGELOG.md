@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.17.0 (2026-08-18): thinking effort on a spawned sub-agent, and a closed spec
+
+### Tools
+
+- **New** **A `"thinking"` key on each `agent_types` spec, applied to the sub-agent it spawns** (`aimu.tools.builtin.make_subagent_tool`, `aimu.aio.tools.builtin.make_async_subagent_tool`). v0.16.0 made `thinking=` a standing field on `Agent`, but a *spawned* sub-agent is constructed inside the spawn tool, so there was no call site to set it on: a roster where one specialist should reason hard and another should not reason at all had no way to say so. Typed mode now reads `"thinking"` from each spec alongside `"system_message"`, `"tools"`, and `"model"`:
+  ```python
+  spawn = make_subagent_tool(
+      "ollama:qwen3.8:27b",
+      agent_types={
+          "researcher": {"system_message": "Research thoroughly.", "thinking": "high"},
+          "formatter":  {"system_message": "Reformat text.", "thinking": False},
+          "generalist": {"system_message": "Handle the task."},   # field stays None
+      },
+  )
+  ```
+  The key is read with `.get()`, so `False` is carried rather than swallowed by a truthiness test, and it takes the same four value forms the `Agent` field does. Nested spawns (`max_depth > 1`) rebuild the tool with the same `agent_types`, so a spec's value reaches every level it spawns at.
+  Note the deliberate asymmetry with `"model"`: an omitted `"model"` falls back to the model the factory was built with, while an omitted `"thinking"` leaves the spawned agent at `None`, because there is no factory-level thinking tier to fall back to. A caller with one default across a whole roster should write the resolved value into each spec rather than expect inheritance. Docs: [Control thinking effort](https://saxman.github.io/aimu/how-to/control-thinking/). Tests: `tests/test_subagent_tools.py`, `tests/test_aio_subagent_tools.py`.
+- **Change** **An `agent_types` spec's keys are a closed set, and an unrecognized one raises** (`aimu.tools.builtin`, `aimu.aio.tools.builtin`; new `SUBAGENT_SPEC_KEYS`). A spec may carry `system_message`, `tools`, `model`, `thinking`, and nothing else; anything else is a `ValueError` at factory-call time, naming the bad key, the `agent_type` it came from, and the keys that are accepted. Previously an unrecognized key was ignored in silence, which is the wrong default here because **an ignored key reads exactly like an applied one**: a misspelled `"thinkng"` or a hopeful `"temperature"` left the spawned agent at its default with nothing raised anywhere and the caller believing otherwise. Adding the `"thinking"` key above is what made this concrete -- it is the failure mode a caller reaching for per-worker effort is most likely to hit, and the same one `thinking="xhigh"` already raises for rather than quietly accepting.
+  This is a **breaking change for a spec carrying an extra key**, which previously worked by being ignored. It fails loudly and immediately (at the `make_subagent_tool()` call, not at spawn time), so the fix is to delete the key. An unknown `agent_type` is deliberately *not* treated this way and is still returned to the model as a tool result: that one is the model's mistake to self-correct, where a bad spec key is the programmer's. One corollary worth knowing for version pinning: because an *older* AIMU ignores an unknown spec key rather than raising, a `"thinking"` key against a pre-0.17.0 install is silently dropped, and no runtime check can detect it -- pin `aimu>=0.17.0` if you depend on per-spec thinking. Tests: `tests/test_subagent_tools.py`, `tests/test_aio_subagent_tools.py`.
+
 ## v0.16.0 (2026-08-18): one precedence chain for generation parameters, and thinking effort for a whole run
 
 ### Models

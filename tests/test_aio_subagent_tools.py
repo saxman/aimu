@@ -42,6 +42,7 @@ class _RecordingAsyncAgent:
         concurrent_tool_calls=False,
         deps=None,
         tool_approval=None,
+        thinking=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -51,6 +52,7 @@ class _RecordingAsyncAgent:
         self.concurrent_tool_calls = concurrent_tool_calls
         self.deps = deps
         self.tool_approval = tool_approval
+        self.thinking = thinking
         self.enter = None
         self.exit = None
         _RecordingAsyncAgent.instances.append(self)
@@ -191,6 +193,12 @@ def test_max_depth_below_one_raises():
 def test_agent_type_missing_system_message_raises():
     with pytest.raises(ValueError, match="system_message"):
         make_async_subagent_tool(MODEL, agent_types={"bad": {}})
+
+
+def test_agent_type_with_an_unknown_key_raises():
+    """Both twins share one validator, so this pins that the async factory calls it too."""
+    with pytest.raises(ValueError, match="thinkng"):
+        make_async_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "thinkng": "high"}})
 
 
 # ---------------------------------------------------------------------------
@@ -465,3 +473,24 @@ async def test_nested_spawns_inherit_the_observer():
     child = _RecordingAsyncAgent.instances[-1]
     nested = [t for t in child.tools if getattr(t, "__name__", "") == "spawn_subagent"]
     assert nested, "a depth-2 spawn tool must be handed to the child"
+
+
+async def test_typed_dispatch_honors_per_type_thinking():
+    types = {"careful": {"system_message": "Be thorough.", "thinking": "high"}}
+    spawn = make_async_subagent_tool(MODEL, agent_types=types)
+    await spawn("careful", "hard task")
+    assert _RecordingAsyncAgent.instances[-1].thinking == "high"
+
+
+async def test_typed_dispatch_carries_thinking_false():
+    """``False`` is a real request (reasoning off), so the spec read cannot be a truthiness test."""
+    types = {"quick": {"system_message": "Be quick.", "thinking": False}}
+    spawn = make_async_subagent_tool(MODEL, agent_types=types)
+    await spawn("quick", "trivial task")
+    assert _RecordingAsyncAgent.instances[-1].thinking is False
+
+
+async def test_typed_dispatch_leaves_thinking_unset_when_the_spec_omits_it():
+    spawn = make_async_subagent_tool(MODEL, agent_types={"plain": {"system_message": "Plain."}})
+    await spawn("plain", "task")
+    assert _RecordingAsyncAgent.instances[-1].thinking is None

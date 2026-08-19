@@ -39,6 +39,7 @@ class _RecordingAgent:
         concurrent_tool_calls=False,
         deps=None,
         tool_approval=None,
+        thinking=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -48,6 +49,7 @@ class _RecordingAgent:
         self.concurrent_tool_calls = concurrent_tool_calls
         self.deps = deps
         self.tool_approval = tool_approval
+        self.thinking = thinking
         self.enter = None
         self.exit = None
         _RecordingAgent.instances.append(self)
@@ -212,6 +214,31 @@ def test_agent_type_missing_system_message_raises():
         make_subagent_tool(MODEL, agent_types={"bad": {"tools": []}})
 
 
+def test_agent_type_with_an_unknown_key_raises():
+    """An ignored key reads as an applied one. A misspelled `"thinking"` would leave the spawned agent at
+    its default with nothing raised anywhere, which is the failure this refuses to allow silently."""
+    with pytest.raises(ValueError, match="thinkng"):
+        make_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "thinkng": "high"}})
+
+
+def test_the_unknown_key_error_names_the_keys_that_are_accepted():
+    with pytest.raises(ValueError, match="system_message, thinking, tools"):
+        make_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "temperature": 0.2}})
+
+
+def test_the_unknown_key_error_names_the_agent_type_it_came_from():
+    with pytest.raises(ValueError, match="'researcher'"):
+        make_subagent_tool(
+            MODEL,
+            agent_types={"writer": {"system_message": "W."}, "researcher": {"system_message": "R.", "nope": 1}},
+        )
+
+
+def test_every_documented_spec_key_is_accepted():
+    spec = {"system_message": "S.", "tools": [], "model": MODEL, "thinking": "high"}
+    make_subagent_tool(MODEL, agent_types={"full": spec})  # must not raise
+
+
 # ---------------------------------------------------------------------------
 # Parallel overlap (rides the existing concurrent_tool_calls dispatch)
 # ---------------------------------------------------------------------------
@@ -299,3 +326,24 @@ def test_no_tool_approval_defaults_to_none():
 
     agent = _RecordingAgent.instances[0]
     assert agent.tool_approval is None
+
+
+def test_typed_dispatch_honors_per_type_thinking():
+    types = {"careful": {"system_message": "Be thorough.", "thinking": "high"}}
+    spawn = make_subagent_tool(MODEL, agent_types=types)
+    spawn("careful", "hard task")
+    assert _RecordingAgent.instances[-1].thinking == "high"
+
+
+def test_typed_dispatch_carries_thinking_false():
+    """``False`` is a real request (reasoning off), so the spec read cannot be a truthiness test."""
+    types = {"quick": {"system_message": "Be quick.", "thinking": False}}
+    spawn = make_subagent_tool(MODEL, agent_types=types)
+    spawn("quick", "trivial task")
+    assert _RecordingAgent.instances[-1].thinking is False
+
+
+def test_typed_dispatch_leaves_thinking_unset_when_the_spec_omits_it():
+    spawn = make_subagent_tool(MODEL, agent_types={"plain": {"system_message": "Plain."}})
+    spawn("plain", "task")
+    assert _RecordingAgent.instances[-1].thinking is None
