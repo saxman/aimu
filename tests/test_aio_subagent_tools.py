@@ -26,6 +26,9 @@ class _FakeAsyncClient:
     def __init__(self, model):
         self.model = model
         self.messages: list = []
+        # Mirrors a real client, whose default_generate_kwargs starts empty, so a test can assert that
+        # a spec omitting the key leaves it untouched rather than that the attribute is missing.
+        self.default_generate_kwargs: dict = {}
         _FakeAsyncClient.instances.append(self)
 
 
@@ -494,3 +497,29 @@ async def test_typed_dispatch_leaves_thinking_unset_when_the_spec_omits_it():
     spawn = make_async_subagent_tool(MODEL, agent_types={"plain": {"system_message": "Plain."}})
     await spawn("plain", "task")
     assert _RecordingAsyncAgent.instances[-1].thinking is None
+
+
+async def test_typed_dispatch_applies_per_type_generate_kwargs():
+    types = {"cold": {"system_message": "Be literal.", "generate_kwargs": {"temperature": 0.1}}}
+    spawn = make_async_subagent_tool(MODEL, agent_types=types)
+    await spawn("cold", "extract the dates")
+    assert _FakeAsyncClient.instances[-1].default_generate_kwargs == {"temperature": 0.1}
+
+
+async def test_typed_dispatch_leaves_generate_kwargs_empty_when_the_spec_omits_them():
+    """Absent must stay absent: this tier sits above the model card, so a filled-in default shadows it."""
+    spawn = make_async_subagent_tool(MODEL, agent_types={"plain": {"system_message": "Plain."}})
+    await spawn("plain", "task")
+    assert _FakeAsyncClient.instances[-1].default_generate_kwargs == {}
+
+
+async def test_a_specs_generate_kwargs_dict_is_not_shared_with_the_spawned_client():
+    """Two spawns of one agent_type must not accumulate each other's mutations."""
+    spec_kwargs = {"temperature": 0.1}
+    types = {"cold": {"system_message": "S.", "generate_kwargs": spec_kwargs}}
+    spawn = make_async_subagent_tool(MODEL, agent_types=types)
+    await spawn("cold", "one")
+    _FakeAsyncClient.instances[-1].default_generate_kwargs["top_p"] = 0.5
+    await spawn("cold", "two")
+    assert spec_kwargs == {"temperature": 0.1}
+    assert _FakeAsyncClient.instances[-1].default_generate_kwargs == {"temperature": 0.1}

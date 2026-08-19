@@ -11,6 +11,8 @@ from typing import Optional
 
 from aimu.models.providers.openai.text import OpenAIModel
 
+from aimu.models.providers.openai_compat import CLOUD_OPENAI_GENERATE_KWARGS
+
 from ..openai_compat import AsyncOpenAICompatClient
 
 
@@ -19,7 +21,7 @@ class AsyncOpenAIClient(AsyncOpenAICompatClient):
 
     MODELS = OpenAIModel
 
-    CONTEXT_LENGTH_REMEDY = "This model's context window is fixed by the provider."
+    GENERATE_KWARG_SUPPORT = CLOUD_OPENAI_GENERATE_KWARGS
 
     # OpenAI's endpoint has no chat-template convention; ``enable_thinking`` is a Qwen/vLLM
     # concept and would be rejected or silently ignored here.

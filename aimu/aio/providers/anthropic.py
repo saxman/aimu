@@ -17,7 +17,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from aimu.models.providers.anthropic import AnthropicClient as _SyncAnthropicClient
-from aimu.models.providers.anthropic import AnthropicModel
+from aimu.models.providers.anthropic import ANTHROPIC_GENERATE_KWARGS, AnthropicModel
 from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.usage import usage_from_anthropic
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
@@ -38,7 +38,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
     MODELS = AnthropicModel
 
-    CONTEXT_LENGTH_REMEDY = "This model's context window is fixed by the provider."
+    GENERATE_KWARG_SUPPORT = ANTHROPIC_GENERATE_KWARGS
 
     DEFAULT_GENERATE_KWARGS = {
         "max_tokens": 1024,

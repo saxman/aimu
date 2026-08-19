@@ -481,10 +481,11 @@ def client_stand_in(client_cls, model, default_generate_kwargs=None):
 
     ``HuggingFaceClient`` loads model weights in ``__init__``, so tests of its pure request-shaping
     methods (notably ``_rewrite_generate_kwargs``) exercise them against a namespace instead. Those
-    methods reach into ``self`` for the model, the class's kwarg fallbacks, and the client-level
-    ``default_generate_kwargs`` layer, and they call the shared ``_GenerateKwargsMixin`` merge, so the
-    stand-in has to carry all four. Building it here keeps that knowledge in one place: a bare
-    ``SimpleNamespace(model=...)`` silently loses a tier the moment the merge grows one.
+    methods reach into ``self`` for the model, the class's kwarg fallbacks, the client-level
+    ``default_generate_kwargs`` layer, and the class's declared per-key kwarg support, and they call
+    the shared ``_GenerateKwargsMixin`` merge, so the stand-in has to carry every one of them.
+    Building it here keeps that knowledge in one place: a bare ``SimpleNamespace(model=...)``
+    silently loses a tier the moment the merge grows one.
     """
     from types import SimpleNamespace
 
@@ -496,8 +497,7 @@ def client_stand_in(client_cls, model, default_generate_kwargs=None):
         model=model,
         default_generate_kwargs=dict(default_generate_kwargs or {}),
         DEFAULT_GENERATE_KWARGS=client_cls.DEFAULT_GENERATE_KWARGS,
-        PROVIDER_CONTEXT_LENGTH_KWARG=client_cls.PROVIDER_CONTEXT_LENGTH_KWARG,
-        CONTEXT_LENGTH_REMEDY=client_cls.CONTEXT_LENGTH_REMEDY,
+        GENERATE_KWARG_SUPPORT=client_cls.GENERATE_KWARG_SUPPORT,
     )
     fake._rewrite_generate_kwargs = client_cls._rewrite_generate_kwargs.__get__(fake)
     fake._resolve_generate_kwargs = _GenerateKwargsMixin._resolve_generate_kwargs.__get__(fake)

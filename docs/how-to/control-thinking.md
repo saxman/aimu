@@ -157,13 +157,20 @@ omitted `"thinking"` leaves the spawned agent at `None` — the factory has no t
 back to. A caller wanting one default across every spec should write the resolved value into each
 spec rather than expecting inheritance.
 
-A spec's keys are a closed set (`system_message`, `tools`, `model`, `thinking` —
+A spec may also carry `"generate_kwargs"`, a dict assigned to the spawned client's
+`default_generate_kwargs`, so a roster can pair one specialist with a cold temperature and another
+with a long context window. The same asymmetry with `"model"` applies here too: an omitted
+`"generate_kwargs"` leaves the spawned client's defaults empty rather than inheriting anything,
+since this tier sits *above* the model card in the precedence chain and a filled-in default would
+shadow a card's own tuned profile.
+
+A spec's keys are a closed set (`system_message`, `tools`, `model`, `thinking`, `generate_kwargs` —
 `aimu.tools.builtin.SUBAGENT_SPEC_KEYS`), and an unrecognized one raises when the factory is called:
 
 ```python
 make_subagent_tool(model, agent_types={"r": {"system_message": "R.", "thinkng": "high"}})
 # ValueError: agent_types['r'] has unknown key(s): thinkng.
-#             A spec may carry: model, system_message, thinking, tools.
+#             A spec may carry: generate_kwargs, model, system_message, thinking, tools.
 ```
 
 This matters most for exactly the value this page is about. A misspelled effort key would otherwise

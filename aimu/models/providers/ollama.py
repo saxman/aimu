@@ -10,6 +10,7 @@ from ..base import (
     OllamaEmbeddingSpec,
     classproperty,
 )
+from .._internal.generate_kwargs import Unsupported
 from .._internal.image_input import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
 from .._internal.thinking import pop_thinking
 from .._internal.usage import truncated_from_ollama, usage_from_ollama
@@ -177,12 +178,33 @@ def _raise_if_context_overflowed(exc: ollama.ResponseError, messages: list[dict]
     ) from exc
 
 
+# Ollama's native options. ``repeat_penalty`` is the field its SDK actually has, so the portable
+# spelling is renamed into it rather than dropped. ``min_p`` has no field at all: the SDK types
+# ``options`` as a pydantic ``Options`` model, which discards unknown keys on validation, so the value
+# never reaches the server whatever the server supports. This is also the only backend that sizes the
+# context window per request.
+OLLAMA_GENERATE_KWARGS = {
+    "temperature": "temperature",
+    "top_p": "top_p",
+    "top_k": "top_k",
+    "min_p": Unsupported(
+        "The ollama Python SDK's Options model has no min_p field, so the key is dropped when the "
+        "request is validated. Set it in the model's Modelfile instead (PARAMETER min_p)."
+    ),
+    "presence_penalty": "presence_penalty",
+    "repetition_penalty": "repeat_penalty",
+    "max_tokens": "num_predict",
+    "context_length": "num_ctx",
+}
+
+
 class OllamaClient(BaseModelClient):
     MODELS = OllamaModel
 
-    # Ollama sizes the context window per request, so the portable key is simply renamed
-    # into its options dict alongside temperature and num_predict.
-    PROVIDER_CONTEXT_LENGTH_KWARG = "num_ctx"
+    GENERATE_KWARG_SUPPORT = OLLAMA_GENERATE_KWARGS
+
+    # DEFAULT_GENERATE_KWARGS is deliberately left at the base's empty dict: whatever neither the
+    # card nor the caller sets falls through to Ollama's own server-side defaults.
 
     def __init__(
         self,
@@ -224,18 +246,6 @@ class OllamaClient(BaseModelClient):
     @classproperty
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
-
-    def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
-        # DEFAULT_GENERATE_KWARGS is left empty on this client: whatever neither the card nor the
-        # caller sets falls through to Ollama's own server-side defaults.
-        if "max_tokens" in kwargs:
-            kwargs["num_predict"] = kwargs.pop("max_tokens")
-
-        # The context_length -> num_ctx rename is *not* here: it is declared as data above
-        # (PROVIDER_CONTEXT_LENGTH_KWARG) and applied by the base before this hook runs, because
-        # the providers that cannot size a window per request have to *drop* the key and this
-        # opt-in hook cannot carry a rule that must hold on every provider.
-        return kwargs
 
     def _pop_think(self, generate_kwargs: dict) -> Union[bool, str]:
         """Remove the resolved thinking request and return Ollama's ``think`` value.

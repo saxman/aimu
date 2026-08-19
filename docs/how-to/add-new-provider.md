@@ -106,23 +106,44 @@ class MyProviderClient(BaseModelClient):
     the value before the payload is final, read it with `generate_kwargs.get(THINKING_KWARG)`
     and still pop it at the request-building site.
 
-!!! warning "Declare what your provider does with `context_length`"
-    The portable [`context_length`](set-context-length.md) key is translated on the base too, not
-    in your hook, so a provider cannot forget the drop and put an unknown parameter on the wire.
-    Declare one of two class attributes:
+!!! warning "Declare a verdict for all eight portable generation kwargs"
+    AIMU accepts eight generation parameters under one portable name each --
+    `temperature`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `repetition_penalty`,
+    `max_tokens`, and [`context_length`](set-context-length.md) -- and your backend either accepts
+    one under its own spelling or cannot honour it at all. Say which, per key, in
+    `GENERATE_KWARG_SUPPORT`. The base applies the table between the tier merge and your rewrite
+    hook, so a provider cannot forget the drop and put an unknown parameter on the wire.
 
     ```python
-    class MyClient(BaseModelClient):
-        # Your backend sizes the window per request: name its own key, and the base renames into it.
-        PROVIDER_CONTEXT_LENGTH_KWARG = "num_ctx"
+    from aimu.models._internal.generate_kwargs import Unsupported
 
-        # ...or it does not: name where the caller should set it instead. The base drops the key
-        # and logs this once per client, rather than raising, so a client default stays portable.
-        CONTEXT_LENGTH_REMEDY = "Set it when starting the server (--ctx-size)."
+
+    class MyClient(BaseModelClient):
+        GENERATE_KWARG_SUPPORT = {
+            # A string is your backend's own spelling; equal to the key when it passes through.
+            "temperature": "temperature",
+            "top_p": "top_p",
+            "top_k": "top_k",
+            "max_tokens": "max_output_tokens",
+            # Your backend sizes the window per request: name its own key, and the base renames into it.
+            "context_length": "num_ctx",
+            # An Unsupported drops the key and names where to set it instead. The base logs that
+            # once per client, rather than raising, so a client default stays portable.
+            "min_p": Unsupported("This API has no min_p; use top_p or top_k."),
+            "presence_penalty": Unsupported("This API has no penalty parameters."),
+            "repetition_penalty": Unsupported("This API has no penalty parameters."),
+        }
     ```
 
-    `tests/test_generate_kwargs_merge.py::test_every_client_declares_what_it_does_with_a_context_length`
-    fails if you declare neither, because the warning would then name no way forward.
+    Only a caller's own keys warn: a value that came from the model card's sampling profile is
+    dropped silently, because most cards carry `min_p` and `repetition_penalty` and reporting on
+    them would fire once per client for a value the user never chose. A `None` value means unset
+    on every key: dropped, no warning, so a per-call `None` cancels a client default.
+
+    A family declares the table once and its members inherit it, overriding single keys where they
+    differ (the OpenAI-compatible servers do exactly this).
+    `tests/test_generate_kwargs_merge.py::test_every_client_declares_a_verdict_for_every_portable_key`
+    fails if you leave any of the eight undeclared, because an undeclared key is forwarded unchanged.
 
 !!! note "Provider-local helpers"
     A helper used by *one* provider family lives with it (e.g. `providers/hf/_device.py`, `providers/_thinking.py`), not in `_internal/`. Put anything only your provider needs next to your provider.

@@ -149,7 +149,9 @@ def test_the_card_supplies_what_nobody_else_sets(card_client):
 
     assert merged["temperature"] == 0.9  # the card's value, not any client's own fallback of 0.1
     assert merged["top_p"] == 0.3
-    assert merged["min_p"] == 0.05
+    # The card's third key, min_p, is asserted per provider further down instead: what a request ends
+    # up carrying depends on the backend's declared verdict for it (kept, dropped, or moved into
+    # extra_body), so it cannot be one claim across every provider.
 
 
 def test_a_per_call_kwarg_overrides_the_card_without_discarding_it(card_client):
@@ -485,7 +487,7 @@ def test_dropping_context_length_warns_with_the_backends_own_remedy(provider, mo
     assert len(caplog.records) == 1
     message = caplog.records[0].message
     assert "context_length" in message
-    assert client.CONTEXT_LENGTH_REMEDY in message
+    assert client.GENERATE_KWARG_SUPPORT["context_length"].remedy in message
 
 
 @pytest.mark.parametrize("provider", _CONTEXT_LENGTH_UNSUPPORTED)
@@ -532,16 +534,152 @@ def test_context_length_reaches_the_wire_as_num_ctx(monkeypatch):
     assert "context_length" not in sent["options"]
 
 
-def test_every_client_declares_what_it_does_with_a_context_length():
-    """A new provider must say whether it can size the window, or name the remedy if it cannot.
+# --- one declared verdict per portable key -------------------------------------------------------
+#
+# Eight keys, eight backends that spell them differently or lack them outright. Each client declares
+# what it does with every one, so an unsupported key is renamed or dropped with a warning naming the
+# remedy rather than going on the wire (or, on Ollama, being discarded by the SDK's own request
+# validation). This absorbed two earlier mechanisms: the max_tokens rename each provider did in its
+# rewrite hook, and the context-length pair of class attributes.
 
-    Neither attribute set means the key is dropped with a warning that names no way forward,
-    which is the one outcome that leaves a caller stuck. The declaration is inherited, so a
-    family (the OpenAI-compatible servers) declares it once.
+_MIN_P_UNSUPPORTED = ["aio_anthropic", "aio_ollama", "anthropic", "ollama"]
+# Accepted *and* left at the top level. The OpenAI-compatible pair accepts min_p too, but its hook
+# moves it into extra_body, which is asserted separately below.
+_MIN_P_AT_THE_TOP_LEVEL = ["hf", "llamacpp"]
+
+
+@pytest.mark.parametrize("provider", ["ollama", "aio_ollama", "llamacpp"])
+def test_repetition_penalty_is_renamed_to_the_backends_own_spelling(provider, monkeypatch):
+    """Ollama and llama.cpp both have the knob, under repeat_penalty; the portable spelling missed it."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    merged = client._resolve_generate_kwargs({"repetition_penalty": 1.05})
+
+    assert merged["repeat_penalty"] == 1.05
+    assert "repetition_penalty" not in merged
+
+
+@pytest.mark.parametrize("provider", _MIN_P_UNSUPPORTED)
+def test_an_unsupported_key_never_reaches_the_backend(provider, monkeypatch):
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    assert "min_p" not in client._resolve_generate_kwargs({"min_p": 0.05})
+
+
+@pytest.mark.parametrize("provider", _MIN_P_UNSUPPORTED)
+def test_dropping_a_key_warns_with_the_backends_own_remedy(provider, monkeypatch, caplog):
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        client._resolve_generate_kwargs({"min_p": 0.05})
+
+    assert len(caplog.records) == 1
+    message = caplog.records[0].message
+    assert "min_p" in message
+    assert client.GENERATE_KWARG_SUPPORT["min_p"].remedy in message
+
+
+@pytest.mark.parametrize("provider", _MIN_P_UNSUPPORTED)
+def test_the_unsupported_warning_fires_once_per_client(provider, monkeypatch, caplog):
+    """Every round of an agent loop resolves kwargs again."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        for _ in range(3):
+            client._resolve_generate_kwargs({"min_p": 0.05})
+
+    assert len(caplog.records) == 1
+
+
+@pytest.mark.parametrize("provider", _MIN_P_AT_THE_TOP_LEVEL)
+def test_a_supported_key_passes_through_untouched(provider, monkeypatch):
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    assert client._resolve_generate_kwargs({"min_p": 0.05})["min_p"] == 0.05
+
+
+@pytest.mark.parametrize("provider", _MIN_P_AT_THE_TOP_LEVEL)
+def test_a_cards_supported_key_still_reaches_the_request(provider, monkeypatch):
+    """Tier 2's third key: the fixture-wide tier test above cannot claim it on every provider."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    assert client._resolve_generate_kwargs()["min_p"] == 0.05
+
+
+@pytest.mark.parametrize("provider", ["openai_compat", "aio_openai_compat"])
+def test_the_non_openai_knobs_are_routed_into_extra_body(provider, monkeypatch):
+    """vLLM and llama-server read them there; the OpenAI schema has no top-level place for them."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    merged = client._resolve_generate_kwargs({"top_k": 40, "min_p": 0.05, "repetition_penalty": 1.05})
+
+    assert merged["extra_body"] == {"top_k": 40, "min_p": 0.05, "repetition_penalty": 1.05}
+    assert not {"top_k", "min_p", "repetition_penalty"} & set(merged)
+
+
+@pytest.mark.parametrize("provider", ["openai_compat", "aio_openai_compat"])
+def test_routing_into_extra_body_keeps_what_is_already_there(provider, monkeypatch):
+    """The thinking translation writes chat_template_kwargs into the same dict."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    merged = client._resolve_generate_kwargs({"top_k": 40, "extra_body": {"guided_json": {"a": 1}}})
+
+    assert merged["extra_body"] == {"guided_json": {"a": 1}, "top_k": 40, "min_p": 0.05}
+
+
+def test_a_cards_unsupported_key_is_dropped_without_warning(monkeypatch, caplog):
+    """Every Qwen card carries min_p, so warning on the merged dict would fire for a value nobody set."""
+    client = _build_ollama(monkeypatch, OllamaModel.QWEN_3_5_9B)
+
+    with caplog.at_level("WARNING"):
+        merged = client._resolve_generate_kwargs()
+
+    assert "min_p" not in merged
+    assert caplog.records == []
+
+
+@pytest.mark.parametrize("provider", _MIN_P_UNSUPPORTED)
+def test_a_none_value_is_unset_rather_than_unsupported(provider, monkeypatch, caplog):
+    """None cancels a client default, the rule context_length already followed."""
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+    client.default_generate_kwargs = {"min_p": 0.05}
+
+    with caplog.at_level("WARNING"):
+        merged = client._resolve_generate_kwargs({"min_p": None})
+
+    assert "min_p" not in merged
+    assert caplog.records == []
+
+
+def test_a_client_default_warns_like_a_per_call_value(monkeypatch, caplog):
+    """Both caller tiers are the caller's own request, so both deserve the report."""
+    client = _build_ollama(monkeypatch, _CardModel.PLAIN)
+    client.default_generate_kwargs = {"min_p": 0.05}
+
+    with caplog.at_level("WARNING"):
+        client._resolve_generate_kwargs()
+
+    assert len(caplog.records) == 1
+
+
+def test_every_client_declares_a_verdict_for_every_portable_key():
+    """A new provider must say, per key, whether it accepts it, renames it, or cannot honour it.
+
+    An undeclared key passes through, which on a backend that rejects it fails the request and on
+    Ollama is discarded during request validation with nothing said. The declaration is inherited, so
+    a family (the OpenAI-compatible servers) declares it once.
+
+    Presence alone is not enough, which is why the second half checks the shape of each verdict. The
+    resolver reads any non-``Unsupported``, non-string value the same way it reads a missing key --
+    ``support.get(key) is None`` means "undeclared, pass through" -- so a table written
+    ``{"min_p": None}`` would satisfy a presence-only audit while still forwarding ``min_p`` to a
+    backend that cannot take it, silently. A verdict is therefore the backend's own spelling as a
+    ``str`` or an :class:`Unsupported` carrying the remedy, and nothing else.
     """
     import aimu  # noqa: F401  -- imports every installed provider client
 
     from aimu.aio._base import AsyncBaseModelClient
+    from aimu.models._internal.generate_kwargs import PORTABLE_GENERATE_KWARGS, Unsupported
     from aimu.models.base import BaseModelClient
 
     def descendants(cls):
@@ -549,14 +687,119 @@ def test_every_client_declares_what_it_does_with_a_context_length():
             yield subclass
             yield from descendants(subclass)
 
-    undeclared = sorted(
-        f"{cls.__module__}.{cls.__qualname__}"
+    clients = [
+        cls
         for base in (BaseModelClient, AsyncBaseModelClient)
         for cls in descendants(base)
-        if cls.__module__.startswith("aimu.")
-        and cls.__name__ not in _DELEGATES_A_WHOLE_REQUEST
-        and not cls.PROVIDER_CONTEXT_LENGTH_KWARG
-        and not cls.CONTEXT_LENGTH_REMEDY
+        if cls.__module__.startswith("aimu.") and cls.__name__ not in _DELEGATES_A_WHOLE_REQUEST
+    ]
+
+    incomplete = sorted(
+        f"{cls.__module__}.{cls.__qualname__}: missing {', '.join(sorted(missing))}"
+        for cls in clients
+        if (missing := set(PORTABLE_GENERATE_KWARGS) - set(cls.GENERATE_KWARG_SUPPORT))
     )
 
-    assert undeclared == []
+    assert incomplete == []
+
+    malformed = sorted(
+        f"{cls.__module__}.{cls.__qualname__}: {key} = {verdict!r}"
+        for cls in clients
+        for key in PORTABLE_GENERATE_KWARGS
+        if not isinstance(verdict := cls.GENERATE_KWARG_SUPPORT.get(key), (str, Unsupported))
+    )
+
+    assert malformed == []
+
+
+# --- two OpenAI-compatible servers that do not inherit the family verdict unchanged ---------------
+#
+# "OpenAI-compatible" describes the endpoint, not the sampling surface behind it. Ollama's shim maps a
+# fixed OpenAI field set onto its native call and reads none of the three extra knobs, so declaring
+# them supported would route them into extra_body to be discarded without a word. llama-server reads
+# all three but spells the repetition one repeat_penalty, as llama.cpp's own /completion does.
+
+
+def _build_ollama_openai(monkeypatch, model):
+    from aimu.models.providers.openai_compat import OllamaOpenAIClient
+
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: types.SimpleNamespace())
+    return OllamaOpenAIClient(model)
+
+
+def _build_aio_ollama_openai(monkeypatch, model):
+    from aimu.aio.providers.openai_compat import AsyncOllamaOpenAIClient
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kw: types.SimpleNamespace())
+    return AsyncOllamaOpenAIClient(model)
+
+
+def _build_llama_server(monkeypatch, model):
+    from aimu.models.providers.openai_compat import LlamaServerOpenAIClient
+
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: types.SimpleNamespace())
+    return LlamaServerOpenAIClient(model)
+
+
+def _build_aio_llama_server(monkeypatch, model):
+    from aimu.aio.providers.openai_compat import AsyncLlamaServerOpenAIClient
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kw: types.SimpleNamespace())
+    return AsyncLlamaServerOpenAIClient(model)
+
+
+_OLLAMA_SHIM_BUILDERS = [_build_ollama_openai, _build_aio_ollama_openai]
+_LLAMA_SERVER_BUILDERS = [_build_llama_server, _build_aio_llama_server]
+
+
+@pytest.mark.parametrize("build", _OLLAMA_SHIM_BUILDERS)
+@pytest.mark.parametrize("key", ["top_k", "min_p", "repetition_penalty"])
+def test_ollamas_openai_shim_drops_the_knobs_it_cannot_read(build, key, monkeypatch, caplog):
+    """Routed into extra_body they would be dropped by the server instead, with nothing said."""
+    client = build(monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        merged = client._resolve_generate_kwargs({key: 0.5})
+
+    assert key not in merged
+    assert key not in merged.get("extra_body", {})
+    assert len(caplog.records) == 1
+    assert key in caplog.records[0].message
+    assert client.GENERATE_KWARG_SUPPORT[key].remedy in caplog.records[0].message
+
+
+@pytest.mark.parametrize("build", _OLLAMA_SHIM_BUILDERS)
+def test_ollamas_openai_shim_keeps_the_five_the_family_declares(build, monkeypatch, caplog):
+    """Only the three extra knobs differ from the family; the OpenAI set itself is untouched."""
+    client = build(monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        merged = client._resolve_generate_kwargs(
+            {"temperature": 0.2, "top_p": 0.9, "presence_penalty": 0.5, "max_tokens": 2000}
+        )
+
+    assert merged["temperature"] == 0.2
+    assert merged["top_p"] == 0.9
+    assert merged["presence_penalty"] == 0.5
+    assert merged["max_tokens"] == 2000
+    assert caplog.records == []
+    # context_length is the family's fifth key, dropped here with this client's own remedy.
+    assert "OLLAMA_CONTEXT_LENGTH" in client.GENERATE_KWARG_SUPPORT["context_length"].remedy
+
+
+@pytest.mark.parametrize("build", _LLAMA_SERVER_BUILDERS)
+def test_llama_server_routes_the_repetition_knob_under_llama_cpps_own_name(build, monkeypatch, caplog):
+    """vLLM and SGLang read repetition_penalty; llama.cpp spells the same knob repeat_penalty.
+
+    The rename and the routing have to agree: the OpenAI SDK's ``create()`` takes no arbitrary
+    keywords, so a renamed key left at the top level would raise ``TypeError`` instead of reaching the
+    server.
+    """
+    client = build(monkeypatch, _CardModel.PLAIN)
+
+    with caplog.at_level("WARNING"):
+        merged = client._resolve_generate_kwargs({"top_k": 40, "repetition_penalty": 1.05})
+
+    assert merged["extra_body"] == {"top_k": 40, "min_p": 0.05, "repeat_penalty": 1.05}
+    assert not {"top_k", "min_p", "repetition_penalty", "repeat_penalty"} & set(merged)
+    assert caplog.records == []

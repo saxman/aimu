@@ -1,5 +1,6 @@
 from ...base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
 from ..._internal.audio_input import _extract_audio_arrays, _replace_audio_with_placeholder
+from ..._internal.generate_kwargs import Unsupported
 from ..._internal.image_input import (
     _build_user_content_blocks,
     _extract_pil_images,
@@ -134,9 +135,9 @@ class ToolCallFormat(Enum):
 
 # Qwen 3.6 and 3.8 share a thinking-mode profile; 3.5 differs only in presence_penalty.
 # Values are from each model card's thinking-mode row, verified 2026-08-17.
-# Note: this path's _rewrite_generate_kwargs drops presence_penalty entirely (Transformers'
-# generate() has no such concept), so only temperature/top_p/top_k/min_p actually affect
-# generation here. The corrected presence_penalty values are kept for catalog truthfulness.
+# Note: HF_GENERATE_KWARGS declares presence_penalty unsupported on this path (Transformers'
+# generate() has no such concept), so only temperature/top_p/top_k/min_p/repetition_penalty actually
+# affect generation here. The corrected presence_penalty values are kept for catalog truthfulness.
 _QWEN_THINKING_KWARGS = {
     "temperature": 1.0,
     "top_p": 0.95,
@@ -384,12 +385,27 @@ class HuggingFaceModel(Model):
     )
 
 
+# Transformers' generate() accepts min_p and repetition_penalty but has no presence_penalty concept
+# (it raises a ValueError on one), and spells the output cap max_new_tokens.
+HF_GENERATE_KWARGS = {
+    "temperature": "temperature",
+    "top_p": "top_p",
+    "top_k": "top_k",
+    "min_p": "min_p",
+    "presence_penalty": Unsupported(
+        "Transformers' generate() has no presence_penalty. Use repetition_penalty, its nearest "
+        "equivalent, or run the model behind an OpenAI-compatible server that accepts the parameter."
+    ),
+    "repetition_penalty": "repetition_penalty",
+    "max_tokens": "max_new_tokens",
+    "context_length": Unsupported("The window is fixed by the model's own max_position_embeddings."),
+}
+
+
 class HuggingFaceClient(BaseModelClient):
     MODELS = HuggingFaceModel
 
-    # The window is a property of the loaded weights; Transformers' generate() has no
-    # equivalent parameter.
-    CONTEXT_LENGTH_REMEDY = "The window is fixed by the model's own max_position_embeddings."
+    GENERATE_KWARG_SUPPORT = HF_GENERATE_KWARGS
 
     # The module constant is the class's kwarg-fallback tier (see _resolve_generate_kwargs). It
     # stays a module global too, since the catalog profiles above are built by merging into it.
@@ -511,15 +527,10 @@ class HuggingFaceClient(BaseModelClient):
         return [m for m in cls.MODELS if m.supports_audio]
 
     def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
-        if "max_tokens" in kwargs:
-            kwargs["max_new_tokens"] = kwargs.pop("max_tokens")
-
+        # A caller who wrote Ollama's spelling still gets the parameter Transformers wants. The reverse
+        # direction of the same rename is declared in HF_GENERATE_KWARGS, which runs before this hook.
         if "repeat_penalty" in kwargs:
             kwargs["repetition_penalty"] = kwargs.pop("repeat_penalty")
-
-        # presence_penalty is an OpenAI API concept; Transformers' generate() does not
-        # accept it and raises a ValueError. Drop it silently.
-        kwargs.pop("presence_penalty", None)
 
         return kwargs
 

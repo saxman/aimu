@@ -1332,7 +1332,7 @@ def _subagent_docstring(agent_types: Optional[dict[str, dict]]) -> str:
 # Every key a typed ``agent_types`` spec may carry. Closed rather than open because an ignored key reads
 # exactly like an applied one: a misspelled ``"thinkng"`` or a hopeful ``"temperature"`` would leave the
 # spawned agent at its default with nothing raised anywhere, and the caller believing otherwise.
-SUBAGENT_SPEC_KEYS = frozenset({"system_message", "tools", "model", "thinking"})
+SUBAGENT_SPEC_KEYS = frozenset({"system_message", "tools", "model", "thinking", "generate_kwargs"})
 
 
 def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, dict]]) -> None:
@@ -1387,15 +1387,21 @@ def make_subagent_tool(
       sub-agent using ``system_message`` + ``tools``.
     * Typed (``agent_types`` given): the tool is ``spawn_subagent(agent_type, task)`` over a registry
       of named specialists (each value a dict with ``"system_message"`` and optional ``"tools"`` /
-      ``"model"`` / ``"thinking"``, and nothing else -- an unrecognized spec key raises at factory-call
-      time rather than being ignored, since an ignored key reads exactly like an applied one); the
-      available names are listed in the tool description. An unknown ``agent_type``, by contrast, is
-      returned to the model as a tool result (self-correction), not raised: that one is the model's
-      mistake to recover from, where a bad spec key is the programmer's.
+      ``"model"`` / ``"thinking"`` / ``"generate_kwargs"``, and nothing else -- an unrecognized spec key
+      raises at factory-call time rather than being ignored, since an ignored key reads exactly like an
+      applied one); the available names are listed in the tool description. An unknown ``agent_type``, by
+      contrast, is returned to the model as a tool result (self-correction), not raised: that one is the
+      model's mistake to recover from, where a bad spec key is the programmer's.
       ``"thinking"`` takes the same values as :class:`~aimu.agents.Agent`'s field and is read with
       ``.get()``, so a spec omitting it leaves the spawned agent at ``None`` rather than inheriting
       anything from the caller: unlike ``"model"``, which falls back to the model this factory was
       built with, there is no factory-level thinking tier to fall back to.
+      ``"generate_kwargs"`` is a dict assigned to the spawned client's ``default_generate_kwargs``, so it
+      applies to every request that sub-agent makes. Like ``"thinking"`` and unlike ``"model"``, an
+      omitted key inherits nothing: there is no factory-level generation tier, so a caller with one
+      default across a roster writes it into each spec. Only the keys a spec names are set, which matters
+      because this tier sits *above* the model card in the precedence chain -- a filled-in default would
+      shadow a card's own tuned profile.
 
     ``max_depth`` (default 1) is the recursion guard: it counts the caller's agent as level 1, so the
     default gives spawned sub-agents *no* spawn tool of their own. ``max_depth=2`` lets one more level
@@ -1440,6 +1446,7 @@ def make_subagent_tool(
         name: str,
         model_override=None,
         thinking=None,
+        generate_kwargs=None,
     ):
         from aimu.agents.agent import Agent
         from aimu.models.model_client import ModelClient
@@ -1461,8 +1468,13 @@ def make_subagent_tool(
                     tool_name=tool_name,
                 )
             )
+        client = ModelClient(m)
+        if generate_kwargs:
+            # Copied, not aliased: the spec's dict is reused by every spawn of this agent_type, and a
+            # client that later mutates its own defaults would otherwise edit the roster.
+            client.default_generate_kwargs = dict(generate_kwargs)
         return Agent(
-            ModelClient(m),
+            client,
             system_message=sys_msg,
             name=name,
             tools=child_tools,
@@ -1492,6 +1504,7 @@ def make_subagent_tool(
                 name=f"subagent-{agent_type}",
                 model_override=spec.get("model"),
                 thinking=spec.get("thinking"),
+                generate_kwargs=spec.get("generate_kwargs"),
             )
             return agent.run(task)
 
