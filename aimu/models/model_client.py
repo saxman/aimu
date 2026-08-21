@@ -147,18 +147,21 @@ def resolve_model(model_str: str) -> ResolvedModel:
             raise ValueError(f"Provider {provider!r} requires an endpoint: use 'openai-compat:<model_id>@<base_url>'.")
         return ResolvedModel(AdHocModel(_build_adhoc_spec(model_id, flags)), provider, base_url)
 
-    registry = _provider_registry()
-    if provider not in registry:
+    loaded = _load_provider(provider)
+    if loaded is None:
         # ``openai-compat`` is only usable when the openai_compat extra is installed; don't
         # advertise it as available otherwise (it would fail with a different ImportError).
-        available = sorted(list(registry) + ([_GENERIC_COMPAT_PROVIDER] if installed("openai") else []))
+        available = sorted(
+            [e.prefix for e in _TEXT_PROVIDERS if e.available]
+            + ([_GENERIC_COMPAT_PROVIDER] if installed("openai") else [])
+        )
         raise ValueError(f"Unknown provider {provider!r}. Available providers (with installed deps): {available}")
 
     if base_url is not None and provider not in _BASE_URL_PROVIDERS:
         supported = sorted(_BASE_URL_PROVIDERS | {_GENERIC_COMPAT_PROVIDER})
         raise ValueError(f"Provider {provider!r} does not accept an @base_url. Supported: {supported}.")
 
-    enum_cls, _client_cls = registry[provider]
+    enum_cls, _client_cls = loaded
     match = next((member for member in enum_cls if member.value == model_id), None)
     if match is not None:
         if flags:
@@ -180,7 +183,10 @@ def _sync_compat_client(provider: str):
         from .providers.openai_compat import OpenAICompatClient
 
         return OpenAICompatClient
-    return _provider_registry()[provider][1]
+    loaded = _load_provider(provider)
+    if loaded is None:
+        raise ValueError(f"Unknown provider {provider!r}.")
+    return loaded[1]
 
 
 def resolve_model_enum(model: Union[Model, str]) -> Model:

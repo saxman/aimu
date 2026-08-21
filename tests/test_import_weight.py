@@ -121,3 +121,24 @@ with mock.patch.object(u, "find_spec", fake):
     out = json.loads(proc.stdout)
     assert out["flag"] is False
     assert out["sym"] is True
+
+
+def test_client_loads_only_the_named_provider():
+    """Constructing a client for one provider must not import the others.
+
+    The import-time guards above are only half the promise: if `import aimu` is cheap but
+    the first `client()` call loads every installed provider, a caller who only wants
+    Anthropic still pays for torch.
+    """
+    probe = """
+import sys, json
+import aimu
+try:
+    aimu.client("anthropic:claude-sonnet-4-6")
+except Exception:
+    pass  # no API key in CI; the import side effects are what we are measuring
+heavy = {"torch", "transformers", "sentence_transformers", "ollama", "llama_cpp"}
+json.dump(sorted(heavy & {m.split(".")[0] for m in sys.modules}), sys.stdout)
+"""
+    proc = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
+    assert json.loads(proc.stdout) == []
