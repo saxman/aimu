@@ -365,3 +365,20 @@ def test_every_exported_name_resolves(label, module):
     """
     for name in module.__all__:
         getattr(module, name)
+
+
+def test_conditionally_exported_provider_symbols_are_not_none():
+    """A provider symbol only enters aimu.models.__all__ when its HAS_* flag is True
+    (i.e. the dependency is installed), via the `if HAS_X: __all__.extend([...])`
+    blocks in aimu/models/__init__.py. So any name in __all__ that is also one of the
+    lazily-resolved provider symbols must resolve to a real object, never None -- None
+    is the "dependency absent" outcome, which by construction shouldn't apply here.
+
+    Deliberately not extended to aimu.aio: its __all__ lists provider symbols
+    unconditionally (no HAS_*-gated __all__.extend), so None is a correct outcome there.
+    """
+    import aimu.models as m
+
+    lazy = m._LAZY_PROVIDER_SYMBOLS
+    unexpectedly_none = [n for n in m.__all__ if n in lazy and getattr(m, n) is None]
+    assert unexpectedly_none == []

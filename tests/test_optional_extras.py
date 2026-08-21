@@ -82,3 +82,21 @@ def test_document_store_importable_without_chromadb(monkeypatch):
     monkeypatch.delitem(sys.modules, "aimu.memory", raising=False)
     module = importlib.import_module("aimu.memory")
     assert module.DocumentStore is not None
+
+
+@pytest.mark.parametrize("blocked", ["chromadb", "sqlalchemy"])
+@pytest.mark.parametrize("mod", ["aimu", "aimu.models", "aimu.tools", "aimu.agents", "aimu.aio"])
+def test_core_namespaces_import_without_optional_extras(monkeypatch, blocked, mod):
+    """The five core namespaces the release promises are extra-free must import even
+    when chromadb/sqlalchemy are entirely absent.
+
+    Before the fix that moved `Prompt`/`PromptCatalog` into `aimu.prompts`'s lazy table
+    (see aimu/prompts/__init__.py), this failed for (sqlalchemy, aimu.agents) and
+    (sqlalchemy, aimu.aio): PlanExecuteEvaluator's scorer import walked into
+    aimu.prompts's eager `from .catalog import Prompt, PromptCatalog`, which raised
+    before either package finished importing.
+    """
+    _without(monkeypatch, blocked)
+    for m in [k for k in sys.modules if k.startswith("aimu")]:
+        monkeypatch.delitem(sys.modules, m, raising=False)
+    importlib.import_module(mod)
