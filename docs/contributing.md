@@ -111,6 +111,7 @@ Conventions:
 - **Plain Python over framework primitives.** No `Runnable` protocol, no `BaseTool`, no LCEL `|`, no Pydantic for tool args. See [design principles](explanation/design-principles.md) for the full list of what's deliberately out of scope.
 - **OpenAI message dicts as the only data model.** No `Message` class. Provider-specific formats are adapted at request time, never persisted.
 - **Loud failures.** Bad input raises with an actionable message. Silent skips and `try/except: pass` are reviewed carefully.
+- **Legibility beats convenience.** AIMU exists so people can find out what models and systems can actually do, so the question a review asks is: *does this make a model's real behaviour more legible, or does it hide it?* A change that is more convenient but obscures what the model did (a silent fallback, a swallowed capability mismatch, a wrapper that hides the request) is working against the point, however clean it looks.
 
 ## Adding a new provider
 

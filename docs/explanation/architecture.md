@@ -17,6 +17,10 @@ There is no `Message` class, no `Runnable` protocol, no graph DSL. Conversation 
 `list[dict]` in OpenAI format. Everything below is a consequence of keeping these interfaces small
 and composable — see [Design principles](design-principles.md).
 
+Fitting in your head is the point, not a nicety. You can follow any request from your call site to
+the provider payload, so when a run does something unexpected you can tell whether the model did it
+or the library did.
+
 ## The big picture
 
 A request flows top-down: the ergonomic top-level API resolves a model and hands off to either a

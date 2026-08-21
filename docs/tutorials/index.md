@@ -1,6 +1,6 @@
 # Tutorials
 
-Hand-held end-to-end walkthroughs. Goal: get you to a working result so you trust the library and know where things live.
+Hand-held end-to-end walkthroughs. Goal: get you to a working result so you trust the library and know where things live, and get you looking at what the model is actually doing rather than only at its final answer.
 
 Work through them in order; each builds on the previous. Total time end-to-end: about 60 minutes.
 

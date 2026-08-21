@@ -2,6 +2,8 @@
 
 Every AIMU client implements the same `BaseModelClient` interface, so swapping backends is a one-line change. `ModelClient` is the factory; it accepts either a `Model` enum member or a `"provider:model_id"` string.
 
+That is worth more than the refactoring convenience: it is what makes comparing models cheap. Run the same task on three providers and the only thing that varied is the model, so the difference you see is the models' and not your harness's. [Compare models](compare-models.md) is that loop end to end.
+
 ## Use a model string
 
 ```python

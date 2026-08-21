@@ -2,6 +2,8 @@
 
 `Benchmark` runs one prompt over a dataset across multiple `BaseModelClient` instances and aggregates per-row scores into a comparison DataFrame. Rows are driven through `chat()` with `client.reset()` between rows, so the harness handles plain `ModelClient` and `Agent.as_model_client()` views uniformly.
 
+This is how a hunch about a model becomes a number. One prompt tells you an anecdote; a dataset tells you whether the model you preferred is actually better, and whether the scaffolding you wrapped around it earned its keep. For the informal version of the same activity (capability flags, one prompt across providers, token cost, reading a run's tool calls) start with [compare models](compare-models.md).
+
 ## Basic comparison
 
 ```python

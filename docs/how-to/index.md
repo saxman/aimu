@@ -6,6 +6,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 
 ## Working with models
 
+- [Compare models](compare-models.md): find out what a model can do: capability flags, the same task across providers, token cost, what a run actually did, then `Benchmark` at scale
 - [Switch providers](switch-providers.md): change backends without changing call sites
 - [Add a new model](add-new-model.md): register a model enum member
 - [Add or update a provider](add-new-provider.md): write a provider client and wire it into the factory

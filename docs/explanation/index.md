@@ -1,11 +1,13 @@
 # Explanation
 
-Understanding-oriented documentation. The *why*: what AIMU is, how its parts fit together, and what tradeoffs the design makes (and refuses to make).
+Understanding-oriented documentation. The *why*: what AIMU is for, how its parts fit together, and what tradeoffs the design makes (and refuses to make).
+
+The short version: AIMU exists so you can find out what generative AI models and systems are actually capable of, and every design decision below is an attempt to keep the library from getting in the way of that.
 
 Read these when you want to know *why* the API looks the way it does, not just how to use it.
 
 - **[Architecture](architecture.md)**: the load-bearing shape: `BaseModelClient`, `Agent`, `Runner`, how providers dispatch.
-- **[Design principles](design-principles.md)**: what AIMU deliberately *doesn't* do, and why (the line that separates AIMU from LangChain / LangGraph / Strands / PydanticAI).
+- **[Design principles](design-principles.md)**: why AIMU exists, the six principles that follow from it, and what each one therefore rules out (the line that separates AIMU from LangChain / LangGraph / Strands / PydanticAI). Start here.
 - **[Agents vs workflows](agents-vs-workflows.md)**: Anthropic's taxonomy and when to pick which.
 - **[StreamChunk model](streamchunk-model.md)**: why one chunk type instead of three.
 - **[System message lifecycle](system-message-lifecycle.md)**: seeded before the first chat, then swapped in place mid-conversation; `reset()` clears history.

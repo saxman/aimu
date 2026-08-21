@@ -7,9 +7,11 @@
 
 # AIMU
 
-**AI Modeling Utilities**: a lightweight Python library for building AI-powered applications with a consistent, provider-agnostic interface across text, images, audio, and speech.
+**AI Modeling Utilities**: a Python library for finding out what generative AI models and systems are actually capable of, and understanding how they work while you do it.
 
-Language models are the primary building block, with the same interface extending to image generation, audio generation, and text-to-speech. AIMU separates autonomous agents from code-controlled workflows, and treats agents as composable units that can be used anywhere a plain model client is accepted. Tool integration is structural (not a plugin), semantic and document memory can be dropped in, and a prompt-tuning loop optimises prompts against labelled data without ML machinery.
+AIMU gives you one provider-agnostic interface across text, images, audio, and speech, so trying a task on a different model is a string change and the difference you observe is the models' and not your harness's. Language models are the primary building block, with the same interface extending to image generation, audio generation, and text-to-speech. Agents and code-controlled workflows are separated but interchangeable, tool integration is structural rather than a plugin, semantic and document memory drop in, and a prompt-tuning loop optimises prompts against labelled data without ML machinery.
+
+It is all plain Python you can read, so when a run surprises you, you can tell whether the surprise was the model's or the library's. See [design principles](explanation/design-principles.md) for why that constraint drives everything else.
 
 ---
 
@@ -38,6 +40,13 @@ client.chat("What did I just say?")     # history preserved
 That's the full mental model: a `chat()` function for one-shots, a `client()` factory for conversations, and `provider:model_id` strings to swap backends.
 
 ## Where to next
+
+New here? Work through it in this order: the [tutorials](tutorials/index.md) get you to a working
+agent in about 15 minutes, the
+[notebooks](https://github.com/saxman/aimu/tree/main/notebooks) add one subsystem at a time, and the
+[examples](examples.md) solve the same task several ways so you can compare approaches rather than
+just read about them. Already oriented? [Compare models](how-to/compare-models.md) is the shortest
+path to seeing what a model can actually do.
 
 <div class="grid cards" markdown>
 

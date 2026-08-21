@@ -102,6 +102,7 @@ nav:
   - Examples: examples.md
   - How-to:
       - how-to/index.md
+      - Compare models: how-to/compare-models.md
       - Switch providers: how-to/switch-providers.md
       - Add a custom tool: how-to/add-custom-tool.md
       - Add a new model: how-to/add-new-model.md
@@ -132,6 +133,7 @@ nav:
       - Retrieval-augmented generation: how-to/use-rag.md
       - Use LLMs inside tools: how-to/using-llms-inside-tools.md
       - Build an orchestrator: how-to/build-orchestrator.md
+      - Spawn sub-agents: how-to/spawn-subagents.md
       - Build a personal assistant: how-to/build-personal-assistant.md
       - Connect agents (A2A): how-to/connect-agents-a2a.md
       - Plan, execute, evaluate, replan: how-to/plan-execute-evaluate.md
