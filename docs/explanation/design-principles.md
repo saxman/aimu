@@ -44,11 +44,11 @@ The ladder is also a curriculum. Each rung introduces exactly one new idea, so y
 
 ## 5. Direct paths for common tasks
 
-Common operations have one obvious, ergonomic entry point that takes minimal ceremony. One-shot chat is `aimu.chat("...", model="...")`. Building a tool-using agent is `Agent(client, "system msg", tools=[...])`. A three-step pipeline is `Chain.of(client, [...])`. Filtering a stream is `include=["generating"]`. Grouped helpers (`builtin.web`, `builtin.fs`, `builtin.compute`) let you grab an obvious set of tools without naming each one. The library does not offer parallel, equally-recommended ways to do the same job. If a second path exists, it's a power-user escape hatch, not a fork in the documentation.
+Common operations have one obvious, ergonomic entry point that takes minimal ceremony. One-shot chat is `aimu.chat("...", model="...")`. Building a tool-using agent is `Agent(client, "system msg", tools=[...])`. A three-step pipeline is `Chain.from_client(client, [...])`. Filtering a stream is `include=["generating"]`. Grouped helpers (`builtin.web`, `builtin.fs`, `builtin.compute`) let you grab an obvious set of tools without naming each one. The library does not offer parallel, equally-recommended ways to do the same job. If a second path exists, it's a power-user escape hatch, not a fork in the documentation.
 
 One obvious path means the code you read in an example is the code you would write, and a run's behaviour can't be explained by having picked the wrong one of two equivalent entry points.
 
-*How this cashes out:* The top-level `aimu.chat()` and `aimu.client()` short-circuit the full `ModelClient` constructor when you don't need to customise it. `Agent`'s constructor takes `system_message` positionally because every agent needs one. `Chain.of()`, `Router.of()`, `Parallel.of()` exist so the common case is one line; the full constructors are still available for the unusual case. `agent.as_model_client()` is a method instead of a class import because almost no one needs to subclass it.
+*How this cashes out:* The top-level `aimu.chat()` and `aimu.client()` short-circuit the full `ModelClient` constructor when you don't need to customise it. `Agent`'s constructor takes `system_message` positionally because every agent needs one. `Chain.from_client()`, `Router.from_client()`, `Parallel.from_client()` exist so the common case is one line; the full constructors are still available for the unusual case. `agent.as_model_client()` is a method instead of a class import because almost no one needs to subclass it.
 
 ## 6. Failures are apparent
 

@@ -37,7 +37,6 @@ from .base import (
 )
 from ._internal.message_meta import (
     INERT_MESSAGE_KEYS,
-    PROVENANCE_CONTINUATION,
     PROVENANCE_FINAL_ANSWER,
     PROVENANCE_KEY,
     PROVENANCE_PROACTIVE,
@@ -212,7 +211,6 @@ __all__ = [
     "StreamingContentType",
     "INERT_MESSAGE_KEYS",
     "PROVENANCE_KEY",
-    "PROVENANCE_CONTINUATION",
     "PROVENANCE_FINAL_ANSWER",
     "PROVENANCE_PROACTIVE",
     "strip_inert_keys",

@@ -21,9 +21,8 @@ PROVENANCE_KEY = "provenance"
 
 # Provenance values (the framework-injected turns worth distinguishing from user input).
 # Between successful tool rounds the agent continues by calling chat() with no user message, so
-# nothing is injected there. This tag marks the recovery nudge the loop injects when a turn comes
-# back degenerate (empty: no content and no tool calls), so replay/display can hide or distinguish it.
-PROVENANCE_CONTINUATION = "continuation"
+# nothing is injected there. The degenerate-empty-turn recovery nudge (see `continuation_prompt`
+# on `Agent` / `_BaseToolLoop`) is likewise left untagged, matching genuine user input.
 PROVENANCE_FINAL_ANSWER = "final_answer"
 PROVENANCE_PROACTIVE = "proactive"
 
