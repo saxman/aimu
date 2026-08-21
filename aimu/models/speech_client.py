@@ -23,34 +23,28 @@ from ._internal.factory import (
 )
 from .base import BaseSpeechClient, SpeechModel, SpeechSpec
 
-# --- Optional provider imports ---
-
-try:
-    from .providers.hf.speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
-
-    _HAS_HF_SPEECH = True
-except ImportError:
-    _HAS_HF_SPEECH = False
-    HuggingFaceSpeechClient = None  # type: ignore[assignment,misc]
-    HuggingFaceSpeechModel = None  # type: ignore[assignment,misc]
-
-try:
-    from .providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
-
-    _HAS_OPENAI_SPEECH = True
-except ImportError:
-    _HAS_OPENAI_SPEECH = False
-    OpenAISpeechClient = None  # type: ignore[assignment,misc]
-    OpenAISpeechModel = None  # type: ignore[assignment,misc]
-
 _HF_HINT = "HuggingFace speech support requires the [hf] extra (soundfile, torch, transformers): pip install -e '.[hf]'"
 _OPENAI_HINT = "OpenAI speech support requires the [openai_compat] extra (openai): pip install -e '.[openai_compat]'"
 
 
 def _entries() -> list[ProviderEntry]:
     return [
-        ProviderEntry("hf", _HAS_HF_SPEECH, HuggingFaceSpeechModel, HuggingFaceSpeechClient, _HF_HINT),
-        ProviderEntry("openai", _HAS_OPENAI_SPEECH, OpenAISpeechModel, OpenAISpeechClient, _OPENAI_HINT),
+        ProviderEntry(
+            prefix="hf",
+            module="aimu.models.providers.hf.speech",
+            enum_name="HuggingFaceSpeechModel",
+            client_name="HuggingFaceSpeechClient",
+            requires="soundfile",
+            install_hint=_HF_HINT,
+        ),
+        ProviderEntry(
+            prefix="openai",
+            module="aimu.models.providers.openai.speech",
+            enum_name="OpenAISpeechModel",
+            client_name="OpenAISpeechClient",
+            requires="openai",
+            install_hint=_OPENAI_HINT,
+        ),
     ]
 
 

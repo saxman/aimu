@@ -127,7 +127,10 @@ def _install_diffusers_stub(monkeypatch=None, force=False):
             result.images = [_make_stub_image() for _ in range(num)]
             return result
 
+    import importlib.machinery
+
     stub = types.ModuleType("diffusers")
+    stub.__spec__ = importlib.machinery.ModuleSpec("diffusers", None)
     stub._aimu_stub = True
     stub.DiffusionPipeline = _FakePipeline
     stub.StableDiffusionPipeline = _FakePipeline

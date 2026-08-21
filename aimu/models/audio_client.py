@@ -24,17 +24,6 @@ from ._internal.factory import (
 )
 from .base import AudioModel, AudioSpec, BaseAudioClient
 
-# --- Optional provider imports ---
-
-try:
-    from .providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
-
-    _HAS_HF_AUDIO = True
-except ImportError:
-    _HAS_HF_AUDIO = False
-    HuggingFaceAudioClient = None  # type: ignore[assignment,misc]
-    HuggingFaceAudioModel = None  # type: ignore[assignment,misc]
-
 _HF_HINT = (
     "HuggingFace audio support requires the [hf] extra (soundfile, torch, transformers, diffusers): "
     "pip install -e '.[hf]'"
@@ -42,7 +31,16 @@ _HF_HINT = (
 
 
 def _entries() -> list[ProviderEntry]:
-    return [ProviderEntry("hf", _HAS_HF_AUDIO, HuggingFaceAudioModel, HuggingFaceAudioClient, _HF_HINT)]
+    return [
+        ProviderEntry(
+            prefix="hf",
+            module="aimu.models.providers.hf.audio",
+            enum_name="HuggingFaceAudioModel",
+            client_name="HuggingFaceAudioClient",
+            requires="soundfile",
+            install_hint=_HF_HINT,
+        )
+    ]
 
 
 def _provider_registry() -> dict[str, tuple]:

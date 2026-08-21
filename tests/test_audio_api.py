@@ -17,6 +17,7 @@ Async tests live in :mod:`tests/test_aio_audio_api.py`.
 
 from __future__ import annotations
 
+import importlib.machinery
 import sys
 import types
 from pathlib import Path
@@ -78,6 +79,7 @@ def _install_audio_stubs(monkeypatch=None, force=False):  # noqa: PLR0912
 
     if force or not _real_present("soundfile"):
         sf_stub = types.ModuleType("soundfile")
+        sf_stub.__spec__ = importlib.machinery.ModuleSpec("soundfile", None)
         sf_stub._aimu_stub = True  # type: ignore[attr-defined]
 
         def _sf_write(file, data, samplerate, format=None, subtype=None):  # noqa: ARG001
@@ -158,6 +160,7 @@ def _install_audio_stubs(monkeypatch=None, force=False):  # noqa: PLR0912
                 return _FakeAudioValues(batch=batch)
 
         tr_stub = types.ModuleType("transformers")
+        tr_stub.__spec__ = importlib.machinery.ModuleSpec("transformers", None)
         tr_stub._aimu_stub = True  # type: ignore[attr-defined]
         tr_stub.AutoProcessor = _FakeProcessor  # type: ignore[attr-defined]
         tr_stub.MusicgenForConditionalGeneration = _FakeMusicgenModel  # type: ignore[attr-defined]
@@ -178,6 +181,7 @@ def _install_audio_stubs(monkeypatch=None, force=False):  # noqa: PLR0912
     # Add audio pipeline classes to whatever diffusers stub is in sys.modules.
     if "diffusers" not in sys.modules:
         diffusers_stub = types.ModuleType("diffusers")
+        diffusers_stub.__spec__ = importlib.machinery.ModuleSpec("diffusers", None)
         diffusers_stub._aimu_stub = True  # type: ignore[attr-defined]
         _set("diffusers", diffusers_stub)
 

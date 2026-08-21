@@ -107,7 +107,10 @@ def _make_fake_openai():
     """Return a stub openai module and a call log."""
     from unittest.mock import MagicMock
 
+    import importlib.machinery
+
     fake_openai = MagicMock()
+    fake_openai.__spec__ = importlib.machinery.ModuleSpec("openai", None)
     fake_openai.__version__ = "1.0.0"
     call_log = []
 
@@ -266,12 +269,16 @@ def _install_hf_transcription_stubs(monkeypatch):
     from unittest.mock import MagicMock
     import numpy as np
 
+    import importlib.machinery
+
     fake_sf = MagicMock()
+    fake_sf.__spec__ = importlib.machinery.ModuleSpec("soundfile", None)
     fake_sf._aimu_stub = True
     fake_sf.read.return_value = (np.zeros(16000, dtype="float32"), 16000)
     monkeypatch.setitem(sys.modules, "soundfile", fake_sf)
 
     fake_tf = MagicMock()
+    fake_tf.__spec__ = importlib.machinery.ModuleSpec("transformers", None)
     _pipe_output = {"text": "hello world"}
 
     def _fake_pipeline(task, model, **kwargs):
@@ -332,12 +339,16 @@ def test_hf_client_transcribe_verbose_json_format(monkeypatch):
     from unittest.mock import MagicMock
     import numpy as np
 
+    import importlib.machinery
+
     fake_sf = MagicMock()
+    fake_sf.__spec__ = importlib.machinery.ModuleSpec("soundfile", None)
     fake_sf._aimu_stub = True
     fake_sf.read.return_value = (np.zeros(16000, dtype="float32"), 16000)
     monkeypatch.setitem(sys.modules, "soundfile", fake_sf)
 
     fake_tf = MagicMock()
+    fake_tf.__spec__ = importlib.machinery.ModuleSpec("transformers", None)
     _chunks_output = {
         "text": "hello world",
         "chunks": [
@@ -373,7 +384,10 @@ def test_hf_client_passes_language_to_pipeline(monkeypatch):
     from unittest.mock import MagicMock
     import numpy as np
 
+    import importlib.machinery
+
     fake_sf = MagicMock()
+    fake_sf.__spec__ = importlib.machinery.ModuleSpec("soundfile", None)
     fake_sf._aimu_stub = True
     fake_sf.read.return_value = (np.zeros(16000, dtype="float32"), 16000)
     monkeypatch.setitem(sys.modules, "soundfile", fake_sf)
@@ -381,6 +395,7 @@ def test_hf_client_passes_language_to_pipeline(monkeypatch):
     captured_kwargs = {}
 
     fake_tf = MagicMock()
+    fake_tf.__spec__ = importlib.machinery.ModuleSpec("transformers", None)
 
     def _fake_pipeline(task, model, **kwargs):
         pipe = MagicMock()

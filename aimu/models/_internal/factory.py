@@ -10,36 +10,88 @@ It is deliberately plain Python: a small dataclass describing each provider, two
 functions, and a delegation mixin. No registry singletons, no metaclasses. The text
 factory (:mod:`aimu.models.model_client`) is intentionally *not* built on this; its
 bare-name/local-availability resolution is richer and lives on its own.
+
+``ProviderEntry`` holds module and symbol *names* rather than classes, so building a
+factory's table costs no import at all: a caller can list providers, check
+availability, and build error messages without ever loading a provider SDK. Only
+:meth:`ProviderEntry.load` (called for the one provider actually requested) imports
+anything.
 """
 
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Any, Optional
+
+
+def installed(dep: str) -> bool:
+    """True if ``dep`` is importable, decided without importing it.
+
+    ``find_spec`` raises rather than returning None when a *parent* package is missing
+    (e.g. probing ``google.genai`` with no ``google``), so both outcomes are folded into
+    one boolean here.
+
+    Called through the module (``importlib.util.find_spec``) rather than a ``from``-import,
+    so a test simulating an absent dependency can patch it. A name bound at import time
+    would be immune to that patch.
+    """
+    try:
+        return importlib.util.find_spec(dep) is not None
+    except (ImportError, ValueError):
+        return False
 
 
 @dataclass(frozen=True)
 class ProviderEntry:
-    """One provider for a modality.
+    """One provider for a modality, described rather than imported.
 
-    ``enum_cls`` / ``client_cls`` are ``None`` when the provider's optional dependency
-    isn't installed (``available is False``); ``install_hint`` is the ``ImportError``
-    text shown when a recognized-but-uninstalled provider is requested by string.
+    Holding module and symbol *names* instead of classes is what keeps
+    ``import aimu`` from loading every provider SDK: the table can be built, searched,
+    and reported on with no import at all, and :meth:`load` runs only for the provider
+    a caller actually asked for.
+
+    ``requires`` is the third-party module probed for availability (``"openai"``,
+    ``"sentence_transformers"``), not AIMU's own module. ``install_hint`` is the
+    ``ImportError`` text shown when a recognized-but-uninstalled provider is requested.
     """
 
     prefix: str
-    available: bool
-    enum_cls: Optional[type]
-    client_cls: Optional[type]
+    module: str
+    enum_name: str
+    client_name: str
+    requires: str
     install_hint: str
+
+    @property
+    def available(self) -> bool:
+        return installed(self.requires)
+
+    def load(self) -> tuple[type, type]:
+        """Import the provider and return ``(enum_cls, client_cls)``.
+
+        Raises if the dependency is installed but broken. That is deliberate: a silent
+        ``None`` here would make a present-but-unusable provider look absent, which is
+        harder to diagnose than the underlying ImportError.
+        """
+        module = import_module(self.module)
+        return getattr(module, self.enum_name), getattr(module, self.client_name)
+
+
+def available_prefixes(entries: list[ProviderEntry]) -> list[str]:
+    """Sorted prefixes of installed providers. Imports nothing."""
+    return sorted(e.prefix for e in entries if e.available)
 
 
 def available_registry(entries: list[ProviderEntry]) -> dict[str, tuple]:
     """``{prefix: (enum_cls, client_cls)}`` for installed providers only.
 
-    Used by the ``resolve_*_model_string`` helpers and discovery.
+    This *does* import every installed provider, so it is reserved for the explicit
+    ``available_*_registry()`` discovery helpers. Dispatch paths use
+    :func:`available_prefixes` plus a single :meth:`ProviderEntry.load`.
     """
-    return {e.prefix: (e.enum_cls, e.client_cls) for e in entries if e.available}
+    return {e.prefix: e.load() for e in entries if e.available}
 
 
 def resolve_model_string(model_str: str, entries: list[ProviderEntry], *, modality: str) -> Any:
@@ -49,18 +101,19 @@ def resolve_model_string(model_str: str, entries: list[ProviderEntry], *, modali
     concrete client's ``__init__`` (pass the string straight to the factory).
     """
     label = modality.capitalize()
-    registry = available_registry(entries)
+    prefixes = available_prefixes(entries)
     if ":" not in model_str:
         raise ValueError(
             f"{label} model string must be in 'provider:model_id' form, got: {model_str!r}. "
-            f"Available providers: {sorted(registry)}"
+            f"Available providers: {prefixes}"
         )
     provider, _, model_id = model_str.partition(":")
-    if provider not in registry:
+    entry = next((e for e in entries if e.prefix == provider and e.available), None)
+    if entry is None:
         raise ValueError(
-            f"Unknown {modality} provider {provider!r}. Available providers (with installed deps): {sorted(registry)}"
+            f"Unknown {modality} provider {provider!r}. Available providers (with installed deps): {prefixes}"
         )
-    model_enum, _ = registry[provider]
+    model_enum, _ = entry.load()
     for member in model_enum:
         if member.value == model_id:
             return member
@@ -81,7 +134,8 @@ def build_client(
 
     String form routes by prefix (so ad-hoc ids reach the concrete client); a bare
     ``spec_base`` instance is rejected (it's the enum's value type, not a selector);
-    an enum member dispatches by ``isinstance`` against each installed provider enum.
+    an enum member dispatches by the defining module of its class, which imports
+    nothing (an enum member cannot exist unless its module was already imported).
     """
     label = modality.capitalize()
 
@@ -91,12 +145,11 @@ def build_client(
         provider, _, _model_id = model.partition(":")
         entry = next((e for e in entries if e.prefix == provider), None)
         if entry is None:
-            raise ValueError(
-                f"Unknown {modality} provider {provider!r}. Available: {sorted(available_registry(entries))}"
-            )
+            raise ValueError(f"Unknown {modality} provider {provider!r}. Available: {available_prefixes(entries)}")
         if not entry.available:
             raise ImportError(entry.install_hint)
-        return entry.client_cls(model, model_kwargs=model_kwargs)
+        _enum_cls, client_cls = entry.load()
+        return client_cls(model, model_kwargs=model_kwargs)
 
     if isinstance(model, spec_base) and not isinstance(model, model_base):
         raise TypeError(
@@ -104,9 +157,13 @@ def build_client(
             f"{spec_base.__name__} is the value type held by enum members."
         )
 
+    # An enum member's class was necessarily imported for the caller to hold it, so the
+    # defining module identifies the provider without importing anything else.
+    member_module = type(model).__module__
     for entry in entries:
-        if entry.available and entry.enum_cls is not None and isinstance(model, entry.enum_cls):
-            return entry.client_cls(model, model_kwargs=model_kwargs)
+        if entry.module == member_module:
+            _enum_cls, client_cls = entry.load()
+            return client_cls(model, model_kwargs=model_kwargs)
 
     raise ValueError(
         f"No available client for {modality}-model type {type(model).__name__!r}. "

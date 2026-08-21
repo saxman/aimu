@@ -25,26 +25,6 @@ from ._internal.factory import (
 )
 from .base import BaseTranscriptionClient, TranscriptionModel, TranscriptionSpec
 
-# --- Optional provider imports ---
-
-try:
-    from .providers.hf.transcription import HuggingFaceTranscriptionClient, HuggingFaceTranscriptionModel
-
-    _HAS_HF_TRANSCRIPTION = True
-except ImportError:
-    _HAS_HF_TRANSCRIPTION = False
-    HuggingFaceTranscriptionClient = None  # type: ignore[assignment,misc]
-    HuggingFaceTranscriptionModel = None  # type: ignore[assignment,misc]
-
-try:
-    from .providers.openai.transcription import OpenAITranscriptionClient, OpenAITranscriptionModel
-
-    _HAS_OPENAI_TRANSCRIPTION = True
-except ImportError:
-    _HAS_OPENAI_TRANSCRIPTION = False
-    OpenAITranscriptionClient = None  # type: ignore[assignment,misc]
-    OpenAITranscriptionModel = None  # type: ignore[assignment,misc]
-
 _HF_HINT = (
     "HuggingFace transcription support requires the [hf] extra (soundfile, torch, transformers): pip install -e '.[hf]'"
 )
@@ -56,10 +36,20 @@ _OPENAI_HINT = (
 def _entries() -> list[ProviderEntry]:
     return [
         ProviderEntry(
-            "hf", _HAS_HF_TRANSCRIPTION, HuggingFaceTranscriptionModel, HuggingFaceTranscriptionClient, _HF_HINT
+            prefix="hf",
+            module="aimu.models.providers.hf.transcription",
+            enum_name="HuggingFaceTranscriptionModel",
+            client_name="HuggingFaceTranscriptionClient",
+            requires="transformers",
+            install_hint=_HF_HINT,
         ),
         ProviderEntry(
-            "openai", _HAS_OPENAI_TRANSCRIPTION, OpenAITranscriptionModel, OpenAITranscriptionClient, _OPENAI_HINT
+            prefix="openai",
+            module="aimu.models.providers.openai.transcription",
+            enum_name="OpenAITranscriptionModel",
+            client_name="OpenAITranscriptionClient",
+            requires="openai",
+            install_hint=_OPENAI_HINT,
         ),
     ]
 

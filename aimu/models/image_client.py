@@ -25,26 +25,6 @@ from ._internal.factory import (
 )
 from .base import BaseImageClient, ImageModel, ImageSpec
 
-# --- Optional provider imports ---
-
-try:
-    from .providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
-
-    _HAS_HF_IMAGE = True
-except ImportError:
-    _HAS_HF_IMAGE = False
-    HuggingFaceImageClient = None  # type: ignore[assignment,misc]
-    HuggingFaceImageModel = None  # type: ignore[assignment,misc]
-
-try:
-    from .providers.gemini.image import GeminiImageClient, GeminiImageModel
-
-    _HAS_GEMINI_IMAGE = True
-except ImportError:
-    _HAS_GEMINI_IMAGE = False
-    GeminiImageClient = None  # type: ignore[assignment,misc]
-    GeminiImageModel = None  # type: ignore[assignment,misc]
-
 _HF_HINT = (
     "HuggingFace image support requires the [hf] extra (diffusers, torch, transformers, Pillow): pip install -e '.[hf]'"
 )
@@ -53,8 +33,22 @@ _GEMINI_HINT = "Gemini image support requires the [google] extra (google-genai, 
 
 def _entries() -> list[ProviderEntry]:
     return [
-        ProviderEntry("hf", _HAS_HF_IMAGE, HuggingFaceImageModel, HuggingFaceImageClient, _HF_HINT),
-        ProviderEntry("gemini", _HAS_GEMINI_IMAGE, GeminiImageModel, GeminiImageClient, _GEMINI_HINT),
+        ProviderEntry(
+            prefix="hf",
+            module="aimu.models.providers.hf.image",
+            enum_name="HuggingFaceImageModel",
+            client_name="HuggingFaceImageClient",
+            requires="diffusers",
+            install_hint=_HF_HINT,
+        ),
+        ProviderEntry(
+            prefix="gemini",
+            module="aimu.models.providers.gemini.image",
+            enum_name="GeminiImageModel",
+            client_name="GeminiImageClient",
+            requires="google.genai",
+            install_hint=_GEMINI_HINT,
+        ),
     ]
 
 

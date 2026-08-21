@@ -24,35 +24,6 @@ from ._internal.factory import (
 )
 from .base import BaseEmbeddingClient, EmbeddingModel, EmbeddingSpec
 
-# --- Optional provider imports ---
-
-try:
-    from .providers.openai.embedding import OpenAIEmbeddingClient, OpenAIEmbeddingModel
-
-    _HAS_OPENAI_EMBEDDING = True
-except ImportError:
-    _HAS_OPENAI_EMBEDDING = False
-    OpenAIEmbeddingClient = None  # type: ignore[assignment,misc]
-    OpenAIEmbeddingModel = None  # type: ignore[assignment,misc]
-
-try:
-    from .providers.ollama import OllamaEmbeddingClient, OllamaEmbeddingModel
-
-    _HAS_OLLAMA_EMBEDDING = True
-except ImportError:
-    _HAS_OLLAMA_EMBEDDING = False
-    OllamaEmbeddingClient = None  # type: ignore[assignment,misc]
-    OllamaEmbeddingModel = None  # type: ignore[assignment,misc]
-
-try:
-    from .providers.hf.embedding import HuggingFaceEmbeddingClient, HuggingFaceEmbeddingModel
-
-    _HAS_HF_EMBEDDING = True
-except ImportError:
-    _HAS_HF_EMBEDDING = False
-    HuggingFaceEmbeddingClient = None  # type: ignore[assignment,misc]
-    HuggingFaceEmbeddingModel = None  # type: ignore[assignment,misc]
-
 _OPENAI_HINT = "OpenAI embedding support requires the [openai_compat] extra (openai): pip install -e '.[openai_compat]'"
 _OLLAMA_HINT = "Ollama embedding support requires the [ollama] extra (ollama): pip install -e '.[ollama]'"
 _HF_HINT = "HuggingFace embedding support requires the [hf] extra (sentence-transformers): pip install -e '.[hf]'"
@@ -60,9 +31,30 @@ _HF_HINT = "HuggingFace embedding support requires the [hf] extra (sentence-tran
 
 def _entries() -> list[ProviderEntry]:
     return [
-        ProviderEntry("openai", _HAS_OPENAI_EMBEDDING, OpenAIEmbeddingModel, OpenAIEmbeddingClient, _OPENAI_HINT),
-        ProviderEntry("ollama", _HAS_OLLAMA_EMBEDDING, OllamaEmbeddingModel, OllamaEmbeddingClient, _OLLAMA_HINT),
-        ProviderEntry("hf", _HAS_HF_EMBEDDING, HuggingFaceEmbeddingModel, HuggingFaceEmbeddingClient, _HF_HINT),
+        ProviderEntry(
+            prefix="openai",
+            module="aimu.models.providers.openai.embedding",
+            enum_name="OpenAIEmbeddingModel",
+            client_name="OpenAIEmbeddingClient",
+            requires="openai",
+            install_hint=_OPENAI_HINT,
+        ),
+        ProviderEntry(
+            prefix="ollama",
+            module="aimu.models.providers.ollama",
+            enum_name="OllamaEmbeddingModel",
+            client_name="OllamaEmbeddingClient",
+            requires="ollama",
+            install_hint=_OLLAMA_HINT,
+        ),
+        ProviderEntry(
+            prefix="hf",
+            module="aimu.models.providers.hf.embedding",
+            enum_name="HuggingFaceEmbeddingModel",
+            client_name="HuggingFaceEmbeddingClient",
+            requires="sentence_transformers",
+            install_hint=_HF_HINT,
+        ),
     ]
 
 
