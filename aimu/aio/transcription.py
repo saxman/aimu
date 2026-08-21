@@ -1,30 +1,60 @@
-"""Async transcription surface mirroring :mod:`aimu.models.transcription_client`."""
+"""Async transcription surface mirroring :mod:`aimu.models.transcription_client`.
+
+Both providers' symbols are resolved lazily -- on first call, not on ``import
+aimu.aio`` -- via :func:`_hf` / :func:`_openai`, the same ``installed()`` +
+import-on-demand shape used throughout ``aimu.models`` and the rest of ``aimu.aio``.
+An absent dependency yields ``None``; an installed-but-broken one raises with the
+original cause chained.
+"""
 
 from __future__ import annotations
 
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, Optional
 
-try:
-    from aimu.models.providers.hf.transcription import HuggingFaceTranscriptionClient
+from aimu.models._internal.factory import installed
 
-    from .providers.hf.transcription import AsyncHuggingFaceTranscriptionClient
+_HF_MODULE = "aimu.models.providers.hf.transcription"
+_HF_REQUIRES = "transformers"
+_OPENAI_MODULE = "aimu.models.providers.openai.transcription"
+_OPENAI_REQUIRES = "openai"
 
-    _HAS_HF_TRANSCRIPTION = True
-except ImportError:
-    _HAS_HF_TRANSCRIPTION = False
-    HuggingFaceTranscriptionClient = None  # type: ignore[assignment,misc]
-    AsyncHuggingFaceTranscriptionClient = None  # type: ignore[assignment,misc]
 
-try:
-    from aimu.models.providers.openai.transcription import OpenAITranscriptionClient
+def _hf() -> Optional[SimpleNamespace]:
+    """Lazily resolve the HuggingFace transcription symbols, or ``None`` if unavailable."""
+    if not installed(_HF_REQUIRES):
+        return None
+    try:
+        from aimu.models.providers.hf.transcription import HuggingFaceTranscriptionClient
 
-    from .providers.openai_transcription import AsyncOpenAITranscriptionClient
+        from .providers.hf.transcription import AsyncHuggingFaceTranscriptionClient
+    except ImportError as exc:
+        raise ImportError(
+            f"Transcription support could not be loaded from {_HF_MODULE!r} ({_HF_REQUIRES!r} is installed): {exc}"
+        ) from exc
+    return SimpleNamespace(
+        HuggingFaceTranscriptionClient=HuggingFaceTranscriptionClient,
+        AsyncHuggingFaceTranscriptionClient=AsyncHuggingFaceTranscriptionClient,
+    )
 
-    _HAS_OPENAI_TRANSCRIPTION = True
-except ImportError:
-    _HAS_OPENAI_TRANSCRIPTION = False
-    OpenAITranscriptionClient = None  # type: ignore[assignment,misc]
-    AsyncOpenAITranscriptionClient = None  # type: ignore[assignment,misc]
+
+def _openai() -> Optional[SimpleNamespace]:
+    """Lazily resolve the OpenAI transcription symbols, or ``None`` if unavailable."""
+    if not installed(_OPENAI_REQUIRES):
+        return None
+    try:
+        from aimu.models.providers.openai.transcription import OpenAITranscriptionClient
+
+        from .providers.openai_transcription import AsyncOpenAITranscriptionClient
+    except ImportError as exc:
+        raise ImportError(
+            f"Transcription support could not be loaded from {_OPENAI_MODULE!r} "
+            f"({_OPENAI_REQUIRES!r} is installed): {exc}"
+        ) from exc
+    return SimpleNamespace(
+        OpenAITranscriptionClient=OpenAITranscriptionClient,
+        AsyncOpenAITranscriptionClient=AsyncOpenAITranscriptionClient,
+    )
 
 
 _WRAP_GUIDANCE = (
@@ -45,21 +75,13 @@ def _refuse(model: Any) -> None:
 
 
 def _is_hf_transcription_client(obj: Any) -> bool:
-    try:
-        from aimu.models.providers.hf.transcription import HuggingFaceTranscriptionClient as _Cls
-
-        return isinstance(obj, _Cls)
-    except ImportError:
-        return False
+    hf = _hf()
+    return hf is not None and isinstance(obj, hf.HuggingFaceTranscriptionClient)
 
 
 def _is_openai_transcription_client(obj: Any) -> bool:
-    try:
-        from aimu.models.providers.openai.transcription import OpenAITranscriptionClient as _Cls
-
-        return isinstance(obj, _Cls)
-    except ImportError:
-        return False
+    openai = _openai()
+    return openai is not None and isinstance(obj, openai.OpenAITranscriptionClient)
 
 
 class AsyncTranscriptionClient:
@@ -70,12 +92,10 @@ class AsyncTranscriptionClient:
     """
 
     def __init__(self, sync_client: Any):
-        if _HAS_HF_TRANSCRIPTION and _is_hf_transcription_client(sync_client):
-            self._client: Any = AsyncHuggingFaceTranscriptionClient(sync_client)
-        elif _HAS_OPENAI_TRANSCRIPTION and _is_openai_transcription_client(sync_client):
-            from .providers.openai_transcription import AsyncOpenAITranscriptionClient as _Cls
-
-            self._client = _Cls(sync_client)
+        if _is_hf_transcription_client(sync_client):
+            self._client: Any = _hf().AsyncHuggingFaceTranscriptionClient(sync_client)
+        elif _is_openai_transcription_client(sync_client):
+            self._client = _openai().AsyncOpenAITranscriptionClient(sync_client)
         else:
             _refuse(sync_client)
 
@@ -96,7 +116,7 @@ class AsyncTranscriptionClient:
 
 def transcription_client(sync_client: Any) -> AsyncTranscriptionClient:
     """Wrap an existing sync transcription client for async use."""
-    if not _HAS_HF_TRANSCRIPTION and not _HAS_OPENAI_TRANSCRIPTION:
+    if _hf() is None and _openai() is None:
         raise ImportError(
             "Transcription support requires the [hf] or [openai_compat] extra: "
             "pip install -e '.[hf]' or pip install -e '.[openai_compat]'"
@@ -112,7 +132,7 @@ async def transcribe(audio: Any, *, model: Any = None, **kwargs: Any) -> str | d
     ``"provider:model_id"`` string. When ``model`` is omitted, the
     ``AIMU_TRANSCRIPTION_MODEL`` env var is used; if unset a ``ValueError`` is raised.
     """
-    if not _HAS_HF_TRANSCRIPTION and not _HAS_OPENAI_TRANSCRIPTION:
+    if _hf() is None and _openai() is None:
         raise ImportError(
             "Transcription support requires the [hf] or [openai_compat] extra: "
             "pip install -e '.[hf]' or pip install -e '.[openai_compat]'"
@@ -123,9 +143,7 @@ async def transcribe(audio: Any, *, model: Any = None, **kwargs: Any) -> str | d
 
         model = resolve_default_modality_model(TRANSCRIPTION_MODEL_ENV)
 
-    if (_HAS_HF_TRANSCRIPTION and _is_hf_transcription_client(model)) or (
-        _HAS_OPENAI_TRANSCRIPTION and _is_openai_transcription_client(model)
-    ):
+    if _is_hf_transcription_client(model) or _is_openai_transcription_client(model):
         sync_client: Any = model
     elif isinstance(model, str) or hasattr(model, "spec"):
         import aimu

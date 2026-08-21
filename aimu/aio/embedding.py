@@ -11,15 +11,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Union
 
-try:
-    from aimu.models.base import BaseEmbeddingClient
-
-    _HAS_EMBEDDING = True
-except ImportError:  # pragma: no cover - base import should always succeed
-    _HAS_EMBEDDING = False
-    BaseEmbeddingClient = None  # type: ignore[assignment,misc]
-
-
 _WRAP_GUIDANCE = (
     "Build a sync embedding client first and pass it to aio.embedding_client():\n"
     "    sync_client = aimu.embedding_client({model})\n"

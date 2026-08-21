@@ -39,7 +39,6 @@ use ``asyncio.TaskGroup``: if one worker raises, siblings are cancelled and an
 ``ExceptionGroup`` surfaces with all failures.
 """
 
-from ._mcp_client import MCPClient
 from ._model_client import AsyncModelClient, client, chat
 from aimu.models import ContextOverflowError, ModelConnectionError
 from .fallback import AsyncFallbackClient
@@ -61,9 +60,9 @@ from .workflows.parallel import Parallel
 from .workflows.evaluator import EvaluatorOptimizer
 from .workflows.plan_execute_evaluator import PlanExecuteEvaluator
 
-from importlib import import_module
+from importlib import import_module as _import_module
 
-from aimu.models._internal.factory import installed
+from aimu.models._internal.factory import installed as _installed
 
 # symbol name -> (module, third-party dependency probed for availability)
 _LAZY_ASYNC_SYMBOLS: dict[str, tuple[str, str]] = {
@@ -76,27 +75,38 @@ _LAZY_ASYNC_SYMBOLS: dict[str, tuple[str, str]] = {
     "AsyncOpenAITranscriptionClient": ("aimu.aio.providers.openai_transcription", "openai"),
 }
 
+# MCPClient lives in ._mcp_client, which imports fastmcp (and its own dependency tree --
+# mcp, jsonschema, ...) at module level. fastmcp is a *required* (not optional) dependency,
+# so this isn't the installed()-gated pattern above -- it's the same plain lazy import
+# aimu.tools.__init__ already uses for the sync MCPClient, deferring fastmcp's real cost
+# until a caller actually touches MCP.
+_LAZY_REQUIRED_SYMBOLS = frozenset({"MCPClient"})
+
 
 def __getattr__(name: str):
-    """Resolve async provider clients on first access (PEP 562).
+    """Resolve MCPClient and async provider clients on first access (PEP 562).
 
     Absent dependency yields None, matching the contract the deleted except-ImportError
     blocks established; an installed-but-broken dependency raises with the cause chained.
     """
+    if name in _LAZY_REQUIRED_SYMBOLS:
+        return getattr(_import_module("._mcp_client", __name__), name)
     entry = _LAZY_ASYNC_SYMBOLS.get(name)
     if entry is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     module_name, requires = entry
-    if not installed(requires):
+    if not _installed(requires):
         return None
     try:
-        return getattr(import_module(module_name), name)
+        return getattr(_import_module(module_name), name)
     except ImportError as exc:
-        raise ImportError(f"{name} requires {requires!r}, which is installed but failed to import: {exc}") from exc
+        raise ImportError(
+            f"{name} could not be loaded from {module_name!r} ({requires!r} is installed): {exc}"
+        ) from exc
 
 
 def __dir__() -> list[str]:
-    return sorted({*globals(), *_LAZY_ASYNC_SYMBOLS})
+    return sorted({*globals(), *_LAZY_ASYNC_SYMBOLS, *_LAZY_REQUIRED_SYMBOLS})
 
 
 __all__ = [

@@ -10,27 +10,43 @@ Exposes:
 Because audio providers load weights in-process (HuggingFace transformers/diffusers),
 the factory follows the established wrap pattern: pass an existing sync client. Direct
 enum / string construction is refused with a helpful error pointing at the wrap pattern.
+
+HuggingFace symbols are resolved lazily -- on first call, not on ``import aimu.aio`` --
+via :func:`_hf`, the same ``installed()`` + import-on-demand shape used throughout
+``aimu.models`` and the rest of ``aimu.aio``. An absent ``soundfile`` yields ``None``;
+an installed-but-broken one raises with the original cause chained.
 """
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any, Optional
 
-try:
-    from aimu.models.base import AudioModel, AudioSpec, HuggingFaceAudioSpec
-    from aimu.models.providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+from aimu.models._internal.factory import installed
 
-    from .providers.hf.audio import AsyncHuggingFaceAudioClient
+_HF_MODULE = "aimu.models.providers.hf.audio"
+_HF_REQUIRES = "soundfile"
 
-    _HAS_HF_AUDIO = True
-except ImportError:
-    _HAS_HF_AUDIO = False
-    HuggingFaceAudioClient = None  # type: ignore[assignment,misc]
-    HuggingFaceAudioModel = None  # type: ignore[assignment,misc]
-    HuggingFaceAudioSpec = None  # type: ignore[assignment,misc]
-    AudioModel = None  # type: ignore[assignment,misc]
-    AudioSpec = None  # type: ignore[assignment,misc]
-    AsyncHuggingFaceAudioClient = None  # type: ignore[assignment,misc]
+
+def _hf() -> Optional[SimpleNamespace]:
+    """Lazily resolve the HuggingFace audio symbols, or ``None`` if unavailable."""
+    if not installed(_HF_REQUIRES):
+        return None
+    try:
+        from aimu.models.base import HuggingFaceAudioSpec
+        from aimu.models.providers.hf.audio import HuggingFaceAudioClient, HuggingFaceAudioModel
+
+        from .providers.hf.audio import AsyncHuggingFaceAudioClient
+    except ImportError as exc:
+        raise ImportError(
+            f"Audio support could not be loaded from {_HF_MODULE!r} ({_HF_REQUIRES!r} is installed): {exc}"
+        ) from exc
+    return SimpleNamespace(
+        HuggingFaceAudioClient=HuggingFaceAudioClient,
+        HuggingFaceAudioModel=HuggingFaceAudioModel,
+        HuggingFaceAudioSpec=HuggingFaceAudioSpec,
+        AsyncHuggingFaceAudioClient=AsyncHuggingFaceAudioClient,
+    )
 
 
 _WRAP_GUIDANCE = (
@@ -43,9 +59,10 @@ _WRAP_GUIDANCE = (
 
 def _refuse(model: Any) -> None:
     """Raise the wrap-pattern guidance error for non-client inputs."""
-    if _HAS_HF_AUDIO and HuggingFaceAudioModel is not None and isinstance(model, HuggingFaceAudioModel):
+    hf = _hf()
+    if hf is not None and isinstance(model, hf.HuggingFaceAudioModel):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"HuggingFaceAudioModel.{model.name}"))
-    if _HAS_HF_AUDIO and HuggingFaceAudioSpec is not None and isinstance(model, HuggingFaceAudioSpec):
+    if hf is not None and isinstance(model, hf.HuggingFaceAudioSpec):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"HuggingFaceAudioSpec({model.id!r})"))
     if isinstance(model, str):
         raise ValueError(_WRAP_GUIDANCE.format(model=repr(model)))
@@ -57,14 +74,14 @@ class AsyncAudioClient:
     Parallel to :class:`aimu.models.AudioClient` for the async surface. Wraps an
     existing sync :class:`BaseAudioClient` so weights are shared.
 
-    Passing an :class:`AudioModel` enum / :class:`AudioSpec` / string raises
-    ``ValueError`` pointing at the sync-then-wrap pattern (same convention as
-    HuggingFace text/image clients).
+    Passing an audio model enum / spec / string raises ``ValueError`` pointing at the
+    sync-then-wrap pattern (same convention as HuggingFace text/image clients).
     """
 
     def __init__(self, sync_client: Any):
-        if _HAS_HF_AUDIO and isinstance(sync_client, HuggingFaceAudioClient):
-            self._client: Any = AsyncHuggingFaceAudioClient(sync_client)
+        hf = _hf()
+        if hf is not None and isinstance(sync_client, hf.HuggingFaceAudioClient):
+            self._client: Any = hf.AsyncHuggingFaceAudioClient(sync_client)
         else:
             _refuse(sync_client)
             raise TypeError(
@@ -97,7 +114,7 @@ def audio_client(model: Any) -> AsyncAudioClient:
     Accepts a sync :class:`HuggingFaceAudioClient`. Passing an enum / spec / string
     raises ``ValueError`` pointing at the wrap pattern.
     """
-    if not _HAS_HF_AUDIO:
+    if _hf() is None:
         raise ImportError("Audio support requires the [hf] extra: pip install -e '.[hf]'")
     return AsyncAudioClient(model)
 
@@ -118,7 +135,8 @@ async def generate_audio(
     When ``model`` is omitted, the ``AIMU_AUDIO_MODEL`` env var is used; if it is unset a
     ``ValueError`` is raised (no model is downloaded implicitly).
     """
-    if not _HAS_HF_AUDIO:
+    hf = _hf()
+    if hf is None:
         raise ImportError("Audio support requires the [hf] extra: pip install -e '.[hf]'")
 
     if model is None:
@@ -127,16 +145,14 @@ async def generate_audio(
         model = resolve_default_modality_model(AUDIO_MODEL_ENV)
 
     sync_client: Optional[Any] = None
-    if _HAS_HF_AUDIO and isinstance(model, HuggingFaceAudioClient):
+    if isinstance(model, hf.HuggingFaceAudioClient):
         sync_client = model
     elif isinstance(model, str):
         if not model.startswith("hf:"):
             raise ValueError(f"Unrecognised audio model string: {model!r}")
-        if not _HAS_HF_AUDIO:
-            raise ImportError("HuggingFace audio support requires the [hf] extra: pip install -e '.[hf]'")
-        sync_client = HuggingFaceAudioClient(model)
-    elif _HAS_HF_AUDIO and HuggingFaceAudioModel is not None and isinstance(model, HuggingFaceAudioModel):
-        sync_client = HuggingFaceAudioClient(model)
+        sync_client = hf.HuggingFaceAudioClient(model)
+    elif isinstance(model, hf.HuggingFaceAudioModel):
+        sync_client = hf.HuggingFaceAudioClient(model)
     else:
         raise TypeError(f"Unrecognised audio model: {type(model).__name__}")
 

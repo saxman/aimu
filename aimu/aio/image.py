@@ -11,41 +11,67 @@ Because image providers either load weights in-process (HuggingFace) or hold a
 cloud-API client (Gemini), the factory follows the established wrap pattern: pass
 an existing sync client. Direct enum / string construction is refused with a
 helpful error pointing at the wrap pattern.
+
+Both providers' symbols are resolved lazily -- on first call, not on ``import
+aimu.aio`` -- via :func:`_hf` / :func:`_gemini`, the same ``installed()`` +
+import-on-demand shape used throughout ``aimu.models`` and the rest of ``aimu.aio``.
+An absent dependency yields ``None``; an installed-but-broken one raises with the
+original cause chained.
 """
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any, Optional
 
-try:
-    from aimu.models.base import HuggingFaceImageSpec, ImageModel, ImageSpec
-    from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
+from aimu.models._internal.factory import installed
 
-    from .providers.hf.image import AsyncHuggingFaceImageClient
+_HF_MODULE = "aimu.models.providers.hf.image"
+_HF_REQUIRES = "diffusers"
+_GEMINI_MODULE = "aimu.models.providers.gemini.image"
+_GEMINI_REQUIRES = "google.genai"
 
-    _HAS_HF_IMAGE = True
-except ImportError:
-    _HAS_HF_IMAGE = False
-    HuggingFaceImageClient = None  # type: ignore[assignment,misc]
-    HuggingFaceImageModel = None  # type: ignore[assignment,misc]
-    HuggingFaceImageSpec = None  # type: ignore[assignment,misc]
-    ImageModel = None  # type: ignore[assignment,misc]
-    ImageSpec = None  # type: ignore[assignment,misc]
-    AsyncHuggingFaceImageClient = None  # type: ignore[assignment,misc]
 
-try:
-    from aimu.models.base import GeminiImageSpec
-    from aimu.models.providers.gemini.image import GeminiImageClient, GeminiImageModel
+def _hf() -> Optional[SimpleNamespace]:
+    """Lazily resolve the HuggingFace image symbols, or ``None`` if unavailable."""
+    if not installed(_HF_REQUIRES):
+        return None
+    try:
+        from aimu.models.base import HuggingFaceImageSpec
+        from aimu.models.providers.hf.image import HuggingFaceImageClient, HuggingFaceImageModel
 
-    from .providers.gemini.image import AsyncGeminiImageClient
+        from .providers.hf.image import AsyncHuggingFaceImageClient
+    except ImportError as exc:
+        raise ImportError(
+            f"Image support could not be loaded from {_HF_MODULE!r} ({_HF_REQUIRES!r} is installed): {exc}"
+        ) from exc
+    return SimpleNamespace(
+        HuggingFaceImageClient=HuggingFaceImageClient,
+        HuggingFaceImageModel=HuggingFaceImageModel,
+        HuggingFaceImageSpec=HuggingFaceImageSpec,
+        AsyncHuggingFaceImageClient=AsyncHuggingFaceImageClient,
+    )
 
-    _HAS_GEMINI_IMAGE = True
-except ImportError:
-    _HAS_GEMINI_IMAGE = False
-    GeminiImageClient = None  # type: ignore[assignment,misc]
-    GeminiImageModel = None  # type: ignore[assignment,misc]
-    GeminiImageSpec = None  # type: ignore[assignment,misc]
-    AsyncGeminiImageClient = None  # type: ignore[assignment,misc]
+
+def _gemini() -> Optional[SimpleNamespace]:
+    """Lazily resolve the Gemini image symbols, or ``None`` if unavailable."""
+    if not installed(_GEMINI_REQUIRES):
+        return None
+    try:
+        from aimu.models.base import GeminiImageSpec
+        from aimu.models.providers.gemini.image import GeminiImageClient, GeminiImageModel
+
+        from .providers.gemini.image import AsyncGeminiImageClient
+    except ImportError as exc:
+        raise ImportError(
+            f"Image support could not be loaded from {_GEMINI_MODULE!r} ({_GEMINI_REQUIRES!r} is installed): {exc}"
+        ) from exc
+    return SimpleNamespace(
+        GeminiImageClient=GeminiImageClient,
+        GeminiImageModel=GeminiImageModel,
+        GeminiImageSpec=GeminiImageSpec,
+        AsyncGeminiImageClient=AsyncGeminiImageClient,
+    )
 
 
 _WRAP_GUIDANCE = (
@@ -58,13 +84,15 @@ _WRAP_GUIDANCE = (
 
 def _refuse(model: Any) -> None:
     """Raise the wrap-pattern guidance error for non-client inputs."""
-    if _HAS_HF_IMAGE and HuggingFaceImageModel is not None and isinstance(model, HuggingFaceImageModel):
+    hf = _hf()
+    if hf is not None and isinstance(model, hf.HuggingFaceImageModel):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"HuggingFaceImageModel.{model.name}"))
-    if _HAS_HF_IMAGE and HuggingFaceImageSpec is not None and isinstance(model, HuggingFaceImageSpec):
+    if hf is not None and isinstance(model, hf.HuggingFaceImageSpec):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"HuggingFaceImageSpec({model.id!r})"))
-    if _HAS_GEMINI_IMAGE and GeminiImageModel is not None and isinstance(model, GeminiImageModel):
+    gemini = _gemini()
+    if gemini is not None and isinstance(model, gemini.GeminiImageModel):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"GeminiImageModel.{model.name}"))
-    if _HAS_GEMINI_IMAGE and GeminiImageSpec is not None and isinstance(model, GeminiImageSpec):
+    if gemini is not None and isinstance(model, gemini.GeminiImageSpec):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"GeminiImageSpec({model.id!r})"))
     if isinstance(model, str):
         raise ValueError(_WRAP_GUIDANCE.format(model=repr(model)))
@@ -76,16 +104,17 @@ class AsyncImageClient:
     Parallel to :class:`aimu.models.ImageClient` for the async surface. Wraps an
     existing sync :class:`BaseImageClient` so weights / API clients are shared.
 
-    Passing an :class:`ImageModel` enum / :class:`ImageSpec` / string raises
-    ``ValueError`` pointing at the sync-then-wrap pattern (same convention as
-    HuggingFace / LlamaCpp text clients).
+    Passing an image model enum / spec / string raises ``ValueError`` pointing at the
+    sync-then-wrap pattern (same convention as HuggingFace / LlamaCpp text clients).
     """
 
     def __init__(self, sync_client: Any):
-        if _HAS_HF_IMAGE and isinstance(sync_client, HuggingFaceImageClient):
-            self._client: Any = AsyncHuggingFaceImageClient(sync_client)
-        elif _HAS_GEMINI_IMAGE and isinstance(sync_client, GeminiImageClient):
-            self._client = AsyncGeminiImageClient(sync_client)
+        hf = _hf()
+        gemini = _gemini()
+        if hf is not None and isinstance(sync_client, hf.HuggingFaceImageClient):
+            self._client: Any = hf.AsyncHuggingFaceImageClient(sync_client)
+        elif gemini is not None and isinstance(sync_client, gemini.GeminiImageClient):
+            self._client = gemini.AsyncGeminiImageClient(sync_client)
         else:
             _refuse(sync_client)
             raise TypeError(
@@ -121,7 +150,7 @@ def image_client(model: Any) -> AsyncImageClient:
     Accepts a sync :class:`HuggingFaceImageClient` or :class:`GeminiImageClient`.
     Passing an enum / spec / string raises ``ValueError`` pointing at the wrap pattern.
     """
-    if not _HAS_HF_IMAGE and not _HAS_GEMINI_IMAGE:
+    if _hf() is None and _gemini() is None:
         raise ImportError(
             "Image support requires the [hf] or [google] extra: pip install -e '.[hf]' or pip install -e '.[google]'"
         )
@@ -144,7 +173,9 @@ async def generate_image(
     When ``model`` is omitted, the ``AIMU_IMAGE_MODEL`` env var is used; if it is unset a
     ``ValueError`` is raised (no model is downloaded implicitly).
     """
-    if not _HAS_HF_IMAGE and not _HAS_GEMINI_IMAGE:
+    hf = _hf()
+    gemini = _gemini()
+    if hf is None and gemini is None:
         raise ImportError(
             "Image support requires the [hf] or [google] extra: pip install -e '.[hf]' or pip install -e '.[google]'"
         )
@@ -155,25 +186,25 @@ async def generate_image(
         model = resolve_default_modality_model(IMAGE_MODEL_ENV)
 
     sync_client: Optional[Any] = None
-    if _HAS_HF_IMAGE and isinstance(model, HuggingFaceImageClient):
+    if hf is not None and isinstance(model, hf.HuggingFaceImageClient):
         sync_client = model
-    elif _HAS_GEMINI_IMAGE and isinstance(model, GeminiImageClient):
+    elif gemini is not None and isinstance(model, gemini.GeminiImageClient):
         sync_client = model
     elif isinstance(model, str):
         if model.startswith("gemini:"):
-            if not _HAS_GEMINI_IMAGE:
+            if gemini is None:
                 raise ImportError("Gemini image support requires the [google] extra: pip install -e '.[google]'")
-            sync_client = GeminiImageClient(model)
+            sync_client = gemini.GeminiImageClient(model)
         elif model.startswith("hf:"):
-            if not _HAS_HF_IMAGE:
+            if hf is None:
                 raise ImportError("HuggingFace image support requires the [hf] extra: pip install -e '.[hf]'")
-            sync_client = HuggingFaceImageClient(model)
+            sync_client = hf.HuggingFaceImageClient(model)
         else:
             raise ValueError(f"Unrecognised image model string: {model!r}")
-    elif _HAS_GEMINI_IMAGE and GeminiImageModel is not None and isinstance(model, GeminiImageModel):
-        sync_client = GeminiImageClient(model)
-    elif _HAS_HF_IMAGE and HuggingFaceImageModel is not None and isinstance(model, HuggingFaceImageModel):
-        sync_client = HuggingFaceImageClient(model)
+    elif gemini is not None and isinstance(model, gemini.GeminiImageModel):
+        sync_client = gemini.GeminiImageClient(model)
+    elif hf is not None and isinstance(model, hf.HuggingFaceImageModel):
+        sync_client = hf.HuggingFaceImageClient(model)
     else:
         raise TypeError(f"Unrecognised image model: {type(model).__name__}")
 

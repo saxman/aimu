@@ -9,41 +9,67 @@ Exposes:
 
 Direct enum / string construction is refused with a helpful error pointing at the
 wrap pattern (same convention as HuggingFace text/image/audio clients).
+
+Both providers' symbols are resolved lazily -- on first call, not on ``import
+aimu.aio`` -- via :func:`_hf` / :func:`_openai`, the same ``installed()`` +
+import-on-demand shape used throughout ``aimu.models`` and the rest of ``aimu.aio``.
+An absent dependency yields ``None``; an installed-but-broken one raises with the
+original cause chained.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, Optional
 
-try:
-    from aimu.models.base import HuggingFaceSpeechSpec, SpeechModel, SpeechSpec
-    from aimu.models.providers.hf.speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
+from aimu.models._internal.factory import installed
 
-    from .providers.hf.speech import AsyncHuggingFaceSpeechClient
+_HF_MODULE = "aimu.models.providers.hf.speech"
+_HF_REQUIRES = "soundfile"
+_OPENAI_MODULE = "aimu.models.providers.openai.speech"
+_OPENAI_REQUIRES = "openai"
 
-    _HAS_HF_SPEECH = True
-except ImportError:
-    _HAS_HF_SPEECH = False
-    HuggingFaceSpeechClient = None  # type: ignore[assignment,misc]
-    HuggingFaceSpeechModel = None  # type: ignore[assignment,misc]
-    HuggingFaceSpeechSpec = None  # type: ignore[assignment,misc]
-    SpeechModel = None  # type: ignore[assignment,misc]
-    SpeechSpec = None  # type: ignore[assignment,misc]
-    AsyncHuggingFaceSpeechClient = None  # type: ignore[assignment,misc]
 
-try:
-    from aimu.models.base import OpenAISpeechSpec
-    from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
+def _hf() -> Optional[SimpleNamespace]:
+    """Lazily resolve the HuggingFace speech symbols, or ``None`` if unavailable."""
+    if not installed(_HF_REQUIRES):
+        return None
+    try:
+        from aimu.models.base import HuggingFaceSpeechSpec
+        from aimu.models.providers.hf.speech import HuggingFaceSpeechClient, HuggingFaceSpeechModel
 
-    from .providers.openai.speech import AsyncOpenAISpeechClient
+        from .providers.hf.speech import AsyncHuggingFaceSpeechClient
+    except ImportError as exc:
+        raise ImportError(
+            f"Speech support could not be loaded from {_HF_MODULE!r} ({_HF_REQUIRES!r} is installed): {exc}"
+        ) from exc
+    return SimpleNamespace(
+        HuggingFaceSpeechClient=HuggingFaceSpeechClient,
+        HuggingFaceSpeechModel=HuggingFaceSpeechModel,
+        HuggingFaceSpeechSpec=HuggingFaceSpeechSpec,
+        AsyncHuggingFaceSpeechClient=AsyncHuggingFaceSpeechClient,
+    )
 
-    _HAS_OPENAI_SPEECH = True
-except ImportError:
-    _HAS_OPENAI_SPEECH = False
-    OpenAISpeechClient = None  # type: ignore[assignment,misc]
-    OpenAISpeechModel = None  # type: ignore[assignment,misc]
-    OpenAISpeechSpec = None  # type: ignore[assignment,misc]
-    AsyncOpenAISpeechClient = None  # type: ignore[assignment,misc]
+
+def _openai() -> Optional[SimpleNamespace]:
+    """Lazily resolve the OpenAI speech symbols, or ``None`` if unavailable."""
+    if not installed(_OPENAI_REQUIRES):
+        return None
+    try:
+        from aimu.models.base import OpenAISpeechSpec
+        from aimu.models.providers.openai.speech import OpenAISpeechClient, OpenAISpeechModel
+
+        from .providers.openai.speech import AsyncOpenAISpeechClient
+    except ImportError as exc:
+        raise ImportError(
+            f"Speech support could not be loaded from {_OPENAI_MODULE!r} ({_OPENAI_REQUIRES!r} is installed): {exc}"
+        ) from exc
+    return SimpleNamespace(
+        OpenAISpeechClient=OpenAISpeechClient,
+        OpenAISpeechModel=OpenAISpeechModel,
+        OpenAISpeechSpec=OpenAISpeechSpec,
+        AsyncOpenAISpeechClient=AsyncOpenAISpeechClient,
+    )
 
 
 _WRAP_GUIDANCE = (
@@ -56,13 +82,15 @@ _WRAP_GUIDANCE = (
 
 def _refuse(model: Any) -> None:
     """Raise the wrap-pattern guidance error for non-client inputs."""
-    if _HAS_HF_SPEECH and HuggingFaceSpeechModel is not None and isinstance(model, HuggingFaceSpeechModel):
+    hf = _hf()
+    if hf is not None and isinstance(model, hf.HuggingFaceSpeechModel):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"HuggingFaceSpeechModel.{model.name}"))
-    if _HAS_OPENAI_SPEECH and OpenAISpeechModel is not None and isinstance(model, OpenAISpeechModel):
+    openai = _openai()
+    if openai is not None and isinstance(model, openai.OpenAISpeechModel):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"OpenAISpeechModel.{model.name}"))
-    if _HAS_HF_SPEECH and HuggingFaceSpeechSpec is not None and isinstance(model, HuggingFaceSpeechSpec):
+    if hf is not None and isinstance(model, hf.HuggingFaceSpeechSpec):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"HuggingFaceSpeechSpec({model.id!r})"))
-    if _HAS_OPENAI_SPEECH and OpenAISpeechSpec is not None and isinstance(model, OpenAISpeechSpec):
+    if openai is not None and isinstance(model, openai.OpenAISpeechSpec):
         raise ValueError(_WRAP_GUIDANCE.format(model=f"OpenAISpeechSpec({model.id!r})"))
     if isinstance(model, str):
         raise ValueError(_WRAP_GUIDANCE.format(model=repr(model)))
@@ -74,15 +102,17 @@ class AsyncSpeechClient:
     Parallel to :class:`aimu.models.SpeechClient` for the async surface. Wraps an
     existing sync :class:`BaseSpeechClient` so weights are shared.
 
-    Passing a :class:`SpeechModel` enum / :class:`SpeechSpec` / string raises
-    ``ValueError`` pointing at the sync-then-wrap pattern.
+    Passing a speech model enum / spec / string raises ``ValueError`` pointing at the
+    sync-then-wrap pattern.
     """
 
     def __init__(self, sync_client: Any):
-        if _HAS_HF_SPEECH and HuggingFaceSpeechClient is not None and isinstance(sync_client, HuggingFaceSpeechClient):
-            self._client: Any = AsyncHuggingFaceSpeechClient(sync_client)
-        elif _HAS_OPENAI_SPEECH and OpenAISpeechClient is not None and isinstance(sync_client, OpenAISpeechClient):
-            self._client = AsyncOpenAISpeechClient(sync_client)
+        hf = _hf()
+        openai = _openai()
+        if hf is not None and isinstance(sync_client, hf.HuggingFaceSpeechClient):
+            self._client: Any = hf.AsyncHuggingFaceSpeechClient(sync_client)
+        elif openai is not None and isinstance(sync_client, openai.OpenAISpeechClient):
+            self._client = openai.AsyncOpenAISpeechClient(sync_client)
         else:
             _refuse(sync_client)
             raise TypeError(
@@ -116,7 +146,7 @@ def speech_client(model: Any) -> AsyncSpeechClient:
     Accepts a sync :class:`HuggingFaceSpeechClient` or :class:`OpenAISpeechClient`.
     Passing an enum / spec / string raises ``ValueError`` pointing at the wrap pattern.
     """
-    if not _HAS_HF_SPEECH and not _HAS_OPENAI_SPEECH:
+    if _hf() is None and _openai() is None:
         raise ImportError(
             "Speech support requires the [hf] or [openai_compat] extra: "
             "pip install -e '.[hf]' or pip install -e '.[openai_compat]'"
@@ -141,7 +171,9 @@ async def generate_speech(
     When ``model`` is omitted, the ``AIMU_SPEECH_MODEL`` env var is used; if it is unset a
     ``ValueError`` is raised (no model is downloaded implicitly).
     """
-    if not _HAS_HF_SPEECH and not _HAS_OPENAI_SPEECH:
+    hf = _hf()
+    openai = _openai()
+    if hf is None and openai is None:
         raise ImportError(
             "Speech support requires the [hf] or [openai_compat] extra: "
             "pip install -e '.[hf]' or pip install -e '.[openai_compat]'"
@@ -152,15 +184,13 @@ async def generate_speech(
 
         model = resolve_default_modality_model(SPEECH_MODEL_ENV)
 
-    if _HAS_HF_SPEECH and HuggingFaceSpeechClient is not None and isinstance(model, HuggingFaceSpeechClient):
+    if hf is not None and isinstance(model, hf.HuggingFaceSpeechClient):
         sync_client: Any = model
-    elif _HAS_OPENAI_SPEECH and OpenAISpeechClient is not None and isinstance(model, OpenAISpeechClient):
+    elif openai is not None and isinstance(model, openai.OpenAISpeechClient):
         sync_client = model
     elif isinstance(model, str) or (
-        (_HAS_HF_SPEECH and HuggingFaceSpeechModel is not None and isinstance(model, HuggingFaceSpeechModel))
-        or (_HAS_OPENAI_SPEECH and OpenAISpeechModel is not None and isinstance(model, OpenAISpeechModel))
-        or (_HAS_HF_SPEECH and HuggingFaceSpeechSpec is not None and isinstance(model, HuggingFaceSpeechSpec))
-        or (_HAS_OPENAI_SPEECH and OpenAISpeechSpec is not None and isinstance(model, OpenAISpeechSpec))
+        (hf is not None and isinstance(model, (hf.HuggingFaceSpeechModel, hf.HuggingFaceSpeechSpec)))
+        or (openai is not None and isinstance(model, (openai.OpenAISpeechModel, openai.OpenAISpeechSpec)))
     ):
         import aimu
 
