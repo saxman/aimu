@@ -23,6 +23,8 @@ try:
     from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, create_engine, desc
     from sqlalchemy.orm import declarative_base, sessionmaker
 except ImportError as exc:  # pragma: no cover - exercised via tests/test_optional_extras.py
+    if exc.name != "sqlalchemy":
+        raise
     raise ImportError("PromptCatalog requires the [prompts] extra (sqlalchemy): pip install 'aimu[prompts]'") from exc
 
 Base = declarative_base()

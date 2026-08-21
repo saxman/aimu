@@ -14,6 +14,8 @@ from typing import Any, Optional
 try:
     import chromadb
 except ImportError as exc:  # pragma: no cover - exercised via tests/test_optional_extras.py
+    if exc.name != "chromadb":
+        raise
     raise ImportError("SemanticMemoryStore requires the [memory] extra (chromadb): pip install 'aimu[memory]'") from exc
 
 from aimu.memory.base import MemoryStore, synchronized
