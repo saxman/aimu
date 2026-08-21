@@ -18,7 +18,7 @@ from aimu.agents._tool_loop import (
     _BaseToolLoop,
     classify_terminal_turn,
 )
-from aimu.models._internal.message_meta import PROVENANCE_FINAL_ANSWER
+from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER
 from aimu.models.base import StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
@@ -64,12 +64,14 @@ class _AsyncToolLoop(_BaseToolLoop):
                 # it was cut off, in which case there is nothing to resume and nudging only shrinks
                 # the next one.
                 self._raise_if_truncated()
+                injected_at = len(self._client.messages)
                 response = await self._client.chat(
                     self._continuation_prompt,
                     generate_kwargs=generate_kwargs,
                     tools=self._current_tools(),
                     thinking=self._thinking,
                 )
+                self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
             else:  # TERMINAL_HEALTHY
                 return response
             rounds += 1
@@ -111,6 +113,7 @@ class _AsyncToolLoop(_BaseToolLoop):
             elif state == TERMINAL_EMPTY:
                 self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
                 iteration += 1
+                injected_at = len(self._client.messages)
                 stream = await self._client.chat(
                     self._continuation_prompt,
                     generate_kwargs=generate_kwargs,
@@ -120,6 +123,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                 )
                 async for chunk in stream:
                     yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
+                self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
             else:  # TERMINAL_HEALTHY
                 return
 

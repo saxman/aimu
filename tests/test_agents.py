@@ -852,11 +852,8 @@ def test_agent_empty_turn_nudged_to_final_answer():
     assert client._call_count == 2
 
 
-def test_agent_empty_turn_nudge_injects_continuation_prompt_untagged():
-    # The degenerate-empty-turn recovery nudge is a real, injected user turn, but it carries no
-    # provenance tag (PROVENANCE_CONTINUATION was removed in v0.19), so it reads like genuine
-    # user input in a replayed transcript.
-    from aimu.models._internal.message_meta import PROVENANCE_KEY
+def test_agent_empty_turn_nudge_injects_continuation_prompt_tagged():
+    from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_KEY
 
     client = MockModelClient(["", "recovered answer"])
     agent = Agent(client, name="nudged", continuation_prompt="Keep going.")
@@ -864,7 +861,7 @@ def test_agent_empty_turn_nudge_injects_continuation_prompt_untagged():
 
     injected = [m for m in client.messages if m["role"] == "user" and m["content"] == "Keep going."]
     assert len(injected) == 1
-    assert PROVENANCE_KEY not in injected[0]
+    assert injected[0][PROVENANCE_KEY] == PROVENANCE_CONTINUATION
 
 
 def test_agent_empty_turn_nudge_keeps_tools_enabled_to_finish_plan():
@@ -892,7 +889,7 @@ def test_agent_empty_turn_that_was_truncated_raises_instead_of_nudging():
     that ran out of room. The nudge would add tokens to a request that already had none to spare, so
     the loop stops and says so instead of retrying its way to shorter and shorter turns."""
     from aimu.agents import TruncatedTurnError
-    from aimu.models._internal.message_meta import PROVENANCE_KEY
+    from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_KEY
 
     client = MockModelClient(["", "never reached"])
     client.last_output_truncated = True
@@ -903,7 +900,7 @@ def test_agent_empty_turn_that_was_truncated_raises_instead_of_nudging():
         agent.run("summarize the news")
 
     assert client._call_count == 1  # stopped at the truncated turn, no nudge round
-    assert not [m for m in client.messages if PROVENANCE_KEY in m]
+    assert not [m for m in client.messages if m.get(PROVENANCE_KEY) == PROVENANCE_CONTINUATION]
 
 
 def test_agent_truncated_but_answered_turn_is_left_alone():

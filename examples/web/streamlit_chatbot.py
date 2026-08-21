@@ -6,6 +6,7 @@ import streamlit as st
 import torch
 
 from aimu import (
+    PROVENANCE_CONTINUATION,
     PROVENANCE_FINAL_ANSWER,
     PROVENANCE_KEY,
     PROVENANCE_PROACTIVE,
@@ -698,9 +699,9 @@ else:
     msg_iter = iter(st.session_state.model_client.messages[2:])
     for hist_idx, message in enumerate(msg_iter):
         provenance = message.get(PROVENANCE_KEY)
-        if provenance == PROVENANCE_FINAL_ANSWER:
+        if provenance in (PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER):
             # Framework-injected agent-loop prompt: show a marker, not a user bubble.
-            st.caption("✓ final-answer wrap-up")
+            st.caption("↻ agent continuation" if provenance == PROVENANCE_CONTINUATION else "✓ final-answer wrap-up")
             continue
         if "thinking" in message:
             with st.expander("🤔 Thinking"):

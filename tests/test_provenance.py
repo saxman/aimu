@@ -2,7 +2,7 @@
 
 Covers:
   - ``strip_inert_keys`` removes inert metadata keys, preserves the rest, leaves clean dicts by identity.
-  - The sync ``Agent`` loop tags the injected final-answer turn; user turns stay untagged.
+  - The sync ``Agent`` loop tags injected continuation / final-answer turns; user turns stay untagged.
   - OpenAI-compat and Ollama request paths exclude inert keys from the outgoing ``messages=`` payload.
 
 Mock-only; no backend required. The async ``Agent`` mirror lives in ``tests/test_aio_agents.py``.
@@ -18,11 +18,13 @@ from aimu.agents import Agent
 from aimu.models import BaseModelClient
 from aimu.models._internal.message_meta import (
     INERT_MESSAGE_KEYS,
+    PROVENANCE_CONTINUATION,
     PROVENANCE_FINAL_ANSWER,
     PROVENANCE_KEY,
     PROVENANCE_PROACTIVE,
     strip_inert_keys,
 )
+from helpers import MockModelClient
 
 
 # --------------------------------------------------------------------------------------
@@ -32,7 +34,7 @@ from aimu.models._internal.message_meta import (
 
 def test_strip_removes_inert_keys_and_preserves_the_rest():
     messages = [
-        {"role": "user", "content": "hi", PROVENANCE_KEY: PROVENANCE_FINAL_ANSWER, "timestamp": "t"},
+        {"role": "user", "content": "hi", PROVENANCE_KEY: PROVENANCE_CONTINUATION, "timestamp": "t"},
         {"role": "assistant", "content": "yo", "thinking": "hmm", "tool_calls": [{"id": "1"}]},
         {"role": "tool", "name": "t", "content": "r", "tool_call_id": "1"},
     ]
@@ -109,7 +111,7 @@ class _LoopClient(BaseModelClient):
 
 def test_continuation_injects_no_user_turn():
     # The agent continues via chat() with no user message, so no synthetic user turn is
-    # injected between tool rounds.
+    # injected and nothing carries the (now-legacy) continuation provenance tag.
     client = _LoopClient(tool_turns=1)  # first turn calls tools, then a continuation finishes
     agent = Agent(client, tools=[])
     agent.run("real question")
@@ -117,6 +119,7 @@ def test_continuation_injects_no_user_turn():
     user_turns = [m for m in client.messages if m["role"] == "user"]
     assert [m["content"] for m in user_turns] == ["real question"]
     assert user_turns[0].get(PROVENANCE_KEY) is None
+    assert PROVENANCE_CONTINUATION not in [m.get(PROVENANCE_KEY) for m in client.messages]
 
 
 def test_final_answer_turn_tagged():
@@ -127,6 +130,23 @@ def test_final_answer_turn_tagged():
 
     tags = [m.get(PROVENANCE_KEY) for m in client.messages]
     assert tags.count(PROVENANCE_FINAL_ANSWER) == 1, tags
+    assert PROVENANCE_CONTINUATION not in tags  # continuation turns are no longer injected/tagged
+
+
+def test_degenerate_empty_turn_recovery_nudge_tagged():
+    # A turn with no content and no tool calls is degenerate: the loop injects its
+    # continuation_prompt recovery nudge to give the model another chance, and *does*
+    # tag that injected turn PROVENANCE_CONTINUATION -- unlike the ordinary per-round
+    # continuation between successful tool rounds, which injects no user turn at all
+    # (see test_continuation_injects_no_user_turn above).
+    client = MockModelClient(["", "recovered answer"])
+    agent = Agent(client, tools=[], continuation_prompt="Keep going.")
+    result = agent.run("do something")
+
+    assert result == "recovered answer"
+    injected = [m for m in client.messages if m["role"] == "user" and m["content"] == "Keep going."]
+    assert len(injected) == 1
+    assert injected[0][PROVENANCE_KEY] == PROVENANCE_CONTINUATION
 
 
 def test_no_continuation_no_tags():
@@ -148,7 +168,7 @@ def test_openai_compat_excludes_inert_keys_from_request():
 
     client = LMStudioOpenAIClient(list(LMStudioOpenAIModel)[0])
     client.messages = [
-        {"role": "user", "content": "hi", PROVENANCE_KEY: PROVENANCE_FINAL_ANSWER, "thinking": "z", "timestamp": "t"},
+        {"role": "user", "content": "hi", PROVENANCE_KEY: PROVENANCE_CONTINUATION, "thinking": "z", "timestamp": "t"},
     ]
 
     captured = {}

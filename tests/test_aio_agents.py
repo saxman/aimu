@@ -12,6 +12,7 @@ from aimu.aio import Agent
 from aimu.aio._base import AsyncBaseModelClient
 from aimu.models import StreamingContentType
 from aimu.models._internal.message_meta import (
+    PROVENANCE_CONTINUATION,
     PROVENANCE_FINAL_ANSWER,
     PROVENANCE_KEY,
 )
@@ -307,17 +308,14 @@ async def test_async_agent_empty_turn_nudged_to_final_answer():
     assert client._call_count == 2
 
 
-async def test_async_agent_empty_turn_nudge_injects_continuation_prompt_untagged():
-    # The degenerate-empty-turn recovery nudge is a real, injected user turn, but it carries no
-    # provenance tag (PROVENANCE_CONTINUATION was removed in v0.19), so it reads like genuine
-    # user input in a replayed transcript.
+async def test_async_agent_empty_turn_nudge_injects_continuation_prompt_tagged():
     client = MockAsyncModelClient(["", "recovered answer"])
     agent = Agent(client, name="nudged", continuation_prompt="Keep going.")
     await agent.run("do something")
 
     injected = [m for m in client.messages if m["role"] == "user" and m["content"] == "Keep going."]
     assert len(injected) == 1
-    assert PROVENANCE_KEY not in injected[0]
+    assert injected[0][PROVENANCE_KEY] == PROVENANCE_CONTINUATION
 
 
 async def test_async_agent_empty_turn_nudge_keeps_tools_enabled_to_finish_plan():
@@ -353,7 +351,7 @@ async def test_async_agent_empty_turn_that_was_truncated_raises_instead_of_nudgi
         await agent.run("summarize the news")
 
     assert client._call_count == 1  # stopped at the truncated turn, no nudge round
-    assert not [m for m in client.messages if PROVENANCE_KEY in m]
+    assert not [m for m in client.messages if m.get(PROVENANCE_KEY) == PROVENANCE_CONTINUATION]
 
 
 async def test_async_agent_truncated_but_answered_turn_is_left_alone():
@@ -564,13 +562,14 @@ class _AsyncLoopClient(AsyncBaseModelClient):
 
 async def test_async_continuation_injects_no_user_turn():
     # The agent continues via chat() with no user message, so no synthetic user turn is
-    # injected between tool rounds.
+    # injected and nothing carries the (now-legacy) continuation provenance tag.
     client = _AsyncLoopClient(tool_turns=1)
     agent = Agent(client, tools=[])
     await agent.run("real question")
 
     user_turns = [m for m in client.messages if m["role"] == "user"]
     assert [m["content"] for m in user_turns] == ["real question"]
+    assert PROVENANCE_CONTINUATION not in [m.get(PROVENANCE_KEY) for m in client.messages]
 
 
 async def test_async_final_answer_turn_tagged():
@@ -580,3 +579,4 @@ async def test_async_final_answer_turn_tagged():
 
     tags = [m.get(PROVENANCE_KEY) for m in client.messages]
     assert tags.count(PROVENANCE_FINAL_ANSWER) == 1
+    assert PROVENANCE_CONTINUATION not in tags  # continuation turns are no longer injected/tagged
