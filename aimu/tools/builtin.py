@@ -400,10 +400,10 @@ def execute_python(code: str) -> str:
                 ast.fix_missing_locations(preamble)
                 expr = ast.Expression(body=tree.body[-1].value)
                 ast.fix_missing_locations(expr)
-                exec(compile(preamble, "<sandbox>", "exec"), namespace)  # noqa: S102
-                result = eval(compile(expr, "<sandbox>", "eval"), namespace)  # noqa: S307
+                exec(compile(preamble, "<execute_python>", "exec"), namespace)  # noqa: S102
+                result = eval(compile(expr, "<execute_python>", "eval"), namespace)  # noqa: S307
             else:
-                exec(compile(tree, "<sandbox>", "exec"), namespace)  # noqa: S102
+                exec(compile(tree, "<execute_python>", "exec"), namespace)  # noqa: S102
     except Exception:
         return f"Error:\n{traceback.format_exc()}"
 

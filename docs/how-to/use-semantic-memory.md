@@ -2,6 +2,8 @@
 
 `SemanticMemoryStore` stores natural-language facts and retrieves them by semantic similarity. Backed by [ChromaDB](https://www.trychroma.com/): cosine-similarity vector search, in-process, persisted to a directory.
 
+Requires the `memory` extra: `pip install aimu[memory]`.
+
 ## Basic usage
 
 ```python

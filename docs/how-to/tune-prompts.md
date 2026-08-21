@@ -2,6 +2,8 @@
 
 `PromptTuner` runs a hill-climbing loop to automatically improve a prompt against labelled data. Each round: apply the current prompt to the data, evaluate, propose a mutation, keep it if it improves the score, otherwise revert. No ML machinery, just a model client and a scorer.
 
+Requires the `tuning` extra: `pip install aimu[tuning]`.
+
 Four concrete tuners ship in `aimu.prompts`:
 
 | Tuner | Task | Data columns |
@@ -95,6 +97,8 @@ best = tuner.tune(df, initial_prompt="Answer in one sentence: {content}")
 Or use a `DeepEvalScorer` to score with DeepEval metrics; see [Integrate DeepEval](integrate-deepeval.md).
 
 ## Save versions to a catalog
+
+`PromptCatalog` requires the separate `prompts` extra: `pip install aimu[prompts]`.
 
 Pass `catalog=` and `prompt_name=` to persist every improvement:
 

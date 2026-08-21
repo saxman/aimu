@@ -40,7 +40,7 @@ mcp = MCPClient({
 agent = Agent(model_client, tools=mcp.as_tools())        # or: builtin.web + mcp.as_tools()
 ```
 
-Each callable returned by `as_tools()` closes over the client, invokes `call_tool()` cross-process, and returns the result's text, but to the agent it looks like any other `@tool`. Arguments and results cross the process boundary as JSON via the [Model Context Protocol](https://modelcontextprotocol.io/). Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.
+Each callable returned by `as_tools()` closes over the client, invokes `call_tool()` cross-process, and returns the result's text, but to the agent it looks like any other `@tool`. Arguments and results cross the process boundary as JSON via the [Model Context Protocol](https://modelcontextprotocol.io/). Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs process isolation. Note that process isolation is not sandboxing: an MCP server still runs as the same OS user with the same filesystem and network access unless you separately containerize it.
 
 Keep a reference to the `MCPClient` (the `as_tools()` callables hold one, so the connection stays alive) for its lifetime, and to call `.ping()` or refresh the tool list. The list `as_tools()` returns is a snapshot; call it again to pick up server-side changes.
 
@@ -104,8 +104,10 @@ There is no second copy. If you add a new built-in tool, it appears on both rout
 | The tool is small (no DB, no heavy state) | **`@tool`** |
 | The tool is in another language or ships as a binary | **`MCPClient`** |
 | Many agents share the tool catalogue | **`MCPClient`** to a shared server |
-| You want sandboxing or process isolation | **`MCPClient`** |
+| You want process isolation (not sandboxing -- see below) | **`MCPClient`** |
 | Conflicting dependencies (e.g. your tool needs PyTorch but your agent shouldn't) | **`MCPClient`** to an isolated subprocess |
+
+**Process isolation is not sandboxing.** An MCP server is a separate OS process, but it still runs as the same user with the same filesystem and network access as everything else -- it is not a security boundary. If you need to run untrusted code safely, containerize the server (or the code it runs) yourself; `MCPClient` alone does not provide that.
 
 If you can't decide, start with `@tool`. Switching to `MCPClient` later is a small change: lift the function to a separate file, run it as an MCP server, and swap `tools=[fn]` for `tools=mcp.as_tools()`.
 

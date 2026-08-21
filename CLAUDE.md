@@ -75,6 +75,8 @@ pip install -e '.[web]'            # Streamlit/Gradio chat apps + personal-assis
 pip install -e '.[tuning]'         # Prompt tuners + evals Benchmark harness (pandas, tqdm)
 pip install -e '.[evals]'          # DeepEval metric adapters (renamed from the old `deepeval` extra)
 pip install -e '.[a2a]'            # Agent-to-Agent protocol interop
+pip install -e '.[memory]'         # Vector-backed semantic memory (SemanticMemoryStore; chromadb)
+pip install -e '.[prompts]'        # Versioned prompt storage (PromptCatalog; sqlalchemy)
 ```
 `[all]` is every provider backend + every capability (development extras `dev` / `notebooks` / `docs` excluded).
 
@@ -184,7 +186,7 @@ The **personal-assistant** example additionally ships a WebSocket front end -- `
   - `aimu.clear_hf_cache(model=None)`: release cached HuggingFace model weights across all modalities (text, image, audio, speech) and free GPU memory. Pass a model enum member to clear just that model; pass `None` to clear all. See HuggingFace client sections for caching details.
   - `aimu.clear_llamacpp_cache(model=None)`: same for LlamaCpp.
   - Re-exports: `BaseModelClient`, `Model`, `ModelClient`, `ModelSpec`, `StreamChunk`, `StreamingContentType`.
-  - `aimu.aio`: async submodule. Imported by default (one-line `from . import aio`) so users can `from aimu import aio` without a separate install. See "Async Surface" below.
+  - `aimu.aio`: async submodule. Resolved lazily via a module-level `__getattr__` on `aimu/__init__.py` (not imported eagerly with the rest of the package), so `from aimu import aio` works without a separate install but doesn't cost anything until first touched. See "Async Surface" below.
 
 Model-string format: `"provider:model_id"`. Provider keys (when their optional dep is installed): `ollama`, `hf`, `anthropic`, `openai`, `gemini`, `lmstudio`, `ollama-openai`, `hf-openai`, `vllm`, `llamaserver`, `sglang`, `omlx`, `llamacpp`. The id is matched against the provider's `Model` enum; colons inside the id (e.g. `qwen3.5:9b`) are preserved.
 
@@ -342,7 +344,7 @@ The codebase uses an abstract base class pattern for model clients:
 
 - **`aimu/models/_internal/json.py`**: utilities for processing model output: `parse_json_response(text, schema=None)`, `generate_json(client, prompt, schema=None, *, retries=2, generate_kwargs=None)`, `extract_tool_calls(messages)`. All three are exported from `aimu.models` and re-exported from top-level `aimu`. See Top-Level API section for details.
 
-- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies; clients only import if their dependencies are installed (flags: `HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`). `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK. `model_client.py` performs the same guarded imports independently to avoid a circular import with `__init__.py`. The `aimu/evals/` package uses the same guarded-import pattern with `HAS_DEEPEVAL`.
+- **Optional Dependencies**: [aimu/models/__init__.py](aimu/models/__init__.py) gracefully handles missing dependencies without importing any provider SDK eagerly. `HAS_*` flags (`HAS_OLLAMA`, `HAS_HF`, `HAS_ANTHROPIC`, `HAS_OPENAI_COMPAT`, `HAS_LLAMACPP`, and one per modality provider) are computed via `installed(dep)` (`aimu/models/_internal/factory.py`), which answers from `importlib.util.find_spec` -- so a flag means "the dependency is installed," not "it imported cleanly." Provider symbols (`AnthropicClient`, `HuggingFaceImageModel`, etc.) are resolved on first access through a module-level `__getattr__` keyed off `_LAZY_PROVIDER_SYMBOLS` (name -> `(module, requires)`): an absent dependency yields `None`; an installed-but-broken one raises `ImportError` with the original cause chained, so a rotted install fails loudly at first use instead of looking merely absent. `aimu/aio/__init__.py` mirrors this with `_LAZY_ASYNC_SYMBOLS`. `OpenAIClient` and `GeminiClient` are part of `openai_compat` since they use the same `openai` SDK. `model_client.py` (and the other four modality factories) describe their own provider tables independently to avoid a circular import with `__init__.py` and to import only the one provider a caller actually asked for. The `aimu/evals/` package uses the same installed()-flag pattern with `HAS_DEEPEVAL`.
 
 ### Tool Integration
 
@@ -1161,8 +1163,8 @@ Networked model clients accept `timeout: Optional[float]` and `max_retries: Opti
 
 ```
 aimu/
-├── __init__.py          # Top-level API (aimu.chat, aimu.client, resolve_model_string) + `from . import aio`
-├── aio/                 # Async surface: mirrors public sync API one-for-one (opt-in)
+├── __init__.py          # Top-level API (aimu.chat, aimu.client, resolve_model_string); `aio` resolves lazily via module __getattr__
+├── aio/                 # Async surface: mirrors public sync API one-for-one (opt-in, lazy-loaded)
 │   ├── __init__.py      # Exports chat, client, AsyncModelClient, Agent, SkillAgent, Chain, Router, Parallel, EvaluatorOptimizer, PlanExecuteEvaluator, OrchestratorAgent, MCPClient
 │   ├── _base.py         # AsyncBaseModelClient (pure provider adapter; chat() = one model turn)
 │   ├── _tool_loop.py    # _AsyncToolLoop(_BaseToolLoop): async iterative tool-calling engine (asyncio.TaskGroup)

@@ -78,8 +78,8 @@ path to seeing what a model can actually do.
 - **Agents and workflows**: `Agent` for autonomous tool-using loops; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` for code-controlled patterns from Anthropic's *Building Effective Agents*.
 - **Tools**: `@tool` decorator for plain Python functions, plus a synchronous `MCPClient` wrapper for cross-process tools.
 - **Skills**: filesystem-discovered `SKILL.md` files that auto-inject capabilities into a `SkillAgent`.
-- **Memory**: semantic facts (ChromaDB), path-based documents (Anthropic Memory API), and conversation history (TinyDB).
-- **Prompt management**: versioned SQLite catalog plus a hill-climbing tuner with classification, multi-class, extraction, and judged variants.
+- **Memory**: semantic facts (ChromaDB, `aimu[memory]`), path-based documents (Anthropic Memory API, no extra needed), and conversation history (TinyDB).
+- **Prompt management**: versioned SQLite catalog (`aimu[prompts]`) plus a hill-climbing tuner (`aimu[tuning]`) with classification, multi-class, extraction, and judged variants.
 - **Evaluation**: DeepEval integration and a multi-model benchmark harness with CSV / JSON / catalog export.
 - **Optional async surface**: `aimu.aio` mirrors the whole sync API (same class names, one-import-away). `Parallel` and `concurrent_tool_calls` use `asyncio.TaskGroup` for structured concurrency. See [async design](explanation/async-design.md).
 
