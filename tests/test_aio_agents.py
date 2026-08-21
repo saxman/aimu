@@ -561,8 +561,9 @@ class _AsyncLoopClient(AsyncBaseModelClient):
 
 
 async def test_async_continuation_injects_no_user_turn():
-    # The agent continues via chat() with no user message, so no synthetic user turn is
-    # injected and nothing carries the (now-legacy) continuation provenance tag.
+    # A normal continuation between successful tool rounds is not a degenerate turn, so
+    # the agent continues via chat() with no user message: no synthetic user turn is
+    # injected here, and nothing carries the continuation provenance tag.
     client = _AsyncLoopClient(tool_turns=1)
     agent = Agent(client, tools=[])
     await agent.run("real question")
@@ -579,4 +580,4 @@ async def test_async_final_answer_turn_tagged():
 
     tags = [m.get(PROVENANCE_KEY) for m in client.messages]
     assert tags.count(PROVENANCE_FINAL_ANSWER) == 1
-    assert PROVENANCE_CONTINUATION not in tags  # continuation turns are no longer injected/tagged
+    assert PROVENANCE_CONTINUATION not in tags  # no degenerate turn occurs on this path, so nothing is tagged

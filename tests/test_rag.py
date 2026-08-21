@@ -138,6 +138,7 @@ def test_rerank_empty_returns_empty_without_loading_model():
 
 def test_rerank_orders_by_score_and_truncates(monkeypatch):
     import importlib
+    import importlib.machinery
 
     # The package binds the `rerank` function as an attribute, shadowing the submodule;
     # import_module returns the real module object so we can patch its encoder registry.
@@ -153,6 +154,7 @@ def test_rerank_orders_by_score_and_truncates(monkeypatch):
 
     st_stub = ModuleType("sentence_transformers")
     st_stub.CrossEncoder = _FakeCrossEncoder
+    st_stub.__spec__ = importlib.machinery.ModuleSpec("sentence_transformers", None)
     monkeypatch.setitem(sys.modules, "sentence_transformers", st_stub)
     monkeypatch.setattr(rerank_mod, "_encoder_registry", {})
 

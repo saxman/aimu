@@ -9,6 +9,7 @@ top-level ``aimu.embedding_client()`` / ``aimu.embed()`` dispatch.
 from __future__ import annotations
 
 import importlib
+import importlib.machinery
 import sys
 from types import ModuleType, SimpleNamespace
 
@@ -243,6 +244,7 @@ def hf_embedding_module(monkeypatch):
     st_stub = ModuleType("sentence_transformers")
     st_stub.SentenceTransformer = _FakeSentenceTransformer
     st_stub._aimu_stub = True
+    st_stub.__spec__ = importlib.machinery.ModuleSpec("sentence_transformers", None)
     monkeypatch.setitem(sys.modules, "sentence_transformers", st_stub)
     monkeypatch.delitem(sys.modules, "aimu.models.providers.hf.embedding", raising=False)
 

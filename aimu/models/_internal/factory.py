@@ -62,7 +62,7 @@ class ProviderEntry:
     enum_name: str
     client_name: str
     requires: str
-    install_hint: str
+    install_hint: str = ""
 
     @property
     def available(self) -> bool:
@@ -157,11 +157,14 @@ def build_client(
             f"{spec_base.__name__} is the value type held by enum members."
         )
 
-    # An enum member's class was necessarily imported for the caller to hold it, so the
-    # defining module identifies the provider without importing anything else.
+    # Dispatch by the model enum's defining module + class name. Matching on the module
+    # alone is not enough: aimu.models.providers.ollama defines both OllamaModel and
+    # OllamaEmbeddingModel, so a module-only match would misroute one as the other (see
+    # aimu/models/model_client.py's _TEXT_PROVIDERS dispatch, which has the same rule).
     member_module = type(model).__module__
+    member_enum = type(model).__name__
     for entry in entries:
-        if entry.module == member_module:
+        if entry.module == member_module and entry.enum_name == member_enum:
             _enum_cls, client_cls = entry.load()
             return client_cls(model, model_kwargs=model_kwargs)
 

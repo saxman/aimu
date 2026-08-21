@@ -169,8 +169,7 @@ def _install_audio_stubs(monkeypatch=None, force=False):  # noqa: PLR0912
     # --- diffusers (AudioLDM2, StableAudio) ---
     # Ensure image pipeline classes are present regardless of collection order.
     # This import triggers test_images_api.py module-level code (including aimu.models
-    # import) only AFTER soundfile and transformers are already stubbed above, so
-    # aimu.models.audio_client records _HAS_HF_AUDIO=True correctly.
+    # import) only AFTER soundfile and transformers are already stubbed above.
     try:
         from test_images_api import _install_diffusers_stub
 
@@ -289,15 +288,6 @@ if not aimu.models.HAS_HF_AUDIO:
     aimu.models.HuggingFaceAudioClient = _hf_audio_mod.HuggingFaceAudioClient
     aimu.models.HuggingFaceAudioModel = _hf_audio_mod.HuggingFaceAudioModel
     aimu.models.providers.hf.audio = _hf_audio_mod
-
-# Patch the audio_client module's own _HAS_HF_AUDIO flag (set at its import time).
-# This is necessary when aimu.models was imported before our stubs were ready.
-import aimu.models.audio_client as _audio_client_mod  # noqa: E402
-
-_audio_client_mod._HAS_HF_AUDIO = True
-_audio_client_mod.HuggingFaceAudioClient = aimu.models.HuggingFaceAudioClient
-_audio_client_mod.HuggingFaceAudioModel = aimu.models.HuggingFaceAudioModel
-
 
 # ---------------------------------------------------------------------------
 # Shared imports (post-stub)

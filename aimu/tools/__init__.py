@@ -17,7 +17,7 @@ Built-in tools live in :mod:`aimu.tools.builtin` and are grouped by domain
 ``builtin.misc``). Pass a group directly: ``Agent(client, tools=builtin.web)``.
 """
 
-from importlib import import_module
+from importlib import import_module as _import_module
 
 from . import builtin
 from .approval import ToolApproval, approve_all
@@ -33,7 +33,7 @@ _LAZY_CLIENT_SYMBOLS = frozenset({"MCPClient", "MCPConnectionError"})
 
 def __getattr__(name: str):
     if name in _LAZY_CLIENT_SYMBOLS:
-        return getattr(import_module(".client", __name__), name)
+        return getattr(_import_module(".client", __name__), name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

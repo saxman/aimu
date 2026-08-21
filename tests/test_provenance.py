@@ -110,8 +110,10 @@ class _LoopClient(BaseModelClient):
 
 
 def test_continuation_injects_no_user_turn():
-    # The agent continues via chat() with no user message, so no synthetic user turn is
-    # injected and nothing carries the (now-legacy) continuation provenance tag.
+    # A normal continuation between successful tool rounds is not a degenerate turn, so
+    # the agent continues via chat() with no user message: no synthetic user turn is
+    # injected here, and nothing carries the continuation provenance tag. Contrast
+    # test_degenerate_empty_turn_recovery_nudge_tagged below, where the tag is still live.
     client = _LoopClient(tool_turns=1)  # first turn calls tools, then a continuation finishes
     agent = Agent(client, tools=[])
     agent.run("real question")
@@ -130,7 +132,7 @@ def test_final_answer_turn_tagged():
 
     tags = [m.get(PROVENANCE_KEY) for m in client.messages]
     assert tags.count(PROVENANCE_FINAL_ANSWER) == 1, tags
-    assert PROVENANCE_CONTINUATION not in tags  # continuation turns are no longer injected/tagged
+    assert PROVENANCE_CONTINUATION not in tags  # no degenerate turn occurs on this path, so nothing is tagged
 
 
 def test_degenerate_empty_turn_recovery_nudge_tagged():

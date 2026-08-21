@@ -24,19 +24,19 @@ _OPENAI_COMPAT = "aimu.models.providers.openai_compat"
 # Provider table: described, not imported. `requires` is the third-party module probed
 # for availability; nothing here loads until _load_provider asks for one row.
 _TEXT_PROVIDERS: list[ProviderEntry] = [
-    ProviderEntry("ollama", "aimu.models.providers.ollama", "OllamaModel", "OllamaClient", "ollama", ""),
-    ProviderEntry("hf", "aimu.models.providers.hf.text", "HuggingFaceModel", "HuggingFaceClient", "transformers", ""),
-    ProviderEntry("anthropic", "aimu.models.providers.anthropic", "AnthropicModel", "AnthropicClient", "anthropic", ""),
-    ProviderEntry("openai", "aimu.models.providers.openai.text", "OpenAIModel", "OpenAIClient", "openai", ""),
-    ProviderEntry("gemini", "aimu.models.providers.gemini.text", "GeminiModel", "GeminiClient", "openai", ""),
-    ProviderEntry("lmstudio", _OPENAI_COMPAT, "LMStudioOpenAIModel", "LMStudioOpenAIClient", "openai", ""),
-    ProviderEntry("ollama-openai", _OPENAI_COMPAT, "OllamaOpenAIModel", "OllamaOpenAIClient", "openai", ""),
-    ProviderEntry("hf-openai", _OPENAI_COMPAT, "HFOpenAIModel", "HFOpenAIClient", "openai", ""),
-    ProviderEntry("vllm", _OPENAI_COMPAT, "VLLMOpenAIModel", "VLLMOpenAIClient", "openai", ""),
-    ProviderEntry("llamaserver", _OPENAI_COMPAT, "LlamaServerOpenAIModel", "LlamaServerOpenAIClient", "openai", ""),
-    ProviderEntry("sglang", _OPENAI_COMPAT, "SGLangOpenAIModel", "SGLangOpenAIClient", "openai", ""),
-    ProviderEntry("omlx", _OPENAI_COMPAT, "OMLXOpenAIModel", "OMLXOpenAIClient", "openai", ""),
-    ProviderEntry("llamacpp", "aimu.models.providers.llamacpp", "LlamaCppModel", "LlamaCppClient", "llama_cpp", ""),
+    ProviderEntry("ollama", "aimu.models.providers.ollama", "OllamaModel", "OllamaClient", "ollama"),
+    ProviderEntry("hf", "aimu.models.providers.hf.text", "HuggingFaceModel", "HuggingFaceClient", "transformers"),
+    ProviderEntry("anthropic", "aimu.models.providers.anthropic", "AnthropicModel", "AnthropicClient", "anthropic"),
+    ProviderEntry("openai", "aimu.models.providers.openai.text", "OpenAIModel", "OpenAIClient", "openai"),
+    ProviderEntry("gemini", "aimu.models.providers.gemini.text", "GeminiModel", "GeminiClient", "openai"),
+    ProviderEntry("lmstudio", _OPENAI_COMPAT, "LMStudioOpenAIModel", "LMStudioOpenAIClient", "openai"),
+    ProviderEntry("ollama-openai", _OPENAI_COMPAT, "OllamaOpenAIModel", "OllamaOpenAIClient", "openai"),
+    ProviderEntry("hf-openai", _OPENAI_COMPAT, "HFOpenAIModel", "HFOpenAIClient", "openai"),
+    ProviderEntry("vllm", _OPENAI_COMPAT, "VLLMOpenAIModel", "VLLMOpenAIClient", "openai"),
+    ProviderEntry("llamaserver", _OPENAI_COMPAT, "LlamaServerOpenAIModel", "LlamaServerOpenAIClient", "openai"),
+    ProviderEntry("sglang", _OPENAI_COMPAT, "SGLangOpenAIModel", "SGLangOpenAIClient", "openai"),
+    ProviderEntry("omlx", _OPENAI_COMPAT, "OMLXOpenAIModel", "OMLXOpenAIClient", "openai"),
+    ProviderEntry("llamacpp", "aimu.models.providers.llamacpp", "LlamaCppModel", "LlamaCppClient", "llama_cpp"),
 ]
 
 

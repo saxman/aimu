@@ -137,8 +137,14 @@ try:
     aimu.client("anthropic:claude-sonnet-4-6")
 except Exception:
     pass  # no API key in CI; the import side effects are what we are measuring
+top_level = {m.split(".")[0] for m in sys.modules}
 heavy = {"torch", "transformers", "sentence_transformers", "ollama", "llama_cpp"}
-json.dump(sorted(heavy & {m.split(".")[0] for m in sys.modules}), sys.stdout)
+json.dump({"heavy": sorted(heavy & top_level), "anthropic": "anthropic" in top_level}, sys.stdout)
 """
     proc = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
-    assert json.loads(proc.stdout) == []
+    result = json.loads(proc.stdout)
+    assert result["heavy"] == []
+    # Positive control: if "anthropic:claude-sonnet-4-6" were ever renamed/removed from the
+    # catalog, client() would raise before importing the provider at all, and the assertion
+    # above would degrade to the vacuous `[] == []` -- this catches that silently-passing case.
+    assert result["anthropic"] is True

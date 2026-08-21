@@ -63,9 +63,9 @@ from .model_client import (
 from .speech_client import SpeechClient, resolve_speech_model_string
 from .transcription_client import TranscriptionClient, resolve_transcription_model_string
 
-from importlib import import_module
+from importlib import import_module as _import_module
 
-from ._internal.factory import installed
+from ._internal.factory import installed as _installed
 
 # symbol name -> (module, third-party dependency probed for availability)
 _LAZY_PROVIDER_SYMBOLS: dict[str, tuple[str, str]] = {}
@@ -138,21 +138,21 @@ _register(
 # "imported cleanly". A dependency that is present but broken now reports True and
 # raises at first use instead of silently reporting False -- the failure moves to
 # where it is actionable.
-HAS_HF = installed("transformers")
-HAS_OLLAMA = installed("ollama")
-HAS_ANTHROPIC = installed("anthropic")
-HAS_OPENAI_COMPAT = installed("openai")
-HAS_LLAMACPP = installed("llama_cpp")
-HAS_HF_IMAGE = installed("diffusers")
-HAS_GEMINI_IMAGE = installed("google.genai")
-HAS_HF_AUDIO = installed("soundfile")
-HAS_HF_SPEECH = installed("soundfile")
-HAS_OPENAI_SPEECH = installed("openai")
-HAS_HF_TRANSCRIPTION = installed("transformers")
-HAS_OPENAI_TRANSCRIPTION = installed("openai")
-HAS_OPENAI_EMBEDDING = installed("openai")
-HAS_OLLAMA_EMBEDDING = installed("ollama")
-HAS_HF_EMBEDDING = installed("sentence_transformers")
+HAS_HF = _installed("transformers")
+HAS_OLLAMA = _installed("ollama")
+HAS_ANTHROPIC = _installed("anthropic")
+HAS_OPENAI_COMPAT = _installed("openai")
+HAS_LLAMACPP = _installed("llama_cpp")
+HAS_HF_IMAGE = _installed("diffusers")
+HAS_GEMINI_IMAGE = _installed("google.genai")
+HAS_HF_AUDIO = _installed("soundfile")
+HAS_HF_SPEECH = _installed("soundfile")
+HAS_OPENAI_SPEECH = _installed("openai")
+HAS_HF_TRANSCRIPTION = _installed("transformers")
+HAS_OPENAI_TRANSCRIPTION = _installed("openai")
+HAS_OPENAI_EMBEDDING = _installed("openai")
+HAS_OLLAMA_EMBEDDING = _installed("ollama")
+HAS_HF_EMBEDDING = _installed("sentence_transformers")
 
 
 def __getattr__(name: str):
@@ -166,12 +166,14 @@ def __getattr__(name: str):
     if entry is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     module_name, requires = entry
-    if not installed(requires):
+    if not _installed(requires):
         return None
     try:
-        return getattr(import_module(module_name), name)
+        return getattr(_import_module(module_name), name)
     except ImportError as exc:
-        raise ImportError(f"{name} requires {requires!r}, which is installed but failed to import: {exc}") from exc
+        raise ImportError(
+            f"{name} could not be loaded from {module_name!r} ({requires!r} is installed): {exc}"
+        ) from exc
 
 
 def __dir__() -> list[str]:
