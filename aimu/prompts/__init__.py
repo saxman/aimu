@@ -1,11 +1,11 @@
 from importlib import import_module
 from typing import TYPE_CHECKING
 
-# catalog and scorers are pandas-free, so they stay eager.
-from .catalog import Prompt, PromptCatalog
+# scorers are sqlalchemy-free and pandas-free, so they stay eager.
 from .tuners.scorers import LLMJudgeScorer, Scorer
 
 if TYPE_CHECKING:
+    from .catalog import Prompt, PromptCatalog
     from .tuner import PromptTuner
     from .tuners import (
         ClassificationPromptTuner,
@@ -14,9 +14,13 @@ if TYPE_CHECKING:
         MultiClassPromptTuner,
     )
 
-# The tuner classes pull in pandas/tqdm (the `tuning` extra). They are loaded on first
-# access so that `import aimu` works without those heavy, optional dependencies.
+# Prompt/PromptCatalog pull in sqlalchemy (the `prompts` extra); the tuner classes pull
+# in pandas/tqdm (the `tuning` extra). Both are loaded on first access so that `import
+# aimu` (and `import aimu.agents` / `import aimu.aio`, which reach this package via
+# PlanExecuteEvaluator's scorer import) works without those heavy, optional dependencies.
 _LAZY = {
+    "Prompt": ".catalog",
+    "PromptCatalog": ".catalog",
     "PromptTuner": ".tuner",
     "ClassificationPromptTuner": ".tuners",
     "ExtractionPromptTuner": ".tuners",
