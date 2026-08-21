@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
+**Why the project exists:** AIMU exists so people can find out what generative AI models and systems are actually capable of, and understand how they work while they do it. Building real applications is how you find out, so AIMU is a real library rather than a teaching toy. But when convenience and legibility conflict, legibility wins. Weigh proposed changes accordingly (see "Design Principles" below).
+
 AIMU (AI Modeling Utilities) is a Python library for building AI-powered applications, with language models as the primary building block. It provides a unified, provider-agnostic interface across modalities -- text generation, image generation, and audio generation -- spanning local backends (Ollama, HuggingFace, llama-cpp-python, any OpenAI-compatible server, and MLX on Apple Silicon via oMLX / LM Studio / Ollama 0.19+) and cloud providers (OpenAI, Anthropic, Google Gemini). MCP tool integration and typed streaming output (thinking, tool calling, generation phases) are built into the base model client, not layered on top.
 
 AIMU implements the taxonomy from Anthropic's *[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)*. Concretely, that means **one** `Runner` ABC (no type-level split between agents and workflows) and the following concrete classes, all exported from `aimu.agents` and composable via the shared interface:
@@ -29,7 +31,7 @@ For **always-on personal assistants** (OpenClaw / Hermes Agent style), three asy
 
 ## Design Principles
 
-These six principles drive every architectural decision in AIMU. When proposing changes, check the change against each one. If it violates a principle, it likely belongs in a wrapper above AIMU rather than in the library itself. Full rationale lives in [docs/explanation/design-principles.md](docs/explanation/design-principles.md).
+These six principles drive every architectural decision in AIMU. Each one exists to remove something that would otherwise stand between the user and the model: a wrapper type, a hidden control flow, a silent fallback, a guessed capability. When proposing changes, check the change against each one. If it violates a principle, it likely belongs in a wrapper above AIMU rather than in the library itself. Full rationale lives in [docs/explanation/design-principles.md](docs/explanation/design-principles.md).
 
 1. **Plain Python.** Classes, functions, decorators, dataclasses, type hints. Every file is readable top-to-bottom. No framework metalanguage; no `Runnable` protocol, no LCEL, no graph DSL, no dependency-injection container.
 2. **Plain data.** Conversation state is a `list[dict]` in OpenAI message format. No `Message` / `AIMessage` / `ChatMessage` classes. Provider-specific formats (Anthropic blocks, Ollama image fields, HF PIL images) adapt at request time and never leak into `self.messages`.
@@ -38,7 +40,7 @@ These six principles drive every architectural decision in AIMU. When proposing 
 5. **Direct paths for common tasks.** Common operations have one obvious, ergonomic entry point: `aimu.chat()`, `Chain.from_client(...)`, `Agent(client, "system msg", tools=[...])`, `include=["generating"]`, `builtin.web`. The library does not offer parallel, equally-recommended ways to do the same job. If a second path exists, it's a power-user escape hatch (e.g. `Agent.from_config()`), not a documented alternative.
 6. **Failures are apparent.** Errors raise at the layer where the cause is actionable, with messages that name the problem. `ToolSignatureError` at decoration time. `ToolArgumentError` at tool dispatch (surfaced to the model as a tool result). `SkillLoadError` on discovery. `MCPConnectionError` on construction. `ModelConnectionError` when an inference server is unreachable. Silent fallbacks are bugs; chained exceptions preserve the original cause via `raise ... from exc`.
 
-When reviewing a proposed change, ask which principle it serves and which (if any) it violates. The small public surface is itself a feature; keep it small.
+When reviewing a proposed change, ask which principle it serves and which (if any) it violates. Then ask the question the six exist to serve: **does this make a model's real behavior more legible, or does it hide it?** A change that makes the library more convenient while obscuring what the model actually did works against the reason AIMU exists, however well it scores on the other six. The small public surface is itself a feature; keep it small.
 
 ## Development Commands
 

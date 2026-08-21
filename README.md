@@ -6,7 +6,7 @@
   <img alt="AIMU" src="docs/assets/aimu-horizontal-light.png" width="480">
 </picture>
 
-**Simple, composable AI for Python, local or in the cloud.**
+**Explore what generative AI can do, local or in the cloud.**
 
 [![PyPI](https://img.shields.io/pypi/v/aimu)](https://pypi.org/project/aimu/) ![GitHub License](https://img.shields.io/github/license/saxman/genscai) ![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsaxman%2Faimu%2Frefs%2Fheads%2Fmain%2Fpyproject.toml) [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
@@ -14,7 +14,7 @@
 
 </div>
 
-AIMU is a Python library for AI-powered applications, with language models as the primary building block. It gives you a single provider-agnostic interface across text, images, audio, and speech, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of these features in plain Python that is apparent and easy to use.
+AIMU exists so you can find out what generative AI models and systems are actually capable of, and understand how they work while you do it. It gives you a single provider-agnostic interface across text, images, audio, and speech, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of it in plain Python you can read, so nothing a model does is hidden behind the library.
 
 Whether you need vision input, autonomous tool use, image generation, audio generation, or text-to-speech, the call is one line:
 ```python
@@ -30,7 +30,9 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 ## Why AIMU
 
-AIMU is compact, direct, and easy to understand, by design. Six principles shape the API: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure of capabilities, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
+Most of the difficulty in learning what these models can do is the layer between you and them. AIMU tries to be the thinnest useful one: swapping providers is a string change, so the difference you observe is the models' and not your harness's; a streamed run is labelled by phase, so you can watch reasoning, tool calls, and output separately; conversation state is a `list[dict]` you can print; and a capability the library can't deliver raises instead of quietly doing something else. When a model surprises you, the surprise should be the model's.
+
+Six principles get it there: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure of capabilities, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
 
 A curated model catalog, capturing model capabilities and nuances, is part of that design: every `"provider:model_id"` string must name a model AIMU ships a spec for. An unknown id raises rather than running with guessed capabilities. To use a one-off custom model, build the spec and pass it directly (`aimu.image_client(HuggingFaceImageSpec(...))`). For an OpenAI-compatible server, the text model string also carries connection and capability details inline: `"provider:model_id@http://host:8080/v1"` overrides the endpoint, and an id not in the catalog is allowed when you declare its capabilities with `;flags` (from `tools,thinking,vision,audio,structured`), e.g. `"llamaserver:my-model.gguf@http://gpu-box:8080/v1;tools,thinking"` or the generic `"openai-compat:my-model@http://gpu-box:9000/v1;tools"`.
 
@@ -65,6 +67,17 @@ Or install only what you need. AIMU's extras fall into two kinds:
 > ```bash
 > pip install "aimu[all] @ git+https://github.com/saxman/aimu@main"
 > ```
+
+## Start exploring
+
+There is a path through this, roughly in order:
+
+1. **[Tutorials](https://saxman.github.io/aimu/tutorials/)**: install to a working tool-using agent in about 15 minutes.
+2. **[`notebooks/`](notebooks/)**: one runnable demo per subsystem, ordered so each adds a single idea to the last (model client → tools → agents → workflows → memory → RAG → the generative modalities → async).
+3. **[`examples/`](examples/)**: the same task solved several ways, so you can compare approaches rather than just read about them. `news-summarizer/` does one job with an `Agent`, a `Chain`, a `Parallel`, an `OrchestratorAgent`, and dynamic sub-agent spawning, selected with `--method`.
+4. **[`examples/web/`](examples/web/)**: a Streamlit app for poking at models interactively, with reasoning, tool calls, and generation shown as they stream.
+
+Details for each in [Resources](#resources) at the bottom.
 
 ## Key features
 
