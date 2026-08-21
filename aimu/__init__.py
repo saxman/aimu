@@ -684,12 +684,19 @@ _LAZY_PROVIDER_SYMBOLS = frozenset(
 
 
 def __getattr__(name: str):
-    """Resolve ``aio`` and provider re-exports on first access (PEP 562).
+    """Resolve ``Agent``, ``aio``, and provider re-exports on first access (PEP 562).
 
+    ``Agent`` is imported under ``TYPE_CHECKING`` above (only for the ``agent()``
+    return annotation), so it needs this real binding to back its ``__all__`` entry.
     ``aio`` pulls in the async provider surface (and ``fastmcp``); deferring it here
     keeps a bare ``import aimu`` cheap while ``aimu.aio`` and ``from aimu import aio``
     both keep working unchanged.
     """
+    if name == "Agent":
+        from .agents import Agent as _Agent
+
+        globals()["Agent"] = _Agent  # cache, so later attribute access is a plain lookup
+        return _Agent
     if name == "aio":
         # importlib.import_module (not `from . import aio`) sidesteps CPython's
         # _handle_fromlist, which probes the parent package with hasattr() first --
